@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="xy.ai.workbench.editors.AISessionEditor"
+            contributorClass="xy.ai.workbench.editors.AISessionEditorContributor"
+            extensions="md"
+            icon="icons/sample.png"
+            id="xy.ai.workbench.editors.AISessionEditor"
+            name="XY.AI Session Editor">
+      </editor>
+   </extension>
+   <extension
+         point="org.eclipse.help.contexts">
+      <contexts
+            file="contexts.xml">
+      </contexts>
+   </extension>
+   <extension
+         point="org.eclipse.ui.views">
+      <category
+            id="XY.AI.Workbench"
+            name="AI">
+      </category>
+      <view
+            allowMultiple="false"
+            category="XY.AI.Workbench"
+            class="xy.ai.workbench.views.AISessionView"
+            icon="icons/sample.png"
+            id="xy.ai.workbench.views.AISessionView"
+            inject="true"
+            name="XY.Ai Session View">
+      </view>
+   </extension>
+
+</plugin>

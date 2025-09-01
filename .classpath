@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-annotations-3.0-rc5.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-core-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-databind-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-datatype-jdk8-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-datatype-jsr310-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-module-kotlin-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/jackson-module-parameter-names-2.20.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/kotlin-reflect-2.2.10.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/kotlin-stdlib-2.2.10.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/kotlin-stdlib-jdk8-2.2.10.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/logging-interceptor-5.1.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/okhttp-5.1.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/okhttp-jvm-5.1.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/okio-3.16.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/okio-jvm-3.16.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai-java-3.1.2.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai-java-client-okhttp-3.1.2.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai-java-core-3.1.2.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-21">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

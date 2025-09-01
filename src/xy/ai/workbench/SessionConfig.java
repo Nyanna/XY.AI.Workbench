@@ -1,0 +1,66 @@
+package xy.ai.workbench;
+
+import com.openai.models.ChatModel;
+
+public class SessionConfig {
+	public String key = null;
+	public Long maxOutputTokens = 16 * 1024L; // 128K for 5 models
+	public Double temperature = 0d; // 0-2
+	public Double topP = 0.1d;
+	public ChatModel model = ChatModel.GPT_5_NANO;
+	public String[] systemPrompt = new String[] { //
+			"Answer very short and precise", //
+			"Use $ Markdown inline Latex syntax for math formulas", //
+			"Don't repeat the input", //
+			"Be objective and neutral",//
+			"For generated code use english language"//
+	};
+
+	public String getKey() {
+		return key;
+	}
+
+	public void setKey(String key) {
+		this.key = key;
+	}
+
+	public Long getMaxOutputTokens() {
+		return maxOutputTokens;
+	}
+
+	public void setMaxOutputTokens(Long maxOutputTokens) {
+		this.maxOutputTokens = maxOutputTokens;
+	}
+
+	public Double getTemperature() {
+		return temperature;
+	}
+
+	public void setTemperature(Double temperature) {
+		this.temperature = temperature;
+	}
+
+	public Double getTopP() {
+		return topP;
+	}
+
+	public void setTopP(Double topP) {
+		this.topP = topP;
+	}
+
+	public ChatModel getModel() {
+		return model;
+	}
+
+	public void setModel(ChatModel model) {
+		this.model = model;
+	}
+
+	public String[] getSystemPrompt() {
+		return systemPrompt;
+	}
+
+	public void setSystemPrompt(String[] systemPrompt) {
+		this.systemPrompt = systemPrompt;
+	}
+}
