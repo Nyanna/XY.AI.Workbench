@@ -86,7 +86,7 @@ public class OpenAPIConnector {
 				for (var cnt : msg.content()) {
 					if (cnt.isOutputText()) {
 						String answer = cnt.asOutputText().text();
-						System.out.println("Answer: " + answer);
+						//System.out.println("Answer: " + answer);
 						res.answer += answer;
 					} else if (cnt.isRefusal()) {
 						System.out.println("Refusal: " + cnt.asRefusal().refusal());

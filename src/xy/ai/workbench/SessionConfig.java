@@ -10,10 +10,11 @@ public class SessionConfig {
 	public ChatModel model = ChatModel.GPT_5_NANO;
 	public String[] systemPrompt = new String[] { //
 			"Answer very short and precise", //
-			"Use $ Markdown inline Latex syntax for math formulas", //
-			"Don't repeat the input", //
 			"Be objective and neutral", //
-			"For generated code use english language"//
+			"Don't repeat the input", //
+			"Don't ask follow-up questions for this one time prompt", //
+			"#Use $ Markdown inline Latex syntax for math formulas", //
+			"#For generated code use english language"//
 	};
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[] { true, false, true, false };

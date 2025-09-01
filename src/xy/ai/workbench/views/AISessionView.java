@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
@@ -21,8 +22,11 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IMemento;
 import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IViewSite;
 import org.eclipse.ui.IWorkbench;
+import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
@@ -70,6 +74,18 @@ public class AISessionView extends ViewPart {
 			return workbench.getSharedImages().getImage(ISharedImages.IMG_OBJ_ELEMENT);
 		}
 	}
+	
+	@Override
+	public void saveState(IMemento memento) {
+		super.saveState(memento);
+		Activator.getDefault().session.saveConfig(memento);
+	}
+	
+	@Override
+	public void init(IViewSite site, IMemento memento) throws PartInitException {
+		super.init(site, memento);
+		Activator.getDefault().session.loadConfig(memento);
+	}
 
 	@Override
 	public void createPartControl(Composite parent) {
@@ -92,6 +108,7 @@ public class AISessionView extends ViewPart {
 			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
 			keyInput.setLayoutData(defHorizontal);
 			keyInput.addModifyListener(e -> session.setKey(keyInput.getText()));
+			keyInput.setText(session.getKey() + "");
 
 			toolkit.createLabel(top, "Max Token:");
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
@@ -179,7 +196,10 @@ public class AISessionView extends ViewPart {
 				instrEdit.setControl(comp);
 				instructionEdit = toolkit.createText(comp, "", SWT.BORDER | SWT.MULTI | SWT.WRAP | SWT.V_SCROLL);
 				GridData gdMulti = new GridData(GridData.FILL_BOTH);
-				session.addSystemPromptObs(p -> updateEditList(p.systemPrompt), true);
+				session.addSystemPromptObs(p -> {
+					if (!instructionEdit.isFocusControl())
+						updateEditList(p.systemPrompt);
+				}, true);
 				instructionEdit.setLayoutData(gdMulti);
 				instructionEdit.addModifyListener(e -> {
 					if (isUpdating)
@@ -249,13 +269,15 @@ public class AISessionView extends ViewPart {
 
 			Button btn = new Button(actions, SWT.PUSH);
 			btn.setText("Submit");
-			btn.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> btn.getDisplay().asyncExec(() -> session.execute())));
+			btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+				BusyIndicator.showWhile(null, () -> session.execute(btn.getDisplay()));
+			}));
 
 			Button bbtn = new Button(actions, SWT.PUSH);
 			bbtn.setText("Batch");
-			bbtn.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> bbtn.getDisplay().asyncExec(() -> session.queue())));
+			bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+				BusyIndicator.showWhile(null, () -> session.queue());
+			}));
 		}
 		{ // status display
 			Composite footer = new Composite(body, SWT.NONE);
@@ -266,10 +288,12 @@ public class AISessionView extends ViewPart {
 		}
 
 		session.addAnswerObs(a -> {
-			if (a != null)
-				usageLabel.setText(a.print());
-			else
-				usageLabel.setText("running ...");
+			form.getDisplay().asyncExec(() -> {
+				if (a != null)
+					usageLabel.setText(a.print());
+				else
+					usageLabel.setText("running ...");
+			});
 		});
 		session.initializeInputs();
 
