@@ -1,3 +1,3 @@
 
-![](doc/images/Screenshot from 2025-09-01 22-55-12.png)
+![](doc/images/Screenshot_from_2025-09-01_22-55-12.png)
 	
