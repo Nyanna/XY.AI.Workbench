@@ -12,12 +12,14 @@ This project is a arrangement of different tools to support different workflows 
 * Ultimate context and cost control
 * Based on OpenAI SDK
 * TBD Batch support
+
 **Workflows**
 * Markdown foundation
 * Large dokument text revisions like canvas styles
 * Obsidian - ChatGPT MD conversation styles
 * Basic conversational education styles
 * Fragment based approaches
+
 **Suggestions**
 * Create file based templates of your typical AI patterns
 * Split large project into a book tree of markdown files and use pandoc for conversion
