@@ -165,27 +165,26 @@ public class AISessionManager {
 	}
 
 	private String getInput(InputMode mode) {
-		var active = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
 		switch (mode) {
 		case Instructions:
 			String systemPrompt = Arrays.stream(cfg.systemPrompt).filter(e -> !e.startsWith("#"))
 					.collect(Collectors.joining(", "));
 			return systemPrompt;
 		case Selection:
-			if (active instanceof ITextEditor) {
-				ITextEditor editor = (ITextEditor) active;
-				ISelection selection = editor.getSelectionProvider().getSelection();
+			if (editorListener.textEditor != null) {
+				ISelection selection = editorListener.textEditor.getSelectionProvider().getSelection();
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 				if (tsel != null)
 					return tsel.getText();
 			}
 			break;
 		case Editor:
-			if (active instanceof ITextEditor) {
-				ITextEditor editor = (ITextEditor) active;
-				IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+			if (editorListener.textEditor != null) {
+				IDocument doc = editorListener.textEditor.getDocumentProvider()
+						.getDocument(editorListener.textEditor.getEditorInput());
 				return doc.get();
 			}
+			break;
 		case Files:
 			// TODO implement files
 			return "";
@@ -216,28 +215,25 @@ public class AISessionManager {
 		answerObs.forEach(c -> c.accept(res));
 
 		try {
-			var active = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
 
-			if (active instanceof ITextEditor) {
-				ITextEditor editor = (ITextEditor) active;
-				IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
-				ISelection selection = editor.getSelectionProvider().getSelection();
-				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
+			IDocument doc = editorListener.textEditor.getDocumentProvider()
+					.getDocument(editorListener.textEditor.getEditorInput());
+			ISelection selection = editorListener.textEditor.getSelectionProvider().getSelection();
+			ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
-				switch (cfg.ouputMode) {
-				case Append:
-					String replace = "\n" + res.answer;
-					doc.replace(doc.getLength(), 0, replace);
-					break;
-				case Replace:
-					if (tsel != null)
-						doc.replace(tsel.getOffset(), tsel.getLength(), res.answer);
-					break;
-				case Cursor:
-					if (tsel != null)
-						doc.replace(tsel.getOffset(), 0, res.answer);
-					break;
-				}
+			switch (cfg.ouputMode) {
+			case Append:
+				String replace = "\n" + res.answer;
+				doc.replace(doc.getLength(), 0, replace);
+				break;
+			case Replace:
+				if (tsel != null)
+					doc.replace(tsel.getOffset(), tsel.getLength(), res.answer);
+				break;
+			case Cursor:
+				if (tsel != null)
+					doc.replace(tsel.getOffset(), 0, res.answer);
+				break;
 			}
 		} catch (BadLocationException e) {
 			System.out.println("Error adding text");
@@ -251,7 +247,7 @@ public class AISessionManager {
 	public class ActiveEditorListener implements IPartListener2 {
 		private SelectionListener selectionListener = new SelectionListener();
 		private IDocumentListener documentListener = new DocumentListener();
-		private ITextEditor textEditor;
+		public ITextEditor textEditor;
 
 		@Override
 		public void partActivated(IWorkbenchPartReference partRef) {
@@ -271,10 +267,10 @@ public class AISessionManager {
 
 			IEditorPart editor = null;
 			IWorkbenchPart part = partRef.getPart(false);
-			if (part instanceof IEditorPart) {
-				editor = (IEditorPart) partRef.getPart(false);
-			} else if (part instanceof AISessionEditor) {
+			if (part instanceof AISessionEditor) {
 				editor = ((AISessionEditor) part).getEditor();
+			} else if (part instanceof IEditorPart) {
+				editor = (IEditorPart) part;
 			}
 
 			if (editor instanceof ITextEditor) {
