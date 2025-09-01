@@ -147,8 +147,6 @@ A hallucination is the model’s **confident continuation** where data is sparse
 
 * Semantics are **engineered** into the *system* surrounding the model.
 
-***
-
 ## An Eclipse RCP Blueprint
 
 **Architectural Layers (Bundles)**
