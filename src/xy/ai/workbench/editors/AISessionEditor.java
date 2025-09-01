@@ -59,6 +59,11 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 		super();
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(this);
 	}
+	
+	public TextEditor getEditor() {
+		return editor;
+	}
+	
 	/**
 	 * Creates page 0 of the multi-page editor,
 	 * which contains a text editor.

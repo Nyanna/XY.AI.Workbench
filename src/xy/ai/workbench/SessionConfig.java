@@ -12,9 +12,11 @@ public class SessionConfig {
 			"Answer very short and precise", //
 			"Use $ Markdown inline Latex syntax for math formulas", //
 			"Don't repeat the input", //
-			"Be objective and neutral",//
+			"Be objective and neutral", //
 			"For generated code use english language"//
 	};
+	public OutputMode ouputMode = OutputMode.Append;
+	public boolean[] inputModes = new boolean[] { true, false, true, false };
 
 	public String getKey() {
 		return key;
@@ -62,5 +64,13 @@ public class SessionConfig {
 
 	public void setSystemPrompt(String[] systemPrompt) {
 		this.systemPrompt = systemPrompt;
+	}
+
+	public boolean isInputEnabled(InputMode mode) {
+		return inputModes[mode.ordinal()];
+	}
+
+	public void setInputMode(InputMode mode, boolean enable) {
+		inputModes[mode.ordinal()] = enable;
 	}
 }

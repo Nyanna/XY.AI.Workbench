@@ -19,7 +19,7 @@ public class OpenAPIConnector {
 		this.cfg = cfg;
 	}
 
-	public AIAnswer sendRequest(String input) {
+	public AIAnswer sendRequest(String input, String systemPrompt) {
 		AIAnswer res = new AIAnswer();
 		var isBackground = false;
 		if (this.client == null)
@@ -32,7 +32,8 @@ public class OpenAPIConnector {
 				.truncation(Truncation.DISABLED) //
 				.maxToolCalls(1)//
 				.background(isBackground)//
-				.instructions(String.join(", ", cfg.systemPrompt)).reasoning( //
+				.instructions(systemPrompt)//
+				.reasoning( //
 						Reasoning.builder()//
 								.effort(ReasoningEffort.MINIMAL) //
 								.summary(Reasoning.Summary.AUTO)//
@@ -110,6 +111,7 @@ public class OpenAPIConnector {
 	}
 
 	public static void main(String[] args) {
-		new OpenAPIConnector(new SessionConfig()).sendRequest("Say hello");
+		SessionConfig cfg = new SessionConfig();
+		new OpenAPIConnector(cfg).sendRequest("Say hello", String.join(", ", cfg.systemPrompt));
 	}
 }
