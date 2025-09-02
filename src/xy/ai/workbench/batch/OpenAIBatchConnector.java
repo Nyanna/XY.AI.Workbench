@@ -1,11 +1,12 @@
 package xy.ai.workbench.batch;
 
+import static com.openai.core.ObjectMappers.jsonMapper;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
@@ -13,7 +14,6 @@ import com.openai.models.batches.Batch;
 import com.openai.models.batches.BatchListPage;
 import com.openai.models.batches.BatchListParams;
 import com.openai.models.responses.ResponseCreateParams;
-import static com.openai.core.ObjectMappers.jsonMapper;
 
 import xy.ai.workbench.Activator;
 

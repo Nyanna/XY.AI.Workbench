@@ -34,8 +34,14 @@ public class AIBatchManager {
 	}
 
 	private void addEntry(BatchEntry entry) {
-		index.put(entry.id, entry);
-		Display.getDefault().asyncExec(() -> viewer.add(entry));
+		BatchEntry indexed = index.get(entry.id);
+		if (indexed == null) {
+			index.put(entry.id, entry);
+			Display.getDefault().asyncExec(() -> viewer.add(entry));
+		} else {
+			indexed.batch = entry.batch;
+			Display.getDefault().asyncExec(() -> viewer.refresh(indexed, true));
+		}
 	}
 
 	public String requestsToString(List<ResponseCreateParams> request) {
@@ -80,8 +86,10 @@ public class AIBatchManager {
 		public float getCompletion() {
 			if (batch != null) {
 				var count = batch.requestCounts().orElse(null);
-				if (count != null)
-					return count.total() / (count.failed() + count.completed());
+				if (count != null) {
+					long done = count.failed() + count.completed();
+					return done > 0 ? count.total() / done : 0f;
+				}
 			}
 			return 0f;
 		}
@@ -110,12 +118,16 @@ public class AIBatchManager {
 			Date cd = null;
 			BatchState cs = BatchState.Unknown;
 			for (BatchState s : BatchState.values()) {
+				if (BatchState.Prepared.equals(s))
+					continue;
 				Date nd = getDate(s);
 				if (nd != null && (cd == null || nd.after(cd))) {
 					cd = nd;
 					cs = s;
 				}
 			}
+			if (cd == null)
+				cd = getDate(BatchState.Prepared);
 			return cs;
 		}
 
@@ -137,19 +149,19 @@ public class AIBatchManager {
 				case Created:
 					return new Date(batch.createdAt());
 				case Cancelling:
-					return batch.cancellingAt().isPresent() ? new Date(batch.cancellingAt().get()) : null;
+					return batch.cancellingAt().isPresent() ? new Date(batch.cancellingAt().get() * 1000) : null;
 				case Cancelled:
-					return batch.cancelledAt().isPresent() ? new Date(batch.cancelledAt().get()) : null;
+					return batch.cancelledAt().isPresent() ? new Date(batch.cancelledAt().get() * 1000) : null;
 				case Proccessing:
-					return batch.inProgressAt().isPresent() ? new Date(batch.inProgressAt().get()) : null;
+					return batch.inProgressAt().isPresent() ? new Date(batch.inProgressAt().get() * 1000) : null;
 				case Completed:
-					return batch.completedAt().isPresent() ? new Date(batch.completedAt().get()) : null;
+					return batch.completedAt().isPresent() ? new Date(batch.completedAt().get() * 1000) : null;
 				case Failed:
-					return batch.failedAt().isPresent() ? new Date(batch.failedAt().get()) : null;
+					return batch.failedAt().isPresent() ? new Date(batch.failedAt().get() * 1000) : null;
 				case Expired:
-					return batch.expiredAt().isPresent() ? new Date(batch.expiredAt().get()) : null;
+					return batch.expiredAt().isPresent() ? new Date(batch.expiredAt().get() * 1000) : null;
 				case Finalizing:
-					return batch.finalizingAt().isPresent() ? new Date(batch.finalizingAt().get()) : null;
+					return batch.finalizingAt().isPresent() ? new Date(batch.finalizingAt().get() * 1000) : null;
 				case Unknown:
 				}
 			}
