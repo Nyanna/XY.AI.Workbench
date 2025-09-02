@@ -69,7 +69,7 @@ public class MementoConverter {
 				for (IMemento it : items) {
 					Integer idx = it.getInteger("index");
 					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < sLen)
+					if (idx != null && idx >= 0 && idx < sLen && idx < arr.length)
 						arr[idx] = val;
 				}
 			}
@@ -87,7 +87,7 @@ public class MementoConverter {
 				for (IMemento it : items) {
 					Integer idx = it.getInteger("index");
 					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < iLen)
+					if (idx != null && idx >= 0 && idx < iLen && idx < arr.length)
 						arr[idx] = Boolean.parseBoolean(val);
 				}
 			}

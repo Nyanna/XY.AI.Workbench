@@ -1,11 +1,7 @@
 package xy.ai.workbench;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.CoreException;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -29,7 +25,7 @@ public class OpenAPIConnector {
 		this.cfg = cfg;
 	}
 
-	public AIAnswer sendRequest(String input, String systemPrompt, List<IFile> files) {
+	public AIAnswer sendRequest(String input, String systemPrompt, List<String> tools) {
 		AIAnswer res = new AIAnswer();
 		var isBackground = false;
 		if (this.client == null)
@@ -49,15 +45,11 @@ public class OpenAPIConnector {
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
 				.model(cfg.model); //
-		if(input != null && !input.isBlank())
+		if (input != null && !input.isBlank())
 			builder = builder.input(input);
-		
-		if (files != null)
-			try {
-				builder = appendFiles(builder, files);
-			} catch (CoreException | IOException e) {
-				throw new IllegalArgumentException(e);
-			}
+
+		if (tools != null && !tools.isEmpty())
+			builder = appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
 
@@ -130,29 +122,20 @@ public class OpenAPIConnector {
 
 	}
 
-	private Builder appendFiles(Builder builder, List<IFile> files) throws CoreException, IOException {
+	private Builder appendTools(Builder builder, List<String> tools) {
 		List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
-		for (IFile file : files) {
-			//Path path = file.getLocation().toFile().toPath();
-			//String mimeType = Files.probeContentType(path);
 
-			//byte[] pdfBytes = file.readAllBytes();
-			String content = file.readString();
-//			String pdfBase64Url = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(pdfBytes);
+		StringBuffer out = new StringBuffer("~~~\nTool output:\n");
+		tools.forEach(t -> out.append(t));
+		out.append("\n~~~");
 
-//			System.out.println("Mimetxpe of file: " + mimeType + ", " + path.toString());
-
-			ResponseInputText inputFile = ResponseInputText.builder() //
-//					.filename(file.getName()) //
-//					.fileData(pdfBase64Url) //
-					.text(content) //
-					.build();
-			ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
-					.role(ResponseInputItem.Message.Role.USER)//
-					//.addInputTextContent("Additional context file") //
-					.addContent(inputFile).build());
-			inputs.add(inputItem);
-		}
+		ResponseInputText inputFile = ResponseInputText.builder() //
+				.text(out.toString()) //
+				.build();
+		ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
+				.role(ResponseInputItem.Message.Role.DEVELOPER)//
+				.addContent(inputFile).build());
+		inputs.add(inputItem);
 		return builder.inputOfResponse(inputs);
 	}
 

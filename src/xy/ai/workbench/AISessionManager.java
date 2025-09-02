@@ -14,11 +14,19 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.TreeSelection;
+import org.eclipse.search.ui.ISearchQuery;
+import org.eclipse.search.ui.ISearchResult;
+import org.eclipse.search.ui.ISearchResultListener;
+import org.eclipse.search.ui.NewSearchUI;
+import org.eclipse.search.ui.SearchResultEvent;
+import org.eclipse.search.ui.text.AbstractTextSearchResult;
+import org.eclipse.search.ui.text.Match;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.IWorkbenchPage;
@@ -27,6 +35,8 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
+
+import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
@@ -40,6 +50,7 @@ public class AISessionManager {
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
 
 	private List<IFile> selectedFiles = List.of();
+	private ISearchResult result = null;
 
 	public void initializeInputs() {
 		for (var mode : InputMode.values())
@@ -47,6 +58,15 @@ public class AISessionManager {
 
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (window != null) {
+
+			SearchResultListener resObs = new SearchResultListener();
+			NewSearchUI.addQueryListener(new AbstractQueryListener() {
+				@Override
+				public void queryAdded(ISearchQuery query) {
+					query.getSearchResult().addListener(resObs);
+				}
+			});
+
 			IWorkbenchPage activePage = window.getActivePage();
 			if (activePage != null) {
 				activePage.addPartListener(editorListener);
@@ -59,6 +79,15 @@ public class AISessionManager {
 					}
 				});
 			}
+		}
+	}
+
+	public class SearchResultListener implements ISearchResultListener {
+		@Override
+		public void searchResultChanged(SearchResultEvent e) {
+			result = e.getSearchResult();
+			System.out.println("Searchresult changed: " + result.getLabel());
+			Display.getDefault().asyncExec(() -> updateInputStat(InputMode.Search));
 		}
 	}
 
@@ -222,18 +251,58 @@ public class AISessionManager {
 			}
 			break;
 		case Files:
-			StringBuilder fullContent = new StringBuilder();
-			for (IFile file : selectedFiles) {
-				try {
-					String content = file.readString();
-					fullContent.append(content).append("\n");
-				} catch (CoreException e) {
-					System.err.println("Error on reading " + file.getName() + ": " + e.getMessage());
-				}
+			return getFilsAsString(selectedFiles);
+		case Search:
+			// TODO use throttler for update call
+			if (result instanceof AbstractTextSearchResult) {
+				AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
+				List<IFile> files = Arrays.stream(textRes.getElements()) //
+						.filter(e -> e instanceof IFile) //
+						.map(e -> (IFile) e)//
+						.collect(Collectors.toList());
+
+				List<Match> matches = files.stream() //
+						.flatMap(f -> Arrays.stream(textRes.getMatches(f))) //
+						.collect(Collectors.toList());
+
+				String lines = matches.stream().map(m -> {
+					try {
+						return getLineFromFileMatch(m);
+					} catch (BadLocationException | CoreException e1) {
+						e1.printStackTrace();
+						return "";
+					}
+				}).collect(Collectors.joining("\n"));
+
+				return lines;
 			}
-			return fullContent.toString();
+			break;
 		}
 		return "";
+	}
+
+	private String getLineFromFileMatch(Match match) throws BadLocationException, CoreException {
+		IFile file = (IFile) match.getElement();
+		String fileContent = file.readString();
+
+		IDocument doc = new Document(fileContent);
+		int lineNumber = doc.getLineOfOffset(match.getOffset());
+		int lineOffset = doc.getLineOffset(lineNumber);
+		int lineLength = doc.getLineLength(lineNumber);
+		return doc.get(lineOffset, lineLength);
+	}
+
+	private String getFilsAsString(List<IFile> files) {
+		StringBuilder fullContent = new StringBuilder();
+		for (IFile file : files) {
+			try {
+				String content = file.readString();
+				fullContent.append(content).append("\n");
+			} catch (CoreException e) {
+				System.err.println("Error on reading " + file.getName() + ": " + e.getMessage());
+			}
+		}
+		return fullContent.toString();
 	}
 
 	public void execute(Display display) {
@@ -259,6 +328,7 @@ public class AISessionManager {
 	}
 
 	private String input;
+
 	private void executeInner(Display display) {
 
 		System.out.println("Starting Call");
@@ -279,13 +349,36 @@ public class AISessionManager {
 			System.out.println("Input and instructions Empty");
 			return;
 		}
+		
+		if(editorListener.getLastTextEditor() == null) {
+			System.out.println("Result editor unset");
+			return;
+		}
+
+		List<String> tools = new ArrayList<String>();
+		if (isInputEnabled(InputMode.Files))
+			tools.addAll(selectedFiles.stream().map(f -> {
+				try {
+					return f.readString();
+				} catch (CoreException e) {
+					e.printStackTrace();
+					return "";
+				}
+			}).collect(Collectors.toList()));
+
+		if (isInputEnabled(InputMode.Search)) {
+			String search = getInput(InputMode.Search);
+			if (search != null && !search.isBlank())
+				tools.add(search);
+		}
+
 		System.out.println("Input prepared");
 
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
 		AIAnswer res = new OpenAPIConnector(cfg).sendRequest(//
 				input, //
 				systemPrompt, //
-				isInputEnabled(InputMode.Files) ? selectedFiles : null //
+				tools //
 		);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 
