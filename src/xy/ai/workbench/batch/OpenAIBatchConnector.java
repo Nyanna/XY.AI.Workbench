@@ -1,15 +1,19 @@
 package xy.ai.workbench.batch;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.models.batches.Batch;
 import com.openai.models.batches.BatchListPage;
 import com.openai.models.batches.BatchListParams;
 import com.openai.models.responses.ResponseCreateParams;
+import static com.openai.core.ObjectMappers.jsonMapper;
 
 import xy.ai.workbench.Activator;
 
@@ -30,9 +34,12 @@ public class OpenAIBatchConnector {
 		return res.data();
 	}
 
-	private String requestToBatch(ResponseCreateParams param) {
+	public String requestToBatch(ResponseCreateParams param) {
+		ResponseCreateParams forBatch = param.toBuilder()
+				.additionalBodyProperties(Map.of("custom_id", JsonValue.from(new Random().nextInt())))//
+				.build();
 		try {
-			return new ObjectMapper().writeValueAsString(param);
+			return jsonMapper().writeValueAsString(forBatch._body());
 		} catch (JsonProcessingException e) {
 			throw new IllegalStateException(e);
 		}

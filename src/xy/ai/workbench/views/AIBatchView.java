@@ -1,20 +1,47 @@
 package xy.ai.workbench.views;
 
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.ui.part.*;
-import org.eclipse.jface.viewers.*;
-import org.eclipse.swt.graphics.Image;
+import java.util.Date;
+
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.jface.action.*;
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IMenuListener;
+import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.IToolBarManager;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.ui.*;
-import org.eclipse.swt.widgets.Menu;
+import org.eclipse.jface.layout.TableColumnLayout;
+import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ColumnWeightData;
+import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.IDoubleClickListener;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IWorkbench;
+import org.eclipse.ui.IWorkbenchActionConstants;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.part.ViewPart;
+
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.batch.AIBatchManager.BatchEntry;
 
 public class AIBatchView extends ViewPart {
 
@@ -27,34 +54,44 @@ public class AIBatchView extends ViewPart {
 	IWorkbench workbench;
 
 	private TableViewer viewer;
-	private Action actUpdate;
-	private Action actEnqueue;
-	private Action actDetails;
+	private Action actUpdate, actEnqueue, actDetails, actCpJson;
 
-	class ViewLabelProvider extends LabelProvider implements ITableLabelProvider {
-		@Override
-		public String getColumnText(Object obj, int index) {
-			return getText(obj);
-		}
-
-		@Override
-		public Image getColumnImage(Object obj, int index) {
-			return getImage(obj);
-		}
-
-		@Override
-		public Image getImage(Object obj) {
-			return workbench.getSharedImages().getImage(ISharedImages.IMG_OBJ_FILE);
-		}
-	}
+	private AIBatchManager batch;
+	private TableColumnLayout tableLayout;
 
 	@Override
 	public void createPartControl(Composite parent) {
-		viewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL);
+		batch = Activator.getDefault().batch;
 
-		viewer.setContentProvider(ArrayContentProvider.getInstance());
-		viewer.setInput(new String[] { "One", "Two", "Three" });
-		viewer.setLabelProvider(new ViewLabelProvider());
+		viewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER | SWT.FULL_SELECTION);
+		viewer.getControl().setLayoutData(new GridData(GridData.FILL, GridData.FILL, true, true));
+
+		Table table = viewer.getTable();
+		table.setHeaderVisible(true);
+		table.setLinesVisible(true);
+		parent.setLayout(tableLayout = new TableColumnLayout());
+
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "ID"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getID()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Inputfile"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getInputFileID()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Completion")).setLabelProvider(
+				ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getCompletion() * 100 + "%"));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "State"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getState().toString()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Date"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getStateDate())));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Expires"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getExpires())));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Outputfile"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getOutputFileID()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Errorfile"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getErrorFileID()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Report"))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getBatchStatusString()));
+
+		table.requestLayout();
+		batch.setViewer(viewer);
 
 		// Create the help context id for the viewer's control
 		workbench.getHelpSystem().setHelp(viewer.getControl(), "XY.AI.Workbench.viewer");
@@ -63,6 +100,20 @@ public class AIBatchView extends ViewPart {
 		hookContextMenu();
 		hookDoubleClickAction();
 		contributeToActionBars();
+	}
+
+	private String format(Date in) {
+		return in != null ? in.toString() : "";
+	}
+
+	private TableColumn createColumn(Table parent, String label) {
+		var res = new TableColumn(parent, SWT.NONE);
+		res.setMoveable(true);
+		res.setResizable(true);
+		res.setText(label);
+		res.setWidth(50);
+		tableLayout.setColumnData(res, new ColumnWeightData(50));
+		return res;
 	}
 
 	private void hookContextMenu() {
@@ -91,8 +142,7 @@ public class AIBatchView extends ViewPart {
 	}
 
 	private void fillContextMenu(IMenuManager manager) {
-		manager.add(actUpdate);
-		manager.add(actEnqueue);
+		manager.add(actCpJson);
 		// Other plug-ins can contribute there actions here
 		manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
 	}
@@ -117,7 +167,7 @@ public class AIBatchView extends ViewPart {
 		actUpdate.setText("Update Batches");
 		actUpdate.setToolTipText("Retrieves and update batch states");
 		actUpdate.setImageDescriptor(
-				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
+				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
 
 		actEnqueue = new Action() {
 			public void run() {
@@ -126,7 +176,27 @@ public class AIBatchView extends ViewPart {
 		};
 		actEnqueue.setText("Submit Batches");
 		actEnqueue.setToolTipText("Submit unscheduled batches");
-		actEnqueue.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
+		actEnqueue.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_FORWARD));
+
+		actCpJson = new Action() {
+			public void run() {
+				IStructuredSelection selection = (IStructuredSelection) viewer.getSelection();
+				if (!selection.isEmpty()) {
+					Object selectedElement = selection.getFirstElement();
+					if (selectedElement instanceof BatchEntry) {
+						BatchEntry elem = (BatchEntry) selectedElement;
+						if (elem.request.isEmpty()) {
+							showMessage("Batch contains no original requests");
+						} else
+							copyToClipboard(batch.requestsToString(elem.request));
+					}
+				}
+			}
+		};
+		actCpJson.setText("Copy JSON");
+		actCpJson.setToolTipText("Copy JSON for use in batches");
+		actCpJson.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
+
 		actDetails = new Action() {
 			public void run() {
 				IStructuredSelection selection = viewer.getStructuredSelection();
@@ -134,6 +204,17 @@ public class AIBatchView extends ViewPart {
 				showMessage("Double-click detected on " + obj.toString());
 			}
 		};
+	}
+
+	private void copyToClipboard(String string) {
+		Display display = Display.getDefault();
+		Clipboard clipboard = new Clipboard(display);
+		TextTransfer textTransfer = TextTransfer.getInstance();
+		try {
+			clipboard.setContents(new Object[] { string }, new Transfer[] { textTransfer });
+		} finally {
+			clipboard.dispose();
+		}
 	}
 
 	private void hookDoubleClickAction() {

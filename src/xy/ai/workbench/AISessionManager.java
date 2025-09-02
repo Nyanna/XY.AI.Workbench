@@ -44,6 +44,7 @@ public class AISessionManager {
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
 	private SessionConfig cfg = new SessionConfig();
+	OpenAIConnector connector = new OpenAIConnector(cfg);
 	private int[] inputStats = new int[InputMode.values().length];
 
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
@@ -356,7 +357,7 @@ public class AISessionManager {
 	private String input;
 
 	private ResponseCreateParams prepareInner(Display display) {
-		System.out.println("Starting Call");
+		System.out.println("Preparing Call");
 
 		input = "";
 		display.syncExec(() -> {
@@ -395,7 +396,6 @@ public class AISessionManager {
 
 		System.out.println("Input prepared");
 
-		OpenAIConnector connector = new OpenAIConnector(cfg);
 		ResponseCreateParams req = connector.createRequest(//
 				input, //
 				systemPrompt, //
@@ -406,7 +406,6 @@ public class AISessionManager {
 
 	private AIAnswer executeInner(Display display, ResponseCreateParams req) {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		OpenAIConnector connector = new OpenAIConnector(cfg);
 		AIAnswer res = connector.executeRequest(req);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;
