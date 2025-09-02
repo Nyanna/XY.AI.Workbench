@@ -46,9 +46,8 @@ public class AISessionView extends ViewPart {
 	 * The ID of the view as specified by the extension.
 	 */
 	public static final String ID = "xy.ai.workbench.views.AISessionView";
-	
+
 	public static AISessionView currentInstance;
-	
 
 	@Inject
 	IWorkbench workbench;
@@ -280,7 +279,8 @@ public class AISessionView extends ViewPart {
 
 			Button bbtn = new Button(actions, SWT.PUSH);
 			bbtn.setText("Batch");
-			bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.queue()));
+			bbtn.addSelectionListener(SelectionListener
+					.widgetSelectedAdapter(e -> session.queue(bbtn.getDisplay(), Activator.getDefault().batch)));
 		}
 		{ // status display
 			Composite footer = new Composite(body, SWT.NONE);

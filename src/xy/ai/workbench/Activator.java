@@ -3,6 +3,8 @@ package xy.ai.workbench;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
+import xy.ai.workbench.batch.AIBatchManager;
+
 /**
  * The activator class controls the plug-in life cycle
  */
@@ -15,6 +17,7 @@ public class Activator extends AbstractUIPlugin {
 	private static Activator plugin;
 	
 	public AISessionManager session = new AISessionManager();
+	public AIBatchManager batch = new AIBatchManager();
 	
 	/**
 	 * The constructor

@@ -17,17 +17,16 @@ import com.openai.models.responses.ResponseInputText;
 import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 
-public class OpenAPIConnector {
+public class OpenAIConnector {
 	SessionConfig cfg;
 	private OpenAIClient client;
 
-	public OpenAPIConnector(SessionConfig cfg) {
+	public OpenAIConnector(SessionConfig cfg) {
 		this.cfg = cfg;
 	}
 
-	public AIAnswer sendRequest(String input, String systemPrompt, List<String> tools) {
-		AIAnswer res = new AIAnswer();
-		var isBackground = false;
+	public ResponseCreateParams createRequest(String input, String systemPrompt, List<String> tools) {
+		boolean isBackground = false;
 		if (this.client == null)
 			this.client = OpenAIOkHttpClient.builder().apiKey(cfg.key).build();
 
@@ -52,6 +51,11 @@ public class OpenAPIConnector {
 			builder = appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
+		return params;
+	}
+
+	public AIAnswer executeRequest(ResponseCreateParams params) {
+		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
 //		int statusCode = rwResponse.statusCode();
@@ -70,6 +74,7 @@ public class OpenAPIConnector {
 			} while (status.equals(ResponseStatus.QUEUED) || status.equals(ResponseStatus.IN_PROGRESS));
 		}
 
+		AIAnswer res = new AIAnswer();
 		if (resp.usage().isPresent()) {
 			ResponseUsage usage = resp.usage().get();
 			System.out.println("Usage In: " + usage.inputTokens() + ", Out: " + usage.outputTokens() + ", Total: "
@@ -137,10 +142,5 @@ public class OpenAPIConnector {
 				.addContent(inputFile).build());
 		inputs.add(inputItem);
 		return builder.inputOfResponse(inputs);
-	}
-
-	public static void main(String[] args) {
-		SessionConfig cfg = new SessionConfig();
-		new OpenAPIConnector(cfg).sendRequest("Say hello", String.join(", ", cfg.systemPrompt), null);
 	}
 }

@@ -35,7 +35,9 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
+import com.openai.models.responses.ResponseCreateParams;
 
+import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
@@ -306,14 +308,38 @@ public class AISessionManager {
 	}
 
 	public void execute(Display display) {
-		// BusyIndicator.showWhile(display, () -> executeInner(display));
-
 		Job submit = new Job("Starting prompt...") {
 			protected IStatus run(IProgressMonitor monitor) {
 				monitor.beginTask("Executing prompt...", IProgressMonitor.UNKNOWN);
 				try {
 					monitor.worked(1);
-					executeInner(display);
+					var req = prepareInner(display);
+					monitor.worked(1);
+					var ans = executeInner(display, req);
+					monitor.worked(1);
+					processAnswer(display, ans);
+					monitor.worked(1);
+				} catch (Exception e) {
+					e.printStackTrace();
+					return Status.CANCEL_STATUS;
+				} finally {
+					monitor.done();
+				}
+				return Status.OK_STATUS;
+			}
+		};
+		submit.schedule();
+	}
+
+	public void queue(Display display, AIBatchManager batch) {
+		Job submit = new Job("Starting prompt creation...") {
+			protected IStatus run(IProgressMonitor monitor) {
+				monitor.beginTask("Batching prompt...", IProgressMonitor.UNKNOWN);
+				try {
+					monitor.worked(1);
+					var req = prepareInner(display);
+					monitor.worked(1);
+					batch.enqueue(req);
 					monitor.worked(1);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -329,8 +355,7 @@ public class AISessionManager {
 
 	private String input;
 
-	private void executeInner(Display display) {
-
+	private ResponseCreateParams prepareInner(Display display) {
 		System.out.println("Starting Call");
 
 		input = "";
@@ -345,15 +370,11 @@ public class AISessionManager {
 
 		String systemPrompt = isInputEnabled(InputMode.Instructions) ? getInput(InputMode.Instructions) : "";
 
-		if ((input == null || input.isBlank()) && systemPrompt.isBlank()) {
-			System.out.println("Input and instructions Empty");
-			return;
-		}
-		
-		if(editorListener.getLastTextEditor() == null) {
-			System.out.println("Result editor unset");
-			return;
-		}
+		if ((input == null || input.isBlank()) && systemPrompt.isBlank())
+			throw new IllegalArgumentException("Input and instructions Empty");
+
+		if (editorListener.getLastTextEditor() == null)
+			throw new IllegalArgumentException("Result editor unset");
 
 		List<String> tools = new ArrayList<String>();
 		if (isInputEnabled(InputMode.Files))
@@ -374,47 +395,51 @@ public class AISessionManager {
 
 		System.out.println("Input prepared");
 
-		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		AIAnswer res = new OpenAPIConnector(cfg).sendRequest(//
+		OpenAIConnector connector = new OpenAIConnector(cfg);
+		ResponseCreateParams req = connector.createRequest(//
 				input, //
 				systemPrompt, //
 				tools //
 		);
+		return req;
+	}
+
+	private AIAnswer executeInner(Display display, ResponseCreateParams req) {
+		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
+		OpenAIConnector connector = new OpenAIConnector(cfg);
+		AIAnswer res = connector.executeRequest(req);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
-
-		display.asyncExec(() -> processAnswer(res));
+		return res;
 	}
 
-	private void processAnswer(AIAnswer res) {
-		try {
-			ITextEditor textEditor = editorListener.getLastTextEditor();
+	private void processAnswer(Display display, AIAnswer res) {
+		display.asyncExec(() -> {
+			try {
+				ITextEditor textEditor = editorListener.getLastTextEditor();
 
-			IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-			ISelection selection = textEditor.getSelectionProvider().getSelection();
-			ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
+				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+				ISelection selection = textEditor.getSelectionProvider().getSelection();
+				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
-			switch (cfg.ouputMode) {
-			case Append:
-				String replace = "\n" + res.answer;
-				doc.replace(doc.getLength(), 0, replace);
-				break;
-			case Replace:
-				if (tsel != null)
-					doc.replace(tsel.getOffset(), tsel.getLength(), res.answer);
-				break;
-			case Cursor:
-				if (tsel != null)
-					doc.replace(tsel.getOffset(), 0, res.answer);
-				break;
+				switch (cfg.ouputMode) {
+				case Append:
+					String replace = "\n" + res.answer;
+					doc.replace(doc.getLength(), 0, replace);
+					break;
+				case Replace:
+					if (tsel != null)
+						doc.replace(tsel.getOffset(), tsel.getLength(), res.answer);
+					break;
+				case Cursor:
+					if (tsel != null)
+						doc.replace(tsel.getOffset(), 0, res.answer);
+					break;
+				}
+				textEditor.doSave(new NullProgressMonitor());
+			} catch (BadLocationException e) {
+				System.out.println("Error adding text");
 			}
-			textEditor.doSave(new NullProgressMonitor());
-		} catch (BadLocationException e) {
-			System.out.println("Error adding text");
-		}
-	}
-
-	public void queue() {
-		// TODO implement batch managing
+		});
 	}
 
 	public void saveConfig(IMemento memento) {
