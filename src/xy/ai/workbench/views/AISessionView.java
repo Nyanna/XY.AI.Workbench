@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
@@ -14,6 +13,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.TabFolder;
@@ -46,6 +46,9 @@ public class AISessionView extends ViewPart {
 	 * The ID of the view as specified by the extension.
 	 */
 	public static final String ID = "xy.ai.workbench.views.AISessionView";
+	
+	public static AISessionView currentInstance;
+	
 
 	@Inject
 	IWorkbench workbench;
@@ -57,6 +60,8 @@ public class AISessionView extends ViewPart {
 	private List instructionList;
 	private Text instructionEdit;
 	private boolean isUpdating = false;
+
+	public Display display;
 
 	class ViewLabelProvider extends LabelProvider implements ITableLabelProvider {
 		@Override
@@ -74,13 +79,13 @@ public class AISessionView extends ViewPart {
 			return workbench.getSharedImages().getImage(ISharedImages.IMG_OBJ_ELEMENT);
 		}
 	}
-	
+
 	@Override
 	public void saveState(IMemento memento) {
 		super.saveState(memento);
 		Activator.getDefault().session.saveConfig(memento);
 	}
-	
+
 	@Override
 	public void init(IViewSite site, IMemento memento) throws PartInitException {
 		super.init(site, memento);
@@ -89,6 +94,8 @@ public class AISessionView extends ViewPart {
 
 	@Override
 	public void createPartControl(Composite parent) {
+		currentInstance = this;
+		display = parent.getDisplay();
 		toolkit = new FormToolkit(parent.getDisplay());
 		form = toolkit.createScrolledForm(parent);
 		form.setText("AI Session");
@@ -221,7 +228,7 @@ public class AISessionView extends ViewPart {
 
 				TableColumn column2 = new TableColumn(table, SWT.NONE);
 				column2.setText("Input");
-				column2.setWidth(100);
+				column2.setWidth(120);
 
 				TableColumn column3 = new TableColumn(table, SWT.NONE);
 				column3.setText("Chars");
@@ -230,7 +237,7 @@ public class AISessionView extends ViewPart {
 				table.addListener(SWT.Selection, e -> {
 					if (e.detail == SWT.CHECK) {
 						TableItem item = (TableItem) e.item;
-						InputMode mode = InputMode.valueOf(item.getText(1));
+						InputMode mode = InputMode.valueOf(item.getText(1).replace(" ", "_"));
 						session.setInputMode(mode, item.getChecked());
 					}
 				});
@@ -238,10 +245,10 @@ public class AISessionView extends ViewPart {
 				for (int i = 0; i < InputMode.values().length; i++) {
 					TableItem item = new TableItem(table, SWT.NONE);
 					InputMode mode = InputMode.values()[i];
-					item.setText(new String[] { "", mode.name(), "0" });
+					item.setText(new String[] { "", mode.name().replace("_", " "), "0" });
 					item.setChecked(session.isInputEnabled(mode));
 					session.addInputStatObs(is -> {
-						item.setText(new String[] { "", mode.name(), is[mode.ordinal()] + "" });
+						item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
 					}, true);
 					session.addInputObs(is -> {
 						item.setChecked(is[mode.ordinal()]);
@@ -269,15 +276,11 @@ public class AISessionView extends ViewPart {
 
 			Button btn = new Button(actions, SWT.PUSH);
 			btn.setText("Submit");
-			btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
-				BusyIndicator.showWhile(null, () -> session.execute(btn.getDisplay()));
-			}));
+			btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.execute(btn.getDisplay())));
 
 			Button bbtn = new Button(actions, SWT.PUSH);
 			bbtn.setText("Batch");
-			bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
-				BusyIndicator.showWhile(null, () -> session.queue());
-			}));
+			bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.queue()));
 		}
 		{ // status display
 			Composite footer = new Composite(body, SWT.NONE);

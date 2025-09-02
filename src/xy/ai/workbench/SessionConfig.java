@@ -17,7 +17,12 @@ public class SessionConfig {
 			"#For generated code use english language"//
 	};
 	public OutputMode ouputMode = OutputMode.Append;
-	public boolean[] inputModes = new boolean[] { true, false, true, false };
+	public boolean[] inputModes = new boolean[InputMode.values().length];
+
+	public SessionConfig() {
+		setInputMode(InputMode.Instructions, true);
+		setInputMode(InputMode.Editor, true);
+	}
 
 	public String getKey() {
 		return key;

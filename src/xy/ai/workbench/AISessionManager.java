@@ -6,49 +6,60 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IDocumentListener;
+import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.texteditor.IDocumentProvider;
-import org.eclipse.ui.texteditor.ITextEditor;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchPartReference;
-import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IMemento;
-import org.eclipse.ui.IPartListener2;
-import org.eclipse.jface.viewers.ISelectionChangedListener;
-import org.eclipse.jface.viewers.ISelectionProvider;
-import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IMemento;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
 
-import xy.ai.workbench.editors.AISessionEditor;
-
 public class AISessionManager {
-	private ActiveEditorListener editorListener = new ActiveEditorListener();
+	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
 	private SessionConfig cfg = new SessionConfig();
 	private int[] inputStats = new int[InputMode.values().length];
 
-	List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
-	List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
-	List<Consumer<int[]>> inputStatObs = new ArrayList<>();
-	List<Consumer<boolean[]>> inputObs = new ArrayList<>();
+	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
+	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
+	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
+	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
+
+	private List<IFile> selectedFiles = List.of();
 
 	public void initializeInputs() {
 		for (var mode : InputMode.values())
 			updateInputStat(mode);
 
-		IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-		if (activePage != null)
-			activePage.addPartListener(editorListener);
+		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+		if (window != null) {
+			IWorkbenchPage activePage = window.getActivePage();
+			if (activePage != null) {
+				activePage.addPartListener(editorListener);
+
+				activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", (part, selection) -> {
+					if (selection instanceof TreeSelection) {
+						selectedFiles = ((TreeSelection) selection).stream().filter(o -> o instanceof IFile)
+								.map(obj -> (IFile) obj).collect(Collectors.toList());
+						updateInputStat(InputMode.Files);
+					}
+				});
+			}
+		}
 	}
 
 	public void clearObserver() {
@@ -146,8 +157,13 @@ public class AISessionManager {
 		cfg.setInputMode(mode, enable);
 
 		if (InputMode.Selection.equals(mode) && enable) {
+			cfg.setInputMode(InputMode.Current_line, false);
 			cfg.setInputMode(InputMode.Editor, false);
 		} else if (InputMode.Editor.equals(mode) && enable) {
+			cfg.setInputMode(InputMode.Current_line, false);
+			cfg.setInputMode(InputMode.Selection, false);
+		} else if (InputMode.Current_line.equals(mode) && enable) {
+			cfg.setInputMode(InputMode.Editor, false);
 			cfg.setInputMode(InputMode.Selection, false);
 		}
 
@@ -155,7 +171,7 @@ public class AISessionManager {
 		updateInputStat(mode);
 	}
 
-	private void updateInputStat(InputMode mode) {
+	public void updateInputStat(InputMode mode) {
 		inputStats[mode.ordinal()] = getInput(mode).length();
 		inputStatObs.forEach(c -> c.accept(inputStats));
 	}
@@ -168,64 +184,120 @@ public class AISessionManager {
 	}
 
 	private String getInput(InputMode mode) {
+		ITextEditor textEditor = editorListener.getLastTextEditor();
+
 		switch (mode) {
 		case Instructions:
 			String systemPrompt = Arrays.stream(cfg.systemPrompt).filter(e -> !e.startsWith("#"))
 					.collect(Collectors.joining(", "));
 			return systemPrompt;
 		case Selection:
-			if (editorListener.textEditor != null) {
-				ISelection selection = editorListener.textEditor.getSelectionProvider().getSelection();
+			if (textEditor != null) {
+				ISelection selection = textEditor.getSelectionProvider().getSelection();
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 				if (tsel != null)
 					return tsel.getText();
 			}
 			break;
 		case Editor:
-			if (editorListener.textEditor != null) {
-				IDocument doc = editorListener.textEditor.getDocumentProvider()
-						.getDocument(editorListener.textEditor.getEditorInput());
+			if (textEditor != null) {
+				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
 				return doc.get();
 			}
 			break;
+		case Current_line:
+			if (textEditor != null) {
+				ISelection selection = textEditor.getSelectionProvider().getSelection();
+				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
+				if (tsel != null) {
+					int line = tsel.getEndLine();
+					IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+					try {
+						IRegion lineInfo = doc.getLineInformation(line);
+						return doc.get(lineInfo.getOffset(), lineInfo.getLength());
+					} catch (BadLocationException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+			break;
 		case Files:
-			// TODO implement files
-			return "";
+			StringBuilder fullContent = new StringBuilder();
+			for (IFile file : selectedFiles) {
+				try {
+					String content = file.readString();
+					fullContent.append(content).append("\n");
+				} catch (CoreException e) {
+					System.err.println("Error on reading " + file.getName() + ": " + e.getMessage());
+				}
+			}
+			return fullContent.toString();
 		}
 		return "";
 	}
 
 	public void execute(Display display) {
+		// BusyIndicator.showWhile(display, () -> executeInner(display));
+
+		Job submit = new Job("Starting prompt...") {
+			protected IStatus run(IProgressMonitor monitor) {
+				monitor.beginTask("Executing prompt...", IProgressMonitor.UNKNOWN);
+				try {
+					monitor.worked(1);
+					executeInner(display);
+					monitor.worked(1);
+				} catch (Exception e) {
+					e.printStackTrace();
+					return Status.CANCEL_STATUS;
+				} finally {
+					monitor.done();
+				}
+				return Status.OK_STATUS;
+			}
+		};
+		submit.schedule();
+	}
+
+	private String input;
+	private void executeInner(Display display) {
+
 		System.out.println("Starting Call");
 
-		String input = "";
-
-		if (isInputEnabled(InputMode.Editor))
-			input += getInput(InputMode.Editor);
-
-		else if (isInputEnabled(InputMode.Selection))
-			input += getInput(InputMode.Selection);
+		input = "";
+		display.syncExec(() -> {
+			if (isInputEnabled(InputMode.Editor))
+				input += getInput(InputMode.Editor);
+			else if (isInputEnabled(InputMode.Selection))
+				input += getInput(InputMode.Selection);
+			else if (isInputEnabled(InputMode.Current_line))
+				input += getInput(InputMode.Current_line);
+		});
 
 		String systemPrompt = isInputEnabled(InputMode.Instructions) ? getInput(InputMode.Instructions) : "";
 
-		if (input == null || input.isBlank()) {
-			System.out.println("Input Empty");
+		if ((input == null || input.isBlank()) && systemPrompt.isBlank()) {
+			System.out.println("Input and instructions Empty");
 			return;
 		}
+		System.out.println("Input prepared");
 
-		answerObs.forEach(c -> c.accept(null));
-		AIAnswer res = new OpenAPIConnector(cfg).sendRequest(input, systemPrompt);
-		answerObs.forEach(c -> c.accept(res));
+		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
+		AIAnswer res = new OpenAPIConnector(cfg).sendRequest(//
+				input, //
+				systemPrompt, //
+				isInputEnabled(InputMode.Files) ? selectedFiles : null //
+		);
+		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 
 		display.asyncExec(() -> processAnswer(res));
 	}
 
 	private void processAnswer(AIAnswer res) {
 		try {
+			ITextEditor textEditor = editorListener.getLastTextEditor();
 
-			IDocument doc = editorListener.textEditor.getDocumentProvider()
-					.getDocument(editorListener.textEditor.getEditorInput());
-			ISelection selection = editorListener.textEditor.getSelectionProvider().getSelection();
+			IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+			ISelection selection = textEditor.getSelectionProvider().getSelection();
 			ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
 			switch (cfg.ouputMode) {
@@ -242,7 +314,7 @@ public class AISessionManager {
 					doc.replace(tsel.getOffset(), 0, res.answer);
 				break;
 			}
-			editorListener.textEditor.doSave(new NullProgressMonitor());
+			textEditor.doSave(new NullProgressMonitor());
 		} catch (BadLocationException e) {
 			System.out.println("Error adding text");
 		}
@@ -252,188 +324,11 @@ public class AISessionManager {
 		// TODO implement batch managing
 	}
 
-	public class ActiveEditorListener implements IPartListener2 {
-		private SelectionListener selectionListener = new SelectionListener();
-		private IDocumentListener documentListener = new DocumentListener();
-		public ITextEditor textEditor;
-
-		@Override
-		public void partActivated(IWorkbenchPartReference partRef) {
-			// remove old
-			if (textEditor != null) {
-				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
-				if (selectionProvider != null)
-					selectionProvider.removeSelectionChangedListener(selectionListener);
-
-				IDocumentProvider documentProvider = textEditor.getDocumentProvider();
-				if (documentProvider != null) {
-					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
-					if (doc != null)
-						doc.removeDocumentListener(documentListener);
-				}
-			}
-
-			IEditorPart editor = null;
-			IWorkbenchPart part = partRef.getPart(false);
-			if (part instanceof AISessionEditor) {
-				editor = ((AISessionEditor) part).getEditor();
-			} else if (part instanceof IEditorPart) {
-				editor = (IEditorPart) part;
-			}
-
-			if (editor instanceof ITextEditor) {
-
-				textEditor = (ITextEditor) editor;
-				textEditor.getSelectionProvider().addSelectionChangedListener(selectionListener);
-
-				updateInputStat(InputMode.Editor);
-
-				IDocumentProvider documentProvider = textEditor.getDocumentProvider();
-				if (documentProvider != null) {
-					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
-					if (doc != null)
-						doc.addDocumentListener(documentListener);
-				}
-			}
-		}
-
-		public class DocumentListener implements IDocumentListener {
-			@Override
-			public void documentAboutToBeChanged(DocumentEvent event) {
-			}
-
-			@Override
-			public void documentChanged(DocumentEvent event) {
-				updateInputStat(InputMode.Editor);
-			}
-		}
-
-		public class SelectionListener implements ISelectionChangedListener {
-			@Override
-			public void selectionChanged(SelectionChangedEvent event) {
-				updateInputStat(InputMode.Selection);
-			}
-		}
-
-		@Override
-		public void partBroughtToTop(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partClosed(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partDeactivated(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partOpened(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partHidden(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partVisible(IWorkbenchPartReference partRef) {
-		}
-
-		@Override
-		public void partInputChanged(IWorkbenchPartReference partRef) {
-		}
-	}
-
 	public void saveConfig(IMemento memento) {
-		var m = memento.createChild("cfg");
-
-		if (cfg.key != null)
-			m.putString("key", cfg.key);
-		if (cfg.maxOutputTokens != null)
-			m.putString("maxOutputTokens", String.valueOf(cfg.maxOutputTokens));
-		if (cfg.temperature != null)
-			m.putString("temperature", String.valueOf(cfg.temperature));
-		if (cfg.topP != null)
-			m.putString("topP", String.valueOf(cfg.topP));
-		if (cfg.model != null)
-			m.putString("model", cfg.model.asString());
-		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
-		m.putInteger("systemPrompt.length", spLen);
-		if (spLen > 0) {
-			IMemento sp = m.createChild("systemPrompt");
-			for (int i = 0; i < spLen; i++) {
-				IMemento item = sp.createChild("item");
-				item.putInteger("index", i);
-				item.putString("value", cfg.systemPrompt[i]);
-			}
-		}
-		if (cfg.ouputMode != null)
-			m.putString("outputMode", cfg.ouputMode.name());
-		int imLen = cfg.inputModes != null ? cfg.inputModes.length : 0;
-		m.putInteger("inputModes.length", imLen);
-		if (imLen > 0) {
-			IMemento im = m.createChild("inputModes");
-			for (int i = 0; i < imLen; i++) {
-				IMemento item = im.createChild("item");
-				item.putInteger("index", i);
-				item.putString("value", Boolean.toString(cfg.inputModes[i]));
-			}
-		}
+		MementoConverter.saveConfig(memento, cfg);
 	}
 
 	public void loadConfig(IMemento memento) {
-		if (memento == null)
-			return;
-		var m = memento.getChild("cfg");
-		if (m == null)
-			return;
-
-		cfg.key = m.getString("key");
-		String maxTok = m.getString("maxOutputTokens");
-		cfg.maxOutputTokens = maxTok != null ? Long.valueOf(maxTok) : null;
-		String tmp = m.getString("temperature");
-		cfg.temperature = tmp != null ? Double.valueOf(tmp) : null;
-		String tp = m.getString("topP");
-		cfg.topP = tp != null ? Double.valueOf(tp) : null;
-		String mdl = m.getString("model");
-		cfg.model = mdl != null ? ChatModel.of(mdl) : null;
-		Integer spLen = m.getInteger("systemPrompt.length");
-		int sLen = spLen != null ? spLen : 0;
-		if (sLen > 0) {
-			IMemento sp = m.getChild("systemPrompt");
-			String[] arr = new String[sLen];
-			if (sp != null) {
-				IMemento[] items = sp.getChildren("item");
-				for (IMemento it : items) {
-					Integer idx = it.getInteger("index");
-					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < sLen)
-						arr[idx] = val;
-				}
-			}
-			cfg.systemPrompt = arr;
-		} else {
-			cfg.systemPrompt = new String[0];
-		}
-		String om = m.getString("outputMode");
-		cfg.ouputMode = om != null ? OutputMode.valueOf(om) : null;
-		Integer imLen = m.getInteger("inputModes.length");
-		int iLen = imLen != null ? imLen : 0;
-		if (iLen > 0) {
-			IMemento im = m.getChild("inputModes");
-			boolean[] arr = new boolean[iLen];
-			if (im != null) {
-				IMemento[] items = im.getChildren("item");
-				for (IMemento it : items) {
-					Integer idx = it.getInteger("index");
-					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < iLen)
-						arr[idx] = Boolean.parseBoolean(val);
-				}
-			}
-			cfg.inputModes = arr;
-		} else {
-			cfg.inputModes = new boolean[0];
-		}
+		MementoConverter.loadConfig(memento, cfg);
 	}
 }

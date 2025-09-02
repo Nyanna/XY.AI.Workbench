@@ -11,6 +11,8 @@ This project is a arrangement of different tools to support different workflows 
 * Append, Replace, Cursor output handling
 * Ultimate context and cost control
 * Based on OpenAI SDK
+* File, Search, selection and editor content or line inputs
+* Shortcuts
 * TBD Batch support
 
 **Workflows**
