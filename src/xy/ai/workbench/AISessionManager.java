@@ -238,7 +238,8 @@ public class AISessionManager {
 				IDocumentProvider documentProvider = textEditor.getDocumentProvider();
 				if (documentProvider != null) {
 					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
-					return doc.get();
+					if (doc != null)
+						return doc.get();
 				}
 			}
 			break;
