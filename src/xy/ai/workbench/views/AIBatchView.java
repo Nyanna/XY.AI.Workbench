@@ -1,5 +1,6 @@
 package xy.ai.workbench.views;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -71,24 +72,28 @@ public class AIBatchView extends ViewPart {
 		table.setLinesVisible(true);
 		parent.setLayout(tableLayout = new TableColumnLayout());
 
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "ID"))
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Id", 70))
 				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getID()));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Inputfile"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getInputFileID()));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Completion")).setLabelProvider(
-				ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getCompletion() * 100 + "%"));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "State"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getState().toString()));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Date"))
+//		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Inputfile", 50))
+//				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getInputFileID()));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Progress", 20))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> {
+					BatchEntry be = (BatchEntry) e;
+					return be.getTaskCount() + "(" + be.getCompletion() * 100 + "%)";
+				}));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "State", 50))
+				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> //
+				((BatchEntry) e).getState().toString() + " (" + ((BatchEntry) e).getBatchStatusString() + ")"));
+		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Updated", 40))
 				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getStateDate())));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Expires"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getExpires())));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Outputfile"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getOutputFileID()));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Errorfile"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getErrorFileID()));
-		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Report"))
-				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getBatchStatusString()));
+//		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Expires", 50))
+//				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getExpires())));
+//		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Outputfile", 50))
+//				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getOutputFileID()));
+//		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Errorfile", 50))
+//				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getErrorFileID()));
+//		new TableViewerColumn(viewer, createColumn(viewer.getTable(), "Report", 50))
+//				.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getBatchStatusString()));
 
 		table.requestLayout();
 		batch.setViewer(viewer);
@@ -103,16 +108,18 @@ public class AIBatchView extends ViewPart {
 	}
 
 	private String format(Date in) {
-		return in != null ? in.toString() : "";
+		return in != null
+				? SimpleDateFormat.getDateTimeInstance(SimpleDateFormat.SHORT, SimpleDateFormat.SHORT).format(in)
+				: "";
 	}
 
-	private TableColumn createColumn(Table parent, String label) {
+	private TableColumn createColumn(Table parent, String label, int weight) {
 		var res = new TableColumn(parent, SWT.NONE);
 		res.setMoveable(true);
 		res.setResizable(true);
 		res.setText(label);
 		res.setWidth(50);
-		tableLayout.setColumnData(res, new ColumnWeightData(50));
+		tableLayout.setColumnData(res, new ColumnWeightData(weight));
 		return res;
 	}
 
@@ -171,7 +178,13 @@ public class AIBatchView extends ViewPart {
 
 		actEnqueue = new Action() {
 			public void run() {
-				showMessage("Submit Batches");
+				new Job("Check Batches") {
+					@Override
+					protected IStatus run(IProgressMonitor monitor) {
+						Activator.getDefault().batch.submitBatches();
+						return Status.OK_STATUS;
+					}
+				}.schedule();
 			}
 		};
 		actEnqueue.setText("Submit Batches");
@@ -188,7 +201,7 @@ public class AIBatchView extends ViewPart {
 						if (elem.request.isEmpty()) {
 							showMessage("Batch contains no original requests");
 						} else
-							copyToClipboard(batch.requestsToString(elem.request));
+							copyToClipboard(batch.requestsToString(elem.request.values()));
 					}
 				}
 			}

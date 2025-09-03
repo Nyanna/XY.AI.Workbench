@@ -2,29 +2,43 @@ package xy.ai.workbench.batch;
 
 import static com.openai.core.ObjectMappers.jsonMapper;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
+import com.openai.core.http.HttpResponse;
 import com.openai.models.batches.Batch;
+import com.openai.models.batches.BatchCreateParams;
+import com.openai.models.batches.BatchCreateParams.CompletionWindow;
+import com.openai.models.batches.BatchCreateParams.Endpoint;
+import com.openai.models.batches.BatchCreateParams.Metadata;
 import com.openai.models.batches.BatchListPage;
 import com.openai.models.batches.BatchListParams;
+import com.openai.models.files.FileCreateParams;
+import com.openai.models.files.FileObject;
+import com.openai.models.files.FilePurpose;
 import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.ResponseCreateParams.Body;
 
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.batch.AIBatchManager.BatchEntry;
 
 public class OpenAIBatchConnector {
 	private OpenAIClient client;
 
 	public List<Batch> updateBatches() {
-		if (this.client == null) {
-			var key = Activator.getDefault().session.getKey();
-			this.client = OpenAIOkHttpClient.builder().apiKey(key).build();
-		}
+		prepareClient();
 
 		BatchListParams bparams = BatchListParams.builder() //
 				.limit(100) //
@@ -34,14 +48,84 @@ public class OpenAIBatchConnector {
 		return res.data();
 	}
 
-	public String requestToBatch(ResponseCreateParams param) {
-		ResponseCreateParams forBatch = param.toBuilder()
-				.additionalBodyProperties(Map.of("custom_id", JsonValue.from(new Random().nextInt())))//
+	public Batch submitBatch(String json, Collection<String> reqIds) {
+		prepareClient();
+
+		Path tempFile;
+        try {
+        	tempFile = Files.createTempFile("mydata", ".jsonl");
+			Files.write(tempFile, json.getBytes(StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+        
+		FileCreateParams fileParams = FileCreateParams.builder() //
+				.purpose(FilePurpose.BATCH) //
+				.file(tempFile)
 				.build();
+		FileObject file = client.files().create(fileParams);
+
+		Metadata meta = Metadata.builder() //
+				.putAdditionalProperty(AIBatchManager.KEY_REQIDS, JsonValue.from(//
+						reqIds.stream().collect(Collectors.joining(",")))) //
+				.build();
+
+		BatchCreateParams batchParams = BatchCreateParams.builder() //
+				.inputFileId(file.id()) //
+				.metadata(meta).endpoint(Endpoint.V1_RESPONSES) //
+				.completionWindow(CompletionWindow._24H) //
+				.build();
+		return client.batches().create(batchParams);
+	}
+
+	public void loadBatch(BatchEntry entry) {
+		prepareClient();
+
+		Batch batch = client.batches().retrieve(entry.id);
+		entry.batch = batch;
+
+		if (batch.outputFileId().isPresent())
+			try (HttpResponse response = client.files().content(batch.outputFileId().orElseThrow())) {
+				ByteArrayOutputStream bos = new ByteArrayOutputStream();
+				response.body().transferTo(bos);
+				String result = new String(bos.toByteArray());
+				entry.result = result;
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+	}
+
+	public String requestToBatch(ResponseCreateParams param) {
 		try {
-			return jsonMapper().writeValueAsString(forBatch._body());
+			return jsonMapper().writeValueAsString(new BatchElement(param._body()));
 		} catch (JsonProcessingException e) {
 			throw new IllegalStateException(e);
 		}
+	}
+
+	private void prepareClient() {
+		if (this.client == null) {
+			var key = Activator.getDefault().session.getKey();
+			this.client = OpenAIOkHttpClient.builder().apiKey(key).build();
+		}
+	}
+
+	private static class BatchElement {
+		@JsonProperty
+		public String custom_id = new Random().nextInt(Integer.MAX_VALUE) + "_id";
+
+		@JsonProperty
+		public String method = "POST";
+
+		@JsonProperty
+		public String url = "/v1/responses";
+
+		@JsonProperty
+		public Body body;
+
+		public BatchElement(Body body) {
+			this.body = body;
+		}
+
 	}
 }

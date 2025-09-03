@@ -1,8 +1,7 @@
 package xy.ai.workbench.batch;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -14,8 +13,8 @@ import com.openai.models.batches.Batch;
 import com.openai.models.responses.ResponseCreateParams;
 
 public class AIBatchManager {
-	private static final String UNSEND_ID = "Prepared";
-	public static Object KEY_REQIDS = "reqIds";
+	private static final String UNSEND_ID = "New";
+	public static String KEY_REQIDS = "reqIds";
 	private OpenAIBatchConnector connector = new OpenAIBatchConnector();
 
 	private Map<String, BatchEntry> index = new TreeMap<>();
@@ -30,7 +29,22 @@ public class AIBatchManager {
 		BatchEntry unsent = index.get(UNSEND_ID);
 		if (unsent == null)
 			addEntry(unsent = new BatchEntry(UNSEND_ID));
-		unsent.request.add(req);
+		unsent.request.put(unsent.request.size() + "", req);
+		final BatchEntry toUpdate = unsent;
+		Display.getDefault().asyncExec(() -> viewer.refresh(toUpdate, true));
+	}
+
+	public void submitBatches() {
+		final BatchEntry unsent = index.get(UNSEND_ID);
+		if (unsent == null || unsent.request.isEmpty())
+			return;
+
+		String json = requestsToString(unsent.request.values());
+		Batch res = connector.submitBatch(json, unsent.request.keySet());
+		addEntry(new BatchEntry(res.id(), res));
+
+		unsent.request.clear();
+		Display.getDefault().asyncExec(() -> viewer.refresh(unsent, true));
 	}
 
 	private void addEntry(BatchEntry entry) {
@@ -44,15 +58,17 @@ public class AIBatchManager {
 		}
 	}
 
-	public String requestsToString(List<ResponseCreateParams> request) {
+	public String requestsToString(Collection<ResponseCreateParams> request) {
 		return request.stream().map((r) -> connector.requestToBatch(r)).collect(Collectors.joining("\n"));
 	}
 
 	public static class BatchEntry {
 		public String id;
 		public Batch batch;
-		public List<ResponseCreateParams> request = new ArrayList<>();
+		public Map<String, ResponseCreateParams> request = new TreeMap<>();
 		private Date created = new Date();
+		// string content of result file
+		public String result;
 
 		public BatchEntry(String id) {
 			this(id, null);
@@ -83,6 +99,17 @@ public class AIBatchManager {
 			return batch != null && batch.expiresAt().isPresent() ? new Date(batch.expiresAt().get()) : null;
 		}
 
+		public int getTaskCount() {
+			if (batch != null) {
+				var count = batch.requestCounts().orElse(null);
+				if (count != null)
+					return (int) count.total();
+			} else {
+				return request.size();
+			}
+			return -1;
+		}
+
 		public float getCompletion() {
 			if (batch != null) {
 				var count = batch.requestCounts().orElse(null);
@@ -109,7 +136,7 @@ public class AIBatchManager {
 		public String getBatchStatusString() {
 			if (batch != null)
 				return batch.status().asString();
-			return null;
+			return "n/a";
 		}
 
 		public BatchState getState() {

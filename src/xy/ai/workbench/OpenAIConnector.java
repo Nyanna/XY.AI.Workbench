@@ -44,8 +44,17 @@ public class OpenAIConnector {
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
 				.model(cfg.model); //
-		if (input != null && !input.isBlank())
-			builder = builder.input(input);
+		if (input != null && !input.isBlank()) {
+			List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
+			ResponseInputText inputText = ResponseInputText.builder() //
+					.text(input) //
+					.build();
+			ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
+					.role(ResponseInputItem.Message.Role.USER)//
+					.addContent(inputText).build());
+			inputs.add(inputItem);
+			builder = builder.inputOfResponse(inputs);
+		}
 
 		if (tools != null && !tools.isEmpty())
 			builder = appendTools(builder, tools);
