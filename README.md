@@ -13,7 +13,7 @@ This project is a arrangement of different tools to support different workflows 
 * Based on OpenAI SDK
 * File, Search, selection and editor content or line inputs
 * Shortcuts
-* TBD Batch support
+* Batch support
 
 **Workflows**
 * Markdown foundation
