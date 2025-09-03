@@ -37,6 +37,7 @@ import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
+import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
@@ -123,6 +124,10 @@ public class AISessionManager {
 	public void setModel(ChatModel model) {
 		cfg.setModel(model);
 	}
+	
+	public void setReasoning(ReasoningEffort reasoning) {
+		cfg.setReasoning(reasoning);
+	}
 
 	public void setSystemPrompt(String[] systemPrompt) {
 		cfg.setSystemPrompt(systemPrompt);
@@ -148,6 +153,10 @@ public class AISessionManager {
 
 	public ChatModel getModel() {
 		return cfg.getModel();
+	}
+
+	public ReasoningEffort getReasoning() {
+		return cfg.getReasoning();
 	}
 
 	public String[] getSystemPrompt() {
@@ -214,6 +223,14 @@ public class AISessionManager {
 	public String[] getModels() {
 		ChatModel[] models = new ChatModel[] { ChatModel.GPT_5_NANO, ChatModel.GPT_5_MINI, ChatModel.GPT_5 };
 		String[] options = Arrays.stream(models).map((m) -> m.asString()).collect(Collectors.toList())
+				.toArray(new String[0]);
+		return options;
+	}
+
+	public String[] getReasonings() {
+		ReasoningEffort[] reasons = new ReasoningEffort[] { ReasoningEffort.MINIMAL, ReasoningEffort.LOW,
+				ReasoningEffort.MEDIUM, ReasoningEffort.HIGH };
+		String[] options = Arrays.stream(reasons).map((m) -> m.asString()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
 	}

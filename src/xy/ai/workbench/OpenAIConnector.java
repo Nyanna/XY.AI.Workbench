@@ -7,7 +7,6 @@ import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.HttpResponseFor;
 import com.openai.models.Reasoning;
-import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.Response.Instructions;
 import com.openai.models.responses.ResponseCreateParams;
@@ -41,7 +40,7 @@ public class OpenAIConnector {
 				.instructions(systemPrompt)//
 				.reasoning( //
 						Reasoning.builder()//
-								.effort(ReasoningEffort.MINIMAL) //
+								.effort(cfg.reasoning) //
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
 				.model(cfg.model); //

@@ -1,6 +1,7 @@
 package xy.ai.workbench;
 
 import com.openai.models.ChatModel;
+import com.openai.models.ReasoningEffort;
 
 public class SessionConfig {
 	public String key = null;
@@ -18,6 +19,7 @@ public class SessionConfig {
 	};
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[InputMode.values().length];
+	public ReasoningEffort reasoning = ReasoningEffort.MINIMAL;
 
 	public SessionConfig() {
 		setInputMode(InputMode.Instructions, true);
@@ -62,6 +64,14 @@ public class SessionConfig {
 
 	public void setModel(ChatModel model) {
 		this.model = model;
+	}
+	
+	public ReasoningEffort getReasoning() {
+		return reasoning;
+	}
+	
+	public void setReasoning(ReasoningEffort reasoning) {
+		this.reasoning = reasoning;
 	}
 
 	public String[] getSystemPrompt() {

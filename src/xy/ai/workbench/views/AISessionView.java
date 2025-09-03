@@ -32,6 +32,7 @@ import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
 import com.openai.models.ChatModel;
+import com.openai.models.ReasoningEffort;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.AIAnswer;
@@ -141,6 +142,14 @@ public class AISessionView extends ViewPart {
 			modelSel.setText(session.getModel().asString());
 			modelSel.addSelectionListener(
 					SelectionListener.widgetSelectedAdapter(e -> session.setModel(ChatModel.of(modelSel.getText()))));
+
+			toolkit.createLabel(top, "Reasoning:");
+			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+			reasSel.setItems(session.getReasonings());
+			reasSel.setLayoutData(defHorizontal);
+			reasSel.setText(session.getReasoning().asString());
+			reasSel.addSelectionListener(SelectionListener
+					.widgetSelectedAdapter(e -> session.setReasoning(ReasoningEffort.of(reasSel.getText()))));
 		}
 		{ // instruction section
 

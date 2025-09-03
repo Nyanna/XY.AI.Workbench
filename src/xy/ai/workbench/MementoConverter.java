@@ -3,6 +3,7 @@ package xy.ai.workbench;
 import org.eclipse.ui.IMemento;
 
 import com.openai.models.ChatModel;
+import com.openai.models.ReasoningEffort;
 
 public class MementoConverter {
 
@@ -19,6 +20,8 @@ public class MementoConverter {
 			m.putString("topP", String.valueOf(cfg.topP));
 		if (cfg.model != null)
 			m.putString("model", cfg.model.asString());
+		if (cfg.reasoning != null)
+			m.putString("reasoning", cfg.reasoning.asString());
 		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
 		m.putInteger("systemPrompt.length", spLen);
 		if (spLen > 0) {
@@ -59,6 +62,9 @@ public class MementoConverter {
 		cfg.topP = tp != null ? Double.valueOf(tp) : null;
 		String mdl = m.getString("model");
 		cfg.model = mdl != null ? ChatModel.of(mdl) : null;
+		String rsn = m.getString("reasoning");
+		if (rsn != null)
+			cfg.reasoning = ReasoningEffort.of(rsn);
 		Integer spLen = m.getInteger("systemPrompt.length");
 		int sLen = spLen != null ? spLen : 0;
 		if (sLen > 0) {
