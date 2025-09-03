@@ -12,7 +12,7 @@ public class SessionConfig {
 			"Answer very short and precise", //
 			"Be objective and neutral", //
 			"Don't repeat the input", //
-			"Don't ask follow-up questions for this one time prompt", //
+			"Don't ask follow-up questions for this one-time prompt", //
 			"#Use $ Markdown inline Latex syntax for math formulas", //
 			"#For generated code use english language"//
 	};

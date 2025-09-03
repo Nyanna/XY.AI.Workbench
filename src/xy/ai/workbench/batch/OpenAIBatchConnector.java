@@ -32,7 +32,6 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.batch.AIBatchManager.BatchEntry;
 
 public class OpenAIBatchConnector {
 	private OpenAIClient client;
@@ -52,17 +51,16 @@ public class OpenAIBatchConnector {
 		prepareClient();
 
 		Path tempFile;
-        try {
-        	tempFile = Files.createTempFile("mydata", ".jsonl");
+		try {
+			tempFile = Files.createTempFile("mydata", ".jsonl");
 			Files.write(tempFile, json.getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
 			throw new IllegalStateException(e);
 		}
-        
+
 		FileCreateParams fileParams = FileCreateParams.builder() //
 				.purpose(FilePurpose.BATCH) //
-				.file(tempFile)
-				.build();
+				.file(tempFile).build();
 		FileObject file = client.files().create(fileParams);
 
 		Metadata meta = Metadata.builder() //
@@ -76,6 +74,14 @@ public class OpenAIBatchConnector {
 				.completionWindow(CompletionWindow._24H) //
 				.build();
 		return client.batches().create(batchParams);
+	}
+
+	public Batch cancelBatch(BatchEntry entry) {
+		prepareClient();
+
+		if (BatchState.Proccessing.equals(entry.getState()))
+			return client.batches().cancel(entry.id);
+		return null;
 	}
 
 	public void loadBatch(BatchEntry entry) {

@@ -9,6 +9,7 @@ import com.openai.core.http.HttpResponseFor;
 import com.openai.models.Reasoning;
 import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
+import com.openai.models.responses.Response.Instructions;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Builder;
 import com.openai.models.responses.ResponseCreateParams.Truncation;
@@ -63,7 +64,7 @@ public class OpenAIConnector {
 		return params;
 	}
 
-	public AIAnswer executeRequest(ResponseCreateParams params) {
+	public Response executeRequest(ResponseCreateParams params) {
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
@@ -82,19 +83,24 @@ public class OpenAIConnector {
 				status = resp.status().get();
 			} while (status.equals(ResponseStatus.QUEUED) || status.equals(ResponseStatus.IN_PROGRESS));
 		}
+		return resp;
+	}
+
+	public AIAnswer convertResponse(Response resp) {
 
 		AIAnswer res = new AIAnswer();
 		if (resp.usage().isPresent()) {
 			ResponseUsage usage = resp.usage().get();
-			System.out.println("Usage In: " + usage.inputTokens() + ", Out: " + usage.outputTokens() + ", Total: "
-					+ usage.totalTokens() + "");
 			res.inputToken = usage.inputTokens();
 			res.outputToken = usage.outputTokens();
 			res.totalToken = usage.totalTokens();
-			if (usage.outputTokensDetails() != null) {
-				System.out.println("Out Details Reasoning: " + usage.outputTokensDetails().reasoningTokens() + "");
+			if (usage.outputTokensDetails() != null)
 				res.reasoningToken = usage.outputTokensDetails().reasoningTokens();
-			}
+		}
+
+		if (resp.instructions().isPresent()) {
+			Instructions ins = resp.instructions().get();
+			res.instructions = ins.asString();
 		}
 
 		if (resp.error().isPresent()) {
@@ -130,10 +136,7 @@ public class OpenAIConnector {
 				System.out.println("Other output!");
 			}
 		}
-
-		System.out.println("Finished");
 		return res;
-
 	}
 
 	private Builder appendTools(Builder builder, List<String> tools) {

@@ -35,6 +35,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
+import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
 import xy.ai.workbench.batch.AIBatchManager;
@@ -406,12 +407,13 @@ public class AISessionManager {
 
 	private AIAnswer executeInner(Display display, ResponseCreateParams req) {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		AIAnswer res = connector.executeRequest(req);
+		Response resp = connector.executeRequest(req);
+		AIAnswer res = connector.convertResponse(resp);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;
 	}
 
-	private void processAnswer(Display display, AIAnswer res) {
+	public void processAnswer(Display display, AIAnswer res) {
 		display.asyncExec(() -> {
 			try {
 				ITextEditor textEditor = editorListener.getLastTextEditor();

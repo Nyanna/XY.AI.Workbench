@@ -1,11 +1,13 @@
 package xy.ai.workbench;
 
 public class AIAnswer {
+	public String id;
 	public long inputToken;
 	public long outputToken;
 	public long reasoningToken;
 	public long totalToken;
 	public String answer = "";
+	public String instructions = "";
 
 	@Override
 	public String toString() {
