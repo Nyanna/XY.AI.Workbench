@@ -19,6 +19,7 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.search.ui.ISearchQuery;
 import org.eclipse.search.ui.ISearchResult;
@@ -227,10 +228,13 @@ public class AISessionManager {
 			return systemPrompt;
 		case Selection:
 			if (textEditor != null) {
-				ISelection selection = textEditor.getSelectionProvider().getSelection();
-				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-				if (tsel != null)
-					return tsel.getText();
+				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
+				if (selectionProvider != null) {
+					ISelection selection = selectionProvider.getSelection();
+					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
+					if (tsel != null)
+						return tsel.getText();
+				}
 			}
 			break;
 		case Editor:
@@ -245,16 +249,19 @@ public class AISessionManager {
 			break;
 		case Current_line:
 			if (textEditor != null) {
-				ISelection selection = textEditor.getSelectionProvider().getSelection();
-				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-				if (tsel != null) {
-					int line = tsel.getEndLine();
-					IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-					try {
-						IRegion lineInfo = doc.getLineInformation(line);
-						return doc.get(lineInfo.getOffset(), lineInfo.getLength());
-					} catch (BadLocationException e1) {
-						e1.printStackTrace();
+				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
+				if (selectionProvider != null) {
+					ISelection selection = selectionProvider.getSelection();
+					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
+					if (tsel != null) {
+						int line = tsel.getEndLine();
+						IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+						try {
+							IRegion lineInfo = doc.getLineInformation(line);
+							return doc.get(lineInfo.getOffset(), lineInfo.getLength());
+						} catch (BadLocationException e1) {
+							e1.printStackTrace();
+						}
 					}
 				}
 			}
