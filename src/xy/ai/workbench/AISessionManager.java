@@ -32,6 +32,7 @@ import org.eclipse.ui.IMemento;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.openai.models.ChatModel;
@@ -234,8 +235,11 @@ public class AISessionManager {
 			break;
 		case Editor:
 			if (textEditor != null) {
-				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-				return doc.get();
+				IDocumentProvider documentProvider = textEditor.getDocumentProvider();
+				if (documentProvider != null) {
+					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
+					return doc.get();
+				}
 			}
 			break;
 		case Current_line:
