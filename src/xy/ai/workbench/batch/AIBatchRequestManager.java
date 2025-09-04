@@ -37,6 +37,11 @@ public class AIBatchRequestManager implements IStructuredContentProvider {
 				loadedAnswers.add(convertJson(InputJson));
 				mon.worked(1);
 			}
+
+		if (obj.getError() != null) {
+			loadedAnswers.add(convertJson(obj.getError()));
+			mon.worked(1);
+		}
 	}
 
 	private AIAnswer convertJson(String inputJson) {
@@ -46,7 +51,7 @@ public class AIBatchRequestManager implements IStructuredContentProvider {
 			// TODO add id for local and remote
 			TextNode id = (TextNode) tree.get("id");
 			ObjectNode response = (ObjectNode) tree.get("response");
-			//IntNode statusCode = (IntNode) response.get("status_code");
+			// IntNode statusCode = (IntNode) response.get("status_code");
 			ObjectNode body = (ObjectNode) response.get("body");
 
 			String bodyJson = ObjectMappers.jsonMapper().writeValueAsString(body);

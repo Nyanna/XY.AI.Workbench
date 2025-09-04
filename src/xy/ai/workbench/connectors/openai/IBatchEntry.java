@@ -8,18 +8,6 @@ public interface IBatchEntry {
 
 	String getID();
 
-	default String getErrorFileID() {
-		return null;
-	}
-
-	default String getOutputFileID() {
-		return null;
-	}
-
-	default String getInputFileID() {
-		return null;
-	}
-
 	default Date getExpires() {
 		return null;
 	}
@@ -55,9 +43,9 @@ public interface IBatchEntry {
 	default String getResult() {
 		return null;
 	}
-
-	default void setResult(String result) {
-		throw new IllegalStateException("Immutable");
+	
+	default String getError() {
+		return null;
 	}
 
 	default boolean hasRequests() {

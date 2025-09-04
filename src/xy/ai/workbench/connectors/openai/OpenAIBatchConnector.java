@@ -94,18 +94,26 @@ public class OpenAIBatchConnector {
 	public void loadBatch(IBatchEntry entry) {
 		prepareClient();
 
-		Batch batch = client.batches().retrieve(entry.getID());
-		((OpenAIBatchEntry) entry).batch = batch;
+		OpenAIBatchEntry oentry = ((OpenAIBatchEntry) entry);
+		Batch batch = client.batches().retrieve(oentry.getID());
+		oentry.setBatch(batch);;
 
-		if (batch.outputFileId().isPresent())
-			try (HttpResponse response = client.files().content(batch.outputFileId().orElseThrow())) {
-				ByteArrayOutputStream bos = new ByteArrayOutputStream();
-				response.body().transferTo(bos);
-				String result = new String(bos.toByteArray());
-				entry.setResult(result);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (oentry.getError() == null && batch.errorFileId().isPresent())
+			oentry.setError(getFileAsString(batch.errorFileId().get()));
+
+		if (oentry.getResult() == null && batch.outputFileId().isPresent())
+			oentry.setResult(getFileAsString(batch.outputFileId().get()));
+	}
+
+	private String getFileAsString(String fileId) {
+		try (HttpResponse response = client.files().content(fileId)) {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			response.body().transferTo(bos);
+			String result = new String(bos.toByteArray());
+			return result;
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private String requestToJson(ResponseCreateParams param) {

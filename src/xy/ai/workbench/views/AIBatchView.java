@@ -49,6 +49,7 @@ import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchRequestManager;
 import xy.ai.workbench.connectors.openai.IBatchEntry;
 import xy.ai.workbench.models.AIAnswer;
+import xy.ai.workbench.tools.Time;
 
 public class AIBatchView extends ViewPart {
 
@@ -62,7 +63,7 @@ public class AIBatchView extends ViewPart {
 
 	private TableViewer batchViewer;
 	private TableViewer reqViewer;
-	private Action actUpdate, actEnqueue, actDetails, actInsert, actCpJson, actCancel;
+	private Action actUpdate, actEnqueue, actDetails, actInsert, actCpJson, actCancel, actCpResponse, actCpError;
 
 	private AIBatchManager batch;
 	private AIBatchRequestManager batchRequests = new AIBatchRequestManager();
@@ -103,8 +104,8 @@ public class AIBatchView extends ViewPart {
 					((IBatchEntry) e).getState().toString() + " (" + ((IBatchEntry) e).getBatchStatusString() + ")"));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Updated", 50)).setLabelProvider(
 					ColumnLabelProvider.createTextProvider(e -> format(((IBatchEntry) e).getStateDate())));
-			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Duration", 5)).setLabelProvider(
-					ColumnLabelProvider.createTextProvider(e -> emptyWhenNull(((IBatchEntry) e).getDuration())));
+			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Duration", 10)).setLabelProvider(
+					ColumnLabelProvider.createTextProvider(e -> Time.secsToReadable(((IBatchEntry) e).getDuration())));
 
 			batchViewer.setComparator(new ViewerComparator() {
 				public int compare(Viewer viewer, Object e1, Object e2) {
@@ -153,38 +154,30 @@ public class AIBatchView extends ViewPart {
 		hookDoubleClickAction();
 		contributeToActionBars();
 	}
-	
-	public String processComment(String text) {
-	    if (text == null) {
-	        return "";
-	    }
-	    String[] lines = text.split("\\R");
-	    StringBuilder resultBuilder = new StringBuilder();
-	    int lineCount = 0;
-	    for (String line : lines) {
-	        String trimmedLine = line.trim();
-	        if (!trimmedLine.isEmpty()) {
-	            resultBuilder.append(trimmedLine).append("\n");
-	            lineCount++;
-	            if (lineCount == 3) {
-	                break;
-	            }
-	        }
-	    }
-	    String processedString = resultBuilder.toString().trim();
-	    if (lineCount < lines.length && !processedString.isEmpty()) {
-	        return processedString + " ...";
-	    } else {
-	        return processedString;
-	    }
-	}
 
-	private String emptyWhenNull(int val) {
-		if (val != 0)
-			return val + "";
-		return "";
-		// TODO context menu cancel batch
-		// TODO copy json for batch response object
+	public String processComment(String text) {
+		if (text == null) {
+			return "";
+		}
+		String[] lines = text.split("\\R");
+		StringBuilder resultBuilder = new StringBuilder();
+		int lineCount = 0;
+		for (String line : lines) {
+			String trimmedLine = line.trim();
+			if (!trimmedLine.isEmpty()) {
+				resultBuilder.append(trimmedLine).append("\n");
+				lineCount++;
+				if (lineCount == 3) {
+					break;
+				}
+			}
+		}
+		String processedString = resultBuilder.toString().trim();
+		if (lineCount < lines.length && !processedString.isEmpty()) {
+			return processedString + " ...";
+		} else {
+			return processedString;
+		}
 	}
 
 	private String format(Date in) {
@@ -229,6 +222,8 @@ public class AIBatchView extends ViewPart {
 
 	private void fillContextMenu(IMenuManager manager) {
 		manager.add(actCpJson);
+		manager.add(actCpResponse);
+		manager.add(actCpError);
 		manager.add(actCancel);
 		// Other plug-ins can contribute there actions here
 		manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
@@ -289,6 +284,44 @@ public class AIBatchView extends ViewPart {
 		actCpJson.setText("Copy JSON");
 		actCpJson.setToolTipText("Copy JSON for use in batches");
 		actCpJson.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
+
+		actCpResponse = new Action() {
+			public void run() {
+				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
+				if (!selection.isEmpty()) {
+					Object selectedElement = selection.getFirstElement();
+					if (selectedElement instanceof IBatchEntry) {
+						IBatchEntry elem = (IBatchEntry) selectedElement;
+						if (elem.getResult() == null) {
+							showMessage("Batch contains no response");
+						} else
+							copyToClipboard(elem.getResult());
+					}
+				}
+			}
+		};
+		actCpResponse.setText("Copy Result JSON");
+		actCpResponse.setToolTipText("Copy Result JSON");
+		actCpResponse.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
+
+		actCpError = new Action() {
+			public void run() {
+				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
+				if (!selection.isEmpty()) {
+					Object selectedElement = selection.getFirstElement();
+					if (selectedElement instanceof IBatchEntry) {
+						IBatchEntry elem = (IBatchEntry) selectedElement;
+						if (elem.getError() == null) {
+							showMessage("Batch contains no errors");
+						} else
+							copyToClipboard(elem.getError());
+					}
+				}
+			}
+		};
+		actCpError.setText("Copy Error JSON");
+		actCpError.setToolTipText("Copy error JSON");
+		actCpError.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
 
 		actCancel = new Action() {
 			public void run() {

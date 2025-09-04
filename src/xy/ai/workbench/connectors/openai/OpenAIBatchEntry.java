@@ -8,11 +8,13 @@ import xy.ai.workbench.batch.BatchState;
 
 public class OpenAIBatchEntry implements IBatchEntry {
 	private String id;
-	Batch batch;
+	private Batch batch;
 
 	private Date created = new Date();
 	// string content of result file
 	private String result;
+	// string content of error file
+	private String error;
 
 	public OpenAIBatchEntry(String id) {
 		this(id, null);
@@ -34,6 +36,10 @@ public class OpenAIBatchEntry implements IBatchEntry {
 		if (oi.result != null)
 			result = oi.result;
 	}
+	
+	public void setBatch(Batch batch) {
+		this.batch = batch;
+	}
 
 	@Override
 	public String getID() {
@@ -45,22 +51,27 @@ public class OpenAIBatchEntry implements IBatchEntry {
 		return result;
 	}
 
-	@Override
 	public void setResult(String result) {
 		this.result = result;
 	}
 
 	@Override
+	public String getError() {
+		return error;
+	}
+	
+	public void setError(String error) {
+		this.error = error;
+	}
+
 	public String getErrorFileID() {
 		return batch != null && batch.errorFileId().isPresent() ? batch.errorFileId().get() : null;
 	}
 
-	@Override
 	public String getOutputFileID() {
 		return batch != null && batch.outputFileId().isPresent() ? batch.outputFileId().get() : null;
 	}
 
-	@Override
 	public String getInputFileID() {
 		return batch != null ? batch.inputFileId() : "none";
 	}

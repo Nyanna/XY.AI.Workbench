@@ -18,6 +18,7 @@ import com.openai.models.responses.Response.Instructions;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Builder;
 import com.openai.models.responses.ResponseCreateParams.Truncation;
+import com.openai.models.responses.ResponseError;
 import com.openai.models.responses.ResponseInputItem;
 import com.openai.models.responses.ResponseInputText;
 import com.openai.models.responses.ResponseStatus;
@@ -45,8 +46,7 @@ public class OpenAIConnector {
 				.maxOutputTokens(cfg.maxOutputTokens)
 				// .temperature(cfg.temperature) // TODO Not supported
 				// .topP(cfg.topP) // TODO Not Supported
-				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "")
-				.truncation(Truncation.DISABLED) //
+				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "").truncation(Truncation.DISABLED) //
 				.maxToolCalls(1)//
 				.background(isBackground)//
 				.instructions(systemPrompt)//
@@ -124,31 +124,35 @@ public class OpenAIConnector {
 			var incomplete = resp.incompleteDetails().get();
 			System.out.println("Incomplete: " + incomplete.reason().get().toString() + " ");
 		}
+		if (resp.error().isPresent()) {
+			ResponseError error = resp.error().get();
+			res.answer = error.code() + ": " + error.message();
 
-		for (var out : resp.output()) {
-			if (out.isMessage()) {
-				var msg = out.message().get();
-				for (var cnt : msg.content()) {
-					if (cnt.isOutputText()) {
-						String answer = cnt.asOutputText().text();
-						// System.out.println("Answer: " + answer);
-						res.answer += answer;
-					} else if (cnt.isRefusal()) {
-						System.out.println("Refusal: " + cnt.asRefusal().refusal());
+		} else
+			for (var out : resp.output()) {
+				if (out.isMessage()) {
+					var msg = out.message().get();
+					for (var cnt : msg.content()) {
+						if (cnt.isOutputText()) {
+							String answer = cnt.asOutputText().text();
+							// System.out.println("Answer: " + answer);
+							res.answer += answer;
+						} else if (cnt.isRefusal()) {
+							System.out.println("Refusal: " + cnt.asRefusal().refusal());
+						}
 					}
-				}
-			} else if (out.isReasoning()) {
-				for (var cnt : out.asReasoning().summary()) {
-					System.out.println("Reasoning summary: " + cnt.text());
-				}
-				if (out.asReasoning().content().isPresent())
-					for (var cnt : out.asReasoning().content().get()) {
-						System.out.println("Reasoning content: " + cnt.text());
+				} else if (out.isReasoning()) {
+					for (var cnt : out.asReasoning().summary()) {
+						System.out.println("Reasoning summary: " + cnt.text());
 					}
-			} else {
-				System.out.println("Other output!");
+					if (out.asReasoning().content().isPresent())
+						for (var cnt : out.asReasoning().content().get()) {
+							System.out.println("Reasoning content: " + cnt.text());
+						}
+				} else {
+					System.out.println("Other output!");
+				}
 			}
-		}
 		return res;
 	}
 

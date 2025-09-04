@@ -10,7 +10,7 @@ public class SessionConfig {
 	};
 
 	public String key = null;
-	public Long maxOutputTokens = 16 * 1024L; // 128K for 5 models
+	public Long maxOutputTokens = 128000L; // 128K for 5 models
 	public Double temperature = 0d; // 0-2
 	public Double topP = 0.1d;
 	public Model model = Model.GPT_5_NANO;
