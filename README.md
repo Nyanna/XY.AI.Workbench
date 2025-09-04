@@ -10,7 +10,8 @@ This project is a arrangement of different tools to support different workflows 
 * Input and output statistics
 * Append, Replace, Cursor output handling
 * Ultimate context and cost control
-* Based on OpenAI SDK
+* OpenAI Based on OpenAI SDK
+* Gemini based on Google genai SDK
 * File, Search, selection and editor content or line inputs
 * Shortcuts
 * Batch support

@@ -34,6 +34,7 @@ import org.eclipse.ui.part.ViewPart;
 import jakarta.inject.Inject;
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.SessionConfig.Model;
@@ -82,13 +83,13 @@ public class AISessionView extends ViewPart {
 	@Override
 	public void saveState(IMemento memento) {
 		super.saveState(memento);
-		Activator.getDefault().session.saveConfig(memento);
+		Activator.getDefault().cfg.saveConfig(memento);
 	}
 
 	@Override
 	public void init(IViewSite site, IMemento memento) throws PartInitException {
 		super.init(site, memento);
-		Activator.getDefault().session.loadConfig(memento);
+		Activator.getDefault().cfg.loadConfig(memento);
 	}
 
 	@Override
@@ -98,8 +99,8 @@ public class AISessionView extends ViewPart {
 		toolkit = new FormToolkit(parent.getDisplay());
 		form = toolkit.createScrolledForm(parent);
 		form.setText("AI Session");
+		ConfigManager cfg = Activator.getDefault().cfg;
 		AISessionManager session = Activator.getDefault().session;
-		session.clearObserver();
 
 		Composite body = form.getBody();
 		body.setLayout(new GridLayout());
@@ -113,42 +114,42 @@ public class AISessionView extends ViewPart {
 			toolkit.createLabel(top, "Key:");
 			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
 			keyInput.setLayoutData(defHorizontal);
-			keyInput.addModifyListener(e -> session.setKey(keyInput.getText()));
-			keyInput.setText(session.getKey() + "");
+			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
+			keyInput.setText(cfg.getKey() + "");
 
 			toolkit.createLabel(top, "Model:");
 			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			modelSel.setItems(session.getModels());
+			modelSel.setItems(cfg.getModels());
 			modelSel.setLayoutData(defHorizontal);
-			modelSel.setText(session.getModel().name());
+			modelSel.setText(cfg.getModel().name());
 			modelSel.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> session.setModel(Model.valueOf(modelSel.getText()))));
+					SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
 
 			toolkit.createLabel(top, "Max Token:");
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
 			maxToken.setLayoutData(defHorizontal);
-			maxToken.setText(session.getMaxOutputTokens() + "");
-			maxToken.addModifyListener(e -> session.setMaxOutputTokens(Long.parseLong(maxToken.getText())));
+			maxToken.setText(cfg.getMaxOutputTokens() + "");
+			maxToken.addModifyListener(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText())));
 
 			toolkit.createLabel(top, "Temp:");
 			Text temp = toolkit.createText(top, "", SWT.BORDER);
 			temp.setLayoutData(defHorizontal);
-			temp.setText(session.getTemperature() + "");
-			temp.addModifyListener(e -> session.setTemperature(Double.parseDouble(temp.getText())));
+			temp.setText(cfg.getTemperature() + "");
+			temp.addModifyListener(e -> cfg.setTemperature(Double.parseDouble(temp.getText())));
 
 			toolkit.createLabel(top, "topP:");
 			Text topP = toolkit.createText(top, "", SWT.BORDER);
 			topP.setLayoutData(defHorizontal);
-			topP.setText(session.getTopP() + "");
-			topP.addModifyListener(e -> session.setTopP(Double.parseDouble(topP.getText())));
+			topP.setText(cfg.getTopP() + "");
+			topP.addModifyListener(e -> cfg.setTopP(Double.parseDouble(topP.getText())));
 
 			toolkit.createLabel(top, "Reasoning:");
 			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			reasSel.setItems(session.getReasonings());
+			reasSel.setItems(cfg.getReasonings());
 			reasSel.setLayoutData(defHorizontal);
-			reasSel.setText(session.getReasoning().name());
+			reasSel.setText(cfg.getReasoning().name());
 			reasSel.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> session.setReasoning(Reasoning.valueOf(reasSel.getText()))));
+					.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
 		}
 		{ // instruction section
 
@@ -178,7 +179,7 @@ public class AISessionView extends ViewPart {
 				comp.setLayoutData(ldat3);
 				instrSel.setControl(comp);
 				instructionList = new List(comp, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL);
-				session.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
+				cfg.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
 
 				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 				gridData.widthHint = 1;
@@ -200,7 +201,7 @@ public class AISessionView extends ViewPart {
 						}
 						upd[i] = line;
 					}
-					session.setSystemPrompt(upd);
+					cfg.setSystemPrompt(upd);
 				}));
 			}
 
@@ -210,7 +211,7 @@ public class AISessionView extends ViewPart {
 				instrEdit.setControl(comp);
 				instructionEdit = toolkit.createText(comp, "", SWT.BORDER | SWT.MULTI | SWT.WRAP | SWT.V_SCROLL);
 				GridData gdMulti = new GridData(GridData.FILL_BOTH);
-				session.addSystemPromptObs(p -> {
+				cfg.addSystemPromptObs(p -> {
 					if (!instructionEdit.isFocusControl())
 						updateEditList(p.systemPrompt);
 				}, true);
@@ -218,7 +219,7 @@ public class AISessionView extends ViewPart {
 				instructionEdit.addModifyListener(e -> {
 					if (isUpdating)
 						return;
-					session.setSystemPrompt(instructionEdit.getText().split("\n"));
+					cfg.setSystemPrompt(instructionEdit.getText().split("\n"));
 				});
 				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 				gridData.widthHint = 1;
@@ -245,7 +246,7 @@ public class AISessionView extends ViewPart {
 					if (e.detail == SWT.CHECK) {
 						TableItem item = (TableItem) e.item;
 						InputMode mode = InputMode.valueOf(item.getText(1).replace(" ", "_"));
-						session.setInputMode(mode, item.getChecked());
+						cfg.setInputMode(mode, item.getChecked());
 					}
 				});
 
@@ -253,11 +254,11 @@ public class AISessionView extends ViewPart {
 					TableItem item = new TableItem(table, SWT.NONE);
 					InputMode mode = InputMode.values()[i];
 					item.setText(new String[] { "", mode.name().replace("_", " "), "0" });
-					item.setChecked(session.isInputEnabled(mode));
+					item.setChecked(cfg.isInputEnabled(mode));
 					session.addInputStatObs(is -> {
 						item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
 					}, true);
-					session.addInputObs(is -> {
+					cfg.addInputObs(is -> {
 						item.setChecked(is[mode.ordinal()]);
 					}, true);
 				}
@@ -272,9 +273,9 @@ public class AISessionView extends ViewPart {
 			String[] outputOptions = Arrays.stream(OutputMode.values()).map(e -> e.name()).collect(Collectors.toList())
 					.toArray(new String[0]);
 			outputMode.setItems(outputOptions);
-			outputMode.select(session.getOuputMode().ordinal());
+			outputMode.select(cfg.getOuputMode().ordinal());
 			outputMode.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> session.setOuputMode(OutputMode.valueOf(outputMode.getText()))));
+					.widgetSelectedAdapter(e -> cfg.setOuputMode(OutputMode.valueOf(outputMode.getText()))));
 
 		}
 		{ // buttons

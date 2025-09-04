@@ -18,7 +18,7 @@ public class Activator extends AbstractUIPlugin {
 	// The shared instance
 	private static Activator plugin;
 
-	private SessionConfig cfg = new SessionConfig();
+	public ConfigManager cfg = new ConfigManager();
 	private AdaptingConnector connector = new AdaptingConnector(cfg);
 
 	public AISessionManager session = new AISessionManager(cfg, connector);

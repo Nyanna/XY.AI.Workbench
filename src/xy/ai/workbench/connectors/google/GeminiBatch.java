@@ -1,4 +1,4 @@
-package xy.ai.workbench.connectors.openai;
+package xy.ai.workbench.connectors.google;
 
 import java.util.Date;
 
@@ -7,7 +7,7 @@ import com.openai.models.batches.Batch;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatch;
 
-public class OpenAIBatch implements IAIBatch {
+public class GeminiBatch implements IAIBatch {
 	private String id;
 	private Batch batch;
 
@@ -17,27 +17,27 @@ public class OpenAIBatch implements IAIBatch {
 	// string content of error file
 	private String error;
 
-	public OpenAIBatch(String id) {
+	public GeminiBatch(String id) {
 		this(id, null);
 	}
 
-	public OpenAIBatch(String id, Batch batch) {
+	public GeminiBatch(String id, Batch batch) {
 		this.id = id;
 		this.batch = batch;
 	}
 
 	@Override
 	public void updateBy(IAIBatch entry) {
-		if (!(entry instanceof OpenAIBatch))
+		if (!(entry instanceof GeminiBatch))
 			throw new IllegalArgumentException("Tried to update incompatible batch entries");
-		OpenAIBatch oi = (OpenAIBatch) entry;
+		GeminiBatch oi = (GeminiBatch) entry;
 
 		if (oi.batch != null)
 			batch = oi.batch;
 		if (oi.result != null)
 			result = oi.result;
 	}
-	
+
 	public void setBatch(Batch batch) {
 		this.batch = batch;
 	}
@@ -60,7 +60,7 @@ public class OpenAIBatch implements IAIBatch {
 	public String getError() {
 		return error;
 	}
-	
+
 	public void setError(String error) {
 		this.error = error;
 	}
@@ -106,6 +106,7 @@ public class OpenAIBatch implements IAIBatch {
 
 	@Override
 	public String[] getRequestIDs() {
+		// TODO add metadata helpfull comment
 		if (batch != null) {
 			var meta = batch.metadata().orElse(null);
 			if (meta != null)

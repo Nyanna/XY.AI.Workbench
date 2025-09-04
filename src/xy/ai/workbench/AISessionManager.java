@@ -29,15 +29,12 @@ import org.eclipse.search.ui.SearchResultEvent;
 import org.eclipse.search.ui.text.AbstractTextSearchResult;
 import org.eclipse.search.ui.text.Match;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IMemento;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.SessionConfig.Model;
-import xy.ai.workbench.SessionConfig.Reasoning;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
@@ -48,21 +45,39 @@ import xy.ai.workbench.tools.AbstractQueryListener;
 public class AISessionManager {
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
-	private SessionConfig cfg;
+	private ConfigManager cfg;
 	private IAIConnector connector;
 	private int[] inputStats = new int[InputMode.values().length];
-
-	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
-	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
 
 	private List<IFile> selectedFiles = List.of();
 	private ISearchResult result = null;
 
-	public AISessionManager(SessionConfig cfg, IAIConnector connector) {
+	public AISessionManager(ConfigManager cfg, IAIConnector connector) {
 		this.cfg = cfg;
 		this.connector = connector;
+		cfg.addInputModeObs(i -> updateInputStat(i));
+	}
+
+	public void clearObserver() {
+		answerObs.clear();
+		inputStatObs.clear();
+	}
+
+	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
+		inputStatObs.add(obs);
+		if (initialize)
+			obs.accept(inputStats);
+	}
+
+	public void addAnswerObs(Consumer<AIAnswer> obs) {
+		answerObs.add(obs);
+	}
+
+	public void updateInputStat(InputMode mode) {
+		inputStats[mode.ordinal()] = getInput(mode).length();
+		inputStatObs.forEach(c -> c.accept(inputStats));
 	}
 
 	public void initializeInputs() {
@@ -104,146 +119,12 @@ public class AISessionManager {
 		}
 	}
 
-	public void clearObserver() {
-		systemPromptObs.clear();
-		answerObs.clear();
-		inputStatObs.clear();
-		inputObs.clear();
-	}
-
-	public void setKey(String key) {
-		cfg.setKey(key);
-	}
-
-	public void setMaxOutputTokens(Long maxOutputTokens) {
-		cfg.setMaxOutputTokens(maxOutputTokens);
-	}
-
-	public void setTemperature(Double temperature) {
-		cfg.setTemperature(temperature);
-	}
-
-	public void setTopP(Double topP) {
-		cfg.setTopP(topP);
-	}
-
-	public void setModel(Model model) {
-		cfg.setModel(model);
-	}
-
-	public void setReasoning(Reasoning reasoning) {
-		cfg.setReasoning(reasoning);
-	}
-
-	public void setSystemPrompt(String[] systemPrompt) {
-		cfg.setSystemPrompt(systemPrompt);
-		systemPromptObs.forEach(c -> c.accept(cfg));
-		updateInputStat(InputMode.Instructions);
-	}
-
-	public String getKey() {
-		return cfg.getKey();
-	}
-
-	public Long getMaxOutputTokens() {
-		return cfg.getMaxOutputTokens();
-	}
-
-	public Double getTemperature() {
-		return cfg.getTemperature();
-	}
-
-	public Double getTopP() {
-		return cfg.getTopP();
-	}
-
-	public Model getModel() {
-		return cfg.getModel();
-	}
-
-	public Reasoning getReasoning() {
-		return cfg.getReasoning();
-	}
-
-	public String[] getSystemPrompt() {
-		return cfg.getSystemPrompt();
-	}
-
-	public void addSystemPromptObs(Consumer<SessionConfig> obs, boolean initialize) {
-		systemPromptObs.add(obs);
-		if (initialize)
-			obs.accept(cfg);
-	}
-
-	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
-		inputStatObs.add(obs);
-		if (initialize)
-			obs.accept(inputStats);
-	}
-
-	public void addAnswerObs(Consumer<AIAnswer> obs) {
-		answerObs.add(obs);
-	}
-
-	public void addInputObs(Consumer<boolean[]> obs, boolean initialize) {
-		inputObs.add(obs);
-		if (initialize)
-			obs.accept(cfg.inputModes);
-	}
-
-	public OutputMode getOuputMode() {
-		return cfg.ouputMode;
-	}
-
-	public void setOuputMode(OutputMode ouputMode) {
-		cfg.ouputMode = ouputMode;
-	}
-
-	public boolean isInputEnabled(InputMode mode) {
-		return cfg.isInputEnabled(mode);
-	}
-
-	public void setInputMode(InputMode mode, boolean enable) {
-		cfg.setInputMode(mode, enable);
-
-		if (InputMode.Selection.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Current_line, false);
-			cfg.setInputMode(InputMode.Editor, false);
-		} else if (InputMode.Editor.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Current_line, false);
-			cfg.setInputMode(InputMode.Selection, false);
-		} else if (InputMode.Current_line.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Editor, false);
-			cfg.setInputMode(InputMode.Selection, false);
-		}
-
-		inputObs.forEach(c -> c.accept(cfg.inputModes));
-		updateInputStat(mode);
-	}
-
-	public void updateInputStat(InputMode mode) {
-		inputStats[mode.ordinal()] = getInput(mode).length();
-		inputStatObs.forEach(c -> c.accept(inputStats));
-	}
-
-	public String[] getModels() {
-		String[] options = Arrays.stream(Model.values()).map((m) -> m.name()).collect(Collectors.toList())
-				.toArray(new String[0]);
-		return options;
-	}
-
-	public String[] getReasonings() {
-		String[] options = Arrays.stream(Reasoning.values()).map((m) -> m.name()).collect(Collectors.toList())
-				.toArray(new String[0]);
-		return options;
-	}
-
 	private String getInput(InputMode mode) {
 		ITextEditor textEditor = editorListener.getLastTextEditor();
 
 		switch (mode) {
 		case Instructions:
-			String systemPrompt = Arrays.stream(cfg.systemPrompt).filter(e -> !e.startsWith("#"))
+			String systemPrompt = Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
 					.collect(Collectors.joining(", "));
 			return systemPrompt;
 		case Selection:
@@ -394,15 +275,15 @@ public class AISessionManager {
 
 		input = "";
 		display.syncExec(() -> {
-			if (isInputEnabled(InputMode.Editor))
+			if (cfg.isInputEnabled(InputMode.Editor))
 				input += getInput(InputMode.Editor);
-			else if (isInputEnabled(InputMode.Selection))
+			else if (cfg.isInputEnabled(InputMode.Selection))
 				input += getInput(InputMode.Selection);
-			else if (isInputEnabled(InputMode.Current_line))
+			else if (cfg.isInputEnabled(InputMode.Current_line))
 				input += getInput(InputMode.Current_line);
 		});
 
-		String systemPrompt = isInputEnabled(InputMode.Instructions) ? getInput(InputMode.Instructions) : "";
+		String systemPrompt = cfg.isInputEnabled(InputMode.Instructions) ? getInput(InputMode.Instructions) : "";
 
 		if ((input == null || input.isBlank()) && systemPrompt.isBlank())
 			throw new IllegalArgumentException("Input and instructions Empty");
@@ -411,7 +292,7 @@ public class AISessionManager {
 			throw new IllegalArgumentException("Result editor unset");
 
 		List<String> tools = new ArrayList<String>();
-		if (isInputEnabled(InputMode.Files))
+		if (cfg.isInputEnabled(InputMode.Files))
 			tools.addAll(selectedFiles.stream().map(f -> {
 				try {
 					return f.readString();
@@ -421,7 +302,7 @@ public class AISessionManager {
 				}
 			}).collect(Collectors.toList()));
 
-		if (isInputEnabled(InputMode.Search)) {
+		if (cfg.isInputEnabled(InputMode.Search)) {
 			String search = getInput(InputMode.Search);
 			if (search != null && !search.isBlank())
 				tools.add(search);
@@ -454,7 +335,7 @@ public class AISessionManager {
 				ISelection selection = textEditor.getSelectionProvider().getSelection();
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
-				switch (cfg.ouputMode) {
+				switch (cfg.getOuputMode()) {
 				case Append:
 					String replace = "\n" + res.answer;
 					doc.replace(doc.getLength(), 0, replace);
@@ -473,13 +354,5 @@ public class AISessionManager {
 				System.out.println("Error adding text");
 			}
 		});
-	}
-
-	public void saveConfig(IMemento memento) {
-		MementoConverter.saveConfig(memento, cfg);
-	}
-
-	public void loadConfig(IMemento memento) {
-		MementoConverter.loadConfig(memento, cfg);
 	}
 }

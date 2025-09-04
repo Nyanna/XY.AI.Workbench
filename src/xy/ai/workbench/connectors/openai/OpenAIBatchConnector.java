@@ -31,7 +31,7 @@ import com.openai.models.files.FilePurpose;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
-import xy.ai.workbench.Activator;
+import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatchConnector;
@@ -41,10 +41,12 @@ import xy.ai.workbench.models.IModelRequest;
 public class OpenAIBatchConnector implements IAIBatchConnector {
 	private OpenAIClient client;
 
+	public OpenAIBatchConnector(ConfigManager cfg) {
+		cfg.addKeyObs(k -> this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKey()).build(), true);
+	}
+
 	@Override
 	public List<IAIBatch> updateBatches() {
-		prepareClient();
-
 		BatchListParams bparams = BatchListParams.builder() //
 				.limit(100) //
 				.build();
@@ -56,8 +58,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 
 	@Override
 	public IAIBatch submitBatch(String json, Collection<String> reqIds) {
-		prepareClient();
-
 		Path tempFile;
 		try {
 			tempFile = Files.createTempFile("mydata", ".jsonl");
@@ -87,8 +87,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 
 	@Override
 	public IAIBatch cancelBatch(IAIBatch entry) {
-		prepareClient();
-
 		if (BatchState.Proccessing.equals(entry.getState())) {
 			Batch batch = client.batches().cancel(entry.getID());
 			return new OpenAIBatch(batch.id(), batch);
@@ -98,11 +96,10 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 
 	@Override
 	public void loadBatch(IAIBatch entry) {
-		prepareClient();
-
 		OpenAIBatch oentry = ((OpenAIBatch) entry);
 		Batch batch = client.batches().retrieve(oentry.getID());
-		oentry.setBatch(batch);;
+		oentry.setBatch(batch);
+		;
 
 		if (oentry.getError() == null && batch.errorFileId().isPresent())
 			oentry.setError(getFileAsString(batch.errorFileId().get()));
@@ -127,13 +124,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 			return jsonMapper().writeValueAsString(new BatchElement(param._body()));
 		} catch (JsonProcessingException e) {
 			throw new IllegalStateException(e);
-		}
-	}
-
-	private void prepareClient() {
-		if (this.client == null) {
-			var key = Activator.getDefault().session.getKey();
-			this.client = OpenAIOkHttpClient.builder().apiKey(key).build();
 		}
 	}
 

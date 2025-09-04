@@ -7,11 +7,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
-import com.openai.core.ObjectMappers;
-
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.AIAnswer;
@@ -38,33 +33,13 @@ public class AIBatchResponseManager implements IStructuredContentProvider {
 		loadedAnswers.clear();
 		if (obj.getResult() != null)
 			for (String InputJson : obj.getResult().split("\n")) {
-				loadedAnswers.add(convertJson(InputJson));
+				loadedAnswers.add(connector.convertToAnswer(InputJson));
 				mon.worked(1);
 			}
 
 		if (obj.getError() != null) {
-			loadedAnswers.add(convertJson(obj.getError()));
+			loadedAnswers.add(connector.convertToAnswer(obj.getError()));
 			mon.worked(1);
-		}
-	}
-
-	private AIAnswer convertJson(String inputJson) {
-		try {
-			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(inputJson);
-			tree.get("error"); // errors
-			// TODO add id for local and remote
-			TextNode id = (TextNode) tree.get("id");
-			ObjectNode response = (ObjectNode) tree.get("response");
-			// IntNode statusCode = (IntNode) response.get("status_code");
-			ObjectNode body = (ObjectNode) response.get("body");
-
-			String bodyJson = ObjectMappers.jsonMapper().writeValueAsString(body);
-			AIAnswer answer = connector.convertToAnswer(bodyJson);
-			answer.id = id.asText();
-			return answer;
-
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException(e);
 		}
 	}
 
