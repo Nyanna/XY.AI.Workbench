@@ -1,10 +1,10 @@
-package xy.ai.workbench.connectors.openai;
+package xy.ai.workbench.connectors;
 
 import java.util.Date;
 
 import xy.ai.workbench.batch.BatchState;
 
-public interface IBatchEntry {
+public interface IAIBatch {
 
 	String getID();
 
@@ -52,7 +52,7 @@ public interface IBatchEntry {
 		return false;
 	}
 	
-	default void updateBy(IBatchEntry entry) {
+	default void updateBy(IAIBatch entry) {
 		throw new IllegalStateException("Immutable");
 	}
 }

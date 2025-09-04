@@ -12,21 +12,25 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.openai.core.ObjectMappers;
 
-import xy.ai.workbench.connectors.openai.IBatchEntry;
-import xy.ai.workbench.connectors.openai.OpenAIConnector;
+import xy.ai.workbench.connectors.IAIConnector;
+import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.AIAnswer;
 
-public class AIBatchRequestManager implements IStructuredContentProvider {
-	private OpenAIConnector connector = new OpenAIConnector(null);
+public class AIBatchResponseManager implements IStructuredContentProvider {
+	private IAIConnector connector;
 	private List<AIAnswer> loadedAnswers = new ArrayList<>();
-	private IBatchEntry lastbatch;
+	private IAIBatch lastbatch;
+
+	public AIBatchResponseManager(IAIConnector connector) {
+		this.connector = connector;
+	}
 
 	@Override
 	public Object[] getElements(Object inputElement) {
 		return loadedAnswers.toArray();
 	}
 
-	public void load(IBatchEntry obj, IProgressMonitor mon) {
+	public void load(IAIBatch obj, IProgressMonitor mon) {
 		if (obj.equals(lastbatch))
 			return;
 		lastbatch = obj;

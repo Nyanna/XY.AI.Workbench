@@ -34,12 +34,15 @@ import com.openai.models.responses.ResponseCreateParams.Body;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
+import xy.ai.workbench.connectors.IAIBatchConnector;
+import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.IModelRequest;
 
-public class OpenAIBatchConnector {
+public class OpenAIBatchConnector implements IAIBatchConnector {
 	private OpenAIClient client;
 
-	public List<IBatchEntry> updateBatches() {
+	@Override
+	public List<IAIBatch> updateBatches() {
 		prepareClient();
 
 		BatchListParams bparams = BatchListParams.builder() //
@@ -48,10 +51,11 @@ public class OpenAIBatchConnector {
 
 		BatchListPage res = client.batches().list(bparams);
 
-		return res.data().stream().map(b -> new OpenAIBatchEntry(b.id(), b)).collect(Collectors.toList());
+		return res.data().stream().map(b -> new OpenAIBatch(b.id(), b)).collect(Collectors.toList());
 	}
 
-	public IBatchEntry submitBatch(String json, Collection<String> reqIds) {
+	@Override
+	public IAIBatch submitBatch(String json, Collection<String> reqIds) {
 		prepareClient();
 
 		Path tempFile;
@@ -78,23 +82,25 @@ public class OpenAIBatchConnector {
 				.completionWindow(CompletionWindow._24H) //
 				.build();
 		Batch returned = client.batches().create(batchParams);
-		return new OpenAIBatchEntry(returned.id(), returned);
+		return new OpenAIBatch(returned.id(), returned);
 	}
 
-	public IBatchEntry cancelBatch(IBatchEntry entry) {
+	@Override
+	public IAIBatch cancelBatch(IAIBatch entry) {
 		prepareClient();
 
 		if (BatchState.Proccessing.equals(entry.getState())) {
 			Batch batch = client.batches().cancel(entry.getID());
-			return new OpenAIBatchEntry(batch.id(), batch);
+			return new OpenAIBatch(batch.id(), batch);
 		}
 		return null;
 	}
 
-	public void loadBatch(IBatchEntry entry) {
+	@Override
+	public void loadBatch(IAIBatch entry) {
 		prepareClient();
 
-		OpenAIBatchEntry oentry = ((OpenAIBatchEntry) entry);
+		OpenAIBatch oentry = ((OpenAIBatch) entry);
 		Batch batch = client.batches().retrieve(oentry.getID());
 		oentry.setBatch(batch);;
 
@@ -150,6 +156,7 @@ public class OpenAIBatchConnector {
 
 	}
 
+	@Override
 	public String requestsToJson(Collection<IModelRequest> reqs) {
 		return requestsToJsonInner(
 				reqs.stream().map(r -> ((OpenAIModelRequest) r).reqquest).collect(Collectors.toList()));

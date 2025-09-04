@@ -3,10 +3,10 @@ package xy.ai.workbench.batch;
 import java.util.ArrayList;
 import java.util.List;
 
-import xy.ai.workbench.connectors.openai.IBatchEntry;
+import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.IModelRequest;
 
-class NewBatch implements IBatchEntry {
+class NewBatch implements IAIBatch {
 	private List<IModelRequest> requests = new ArrayList<>();
 
 	@Override

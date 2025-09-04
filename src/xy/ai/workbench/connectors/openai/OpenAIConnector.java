@@ -25,11 +25,12 @@ import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 
 import xy.ai.workbench.SessionConfig;
+import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
 
-public class OpenAIConnector {
+public class OpenAIConnector implements IAIConnector {
 	SessionConfig cfg;
 	private OpenAIClient client;
 
@@ -37,6 +38,7 @@ public class OpenAIConnector {
 		this.cfg = cfg;
 	}
 
+	@Override
 	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools) {
 		boolean isBackground = false;
 		if (this.client == null)
@@ -75,6 +77,7 @@ public class OpenAIConnector {
 		return new OpenAIModelRequest(params);
 	}
 
+	@Override
 	public IModelResponse executeRequest(IModelRequest request) {
 		ResponseCreateParams params = ((OpenAIModelRequest) request).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
@@ -98,6 +101,7 @@ public class OpenAIConnector {
 		return new OpenAIModelResponse(resp);
 	}
 
+	@Override
 	public AIAnswer convertResponse(IModelResponse response) {
 		Response resp = ((OpenAIModelResponse) response).response;
 
@@ -173,6 +177,7 @@ public class OpenAIConnector {
 		return builder.inputOfResponse(inputs);
 	}
 
+	@Override
 	public AIAnswer convertToAnswer(String bodyJson) throws JsonProcessingException, JsonMappingException {
 		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
 

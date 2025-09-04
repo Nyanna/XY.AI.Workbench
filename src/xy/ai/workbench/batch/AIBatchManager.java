@@ -7,20 +7,24 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.connectors.openai.IBatchEntry;
-import xy.ai.workbench.connectors.openai.OpenAIBatchConnector;
+import xy.ai.workbench.connectors.IAIBatchConnector;
+import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.IModelRequest;
 
 public class AIBatchManager {
 	static final String UNSEND_ID = "New";
 	public static String KEY_REQIDS = "reqIds";
-	private OpenAIBatchConnector connector = new OpenAIBatchConnector();
+	private IAIBatchConnector connector;
 
-	private Map<String, IBatchEntry> index = new TreeMap<>();
+	private Map<String, IAIBatch> index = new TreeMap<>();
 	private TableViewer viewer;
 
+	public AIBatchManager(IAIBatchConnector connector) {
+		this.connector = connector;
+	}
+
 	public void updateBatches() {
-		for (IBatchEntry batch : connector.updateBatches())
+		for (IAIBatch batch : connector.updateBatches())
 			addOrUpdateEntry(batch);
 	}
 
@@ -29,7 +33,7 @@ public class AIBatchManager {
 		if (unsent == null)
 			addOrUpdateEntry(unsent = new NewBatch());
 		unsent.addRequest(req);
-		final IBatchEntry toUpdate = unsent;
+		final IAIBatch toUpdate = unsent;
 		Display.getDefault().asyncExec(() -> viewer.refresh(toUpdate, true));
 	}
 
@@ -39,7 +43,7 @@ public class AIBatchManager {
 			return;
 
 		String json = requestsToString(unsent);
-		IBatchEntry res = connector.submitBatch(json,
+		IAIBatch res = connector.submitBatch(json,
 				unsent.getRequests().stream().map(r -> r.getID()).collect(Collectors.toList()));
 		addOrUpdateEntry(res);
 
@@ -47,19 +51,19 @@ public class AIBatchManager {
 		Display.getDefault().asyncExec(() -> viewer.refresh(unsent, true));
 	}
 
-	public void cancelbatch(IBatchEntry batch) {
+	public void cancelbatch(IAIBatch batch) {
 		if (batch.getID().equals(UNSEND_ID))
 			return;
 
-		IBatchEntry res = connector.cancelBatch(batch);
+		IAIBatch res = connector.cancelBatch(batch);
 		if (res != null) {
 			batch.updateBy(res);
 			addOrUpdateEntry(batch);
 		}
 	}
 
-	private void addOrUpdateEntry(IBatchEntry entry) {
-		IBatchEntry indexed = index.get(entry.getID());
+	private void addOrUpdateEntry(IAIBatch entry) {
+		IAIBatch indexed = index.get(entry.getID());
 		if (indexed == null) {
 			index.put(entry.getID(), entry);
 			Display.getDefault().asyncExec(() -> viewer.add(entry));
@@ -69,11 +73,11 @@ public class AIBatchManager {
 		}
 	}
 
-	public String requestsToString(IBatchEntry entry) {
+	public String requestsToString(IAIBatch entry) {
 		return connector.requestsToJson(((NewBatch) entry).getRequests());
 	}
 
-	public void loadBatch(IBatchEntry entry) {
+	public void loadBatch(IAIBatch entry) {
 		if (entry.getResult() != null)
 			return;
 

@@ -116,6 +116,14 @@ public class AISessionView extends ViewPart {
 			keyInput.addModifyListener(e -> session.setKey(keyInput.getText()));
 			keyInput.setText(session.getKey() + "");
 
+			toolkit.createLabel(top, "Model:");
+			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+			modelSel.setItems(session.getModels());
+			modelSel.setLayoutData(defHorizontal);
+			modelSel.setText(session.getModel().name());
+			modelSel.addSelectionListener(
+					SelectionListener.widgetSelectedAdapter(e -> session.setModel(Model.valueOf(modelSel.getText()))));
+
 			toolkit.createLabel(top, "Max Token:");
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
 			maxToken.setLayoutData(defHorizontal);
@@ -133,14 +141,6 @@ public class AISessionView extends ViewPart {
 			topP.setLayoutData(defHorizontal);
 			topP.setText(session.getTopP() + "");
 			topP.addModifyListener(e -> session.setTopP(Double.parseDouble(topP.getText())));
-
-			toolkit.createLabel(top, "Model:");
-			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			modelSel.setItems(session.getModels());
-			modelSel.setLayoutData(defHorizontal);
-			modelSel.setText(session.getModel().name());
-			modelSel.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> session.setModel(Model.valueOf(modelSel.getText()))));
 
 			toolkit.createLabel(top, "Reasoning:");
 			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);

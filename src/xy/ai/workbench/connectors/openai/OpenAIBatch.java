@@ -5,8 +5,9 @@ import java.util.Date;
 import com.openai.models.batches.Batch;
 
 import xy.ai.workbench.batch.BatchState;
+import xy.ai.workbench.connectors.IAIBatch;
 
-public class OpenAIBatchEntry implements IBatchEntry {
+public class OpenAIBatch implements IAIBatch {
 	private String id;
 	private Batch batch;
 
@@ -16,20 +17,20 @@ public class OpenAIBatchEntry implements IBatchEntry {
 	// string content of error file
 	private String error;
 
-	public OpenAIBatchEntry(String id) {
+	public OpenAIBatch(String id) {
 		this(id, null);
 	}
 
-	public OpenAIBatchEntry(String id, Batch batch) {
+	public OpenAIBatch(String id, Batch batch) {
 		this.id = id;
 		this.batch = batch;
 	}
 
 	@Override
-	public void updateBy(IBatchEntry entry) {
-		if (!(entry instanceof OpenAIBatchEntry))
+	public void updateBy(IAIBatch entry) {
+		if (!(entry instanceof OpenAIBatch))
 			throw new IllegalArgumentException("Tried to update incompatible batch entries");
-		OpenAIBatchEntry oi = (OpenAIBatchEntry) entry;
+		OpenAIBatch oi = (OpenAIBatch) entry;
 
 		if (oi.batch != null)
 			batch = oi.batch;

@@ -39,7 +39,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 import xy.ai.workbench.SessionConfig.Model;
 import xy.ai.workbench.SessionConfig.Reasoning;
 import xy.ai.workbench.batch.AIBatchManager;
-import xy.ai.workbench.connectors.openai.OpenAIConnector;
+import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -48,8 +48,8 @@ import xy.ai.workbench.tools.AbstractQueryListener;
 public class AISessionManager {
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
-	private SessionConfig cfg = new SessionConfig();
-	OpenAIConnector connector = new OpenAIConnector(cfg);
+	private SessionConfig cfg;
+	private IAIConnector connector;
 	private int[] inputStats = new int[InputMode.values().length];
 
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
@@ -59,6 +59,11 @@ public class AISessionManager {
 
 	private List<IFile> selectedFiles = List.of();
 	private ISearchResult result = null;
+
+	public AISessionManager(SessionConfig cfg, IAIConnector connector) {
+		this.cfg = cfg;
+		this.connector = connector;
+	}
 
 	public void initializeInputs() {
 		for (var mode : InputMode.values())

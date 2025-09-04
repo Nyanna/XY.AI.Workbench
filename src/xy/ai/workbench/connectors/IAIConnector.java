@@ -1,0 +1,22 @@
+package xy.ai.workbench.connectors;
+
+import java.util.List;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+
+import xy.ai.workbench.models.AIAnswer;
+import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.IModelResponse;
+
+public interface IAIConnector {
+
+	IModelRequest createRequest(String input, String systemPrompt, List<String> tools);
+
+	IModelResponse executeRequest(IModelRequest request);
+
+	AIAnswer convertResponse(IModelResponse response);
+
+	AIAnswer convertToAnswer(String bodyJson) throws JsonProcessingException, JsonMappingException;
+
+}
