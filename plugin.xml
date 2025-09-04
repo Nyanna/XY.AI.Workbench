@@ -9,7 +9,7 @@
             extensions="md"
             icon="icons/sample.png"
             id="xy.ai.workbench.editors.AISessionEditor"
-            name="XY.AI Session Editor">
+            name="XY.AI Editor">
       </editor>
    </extension>
    <extension
@@ -31,7 +31,7 @@
             icon="icons/sample.png"
             id="xy.ai.workbench.views.AISessionView"
             inject="true"
-            name="XY.Ai Session View">
+            name="XY.Ai Session Settings">
       </view>
       <view
             allowMultiple="false"
@@ -40,7 +40,7 @@
             icon="icons/sample.png"
             id="xy.ai.workbench.views.AIBatchView"
             inject="true"
-            name="XY.AI Batch View">
+            name="XY.AI Batch List">
       </view>
    </extension>
    <extension
@@ -81,6 +81,7 @@
                mnemonic="A">
             <command
                   commandId="XY.AI.Workbench.commands.submitPromptCommand"
+                  icon="icons/sample.png"
                   id="XY.AI.Workbench.menus.submitPromptCommand"
                   mnemonic="S">
             </command>
