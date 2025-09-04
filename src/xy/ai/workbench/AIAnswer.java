@@ -16,7 +16,7 @@ public class AIAnswer {
 	}
 
 	public String print() {
-		return String.format("in: %st, out: %st, reasoning: %st\ntotal: %st", inputToken,
+		return String.format("in: %st, out: %st, reas: %st \ntotal: %st", inputToken,
 				outputToken, reasoningToken, totalToken);
 	}
 
