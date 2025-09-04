@@ -31,15 +31,14 @@ import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
-import com.openai.models.ChatModel;
-import com.openai.models.ReasoningEffort;
-
 import jakarta.inject.Inject;
-import xy.ai.workbench.AIAnswer;
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.OutputMode;
+import xy.ai.workbench.SessionConfig.Model;
+import xy.ai.workbench.SessionConfig.Reasoning;
+import xy.ai.workbench.models.AIAnswer;
 
 public class AISessionView extends ViewPart {
 
@@ -139,17 +138,17 @@ public class AISessionView extends ViewPart {
 			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
 			modelSel.setItems(session.getModels());
 			modelSel.setLayoutData(defHorizontal);
-			modelSel.setText(session.getModel().asString());
+			modelSel.setText(session.getModel().name());
 			modelSel.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> session.setModel(ChatModel.of(modelSel.getText()))));
+					SelectionListener.widgetSelectedAdapter(e -> session.setModel(Model.valueOf(modelSel.getText()))));
 
 			toolkit.createLabel(top, "Reasoning:");
 			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
 			reasSel.setItems(session.getReasonings());
 			reasSel.setLayoutData(defHorizontal);
-			reasSel.setText(session.getReasoning().asString());
+			reasSel.setText(session.getReasoning().name());
 			reasSel.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> session.setReasoning(ReasoningEffort.of(reasSel.getText()))));
+					.widgetSelectedAdapter(e -> session.setReasoning(Reasoning.valueOf(reasSel.getText()))));
 		}
 		{ // instruction section
 

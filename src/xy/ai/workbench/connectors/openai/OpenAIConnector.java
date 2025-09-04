@@ -1,12 +1,18 @@
-package xy.ai.workbench;
+package xy.ai.workbench.connectors.openai;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.ObjectMappers;
 import com.openai.core.http.HttpResponseFor;
+import com.openai.models.ChatModel;
 import com.openai.models.Reasoning;
+import com.openai.models.ReasoningEffort;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.Response.Instructions;
 import com.openai.models.responses.ResponseCreateParams;
@@ -17,6 +23,11 @@ import com.openai.models.responses.ResponseInputText;
 import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 
+import xy.ai.workbench.SessionConfig;
+import xy.ai.workbench.models.AIAnswer;
+import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.IModelResponse;
+
 public class OpenAIConnector {
 	SessionConfig cfg;
 	private OpenAIClient client;
@@ -25,25 +36,26 @@ public class OpenAIConnector {
 		this.cfg = cfg;
 	}
 
-	public ResponseCreateParams createRequest(String input, String systemPrompt, List<String> tools) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools) {
 		boolean isBackground = false;
 		if (this.client == null)
 			this.client = OpenAIOkHttpClient.builder().apiKey(cfg.key).build();
 
 		Builder builder = ResponseCreateParams.builder() //
 				.maxOutputTokens(cfg.maxOutputTokens)
-				// .temperature(cfg.temperature) // Not supported
-				// .topP(cfg.topP) // Not Supported
+				// .temperature(cfg.temperature) // TODO Not supported
+				// .topP(cfg.topP) // TODO Not Supported
+				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "")
 				.truncation(Truncation.DISABLED) //
 				.maxToolCalls(1)//
 				.background(isBackground)//
 				.instructions(systemPrompt)//
 				.reasoning( //
 						Reasoning.builder()//
-								.effort(cfg.reasoning) //
+								.effort(ReasoningEffort.of(cfg.reasoning.name())) //
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
-				.model(cfg.model); //
+				.model(ChatModel.of(cfg.model.name())); //
 		if (input != null && !input.isBlank()) {
 			List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
 			ResponseInputText inputText = ResponseInputText.builder() //
@@ -60,10 +72,11 @@ public class OpenAIConnector {
 			builder = appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
-		return params;
+		return new OpenAIModelRequest(params);
 	}
 
-	public Response executeRequest(ResponseCreateParams params) {
+	public IModelResponse executeRequest(IModelRequest request) {
+		ResponseCreateParams params = ((OpenAIModelRequest) request).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
@@ -82,10 +95,11 @@ public class OpenAIConnector {
 				status = resp.status().get();
 			} while (status.equals(ResponseStatus.QUEUED) || status.equals(ResponseStatus.IN_PROGRESS));
 		}
-		return resp;
+		return new OpenAIModelResponse(resp);
 	}
 
-	public AIAnswer convertResponse(Response resp) {
+	public AIAnswer convertResponse(IModelResponse response) {
+		Response resp = ((OpenAIModelResponse) response).response;
 
 		AIAnswer res = new AIAnswer();
 		if (resp.usage().isPresent()) {
@@ -153,5 +167,12 @@ public class OpenAIConnector {
 				.addContent(inputFile).build());
 		inputs.add(inputItem);
 		return builder.inputOfResponse(inputs);
+	}
+
+	public AIAnswer convertToAnswer(String bodyJson) throws JsonProcessingException, JsonMappingException {
+		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
+
+		AIAnswer answer = convertResponse(new OpenAIModelResponse(resp));
+		return answer;
 	}
 }

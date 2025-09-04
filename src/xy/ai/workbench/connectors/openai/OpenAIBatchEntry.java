@@ -1,60 +1,86 @@
-package xy.ai.workbench.batch;
+package xy.ai.workbench.connectors.openai;
 
 import java.util.Date;
-import java.util.Map;
-import java.util.TreeMap;
 
 import com.openai.models.batches.Batch;
-import com.openai.models.responses.ResponseCreateParams;
 
-public class BatchEntry {
-	public String id;
-	public Batch batch;
-	public Map<String, ResponseCreateParams> request = new TreeMap<>();
+import xy.ai.workbench.batch.BatchState;
+
+public class OpenAIBatchEntry implements IBatchEntry {
+	private String id;
+	Batch batch;
+
 	private Date created = new Date();
 	// string content of result file
-	public String result;
+	private String result;
 
-	public BatchEntry(String id) {
+	public OpenAIBatchEntry(String id) {
 		this(id, null);
 	}
 
-	public BatchEntry(String id, Batch batch) {
+	public OpenAIBatchEntry(String id, Batch batch) {
 		this.id = id;
 		this.batch = batch;
 	}
 
+	@Override
+	public void updateBy(IBatchEntry entry) {
+		if (!(entry instanceof OpenAIBatchEntry))
+			throw new IllegalArgumentException("Tried to update incompatible batch entries");
+		OpenAIBatchEntry oi = (OpenAIBatchEntry) entry;
+
+		if (oi.batch != null)
+			batch = oi.batch;
+		if (oi.result != null)
+			result = oi.result;
+	}
+
+	@Override
 	public String getID() {
 		return batch != null ? batch.id() : id;
 	}
 
+	@Override
+	public String getResult() {
+		return result;
+	}
+
+	@Override
+	public void setResult(String result) {
+		this.result = result;
+	}
+
+	@Override
 	public String getErrorFileID() {
 		return batch != null && batch.errorFileId().isPresent() ? batch.errorFileId().get() : null;
 	}
 
+	@Override
 	public String getOutputFileID() {
 		return batch != null && batch.outputFileId().isPresent() ? batch.outputFileId().get() : null;
 	}
 
+	@Override
 	public String getInputFileID() {
 		return batch != null ? batch.inputFileId() : "none";
 	}
 
+	@Override
 	public Date getExpires() {
 		return batch != null && batch.expiresAt().isPresent() ? new Date(batch.expiresAt().get()) : null;
 	}
 
+	@Override
 	public int getTaskCount() {
 		if (batch != null) {
 			var count = batch.requestCounts().orElse(null);
 			if (count != null)
 				return (int) count.total();
-		} else {
-			return request.size();
 		}
 		return -1;
 	}
 
+	@Override
 	public float getCompletion() {
 		if (batch != null) {
 			var count = batch.requestCounts().orElse(null);
@@ -66,8 +92,8 @@ public class BatchEntry {
 		return 0f;
 	}
 
+	@Override
 	public String[] getRequestIDs() {
-		// TODO implement req ids list
 		// TODO add metadata helpfull comment
 		if (batch != null) {
 			var meta = batch.metadata().orElse(null);
@@ -78,12 +104,14 @@ public class BatchEntry {
 		return new String[0];
 	}
 
+	@Override
 	public String getBatchStatusString() {
 		if (batch != null)
 			return batch.status().asString();
 		return "n/a";
 	}
 
+	@Override
 	public BatchState getState() {
 		if (batch == null)
 			return BatchState.Prepared;
@@ -103,6 +131,7 @@ public class BatchEntry {
 		return cs;
 	}
 
+	@Override
 	public Date getStateDate() {
 		return getDate(getState());
 	}
@@ -140,8 +169,9 @@ public class BatchEntry {
 		return null;
 	}
 
+	@Override
 	public int getDuration() {
-		Date proc = getDate(BatchState.Finalizing);
+		Date proc = getDate(BatchState.Proccessing);
 		Date com = getDate(BatchState.Completed);
 		if (proc != null && com != null)
 			return (int) ((com.getTime() - proc.getTime()) / 1000);

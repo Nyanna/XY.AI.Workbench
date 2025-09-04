@@ -1,4 +1,4 @@
-package xy.ai.workbench;
+package xy.ai.workbench.models;
 
 public class AIAnswer {
 	public String id;

@@ -36,12 +36,13 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import com.openai.models.ChatModel;
-import com.openai.models.ReasoningEffort;
-import com.openai.models.responses.Response;
-import com.openai.models.responses.ResponseCreateParams;
-
+import xy.ai.workbench.SessionConfig.Model;
+import xy.ai.workbench.SessionConfig.Reasoning;
 import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.connectors.openai.OpenAIConnector;
+import xy.ai.workbench.models.AIAnswer;
+import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.IModelResponse;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
@@ -121,11 +122,11 @@ public class AISessionManager {
 		cfg.setTopP(topP);
 	}
 
-	public void setModel(ChatModel model) {
+	public void setModel(Model model) {
 		cfg.setModel(model);
 	}
-	
-	public void setReasoning(ReasoningEffort reasoning) {
+
+	public void setReasoning(Reasoning reasoning) {
 		cfg.setReasoning(reasoning);
 	}
 
@@ -151,11 +152,11 @@ public class AISessionManager {
 		return cfg.getTopP();
 	}
 
-	public ChatModel getModel() {
+	public Model getModel() {
 		return cfg.getModel();
 	}
 
-	public ReasoningEffort getReasoning() {
+	public Reasoning getReasoning() {
 		return cfg.getReasoning();
 	}
 
@@ -221,16 +222,13 @@ public class AISessionManager {
 	}
 
 	public String[] getModels() {
-		ChatModel[] models = new ChatModel[] { ChatModel.GPT_5_NANO, ChatModel.GPT_5_MINI, ChatModel.GPT_5 };
-		String[] options = Arrays.stream(models).map((m) -> m.asString()).collect(Collectors.toList())
+		String[] options = Arrays.stream(Model.values()).map((m) -> m.name()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
 	}
 
 	public String[] getReasonings() {
-		ReasoningEffort[] reasons = new ReasoningEffort[] { ReasoningEffort.MINIMAL, ReasoningEffort.LOW,
-				ReasoningEffort.MEDIUM, ReasoningEffort.HIGH };
-		String[] options = Arrays.stream(reasons).map((m) -> m.asString()).collect(Collectors.toList())
+		String[] options = Arrays.stream(Reasoning.values()).map((m) -> m.name()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
 	}
@@ -386,7 +384,7 @@ public class AISessionManager {
 
 	private String input;
 
-	private ResponseCreateParams prepareInner(Display display) {
+	private IModelRequest prepareInner(Display display) {
 		System.out.println("Preparing Call");
 
 		input = "";
@@ -426,7 +424,7 @@ public class AISessionManager {
 
 		System.out.println("Input prepared");
 
-		ResponseCreateParams req = connector.createRequest(//
+		IModelRequest req = connector.createRequest(//
 				input, //
 				systemPrompt, //
 				tools //
@@ -434,9 +432,9 @@ public class AISessionManager {
 		return req;
 	}
 
-	private AIAnswer executeInner(Display display, ResponseCreateParams req) {
+	private AIAnswer executeInner(Display display, IModelRequest req) {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		Response resp = connector.executeRequest(req);
+		IModelResponse resp = connector.executeRequest(req);
 		AIAnswer res = connector.convertResponse(resp);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;

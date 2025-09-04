@@ -1,14 +1,19 @@
 package xy.ai.workbench;
 
-import com.openai.models.ChatModel;
-import com.openai.models.ReasoningEffort;
-
 public class SessionConfig {
+	public static enum Model {
+		GPT_5_NANO, GPT_5_MINI, GPT_5
+	};
+
+	public static enum Reasoning {
+		MINIMAL, LOW, MEDIUM, HIGH
+	};
+
 	public String key = null;
 	public Long maxOutputTokens = 16 * 1024L; // 128K for 5 models
 	public Double temperature = 0d; // 0-2
 	public Double topP = 0.1d;
-	public ChatModel model = ChatModel.GPT_5_NANO;
+	public Model model = Model.GPT_5_NANO;
 	public String[] systemPrompt = new String[] { //
 			"Answer very short and precise", //
 			"Be objective and neutral", //
@@ -19,7 +24,7 @@ public class SessionConfig {
 	};
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[InputMode.values().length];
-	public ReasoningEffort reasoning = ReasoningEffort.MINIMAL;
+	public Reasoning reasoning = Reasoning.MINIMAL;
 
 	public SessionConfig() {
 		setInputMode(InputMode.Instructions, true);
@@ -58,19 +63,19 @@ public class SessionConfig {
 		this.topP = topP;
 	}
 
-	public ChatModel getModel() {
+	public Model getModel() {
 		return model;
 	}
 
-	public void setModel(ChatModel model) {
+	public void setModel(Model model) {
 		this.model = model;
 	}
-	
-	public ReasoningEffort getReasoning() {
+
+	public Reasoning getReasoning() {
 		return reasoning;
 	}
-	
-	public void setReasoning(ReasoningEffort reasoning) {
+
+	public void setReasoning(Reasoning reasoning) {
 		this.reasoning = reasoning;
 	}
 

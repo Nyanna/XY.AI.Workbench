@@ -44,11 +44,11 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
-import xy.ai.workbench.AIAnswer;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchRequestManager;
-import xy.ai.workbench.batch.BatchEntry;
+import xy.ai.workbench.connectors.openai.IBatchEntry;
+import xy.ai.workbench.models.AIAnswer;
 
 public class AIBatchView extends ViewPart {
 
@@ -86,30 +86,30 @@ public class AIBatchView extends ViewPart {
 			viewerComp.setLayout(tableLayout = new TableColumnLayout());
 
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Batch Id", 70))
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((BatchEntry) e).getID()));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((IBatchEntry) e).getID()));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Loaded", 5))
 					.setLabelProvider(ColumnLabelProvider.createTextImageProvider((e) -> "", (e) -> {
 						return workbench.getSharedImages()
-								.getImage(((BatchEntry) e).result != null ? ISharedImages.IMG_OBJ_FILE
+								.getImage(((IBatchEntry) e).getResult() != null ? ISharedImages.IMG_OBJ_FILE
 										: ISharedImages.IMG_ETOOL_DELETE_DISABLED);
 					}));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Progress", 15))
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> {
-						BatchEntry be = (BatchEntry) e;
+						IBatchEntry be = (IBatchEntry) e;
 						return be.getTaskCount() + " (" + be.getCompletion() * 100 + "%)";
 					}));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "State", 40))
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> //
-					((BatchEntry) e).getState().toString() + " (" + ((BatchEntry) e).getBatchStatusString() + ")"));
+					((IBatchEntry) e).getState().toString() + " (" + ((IBatchEntry) e).getBatchStatusString() + ")"));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Updated", 50)).setLabelProvider(
-					ColumnLabelProvider.createTextProvider(e -> format(((BatchEntry) e).getStateDate())));
+					ColumnLabelProvider.createTextProvider(e -> format(((IBatchEntry) e).getStateDate())));
 			new TableViewerColumn(batchViewer, createColumn(batchViewer.getTable(), "Duration", 5)).setLabelProvider(
-					ColumnLabelProvider.createTextProvider(e -> emptyWhenNull(((BatchEntry) e).getDuration())));
+					ColumnLabelProvider.createTextProvider(e -> emptyWhenNull(((IBatchEntry) e).getDuration())));
 
 			batchViewer.setComparator(new ViewerComparator() {
 				public int compare(Viewer viewer, Object e1, Object e2) {
-					BatchEntry t1 = (BatchEntry) e1;
-					BatchEntry t2 = (BatchEntry) e2;
+					IBatchEntry t1 = (IBatchEntry) e1;
+					IBatchEntry t2 = (IBatchEntry) e2;
 					return t1.getStateDate().compareTo(t2.getStateDate());
 				};
 			});
@@ -276,12 +276,12 @@ public class AIBatchView extends ViewPart {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
 				if (!selection.isEmpty()) {
 					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof BatchEntry) {
-						BatchEntry elem = (BatchEntry) selectedElement;
-						if (elem.request.isEmpty()) {
+					if (selectedElement instanceof IBatchEntry) {
+						IBatchEntry elem = (IBatchEntry) selectedElement;
+						if (elem.hasRequests()) {
 							showMessage("Batch contains no original requests");
 						} else
-							copyToClipboard(batch.requestsToString(elem.request.values()));
+							copyToClipboard(batch.requestsToString(elem));
 					}
 				}
 			}
@@ -295,8 +295,8 @@ public class AIBatchView extends ViewPart {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
 				if (!selection.isEmpty()) {
 					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof BatchEntry) {
-						BatchEntry elem = (BatchEntry) selectedElement;
+					if (selectedElement instanceof IBatchEntry) {
+						IBatchEntry elem = (IBatchEntry) selectedElement;
 						batch.cancelbatch(elem);
 					}
 				}
@@ -310,15 +310,15 @@ public class AIBatchView extends ViewPart {
 			public void run() {
 				IStructuredSelection selection = batchViewer.getStructuredSelection();
 				Object obj = selection.getFirstElement();
-				if (obj instanceof BatchEntry) {
+				if (obj instanceof IBatchEntry) {
 					new Job("Load Batches") {
 						@Override
 						protected IStatus run(IProgressMonitor mon) {
 							mon.subTask("Loading result from API");
-							batch.loadBatch((BatchEntry) obj);
+							batch.loadBatch((IBatchEntry) obj);
 							mon.worked(1);
 							mon.subTask("Converting respones");
-							batchRequests.load((BatchEntry) obj, mon);
+							batchRequests.load((IBatchEntry) obj, mon);
 							mon.worked(1);
 							Display.getDefault().asyncExec(() -> batchRequests.updateView(reqViewer));
 							return Status.OK_STATUS;

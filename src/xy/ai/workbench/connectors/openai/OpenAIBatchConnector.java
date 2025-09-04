@@ -1,4 +1,4 @@
-package xy.ai.workbench.batch;
+package xy.ai.workbench.connectors.openai;
 
 import static com.openai.core.ObjectMappers.jsonMapper;
 
@@ -32,11 +32,14 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.batch.BatchState;
+import xy.ai.workbench.models.IModelRequest;
 
 public class OpenAIBatchConnector {
 	private OpenAIClient client;
 
-	public List<Batch> updateBatches() {
+	public List<IBatchEntry> updateBatches() {
 		prepareClient();
 
 		BatchListParams bparams = BatchListParams.builder() //
@@ -44,10 +47,11 @@ public class OpenAIBatchConnector {
 				.build();
 
 		BatchListPage res = client.batches().list(bparams);
-		return res.data();
+
+		return res.data().stream().map(b -> new OpenAIBatchEntry(b.id(), b)).collect(Collectors.toList());
 	}
 
-	public Batch submitBatch(String json, Collection<String> reqIds) {
+	public IBatchEntry submitBatch(String json, Collection<String> reqIds) {
 		prepareClient();
 
 		Path tempFile;
@@ -73,35 +77,38 @@ public class OpenAIBatchConnector {
 				.metadata(meta).endpoint(Endpoint.V1_RESPONSES) //
 				.completionWindow(CompletionWindow._24H) //
 				.build();
-		return client.batches().create(batchParams);
+		Batch returned = client.batches().create(batchParams);
+		return new OpenAIBatchEntry(returned.id(), returned);
 	}
 
-	public Batch cancelBatch(BatchEntry entry) {
+	public IBatchEntry cancelBatch(IBatchEntry entry) {
 		prepareClient();
 
-		if (BatchState.Proccessing.equals(entry.getState()))
-			return client.batches().cancel(entry.id);
+		if (BatchState.Proccessing.equals(entry.getState())) {
+			Batch batch = client.batches().cancel(entry.getID());
+			return new OpenAIBatchEntry(batch.id(), batch);
+		}
 		return null;
 	}
 
-	public void loadBatch(BatchEntry entry) {
+	public void loadBatch(IBatchEntry entry) {
 		prepareClient();
 
-		Batch batch = client.batches().retrieve(entry.id);
-		entry.batch = batch;
+		Batch batch = client.batches().retrieve(entry.getID());
+		((OpenAIBatchEntry) entry).batch = batch;
 
 		if (batch.outputFileId().isPresent())
 			try (HttpResponse response = client.files().content(batch.outputFileId().orElseThrow())) {
 				ByteArrayOutputStream bos = new ByteArrayOutputStream();
 				response.body().transferTo(bos);
 				String result = new String(bos.toByteArray());
-				entry.result = result;
+				entry.setResult(result);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 	}
 
-	public String requestToBatch(ResponseCreateParams param) {
+	private String requestToJson(ResponseCreateParams param) {
 		try {
 			return jsonMapper().writeValueAsString(new BatchElement(param._body()));
 		} catch (JsonProcessingException e) {
@@ -133,5 +140,14 @@ public class OpenAIBatchConnector {
 			this.body = body;
 		}
 
+	}
+
+	public String requestsToJson(Collection<IModelRequest> reqs) {
+		return requestsToJsonInner(
+				reqs.stream().map(r -> ((OpenAIModelRequest) r).reqquest).collect(Collectors.toList()));
+	}
+
+	private String requestsToJsonInner(Collection<ResponseCreateParams> requests) {
+		return requests.stream().map((r) -> requestToJson(r)).collect(Collectors.joining("\n"));
 	}
 }

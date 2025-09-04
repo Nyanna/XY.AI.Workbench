@@ -1,6 +1,5 @@
 package xy.ai.workbench.batch;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -8,72 +7,76 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.widgets.Display;
 
-import com.openai.models.batches.Batch;
-import com.openai.models.responses.ResponseCreateParams;
+import xy.ai.workbench.connectors.openai.IBatchEntry;
+import xy.ai.workbench.connectors.openai.OpenAIBatchConnector;
+import xy.ai.workbench.models.IModelRequest;
 
 public class AIBatchManager {
-	private static final String UNSEND_ID = "New";
+	static final String UNSEND_ID = "New";
 	public static String KEY_REQIDS = "reqIds";
 	private OpenAIBatchConnector connector = new OpenAIBatchConnector();
 
-	private Map<String, BatchEntry> index = new TreeMap<>();
+	private Map<String, IBatchEntry> index = new TreeMap<>();
 	private TableViewer viewer;
 
 	public void updateBatches() {
-		for (Batch batch : connector.updateBatches())
-			addOrUpdateEntry(new BatchEntry(batch.id(), batch));
+		for (IBatchEntry batch : connector.updateBatches())
+			addOrUpdateEntry(batch);
 	}
 
-	public void enqueue(ResponseCreateParams req) {
-		BatchEntry unsent = index.get(UNSEND_ID);
+	public void enqueue(IModelRequest req) {
+		NewBatch unsent = (NewBatch) index.get(UNSEND_ID);
 		if (unsent == null)
-			addOrUpdateEntry(unsent = new BatchEntry(UNSEND_ID));
-		unsent.request.put(unsent.request.size() + "", req);
-		final BatchEntry toUpdate = unsent;
+			addOrUpdateEntry(unsent = new NewBatch());
+		unsent.addRequest(req);
+		final IBatchEntry toUpdate = unsent;
 		Display.getDefault().asyncExec(() -> viewer.refresh(toUpdate, true));
 	}
 
 	public void submitBatches() {
-		final BatchEntry unsent = index.get(UNSEND_ID);
-		if (unsent == null || unsent.request.isEmpty())
+		final NewBatch unsent = (NewBatch) index.get(UNSEND_ID);
+		if (unsent == null || unsent.hasRequests())
 			return;
 
-		String json = requestsToString(unsent.request.values());
-		Batch res = connector.submitBatch(json, unsent.request.keySet());
-		addOrUpdateEntry(new BatchEntry(res.id(), res));
+		String json = requestsToString(unsent);
+		IBatchEntry res = connector.submitBatch(json,
+				unsent.getRequests().stream().map(r -> r.getID()).collect(Collectors.toList()));
+		addOrUpdateEntry(res);
 
-		unsent.request.clear();
+		unsent.clear();
 		Display.getDefault().asyncExec(() -> viewer.refresh(unsent, true));
 	}
 
-	public void cancelbatch(BatchEntry batch) {
+	public void cancelbatch(IBatchEntry batch) {
 		if (batch.getID().equals(UNSEND_ID))
 			return;
 
-		Batch res = connector.cancelBatch(batch);
-		if (res != null)
-			addOrUpdateEntry(new BatchEntry(res.id(), res));
+		IBatchEntry res = connector.cancelBatch(batch);
+		if (res != null) {
+			batch.updateBy(res);
+			addOrUpdateEntry(batch);
+		}
 	}
 
-	private void addOrUpdateEntry(BatchEntry entry) {
-		BatchEntry indexed = index.get(entry.id);
+	private void addOrUpdateEntry(IBatchEntry entry) {
+		IBatchEntry indexed = index.get(entry.getID());
 		if (indexed == null) {
-			index.put(entry.id, entry);
+			index.put(entry.getID(), entry);
 			Display.getDefault().asyncExec(() -> viewer.add(entry));
 		} else {
-			indexed.batch = entry.batch;
+			indexed.updateBy(entry);
 			Display.getDefault().asyncExec(() -> viewer.refresh(indexed, true));
 		}
 	}
 
-	public String requestsToString(Collection<ResponseCreateParams> request) {
-		return request.stream().map((r) -> connector.requestToBatch(r)).collect(Collectors.joining("\n"));
+	public String requestsToString(IBatchEntry entry) {
+		return connector.requestsToJson(((NewBatch) entry).getRequests());
 	}
 
-	public void loadBatch(BatchEntry entry) {
-		if(entry.result != null)
+	public void loadBatch(IBatchEntry entry) {
+		if (entry.getResult() != null)
 			return;
-		
+
 		connector.loadBatch(entry);
 		Display.getDefault().asyncExec(() -> viewer.refresh(entry, true));
 	}

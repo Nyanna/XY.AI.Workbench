@@ -2,8 +2,8 @@ package xy.ai.workbench;
 
 import org.eclipse.ui.IMemento;
 
-import com.openai.models.ChatModel;
-import com.openai.models.ReasoningEffort;
+import xy.ai.workbench.SessionConfig.Model;
+import xy.ai.workbench.SessionConfig.Reasoning;
 
 public class MementoConverter {
 
@@ -19,9 +19,9 @@ public class MementoConverter {
 		if (cfg.topP != null)
 			m.putString("topP", String.valueOf(cfg.topP));
 		if (cfg.model != null)
-			m.putString("model", cfg.model.asString());
+			m.putString("model", cfg.model.name());
 		if (cfg.reasoning != null)
-			m.putString("reasoning", cfg.reasoning.asString());
+			m.putString("reasoning", cfg.reasoning.name());
 		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
 		m.putInteger("systemPrompt.length", spLen);
 		if (spLen > 0) {
@@ -61,10 +61,10 @@ public class MementoConverter {
 		String tp = m.getString("topP");
 		cfg.topP = tp != null ? Double.valueOf(tp) : null;
 		String mdl = m.getString("model");
-		cfg.model = mdl != null ? ChatModel.of(mdl) : null;
+		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
 		String rsn = m.getString("reasoning");
 		if (rsn != null)
-			cfg.reasoning = ReasoningEffort.of(rsn);
+			cfg.reasoning = Reasoning.valueOf(rsn);
 		Integer spLen = m.getInteger("systemPrompt.length");
 		int sLen = spLen != null ? spLen : 0;
 		if (sLen > 0) {
