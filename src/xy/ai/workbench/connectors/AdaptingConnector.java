@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.List;
 
 import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.SessionConfig.Model;
+import xy.ai.workbench.Model;
 import xy.ai.workbench.connectors.google.GeminiBatch;
 import xy.ai.workbench.connectors.google.GeminiBatchConnector;
 import xy.ai.workbench.connectors.google.GeminiConnector;

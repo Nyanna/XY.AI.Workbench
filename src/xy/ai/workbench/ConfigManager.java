@@ -8,21 +8,29 @@ import java.util.stream.Collectors;
 
 import org.eclipse.ui.IMemento;
 
-import xy.ai.workbench.SessionConfig.Model;
-import xy.ai.workbench.SessionConfig.Reasoning;
+import xy.ai.workbench.Model.Capabilities;
 
 public class ConfigManager {
+
 	private SessionConfig cfg = new SessionConfig();
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
 	private List<Consumer<InputMode>> inputModeObs = new ArrayList<>();
+	private List<Consumer<Model>> modelObs = new ArrayList<>();
 	private List<Consumer<String>> keyObs = new ArrayList<>();
+	private List<Consumer<Long>> outTokenObs = new ArrayList<>();
+	private List<Consumer<Integer>> budgetObs = new ArrayList<>();
+	private List<Consumer<Reasoning>> reasonObs = new ArrayList<>();
 
 	public void clearObserver() {
 		systemPromptObs.clear();
 		inputObs.clear();
 		inputModeObs.clear();
 		keyObs.clear();
+		modelObs.clear();
+		outTokenObs.clear();
+		budgetObs.clear();
+		reasonObs.clear();
 	}
 
 	public void setKey(String key) {
@@ -31,7 +39,9 @@ public class ConfigManager {
 	}
 
 	public void setMaxOutputTokens(Long maxOutputTokens) {
+		maxOutputTokens = (long) getCapabilities().alignOutpuTokens(maxOutputTokens.intValue());
 		cfg.setMaxOutputTokens(maxOutputTokens);
+		outTokenObs.forEach(c -> c.accept(cfg.maxOutputTokens));
 	}
 
 	public void setTemperature(Double temperature) {
@@ -44,10 +54,27 @@ public class ConfigManager {
 
 	public void setModel(Model model) {
 		cfg.setModel(model);
+
+		if (Arrays.asList(getCapabilities().getReasonings()).indexOf(cfg.reasoning) == -1)
+			setReasoning(getCapabilities().getReasonings()[0]);
+		setMaxOutputTokens((long) getCapabilities().alignOutpuTokens(Integer.MAX_VALUE));
+		setReasoningBudget(getCapabilities().alignBudget(Integer.MAX_VALUE));
+		modelObs.forEach(c -> c.accept(model));
+	}
+
+	public Integer getReasoningBudget() {
+		return cfg.getReasoningBudget();
+	}
+
+	public void setReasoningBudget(Integer reasoningBudget) {
+		reasoningBudget = getCapabilities().alignBudget(reasoningBudget);
+		cfg.setReasoningBudget(reasoningBudget);
+		budgetObs.forEach(c -> c.accept(cfg.reasoningBudget));
 	}
 
 	public void setReasoning(Reasoning reasoning) {
 		cfg.setReasoning(reasoning);
+		reasonObs.forEach(c -> c.accept(cfg.reasoning));
 	}
 
 	public void setSystemPrompt(String[] systemPrompt) {
@@ -96,10 +123,34 @@ public class ConfigManager {
 			obs.accept(cfg.inputModes);
 	}
 
+	public void addBudgetObs(Consumer<Integer> obs, boolean initialize) {
+		budgetObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.reasoningBudget);
+	}
+
+	public void addReasoningObs(Consumer<Reasoning> obs, boolean initialize) {
+		reasonObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.reasoning);
+	}
+
 	public void addKeyObs(Consumer<String> obs, boolean initialize) {
 		keyObs.add(obs);
 		if (initialize)
 			obs.accept(cfg.key);
+	}
+
+	public void addModelObs(Consumer<Model> obs, boolean initialize) {
+		modelObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.model);
+	}
+
+	public void addOutputTokenObs(Consumer<Long> obs, boolean initialize) {
+		outTokenObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.maxOutputTokens);
 	}
 
 	public void addInputModeObs(Consumer<InputMode> obs) {
@@ -137,13 +188,15 @@ public class ConfigManager {
 	}
 
 	public String[] getModels() {
+		// TODO based on current key
 		String[] options = Arrays.stream(Model.values()).map((m) -> m.name()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
 	}
 
 	public String[] getReasonings() {
-		String[] options = Arrays.stream(Reasoning.values()).map((m) -> m.name()).collect(Collectors.toList())
+		Reasoning[] reasonings = getCapabilities().getReasonings();
+		String[] options = Arrays.stream(reasonings).map((m) -> m.name()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
 	}
@@ -154,5 +207,9 @@ public class ConfigManager {
 
 	public void loadConfig(IMemento memento) {
 		MementoConverter.loadConfig(memento, cfg);
+	}
+
+	public Capabilities getCapabilities() {
+		return cfg.model.cap;
 	}
 }

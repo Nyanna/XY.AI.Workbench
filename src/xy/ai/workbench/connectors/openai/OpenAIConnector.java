@@ -47,8 +47,6 @@ public class OpenAIConnector implements IAIConnector {
 
 		Builder builder = ResponseCreateParams.builder() //
 				.maxOutputTokens(cfg.getMaxOutputTokens())
-				// .temperature(cfg.temperature) // TODO Not supported disable option
-				// .topP(cfg.topP) // TODO Not Supported disable option
 				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "").truncation(Truncation.DISABLED) //
 				.maxToolCalls(1)//
 				.background(isBackground)//
@@ -58,7 +56,14 @@ public class OpenAIConnector implements IAIConnector {
 								.effort(ReasoningEffort.of(cfg.getReasoning().name())) //
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
-				.model(ChatModel.of(cfg.getModel().name())); //
+				.model(ChatModel.of(cfg.getModel().connectorName)); //
+
+		if (cfg.getCapabilities().isSupportTemperature())
+			builder = builder.temperature(cfg.getTemperature());
+
+		if (cfg.getCapabilities().isSupportTopP())
+			builder = builder.topP(cfg.getTopP());
+
 		if (input != null && !input.isBlank()) {
 			List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
 			ResponseInputText inputText = ResponseInputText.builder() //
@@ -181,7 +186,6 @@ public class OpenAIConnector implements IAIConnector {
 		try {
 			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
 			tree.get("error"); // errors
-			// TODO add id for local and remote
 			TextNode id = (TextNode) tree.get("id");
 			ObjectNode response = (ObjectNode) tree.get("response");
 			// IntNode statusCode = (IntNode) response.get("status_code");

@@ -23,6 +23,7 @@ import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -45,23 +46,24 @@ public class GeminiConnector implements IAIConnector {
 		ImmutableList<SafetySetting> safetySettings = ImmutableList.of(//
 				SafetySetting.builder()//
 						.category(HarmCategory.Known.HARM_CATEGORY_HATE_SPEECH)//
-						.threshold(HarmBlockThreshold.Known.BLOCK_ONLY_HIGH).build(),
+						.threshold(HarmBlockThreshold.Known.BLOCK_NONE).build(),
 				SafetySetting.builder()//
 						.category(HarmCategory.Known.HARM_CATEGORY_DANGEROUS_CONTENT)//
-						.threshold(HarmBlockThreshold.Known.BLOCK_LOW_AND_ABOVE).build());
+						.threshold(HarmBlockThreshold.Known.BLOCK_NONE).build());
 
 		Map<String, String> labels = new HashMap<>();
 		labels.put(GeminiModelRequest.CUSTOM_ID, new Random().nextInt(Integer.MAX_VALUE) + "");
 
+		// TODO batch support for gemini
 		// TODO implement different parameter set for gemini
 		Builder config = GenerateContentConfig.builder()
 				// Sets the thinking budget to 0 to disable thinking mode
 				.thinkingConfig(ThinkingConfig.builder()//
-						.thinkingBudget(0))// TODO thinking score
+						.thinkingBudget(getThinkingBudget(cfg.getReasoning(), cfg)))//
 				.candidateCount(1) //
 				.temperature(cfg.getTemperature().floatValue())//
 				.topP(cfg.getTopP().floatValue()) //
-				//.labels(labels) // not supported
+				// .labels(labels) // not supported
 				.maxOutputTokens(cfg.getMaxOutputTokens().intValue()) //
 				.safetySettings(safetySettings);
 
@@ -80,6 +82,19 @@ public class GeminiConnector implements IAIConnector {
 				inputs.add(Content.fromParts(Part.fromText(tool)));
 
 		return new GeminiModelRequest(cfg.getModel(), inputs, config.build());
+	}
+
+	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
+		switch (reasoning) {
+		case Budget:
+			return cfg.getReasoningBudget();
+		case Unlimited:
+			return -1;
+		case Disabled:
+			return 0;
+		default:
+		}
+		throw new IllegalArgumentException("Unsupported reasoning setting");
 	}
 
 	@Override
@@ -112,7 +127,7 @@ public class GeminiConnector implements IAIConnector {
 			if (usage.promptTokensDetails().isPresent()) {
 				List<ModalityTokenCount> details = usage.promptTokensDetails().get();
 				details.isEmpty();
-				// TODO modaility tokens get().getFirst().tokenCount()
+				// TODO parse modaility tokens get().getFirst().tokenCount()
 			}
 		}
 
@@ -125,7 +140,7 @@ public class GeminiConnector implements IAIConnector {
 //			ResponseError error = resp.error().get();
 //			res.answer = error.code() + ": " + error.message();
 //
-		// TODO reasoning output
+		// TODO detailed reasoning output
 		return res;
 	}
 

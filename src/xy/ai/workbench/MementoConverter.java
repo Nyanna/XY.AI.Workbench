@@ -2,9 +2,6 @@ package xy.ai.workbench;
 
 import org.eclipse.ui.IMemento;
 
-import xy.ai.workbench.SessionConfig.Model;
-import xy.ai.workbench.SessionConfig.Reasoning;
-
 public class MementoConverter {
 
 	public static void saveConfig(IMemento memento, SessionConfig cfg) {
@@ -22,6 +19,8 @@ public class MementoConverter {
 			m.putString("model", cfg.model.name());
 		if (cfg.reasoning != null)
 			m.putString("reasoning", cfg.reasoning.name());
+		if (cfg.reasoningBudget != null)
+			m.putInteger("reasoningBudget", cfg.reasoningBudget);
 		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
 		m.putInteger("systemPrompt.length", spLen);
 		if (spLen > 0) {
@@ -63,8 +62,9 @@ public class MementoConverter {
 		String mdl = m.getString("model");
 		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
 		String rsn = m.getString("reasoning");
-		if (rsn != null)
-			cfg.reasoning = Reasoning.valueOf(rsn);
+		cfg.reasoning = rsn == null ? cfg.reasoning : Reasoning.valueOf(rsn);
+		Integer rsnb = m.getInteger("reasoningBudget");
+		cfg.reasoningBudget = rsnb != null ? cfg.reasoningBudget : rsnb;
 		Integer spLen = m.getInteger("systemPrompt.length");
 		int sLen = spLen != null ? spLen : 0;
 		if (sLen > 0) {

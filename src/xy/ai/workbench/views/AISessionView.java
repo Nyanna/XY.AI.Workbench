@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
@@ -36,9 +37,9 @@ import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
+import xy.ai.workbench.Model;
 import xy.ai.workbench.OutputMode;
-import xy.ai.workbench.SessionConfig.Model;
-import xy.ai.workbench.SessionConfig.Reasoning;
+import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.models.AIAnswer;
 
 public class AISessionView extends ViewPart {
@@ -104,52 +105,97 @@ public class AISessionView extends ViewPart {
 
 		Composite body = form.getBody();
 		body.setLayout(new GridLayout());
-		GridData defHorizontal = new GridData(GridData.FILL_HORIZONTAL);
-
 		{ // upper parameters
 			Composite top = new Composite(body, SWT.NONE);
 			top.setLayout(new GridLayout(2, false));
-			top.setLayoutData(defHorizontal);
+			top.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
 			toolkit.createLabel(top, "Key:");
 			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
-			keyInput.setLayoutData(defHorizontal);
+			keyInput.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
 			keyInput.setText(cfg.getKey() + "");
 
 			toolkit.createLabel(top, "Model:");
 			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
 			modelSel.setItems(cfg.getModels());
-			modelSel.setLayoutData(defHorizontal);
+			modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			modelSel.setText(cfg.getModel().name());
 			modelSel.addSelectionListener(
 					SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
 
 			toolkit.createLabel(top, "Max Token:");
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
-			maxToken.setLayoutData(defHorizontal);
-			maxToken.setText(cfg.getMaxOutputTokens() + "");
-			maxToken.addModifyListener(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText())));
+			maxToken.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			maxToken.addFocusListener(
+					FocusListener.focusLostAdapter(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText()))));
+			cfg.addOutputTokenObs(ot -> maxToken.setText(ot + ""), true);
 
-			toolkit.createLabel(top, "Temp:");
+			Label tempLabel = toolkit.createLabel(top, "Temp:");
+			tempLabel.setLayoutData(new GridData());
 			Text temp = toolkit.createText(top, "", SWT.BORDER);
-			temp.setLayoutData(defHorizontal);
+			temp.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			temp.setText(cfg.getTemperature() + "");
 			temp.addModifyListener(e -> cfg.setTemperature(Double.parseDouble(temp.getText())));
 
-			toolkit.createLabel(top, "topP:");
+			Label topPLabel = toolkit.createLabel(top, "TopP:");
+			topPLabel.setLayoutData(new GridData());
 			Text topP = toolkit.createText(top, "", SWT.BORDER);
-			topP.setLayoutData(defHorizontal);
+			topP.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			topP.setText(cfg.getTopP() + "");
 			topP.addModifyListener(e -> cfg.setTopP(Double.parseDouble(topP.getText())));
 
 			toolkit.createLabel(top, "Reasoning:");
 			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			reasSel.setItems(cfg.getReasonings());
-			reasSel.setLayoutData(defHorizontal);
-			reasSel.setText(cfg.getReasoning().name());
+			reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			reasSel.addSelectionListener(SelectionListener
 					.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
+
+			Label budgetLabel = toolkit.createLabel(top, "Budget:");
+			budgetLabel.setLayoutData(new GridData());
+			Text budget = toolkit.createText(top, "", SWT.BORDER);
+			budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			budget.addFocusListener(
+					FocusListener.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
+			cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
+
+			cfg.addModelObs(m -> {
+				{
+					boolean enabled = m.cap.isSupportTemperature();
+					tempLabel.setEnabled(enabled);
+					tempLabel.setVisible(enabled);
+					temp.setEnabled(enabled);
+					temp.setVisible(enabled);
+					((GridData) tempLabel.getLayoutData()).exclude = !enabled;
+					((GridData) temp.getLayoutData()).exclude = !enabled;
+				}
+
+				{
+					boolean enabled = m.cap.isSupportTopP();
+					topPLabel.setEnabled(enabled);
+					topPLabel.setVisible(enabled);
+					topP.setEnabled(enabled);
+					topP.setVisible(enabled);
+					((GridData) topPLabel.getLayoutData()).exclude = !enabled;
+					((GridData) topP.getLayoutData()).exclude = !enabled;
+				}
+
+				reasSel.setItems(cfg.getReasonings());
+				reasSel.setText(cfg.getReasoning().name());
+				body.layout();
+			}, true);
+			cfg.addReasoningObs(r -> {
+
+				boolean enabled = Reasoning.Budget.equals(r);
+				budgetLabel.setEnabled(enabled);
+				budgetLabel.setVisible(enabled);
+				budget.setEnabled(enabled);
+				budget.setVisible(enabled);
+				((GridData) budgetLabel.getLayoutData()).exclude = !enabled;
+				((GridData) budget.getLayoutData()).exclude = !enabled;
+
+				body.layout();
+			}, true);
 		}
 		{ // instruction section
 
@@ -225,7 +271,7 @@ public class AISessionView extends ViewPart {
 				gridData.widthHint = 1;
 				instructionEdit.setLayoutData(gridData);
 			}
-			{
+			{ // inputs section
 				Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
 				table.setHeaderVisible(true);
 				table.setLinesVisible(true);
