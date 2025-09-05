@@ -17,6 +17,7 @@ import com.google.genai.Client;
 import kotlin.NotImplementedError;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatchConnector;
@@ -27,9 +28,12 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	private Client client;
 
 	public GeminiBatchConnector(ConfigManager cfg) {
-		cfg.addKeyObs(k -> this.client = Client.builder()//
-				.apiKey(k)//
-				.build(), true);
+		cfg.addKeyObs(k -> {
+			if (KeyPattern.Gemini.matches(k))
+				this.client = Client.builder()//
+						.apiKey(k)//
+						.build();
+		}, true);
 	}
 
 	@Override

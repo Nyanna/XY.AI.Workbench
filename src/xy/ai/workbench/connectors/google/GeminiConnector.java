@@ -23,6 +23,7 @@ import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
@@ -35,9 +36,12 @@ public class GeminiConnector implements IAIConnector {
 
 	public GeminiConnector(ConfigManager cfg) {
 		this.cfg = cfg;
-		cfg.addKeyObs(k -> this.client = Client.builder()//
-				.apiKey(k)//
-				.build(), true);
+		cfg.addKeyObs(k -> {
+			if (KeyPattern.Gemini.matches(k))
+				this.client = Client.builder()//
+						.apiKey(k)//
+						.build();
+		}, true);
 	}
 
 	@Override

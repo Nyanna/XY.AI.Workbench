@@ -13,6 +13,7 @@ import xy.ai.workbench.Model.Capabilities;
 public class ConfigManager {
 
 	private SessionConfig cfg = new SessionConfig();
+	private Model[] enabledModels = new Model[0];
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
 	private List<Consumer<InputMode>> inputModeObs = new ArrayList<>();
@@ -21,6 +22,7 @@ public class ConfigManager {
 	private List<Consumer<Long>> outTokenObs = new ArrayList<>();
 	private List<Consumer<Integer>> budgetObs = new ArrayList<>();
 	private List<Consumer<Reasoning>> reasonObs = new ArrayList<>();
+	private List<Consumer<Model[]>> enabledModelsObs = new ArrayList<>();
 
 	public void clearObserver() {
 		systemPromptObs.clear();
@@ -31,11 +33,16 @@ public class ConfigManager {
 		outTokenObs.clear();
 		budgetObs.clear();
 		reasonObs.clear();
+		enabledModelsObs.clear();
 	}
 
-	public void setKey(String key) {
-		cfg.setKey(key);
-		keyObs.forEach(c -> c.accept(key));
+	public void setKey(String keys) {
+		cfg.setKeys(keys);
+
+		String[] keysa = cfg.keys.split(",");
+		updateEnabledModels(keysa);
+		for (String key : keysa)
+			keyObs.forEach(c -> c.accept(key));
 	}
 
 	public void setMaxOutputTokens(Long maxOutputTokens) {
@@ -83,8 +90,8 @@ public class ConfigManager {
 		inputModeObs.forEach(c -> c.accept(InputMode.Instructions));
 	}
 
-	public String getKey() {
-		return cfg.getKey();
+	public String getKeys() {
+		return cfg.getKeys();
 	}
 
 	public Long getMaxOutputTokens() {
@@ -138,7 +145,7 @@ public class ConfigManager {
 	public void addKeyObs(Consumer<String> obs, boolean initialize) {
 		keyObs.add(obs);
 		if (initialize)
-			obs.accept(cfg.key);
+			obs.accept(cfg.keys);
 	}
 
 	public void addModelObs(Consumer<Model> obs, boolean initialize) {
@@ -151,6 +158,12 @@ public class ConfigManager {
 		outTokenObs.add(obs);
 		if (initialize)
 			obs.accept(cfg.maxOutputTokens);
+	}
+
+	public void addEnabledModelsObs(Consumer<Model[]> obs, boolean initialize) {
+		enabledModelsObs.add(obs);
+		if (initialize)
+			obs.accept(enabledModels);
 	}
 
 	public void addInputModeObs(Consumer<InputMode> obs) {
@@ -187,11 +200,24 @@ public class ConfigManager {
 		inputModeObs.forEach(c -> c.accept(mode));
 	}
 
-	public String[] getModels() {
-		// TODO based on current key
-		String[] options = Arrays.stream(Model.values()).map((m) -> m.name()).collect(Collectors.toList())
-				.toArray(new String[0]);
-		return options;
+	private void updateEnabledModels(String[] keys) {
+		List<Model> avail = new ArrayList<Model>();
+		forModel: for (Model mod : Model.values())
+			for (String key : keys)
+				if (mod.cap.acceptsKey(key)) {
+					avail.add(mod);
+					continue forModel;
+				}
+
+		enabledModels = avail.toArray(new Model[0]);
+		if (!avail.contains(cfg.model) && !avail.isEmpty())
+			setModel(avail.get(1));
+
+		enabledModelsObs.forEach(c -> c.accept(enabledModels));
+	}
+
+	public Model[] getEnabledModels() {
+		return enabledModels;
 	}
 
 	public String[] getReasonings() {

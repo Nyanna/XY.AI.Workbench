@@ -27,6 +27,7 @@ import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -38,7 +39,10 @@ public class OpenAIConnector implements IAIConnector {
 
 	public OpenAIConnector(ConfigManager cfg) {
 		this.cfg = cfg;
-		cfg.addKeyObs(k -> this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKey()).build(), true);
+		cfg.addKeyObs(k -> {
+			if (KeyPattern.OpenAI.matches(k))
+				this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKeys()).build();
+		}, true);
 	}
 
 	@Override

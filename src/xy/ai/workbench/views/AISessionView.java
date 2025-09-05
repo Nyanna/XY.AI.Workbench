@@ -114,15 +114,18 @@ public class AISessionView extends ViewPart {
 			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
 			keyInput.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
-			keyInput.setText(cfg.getKey() + "");
+			keyInput.setText(cfg.getKeys() + "");
 
 			toolkit.createLabel(top, "Model:");
 			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			modelSel.setItems(cfg.getModels());
 			modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			modelSel.setText(cfg.getModel().name());
 			modelSel.addSelectionListener(
 					SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
+			cfg.addEnabledModelsObs(k -> {
+				modelSel.setItems(
+						Arrays.stream(k).map((m) -> m.name()).collect(Collectors.toList()).toArray(new String[0]));
+				modelSel.setText(cfg.getModel().name());
+			}, true);
 
 			toolkit.createLabel(top, "Max Token:");
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);

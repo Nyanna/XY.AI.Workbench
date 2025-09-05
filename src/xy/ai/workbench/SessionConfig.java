@@ -1,7 +1,7 @@
 package xy.ai.workbench;
 
 public class SessionConfig {
-	public String key = "dummy";
+	public String keys = "dummy";
 	public Long maxOutputTokens = 128000L;
 	public Double temperature = 0d; // 0-2 // TODO temperature and TopP ranges for models
 	public Double topP = 0.1d;
@@ -24,12 +24,12 @@ public class SessionConfig {
 		setInputMode(InputMode.Editor, true);
 	}
 
-	public String getKey() {
-		return key;
+	public String getKeys() {
+		return keys;
 	}
 
-	public void setKey(String key) {
-		this.key = key;
+	public void setKeys(String keys) {
+		this.keys = keys;
 	}
 
 	public Long getMaxOutputTokens() {

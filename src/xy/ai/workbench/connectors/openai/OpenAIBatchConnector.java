@@ -32,6 +32,7 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatchConnector;
@@ -42,7 +43,10 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	private OpenAIClient client;
 
 	public OpenAIBatchConnector(ConfigManager cfg) {
-		cfg.addKeyObs(k -> this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKey()).build(), true);
+		cfg.addKeyObs(k -> {
+			if (KeyPattern.OpenAI.matches(k))
+				this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKeys()).build();
+		}, true);
 	}
 
 	@Override

@@ -7,8 +7,8 @@ public class MementoConverter {
 	public static void saveConfig(IMemento memento, SessionConfig cfg) {
 		var m = memento.createChild("cfg");
 
-		if (cfg.key != null)
-			m.putString("key", cfg.key);
+		if (cfg.keys != null)
+			m.putString("key", cfg.keys);
 		if (cfg.maxOutputTokens != null)
 			m.putString("maxOutputTokens", String.valueOf(cfg.maxOutputTokens));
 		if (cfg.temperature != null)
@@ -52,7 +52,7 @@ public class MementoConverter {
 		if (m == null)
 			return;
 
-		cfg.key = m.getString("key");
+		cfg.keys = m.getString("key");
 		String maxTok = m.getString("maxOutputTokens");
 		cfg.maxOutputTokens = maxTok != null ? Long.valueOf(maxTok) : null;
 		String tmp = m.getString("temperature");
