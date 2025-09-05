@@ -138,15 +138,16 @@ public class AISessionView extends ViewPart {
 			tempLabel.setLayoutData(new GridData());
 			Text temp = toolkit.createText(top, "", SWT.BORDER);
 			temp.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			temp.setText(cfg.getTemperature() + "");
-			temp.addModifyListener(e -> cfg.setTemperature(Double.parseDouble(temp.getText())));
+			temp.addFocusListener(
+					FocusListener.focusLostAdapter(e -> cfg.setTemperature(Double.parseDouble(temp.getText()))));
+			cfg.addTemperatureObs(t -> temp.setText(t + ""), true);
 
 			Label topPLabel = toolkit.createLabel(top, "TopP:");
 			topPLabel.setLayoutData(new GridData());
 			Text topP = toolkit.createText(top, "", SWT.BORDER);
 			topP.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			topP.setText(cfg.getTopP() + "");
-			topP.addModifyListener(e -> cfg.setTopP(Double.parseDouble(topP.getText())));
+			topP.addFocusListener(FocusListener.focusLostAdapter(e -> cfg.setTopP(Double.parseDouble(topP.getText()))));
+			cfg.addTopPObs(tp -> topP.setText(tp + ""), true);
 
 			toolkit.createLabel(top, "Reasoning:");
 			Composite secReason = new Composite(top, SWT.NONE);

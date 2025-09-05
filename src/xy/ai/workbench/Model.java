@@ -153,5 +153,21 @@ public enum Model {
 		public boolean acceptsKey(String key) {
 			return keyPattern.matches(key);
 		}
+
+		public Double alignTemperature(Double temperature) {
+			if (temperature < 0d)
+				return 0d;
+			if (temperature > 1d)
+				return 1d;
+			return temperature;
+		}
+
+		public Double alignTopP(Double topP) {
+			if (topP < 0d)
+				return 0d;
+			if (topP > 1d)
+				return 1d;
+			return topP;
+		}
 	}
 }

@@ -23,6 +23,8 @@ public class ConfigManager {
 	private List<Consumer<Integer>> budgetObs = new ArrayList<>();
 	private List<Consumer<Reasoning>> reasonObs = new ArrayList<>();
 	private List<Consumer<Model[]>> enabledModelsObs = new ArrayList<>();
+	private List<Consumer<Double>> temperatureObs = new ArrayList<>();
+	private List<Consumer<Double>> topPObs = new ArrayList<>();
 
 	public void clearObserver() {
 		systemPromptObs.clear();
@@ -34,6 +36,8 @@ public class ConfigManager {
 		budgetObs.clear();
 		reasonObs.clear();
 		enabledModelsObs.clear();
+		temperatureObs.clear();
+		topPObs.clear();
 	}
 
 	public void setKey(String keys) {
@@ -52,11 +56,15 @@ public class ConfigManager {
 	}
 
 	public void setTemperature(Double temperature) {
+		temperature = getCapabilities().alignTemperature(temperature);
 		cfg.setTemperature(temperature);
+		temperatureObs.forEach(c -> c.accept(cfg.temperature));
 	}
 
 	public void setTopP(Double topP) {
+		topP = getCapabilities().alignTopP(topP);
 		cfg.setTopP(topP);
+		topPObs.forEach(c -> c.accept(cfg.topP));
 	}
 
 	public void setModel(Model model) {
@@ -122,6 +130,18 @@ public class ConfigManager {
 		systemPromptObs.add(obs);
 		if (initialize)
 			obs.accept(cfg);
+	}
+
+	public void addTemperatureObs(Consumer<Double> obs, boolean initialize) {
+		temperatureObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.temperature);
+	}
+
+	public void addTopPObs(Consumer<Double> obs, boolean initialize) {
+		topPObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.topP);
 	}
 
 	public void addInputObs(Consumer<boolean[]> obs, boolean initialize) {

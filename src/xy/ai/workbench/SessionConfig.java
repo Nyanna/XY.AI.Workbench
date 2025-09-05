@@ -3,7 +3,7 @@ package xy.ai.workbench;
 public class SessionConfig {
 	public String keys = "dummy";
 	public Long maxOutputTokens = 128000L;
-	public Double temperature = 0d; // 0-2 // TODO temperature and TopP ranges for models
+	public Double temperature = 0d;
 	public Double topP = 0.1d;
 	public Model model = Model.GPT_5_NANO;
 	public String[] systemPrompt = new String[] { //
