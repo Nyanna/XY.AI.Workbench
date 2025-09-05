@@ -146,14 +146,18 @@ public class AISessionView extends ViewPart {
 			topP.addModifyListener(e -> cfg.setTopP(Double.parseDouble(topP.getText())));
 
 			toolkit.createLabel(top, "Reasoning:");
-			Combo reasSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+			Composite secReason = new Composite(top, SWT.NONE);
+			GridLayout secRLay = new GridLayout(2, false);
+			secRLay.marginHeight = secRLay.marginWidth = 0;
+			secReason.setLayout(secRLay);
+			secReason.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
+			Combo reasSel = new Combo(secReason, SWT.DROP_DOWN | SWT.READ_ONLY);
 			reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			reasSel.addSelectionListener(SelectionListener
 					.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
 
-			Label budgetLabel = toolkit.createLabel(top, "Budget:");
-			budgetLabel.setLayoutData(new GridData());
-			Text budget = toolkit.createText(top, "", SWT.BORDER);
+			Text budget = toolkit.createText(secReason, "", SWT.BORDER);
 			budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			budget.addFocusListener(
 					FocusListener.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
@@ -187,11 +191,8 @@ public class AISessionView extends ViewPart {
 			cfg.addReasoningObs(r -> {
 
 				boolean enabled = Reasoning.Budget.equals(r);
-				budgetLabel.setEnabled(enabled);
-				budgetLabel.setVisible(enabled);
 				budget.setEnabled(enabled);
 				budget.setVisible(enabled);
-				((GridData) budgetLabel.getLayoutData()).exclude = !enabled;
 				((GridData) budget.getLayoutData()).exclude = !enabled;
 
 				body.layout();
