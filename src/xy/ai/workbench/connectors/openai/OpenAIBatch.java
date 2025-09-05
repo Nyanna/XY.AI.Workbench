@@ -1,11 +1,15 @@
 package xy.ai.workbench.connectors.openai;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import com.openai.models.batches.Batch;
 
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.models.AIAnswer;
 
 public class OpenAIBatch implements IAIBatch {
 	private String id;
@@ -16,6 +20,7 @@ public class OpenAIBatch implements IAIBatch {
 	private String result;
 	// string content of error file
 	private String error;
+	private List<AIAnswer> answers = Collections.emptyList();
 
 	public OpenAIBatch(String id) {
 		this(id, null);
@@ -24,6 +29,16 @@ public class OpenAIBatch implements IAIBatch {
 	public OpenAIBatch(String id, Batch batch) {
 		this.id = id;
 		this.batch = batch;
+	}
+
+	@Override
+	public void setAnswers(List<AIAnswer> answ) {
+		answers = answ;
+	}
+
+	@Override
+	public Collection<AIAnswer> getAnswers() {
+		return answers;
 	}
 
 	@Override
@@ -37,7 +52,7 @@ public class OpenAIBatch implements IAIBatch {
 		if (oi.result != null)
 			result = oi.result;
 	}
-	
+
 	public void setBatch(Batch batch) {
 		this.batch = batch;
 	}
@@ -60,7 +75,7 @@ public class OpenAIBatch implements IAIBatch {
 	public String getError() {
 		return error;
 	}
-	
+
 	public void setError(String error) {
 		this.error = error;
 	}
@@ -187,5 +202,10 @@ public class OpenAIBatch implements IAIBatch {
 		if (proc != null && com != null)
 			return (int) ((com.getTime() - proc.getTime()) / 1000);
 		return 0;
+	}
+
+	@Override
+	public boolean hasRequests() {
+		return false;
 	}
 }

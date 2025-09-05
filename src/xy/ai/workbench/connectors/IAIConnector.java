@@ -8,12 +8,10 @@ import xy.ai.workbench.models.IModelResponse;
 
 public interface IAIConnector {
 
-	IModelRequest createRequest(String input, String systemPrompt, List<String> tools);
+	IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix);
 
 	IModelResponse executeRequest(IModelRequest request);
 
 	AIAnswer convertResponse(IModelResponse response);
-
-	AIAnswer convertToAnswer(String bodyJson);
 
 }

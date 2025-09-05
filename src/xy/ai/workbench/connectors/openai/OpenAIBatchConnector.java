@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
@@ -14,9 +15,13 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
+import com.openai.core.ObjectMappers;
 import com.openai.core.http.HttpResponse;
 import com.openai.models.batches.Batch;
 import com.openai.models.batches.BatchCreateParams;
@@ -28,6 +33,7 @@ import com.openai.models.batches.BatchListParams;
 import com.openai.models.files.FileCreateParams;
 import com.openai.models.files.FileObject;
 import com.openai.models.files.FilePurpose;
+import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
@@ -35,14 +41,18 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
+import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 
 public class OpenAIBatchConnector implements IAIBatchConnector {
 	private OpenAIClient client;
+	private OpenAIConnector connector;
 
-	public OpenAIBatchConnector(ConfigManager cfg) {
+	public OpenAIBatchConnector(ConfigManager cfg, OpenAIConnector connector) {
+		this.connector = connector;
 		cfg.addKeyObs(k -> {
 			if (KeyPattern.OpenAI.matches(k))
 				this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKeys()).build();
@@ -61,7 +71,10 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch submitBatch(String json, Collection<String> reqIds) {
+	public IAIBatch submitBatch(NewBatch entry) {
+		String json = requestsToJson(entry.getRequests());
+		String reqIds = String.join(",", entry.getRequestIDs());
+
 		Path tempFile;
 		try {
 			tempFile = Files.createTempFile("mydata", ".jsonl");
@@ -77,7 +90,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 
 		Metadata meta = Metadata.builder() //
 				.putAdditionalProperty(AIBatchManager.KEY_REQIDS, JsonValue.from(//
-						reqIds.stream().collect(Collectors.joining(",")))) //
+						reqIds)) //
 				.build();
 
 		BatchCreateParams batchParams = BatchCreateParams.builder() //
@@ -103,7 +116,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		OpenAIBatch oentry = ((OpenAIBatch) entry);
 		Batch batch = client.batches().retrieve(oentry.getID());
 		oentry.setBatch(batch);
-		;
 
 		if (oentry.getError() == null && batch.errorFileId().isPresent())
 			oentry.setError(getFileAsString(batch.errorFileId().get()));
@@ -158,5 +170,45 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 
 	private String requestsToJsonInner(Collection<ResponseCreateParams> requests) {
 		return requests.stream().map((r) -> requestToJson(r)).collect(Collectors.joining("\n"));
+	}
+
+	@Override
+	public void convertAnswers(IAIBatch obj) {
+		List<AIAnswer> answ = new ArrayList<>();
+		if (obj.getResult() != null)
+			for (String InputJson : obj.getResult().split("\n"))
+				answ.add(convertToAnswer(InputJson));
+
+		if (obj.getError() != null)
+			answ.add(convertToAnswer(obj.getError()));
+
+		obj.setAnswers(answ);
+	}
+
+	private AIAnswer convertToAnswer(String bodyJson) {
+
+		try {
+			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
+			tree.get("error"); // errors
+			TextNode id = (TextNode) tree.get("id");
+			ObjectNode response = (ObjectNode) tree.get("response");
+			// IntNode statusCode = (IntNode) response.get("status_code");
+			ObjectNode body = (ObjectNode) response.get("body");
+
+			String cbodyJson = ObjectMappers.jsonMapper().writeValueAsString(body);
+			AIAnswer answer = convertToAnswer1(cbodyJson);
+			answer.id = id.asText();
+			return answer;
+
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private AIAnswer convertToAnswer1(String bodyJson) throws JsonMappingException, JsonProcessingException {
+		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
+
+		AIAnswer answer = connector.convertResponse(new OpenAIModelResponse(resp));
+		return answer;
 	}
 }

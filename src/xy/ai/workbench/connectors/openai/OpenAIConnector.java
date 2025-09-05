@@ -4,13 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.core.ObjectMappers;
 import com.openai.core.http.HttpResponseFor;
 import com.openai.models.ChatModel;
 import com.openai.models.Reasoning;
@@ -46,7 +41,7 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
 		boolean isBackground = false;
 
 		Builder builder = ResponseCreateParams.builder() //
@@ -60,7 +55,7 @@ public class OpenAIConnector implements IAIConnector {
 								.effort(ReasoningEffort.of(cfg.getReasoning().name())) //
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
-				.model(ChatModel.of(cfg.getModel().connectorName)); //
+				.model(ChatModel.of(cfg.getModel().apiName)); //
 
 		if (cfg.getCapabilities().isSupportTemperature())
 			builder = builder.temperature(cfg.getTemperature());
@@ -182,33 +177,5 @@ public class OpenAIConnector implements IAIConnector {
 				.addContent(inputFile).build());
 		inputs.add(inputItem);
 		return builder.inputOfResponse(inputs);
-	}
-
-	@Override
-	public AIAnswer convertToAnswer(String bodyJson) {
-
-		try {
-			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
-			tree.get("error"); // errors
-			TextNode id = (TextNode) tree.get("id");
-			ObjectNode response = (ObjectNode) tree.get("response");
-			// IntNode statusCode = (IntNode) response.get("status_code");
-			ObjectNode body = (ObjectNode) response.get("body");
-
-			String cbodyJson = ObjectMappers.jsonMapper().writeValueAsString(body);
-			AIAnswer answer = convertToAnswer1(cbodyJson);
-			answer.id = id.asText();
-			return answer;
-
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException(e);
-		}
-	}
-
-	private AIAnswer convertToAnswer1(String bodyJson) throws JsonMappingException, JsonProcessingException {
-		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
-
-		AIAnswer answer = convertResponse(new OpenAIModelResponse(resp));
-		return answer;
 	}
 }

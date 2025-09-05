@@ -5,9 +5,8 @@ import java.time.Duration;
 public class Time {
 
 	public static String secsToReadable(long seconds) {
-		if (seconds < 0) {
-			throw new IllegalArgumentException("Seconds cannot be negative.");
-		}
+		if (seconds < 0)
+			return "";
 
 		Duration duration = Duration.ofSeconds(seconds);
 
@@ -18,18 +17,14 @@ public class Time {
 
 		StringBuilder result = new StringBuilder();
 
-		if (d > 0) {
+		if (d > 0)
 			result.append(d).append("d ");
-		}
-		if (h > 0) {
+		if (h > 0)
 			result.append(h).append("h ");
-		}
-		if (m > 0) {
+		if (m > 0)
 			result.append(m).append("m ");
-		}
-		if (s > 0 || result.length() == 0) {
+		if (s > 0 || result.length() == 0)
 			result.append(s).append("s");
-		}
 
 		return result.toString().trim();
 	}

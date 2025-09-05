@@ -41,11 +41,11 @@ public enum Model {
 	) //
 	;
 
-	public final String connectorName;
+	public final String apiName;
 	public final Capabilities cap;
 
 	private Model(String connectorName, Capabilities cap) {
-		this.connectorName = connectorName;
+		this.apiName = connectorName;
 		this.cap = cap;
 	}
 

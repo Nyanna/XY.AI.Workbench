@@ -2,13 +2,12 @@ package xy.ai.workbench.batch;
 
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.models.IModelRequest;
 
 public class AIBatchManager {
@@ -42,9 +41,7 @@ public class AIBatchManager {
 		if (unsent == null || unsent.hasRequests())
 			return;
 
-		String json = requestsToString(unsent);
-		IAIBatch res = connector.submitBatch(json,
-				unsent.getRequests().stream().map(r -> r.getID()).collect(Collectors.toList()));
+		IAIBatch res = connector.submitBatch(unsent);
 		addOrUpdateEntry(res);
 
 		unsent.clear();
@@ -52,9 +49,6 @@ public class AIBatchManager {
 	}
 
 	public void cancelbatch(IAIBatch batch) {
-		if (batch.getID().equals(UNSEND_ID))
-			return;
-
 		IAIBatch res = connector.cancelBatch(batch);
 		if (res != null) {
 			batch.updateBy(res);

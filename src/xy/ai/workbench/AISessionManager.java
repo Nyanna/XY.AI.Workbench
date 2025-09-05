@@ -228,7 +228,7 @@ public class AISessionManager {
 				monitor.beginTask("Executing prompt...", IProgressMonitor.UNKNOWN);
 				try {
 					monitor.worked(1);
-					var req = prepareInner(display);
+					var req = prepareInner(display, false);
 					monitor.worked(1);
 					var ans = executeInner(display, req);
 					monitor.worked(1);
@@ -252,7 +252,7 @@ public class AISessionManager {
 				monitor.beginTask("Batching prompt...", IProgressMonitor.UNKNOWN);
 				try {
 					monitor.worked(1);
-					var req = prepareInner(display);
+					var req = prepareInner(display, true);
 					monitor.worked(1);
 					batch.enqueue(req);
 					monitor.worked(1);
@@ -270,7 +270,7 @@ public class AISessionManager {
 
 	private String input;
 
-	private IModelRequest prepareInner(Display display) {
+	private IModelRequest prepareInner(Display display, boolean batchFix) {
 		System.out.println("Preparing Call");
 
 		input = "";
@@ -313,7 +313,8 @@ public class AISessionManager {
 		IModelRequest req = connector.createRequest(//
 				input, //
 				systemPrompt, //
-				tools //
+				tools, //
+				batchFix//
 		);
 		return req;
 	}

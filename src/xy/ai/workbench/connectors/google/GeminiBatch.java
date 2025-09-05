@@ -1,29 +1,44 @@
 package xy.ai.workbench.connectors.google;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
-import com.openai.models.batches.Batch;
+import com.google.genai.types.BatchJob;
 
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.models.AIAnswer;
 
 public class GeminiBatch implements IAIBatch {
 	private String id;
-	private Batch batch;
+	private BatchJob batch;
 
 	private Date created = new Date();
 	// string content of result file
 	private String result;
 	// string content of error file
 	private String error;
+	private List<AIAnswer> answers = Collections.emptyList();
 
 	public GeminiBatch(String id) {
 		this(id, null);
 	}
 
-	public GeminiBatch(String id, Batch batch) {
+	public GeminiBatch(String id, BatchJob batch) {
 		this.id = id;
 		this.batch = batch;
+	}
+
+	@Override
+	public void setAnswers(List<AIAnswer> answ) {
+		answers = answ;
+	}
+
+	@Override
+	public Collection<AIAnswer> getAnswers() {
+		return answers;
 	}
 
 	@Override
@@ -38,13 +53,17 @@ public class GeminiBatch implements IAIBatch {
 			result = oi.result;
 	}
 
-	public void setBatch(Batch batch) {
+	public void setBatch(BatchJob batch) {
 		this.batch = batch;
+	}
+
+	public BatchJob getBatch() {
+		return batch;
 	}
 
 	@Override
 	public String getID() {
-		return batch != null ? batch.id() : id;
+		return batch != null ? batch.name().orElseThrow() : id;
 	}
 
 	@Override
@@ -65,61 +84,37 @@ public class GeminiBatch implements IAIBatch {
 		this.error = error;
 	}
 
-	public String getErrorFileID() {
-		return batch != null && batch.errorFileId().isPresent() ? batch.errorFileId().get() : null;
-	}
-
-	public String getOutputFileID() {
-		return batch != null && batch.outputFileId().isPresent() ? batch.outputFileId().get() : null;
-	}
-
-	public String getInputFileID() {
-		return batch != null ? batch.inputFileId() : "none";
-	}
-
 	@Override
 	public Date getExpires() {
-		return batch != null && batch.expiresAt().isPresent() ? new Date(batch.expiresAt().get()) : null;
+		return null;
 	}
 
 	@Override
 	public int getTaskCount() {
-		if (batch != null) {
-			var count = batch.requestCounts().orElse(null);
-			if (count != null)
-				return (int) count.total();
-		}
+		String[] reqIds = getRequestIDs();
+		if (reqIds != null && reqIds.length > 0)
+			return reqIds.length;
 		return -1;
 	}
 
 	@Override
 	public float getCompletion() {
-		if (batch != null) {
-			var count = batch.requestCounts().orElse(null);
-			if (count != null) {
-				long done = count.failed() + count.completed();
-				return done > 0 ? count.total() / done : 0f;
-			}
-		}
+		if (BatchState.Completed.equals(getState()))
+			return 1f;
 		return 0f;
 	}
 
 	@Override
 	public String[] getRequestIDs() {
-		// TODO add metadata helpfull comment
-		if (batch != null) {
-			var meta = batch.metadata().orElse(null);
-			if (meta != null)
-				meta._additionalProperties();
-		} else {
-		}
+		if (batch != null && batch.displayName().isPresent())
+			return batch.displayName().get().split(",");
 		return new String[0];
 	}
 
 	@Override
 	public String getBatchStatusString() {
-		if (batch != null)
-			return batch.status().asString();
+		if (batch != null && batch.state().isPresent())
+			return batch.state().get().toString();
 		return "n/a";
 	}
 
@@ -127,20 +122,30 @@ public class GeminiBatch implements IAIBatch {
 	public BatchState getState() {
 		if (batch == null)
 			return BatchState.Prepared;
-		Date cd = null;
-		BatchState cs = BatchState.Unknown;
-		for (BatchState s : BatchState.values()) {
-			if (BatchState.Prepared.equals(s))
-				continue;
-			Date nd = getDate(s);
-			if (nd != null && (cd == null || nd.after(cd))) {
-				cd = nd;
-				cs = s;
-			}
+
+		switch (batch.state().get().knownEnum()) {
+		case JOB_STATE_CANCELLED:
+			return BatchState.Cancelled;
+		case JOB_STATE_CANCELLING:
+			return BatchState.Cancelling;
+		case JOB_STATE_EXPIRED:
+			return BatchState.Expired;
+		case JOB_STATE_FAILED:
+			return BatchState.Failed;
+		case JOB_STATE_PARTIALLY_SUCCEEDED:
+			return BatchState.Failed;
+		case JOB_STATE_PAUSED:
+		case JOB_STATE_PENDING:
+		case JOB_STATE_QUEUED:
+		case JOB_STATE_RUNNING:
+		case JOB_STATE_UPDATING:
+			return BatchState.Proccessing;
+		case JOB_STATE_SUCCEEDED:
+			return BatchState.Completed;
+		case JOB_STATE_UNSPECIFIED:
+		default:
 		}
-		if (cd == null)
-			cd = getDate(BatchState.Prepared);
-		return cs;
+		return BatchState.Unknown;
 	}
 
 	@Override
@@ -160,33 +165,42 @@ public class GeminiBatch implements IAIBatch {
 			case Prepared:
 				return created;
 			case Created:
-				return new Date(batch.createdAt());
+				if (batch.createTime().isPresent())
+					return Date.from(batch.createTime().get());
+				else
+					break;
 			case Cancelling:
-				return batch.cancellingAt().isPresent() ? new Date(batch.cancellingAt().get() * 1000) : null;
 			case Cancelled:
-				return batch.cancelledAt().isPresent() ? new Date(batch.cancelledAt().get() * 1000) : null;
 			case Proccessing:
-				return batch.inProgressAt().isPresent() ? new Date(batch.inProgressAt().get() * 1000) : null;
+				if (batch.updateTime().isPresent())
+					return Date.from(batch.updateTime().get());
+				else
+					break;
 			case Completed:
-				return batch.completedAt().isPresent() ? new Date(batch.completedAt().get() * 1000) : null;
 			case Failed:
-				return batch.failedAt().isPresent() ? new Date(batch.failedAt().get() * 1000) : null;
 			case Expired:
-				return batch.expiredAt().isPresent() ? new Date(batch.expiredAt().get() * 1000) : null;
+				if (batch.endTime().isPresent())
+					return Date.from(batch.endTime().get());
+				else
+					break;
 			case Finalizing:
-				return batch.finalizingAt().isPresent() ? new Date(batch.finalizingAt().get() * 1000) : null;
 			case Unknown:
 			}
 		}
-		return null;
+		return created;
 	}
 
 	@Override
 	public int getDuration() {
-		Date proc = getDate(BatchState.Proccessing);
+		Date proc = getDate(BatchState.Created);
 		Date com = getDate(BatchState.Completed);
 		if (proc != null && com != null)
 			return (int) ((com.getTime() - proc.getTime()) / 1000);
 		return 0;
+	}
+
+	@Override
+	public boolean hasRequests() {
+		return false;
 	}
 }

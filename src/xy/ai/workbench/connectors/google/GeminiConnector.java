@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Random;
 
 import autovalue.shaded.com.google.common.collect.ImmutableList;
-import kotlin.NotImplementedError;
 
 import com.google.genai.Client;
 import com.google.genai.types.Content;
@@ -45,7 +44,7 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
 
 		ImmutableList<SafetySetting> safetySettings = ImmutableList.of(//
 				SafetySetting.builder()//
@@ -58,8 +57,6 @@ public class GeminiConnector implements IAIConnector {
 		Map<String, String> labels = new HashMap<>();
 		labels.put(GeminiModelRequest.CUSTOM_ID, new Random().nextInt(Integer.MAX_VALUE) + "");
 
-		// TODO batch support for gemini
-		// TODO implement different parameter set for gemini
 		Builder config = GenerateContentConfig.builder()
 				// Sets the thinking budget to 0 to disable thinking mode
 				.thinkingConfig(ThinkingConfig.builder()//
@@ -68,15 +65,18 @@ public class GeminiConnector implements IAIConnector {
 				.temperature(cfg.getTemperature().floatValue())//
 				.topP(cfg.getTopP().floatValue()) //
 				// .labels(labels) // not supported
-				.maxOutputTokens(cfg.getMaxOutputTokens().intValue()) //
-				.safetySettings(safetySettings);
-
-		if (systemPrompt != null && !systemPrompt.isBlank()) {
-			Content systemInstruction = Content.fromParts(Part.fromText(systemPrompt));
-			config = config.systemInstruction(systemInstruction);
-		}
+				.maxOutputTokens(cfg.getMaxOutputTokens().intValue());
+		if (!batchFix)
+			config = config.safetySettings(safetySettings);
 
 		List<Content> inputs = new ArrayList<>();
+		if (systemPrompt != null && !systemPrompt.isBlank()) {
+			Content systemInstruction = Content.fromParts(Part.fromText(systemPrompt));
+			if (!batchFix)
+				config = config.systemInstruction(systemInstruction);
+			else
+				inputs.add(systemInstruction);
+		}
 
 		if (input != null && !input.isBlank())
 			inputs.add(Content.fromParts(Part.fromText(input)));
@@ -106,11 +106,10 @@ public class GeminiConnector implements IAIConnector {
 		GeminiModelRequest params = ((GeminiModelRequest) request);
 
 		GenerateContentResponse res = client.models.generateContent( //
-				params.model.connectorName, //
+				params.model.apiName, //
 				params.prompt, //
 				params.config);
 
-		// TODO implement gemini async
 		return new GeminiModelResponse(res);
 	}
 
@@ -121,7 +120,6 @@ public class GeminiConnector implements IAIConnector {
 		AIAnswer res = new AIAnswer();
 		res.answer = resp.text();
 
-		// TODO check candidate count
 		if (resp.usageMetadata().isPresent()) {
 			GenerateContentResponseUsageMetadata usage = resp.usageMetadata().get();
 
@@ -146,12 +144,5 @@ public class GeminiConnector implements IAIConnector {
 //
 		// TODO detailed reasoning output
 		return res;
-	}
-
-	@Override
-	public AIAnswer convertToAnswer(String bodyJson) {
-		// TODO convert batch json back to answer
-		// return null;
-		throw new NotImplementedError();
 	}
 }

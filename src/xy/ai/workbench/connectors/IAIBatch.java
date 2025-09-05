@@ -1,58 +1,41 @@
 package xy.ai.workbench.connectors;
 
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 import xy.ai.workbench.batch.BatchState;
+import xy.ai.workbench.models.AIAnswer;
 
 public interface IAIBatch {
 
 	String getID();
 
-	default Date getExpires() {
-		return null;
-	}
+	Date getExpires();
 
-	default int getTaskCount() {
-		return 0;
-	}
+	int getTaskCount();
 
-	default float getCompletion() {
-		return 0f;
-	}
+	float getCompletion();
 
-	default String[] getRequestIDs() {
-		return null;
-	}
+	String[] getRequestIDs();
 
-	default String getBatchStatusString() {
-		return null;
-	}
+	String getBatchStatusString();
 
-	default BatchState getState() {
-		return null;
-	}
+	BatchState getState();
 
-	default Date getStateDate() {
-		return null;
-	}
+	Date getStateDate();
 
-	default int getDuration() {
-		return -1;
-	}
+	int getDuration();
 
-	default String getResult() {
-		return null;
-	}
-	
-	default String getError() {
-		return null;
-	}
+	String getResult();
 
-	default boolean hasRequests() {
-		return false;
-	}
-	
-	default void updateBy(IAIBatch entry) {
-		throw new IllegalStateException("Immutable");
-	}
+	String getError();
+
+	boolean hasRequests();
+
+	void updateBy(IAIBatch entry);
+
+	Collection<AIAnswer> getAnswers();
+
+	void setAnswers(List<AIAnswer> answ);
 }

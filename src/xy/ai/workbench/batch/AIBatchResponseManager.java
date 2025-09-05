@@ -7,16 +7,16 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 
-import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.models.AIAnswer;
 
 public class AIBatchResponseManager implements IStructuredContentProvider {
-	private IAIConnector connector;
+	private IAIBatchConnector connector;
 	private List<AIAnswer> loadedAnswers = new ArrayList<>();
 	private IAIBatch lastbatch;
 
-	public AIBatchResponseManager(IAIConnector connector) {
+	public AIBatchResponseManager(IAIBatchConnector connector) {
 		this.connector = connector;
 	}
 
@@ -31,16 +31,12 @@ public class AIBatchResponseManager implements IStructuredContentProvider {
 		lastbatch = obj;
 
 		loadedAnswers.clear();
-		if (obj.getResult() != null)
-			for (String InputJson : obj.getResult().split("\n")) {
-				loadedAnswers.add(connector.convertToAnswer(InputJson));
-				mon.worked(1);
-			}
-
-		if (obj.getError() != null) {
-			loadedAnswers.add(connector.convertToAnswer(obj.getError()));
+		if (obj.getResult() != null || obj.getError() != null || obj instanceof NewBatch) {
+			connector.convertAnswers(obj);
 			mon.worked(1);
 		}
+		
+		loadedAnswers.addAll(obj.getAnswers());
 	}
 
 	public void updateView(TableViewer reqViewer) {

@@ -3,13 +3,14 @@ package xy.ai.workbench.connectors;
 import java.util.Collection;
 import java.util.List;
 
+import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.models.IModelRequest;
 
 public interface IAIBatchConnector {
 
 	List<IAIBatch> updateBatches();
 
-	IAIBatch submitBatch(String json, Collection<String> reqIds);
+	IAIBatch submitBatch(NewBatch entry);
 
 	IAIBatch cancelBatch(IAIBatch entry);
 
@@ -17,4 +18,5 @@ public interface IAIBatchConnector {
 
 	String requestsToJson(Collection<IModelRequest> reqs);
 
+	void convertAnswers(IAIBatch obj);
 }
