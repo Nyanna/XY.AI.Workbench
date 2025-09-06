@@ -252,7 +252,12 @@ public class ConfigManager {
 	}
 
 	public void loadConfig(IMemento memento) {
-		MementoConverter.loadConfig(memento, cfg);
+		try {
+			MementoConverter.loadConfig(memento, cfg);
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("Unable to restore config");
+		}
 	}
 
 	public Capabilities getCapabilities() {
