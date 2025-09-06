@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: XY.AI.Workbench
 Bundle-SymbolicName: XY.AI.Workbench;singleton:=true
-Bundle-Version: 250831.22
+Bundle-Version: 250906.15
 Import-Package: jakarta.inject;version="[2.0.0,3.0.0)",
  org.eclipse.search.ui,
  org.eclipse.search.ui.text,
