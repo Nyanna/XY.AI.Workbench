@@ -42,7 +42,8 @@ Bundle-ClassPath: libs/openai/httpclient5-5.5.jar,
  libs/google/guava-33.4.8-jre.jar,
  libs/anthropic/anthropic-java-2.6.0.jar,
  libs/anthropic/anthropic-java-client-okhttp-2.6.0.jar,
- libs/anthropic/anthropic-java-core-2.6.0.jar
+ libs/anthropic/anthropic-java-core-2.6.0.jar,
+ libs/google/auto-value-annotations-1.11.0.jar
 Bundle-Vendor: Xyan Kruse
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
