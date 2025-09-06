@@ -3,6 +3,8 @@ package xy.ai.workbench.connectors;
 import java.util.Collection;
 import java.util.List;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.batch.NewBatch;
@@ -123,23 +125,23 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
-		return getConnector(cfg.getModel()).createRequest(input, systemPrompt, tools, batchFix);
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+		return getConnector(cfg.getModel()).createRequest(input, systemPrompt, tools, batchFix, mon);
 	}
 
 	@Override
-	public List<IAIBatch> updateBatches() {
-		return getBatchConnector(cfg.getModel()).updateBatches();
+	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
+		return getBatchConnector(cfg.getModel()).updateBatches(mon);
 	}
 
 	@Override
-	public IAIBatch submitBatch(NewBatch entry) {
-		return getBatchConnector(cfg.getModel()).submitBatch(entry);
+	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
+		return getBatchConnector(cfg.getModel()).submitBatch(entry, mon);
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request) {
-		return getConnector(request).executeRequest(request);
+	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
+		return getConnector(request).executeRequest(request, mon);
 	}
 
 	@Override
@@ -148,23 +150,23 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response) {
-		return getConnector(response).convertResponse(response);
+	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
+		return getConnector(response).convertResponse(response, mon);
 	}
 
 	@Override
-	public IAIBatch cancelBatch(IAIBatch entry) {
-		return getBatchConnector(entry).cancelBatch(entry);
+	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
+		return getBatchConnector(entry).cancelBatch(entry, mon);
 	}
 
 	@Override
-	public void loadBatch(IAIBatch entry) {
-		getBatchConnector(entry).loadBatch(entry);
+	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+		getBatchConnector(entry).loadBatch(entry, mon);
 	}
 
 	@Override
-	public void convertAnswers(IAIBatch obj) {
-		getBatchConnector(obj).convertAnswers(obj);
+	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
+		getBatchConnector(obj).convertAnswers(obj, mon);
 	}
 
 }

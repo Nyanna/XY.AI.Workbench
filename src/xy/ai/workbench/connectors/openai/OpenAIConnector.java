@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.HttpResponseFor;
@@ -41,8 +44,9 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
 		boolean isBackground = false;
+		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		Builder builder = ResponseCreateParams.builder() //
 				.maxOutputTokens(cfg.getMaxOutputTokens())
@@ -79,11 +83,12 @@ public class OpenAIConnector implements IAIConnector {
 			appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
+		sub.done();
 		return new OpenAIRequest(params);
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request) {
+	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
 		ResponseCreateParams params = ((OpenAIRequest) request).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
@@ -107,8 +112,9 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response) {
+	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
 		Response resp = ((OpenAIResponse) response).response;
+		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer();
 		if (resp.usage().isPresent()) {
@@ -159,6 +165,7 @@ public class OpenAIConnector implements IAIConnector {
 					System.out.println("Other output!");
 				}
 			}
+		sub.done();
 		return res;
 	}
 

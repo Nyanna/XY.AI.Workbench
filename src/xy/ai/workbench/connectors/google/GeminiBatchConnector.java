@@ -8,6 +8,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import com.google.genai.Client;
 import com.google.genai.Pager;
 import com.google.genai.types.BatchJob;
@@ -49,7 +52,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public List<IAIBatch> updateBatches() {
+	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
 
 		ListBatchJobsConfig param = ListBatchJobsConfig.builder()//
 				.pageSize(100)//
@@ -63,7 +66,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch cancelBatch(IAIBatch entry) {
+	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
 		if (BatchState.Proccessing.equals(entry.getState())) {
 			CancelBatchJobConfig params = CancelBatchJobConfig.builder().build();
 			client.batches.cancel(entry.getID(), params);
@@ -76,16 +79,21 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public void loadBatch(IAIBatch entry) {
+	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
 		GeminiBatch oentry = ((GeminiBatch) entry);
+		SubMonitor sub = SubMonitor.convert(mon, "Load batch", 2);
 		GetBatchJobConfig paramsg = GetBatchJobConfig.builder().build();
+		sub.subTask("Retrieve Batch");
 		BatchJob batch = client.batches.get(entry.getID(), paramsg);
 		oentry.setBatch(batch);
+		sub.worked(1);
 
+		sub.subTask("Retrieve Outputs");
 		if (BatchState.Completed.equals(entry.getState()) && oentry.getResult() == null)
 			if (batch.dest().isPresent()) {
 				BatchJobDestination dest = batch.dest().get();
 				if (dest.fileName().isPresent()) {
+					sub.subTask("Retrieve Output File");
 
 					DownloadFileConfig params = DownloadFileConfig.builder().build();
 
@@ -101,6 +109,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 					}
 
 				} else if (dest.inlinedResponses().isPresent()) {
+					sub.subTask("Inline Output");
 					List<AIAnswer> answers = new ArrayList<>();
 					List<InlinedResponse> inline = dest.inlinedResponses().get();
 					for (InlinedResponse resp : inline) {
@@ -110,13 +119,15 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 							res.append(errorToString(resp.error().get()));
 						if (resp.response().isPresent()) {
 							GenerateContentResponse r = resp.response().get();
-							AIAnswer ans = connector.convertResponse(new GeminiResponse(r));
+							AIAnswer ans = connector.convertResponse(new GeminiResponse(r), sub);
 							answers.add(ans);
 						}
 					}
 					oentry.setAnswers(answers);
 				}
 			}
+		sub.worked(1);
+		sub.done();
 	}
 
 	private String errorToString(JobError error) {
@@ -141,23 +152,28 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch submitBatch(NewBatch entry) {
+	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 2);
 
+		sub.subTask("Collect requests");
 		String reqIds = String.join(",", entry.getRequestIDs());
+		sub.worked(1);
+		sub.subTask("Execute request");
 		BatchJobSource bjs = generateBatchJobSource(entry.getRequests());
 		CreateBatchJobConfig cbjc = CreateBatchJobConfig.builder()//
 				.displayName(reqIds)//
 				.build();
 
 		BatchJob batch = client.batches.create(cfg.getModel().apiName, bjs, cbjc);
+		sub.worked(1);
+		sub.done();
 		return new GeminiBatch(batch.name().orElseThrow(), batch);
 	}
 
 	private BatchJobSource generateBatchJobSource(List<IModelRequest> request) {
 		List<InlinedRequest> inlines = new ArrayList<>();
 
-		List<GeminiRequest> reqs = request.stream().map(r -> (GeminiRequest) r)
-				.collect(Collectors.toList());
+		List<GeminiRequest> reqs = request.stream().map(r -> (GeminiRequest) r).collect(Collectors.toList());
 		for (GeminiRequest req : reqs) {
 			inlines.add(InlinedRequest.builder()//
 					.model(req.model.apiName)//
@@ -173,15 +189,21 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public void convertAnswers(IAIBatch obj) {
+	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
 		GeminiBatch entry = ((GeminiBatch) obj);
 		BatchJob batch = entry.getBatch();
 		// could already contain inline answers
 		List<AIAnswer> answ = new ArrayList<>(entry.getAnswers());
 
-		if (entry.getResult() != null)
-			for (String InputJson : entry.getResult().split("\n"))
-				answ.add(convertToAnswer(InputJson));
+		if (entry.getResult() != null) {
+			String[] split = entry.getResult().split("\n");
+			SubMonitor sub = SubMonitor.convert(mon, "Convert Answers", split.length);
+			for (String InputJson : split) {
+				answ.add(convertToAnswer(InputJson, mon));
+				sub.worked(1);
+			}
+			sub.done();
+		}
 
 		if (batch.error().isPresent()) {
 			JobError error = batch.error().get();
@@ -194,10 +216,10 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 		obj.setAnswers(answ);
 	}
 
-	private AIAnswer convertToAnswer(String responseJson) {
+	private AIAnswer convertToAnswer(String responseJson, IProgressMonitor mon) {
 		GenerateContentResponse resp = GenerateContentResponse.fromJson(responseJson);
 
-		AIAnswer answer = connector.convertResponse(new GeminiResponse(resp));
+		AIAnswer answer = connector.convertResponse(new GeminiResponse(resp), mon);
 		return answer;
 	}
 }

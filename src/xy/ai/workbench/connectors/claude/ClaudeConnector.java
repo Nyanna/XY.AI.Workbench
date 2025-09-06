@@ -3,6 +3,9 @@ package xy.ai.workbench.connectors.claude;
 import java.util.List;
 import java.util.Random;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.ContentBlock;
@@ -34,7 +37,8 @@ public class ClaudeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		Builder builder = MessageCreateParams.builder();
 
@@ -61,11 +65,13 @@ public class ClaudeConnector implements IAIConnector {
 				builder.addMessage(Message.builder().addContent( //
 						TextBlock.builder().text(tool).build()).build());
 
-		return new ClaudeRequest(builder.build());
+		MessageCreateParams createParams = builder.build();
+		sub.done();
+		return new ClaudeRequest(createParams);
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request) {
+	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
 		ClaudeRequest params = ((ClaudeRequest) request);
 
 		Message message = client.messages().create(params.params);
@@ -73,8 +79,9 @@ public class ClaudeConnector implements IAIConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response) {
+	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
 		Message resp = ((ClaudeResponse) response).response;
+		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer();
 
@@ -91,6 +98,7 @@ public class ClaudeConnector implements IAIConnector {
 				answer.append(content.asText().text());
 
 		res.answer = answer.toString();
+		sub.done();
 		return res;
 	}
 }

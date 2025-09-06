@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import autovalue.shaded.com.google.common.collect.ImmutableList;
 
 import com.google.genai.Client;
@@ -44,7 +47,8 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		ImmutableList<SafetySetting> safetySettings = ImmutableList.of(//
 				SafetySetting.builder()//
@@ -86,7 +90,9 @@ public class GeminiConnector implements IAIConnector {
 			for (String tool : tools)
 				inputs.add(Content.fromParts(Part.fromText(tool)));
 
-		return new GeminiRequest(cfg.getModel(), inputs, config.build());
+		GenerateContentConfig contentConfig = config.build();
+		sub.done();
+		return new GeminiRequest(cfg.getModel(), inputs, contentConfig);
 	}
 
 	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
@@ -103,7 +109,7 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request) {
+	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
 		GeminiRequest params = ((GeminiRequest) request);
 
 		GenerateContentResponse res = client.models.generateContent( //
@@ -115,8 +121,9 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response) {
+	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
 		GenerateContentResponse resp = ((GeminiResponse) response).response;
+		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer();
 		res.answer = resp.text();
@@ -144,6 +151,7 @@ public class GeminiConnector implements IAIConnector {
 //			res.answer = error.code() + ": " + error.message();
 //
 		// TODO detailed reasoning output for claude too, its nice
+		sub.done();
 		return res;
 	}
 }

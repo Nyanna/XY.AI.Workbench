@@ -9,9 +9,8 @@ import java.util.stream.Collectors;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.Document;
@@ -223,54 +222,51 @@ public class AISessionManager {
 	}
 
 	public void execute(Display display) {
-		Job submit = new Job("Starting prompt...") {
-			protected IStatus run(IProgressMonitor monitor) {
-				monitor.beginTask("Executing prompt...", IProgressMonitor.UNKNOWN);
-				try {
-					monitor.worked(1);
-					var req = prepareInner(display, false);
-					monitor.worked(1);
-					var ans = executeInner(display, req);
-					monitor.worked(1);
-					processAnswer(display, ans);
-					monitor.worked(1);
-				} catch (Exception e) {
-					e.printStackTrace();
-					return Status.CANCEL_STATUS;
-				} finally {
-					monitor.done();
-				}
-				return Status.OK_STATUS;
+		Job.create("Starting Prompt", (mon) -> {
+			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 3);
+			try {
+				sub.subTask("Prepare inputs");
+				var req = prepareInner(display, false, sub);
+				sub.worked(1);
+				sub.subTask("Execute prompt");
+				var ans = executeInner(display, req, sub);
+				mon.worked(1);
+				sub.subTask("Process Answer");
+				processAnswer(display, ans, sub);
+				mon.worked(1);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return Status.CANCEL_STATUS;
+			} finally {
+				mon.done();
 			}
-		};
-		submit.schedule();
+			return Status.OK_STATUS;
+		}).schedule();
 	}
 
 	public void queue(Display display, AIBatchManager batch) {
-		Job submit = new Job("Starting prompt creation...") {
-			protected IStatus run(IProgressMonitor monitor) {
-				monitor.beginTask("Batching prompt...", IProgressMonitor.UNKNOWN);
-				try {
-					monitor.worked(1);
-					var req = prepareInner(display, true);
-					monitor.worked(1);
-					batch.enqueue(req);
-					monitor.worked(1);
-				} catch (Exception e) {
-					e.printStackTrace();
-					return Status.CANCEL_STATUS;
-				} finally {
-					monitor.done();
-				}
-				return Status.OK_STATUS;
+		Job.create("Enqueue Prompt", (mon) -> {
+			SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 2);
+			try {
+				sub.subTask("Prepare inputs");
+				var req = prepareInner(display, true, sub);
+				sub.worked(1);
+				sub.subTask("Enqueue prompt");
+				batch.enqueue(req, sub);
+				sub.worked(1);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return Status.CANCEL_STATUS;
+			} finally {
+				mon.done();
 			}
-		};
-		submit.schedule();
+			return Status.OK_STATUS;
+		}).schedule();
 	}
 
 	private String input;
 
-	private IModelRequest prepareInner(Display display, boolean batchFix) {
+	private IModelRequest prepareInner(Display display, boolean batchFix, IProgressMonitor mon) {
 		System.out.println("Preparing Call");
 
 		input = "";
@@ -314,20 +310,21 @@ public class AISessionManager {
 				input, //
 				systemPrompt, //
 				tools, //
-				batchFix//
+				batchFix, //
+				mon//
 		);
 		return req;
 	}
 
-	private AIAnswer executeInner(Display display, IModelRequest req) {
+	private AIAnswer executeInner(Display display, IModelRequest req, IProgressMonitor mon) {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		IModelResponse resp = connector.executeRequest(req);
-		AIAnswer res = connector.convertResponse(resp);
+		IModelResponse resp = connector.executeRequest(req, mon);
+		AIAnswer res = connector.convertResponse(resp, mon);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;
 	}
 
-	public void processAnswer(Display display, AIAnswer res) {
+	public void processAnswer(Display display, AIAnswer res, IProgressMonitor mon) {
 		display.asyncExec(() -> {
 			try {
 				ITextEditor textEditor = editorListener.getLastTextEditor();
@@ -350,7 +347,7 @@ public class AISessionManager {
 						doc.replace(tsel.getOffset(), 0, res.answer);
 					break;
 				}
-				textEditor.doSave(new NullProgressMonitor());
+				textEditor.doSave(mon);
 			} catch (BadLocationException e) {
 				System.out.println("Error adding text");
 			}

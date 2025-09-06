@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 
@@ -30,16 +31,23 @@ public class AIBatchResponseManager implements IStructuredContentProvider {
 			return;
 		lastbatch = obj;
 
+		SubMonitor sub = SubMonitor.convert(mon, "Converting answers", 1);
+
 		loadedAnswers.clear();
 		if (obj.getResult() != null || obj.getError() != null || obj instanceof NewBatch) {
-			connector.convertAnswers(obj);
+			connector.convertAnswers(obj, sub);
 			mon.worked(1);
 		}
-		
+
+		sub.done();
 		loadedAnswers.addAll(obj.getAnswers());
 	}
 
 	public void updateView(TableViewer reqViewer) {
 		reqViewer.setInput(this);
+	}
+
+	public void clearAnswers() {
+		loadedAnswers.clear();
 	}
 }

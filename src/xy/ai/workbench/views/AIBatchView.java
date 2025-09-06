@@ -4,9 +4,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
@@ -63,7 +62,8 @@ public class AIBatchView extends ViewPart {
 
 	private TableViewer batchViewer;
 	private TableViewer reqViewer;
-	private Action actUpdate, actEnqueue, actDetails, actInsert, actCpJson, actCancel, actCpResponse, actCpError;
+	private Action actUpdate, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel, actCpResponse,
+			actCpError;
 
 	private AIBatchManager batch;
 	private AIBatchResponseManager batchRequests;
@@ -217,8 +217,9 @@ public class AIBatchView extends ViewPart {
 
 	private void fillLocalPullDown(IMenuManager manager) {
 		manager.add(actUpdate);
-		manager.add(new Separator());
+		// manager.add(new Separator());
 		manager.add(actEnqueue);
+		manager.add(actClear);
 	}
 
 	private void fillContextMenu(IMenuManager manager) {
@@ -233,18 +234,16 @@ public class AIBatchView extends ViewPart {
 	private void fillLocalToolBar(IToolBarManager manager) {
 		manager.add(actUpdate);
 		manager.add(actEnqueue);
+		manager.add(actClear);
 	}
 
 	private void makeActions() {
 		actUpdate = new Action() {
 			public void run() {
-				new Job("Check Batches") {
-					@Override
-					protected IStatus run(IProgressMonitor monitor) {
-						batch.updateBatches();
-						return Status.OK_STATUS;
-					}
-				}.schedule();
+				Job.create("Check Batches", (mon) -> {
+					batch.updateBatches(mon);
+					return Status.OK_STATUS;
+				}).schedule();
 			}
 		};
 		actUpdate.setText("Update Batches");
@@ -254,18 +253,29 @@ public class AIBatchView extends ViewPart {
 
 		actEnqueue = new Action() {
 			public void run() {
-				new Job("Check Batches") {
-					@Override
-					protected IStatus run(IProgressMonitor monitor) {
-						batch.submitBatches();
-						return Status.OK_STATUS;
-					}
-				}.schedule();
+				Job.create("Submit Batches", (mon) -> {
+					batch.submitBatches(mon);
+					return Status.OK_STATUS;
+				}).schedule();
 			}
 		};
 		actEnqueue.setText("Submit Batches");
 		actEnqueue.setToolTipText("Submit unscheduled batches");
 		actEnqueue.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_FORWARD));
+
+		actClear = new Action() {
+			public void run() {
+				Display.getDefault().asyncExec(() -> {
+					batch.clearBatches();
+					batchRequests.clearAnswers();
+					batchViewer.refresh();
+					batchRequests.updateView(reqViewer);
+				});
+			}
+		};
+		actClear.setText("Clear View");
+		actClear.setToolTipText("Clear batch list");
+		actClear.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_ETOOL_CLEAR));
 
 		actCpJson = new Action() {
 			public void run() {
@@ -331,7 +341,10 @@ public class AIBatchView extends ViewPart {
 					Object selectedElement = selection.getFirstElement();
 					if (selectedElement instanceof IAIBatch) {
 						IAIBatch elem = (IAIBatch) selectedElement;
-						batch.cancelbatch(elem);
+						Job.create("Cacel Batch", (mon) -> {
+							batch.cancelbatch(elem, mon);
+							return Status.OK_STATUS;
+						}).schedule();
 					}
 				}
 			}
@@ -345,19 +358,20 @@ public class AIBatchView extends ViewPart {
 				IStructuredSelection selection = batchViewer.getStructuredSelection();
 				Object obj = selection.getFirstElement();
 				if (obj instanceof IAIBatch) {
-					new Job("Load Batches") {
-						@Override
-						protected IStatus run(IProgressMonitor mon) {
-							mon.subTask("Loading result from API");
-							batch.loadBatch((IAIBatch) obj);
-							mon.worked(1);
-							mon.subTask("Converting respones");
-							batchRequests.load((IAIBatch) obj, mon);
-							mon.worked(1);
-							Display.getDefault().asyncExec(() -> batchRequests.updateView(reqViewer));
-							return Status.OK_STATUS;
-						}
-					}.schedule();
+					Job.create("Load Batches", (mon) -> {
+						SubMonitor sub = SubMonitor.convert(mon, "Loading Batch", 3);
+						sub.subTask("Loading result from API");
+						batch.loadBatch((IAIBatch) obj, sub);
+						sub.worked(1);
+						sub.subTask("Converting respones");
+						batchRequests.load((IAIBatch) obj, sub);
+						sub.worked(1);
+						sub.subTask("updating view");
+						Display.getDefault().asyncExec(() -> batchRequests.updateView(reqViewer));
+						sub.worked(1);
+						sub.done();
+						return Status.OK_STATUS;
+					}).schedule();
 				}
 			}
 		};
@@ -366,7 +380,9 @@ public class AIBatchView extends ViewPart {
 				IStructuredSelection selection = reqViewer.getStructuredSelection();
 				Object obj = selection.getFirstElement();
 				if (obj instanceof AIAnswer) {
-					Activator.getDefault().session.processAnswer(Display.getDefault(), (AIAnswer) obj);
+					Job.create("Process Awswer", (mon) -> {
+						Activator.getDefault().session.processAnswer(Display.getDefault(), (AIAnswer) obj, mon);
+					}).schedule();
 				}
 			}
 		};

@@ -5,6 +5,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.ObjectMappers;
@@ -39,7 +42,7 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public List<IAIBatch> updateBatches() {
+	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
 
 		BatchListPage page = client.messages().batches().list();
 
@@ -51,28 +54,34 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch cancelBatch(IAIBatch entry) {
+	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
 		MessageBatch batch = client.messages().batches().cancel(entry.getID());
 		return new ClaudeBatch(batch.id(), batch);
 	}
 
 	@Override
-	public void loadBatch(IAIBatch entry) {
+	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Load batch", 2);
 
+		sub.subTask("Retrieve Batch");
 		MessageBatch batch = client.messages().batches().retrieve(entry.getID());
 		ClaudeBatch oentry = ((ClaudeBatch) entry);
 		oentry.setBatch(batch);
+		sub.worked(1);
 
+		sub.subTask("Retrieve Outputs");
 		if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty())
 				&& (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState())))
 			try (StreamResponse<MessageBatchIndividualResponse> response = client.messages().batches()
 					.resultsStreaming(batch.id())) {
 
+				SubMonitor sub1 = SubMonitor.convert(mon, "Load output", entry.getTaskCount());
 				oentry.setAnswers(response.stream().map(res -> {
+					sub1.worked(1);
 					AIAnswer an = new AIAnswer();
 					an.id = res.customId();
 					if (res.result().isSucceeded())
-						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message()));
+						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message()), sub);
 					else if (res.result().isErrored()) {
 						ErrorObject error = res.result().asErrored().error().error();
 
@@ -102,7 +111,10 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 						an.answer = "Expired: " + res.result().asExpired().toString();
 					return an;
 				}).collect(Collectors.toList()));
+				sub1.done();
 			}
+		sub.worked(1);
+		sub.done();
 	}
 
 	@Override
@@ -123,12 +135,17 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch submitBatch(NewBatch entry) {
+	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 3);
+		sub.subTask("Collect requests");
 
 		Builder builder = BatchCreateParams.builder();
 		List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
 				.collect(Collectors.toList());
+		sub.worked(1);
 
+		sub.subTask("Convert requests");
+		SubMonitor sub1 = SubMonitor.convert(sub, "Convert request", reqs.size());
 		for (ClaudeRequest req : reqs) {
 			com.anthropic.models.messages.batches.BatchCreateParams.Request.Builder pbuilder = BatchCreateParams.Request
 					.builder();
@@ -145,14 +162,20 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 			pbuilder.customId(req.getID());
 			pbuilder.params(batchRequestParams);
 			builder.addRequest(pbuilder.build());
+			sub1.worked(1);
 		}
+		sub1.done();
+		sub.worked(1);
 
+		sub.subTask("Submit batch");
 		MessageBatch batch = client.messages().batches().create(builder.build());
+		sub.done();
+
 		return new ClaudeBatch(batch.id(), batch);
 	}
 
 	@Override
-	public void convertAnswers(IAIBatch obj) {
+	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
 		// allready converted from SDK
 	}
 }
