@@ -54,8 +54,9 @@ public class GeminiConnector implements IAIConnector {
 						.category(HarmCategory.Known.HARM_CATEGORY_DANGEROUS_CONTENT)//
 						.threshold(HarmBlockThreshold.Known.BLOCK_NONE).build());
 
+		// not supported
 		Map<String, String> labels = new HashMap<>();
-		labels.put(GeminiModelRequest.CUSTOM_ID, new Random().nextInt(Integer.MAX_VALUE) + "");
+		labels.put(GeminiRequest.CUSTOM_ID, new Random().nextInt(Integer.MAX_VALUE) + "");
 
 		Builder config = GenerateContentConfig.builder()
 				// Sets the thinking budget to 0 to disable thinking mode
@@ -67,13 +68,13 @@ public class GeminiConnector implements IAIConnector {
 				// .labels(labels) // not supported
 				.maxOutputTokens(cfg.getMaxOutputTokens().intValue());
 		if (!batchFix)
-			config = config.safetySettings(safetySettings);
+			config.safetySettings(safetySettings);
 
 		List<Content> inputs = new ArrayList<>();
 		if (systemPrompt != null && !systemPrompt.isBlank()) {
 			Content systemInstruction = Content.fromParts(Part.fromText(systemPrompt));
 			if (!batchFix)
-				config = config.systemInstruction(systemInstruction);
+				config.systemInstruction(systemInstruction);
 			else
 				inputs.add(systemInstruction);
 		}
@@ -85,7 +86,7 @@ public class GeminiConnector implements IAIConnector {
 			for (String tool : tools)
 				inputs.add(Content.fromParts(Part.fromText(tool)));
 
-		return new GeminiModelRequest(cfg.getModel(), inputs, config.build());
+		return new GeminiRequest(cfg.getModel(), inputs, config.build());
 	}
 
 	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
@@ -103,19 +104,19 @@ public class GeminiConnector implements IAIConnector {
 
 	@Override
 	public IModelResponse executeRequest(IModelRequest request) {
-		GeminiModelRequest params = ((GeminiModelRequest) request);
+		GeminiRequest params = ((GeminiRequest) request);
 
 		GenerateContentResponse res = client.models.generateContent( //
 				params.model.apiName, //
 				params.prompt, //
 				params.config);
 
-		return new GeminiModelResponse(res);
+		return new GeminiResponse(res);
 	}
 
 	@Override
 	public AIAnswer convertResponse(IModelResponse response) {
-		GenerateContentResponse resp = ((GeminiModelResponse) response).response;
+		GenerateContentResponse resp = ((GeminiResponse) response).response;
 
 		AIAnswer res = new AIAnswer();
 		res.answer = resp.text();
@@ -142,7 +143,7 @@ public class GeminiConnector implements IAIConnector {
 //			ResponseError error = resp.error().get();
 //			res.answer = error.code() + ": " + error.message();
 //
-		// TODO detailed reasoning output
+		// TODO detailed reasoning output for claude too, its nice
 		return res;
 	}
 }

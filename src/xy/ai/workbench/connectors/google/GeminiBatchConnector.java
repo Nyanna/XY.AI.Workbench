@@ -110,7 +110,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 							res.append(errorToString(resp.error().get()));
 						if (resp.response().isPresent()) {
 							GenerateContentResponse r = resp.response().get();
-							AIAnswer ans = connector.convertResponse(new GeminiModelResponse(r));
+							AIAnswer ans = connector.convertResponse(new GeminiResponse(r));
 							answers.add(ans);
 						}
 					}
@@ -129,14 +129,14 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 
 	@Override
 	public String requestsToJson(Collection<IModelRequest> reqs) {
-		return requestsToJsonInner(reqs.stream().map(r -> ((GeminiModelRequest) r)).collect(Collectors.toList()));
+		return requestsToJsonInner(reqs.stream().map(r -> ((GeminiRequest) r)).collect(Collectors.toList()));
 	}
 
-	private String requestsToJsonInner(Collection<GeminiModelRequest> requests) {
+	private String requestsToJsonInner(Collection<GeminiRequest> requests) {
 		return requests.stream().map((r) -> requestToJson(r)).collect(Collectors.joining("\n"));
 	}
 
-	private String requestToJson(GeminiModelRequest r) {
+	private String requestToJson(GeminiRequest r) {
 		return generateBatchJobSource(List.of(r)).toJson();
 	}
 
@@ -156,9 +156,9 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	private BatchJobSource generateBatchJobSource(List<IModelRequest> request) {
 		List<InlinedRequest> inlines = new ArrayList<>();
 
-		List<GeminiModelRequest> reqs = request.stream().map(r -> (GeminiModelRequest) r)
+		List<GeminiRequest> reqs = request.stream().map(r -> (GeminiRequest) r)
 				.collect(Collectors.toList());
-		for (GeminiModelRequest req : reqs) {
+		for (GeminiRequest req : reqs) {
 			inlines.add(InlinedRequest.builder()//
 					.model(req.model.apiName)//
 					.config(req.config) //
@@ -197,7 +197,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 	private AIAnswer convertToAnswer(String responseJson) {
 		GenerateContentResponse resp = GenerateContentResponse.fromJson(responseJson);
 
-		AIAnswer answer = connector.convertResponse(new GeminiModelResponse(resp));
+		AIAnswer answer = connector.convertResponse(new GeminiResponse(resp));
 		return answer;
 	}
 }

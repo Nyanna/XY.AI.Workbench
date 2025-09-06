@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+	<classpathentry exported="true" kind="lib" path="libs/anthropic/anthropic-java-2.6.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/anthropic/anthropic-java-client-okhttp-2.6.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/anthropic/anthropic-java-core-2.6.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/google/guava-33.4.8-jre.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/google/api-common-2.53.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/google/auto-value-1.11.0.jar"/>

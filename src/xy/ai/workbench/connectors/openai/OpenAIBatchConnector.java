@@ -165,7 +165,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	@Override
 	public String requestsToJson(Collection<IModelRequest> reqs) {
 		return requestsToJsonInner(
-				reqs.stream().map(r -> ((OpenAIModelRequest) r).reqquest).collect(Collectors.toList()));
+				reqs.stream().map(r -> ((OpenAIRequest) r).reqquest).collect(Collectors.toList()));
 	}
 
 	private String requestsToJsonInner(Collection<ResponseCreateParams> requests) {
@@ -208,7 +208,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	private AIAnswer convertToAnswer1(String bodyJson) throws JsonMappingException, JsonProcessingException {
 		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
 
-		AIAnswer answer = connector.convertResponse(new OpenAIModelResponse(resp));
+		AIAnswer answer = connector.convertResponse(new OpenAIResponse(resp));
 		return answer;
 	}
 }

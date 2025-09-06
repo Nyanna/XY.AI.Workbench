@@ -38,6 +38,18 @@ public enum Model {
 			.outTokens(0, 65536) //
 			.budgetReasonings()//
 			.budget(512, 24576) //
+	), //
+	CLAUDE_OPUS("claude-opus-4-1", new Capabilities()//
+			.key(KeyPattern.Claude)//
+			.outTokens(0, 32000) //
+			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
+			.budget(1024, 31999) //
+	), //
+	CLAUDE_SONNET("claude-sonnet-4-0", new Capabilities()//
+			.key(KeyPattern.Claude)//
+			.outTokens(0, 32000) //
+			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
+			.budget(1024, 63999) //
 	) //
 	;
 
@@ -50,7 +62,7 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("XX");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$");
 
 		public final Pattern pattern;
 

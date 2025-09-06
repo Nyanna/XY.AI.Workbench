@@ -6,16 +6,21 @@ import java.util.List;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.batch.NewBatch;
+import xy.ai.workbench.connectors.claude.ClaudeBatch;
+import xy.ai.workbench.connectors.claude.ClaudeBatchConnector;
+import xy.ai.workbench.connectors.claude.ClaudeConnector;
+import xy.ai.workbench.connectors.claude.ClaudeRequest;
+import xy.ai.workbench.connectors.claude.ClaudeResponse;
 import xy.ai.workbench.connectors.google.GeminiBatch;
 import xy.ai.workbench.connectors.google.GeminiBatchConnector;
 import xy.ai.workbench.connectors.google.GeminiConnector;
-import xy.ai.workbench.connectors.google.GeminiModelRequest;
-import xy.ai.workbench.connectors.google.GeminiModelResponse;
+import xy.ai.workbench.connectors.google.GeminiRequest;
+import xy.ai.workbench.connectors.google.GeminiResponse;
 import xy.ai.workbench.connectors.openai.OpenAIBatch;
 import xy.ai.workbench.connectors.openai.OpenAIBatchConnector;
 import xy.ai.workbench.connectors.openai.OpenAIConnector;
-import xy.ai.workbench.connectors.openai.OpenAIModelRequest;
-import xy.ai.workbench.connectors.openai.OpenAIModelResponse;
+import xy.ai.workbench.connectors.openai.OpenAIRequest;
+import xy.ai.workbench.connectors.openai.OpenAIResponse;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -27,12 +32,15 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	private IAIBatchConnector batchChad;
 	private GeminiConnector gemini;
 	private IAIBatchConnector batchGemini;
+	private ClaudeConnector claude;
+	private IAIBatchConnector batchClaude;
 	private IAIBatchConnector newBatch;
 
 	public AdaptingConnector(ConfigManager cfg) {
 		this.cfg = cfg;
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
+		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
 		newBatch = new NewBatchConnector();
 	}
 
@@ -46,6 +54,9 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		case GEMINI_25_FLASH:
 		case GEMINI_25_LIGHT:
 			return gemini;
+		case CLAUDE_OPUS:
+		case CLAUDE_SONNET:
+			return claude;
 		default:
 		}
 		throw new IllegalArgumentException("Model unsupported");
@@ -61,32 +72,41 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		case GEMINI_25_FLASH:
 		case GEMINI_25_LIGHT:
 			return batchGemini;
+		case CLAUDE_OPUS:
+		case CLAUDE_SONNET:
+			return batchClaude;
 		default:
 		}
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
 	private IAIConnector getConnector(IModelRequest request) {
-		if (request instanceof GeminiModelRequest)
+		if (request instanceof GeminiRequest)
 			return gemini;
-		else if (request instanceof OpenAIModelRequest)
+		else if (request instanceof OpenAIRequest)
 			return chad;
+		else if (request instanceof ClaudeRequest)
+			return claude;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
 	private IAIConnector getConnector(IModelResponse response) {
-		if (response instanceof GeminiModelResponse)
+		if (response instanceof GeminiResponse)
 			return gemini;
-		else if (response instanceof OpenAIModelResponse)
+		else if (response instanceof OpenAIResponse)
 			return chad;
+		else if (response instanceof ClaudeResponse)
+			return claude;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
 	private IAIBatchConnector getBatchConnector(IModelRequest request) {
-		if (request instanceof GeminiModelRequest)
+		if (request instanceof GeminiRequest)
 			return batchGemini;
-		else if (request instanceof OpenAIModelRequest)
+		else if (request instanceof OpenAIRequest)
 			return batchChad;
+		else if (request instanceof ClaudeRequest)
+			return batchClaude;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
@@ -95,6 +115,8 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 			return batchGemini;
 		else if (entry instanceof OpenAIBatch)
 			return batchChad;
+		else if (entry instanceof ClaudeBatch)
+			return batchClaude;
 		else if (entry instanceof NewBatch)
 			return newBatch;
 		throw new IllegalArgumentException("Model unsupported");

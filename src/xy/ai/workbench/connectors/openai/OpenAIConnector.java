@@ -58,10 +58,10 @@ public class OpenAIConnector implements IAIConnector {
 				.model(ChatModel.of(cfg.getModel().apiName)); //
 
 		if (cfg.getCapabilities().isSupportTemperature())
-			builder = builder.temperature(cfg.getTemperature());
+			builder.temperature(cfg.getTemperature());
 
 		if (cfg.getCapabilities().isSupportTopP())
-			builder = builder.topP(cfg.getTopP());
+			builder.topP(cfg.getTopP());
 
 		if (input != null && !input.isBlank()) {
 			List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
@@ -72,19 +72,19 @@ public class OpenAIConnector implements IAIConnector {
 					.role(ResponseInputItem.Message.Role.USER)//
 					.addContent(inputText).build());
 			inputs.add(inputItem);
-			builder = builder.inputOfResponse(inputs);
+			builder.inputOfResponse(inputs);
 		}
 
 		if (tools != null && !tools.isEmpty())
-			builder = appendTools(builder, tools);
+			appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
-		return new OpenAIModelRequest(params);
+		return new OpenAIRequest(params);
 	}
 
 	@Override
 	public IModelResponse executeRequest(IModelRequest request) {
-		ResponseCreateParams params = ((OpenAIModelRequest) request).reqquest;
+		ResponseCreateParams params = ((OpenAIRequest) request).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
@@ -103,12 +103,12 @@ public class OpenAIConnector implements IAIConnector {
 				status = resp.status().get();
 			} while (status.equals(ResponseStatus.QUEUED) || status.equals(ResponseStatus.IN_PROGRESS));
 		}
-		return new OpenAIModelResponse(resp);
+		return new OpenAIResponse(resp);
 	}
 
 	@Override
 	public AIAnswer convertResponse(IModelResponse response) {
-		Response resp = ((OpenAIModelResponse) response).response;
+		Response resp = ((OpenAIResponse) response).response;
 
 		AIAnswer res = new AIAnswer();
 		if (resp.usage().isPresent()) {

@@ -95,6 +95,7 @@ public class AISessionView extends ViewPart {
 
 	@Override
 	public void createPartControl(Composite parent) {
+		// TODO cloude hide temperature when budget mode
 		currentInstance = this;
 		display = parent.getDisplay();
 		toolkit = new FormToolkit(parent.getDisplay());
@@ -112,7 +113,9 @@ public class AISessionView extends ViewPart {
 
 			toolkit.createLabel(top, "Key:");
 			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
-			keyInput.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			GridData kilay = new GridData(GridData.FILL_HORIZONTAL);
+			kilay.widthHint = 10;
+			keyInput.setLayoutData(kilay);
 			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
 			keyInput.setText(cfg.getKeys() + "");
 
