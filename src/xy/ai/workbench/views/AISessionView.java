@@ -38,6 +38,7 @@ import xy.ai.workbench.Activator;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.Model;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.models.AIAnswer;
@@ -95,7 +96,6 @@ public class AISessionView extends ViewPart {
 
 	@Override
 	public void createPartControl(Composite parent) {
-		// TODO cloude hide temperature when budget mode
 		currentInstance = this;
 		display = parent.getDisplay();
 		toolkit = new FormToolkit(parent.getDisplay());
@@ -171,25 +171,8 @@ public class AISessionView extends ViewPart {
 			cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
 			cfg.addModelObs(m -> {
-				{
-					boolean enabled = m.cap.isSupportTemperature();
-					tempLabel.setEnabled(enabled);
-					tempLabel.setVisible(enabled);
-					temp.setEnabled(enabled);
-					temp.setVisible(enabled);
-					((GridData) tempLabel.getLayoutData()).exclude = !enabled;
-					((GridData) temp.getLayoutData()).exclude = !enabled;
-				}
-
-				{
-					boolean enabled = m.cap.isSupportTopP();
-					topPLabel.setEnabled(enabled);
-					topPLabel.setVisible(enabled);
-					topP.setEnabled(enabled);
-					topP.setVisible(enabled);
-					((GridData) topPLabel.getLayoutData()).exclude = !enabled;
-					((GridData) topP.getLayoutData()).exclude = !enabled;
-				}
+				toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
+				toogleControl(topPLabel, topP, m.cap.isSupportTopP());
 
 				reasSel.setItems(cfg.getReasonings());
 				reasSel.setText(cfg.getReasoning().name());
@@ -201,6 +184,8 @@ public class AISessionView extends ViewPart {
 				budget.setEnabled(enabled);
 				budget.setVisible(enabled);
 				((GridData) budget.getLayoutData()).exclude = !enabled;
+
+				toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
 
 				body.layout();
 			}, true);
@@ -364,6 +349,22 @@ public class AISessionView extends ViewPart {
 		session.initializeInputs();
 
 		form.reflow(true);
+	}
+
+	private boolean isTemperatureEnabled(Model m, Reasoning reasoning) {
+		if (m.cap.getKeyPattern().equals(KeyPattern.Claude))
+			return m.cap.isSupportTemperature() && Reasoning.Disabled.equals(reasoning);
+		else
+			return m.cap.isSupportTemperature();
+	}
+
+	private void toogleControl(Label label, Text text, boolean enabled) {
+		label.setEnabled(enabled);
+		label.setVisible(enabled);
+		text.setEnabled(enabled);
+		text.setVisible(enabled);
+		((GridData) label.getLayoutData()).exclude = !enabled;
+		((GridData) text.getLayoutData()).exclude = !enabled;
 	}
 
 	private void updateInstructionList(String[] systemPrompt) {
