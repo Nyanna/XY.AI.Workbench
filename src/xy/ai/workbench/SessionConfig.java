@@ -16,7 +16,7 @@ public class SessionConfig {
 	};
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[InputMode.values().length];
-	public Reasoning reasoning = Reasoning.MINIMAL;
+	public Reasoning reasoning = Reasoning.minimal;
 	public Integer reasoningBudget= -1;
 
 	public SessionConfig() {

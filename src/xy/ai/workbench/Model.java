@@ -3,23 +3,23 @@ package xy.ai.workbench;
 import java.util.regex.Pattern;
 
 public enum Model {
-	GPT_5_NANO("GPT_5_NANO", new Capabilities()//
+	GPT_5_NANO("gpt-5-nano", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
 			.openAIReasonings()//
 	), //
-	GPT_5_MINI("GPT_5_MINI", new Capabilities()//
+	GPT_5_MINI("gpt-5-mini", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
 			.openAIReasonings()//
 	), //
-	GPT_5("GPT_5", new Capabilities()//
+	GPT_5("gpt-5", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
-			.openAIReasonings()//
+			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high })//
 	), //
 	GEMINI_25_PRO("gemini-2.5-pro", new Capabilities()//
 			.key(KeyPattern.Gemini)//
@@ -114,7 +114,7 @@ public enum Model {
 		}
 
 		public Capabilities openAIReasonings() {
-			reasonings = new Reasoning[] { Reasoning.MINIMAL, Reasoning.LOW, Reasoning.MEDIUM, Reasoning.HIGH };
+			reasonings = new Reasoning[] { Reasoning.minimal, Reasoning.low, Reasoning.medium, Reasoning.high };
 			return this;
 		}
 

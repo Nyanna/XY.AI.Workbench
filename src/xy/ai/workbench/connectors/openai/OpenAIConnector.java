@@ -39,7 +39,7 @@ public class OpenAIConnector implements IAIConnector {
 		this.cfg = cfg;
 		cfg.addKeyObs(k -> {
 			if (KeyPattern.OpenAI.matches(k))
-				this.client = OpenAIOkHttpClient.builder().apiKey(cfg.getKeys()).build();
+				this.client = OpenAIOkHttpClient.builder().apiKey(k).build();
 		}, true);
 	}
 
