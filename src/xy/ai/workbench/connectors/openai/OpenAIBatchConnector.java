@@ -27,10 +27,12 @@ import com.openai.core.JsonValue;
 import com.openai.core.ObjectMappers;
 import com.openai.core.http.HttpResponse;
 import com.openai.models.batches.Batch;
+import com.openai.models.batches.Batch.Errors;
 import com.openai.models.batches.BatchCreateParams;
 import com.openai.models.batches.BatchCreateParams.CompletionWindow;
 import com.openai.models.batches.BatchCreateParams.Endpoint;
 import com.openai.models.batches.BatchCreateParams.Metadata;
+import com.openai.models.batches.BatchError;
 import com.openai.models.batches.BatchListPage;
 import com.openai.models.batches.BatchListParams;
 import com.openai.models.files.FileCreateParams;
@@ -45,8 +47,8 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.batch.NewBatch;
-import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 
@@ -131,6 +133,17 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		oentry.setBatch(batch);
 		sub.worked(1);
 
+		if (batch.errors().isPresent()) {
+			Errors errors = batch.errors().get();
+			if (errors.data().isPresent()) {
+				List<BatchError> erlst = errors.data().get();
+				for (BatchError berr : erlst) {
+					oentry.setError(String.format("Code: %s, Line: %s, Error: %s, Param: %s", berr.code().orElse("ukn"),
+							berr.line().orElse(-1l), berr.message().orElse(""), berr.param().orElse("")));
+				}
+			}
+		}
+
 		sub.subTask("Retrieve Errors");
 		if (oentry.getError() == null && batch.errorFileId().isPresent()) {
 			oentry.setError(getFileAsString(batch.errorFileId().get()));
@@ -206,7 +219,14 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		}
 
 		if (obj.getError() != null)
-			answ.add(convertToAnswer(obj.getError(), mon));
+			try {
+				answ.add(convertToAnswer(obj.getError(), mon));
+			} catch (IllegalStateException e) {
+				AIAnswer ans = new AIAnswer();
+				ans.id = obj.getID();
+				ans.answer = obj.getError();
+				answ.add(ans);
+			}
 
 		obj.setAnswers(answ);
 	}
