@@ -62,7 +62,7 @@ public class AIBatchView extends ViewPart {
 
 	private TableViewer batchViewer;
 	private TableViewer reqViewer;
-	private Action actUpdate, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel, actCpResponse,
+	private Action actUpdate, actUpdateListed, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel, actRemove,actCpResponse,
 			actCpError;
 
 	private AIBatchManager batch;
@@ -223,6 +223,7 @@ public class AIBatchView extends ViewPart {
 	}
 
 	private void fillContextMenu(IMenuManager manager) {
+		manager.add(actRemove);
 		manager.add(actCpJson);
 		manager.add(actCpResponse);
 		manager.add(actCpError);
@@ -233,6 +234,7 @@ public class AIBatchView extends ViewPart {
 
 	private void fillLocalToolBar(IToolBarManager manager) {
 		manager.add(actUpdate);
+		manager.add(actUpdateListed);
 		manager.add(actEnqueue);
 		manager.add(actClear);
 	}
@@ -241,7 +243,7 @@ public class AIBatchView extends ViewPart {
 		actUpdate = new Action() {
 			public void run() {
 				Job.create("Check Batches", (mon) -> {
-					batch.updateBatches(mon);
+					batch.updateBatches(mon, true);
 					return Status.OK_STATUS;
 				}).schedule();
 			}
@@ -250,6 +252,19 @@ public class AIBatchView extends ViewPart {
 		actUpdate.setToolTipText("Retrieves and update batch states");
 		actUpdate.setImageDescriptor(
 				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
+		
+		actUpdateListed = new Action() {
+			public void run() {
+				Job.create("Check Batches", (mon) -> {
+					batch.updateBatches(mon, false);
+					return Status.OK_STATUS;
+				}).schedule();
+			}
+		};
+		actUpdateListed.setText("Update Listed Batches only");
+		actUpdateListed.setToolTipText("Retrieves and update listed batch states only");
+		actUpdateListed.setImageDescriptor(
+				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_BACK));
 
 		actEnqueue = new Action() {
 			public void run() {
@@ -342,7 +357,7 @@ public class AIBatchView extends ViewPart {
 					if (selectedElement instanceof IAIBatch) {
 						IAIBatch elem = (IAIBatch) selectedElement;
 						Job.create("Cacel Batch", (mon) -> {
-							batch.cancelbatch(elem, mon);
+							batch.cancelBatch(elem, mon);
 							return Status.OK_STATUS;
 						}).schedule();
 					}
@@ -352,6 +367,25 @@ public class AIBatchView extends ViewPart {
 		actCancel.setText("Cancel");
 		actCancel.setToolTipText("Cancel a processing batch");
 		actCancel.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE));
+		
+		actRemove = new Action() {
+			public void run() {
+				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
+				if (!selection.isEmpty()) {
+					Object selectedElement = selection.getFirstElement();
+					if (selectedElement instanceof IAIBatch) {
+						IAIBatch elem = (IAIBatch) selectedElement;
+						Job.create("Cacel Batch", (mon) -> {
+							batch.removeBatch(elem, mon);
+							return Status.OK_STATUS;
+						}).schedule();
+					}
+				}
+			}
+		};
+		actRemove.setText("Remove");
+		actRemove.setToolTipText("Remove from listing");
+		actRemove.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE_DISABLED));
 
 		actDetails = new Action() {
 			public void run() {

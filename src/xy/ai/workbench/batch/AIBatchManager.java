@@ -25,11 +25,14 @@ public class AIBatchManager {
 		this.connector = connector;
 	}
 
-	public void updateBatches(IProgressMonitor mon) {
+	public void updateBatches(IProgressMonitor mon, boolean updateAll) {
 		List<IAIBatch> updateBatches = connector.updateBatches(mon);
 		SubMonitor sub = SubMonitor.convert(mon, "Update view entry", updateBatches.size());
 		for (IAIBatch batch : updateBatches) {
-			addOrUpdateEntry(batch);
+			if (updateAll)
+				addOrUpdateEntry(batch);
+			else
+				updateEntry(batch);
 			sub.worked(1);
 		}
 		sub.done();
@@ -60,7 +63,7 @@ public class AIBatchManager {
 		sub.done();
 	}
 
-	public void cancelbatch(IAIBatch batch,IProgressMonitor mon) {
+	public void cancelBatch(IAIBatch batch, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Cancel Batch", 1);
 		IAIBatch res = connector.cancelBatch(batch, sub);
 		if (res != null) {
@@ -68,6 +71,13 @@ public class AIBatchManager {
 			batch.updateBy(res);
 			addOrUpdateEntry(batch);
 		}
+		sub.done();
+	}
+
+	public void removeBatch(IAIBatch batch, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Remove Batch", 1);
+		index.remove(batch.getID());
+		Display.getDefault().asyncExec(() -> viewer.remove(batch));
 		sub.done();
 	}
 
@@ -82,11 +92,28 @@ public class AIBatchManager {
 		}
 	}
 
+	private void updateEntry(IAIBatch entry) {
+		IAIBatch indexed = index.get(entry.getID());
+		if (indexed != null) {
+			indexed.updateBy(entry);
+			Display.getDefault().asyncExec(() -> viewer.refresh(indexed, true));
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void addEntry(IAIBatch entry) {
+		IAIBatch indexed = index.get(entry.getID());
+		if (indexed == null) {
+			index.put(entry.getID(), entry);
+			Display.getDefault().asyncExec(() -> viewer.add(entry));
+		}
+	}
+
 	public String requestsToString(IAIBatch entry) {
 		return connector.requestsToJson(((NewBatch) entry).getRequests());
 	}
 
-	public void loadBatch(IAIBatch entry,IProgressMonitor mon) {
+	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
 		if (entry.getResult() != null)
 			return;
 
