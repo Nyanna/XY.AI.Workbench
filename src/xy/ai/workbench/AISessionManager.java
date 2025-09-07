@@ -284,7 +284,7 @@ public class AISessionManager {
 		if ((input == null || input.isBlank()) && systemPrompt.isBlank())
 			throw new IllegalArgumentException("Input and instructions Empty");
 
-		if (editorListener.getLastTextEditor() == null)
+		if (editorListener.getLastTextEditor() == null && !batchFix)
 			throw new IllegalArgumentException("Result editor unset");
 
 		List<String> tools = new ArrayList<String>();
