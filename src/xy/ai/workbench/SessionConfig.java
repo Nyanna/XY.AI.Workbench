@@ -10,14 +10,17 @@ public class SessionConfig {
 			"Answer very short and precise", //
 			"Be objective and neutral", //
 			"Don't repeat the input", //
-			"Don't ask follow-up questions for this one-time prompt", //
+			"Don't ask follow-up questions", //
 			"#Use $ Markdown inline Latex syntax for math formulas", //
-			"#For generated code use english language"//
+			"#keep the input language", //
+			"#For generated code use english language", //
+			"#Replace all mathematical symbols and formulas in the input with a $ Latex inline syntax without changing or adding to the text."//
 	};
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[InputMode.values().length];
 	public Reasoning reasoning = Reasoning.minimal;
-	public Integer reasoningBudget= -1;
+	public Integer reasoningBudget = -1;
+	// TODO editor mit schönschrift
 
 	public SessionConfig() {
 		setInputMode(InputMode.Instructions, true);
@@ -87,11 +90,11 @@ public class SessionConfig {
 	public void setInputMode(InputMode mode, boolean enable) {
 		inputModes[mode.ordinal()] = enable;
 	}
-	
+
 	public Integer getReasoningBudget() {
 		return reasoningBudget;
 	}
-	
+
 	public void setReasoningBudget(Integer reasoningBudget) {
 		this.reasoningBudget = reasoningBudget;
 	}

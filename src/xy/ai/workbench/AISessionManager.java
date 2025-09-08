@@ -334,9 +334,13 @@ public class AISessionManager {
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
 				switch (cfg.getOuputMode()) {
-				case Append:
-					String replace = "\n" + res.answer;
+				case Chat:
+					String replace = "\nYou:\n" + res.answer + "\nMe:\n";
 					doc.replace(doc.getLength(), 0, replace);
+					textEditor.selectAndReveal(doc.getLength(), 0);
+					break;
+				case Append:
+					doc.replace(doc.getLength(), 0, "\n" + res.answer);
 					break;
 				case Replace:
 					if (tsel != null)
