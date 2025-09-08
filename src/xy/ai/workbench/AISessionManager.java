@@ -335,7 +335,7 @@ public class AISessionManager {
 
 				switch (cfg.getOuputMode()) {
 				case Chat:
-					String replace = "\nYou:\n" + res.answer + "\nMe:\n";
+					String replace = "\nUser:\n" + res.answer + "\nAI-Agent:\n";
 					doc.replace(doc.getLength(), 0, replace);
 					textEditor.selectAndReveal(doc.getLength(), 0);
 					break;
