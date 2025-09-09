@@ -34,7 +34,7 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 			editor = new AITextEditor();
 			editor.setInitializationData(getConfigurationElement(), null, null);
 			int index = addPage(editor, getEditorInput());
-			setTitle(getEditorInput().getName());
+			setPartName(getEditorInput().getName());
 			setPageText(index, editor.getTitle());
 		} catch (PartInitException e) {
 			ErrorDialog.openError(getSite().getShell(), "Error creating nested text editor", null, e.getStatus());

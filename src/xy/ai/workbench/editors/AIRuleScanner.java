@@ -3,22 +3,52 @@ package xy.ai.workbench.editors;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.jface.text.TextAttribute;
 import org.eclipse.jface.text.rules.IRule;
 import org.eclipse.jface.text.rules.IToken;
 import org.eclipse.jface.text.rules.IWhitespaceDetector;
 import org.eclipse.jface.text.rules.IWordDetector;
+import org.eclipse.jface.text.rules.MultiLineRule;
 import org.eclipse.jface.text.rules.RuleBasedScanner;
 import org.eclipse.jface.text.rules.Token;
 import org.eclipse.jface.text.rules.WhitespaceRule;
 import org.eclipse.jface.text.rules.WordRule;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.FontData;
+import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.AISessionManager;
+import xy.ai.workbench.editors.md.EmphasisRule;
+import xy.ai.workbench.editors.md.HeaderPlainRule;
+import xy.ai.workbench.editors.md.HeaderRule;
+import xy.ai.workbench.editors.md.LinkRule;
+import xy.ai.workbench.editors.md.ListRule;
 
 public class AIRuleScanner extends RuleBasedScanner {
-	public AIRuleScanner() {
-		IToken grayToken = new Token(AIText.GRAY_ATTR);
-		IToken blueToken = new Token(AIText.BLUE_ATTR);
-		IToken defaultToken = new Token(AIText.DEFAULT_ATTR);
+	private static final TextAttribute GRAY_ATTR = new TextAttribute(
+			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
+			new Color(Display.getCurrent(), new RGB(230, 230, 230)), SWT.BOLD);
+	private static final TextAttribute BLUE_ATTR = new TextAttribute(
+			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
+			new Color(Display.getCurrent(), new RGB(200, 200, 255)), SWT.BOLD);
+	private static final TextAttribute DEFAULT_ATTR = new TextAttribute(
+			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
+
+	public AIRuleScanner(Font basefont) {
+		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
+		IToken grayToken = new Token(GRAY_ATTR);
+		IToken blueToken = new Token(BLUE_ATTR);
+		IToken defaultToken = new Token(DEFAULT_ATTR);
+		IToken normal = new Token(new TextAttribute(c, null, SWT.NORMAL));
+		IToken bold = new Token(new TextAttribute(c, null, SWT.BOLD));
+		IToken italic = new Token(new TextAttribute(c, null, SWT.ITALIC));
+		IToken bolditalic = new Token(new TextAttribute(c, null, SWT.BOLD | SWT.ITALIC));
+		IToken underline = new Token(new TextAttribute(c, null, TextAttribute.UNDERLINE));
+
+		Font[] headings = getOrCreateFonts(basefont.getFontData()[0]);
 
 		List<IRule> rules = new ArrayList<>();
 
@@ -44,6 +74,37 @@ public class AIRuleScanner extends RuleBasedScanner {
 			}
 		}));
 
+		rules.add(new EmphasisRule("***", bolditalic));
+		rules.add(new EmphasisRule("**", bold));
+		rules.add(new EmphasisRule("*", italic));
+		rules.add(new EmphasisRule("$", italic));
+		rules.add(new MultiLineRule("<!--", "-->", normal));
+		rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
+		rules.add(new HeaderPlainRule("######", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
+		rules.add(new HeaderPlainRule("#####", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
+		rules.add(new HeaderPlainRule("####", new Token(new TextAttribute(c, null, SWT.BOLD, headings[2]))));
+		rules.add(new HeaderPlainRule("###", new Token(new TextAttribute(c, null, SWT.BOLD, headings[3]))));
+		rules.add(new HeaderPlainRule("##", new Token(new TextAttribute(c, null, SWT.BOLD, headings[4]))));
+		rules.add(new HeaderPlainRule("#", new Token(new TextAttribute(c, null, SWT.BOLD, headings[5]))));
+		rules.add(new ListRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
+		rules.add(new LinkRule(underline));
+
 		setRules(rules.toArray(new IRule[0]));
+	}
+
+	private static Font[] cachedFonts;
+
+	private Font[] getOrCreateFonts(FontData fdata) {
+		if (cachedFonts != null)
+			return cachedFonts;
+
+		int count = 6;
+		Font[] fonts = new Font[count];
+		Display display = Display.getDefault();
+
+		for (int i = 0; i < count; i++)
+			fonts[i] = new Font(display, new FontData(fdata.getName(), fdata.getHeight() + (i * 2), fdata.getStyle() | SWT.BOLD));
+
+		return cachedFonts = fonts;
 	}
 }
