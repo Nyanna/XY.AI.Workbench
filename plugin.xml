@@ -9,7 +9,8 @@
             extensions="md"
             icon="icons/sample.png"
             id="xy.ai.workbench.editors.AISessionEditor"
-            name="XY.AI Editor">
+            name="XY.AI Editor"
+            symbolicFontName="org.eclipse.jface.bannerfont">
       </editor>
    </extension>
    <extension
@@ -111,6 +112,14 @@
                relative="org.eclipse.ui.views.ProblemView">
          </view>
       </perspectiveExtension>
+   </extension>
+   <extension
+         point="org.eclipse.ui.fontDefinitions">
+      <fontDefinition
+            id="XY.AI.Workbench.fontDefinition1"
+            label="XY.AI Editor Font"
+            value="1|Arial|10.0|0|WINDOWS|1|0|0|0|0|0|0|0|0|3|0|0|0|Arial;">
+      </fontDefinition>
    </extension>
 
 </plugin>

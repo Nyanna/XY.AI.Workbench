@@ -42,6 +42,9 @@ import xy.ai.workbench.models.IModelResponse;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
+	public static final String USER = "User:";
+	public static final String AGENT = "Agent:";
+
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
 	private ConfigManager cfg;
@@ -335,7 +338,7 @@ public class AISessionManager {
 
 				switch (cfg.getOuputMode()) {
 				case Chat:
-					String replace = "\nAI-Agent:\n" + res.answer + "\nUser:\n";
+					String replace = "\n" + AGENT + "\n" + res.answer + "\n" + USER + "\n";
 					doc.replace(doc.getLength(), 0, replace);
 					textEditor.selectAndReveal(doc.getLength(), 0);
 					break;

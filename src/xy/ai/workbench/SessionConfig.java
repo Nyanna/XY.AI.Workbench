@@ -20,7 +20,7 @@ public class SessionConfig {
 	public boolean[] inputModes = new boolean[InputMode.values().length];
 	public Reasoning reasoning = Reasoning.minimal;
 	public Integer reasoningBudget = -1;
-	// TODO editor mit schönschrift
+	// TODO Shortcuts zur modelschnellwahl ctrl+1 etc.
 
 	public SessionConfig() {
 		setInputMode(InputMode.Instructions, true);

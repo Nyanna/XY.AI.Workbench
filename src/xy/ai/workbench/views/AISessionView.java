@@ -187,6 +187,7 @@ public class AISessionView extends ViewPart {
 
 				toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
 
+				secReason.layout();
 				body.layout();
 			}, true);
 		}

@@ -19,12 +19,12 @@ public enum Model {
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
-			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high })//
+			.reasonings(new Reasoning[] { Reasoning.high, Reasoning.medium, Reasoning.low })//
 	), //
 	GEMINI_25_PRO("gemini-2.5-pro", new Capabilities()//
 			.key(KeyPattern.Gemini)//
 			.outTokens(0, 65536) //
-			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Unlimited })//
+			.reasonings(new Reasoning[] { Reasoning.Unlimited, Reasoning.Budget })//
 			.budget(128, 32768)//
 	), //
 	GEMINI_25_FLASH("gemini-2.5-flash", new Capabilities()//
@@ -35,15 +35,15 @@ public enum Model {
 	), //
 	GEMINI_25_LIGHT("gemini-2.5-flash-lite", new Capabilities()//
 			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536) //
+			.outTokens(0, 65536)//
 			.budgetReasonings()//
-			.budget(512, 24576) //
+			.budget(512, 24576)//
 	), //
 	CLAUDE_OPUS("claude-opus-4-1", new Capabilities()//
 			.key(KeyPattern.Claude)//
 			.outTokens(0, 32000) //
 			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
-			.budget(1024, 31999) //
+			.budget(1024, 31999)//
 	), //
 	CLAUDE_SONNET("claude-sonnet-4-0", new Capabilities()//
 			.key(KeyPattern.Claude)//
@@ -114,12 +114,12 @@ public enum Model {
 		}
 
 		public Capabilities openAIReasonings() {
-			reasonings = new Reasoning[] { Reasoning.minimal, Reasoning.low, Reasoning.medium, Reasoning.high };
+			reasonings = new Reasoning[] { Reasoning.high, Reasoning.medium, Reasoning.low, Reasoning.minimal };
 			return this;
 		}
 
 		public Capabilities budgetReasonings() {
-			reasonings = new Reasoning[] { Reasoning.Budget, Reasoning.Disabled, Reasoning.Unlimited };
+			reasonings = new Reasoning[] { Reasoning.Unlimited, Reasoning.Budget, Reasoning.Disabled };
 			return this;
 		}
 

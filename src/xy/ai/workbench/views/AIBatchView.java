@@ -349,6 +349,8 @@ public class AIBatchView extends ViewPart {
 		actCpError.setToolTipText("Copy error JSON");
 		actCpError.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
 
+		// TODO create a action manager with onliner action creation, put in lists for targets, provide shortcut selection actions
+		// TODO Store  batch and job metadata in shared store for comments and detaisl and backpropagation like source file
 		actCancel = new Action() {
 			public void run() {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
