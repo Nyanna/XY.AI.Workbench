@@ -252,11 +252,14 @@ public class AISessionManager {
 
 	public void queue(Display display, AIBatchManager batch) {
 		Job.create("Enqueue Prompt", (mon) -> {
-			SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 2);
+			SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 3);
 			try {
 				sub.subTask("Prepare inputs");
 				var req = prepareInner(display, true, sub);
 				sub.worked(1);
+				sub.subTask("Insert Tag");
+				insertTag(display, req, sub);
+				mon.worked(1);
 				sub.subTask("Enqueue prompt");
 				batch.enqueue(req, sub);
 				sub.worked(1);
