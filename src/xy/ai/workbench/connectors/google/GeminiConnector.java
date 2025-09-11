@@ -9,8 +9,6 @@ import java.util.Random;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 
-import autovalue.shaded.com.google.common.collect.ImmutableList;
-
 import com.google.genai.Client;
 import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
@@ -24,6 +22,7 @@ import com.google.genai.types.Part;
 import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
 
+import autovalue.shaded.com.google.common.collect.ImmutableList;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
@@ -47,9 +46,11 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
+		int id = new Random().nextInt(Integer.MAX_VALUE);
 		ImmutableList<SafetySetting> safetySettings = ImmutableList.of(//
 				SafetySetting.builder()//
 						.category(HarmCategory.Known.HARM_CATEGORY_HATE_SPEECH)//
@@ -60,10 +61,10 @@ public class GeminiConnector implements IAIConnector {
 
 		// not supported
 		Map<String, String> labels = new HashMap<>();
-		labels.put(GeminiRequest.CUSTOM_ID, new Random().nextInt(Integer.MAX_VALUE) + "");
+		labels.put(GeminiRequest.CUSTOM_ID, id + "");
 
-		Builder config = GenerateContentConfig.builder()
-				// Sets the thinking budget to 0 to disable thinking mode
+		Builder config = GenerateContentConfig.builder()//
+				.seed(id)//
 				.thinkingConfig(ThinkingConfig.builder()//
 						.thinkingBudget(getThinkingBudget(cfg.getReasoning(), cfg)))//
 				.candidateCount(1) //
@@ -92,7 +93,7 @@ public class GeminiConnector implements IAIConnector {
 
 		GenerateContentConfig contentConfig = config.build();
 		sub.done();
-		return new GeminiRequest(cfg.getModel(), inputs, contentConfig);
+		return new GeminiRequest(cfg.getModel(), inputs, contentConfig, id + "");
 	}
 
 	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
@@ -117,15 +118,16 @@ public class GeminiConnector implements IAIConnector {
 				params.prompt, //
 				params.config);
 
-		return new GeminiResponse(res);
+		return new GeminiResponse(request.getID(), res);
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
-		GenerateContentResponse resp = ((GeminiResponse) response).response;
+	public AIAnswer convertResponse(IModelResponse modelResponse, IProgressMonitor mon) {
+		GeminiResponse response = (GeminiResponse) modelResponse;
+		GenerateContentResponse resp = response.response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer();
+		AIAnswer res = new AIAnswer(response.id);
 		res.answer = resp.text();
 
 		if (resp.usageMetadata().isPresent()) {
@@ -137,20 +139,27 @@ public class GeminiConnector implements IAIConnector {
 			if (usage.promptTokensDetails().isPresent()) {
 				List<ModalityTokenCount> details = usage.promptTokensDetails().get();
 				details.isEmpty();
-				// TODO parse modaility tokens get().getFirst().tokenCount()
 			}
 		}
 
-//
-//		if (resp.instructions().isPresent()) {
-//			Instructions ins = resp.instructions().get();
-//			res.instructions = ins.asString();
-//		}
-//		if (resp.error().isPresent()) {
-//			ResponseError error = resp.error().get();
-//			res.answer = error.code() + ": " + error.message();
-//
-		// TODO detailed reasoning output for claude too, its nice
+		switch (resp.finishReason().knownEnum()) {
+		case STOP:
+			break; // no error
+		case BLOCKLIST:
+		case FINISH_REASON_UNSPECIFIED:
+		case IMAGE_SAFETY:
+		case LANGUAGE:
+		case MALFORMED_FUNCTION_CALL:
+		case MAX_TOKENS:
+		case OTHER:
+		case PROHIBITED_CONTENT:
+		case RECITATION:
+		case SAFETY:
+		case SPII:
+		case UNEXPECTED_TOOL_CALL:
+		default:
+			res.answer += "Error: " + resp.finishReason().knownEnum().name();
+		}
 		sub.done();
 		return res;
 	}

@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
@@ -222,8 +221,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 			try {
 				answ.add(convertToAnswer(obj.getError(), mon));
 			} catch (IllegalStateException e) {
-				AIAnswer ans = new AIAnswer();
-				ans.id = obj.getID();
+				AIAnswer ans = new AIAnswer(obj.getID());
 				ans.answer = obj.getError();
 				answ.add(ans);
 			}
@@ -236,14 +234,13 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		try {
 			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
 			tree.get("error"); // errors
-			TextNode id = (TextNode) tree.get("id");
+			//TextNode id = (TextNode) tree.get("id");
 			ObjectNode response = (ObjectNode) tree.get("response");
 			// IntNode statusCode = (IntNode) response.get("status_code");
 			ObjectNode body = (ObjectNode) response.get("body");
 
 			String cbodyJson = ObjectMappers.jsonMapper().writeValueAsString(body);
 			AIAnswer answer = convertToAnswer1(cbodyJson, mon);
-			answer.id = id.asText();
 			return answer;
 
 		} catch (JsonProcessingException e) {

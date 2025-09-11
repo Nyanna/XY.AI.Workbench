@@ -1,5 +1,6 @@
 package xy.ai.workbench.connectors.google;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -106,8 +107,14 @@ public class GeminiBatch implements IAIBatch {
 
 	@Override
 	public String[] getRequestIDs() {
-		if (batch != null && batch.displayName().isPresent())
-			return batch.displayName().get().split(",");
+		if (batch != null && batch.displayName().isPresent()) {
+			List<String> result = new ArrayList<>();
+			String concatenated = batch.displayName().get();
+
+			for (int i = 0; i < concatenated.length(); i += 8)
+				result.add(Integer.parseUnsignedInt(concatenated.substring(i, i + 8), 16) + "");
+			return result.toArray(new String[0]);
+		}
 		return new String[0];
 	}
 

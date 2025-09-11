@@ -116,7 +116,7 @@ public class OpenAIConnector implements IAIConnector {
 		Response resp = ((OpenAIResponse) response).response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer();
+		AIAnswer res = new AIAnswer(resp.safetyIdentifier().orElse("none"));
 		if (resp.usage().isPresent()) {
 			ResponseUsage usage = resp.usage().get();
 			res.inputToken = usage.inputTokens();

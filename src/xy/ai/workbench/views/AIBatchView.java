@@ -62,8 +62,8 @@ public class AIBatchView extends ViewPart {
 
 	private TableViewer batchViewer;
 	private TableViewer reqViewer;
-	private Action actUpdate, actUpdateListed, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel, actRemove,actCpResponse,
-			actCpError;
+	private Action actUpdate, actUpdateListed, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel,
+			actRemove, actCpResponse, actCpError;
 
 	private AIBatchManager batch;
 	private AIBatchResponseManager batchRequests;
@@ -252,7 +252,7 @@ public class AIBatchView extends ViewPart {
 		actUpdate.setToolTipText("Retrieves and update batch states");
 		actUpdate.setImageDescriptor(
 				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
-		
+
 		actUpdateListed = new Action() {
 			public void run() {
 				Job.create("Check Batches", (mon) -> {
@@ -349,8 +349,10 @@ public class AIBatchView extends ViewPart {
 		actCpError.setToolTipText("Copy error JSON");
 		actCpError.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
 
-		// TODO create a action manager with onliner action creation, put in lists for targets, provide shortcut selection actions
-		// TODO Store  batch and job metadata in shared store for comments and detaisl and backpropagation like source file
+		// TODO create a action manager with onliner action creation, put in lists for
+		// targets, provide shortcut selection actions
+		// TODO Store batch and job metadata in shared store for comments and detaisl
+		// and backpropagation like source file, in eigene root/.batchinfo persistence
 		actCancel = new Action() {
 			public void run() {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
@@ -369,7 +371,7 @@ public class AIBatchView extends ViewPart {
 		actCancel.setText("Cancel");
 		actCancel.setToolTipText("Cancel a processing batch");
 		actCancel.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE));
-		
+
 		actRemove = new Action() {
 			public void run() {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
@@ -387,7 +389,8 @@ public class AIBatchView extends ViewPart {
 		};
 		actRemove.setText("Remove");
 		actRemove.setToolTipText("Remove from listing");
-		actRemove.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE_DISABLED));
+		actRemove.setImageDescriptor(
+				workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE_DISABLED));
 
 		actDetails = new Action() {
 			public void run() {
@@ -417,7 +420,7 @@ public class AIBatchView extends ViewPart {
 				Object obj = selection.getFirstElement();
 				if (obj instanceof AIAnswer) {
 					Job.create("Process Awswer", (mon) -> {
-						Activator.getDefault().session.processAnswer(Display.getDefault(), (AIAnswer) obj, mon);
+						Activator.getDefault().session.replaceTag(Display.getDefault(), (AIAnswer) obj, mon);
 					}).schedule();
 				}
 			}

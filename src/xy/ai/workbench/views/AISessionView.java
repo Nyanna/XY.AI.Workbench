@@ -336,7 +336,7 @@ public class AISessionView extends ViewPart {
 			footer.setLayout(new GridLayout(1, false));
 
 			toolkit.createLabel(footer, "Token:");
-			this.usageLabel = toolkit.createLabel(footer, new AIAnswer().print());
+			this.usageLabel = toolkit.createLabel(footer, new AIAnswer("none").print());
 		}
 
 		session.addAnswerObs(a -> {

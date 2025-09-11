@@ -41,8 +41,7 @@ public class NewBatchConnector implements IAIBatchConnector {
 	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
 		NewBatch entry = (NewBatch) obj;
 		entry.setAnswers(entry.getRequests().stream().map(r -> {
-			AIAnswer ans = new AIAnswer();
-			ans.id = r.getID();
+			AIAnswer ans = new AIAnswer(r.getID());
 			ans.answer = "Request not sent";
 			return ans;
 		}).collect(Collectors.toList()));

@@ -5,9 +5,11 @@ import com.google.genai.types.GenerateContentResponse;
 import xy.ai.workbench.models.IModelResponse;
 
 public class GeminiResponse implements IModelResponse {
+	public final String id;
 	public GenerateContentResponse response;
 
-	public GeminiResponse(GenerateContentResponse resp) {
+	public GeminiResponse(String id, GenerateContentResponse resp) {
+		this.id = id;
 		response = resp;
 	}
 }

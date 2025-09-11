@@ -111,15 +111,17 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 				} else if (dest.inlinedResponses().isPresent()) {
 					sub.subTask("Inline Output");
 					List<AIAnswer> answers = new ArrayList<>();
+					String[] ids = oentry.getRequestIDs();
 					List<InlinedResponse> inline = dest.inlinedResponses().get();
-					for (InlinedResponse resp : inline) {
+					for (int i = 0; i < inline.size(); i++) {
+						InlinedResponse resp = inline.get(i);
 
 						StringBuffer res = new StringBuffer();
 						if (resp.error().isPresent())
 							res.append(errorToString(resp.error().get()));
 						if (resp.response().isPresent()) {
 							GenerateContentResponse r = resp.response().get();
-							AIAnswer ans = connector.convertResponse(new GeminiResponse(r), sub);
+							AIAnswer ans = connector.convertResponse(new GeminiResponse(ids[i], r), sub);
 							answers.add(ans);
 						}
 					}
@@ -156,10 +158,12 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 2);
 
 		sub.subTask("Collect requests");
-		String reqIds = String.join(",", entry.getRequestIDs());
+		String reqIds = entry.getRequestIntIDs().stream().map(i -> String.format("%08x", i))
+				.collect(Collectors.joining());
+
+		BatchJobSource bjs = generateBatchJobSource(entry.getRequests());
 		sub.worked(1);
 		sub.subTask("Execute request");
-		BatchJobSource bjs = generateBatchJobSource(entry.getRequests());
 		CreateBatchJobConfig cbjc = CreateBatchJobConfig.builder()//
 				.displayName(reqIds)//
 				.build();
@@ -198,8 +202,10 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 		if (entry.getResult() != null) {
 			String[] split = entry.getResult().split("\n");
 			SubMonitor sub = SubMonitor.convert(mon, "Convert Answers", split.length);
-			for (String InputJson : split) {
-				answ.add(convertToAnswer(InputJson, mon));
+			String[] ids = entry.getRequestIDs();
+
+			for (int i = 0; i < split.length; i++) {
+				answ.add(convertToAnswer(split[i], ids[i], mon));
 				sub.worked(1);
 			}
 			sub.done();
@@ -208,7 +214,7 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 		if (batch.error().isPresent()) {
 			JobError error = batch.error().get();
 			String msg = errorToString(error);
-			AIAnswer eans = new AIAnswer();
+			AIAnswer eans = new AIAnswer("batch_error");
 			eans.answer = msg;
 			answ.add(eans);
 		}
@@ -216,10 +222,10 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 		obj.setAnswers(answ);
 	}
 
-	private AIAnswer convertToAnswer(String responseJson, IProgressMonitor mon) {
+	private AIAnswer convertToAnswer(String responseJson, String id, IProgressMonitor mon) {
 		GenerateContentResponse resp = GenerateContentResponse.fromJson(responseJson);
 
-		AIAnswer answer = connector.convertResponse(new GeminiResponse(resp), mon);
+		AIAnswer answer = connector.convertResponse(new GeminiResponse(id, resp), mon);
 		return answer;
 	}
 }

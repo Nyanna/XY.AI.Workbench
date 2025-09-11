@@ -78,8 +78,7 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 				SubMonitor sub1 = SubMonitor.convert(mon, "Load output", entry.getTaskCount());
 				oentry.setAnswers(response.stream().map(res -> {
 					sub1.worked(1);
-					AIAnswer an = new AIAnswer();
-					an.id = res.customId();
+					AIAnswer an = new AIAnswer(res.customId());
 					if (res.result().isSucceeded())
 						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message()), sub);
 					else if (res.result().isErrored()) {

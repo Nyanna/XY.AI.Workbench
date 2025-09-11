@@ -83,9 +83,8 @@ public class ClaudeConnector implements IAIConnector {
 		Message resp = ((ClaudeResponse) response).response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer();
+		AIAnswer res = new AIAnswer(resp.id());
 
-		res.id = resp.id();
 		res.inputToken = resp.usage().inputTokens();
 		res.outputToken = resp.usage().outputTokens();
 //		resp.usage().cacheCreationInputTokens();

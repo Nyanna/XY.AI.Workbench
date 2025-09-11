@@ -86,6 +86,10 @@ public class NewBatch implements IAIBatch {
 		return requests.stream().map(r -> r.getID()).collect(Collectors.toList()).toArray(new String[0]);
 	}
 
+	public List<Integer> getRequestIntIDs() {
+		return requests.stream().map(r -> Integer.valueOf(r.getID())).collect(Collectors.toList());
+	}
+
 	@Override
 	public int getDuration() {
 		return 0;

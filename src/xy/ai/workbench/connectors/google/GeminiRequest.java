@@ -13,15 +13,17 @@ public class GeminiRequest implements IModelRequest {
 	Model model;
 	List<Content> prompt;
 	GenerateContentConfig config;
+	private String id;
 
-	public GeminiRequest(Model model, List<Content> prompt, GenerateContentConfig config) {
+	public GeminiRequest(Model model, List<Content> prompt, GenerateContentConfig config, String id) {
 		this.model = model;
 		this.prompt = prompt;
 		this.config = config;
+		this.id = id;
 	}
 
 	@Override
 	public String getID() {
-		return "none"; //config.labels().get().get(CUSTOM_ID); // not supported
+		return id;
 	}
 }

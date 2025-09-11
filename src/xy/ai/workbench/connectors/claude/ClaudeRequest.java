@@ -14,8 +14,6 @@ public class ClaudeRequest implements IModelRequest {
 
 	@Override
 	public String getID() {
-		if (params != null && params.metadata().isPresent())
-			return params.metadata().get().userId().get();
-		return "none";
+		return params.metadata().get().userId().get();
 	}
 }

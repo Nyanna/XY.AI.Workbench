@@ -36,6 +36,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connectors.IAIConnector;
+import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -172,7 +173,6 @@ public class AISessionManager {
 		case Files:
 			return getFilsAsString(selectedFiles);
 		case Search:
-			// TODO use throttler for update call
 			if (result instanceof AbstractTextSearchResult) {
 				AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
 				List<IFile> files = Arrays.stream(textRes.getElements()) //
@@ -226,16 +226,19 @@ public class AISessionManager {
 
 	public void execute(Display display) {
 		Job.create("Starting Prompt", (mon) -> {
-			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 3);
+			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 4);
 			try {
 				sub.subTask("Prepare inputs");
 				var req = prepareInner(display, false, sub);
 				sub.worked(1);
+				sub.subTask("Insert Tag");
+				insertTag(display, req, sub);
+				mon.worked(1);
 				sub.subTask("Execute prompt");
 				var ans = executeInner(display, req, sub);
 				mon.worked(1);
 				sub.subTask("Process Answer");
-				processAnswer(display, ans, sub);
+				replaceTag(display, ans, sub);
 				mon.worked(1);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -327,8 +330,8 @@ public class AISessionManager {
 		return res;
 	}
 
-	public void processAnswer(Display display, AIAnswer res, IProgressMonitor mon) {
-		display.asyncExec(() -> {
+	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
+		display.syncExec(() -> {
 			try {
 				ITextEditor textEditor = editorListener.getLastTextEditor();
 
@@ -338,20 +341,20 @@ public class AISessionManager {
 
 				switch (cfg.getOuputMode()) {
 				case Chat:
-					String replace = "\n" + AGENT + "\n" + res.answer + "\n" + USER + "\n";
+					String replace = String.format("\n%s\n%s\n%s\n", AGENT, generateTag(req), USER);
 					doc.replace(doc.getLength(), 0, replace);
 					textEditor.selectAndReveal(doc.getLength(), 0);
 					break;
 				case Append:
-					doc.replace(doc.getLength(), 0, "\n" + res.answer);
+					doc.replace(doc.getLength(), 0, "\n" + generateTag(req));
 					break;
 				case Replace:
 					if (tsel != null)
-						doc.replace(tsel.getOffset(), tsel.getLength(), res.answer);
+						doc.replace(tsel.getOffset(), tsel.getLength(), generateTag(req));
 					break;
 				case Cursor:
 					if (tsel != null)
-						doc.replace(tsel.getOffset(), 0, res.answer);
+						doc.replace(tsel.getOffset(), 0, generateTag(req));
 					break;
 				}
 				textEditor.doSave(mon);
@@ -359,5 +362,14 @@ public class AISessionManager {
 				System.out.println("Error adding text");
 			}
 		});
+	}
+
+	private String generateTag(IModelRequest req) {
+		return MarkerRessourceScanner.getPromptTag(req.getID());
+	}
+
+	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
+		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans))
+			System.out.println("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}
 }

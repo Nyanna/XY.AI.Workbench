@@ -121,5 +121,16 @@
             value="1|Arial|10.0|0|WINDOWS|1|0|0|0|0|0|0|0|0|3|0|0|0|Arial;">
       </fontDefinition>
    </extension>
+   <extension
+         id="xy.ai.workbench.promptmarker"
+         name="XY.AI Prompt Marker"
+         point="org.eclipse.core.resources.markers">
+      <persistent
+            value="true">
+      </persistent>
+      <super
+            type="org.eclipse.core.resources.taskmarker">
+      </super>
+   </extension>
 
 </plugin>
