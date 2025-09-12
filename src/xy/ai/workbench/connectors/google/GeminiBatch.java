@@ -111,9 +111,11 @@ public class GeminiBatch implements IAIBatch {
 			List<String> result = new ArrayList<>();
 			String concatenated = batch.displayName().get();
 
-			for (int i = 0; i < concatenated.length(); i += 8)
-				result.add(Integer.parseUnsignedInt(concatenated.substring(i, i + 8), 16) + "");
-			return result.toArray(new String[0]);
+			if (concatenated.length() % 8 == 0) {
+				for (int i = 0; i < concatenated.length(); i += 8)
+					result.add(Integer.parseUnsignedInt(concatenated.substring(i, i + 8), 16) + "");
+				return result.toArray(new String[0]);
+			}
 		}
 		return new String[0];
 	}

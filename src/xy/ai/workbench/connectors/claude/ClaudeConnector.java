@@ -62,8 +62,7 @@ public class ClaudeConnector implements IAIConnector {
 
 		if (tools != null && !tools.isEmpty())
 			for (String tool : tools)
-				builder.addMessage(Message.builder().addContent( //
-						TextBlock.builder().text(tool).build()).build());
+				builder.addUserMessage(tool);
 
 		MessageCreateParams createParams = builder.build();
 		sub.done();
