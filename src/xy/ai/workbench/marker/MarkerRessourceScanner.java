@@ -63,6 +63,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 
 	private void rescannFile(IFile file) {
 		int lineNumber = 1;
+		int totaloff = 0;
 
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getContents()))) {
 			file.deleteMarkers(MARKER_ID, false, IResource.DEPTH_ZERO);
@@ -74,12 +75,13 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 					IMarker marker = file.createMarker(MARKER_ID);
 					marker.setAttribute(IMarker.MESSAGE, m.group(1) + ": " + m.group(2));
 					marker.setAttribute(IMarker.LINE_NUMBER, lineNumber);
-					marker.setAttribute(MARKER_OFF_ID_ATTR, m.start());
+					marker.setAttribute(MARKER_OFF_ID_ATTR, totaloff + m.start());
 					marker.setAttribute(MARKER_LEN_ID_ATTR, m.end() - m.start());
 					marker.setAttribute(IMarker.PRIORITY, IMarker.PRIORITY_NORMAL);
 					marker.setAttribute(MARKER_REQ_ID_ATTR, m.group(2));
 				}
 				lineNumber++;
+				totaloff += line.length() + 1;
 			}
 		} catch (IOException | CoreException e) {
 			e.printStackTrace();
