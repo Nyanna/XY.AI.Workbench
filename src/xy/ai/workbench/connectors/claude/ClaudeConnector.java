@@ -13,7 +13,6 @@ import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.MessageCreateParams.Builder;
 import com.anthropic.models.messages.Metadata;
-import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.ThinkingConfigEnabled;
 
 import xy.ai.workbench.ConfigManager;
@@ -74,15 +73,16 @@ public class ClaudeConnector implements IAIConnector {
 		ClaudeRequest params = ((ClaudeRequest) request);
 
 		Message message = client.messages().create(params.params);
-		return new ClaudeResponse(message);
+		return new ClaudeResponse(message, request.getID());
 	}
 
 	@Override
 	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
-		Message resp = ((ClaudeResponse) response).response;
+		ClaudeResponse cresp = (ClaudeResponse) response;
+		Message resp = cresp.response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer(resp.id());
+		AIAnswer res = new AIAnswer(cresp.id);
 
 		res.inputToken = resp.usage().inputTokens();
 		res.outputToken = resp.usage().outputTokens();

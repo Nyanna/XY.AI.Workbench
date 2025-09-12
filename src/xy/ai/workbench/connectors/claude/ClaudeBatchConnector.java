@@ -78,37 +78,39 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 				SubMonitor sub1 = SubMonitor.convert(mon, "Load output", entry.getTaskCount());
 				oentry.setAnswers(response.stream().map(res -> {
 					sub1.worked(1);
-					AIAnswer an = new AIAnswer(res.customId());
 					if (res.result().isSucceeded())
-						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message()), sub);
-					else if (res.result().isErrored()) {
-						ErrorObject error = res.result().asErrored().error().error();
+						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message(), res.customId()), sub);
+					else {
+						AIAnswer an = new AIAnswer(res.customId());
+						if (res.result().isErrored()) {
+							ErrorObject error = res.result().asErrored().error().error();
 
-						if (error.isApiError())
-							an.answer = "API Error: " + error.asApiError().message();
-						else if (error.isInvalidRequestError())
-							an.answer = "Invalid Request: " + error.asInvalidRequestError().message();
-						else if (error.isAuthenticationError())
-							an.answer = "Authentication Error: " + error.asAuthenticationError().message();
-						else if (error.isBillingError())
-							an.answer = "Billing Problem: " + error.asBillingError().message();
-						else if (error.isNotFoundError())
-							an.answer = "Not Found: " + error.asNotFoundError().message();
-						else if (error.isOverloadedError())
-							an.answer = "Overloaded: " + error.asOverloadedError().message();
-						else if (error.isPermissionError())
-							an.answer = "Permission Error: " + error.asPermissionError().message();
-						else if (error.isRateLimitError())
-							an.answer = "Rate Limit: " + error.asRateLimitError().message();
-						else if (error.isTimeoutError())
-							an.answer = "Timeout: " + error.asTimeoutError().message();
-						else
-							an.answer = "Error: " + error.toString();
-					} else if (res.result().isCanceled())
-						an.answer = "Canceled: " + res.result().asCanceled().toString();
-					else if (res.result().isExpired())
-						an.answer = "Expired: " + res.result().asExpired().toString();
-					return an;
+							if (error.isApiError())
+								an.answer = "API Error: " + error.asApiError().message();
+							else if (error.isInvalidRequestError())
+								an.answer = "Invalid Request: " + error.asInvalidRequestError().message();
+							else if (error.isAuthenticationError())
+								an.answer = "Authentication Error: " + error.asAuthenticationError().message();
+							else if (error.isBillingError())
+								an.answer = "Billing Problem: " + error.asBillingError().message();
+							else if (error.isNotFoundError())
+								an.answer = "Not Found: " + error.asNotFoundError().message();
+							else if (error.isOverloadedError())
+								an.answer = "Overloaded: " + error.asOverloadedError().message();
+							else if (error.isPermissionError())
+								an.answer = "Permission Error: " + error.asPermissionError().message();
+							else if (error.isRateLimitError())
+								an.answer = "Rate Limit: " + error.asRateLimitError().message();
+							else if (error.isTimeoutError())
+								an.answer = "Timeout: " + error.asTimeoutError().message();
+							else
+								an.answer = "Error: " + error.toString();
+						} else if (res.result().isCanceled())
+							an.answer = "Canceled: " + res.result().asCanceled().toString();
+						else if (res.result().isExpired())
+							an.answer = "Expired: " + res.result().asExpired().toString();
+						return an;
+					}
 				}).collect(Collectors.toList()));
 				sub1.done();
 			}

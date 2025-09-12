@@ -353,6 +353,9 @@ public class AIBatchView extends ViewPart {
 		// targets, provide shortcut selection actions
 		// TODO Store batch and job metadata in shared store for comments and detaisl
 		// and backpropagation like source file, in eigene root/.batchinfo persistence
+		// TODO load all batch providers with key, batch providers need to tell key support, better sort by date, filter for old nor failed
+		// TODO change marker message to id Gemini: id
+		// TODO add meta infos which batch provider
 		actCancel = new Action() {
 			public void run() {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
