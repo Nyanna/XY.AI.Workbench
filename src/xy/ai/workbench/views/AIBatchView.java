@@ -112,12 +112,13 @@ public class AIBatchView extends ViewPart {
 				public int compare(Viewer viewer, Object e1, Object e2) {
 					IAIBatch t1 = (IAIBatch) e1;
 					IAIBatch t2 = (IAIBatch) e2;
-					return t1.getStateDate().compareTo(t2.getStateDate());
+					return t2.getStateDate().compareTo(t1.getStateDate());
 				};
 			});
 
 			table.requestLayout();
 			batch.setViewer(batchViewer);
+			batchViewer.setContentProvider(batch);
 		}
 
 		{
@@ -351,7 +352,6 @@ public class AIBatchView extends ViewPart {
 
 		// TODO create a action manager with onliner action creation, put in lists for
 		// targets, provide shortcut selection actions
-		// TODO load all batch providers with key, batch providers need to tell key support, better sort by date, filter for old nor failed
 		actCancel = new Action() {
 			public void run() {
 				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();

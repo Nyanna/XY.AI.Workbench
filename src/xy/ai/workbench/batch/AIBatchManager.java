@@ -6,6 +6,7 @@ import java.util.TreeMap;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.widgets.Display;
 
@@ -13,7 +14,7 @@ import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.connectors.IAIBatchConnector;
 import xy.ai.workbench.models.IModelRequest;
 
-public class AIBatchManager {
+public class AIBatchManager implements IStructuredContentProvider{
 	static final String UNSEND_ID = "New";
 	public static String KEY_REQIDS = "reqIds";
 	private IAIBatchConnector connector;
@@ -23,6 +24,11 @@ public class AIBatchManager {
 
 	public AIBatchManager(IAIBatchConnector connector) {
 		this.connector = connector;
+	}
+
+	@Override
+	public Object[] getElements(Object inputElement) {
+		return index.values().toArray();
 	}
 
 	public void updateBatches(IProgressMonitor mon, boolean updateAll) {
@@ -35,6 +41,7 @@ public class AIBatchManager {
 				updateEntry(batch);
 			sub.worked(1);
 		}
+		Display.getDefault().asyncExec(() -> viewer.setInput(this));
 		sub.done();
 	}
 
@@ -45,7 +52,8 @@ public class AIBatchManager {
 			addOrUpdateEntry(unsent = new NewBatch());
 		unsent.addRequest(req);
 		final IAIBatch toUpdate = unsent;
-		Display.getDefault().asyncExec(() -> viewer.refresh(toUpdate, true));
+		Display.getDefault().syncExec(() -> viewer.refresh(toUpdate, true));
+		Display.getDefault().asyncExec(() -> viewer.setInput(this));
 		sub.done();
 	}
 
@@ -59,7 +67,8 @@ public class AIBatchManager {
 		addOrUpdateEntry(res);
 
 		unsent.clear();
-		Display.getDefault().asyncExec(() -> viewer.refresh(unsent, true));
+		Display.getDefault().syncExec(() -> viewer.refresh(unsent, true));
+		Display.getDefault().asyncExec(() -> viewer.setInput(this));
 		sub.done();
 	}
 
@@ -77,7 +86,7 @@ public class AIBatchManager {
 	public void removeBatch(IAIBatch batch, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Remove Batch", 1);
 		index.remove(batch.getID());
-		Display.getDefault().asyncExec(() -> viewer.remove(batch));
+		Display.getDefault().syncExec(() -> viewer.remove(batch));
 		sub.done();
 	}
 
@@ -85,10 +94,10 @@ public class AIBatchManager {
 		IAIBatch indexed = index.get(entry.getID());
 		if (indexed == null) {
 			index.put(entry.getID(), entry);
-			Display.getDefault().asyncExec(() -> viewer.add(entry));
+			Display.getDefault().syncExec(() -> viewer.add(entry));
 		} else {
 			indexed.updateBy(entry);
-			Display.getDefault().asyncExec(() -> viewer.refresh(indexed, true));
+			Display.getDefault().syncExec(() -> viewer.refresh(indexed, true));
 		}
 	}
 
