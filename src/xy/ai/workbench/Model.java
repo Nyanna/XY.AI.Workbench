@@ -62,7 +62,7 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$");
 
 		public final Pattern pattern;
 

@@ -24,7 +24,6 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IRegion;
 import org.eclipse.swt.widgets.Display;
 import org.osgi.framework.BundleContext;
 
@@ -34,11 +33,13 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	private static final String AIREQ_PREFIX = "xy.ai.req";
 	private static final String MARKER_ID = "xy.ai.workbench.promptmarker";
 	private static final String MARKER_REQ_ID_ATTR = "requestId";
+	private static final String MARKER_OFF_ID_ATTR = "offset";
+	private static final String MARKER_LEN_ID_ATTR = "length";
 	private final Pattern pattern;
 
 	public MarkerRessourceScanner(BundleContext context) {
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(this, IResourceChangeEvent.POST_CHANGE);
-		pattern = Pattern.compile("\\[" + AIREQ_PREFIX + ":(.*)\\]", Pattern.CASE_INSENSITIVE);
+		pattern = Pattern.compile("\\[" + AIREQ_PREFIX + ":(.*):(.*)\\]", Pattern.CASE_INSENSITIVE);
 	}
 
 	public void dispose(BundleContext context) {
@@ -71,10 +72,12 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 				Matcher m = pattern.matcher(line);
 				while (m.find()) {
 					IMarker marker = file.createMarker(MARKER_ID);
-					marker.setAttribute(IMarker.MESSAGE, "AI Prompt: " + m.group());
+					marker.setAttribute(IMarker.MESSAGE, m.group(1) + ": " + m.group(2));
 					marker.setAttribute(IMarker.LINE_NUMBER, lineNumber);
+					marker.setAttribute(MARKER_OFF_ID_ATTR, m.start());
+					marker.setAttribute(MARKER_LEN_ID_ATTR, m.end() - m.start());
 					marker.setAttribute(IMarker.PRIORITY, IMarker.PRIORITY_NORMAL);
-					marker.setAttribute(MARKER_REQ_ID_ATTR, m.group(1));
+					marker.setAttribute(MARKER_REQ_ID_ATTR, m.group(2));
 				}
 				lineNumber++;
 			}
@@ -127,16 +130,13 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		try {
 			bm.connect(file.getFullPath(), LocationKind.IFILE, null);
 			ITextFileBuffer tb = bm.getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
-			String expr = getPromptTag(ans.id);
 
 			Display.getDefault().syncExec(() -> {
 				try {
 					IDocument doc = tb.getDocument();
-
-					IRegion linf = doc.getLineInformation(line - 1);
-					String old = doc.get(linf.getOffset(), linf.getLength());
-					String newl = old.replace(expr, ans.answer);
-					doc.replace(linf.getOffset(), linf.getLength(), newl);
+					int off = marker.getAttribute(MARKER_OFF_ID_ATTR, -1);
+					int len = marker.getAttribute(MARKER_LEN_ID_ATTR, -1);
+					doc.replace(off, len, ans.answer);
 				} catch (BadLocationException e) {
 					e.printStackTrace();
 				}
@@ -158,7 +158,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		return false;
 	}
 
-	public static String getPromptTag(String id) {
-		return String.format("[%s:%s]", AIREQ_PREFIX, id);
+	public static String getPromptTag(String meta, String id) {
+		return String.format("[%s:%s:%s]", AIREQ_PREFIX, meta, id);
 	}
 }

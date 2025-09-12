@@ -38,11 +38,16 @@ public class GeminiConnector implements IAIConnector {
 	public GeminiConnector(ConfigManager cfg) {
 		this.cfg = cfg;
 		cfg.addKeyObs(k -> {
-			if (KeyPattern.Gemini.matches(k))
+			if (getSupportedKeyPattern().matches(k))
 				this.client = Client.builder()//
 						.apiKey(k)//
 						.build();
 		}, true);
+	}
+	
+	@Override
+	public KeyPattern getSupportedKeyPattern() {
+		return KeyPattern.Gemini;
 	}
 
 	@Override

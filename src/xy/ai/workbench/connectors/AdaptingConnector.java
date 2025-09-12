@@ -7,6 +7,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.connectors.claude.ClaudeBatch;
 import xy.ai.workbench.connectors.claude.ClaudeBatchConnector;
@@ -45,6 +46,11 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
 		newBatch = new NewBatchConnector();
 	}
+	
+	@Override
+	public KeyPattern getSupportedKeyPattern() {
+		return KeyPattern.None;
+	}
 
 	private IAIConnector getConnector(Model model) {
 		switch (model) {
@@ -82,7 +88,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
-	private IAIConnector getConnector(IModelRequest request) {
+	public IAIConnector getConnector(IModelRequest request) {
 		if (request instanceof GeminiRequest)
 			return gemini;
 		else if (request instanceof OpenAIRequest)

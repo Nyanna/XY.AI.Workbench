@@ -30,9 +30,14 @@ public class ClaudeConnector implements IAIConnector {
 	public ClaudeConnector(ConfigManager cfg) {
 		this.cfg = cfg;
 		cfg.addKeyObs(k -> {
-			if (KeyPattern.Claude.matches(k))
+			if (getSupportedKeyPattern().matches(k))
 				this.client = AnthropicOkHttpClient.builder().apiKey(k).build();
 		}, true);
+	}
+	
+	@Override
+	public KeyPattern getSupportedKeyPattern() {
+		return KeyPattern.Claude;
 	}
 
 	@Override

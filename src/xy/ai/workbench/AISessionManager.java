@@ -34,8 +34,9 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
-import xy.ai.workbench.connectors.IAIConnector;
+import xy.ai.workbench.connectors.AdaptingConnector;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -49,7 +50,7 @@ public class AISessionManager {
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
 
 	private ConfigManager cfg;
-	private IAIConnector connector;
+	private AdaptingConnector connector;
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
@@ -57,7 +58,7 @@ public class AISessionManager {
 	private List<IFile> selectedFiles = List.of();
 	private ISearchResult result = null;
 
-	public AISessionManager(ConfigManager cfg, IAIConnector connector) {
+	public AISessionManager(ConfigManager cfg, AdaptingConnector connector) {
 		this.cfg = cfg;
 		this.connector = connector;
 		cfg.addInputModeObs(i -> updateInputStat(i));
@@ -368,7 +369,8 @@ public class AISessionManager {
 	}
 
 	private String generateTag(IModelRequest req) {
-		return MarkerRessourceScanner.getPromptTag(req.getID());
+		KeyPattern pattern = connector.getConnector(req).getSupportedKeyPattern();
+		return MarkerRessourceScanner.getPromptTag(pattern.name(), req.getID());
 	}
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
