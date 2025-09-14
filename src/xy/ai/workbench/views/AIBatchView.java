@@ -7,12 +7,9 @@ import java.util.Date;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
-import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.MenuManager;
-import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -38,8 +35,6 @@ import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbench;
-import org.eclipse.ui.IWorkbenchActionConstants;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
@@ -62,8 +57,7 @@ public class AIBatchView extends ViewPart {
 
 	private TableViewer batchViewer;
 	private TableViewer reqViewer;
-	private Action actUpdate, actUpdateListed, actEnqueue, actClear, actDetails, actInsert, actCpJson, actCancel,
-			actRemove, actCpResponse, actCpError;
+	private ActionManager act = new ActionManager();
 
 	private AIBatchManager batch;
 	private AIBatchResponseManager batchRequests;
@@ -202,7 +196,7 @@ public class AIBatchView extends ViewPart {
 		menuMgr.setRemoveAllWhenShown(true);
 		menuMgr.addMenuListener(new IMenuListener() {
 			public void menuAboutToShow(IMenuManager manager) {
-				AIBatchView.this.fillContextMenu(manager);
+				AIBatchView.this.act.fillContextMenu(manager);
 			}
 		});
 		Menu menu = menuMgr.createContextMenu(batchViewer.getControl());
@@ -212,187 +206,82 @@ public class AIBatchView extends ViewPart {
 
 	private void contributeToActionBars() {
 		IActionBars bars = getViewSite().getActionBars();
-		fillLocalPullDown(bars.getMenuManager());
-		fillLocalToolBar(bars.getToolBarManager());
-	}
-
-	private void fillLocalPullDown(IMenuManager manager) {
-		manager.add(actUpdate);
-		// manager.add(new Separator());
-		manager.add(actEnqueue);
-		manager.add(actClear);
-	}
-
-	private void fillContextMenu(IMenuManager manager) {
-		manager.add(actRemove);
-		manager.add(actCpJson);
-		manager.add(actCpResponse);
-		manager.add(actCpError);
-		manager.add(actCancel);
-		// Other plug-ins can contribute there actions here
-		manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
-	}
-
-	private void fillLocalToolBar(IToolBarManager manager) {
-		manager.add(actUpdate);
-		manager.add(actUpdateListed);
-		manager.add(actEnqueue);
-		manager.add(actClear);
+		act.fillLocalPullDown(bars.getMenuManager());
+		act.fillLocalToolBar(bars.getToolBarManager());
 	}
 
 	private void makeActions() {
-		actUpdate = new Action() {
-			public void run() {
-				Job.create("Check Batches", (mon) -> {
-					batch.updateBatches(mon, true);
-					return Status.OK_STATUS;
-				}).schedule();
-			}
-		};
-		actUpdate.setText("Update Batches");
-		actUpdate.setToolTipText("Retrieves and update batch states");
-		actUpdate.setImageDescriptor(
-				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
-
-		actUpdateListed = new Action() {
-			public void run() {
-				Job.create("Check Batches", (mon) -> {
-					batch.updateBatches(mon, false);
-					return Status.OK_STATUS;
-				}).schedule();
-			}
-		};
-		actUpdateListed.setText("Update Listed Batches only");
-		actUpdateListed.setToolTipText("Retrieves and update listed batch states only");
-		actUpdateListed.setImageDescriptor(
-				PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_BACK));
-
-		actEnqueue = new Action() {
-			public void run() {
-				Job.create("Submit Batches", (mon) -> {
-					batch.submitBatches(mon);
-					return Status.OK_STATUS;
-				}).schedule();
-			}
-		};
-		actEnqueue.setText("Submit Batches");
-		actEnqueue.setToolTipText("Submit unscheduled batches");
-		actEnqueue.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_FORWARD));
-
-		actClear = new Action() {
-			public void run() {
-				Display.getDefault().asyncExec(() -> {
+		act.create().text("Update Batches", "Retrieves and update batch states") //
+				.image(ISharedImages.IMG_ELCL_SYNCED).pullDown().toolbar() //
+				.job((mon) -> batch.updateBatches(mon, true)).done();
+		act.create().text("Update Listed Batches only", "Retrieves and update listed batch states only") //
+				.image(ISharedImages.IMG_TOOL_BACK).toolbar() //
+				.job((mon) -> batch.updateBatches(mon, false)).done();
+		act.create().text("Submit Batches", "Submit unscheduled batches") //
+				.image(ISharedImages.IMG_TOOL_FORWARD).pullDown().toolbar() //
+				.job((mon) -> batch.submitBatches(mon)).done();
+		act.create().text("Clear View", "Clear batch list") //
+				.image(ISharedImages.IMG_ETOOL_CLEAR).pullDown().toolbar() //
+				.display(() -> {
 					batch.clearBatches();
 					batchRequests.clearAnswers();
 					batchViewer.refresh();
 					batchRequests.updateView(reqViewer);
-				});
-			}
-		};
-		actClear.setText("Clear View");
-		actClear.setToolTipText("Clear batch list");
-		actClear.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_ETOOL_CLEAR));
+				}).done();
+		act.create().text("Copy JSON", "Copy JSON for use in batches") //
+				.image(ISharedImages.IMG_TOOL_COPY).contextMenu() //
+				.selection(batchViewer, IAIBatch.class, (elem) -> {
+					if (elem.hasRequests())
+						showMessage("Batch contains no original requests");
+					else
+						copyToClipboard(batch.requestsToString(elem));
+				}).done();
+		act.create().text("Copy Result JSON", "Copy Result JSON") //
+				.image(ISharedImages.IMG_TOOL_COPY).contextMenu() //
+				.selection(batchViewer, IAIBatch.class, (elem) -> {
+					if (elem.getResult() == null)
+						showMessage("Batch contains no response");
+					else
+						copyToClipboard(elem.getResult());
+				}).done();
+		act.create().text("Copy Error JSON", "Copy error JSON") //
+				.image(ISharedImages.IMG_TOOL_COPY).contextMenu() //
+				.selection(batchViewer, IAIBatch.class, (elem) -> {
+					if (elem.getError() == null)
+						showMessage("Batch contains no errors");
+					else
+						copyToClipboard(elem.getError());
+				}).done();
+		act.create().text("Cancel", "Cancel a processing batch") //
+				.image(ISharedImages.IMG_TOOL_DELETE).contextMenu() //
+				.selection(batchViewer, IAIBatch.class, (elem) -> {
+					Job.create("Cacel Batch", (mon) -> {
+						batch.cancelBatch(elem, mon);
+						return Status.OK_STATUS;
+					}).schedule();
+				}).done();
+		act.create().text("Remove", "Remove from listing") //
+				.image(ISharedImages.IMG_TOOL_DELETE_DISABLED).contextMenu() //
+				.selection(batchViewer, IAIBatch.class, (elem) -> {
+					Job.create("Cacel Batch", (mon) -> {
+						batch.removeBatch(elem, mon);
+						return Status.OK_STATUS;
+					}).schedule();
+				}).done();
+	}
 
-		actCpJson = new Action() {
-			public void run() {
-				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
-				if (!selection.isEmpty()) {
-					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof IAIBatch) {
-						IAIBatch elem = (IAIBatch) selectedElement;
-						if (elem.hasRequests()) {
-							showMessage("Batch contains no original requests");
-						} else
-							copyToClipboard(batch.requestsToString(elem));
-					}
-				}
-			}
-		};
-		actCpJson.setText("Copy JSON");
-		actCpJson.setToolTipText("Copy JSON for use in batches");
-		actCpJson.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
+	private void copyToClipboard(String string) {
+		Clipboard clipboard = new Clipboard(Display.getDefault());
+		try {
+			clipboard.setContents(new Object[] { string }, new Transfer[] { TextTransfer.getInstance() });
+		} finally {
+			clipboard.dispose();
+		}
+	}
 
-		actCpResponse = new Action() {
-			public void run() {
-				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
-				if (!selection.isEmpty()) {
-					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof IAIBatch) {
-						IAIBatch elem = (IAIBatch) selectedElement;
-						if (elem.getResult() == null) {
-							showMessage("Batch contains no response");
-						} else
-							copyToClipboard(elem.getResult());
-					}
-				}
-			}
-		};
-		actCpResponse.setText("Copy Result JSON");
-		actCpResponse.setToolTipText("Copy Result JSON");
-		actCpResponse.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
-
-		actCpError = new Action() {
-			public void run() {
-				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
-				if (!selection.isEmpty()) {
-					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof IAIBatch) {
-						IAIBatch elem = (IAIBatch) selectedElement;
-						if (elem.getError() == null) {
-							showMessage("Batch contains no errors");
-						} else
-							copyToClipboard(elem.getError());
-					}
-				}
-			}
-		};
-		actCpError.setText("Copy Error JSON");
-		actCpError.setToolTipText("Copy error JSON");
-		actCpError.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_COPY));
-
-		// TODO create a action manager with onliner action creation, put in lists for
-		// targets, provide shortcut selection actions
-		actCancel = new Action() {
-			public void run() {
-				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
-				if (!selection.isEmpty()) {
-					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof IAIBatch) {
-						IAIBatch elem = (IAIBatch) selectedElement;
-						Job.create("Cacel Batch", (mon) -> {
-							batch.cancelBatch(elem, mon);
-							return Status.OK_STATUS;
-						}).schedule();
-					}
-				}
-			}
-		};
-		actCancel.setText("Cancel");
-		actCancel.setToolTipText("Cancel a processing batch");
-		actCancel.setImageDescriptor(workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE));
-
-		actRemove = new Action() {
-			public void run() {
-				IStructuredSelection selection = (IStructuredSelection) batchViewer.getSelection();
-				if (!selection.isEmpty()) {
-					Object selectedElement = selection.getFirstElement();
-					if (selectedElement instanceof IAIBatch) {
-						IAIBatch elem = (IAIBatch) selectedElement;
-						Job.create("Cacel Batch", (mon) -> {
-							batch.removeBatch(elem, mon);
-							return Status.OK_STATUS;
-						}).schedule();
-					}
-				}
-			}
-		};
-		actRemove.setText("Remove");
-		actRemove.setToolTipText("Remove from listing");
-		actRemove.setImageDescriptor(
-				workbench.getSharedImages().getImageDescriptor(ISharedImages.IMG_TOOL_DELETE_DISABLED));
-
-		actDetails = new Action() {
-			public void run() {
+	private void hookDoubleClickAction() {
+		batchViewer.addDoubleClickListener(new IDoubleClickListener() {
+			public void doubleClick(DoubleClickEvent event) {
 				IStructuredSelection selection = batchViewer.getStructuredSelection();
 				Object obj = selection.getFirstElement();
 				if (obj instanceof IAIBatch) {
@@ -412,9 +301,9 @@ public class AIBatchView extends ViewPart {
 					}).schedule();
 				}
 			}
-		};
-		actInsert = new Action() {
-			public void run() {
+		});
+		reqViewer.addDoubleClickListener(new IDoubleClickListener() {
+			public void doubleClick(DoubleClickEvent event) {
 				IStructuredSelection selection = reqViewer.getStructuredSelection();
 				Object obj = selection.getFirstElement();
 				if (obj instanceof AIAnswer) {
@@ -422,30 +311,6 @@ public class AIBatchView extends ViewPart {
 						Activator.getDefault().session.replaceTag(Display.getDefault(), (AIAnswer) obj, mon);
 					}).schedule();
 				}
-			}
-		};
-	}
-
-	private void copyToClipboard(String string) {
-		Display display = Display.getDefault();
-		Clipboard clipboard = new Clipboard(display);
-		TextTransfer textTransfer = TextTransfer.getInstance();
-		try {
-			clipboard.setContents(new Object[] { string }, new Transfer[] { textTransfer });
-		} finally {
-			clipboard.dispose();
-		}
-	}
-
-	private void hookDoubleClickAction() {
-		batchViewer.addDoubleClickListener(new IDoubleClickListener() {
-			public void doubleClick(DoubleClickEvent event) {
-				actDetails.run();
-			}
-		});
-		reqViewer.addDoubleClickListener(new IDoubleClickListener() {
-			public void doubleClick(DoubleClickEvent event) {
-				actInsert.run();
 			}
 		});
 	}
