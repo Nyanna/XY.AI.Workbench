@@ -130,9 +130,9 @@ public class AISessionManager {
 		case Instructions:
 			StringBuffer systemPrompt = new StringBuffer();
 			Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
-					.forEach(e -> systemPrompt.append(e).append(".\n"));
+					.forEach(e -> systemPrompt.append("* ").append(e).append(".\n"));
 			if (cfg.getFreeText() != null)
-				systemPrompt.append(cfg.getFreeText()).append(".\n");
+				systemPrompt.append(".\n").append(cfg.getFreeText()).append(".\n");
 			return systemPrompt.toString();
 		case Selection:
 			if (textEditor != null) {
