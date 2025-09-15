@@ -422,6 +422,7 @@ public class AISessionView extends ViewPart {
 					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
 					item.setText(new String[] { a.totalToken + "", a.inputToken + "", a.outputToken + "",
 							a.reasoningToken + "" });
+					usageLog.setTopIndex(0);
 				}
 			});
 		});
