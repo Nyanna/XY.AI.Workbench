@@ -205,11 +205,13 @@ public class AISessionView extends ViewPart {
 			sashComp.setLayout(new GridLayout(1, false));
 			GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);
 			scl.heightHint = 100;
+			scl.widthHint = 1;
 			sashComp.setLayoutData(scl);
 			SashForm sash = new SashForm(sashComp, SWT.VERTICAL);
 			sash.setLayout(new GridLayout(1, false));
 			GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
 			scl2.heightHint = 100;
+			scl2.widthHint = 1;
 			sash.setLayoutData(scl2);
 
 			TabFolder instr = new TabFolder(sash, SWT.NONE);
@@ -311,6 +313,7 @@ public class AISessionView extends ViewPart {
 				}, true);
 				instructionFree.addModifyListener(e -> cfg.setSystemFree(instructionFree.getText()));
 				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
+				gridData.widthHint = 1;
 				instructionFree.setLayoutData(gridData);
 			}
 			sash.setWeights(3, 1);
