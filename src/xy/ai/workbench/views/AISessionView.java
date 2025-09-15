@@ -306,10 +306,14 @@ public class AISessionView extends ViewPart {
 			{ // Free text
 				instructionFree = toolkit.createText(sash, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
 				cfg.addSystemFreeObs(p -> {
-					if (!instructionFree.isFocusControl()) {
-						instructionFree.setText(p != null ? p : "");
-						form.reflow(true);
-					}
+					if (!instructionFree.isFocusControl())
+						try {
+							isUpdating = true;
+							instructionFree.setText(p != null ? p : "");
+							form.reflow(true);
+						} finally {
+							isUpdating = false;
+						}
 				}, true);
 				instructionFree.addModifyListener(e -> cfg.setSystemFree(instructionFree.getText()));
 				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
