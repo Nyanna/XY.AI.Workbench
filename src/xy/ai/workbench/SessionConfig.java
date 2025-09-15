@@ -20,6 +20,7 @@ public class SessionConfig {
 	public boolean[] inputModes = new boolean[InputMode.values().length];
 	public Reasoning reasoning = Reasoning.minimal;
 	public Integer reasoningBudget = -1;
+	public String freeText;
 
 	public SessionConfig() {
 		setInputMode(InputMode.Instructions, true);
@@ -96,5 +97,13 @@ public class SessionConfig {
 
 	public void setReasoningBudget(Integer reasoningBudget) {
 		this.reasoningBudget = reasoningBudget;
+	}
+
+	public void setSystemPrompt(String freeText) {
+		this.freeText = freeText;
+	}
+	
+	public String getFreeText() {
+		return freeText;
 	}
 }

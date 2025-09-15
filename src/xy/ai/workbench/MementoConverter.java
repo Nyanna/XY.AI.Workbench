@@ -15,6 +15,8 @@ public class MementoConverter {
 			m.putString("temperature", String.valueOf(cfg.temperature));
 		if (cfg.topP != null)
 			m.putString("topP", String.valueOf(cfg.topP));
+		if (cfg.freeText != null)
+			m.putString("freeText", cfg.freeText);
 		if (cfg.model != null)
 			m.putString("model", cfg.model.name());
 		if (cfg.reasoning != null)
@@ -59,6 +61,7 @@ public class MementoConverter {
 		cfg.temperature = tmp != null ? Double.valueOf(tmp) : null;
 		String tp = m.getString("topP");
 		cfg.topP = tp != null ? Double.valueOf(tp) : null;
+		cfg.freeText = m.getString("freeText");
 		String mdl = m.getString("model");
 		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
 		String rsn = m.getString("reasoning");

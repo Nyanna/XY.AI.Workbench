@@ -15,6 +15,7 @@ public class ConfigManager {
 	private SessionConfig cfg = new SessionConfig();
 	private Model[] enabledModels = new Model[0];
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
+	private List<Consumer<String>> systemFreeObs = new ArrayList<>();
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
 	private List<Consumer<InputMode>> inputModeObs = new ArrayList<>();
 	private List<Consumer<Model>> modelObs = new ArrayList<>();
@@ -28,6 +29,7 @@ public class ConfigManager {
 
 	public void clearObserver() {
 		systemPromptObs.clear();
+		systemFreeObs.clear();
 		inputObs.clear();
 		inputModeObs.clear();
 		keyObs.clear();
@@ -97,6 +99,12 @@ public class ConfigManager {
 		systemPromptObs.forEach(c -> c.accept(cfg));
 		inputModeObs.forEach(c -> c.accept(InputMode.Instructions));
 	}
+	
+	public void setSystemFree(String systemPrompt) {
+		cfg.setSystemPrompt(systemPrompt);
+		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
+		inputModeObs.forEach(c -> c.accept(InputMode.Instructions));
+	}
 
 	public String getKeys() {
 		return cfg.getKeys();
@@ -125,11 +133,21 @@ public class ConfigManager {
 	public String[] getSystemPrompt() {
 		return cfg.getSystemPrompt();
 	}
+	
+	public String getFreeText() {
+		return cfg.getFreeText();
+	}
 
 	public void addSystemPromptObs(Consumer<SessionConfig> obs, boolean initialize) {
 		systemPromptObs.add(obs);
 		if (initialize)
 			obs.accept(cfg);
+	}
+	
+	public void addSystemFreeObs(Consumer<String> obs, boolean initialize) {
+		systemFreeObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.freeText);
 	}
 
 	public void addTemperatureObs(Consumer<Double> obs, boolean initialize) {

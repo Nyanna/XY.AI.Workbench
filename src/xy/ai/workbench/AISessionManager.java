@@ -128,9 +128,12 @@ public class AISessionManager {
 
 		switch (mode) {
 		case Instructions:
-			String systemPrompt = Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
-					.collect(Collectors.joining(", "));
-			return systemPrompt;
+			StringBuffer systemPrompt = new StringBuffer();
+			Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
+					.forEach(e -> systemPrompt.append(e).append(".\n"));
+			if (cfg.getFreeText() != null)
+				systemPrompt.append(cfg.getFreeText()).append(".\n");
+			return systemPrompt.toString();
 		case Selection:
 			if (textEditor != null) {
 				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
@@ -251,19 +254,38 @@ public class AISessionManager {
 		}).schedule();
 	}
 
-	public void queue(Display display, AIBatchManager batch) {
+	public void queueAsync(Display display, AIBatchManager batch) {
 		Job.create("Enqueue Prompt", (mon) -> {
-			SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 3);
 			try {
-				sub.subTask("Prepare inputs");
-				var req = prepareInner(display, true, sub);
-				sub.worked(1);
-				sub.subTask("Insert Tag");
-				insertTag(display, req, sub);
-				mon.worked(1);
-				sub.subTask("Enqueue prompt");
-				batch.enqueue(req, sub);
-				sub.worked(1);
+				queueSync(display, batch, mon);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return Status.CANCEL_STATUS;
+			} finally {
+				mon.done();
+			}
+			return Status.OK_STATUS;
+		}).schedule();
+	}
+
+	private void queueSync(Display display, AIBatchManager batch, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 3);
+		sub.subTask("Prepare inputs");
+		var req = prepareInner(display, true, sub);
+		sub.worked(1);
+		sub.subTask("Insert Tag");
+		insertTag(display, req, sub);
+		mon.worked(1);
+		sub.subTask("Enqueue prompt");
+		batch.enqueue(req, sub);
+		sub.worked(1);
+	}
+
+	public void queueAndSubmit(Display display, AIBatchManager batch) {
+		Job.create("Enqueue Prompt", (mon) -> {
+			try {
+				queueSync(display, batch, mon);
+				batch.submitBatches(mon);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return Status.CANCEL_STATUS;

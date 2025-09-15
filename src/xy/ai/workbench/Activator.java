@@ -35,7 +35,7 @@ public class Activator extends AbstractUIPlugin {
 		plugin = this;
 		markerScanner = new MarkerRessourceScanner(context);
 	}
-
+	
 	@Override
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;

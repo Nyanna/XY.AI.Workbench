@@ -6,7 +6,10 @@ import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.FocusListener;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
@@ -41,7 +44,6 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.Reasoning;
-import xy.ai.workbench.models.AIAnswer;
 
 public class AISessionView extends ViewPart {
 
@@ -58,9 +60,9 @@ public class AISessionView extends ViewPart {
 	private FormToolkit toolkit;
 	private ScrolledForm form;
 
-	private Label usageLabel;
+	private Table usageLog;
 	private List instructionList;
-	private Text instructionEdit;
+	private Text instructionEdit, instructionFree;
 	private boolean isUpdating = false;
 
 	public Display display;
@@ -100,7 +102,6 @@ public class AISessionView extends ViewPart {
 		display = parent.getDisplay();
 		toolkit = new FormToolkit(parent.getDisplay());
 		form = toolkit.createScrolledForm(parent);
-		form.setText("AI Session");
 		ConfigManager cfg = Activator.getDefault().cfg;
 		AISessionManager session = Activator.getDefault().session;
 
@@ -196,13 +197,22 @@ public class AISessionView extends ViewPart {
 			Composite middle = new Composite(body, SWT.NONE);
 			middle.setLayout(new GridLayout(1, false));
 			GridData ldat2 = new GridData(SWT.FILL, SWT.FILL, true, true);
-			;
 			ldat2.heightHint = 100;
 			middle.setLayoutData(ldat2);
 
 			toolkit.createLabel(middle, "Instructions:");
+			Composite sashComp = new Composite(middle, SWT.NONE);
+			sashComp.setLayout(new GridLayout(1, false));
+			GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);
+			scl.heightHint = 100;
+			sashComp.setLayoutData(scl);
+			SashForm sash = new SashForm(sashComp, SWT.VERTICAL);
+			sash.setLayout(new GridLayout(1, false));
+			GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
+			scl2.heightHint = 100;
+			sash.setLayoutData(scl2);
 
-			TabFolder instr = new TabFolder(middle, SWT.NONE);
+			TabFolder instr = new TabFolder(sash, SWT.NONE);
 			GridData ldat1 = new GridData(SWT.FILL, SWT.FILL, true, true);
 			ldat1.heightHint = 100;
 			instr.setLayoutData(ldat1);
@@ -210,6 +220,8 @@ public class AISessionView extends ViewPart {
 			instrSel.setText("Select");
 			TabItem instrEdit = new TabItem(instr, SWT.NONE);
 			instrEdit.setText("Edit");
+			TabItem presEdit = new TabItem(instr, SWT.NONE);
+			presEdit.setText("Presets");
 
 			{ // instruction select
 				Composite comp = new Composite(instr, SWT.NONE);
@@ -218,7 +230,7 @@ public class AISessionView extends ViewPart {
 				ldat3.heightHint = 100;
 				comp.setLayoutData(ldat3);
 				instrSel.setControl(comp);
-				instructionList = new List(comp, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL);
+				instructionList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
 				cfg.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
 
 				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
@@ -249,13 +261,11 @@ public class AISessionView extends ViewPart {
 				Composite comp = new Composite(instr, SWT.NONE);
 				comp.setLayout(new GridLayout());
 				instrEdit.setControl(comp);
-				instructionEdit = toolkit.createText(comp, "", SWT.BORDER | SWT.MULTI | SWT.WRAP | SWT.V_SCROLL);
-				GridData gdMulti = new GridData(GridData.FILL_BOTH);
+				instructionEdit = toolkit.createText(comp, "", SWT.WRAP | SWT.V_SCROLL);
 				cfg.addSystemPromptObs(p -> {
 					if (!instructionEdit.isFocusControl())
 						updateEditList(p.systemPrompt);
 				}, true);
-				instructionEdit.setLayoutData(gdMulti);
 				instructionEdit.addModifyListener(e -> {
 					if (isUpdating)
 						return;
@@ -263,15 +273,54 @@ public class AISessionView extends ViewPart {
 				});
 				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 				gridData.widthHint = 1;
+				gridData.heightHint = 100;
 				instructionEdit.setLayoutData(gridData);
 			}
+			{ // instruction presets
+				Composite comp = new Composite(instr, SWT.NONE);
+				comp.setLayout(new GridLayout());
+				presEdit.setControl(comp);
+
+				Button readButton = new Button(comp, SWT.PUSH);
+				readButton.setText("Load");
+				readButton.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						String fileContent = PresetHandler.readStringFromFile(getSite().getShell());
+						if (fileContent != null)
+							cfg.setSystemPrompt(fileContent.split("\n"));
+					}
+				});
+
+				Button writeButton = new Button(comp, SWT.PUSH);
+				writeButton.setText("Save");
+				writeButton.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						PresetHandler.writeStringToFile(String.join("\n", cfg.getSystemPrompt()), getSite().getShell());
+					}
+				});
+			}
+			{ // Free text
+				instructionFree = toolkit.createText(sash, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+				cfg.addSystemFreeObs(p -> {
+					if (!instructionFree.isFocusControl()) {
+						instructionFree.setText(p != null ? p : "");
+						form.reflow(true);
+					}
+				}, true);
+				instructionFree.addModifyListener(e -> cfg.setSystemFree(instructionFree.getText()));
+				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
+				instructionFree.setLayoutData(gridData);
+			}
+			sash.setWeights(3, 1);
 			{ // inputs section
-				Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
+				Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
 				table.setHeaderVisible(true);
 				table.setLinesVisible(true);
 
 				TableColumn column1 = new TableColumn(table, SWT.NONE);
-				column1.setText("Enable");
+				column1.setText("On");
 				column1.setWidth(50);
 
 				TableColumn column2 = new TableColumn(table, SWT.NONE);
@@ -320,31 +369,57 @@ public class AISessionView extends ViewPart {
 		}
 		{ // buttons
 			Composite actions = new Composite(body, SWT.NONE);
-			actions.setLayout(new GridLayout(2, false));
+			actions.setLayout(new GridLayout(3, false));
 
 			Button btn = new Button(actions, SWT.PUSH);
-			btn.setText("Submit");
+			btn.setText("Prompt");
 			btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.execute(btn.getDisplay())));
 
 			Button bbtn = new Button(actions, SWT.PUSH);
-			bbtn.setText("Batch");
+			bbtn.setText("Enqueue");
 			bbtn.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> session.queue(bbtn.getDisplay(), Activator.getDefault().batch)));
+					.widgetSelectedAdapter(e -> session.queueAsync(bbtn.getDisplay(), Activator.getDefault().batch)));
+
+			Button bsbtn = new Button(actions, SWT.PUSH);
+			bsbtn.setText("Batch");
+			bsbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(
+					e -> session.queueAndSubmit(bsbtn.getDisplay(), Activator.getDefault().batch)));
 		}
 		{ // status display
 			Composite footer = new Composite(body, SWT.NONE);
 			footer.setLayout(new GridLayout(1, false));
 
-			toolkit.createLabel(footer, "Token:");
-			this.usageLabel = toolkit.createLabel(footer, new AIAnswer("none").print());
+			usageLog = new Table(footer, SWT.BORDER | SWT.V_SCROLL);
+			usageLog.setHeaderVisible(true);
+			usageLog.setLinesVisible(true);
+			GridData gridData = new GridData();
+			gridData.heightHint = 50;
+			usageLog.setLayoutData(gridData);
+
+			TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
+			column1.setText("Total");
+			column1.setWidth(50);
+
+			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
+			column2.setText("In");
+			column2.setWidth(50);
+
+			TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
+			column3.setText("Out");
+			column3.setWidth(50);
+
+			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
+			column4.setText("Reason");
+			column4.setWidth(50);
 		}
 
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
-				if (a != null)
-					usageLabel.setText(a.print());
-				else
-					usageLabel.setText("running ...");
+				if (a != null) {
+					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
+					item.setText(new String[] { a.totalToken + "", a.inputToken + "", a.outputToken + "",
+							a.reasoningToken + "" });
+				}
 			});
 		});
 		session.initializeInputs();
@@ -387,6 +462,7 @@ public class AISessionView extends ViewPart {
 		try {
 			isUpdating = true;
 			instructionEdit.setText(String.join("\n", systemPrompt));
+			form.reflow(true);
 		} finally {
 			isUpdating = false;
 		}

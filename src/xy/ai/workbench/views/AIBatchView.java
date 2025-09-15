@@ -4,6 +4,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
@@ -35,6 +36,7 @@ import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbench;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
@@ -44,6 +46,7 @@ import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connectors.IAIBatch;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.tools.Time;
+import xy.ai.workbench.views.ActionManager.ActionDescription;
 
 public class AIBatchView extends ViewPart {
 
@@ -142,6 +145,7 @@ public class AIBatchView extends ViewPart {
 			table.requestLayout();
 		}
 
+		sash.setWeights(3, 1);
 		// Create the help context id for the viewer's control
 		workbench.getHelpSystem().setHelp(batchViewer.getControl(), "XY.AI.Workbench.viewer");
 		getSite().setSelectionProvider(batchViewer);
@@ -210,7 +214,32 @@ public class AIBatchView extends ViewPart {
 		act.fillLocalToolBar(bars.getToolBarManager());
 	}
 
+	private boolean autoUpdate = false;
+	private Runnable updateRun = null;
+	private Job updateIntervall = Job.create("Batch List Autoupdate", (mo) -> {
+		updateRun.run();
+	});
+
 	private void makeActions() {
+		updateRun = () -> {
+			System.out.println("Batch autoupdate");
+			batch.updateBatches(new NullProgressMonitor(), false);
+			if (autoUpdate)
+				updateIntervall.schedule(60 * 1000);
+		};
+
+		ActionDescription autoUpd = act.create();
+		autoUpd.text("Auto Update", "Automatically updates listed batches") //
+				.image(ISharedImages.IMG_TOOL_UNDO_DISABLED).pullDown().toolbar() //
+				.job((mon) -> {
+					autoUpdate = !autoUpdate;
+					autoUpd.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(
+							autoUpdate ? ISharedImages.IMG_TOOL_UNDO : ISharedImages.IMG_TOOL_UNDO_DISABLED));
+					if (autoUpdate)
+						updateIntervall.schedule();
+					else
+						updateIntervall.cancel();
+				}).done();
 		act.create().text("Update Batches", "Retrieves and update batch states") //
 				.image(ISharedImages.IMG_ELCL_SYNCED).pullDown().toolbar() //
 				.job((mon) -> batch.updateBatches(mon, true)).done();
