@@ -315,7 +315,8 @@ public class AISessionView extends ViewPart {
 							isUpdating = false;
 						}
 				}, true);
-				instructionFree.addModifyListener(e -> cfg.setSystemFree(instructionFree.getText()));
+				instructionFree.addFocusListener(
+						FocusListener.focusLostAdapter(e -> cfg.setSystemFree(instructionFree.getText())));
 				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
 				gridData.widthHint = 1;
 				instructionFree.setLayoutData(gridData);
