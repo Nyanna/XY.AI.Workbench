@@ -16,6 +16,7 @@ This project is a arrangement of different tools to support different workflows 
 * File, Search, selection and editor content or line inputs
 * Shortcuts
 * Batch support
+* Use "context.prompt.txt" in the same directy to implement a prompt template based workflow
 
 **Workflows**
 * Markdown foundation

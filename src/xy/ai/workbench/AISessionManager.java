@@ -1,5 +1,8 @@
 package xy.ai.workbench;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -7,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Status;
@@ -28,6 +32,8 @@ import org.eclipse.search.ui.SearchResultEvent;
 import org.eclipse.search.ui.text.AbstractTextSearchResult;
 import org.eclipse.search.ui.text.Match;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
@@ -45,6 +51,7 @@ import xy.ai.workbench.models.IModelResponse;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
+	private static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
 	public static final String USER = "User:";
 	public static final String AGENT = "Agent:";
 
@@ -153,6 +160,24 @@ public class AISessionManager {
 					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
 					if (doc != null)
 						return removeCommentLines(doc.get());
+				}
+			}
+			break;
+		case Context_prompt:
+			if (textEditor != null) {
+				IEditorInput input = textEditor.getEditorInput();
+				if (input instanceof IFileEditorInput) {
+					IResource promptResource = ((IFileEditorInput) input).getFile().getParent()
+							.findMember(CONTEXT_PROMPT_TXT);
+
+					if (promptResource instanceof IFile) {
+						IFile promptFile = (IFile) promptResource;
+						try (InputStream is = promptFile.getContents()) {
+							return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+						} catch (IOException | CoreException e) {
+							throw new IllegalStateException(e);
+						}
+					}
 				}
 			}
 			break;
@@ -326,9 +351,16 @@ public class AISessionManager {
 				input += getInput(InputMode.Current_line);
 		});
 
-		String systemPrompt = cfg.isInputEnabled(InputMode.Instructions) ? getInput(InputMode.Instructions) : "";
+		StringBuffer systemPrompt = new StringBuffer();
+		if (cfg.isInputEnabled(InputMode.Instructions))
+			systemPrompt.append(getInput(InputMode.Instructions));
+		if (cfg.isInputEnabled(InputMode.Context_prompt)) {
+			if (systemPrompt.length() > 0)
+				systemPrompt.append("\n");
+			systemPrompt.append(getInput(InputMode.Context_prompt));
+		}
 
-		if ((input == null || input.isBlank()) && systemPrompt.isBlank())
+		if ((input == null || input.isBlank()) && systemPrompt.length() == 0)
 			throw new IllegalArgumentException("Input and instructions Empty");
 
 		if (editorListener.getLastTextEditor() == null && !batchFix)
@@ -355,7 +387,7 @@ public class AISessionManager {
 
 		IModelRequest req = connector.createRequest(//
 				input, //
-				systemPrompt, //
+				systemPrompt.toString(), //
 				tools, //
 				batchFix, //
 				mon//

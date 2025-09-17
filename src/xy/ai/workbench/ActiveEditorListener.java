@@ -1,5 +1,6 @@
 package xy.ai.workbench;
 
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
@@ -43,11 +44,10 @@ public class ActiveEditorListener implements IPartListener2 {
 	public void partActivated(IWorkbenchPartReference partRef) {
 		IEditorPart editor = null;
 		IWorkbenchPart part = partRef.getPart(false);
-		if (part instanceof AISessionEditor) {
+		if (part instanceof AISessionEditor)
 			editor = ((AISessionEditor) part).getEditor();
-		} else if (part instanceof IEditorPart) {
+		else if (part instanceof IEditorPart)
 			editor = (IEditorPart) part;
-		}
 
 		editorListener.editorChanged(editor instanceof ITextEditor ? (ITextEditor) editor : null);
 	}
@@ -72,9 +72,14 @@ public class ActiveEditorListener implements IPartListener2 {
 		public void editorChanged(ITextEditor editor) {
 			removeListener();
 
-			manager.updateInputStat(InputMode.Editor);
-			manager.updateInputStat(InputMode.Selection);
-			manager.updateInputStat(InputMode.Current_line);
+			Job.create("Update Input Stats", (mon) -> {
+				Display.getDefault().asyncExec(() -> {
+					manager.updateInputStat(InputMode.Editor);
+					manager.updateInputStat(InputMode.Selection);
+					manager.updateInputStat(InputMode.Current_line);
+					manager.updateInputStat(InputMode.Context_prompt);
+				});
+			}).schedule(300);
 
 			if (editor != null)
 				registerListener(editor);
@@ -153,11 +158,14 @@ public class ActiveEditorListener implements IPartListener2 {
 	public class DocumentListener extends AbstractDocumentListener {
 		@Override
 		public void documentChanged(DocumentEvent event) {
-			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Editor);
-				manager.updateInputStat(InputMode.Selection);
-				manager.updateInputStat(InputMode.Current_line);
-			});
+			Job.create("Update Input Stats", (mon) -> {
+				Display.getDefault().asyncExec(() -> {
+					manager.updateInputStat(InputMode.Editor);
+					manager.updateInputStat(InputMode.Selection);
+					manager.updateInputStat(InputMode.Current_line);
+				});
+			}).schedule(1000);
+
 		}
 	}
 
