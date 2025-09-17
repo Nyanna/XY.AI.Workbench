@@ -126,7 +126,7 @@ public class AISessionManager {
 		@Override
 		public void searchResultChanged(SearchResultEvent e) {
 			result = e.getSearchResult();
-			System.out.println("Searchresult changed: " + result.getLabel());
+			LOG.info("Searchresult changed: " + result.getLabel());
 			Display.getDefault().asyncExec(() -> updateInputStat(InputMode.Search));
 		}
 	}
@@ -194,7 +194,7 @@ public class AISessionManager {
 							IRegion lineInfo = doc.getLineInformation(line);
 							return doc.get(lineInfo.getOffset(), lineInfo.getLength());
 						} catch (BadLocationException e1) {
-							e1.printStackTrace();
+							LOG.error("Exception", e1);
 						}
 					}
 				}
@@ -218,7 +218,7 @@ public class AISessionManager {
 					try {
 						return getLineFromFileMatch(m);
 					} catch (BadLocationException | CoreException e1) {
-						e1.printStackTrace();
+						LOG.error("Exception", e1);
 						return "";
 					}
 				}).collect(Collectors.joining("\n"));
@@ -262,7 +262,7 @@ public class AISessionManager {
 				String content = file.readString();
 				fullContent.append(content).append("\n");
 			} catch (CoreException e) {
-				System.err.println("Error on reading " + file.getName() + ": " + e.getMessage());
+				LOG.error("Error on reading " + file.getName(), e);
 			}
 		}
 		return fullContent.toString();
@@ -285,7 +285,7 @@ public class AISessionManager {
 				replaceTag(display, ans, sub);
 				mon.worked(1);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOG.error("Exception", e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -299,7 +299,7 @@ public class AISessionManager {
 			try {
 				queueSync(display, batch, mon);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOG.error("Exception", e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -327,7 +327,7 @@ public class AISessionManager {
 				queueSync(display, batch, mon);
 				batch.submitBatches(mon);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOG.error("Exception", e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -339,7 +339,7 @@ public class AISessionManager {
 	private String input;
 
 	private IModelRequest prepareInner(Display display, boolean batchFix, IProgressMonitor mon) {
-		System.out.println("Preparing Call");
+		LOG.info("Preparing Call");
 
 		input = "";
 		display.syncExec(() -> {
@@ -372,7 +372,7 @@ public class AISessionManager {
 				try {
 					return f.readString();
 				} catch (CoreException e) {
-					e.printStackTrace();
+					LOG.error("Exception", e);
 					return "";
 				}
 			}).collect(Collectors.toList()));
@@ -383,7 +383,7 @@ public class AISessionManager {
 				tools.add(search);
 		}
 
-		System.out.println("Input prepared");
+		LOG.info("Input prepared");
 
 		IModelRequest req = connector.createRequest(//
 				input, //
@@ -432,7 +432,7 @@ public class AISessionManager {
 				}
 				textEditor.doSave(mon);
 			} catch (BadLocationException e) {
-				System.out.println("Error adding text");
+				LOG.info("Error adding text");
 			}
 		});
 	}
@@ -444,6 +444,6 @@ public class AISessionManager {
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
 		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans))
-			System.out.println("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
+			LOG.info("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}
 }

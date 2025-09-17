@@ -41,6 +41,7 @@ import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connectors.IAIBatch;
@@ -222,7 +223,7 @@ public class AIBatchView extends ViewPart {
 
 	private void makeActions() {
 		updateRun = () -> {
-			System.out.println("Batch autoupdate");
+			LOG.info("Batch autoupdate");
 			batch.updateBatches(new NullProgressMonitor(), false);
 			if (autoUpdate)
 				updateIntervall.schedule(60 * 1000);

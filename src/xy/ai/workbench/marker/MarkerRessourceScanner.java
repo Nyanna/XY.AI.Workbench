@@ -27,6 +27,7 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.swt.widgets.Display;
 import org.osgi.framework.BundleContext;
 
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
@@ -84,7 +85,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 				totaloff += line.length() + 1;
 			}
 		} catch (IOException | CoreException e) {
-			e.printStackTrace();
+			LOG.error("Exception", e);
 		}
 	}
 
@@ -94,7 +95,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			try {
 				event.getDelta().accept(this);
 			} catch (CoreException e) {
-				e.printStackTrace();
+				LOG.error("Exception", e);
 			}
 		}
 	}
@@ -113,7 +114,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 				if (ans.id.equals(marker.getAttribute(MARKER_REQ_ID_ATTR)))
 					res |= replaceMarker(ans, marker);
 		} catch (CoreException e) {
-			e.printStackTrace();
+			LOG.error("Exception", e);
 		}
 		return res;
 	}
@@ -140,7 +141,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 					int len = marker.getAttribute(MARKER_LEN_ID_ATTR, -1);
 					doc.replace(off, len, ans.answer);
 				} catch (BadLocationException e) {
-					e.printStackTrace();
+					LOG.error("Exception", e);
 				}
 			});
 
@@ -149,12 +150,12 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			return true;
 
 		} catch (CoreException e) {
-			e.printStackTrace();
+			LOG.error("Exception", e);
 		} finally {
 			try {
 				bm.disconnect(file.getFullPath(), LocationKind.IFILE, null);
 			} catch (CoreException e) {
-				e.printStackTrace();
+				LOG.error("Exception", e);
 			}
 		}
 		return false;

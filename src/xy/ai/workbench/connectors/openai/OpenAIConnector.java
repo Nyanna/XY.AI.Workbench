@@ -25,6 +25,7 @@ import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
@@ -138,12 +139,12 @@ public class OpenAIConnector implements IAIConnector {
 
 		if (resp.incompleteDetails().isPresent()) {
 			var incomplete = resp.incompleteDetails().get();
-			System.out.println("Incomplete: " + incomplete.reason().get().toString() + " ");
+			LOG.error("Incomplete: " + incomplete.reason().get().toString() + " ");
 		}
 		if (resp.error().isPresent()) {
 			ResponseError error = resp.error().get();
 			res.answer = error.code() + ": " + error.message();
-			System.out.println("Error: " + error.code() + " " + error.message());
+			LOG.error("Error: " + error.code() + " " + error.message());
 
 		} else
 			for (var out : resp.output()) {
@@ -152,22 +153,21 @@ public class OpenAIConnector implements IAIConnector {
 					for (var cnt : msg.content()) {
 						if (cnt.isOutputText()) {
 							String answer = cnt.asOutputText().text();
-							// System.out.println("Answer: " + answer);
 							res.answer += answer;
 						} else if (cnt.isRefusal()) {
-							System.out.println("Refusal: " + cnt.asRefusal().refusal());
+							LOG.error("Refusal: " + cnt.asRefusal().refusal());
 						}
 					}
 				} else if (out.isReasoning()) {
 					for (var cnt : out.asReasoning().summary()) {
-						System.out.println("Reasoning summary: " + cnt.text());
+						LOG.info("Reasoning summary: " + cnt.text());
 					}
 					if (out.asReasoning().content().isPresent())
 						for (var cnt : out.asReasoning().content().get()) {
-							System.out.println("Reasoning content: " + cnt.text());
+							LOG.info("Reasoning content: " + cnt.text());
 						}
 				} else {
-					System.out.println("Other output!");
+					LOG.info("Other output!");
 				}
 			}
 		sub.done();

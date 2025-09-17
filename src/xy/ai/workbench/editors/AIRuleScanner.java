@@ -43,7 +43,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 			new Color(Display.getCurrent(), new RGB(200, 200, 200)), null, SWT.NONE);
 	private static final TextAttribute SPACER_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
-			new Color(Display.getCurrent(), new RGB(200, 200, 200)), SWT.NONE);
+			new Color(Display.getCurrent(), new RGB(200, 200, 200)), SWT.BOLD);
 
 	public AIRuleScanner(Font basefont) {
 		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);

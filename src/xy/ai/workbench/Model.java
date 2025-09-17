@@ -49,7 +49,7 @@ public enum Model {
 			.key(KeyPattern.Claude)//
 			.outTokens(0, 32000) //
 			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
-			.budget(1024, 63999) //
+			.budget(1024, 31999) //
 	) //
 	;
 

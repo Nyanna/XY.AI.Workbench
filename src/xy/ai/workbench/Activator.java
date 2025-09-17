@@ -1,5 +1,6 @@
 package xy.ai.workbench;
 
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
@@ -34,6 +35,7 @@ public class Activator extends AbstractUIPlugin {
 		super.start(context);
 		plugin = this;
 		markerScanner = new MarkerRessourceScanner(context);
+		LOG.log = Platform.getLog(context.getBundle());
 	}
 	// TODO ein chat session like view statt Project Explorer, dateisortierung nach last update, Titel extraktion aus MD datei, chronologisch md
 	// TODO bei folder, sortierung nach folder mit most recent child
