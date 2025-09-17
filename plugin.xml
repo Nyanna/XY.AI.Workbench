@@ -67,7 +67,14 @@
 		</navigatorContent>
 	</extension>
 	<extension point="org.eclipse.ui.navigator.viewer">
-		<viewer viewerId="xy.ai.workbench.views.AIExplorer" />
+		<viewer
+        inheritBindingsFromViewer="org.eclipse.ui.navigator.ProjectExplorer"
+        popupMenuId="org.eclipse.ui.navigator.ProjectExplorer#PopupMenu"
+        viewerId="xy.ai.workbench.views.AIExplorer">
+     <popupMenu
+           allowsPlatformContributions="true">
+     </popupMenu>
+  </viewer>
 	   <viewerContentBinding viewerId="xy.ai.workbench.views.AIExplorer">
 	      <includes>
 	         <contentExtension pattern="xy.ai.workbench.views.content.AIContent"/>
@@ -158,6 +165,14 @@
 				</command>
 			</toolbar>
 		</menuContribution>
+	   <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=group.new">
+	      <menu id="org.eclipse.ui.menu.new" 
+	            label="New"
+	            mnemonic="N">
+	         <separator name="group.new" visible="true"/>
+	         <command commandId="org.eclipse.ui.newWizard"/>
+	      </menu>
+	   </menuContribution>
 	</extension>
 	<extension
 		point="org.eclipse.ui.perspectiveExtensions">
