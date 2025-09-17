@@ -285,7 +285,7 @@ public class AISessionManager {
 				replaceTag(display, ans, sub);
 				mon.worked(1);
 			} catch (Exception e) {
-				LOG.error("Exception", e);
+				LOG.error(e.getMessage(), e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -299,7 +299,7 @@ public class AISessionManager {
 			try {
 				queueSync(display, batch, mon);
 			} catch (Exception e) {
-				LOG.error("Exception", e);
+				LOG.error(e.getMessage(), e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -327,7 +327,7 @@ public class AISessionManager {
 				queueSync(display, batch, mon);
 				batch.submitBatches(mon);
 			} catch (Exception e) {
-				LOG.error("Exception", e);
+				LOG.error(e.getMessage(), e);
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
@@ -372,7 +372,7 @@ public class AISessionManager {
 				try {
 					return f.readString();
 				} catch (CoreException e) {
-					LOG.error("Exception", e);
+					LOG.error(e.getMessage(), e);
 					return "";
 				}
 			}).collect(Collectors.toList()));

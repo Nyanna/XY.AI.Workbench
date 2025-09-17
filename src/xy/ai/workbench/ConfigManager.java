@@ -273,7 +273,7 @@ public class ConfigManager {
 		try {
 			MementoConverter.loadConfig(memento, cfg);
 		} catch (Exception e) {
-			LOG.error("Exception", e);
+			LOG.error(e.getMessage(), e);
 			LOG.info("Unable to restore config");
 		}
 	}

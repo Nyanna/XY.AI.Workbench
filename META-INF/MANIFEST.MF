@@ -6,7 +6,8 @@ Bundle-Version: 250906.15
 Import-Package: jakarta.inject;version="[2.0.0,3.0.0)",
  org.eclipse.search.ui,
  org.eclipse.search.ui.text,
- org.eclipse.ui.forms.widgets
+ org.eclipse.ui.forms.widgets,
+ org.eclipse.ui.navigator
 Bundle-Activator: xy.ai.workbench.Activator
 Bundle-ClassPath: libs/openai/httpclient5-5.5.jar,
  libs/openai/httpcore5-5.3.5.jar,

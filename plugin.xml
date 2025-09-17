@@ -43,6 +43,36 @@
 			inject="true"
 			name="XY.AI Batch List">
 		</view>
+		<view
+			name="AI Explorer"
+			icon="icons/sample.png"
+			category="XY.AI.Workbench"
+			class="xy.ai.workbench.views.explorer.MarkdownExplorerView"
+			id="xy.ai.workbench.views.AIExplorer">
+		</view>
+	</extension>
+	<extension point="org.eclipse.ui.navigator.navigatorContent">
+		<navigatorContent
+			name="AI Content"
+            contentProvider="xy.ai.workbench.views.explorer.MarkdownContentProvider"
+			labelProvider="xy.ai.workbench.views.explorer.MarkdownLabelProvider"
+			id="xy.ai.workbench.views.content.AIContent"
+			priority="normal">
+			<triggerPoints>
+				<instanceof value="org.eclipse.core.resources.IResource" />
+			</triggerPoints>
+			<possibleChildren>
+				<instanceof value="org.eclipse.core.resources.IResource" />
+			</possibleChildren>
+		</navigatorContent>
+	</extension>
+	<extension point="org.eclipse.ui.navigator.viewer">
+		<viewer viewerId="xy.ai.workbench.views.AIExplorer" />
+	   <viewerContentBinding viewerId="xy.ai.workbench.views.AIExplorer">
+	      <includes>
+	         <contentExtension pattern="xy.ai.workbench.views.content.AIContent"/>
+	      </includes>
+	   </viewerContentBinding>
 	</extension>
 	<extension
 		point="org.eclipse.ui.commands">
@@ -192,10 +222,10 @@
 				Creates a new AI Chat file.
 			</description>
 		</wizard>
-	    <category
-	        id="XY.AI.Workbench.newfile.category"
-	        name="AI Files">
-	    </category>
+		<category
+			id="XY.AI.Workbench.newfile.category"
+			name="AI Files">
+		</category>
 	</extension>
 
 </plugin>

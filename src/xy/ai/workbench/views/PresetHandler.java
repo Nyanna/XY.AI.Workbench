@@ -6,18 +6,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
-import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
@@ -31,56 +24,7 @@ public class PresetHandler {
 
 	public static String readStringFromFile(Shell shell) {
 		ElementTreeSelectionDialog dialog = new ElementTreeSelectionDialog(shell, new WorkbenchLabelProvider(),
-				new ITreeContentProvider() {
-					@Override
-					public Object[] getElements(Object inputElement) {
-						Set<IContainer> dirs = new TreeSet<>((a, b) -> a.getName().compareTo(b.getName()));
-						for (var proj : (Object[]) inputElement)
-							try {
-								((IProject) proj).accept(resource -> {
-									if (resource instanceof IFile) {
-										IFile file = (IFile) resource;
-										if (file.getName().endsWith(PROMPT_TXT))
-											dirs.add(file.getParent());
-									}
-									return true;
-								});
-							} catch (CoreException e) {
-							}
-						return dirs.toArray();
-					}
-
-					@Override
-					public Object[] getChildren(Object parentElement) {
-						if (parentElement instanceof IContainer) {
-							IContainer parent = (IContainer) parentElement;
-							List<IFile> files = new ArrayList<>();
-							try {
-								parent.accept(resource -> {
-									if (resource instanceof IFile) {
-										IFile file = (IFile) resource;
-										if (file.getName().endsWith(PROMPT_TXT))
-											files.add(file);
-									}
-									return true;
-								});
-							} catch (CoreException e) {
-							}
-							return files.toArray();
-						}
-						return new Object[0];
-					}
-
-					@Override
-					public boolean hasChildren(Object element) {
-						return getChildren(element).length > 0;
-					}
-
-					@Override
-					public Object getParent(Object element) {
-						return null;
-					}
-				});
+				new FlatEndingContentProvider(PROMPT_TXT));
 
 		dialog.setTitle("Prompt Preset");
 		dialog.setMessage("Choose a prompt preset");
