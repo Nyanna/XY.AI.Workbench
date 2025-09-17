@@ -37,6 +37,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connectors.AdaptingConnector;
+import xy.ai.workbench.editors.AIRuleScanner;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -141,7 +142,7 @@ public class AISessionManager {
 					ISelection selection = selectionProvider.getSelection();
 					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 					if (tsel != null)
-						return tsel.getText();
+						return removeCommentLines(tsel.getText());
 				}
 			}
 			break;
@@ -151,7 +152,7 @@ public class AISessionManager {
 				if (documentProvider != null) {
 					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
 					if (doc != null)
-						return doc.get();
+						return removeCommentLines(doc.get());
 				}
 			}
 			break;
@@ -202,6 +203,20 @@ public class AISessionManager {
 			break;
 		}
 		return "";
+	}
+
+	public String removeCommentLines(String input) {
+		if (input == null || input.isEmpty())
+			return input;
+
+		StringBuffer result = new StringBuffer();
+		String[] lines = input.split("\\R");
+
+		for (String line : lines)
+			if (!line.trim().startsWith(AIRuleScanner.LINE_COMMENT))
+				result.append(line).append(System.lineSeparator());
+
+		return result.toString();
 	}
 
 	private String getLineFromFileMatch(Match match) throws BadLocationException, CoreException {

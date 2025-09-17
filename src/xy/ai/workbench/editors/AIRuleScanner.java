@@ -22,26 +22,37 @@ import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.editors.md.EmphasisRule;
-import xy.ai.workbench.editors.md.HeaderPlainRule;
+import xy.ai.workbench.editors.md.PrefixLineRule;
 import xy.ai.workbench.editors.md.HeaderRule;
 import xy.ai.workbench.editors.md.LinkRule;
 import xy.ai.workbench.editors.md.ListRule;
 
 public class AIRuleScanner extends RuleBasedScanner {
-	private static final TextAttribute GRAY_ATTR = new TextAttribute(
+	public static final String LINE_COMMENT = "#:";
+	private static final TextAttribute USER_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
 			new Color(Display.getCurrent(), new RGB(230, 230, 230)), SWT.BOLD);
-	private static final TextAttribute BLUE_ATTR = new TextAttribute(
+	private static final TextAttribute AGENT_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
 			new Color(Display.getCurrent(), new RGB(200, 200, 255)), SWT.BOLD);
+	private static final TextAttribute BLUE_ATTR = new TextAttribute(
+			new Color(Display.getCurrent(), new RGB(100, 100, 255)), null, SWT.NONE);
 	private static final TextAttribute DEFAULT_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
+	private static final TextAttribute COMMENT_ATTR = new TextAttribute(
+			new Color(Display.getCurrent(), new RGB(200, 200, 200)), null, SWT.NONE);
+	private static final TextAttribute SPACER_ATTR = new TextAttribute(
+			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
+			new Color(Display.getCurrent(), new RGB(200, 200, 200)), SWT.NONE);
 
 	public AIRuleScanner(Font basefont) {
 		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
-		IToken grayToken = new Token(GRAY_ATTR);
+		IToken userToken = new Token(USER_ATTR);
+		IToken agentToken = new Token(AGENT_ATTR);
 		IToken blueToken = new Token(BLUE_ATTR);
 		IToken defaultToken = new Token(DEFAULT_ATTR);
+		IToken commentToken = new Token(COMMENT_ATTR);
+		IToken spacerToken = new Token(SPACER_ATTR);
 		IToken normal = new Token(new TextAttribute(c, null, SWT.NORMAL));
 		IToken bold = new Token(new TextAttribute(c, null, SWT.BOLD));
 		IToken italic = new Token(new TextAttribute(c, null, SWT.ITALIC));
@@ -63,8 +74,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 				return Character.isLetter(c) || c == ':';
 			}
 		}, defaultToken);
-		wordRule.addWord(AISessionManager.USER, grayToken);
-		wordRule.addWord(AISessionManager.AGENT, blueToken);
+		wordRule.addWord(AISessionManager.USER, userToken);
+		wordRule.addWord(AISessionManager.AGENT, agentToken);
 		rules.add(wordRule);
 
 		rules.add(new WhitespaceRule(new IWhitespaceDetector() {
@@ -79,13 +90,16 @@ public class AIRuleScanner extends RuleBasedScanner {
 		rules.add(new EmphasisRule("*", italic));
 		rules.add(new EmphasisRule("$", italic));
 		rules.add(new MultiLineRule("<!--", "-->", normal));
+		rules.add(new MultiLineRule("```", "```", blueToken));
 		rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
-		rules.add(new HeaderPlainRule("######", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
-		rules.add(new HeaderPlainRule("#####", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
-		rules.add(new HeaderPlainRule("####", new Token(new TextAttribute(c, null, SWT.BOLD, headings[2]))));
-		rules.add(new HeaderPlainRule("###", new Token(new TextAttribute(c, null, SWT.BOLD, headings[3]))));
-		rules.add(new HeaderPlainRule("##", new Token(new TextAttribute(c, null, SWT.BOLD, headings[4]))));
-		rules.add(new HeaderPlainRule("#", new Token(new TextAttribute(c, null, SWT.BOLD, headings[5]))));
+		rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
+		rules.add(new PrefixLineRule("---", spacerToken));
+		rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
+		rules.add(new PrefixLineRule("##### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
+		rules.add(new PrefixLineRule("#### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[2]))));
+		rules.add(new PrefixLineRule("### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[3]))));
+		rules.add(new PrefixLineRule("## ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[4]))));
+		rules.add(new PrefixLineRule("# ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[5]))));
 		rules.add(new ListRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
 		rules.add(new LinkRule(underline));
 
@@ -103,7 +117,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 		Display display = Display.getDefault();
 
 		for (int i = 0; i < count; i++)
-			fonts[i] = new Font(display, new FontData(fdata.getName(), fdata.getHeight() + (i * 2), fdata.getStyle() | SWT.BOLD));
+			fonts[i] = new Font(display,
+					new FontData(fdata.getName(), fdata.getHeight() + (i * 2), fdata.getStyle() | SWT.BOLD));
 
 		return cachedFonts = fonts;
 	}

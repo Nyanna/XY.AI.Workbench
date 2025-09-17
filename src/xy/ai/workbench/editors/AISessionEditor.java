@@ -5,6 +5,7 @@ import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.dialogs.ErrorDialog;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -36,6 +37,8 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 			int index = addPage(editor, getEditorInput());
 			setPartName(getEditorInput().getName());
 			setPageText(index, editor.getTitle());
+			var folder = ((CTabFolder) getContainer());
+			folder.setTabHeight(0);
 		} catch (PartInitException e) {
 			ErrorDialog.openError(getSite().getShell(), "Error creating nested text editor", null, e.getStatus());
 		}

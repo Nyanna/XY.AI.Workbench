@@ -8,6 +8,7 @@ import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.FocusListener;
+import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
@@ -119,6 +120,7 @@ public class AISessionView extends ViewPart {
 			keyInput.setLayoutData(kilay);
 			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
 			keyInput.setText(cfg.getKeys() + "");
+			keyInput.addMouseListener(MouseListener.mouseDownAdapter(m -> keyInput.setFocus()));
 
 			toolkit.createLabel(top, "Model:");
 			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
@@ -136,6 +138,7 @@ public class AISessionView extends ViewPart {
 			maxToken.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			maxToken.addFocusListener(
 					FocusListener.focusLostAdapter(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText()))));
+			maxToken.addMouseListener(MouseListener.mouseDownAdapter(m -> maxToken.setFocus()));
 			cfg.addOutputTokenObs(ot -> maxToken.setText(ot + ""), true);
 
 			Label tempLabel = toolkit.createLabel(top, "Temp:");
@@ -144,6 +147,7 @@ public class AISessionView extends ViewPart {
 			temp.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			temp.addFocusListener(
 					FocusListener.focusLostAdapter(e -> cfg.setTemperature(Double.parseDouble(temp.getText()))));
+			temp.addMouseListener(MouseListener.mouseDownAdapter(m -> temp.setFocus()));
 			cfg.addTemperatureObs(t -> temp.setText(t + ""), true);
 
 			Label topPLabel = toolkit.createLabel(top, "TopP:");
@@ -151,6 +155,7 @@ public class AISessionView extends ViewPart {
 			Text topP = toolkit.createText(top, "", SWT.BORDER);
 			topP.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			topP.addFocusListener(FocusListener.focusLostAdapter(e -> cfg.setTopP(Double.parseDouble(topP.getText()))));
+			topP.addMouseListener(MouseListener.mouseDownAdapter(m -> topP.setFocus()));
 			cfg.addTopPObs(tp -> topP.setText(tp + ""), true);
 
 			toolkit.createLabel(top, "Reasoning:");
@@ -169,6 +174,7 @@ public class AISessionView extends ViewPart {
 			budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			budget.addFocusListener(
 					FocusListener.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
+			budget.addMouseListener(MouseListener.mouseDownAdapter(m -> budget.setFocus()));
 			cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
 			cfg.addModelObs(m -> {
@@ -239,6 +245,7 @@ public class AISessionView extends ViewPart {
 				gridData.widthHint = 1;
 				gridData.heightHint = 100;
 				instructionList.setLayoutData(gridData);
+				instructionList.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionList.setFocus()));
 				instructionList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
 					if (isUpdating)
 						return;
@@ -277,6 +284,7 @@ public class AISessionView extends ViewPart {
 				gridData.widthHint = 1;
 				gridData.heightHint = 100;
 				instructionEdit.setLayoutData(gridData);
+				instructionEdit.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionEdit.setFocus()));
 			}
 			{ // instruction presets
 				Composite comp = new Composite(instr, SWT.NONE);
@@ -320,6 +328,7 @@ public class AISessionView extends ViewPart {
 				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
 				gridData.widthHint = 1;
 				instructionFree.setLayoutData(gridData);
+				instructionFree.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionFree.setFocus()));
 			}
 			sash.setWeights(3, 1);
 			{ // inputs section
@@ -479,6 +488,6 @@ public class AISessionView extends ViewPart {
 
 	@Override
 	public void setFocus() {
-		form.setFocus();
+		// form.setFocus();
 	}
 }

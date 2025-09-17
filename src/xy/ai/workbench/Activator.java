@@ -35,6 +35,10 @@ public class Activator extends AbstractUIPlugin {
 		plugin = this;
 		markerScanner = new MarkerRessourceScanner(context);
 	}
+	// TODO ein chat session like view statt Project Explorer, dateisortierung nach last update, Titel extraktion aus MD datei, chronologisch md
+	// TODO bei folder, sortierung nach folder mit most recent child
+	// TODO neuer input "Context File" mit Tooltip "Uses first context.prompt.txt from editor directory to include as system prompt"
+	// TODO new file dialog for MD file and prompt file
 	
 	@Override
 	public void stop(BundleContext context) throws Exception {

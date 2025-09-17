@@ -22,7 +22,7 @@ public class HeaderRule extends AbstractRule {
 		} while (!isNewLine((char) c) && c != ICharacterScanner.EOF);
 
 		if (c == ICharacterScanner.EOF) {
-			for (int i = 0; i < count; i++)
+			for (; count > 0; count--)
 				scn.unread();
 			return Token.UNDEFINED;
 		}
@@ -35,7 +35,7 @@ public class HeaderRule extends AbstractRule {
 		}
 
 		if (!isUnderline((char) c)) {
-			for (int i = 0; i < count; i++)
+			for (; count > 0; count--)
 				scn.unread();
 			return Token.UNDEFINED;
 		}
@@ -46,7 +46,7 @@ public class HeaderRule extends AbstractRule {
 			if (isNewLine((char) c) || c == ICharacterScanner.EOF)
 				return token;
 			if (!isUnderline((char) c) && !isWhitespace((char) c) && c != '\r') {
-				for (int i = 0; i < count; i++)
+				for (; count > 0; count--)
 					scn.unread();
 				return Token.UNDEFINED;
 			}
