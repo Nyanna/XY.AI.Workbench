@@ -51,7 +51,7 @@ import xy.ai.workbench.models.IModelResponse;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
-	private static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
+	public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
 	public static final String USER = "User:";
 	public static final String AGENT = "Agent:";
 

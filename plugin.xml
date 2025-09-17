@@ -78,7 +78,8 @@
 						</equals>
 					</with>
 					<with variable="activeEditor">
-						<instanceof value="xy.ai.workbench.editors.AISessionEditor" />
+						<instanceof
+							value="xy.ai.workbench.editors.AISessionEditor" />
 					</with>
 				</and>
 			</activeWhen>
@@ -158,6 +159,43 @@
 		<super
 			type="org.eclipse.core.resources.taskmarker">
 		</super>
+	</extension>
+	<extension
+		point="org.eclipse.ui.newWizards">
+		<wizard
+			id="XY.AI.Workbench.wizard.newfile.markdown"
+			name="Markdown File"
+			class="xy.ai.workbench.handlers.NewMarkdownWizard"
+			category="XY.AI.Workbench.newfile.category"
+			icon="icons/sample.png">
+			<description>
+				Creates a new Markdown file.
+			</description>
+		</wizard>
+		<wizard
+			id="XY.AI.Workbench.wizard.newfile.context"
+			name="Prompt Context"
+			class="xy.ai.workbench.handlers.NewPromptContextWizard"
+			category="XY.AI.Workbench.newfile.category"
+			icon="icons/sample.png">
+			<description>
+				Creates a new Prompt Context file.
+			</description>
+		</wizard>
+		<wizard
+			id="XY.AI.Workbench.wizard.newfile.chat"
+			name="AI Chat"
+			class="xy.ai.workbench.handlers.NewChatWizard"
+			category="XY.AI.Workbench.newfile.category"
+			icon="icons/sample.png">
+			<description>
+				Creates a new AI Chat file.
+			</description>
+		</wizard>
+	    <category
+	        id="XY.AI.Workbench.newfile.category"
+	        name="AI Files">
+	    </category>
 	</extension>
 
 </plugin>

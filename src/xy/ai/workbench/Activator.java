@@ -37,7 +37,6 @@ public class Activator extends AbstractUIPlugin {
 	}
 	// TODO ein chat session like view statt Project Explorer, dateisortierung nach last update, Titel extraktion aus MD datei, chronologisch md
 	// TODO bei folder, sortierung nach folder mit most recent child
-	// TODO new file dialog for MD file and prompt file
 	
 	@Override
 	public void stop(BundleContext context) throws Exception {
