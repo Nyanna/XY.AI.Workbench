@@ -28,7 +28,7 @@ public class PresetHandler {
 
 		dialog.setTitle("Prompt Preset");
 		dialog.setMessage("Choose a prompt preset");
-		dialog.setInput(ResourcesPlugin.getWorkspace().getRoot().getProjects());
+		dialog.setInput(ResourcesPlugin.getWorkspace().getRoot());
 		dialog.addFilter(new ViewerFilter() {
 			@Override
 			public boolean select(Viewer viewer, Object parent, Object element) {
