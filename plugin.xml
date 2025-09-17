@@ -71,9 +71,6 @@
         inheritBindingsFromViewer="org.eclipse.ui.navigator.ProjectExplorer"
         popupMenuId="org.eclipse.ui.navigator.ProjectExplorer#PopupMenu"
         viewerId="xy.ai.workbench.views.AIExplorer">
-     <popupMenu
-           allowsPlatformContributions="true">
-     </popupMenu>
   </viewer>
 	   <viewerContentBinding viewerId="xy.ai.workbench.views.AIExplorer">
 	      <includes>
