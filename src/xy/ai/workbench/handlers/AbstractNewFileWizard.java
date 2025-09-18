@@ -52,11 +52,12 @@ public abstract class AbstractNewFileWizard extends BasicNewFileResourceWizard {
 		IContainer container = (IContainer) firstElement;
 		IFile file = container.getFile(new Path(getFileName()));
 
-		try (InputStream stream = getFileContent()) {
-			file.create(stream, true, null);
-		} catch (Exception e) {
-			throw new IllegalArgumentException(e);
-		}
+		if (!file.exists())
+			try (InputStream stream = getFileContent()) {
+				file.create(stream, true, null);
+			} catch (Exception e) {
+				throw new IllegalArgumentException(e);
+			}
 
 		try {
 			IWorkbenchPage page = getWorkbench().getActiveWorkbenchWindow().getActivePage();

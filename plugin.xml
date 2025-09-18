@@ -64,6 +64,30 @@
 			<possibleChildren>
 				<instanceof value="org.eclipse.core.resources.IResource" />
 			</possibleChildren>
+	       <commonWizard
+	            type="new"
+	            wizardId="XY.AI.Workbench.wizard.newfile.chat"
+	            menuGroupId="new.ext">
+            <enablement>
+                  <instanceof value="org.eclipse.core.resources.IFolder"/>
+            </enablement>
+	       </commonWizard>
+	       <commonWizard
+	            type="new"
+	            wizardId="XY.AI.Workbench.wizard.newfile.markdown"
+	            menuGroupId="new.ext">
+            <enablement>
+                  <instanceof value="org.eclipse.core.resources.IFolder"/>
+            </enablement>
+	       </commonWizard>
+	       <commonWizard
+	            type="new"
+	            wizardId="XY.AI.Workbench.wizard.newfile.context"
+	            menuGroupId="new.ext">
+            <enablement>
+                  <instanceof value="org.eclipse.core.resources.IFolder"/>
+            </enablement>
+	       </commonWizard>
 		</navigatorContent>
 	</extension>
 	<extension point="org.eclipse.ui.navigator.viewer">
@@ -71,11 +95,16 @@
         inheritBindingsFromViewer="org.eclipse.ui.navigator.ProjectExplorer"
         popupMenuId="org.eclipse.ui.navigator.ProjectExplorer#PopupMenu"
         viewerId="xy.ai.workbench.views.AIExplorer">
-  </viewer>
+  		</viewer>
 	   <viewerContentBinding viewerId="xy.ai.workbench.views.AIExplorer">
 	      <includes>
 	         <contentExtension pattern="xy.ai.workbench.views.content.AIContent"/>
 	      </includes>
+	      <excludes>
+		      <contentExtension 
+		          pattern="^(?!xy\.ai\.workbench\.views\.content\.AIContent$).*">
+		      </contentExtension>
+	      </excludes>
 	   </viewerContentBinding>
 	</extension>
 	<extension
