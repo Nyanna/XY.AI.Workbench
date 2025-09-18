@@ -22,7 +22,8 @@ This project is a arrangement of different tools to support different workflows 
 * Markdown foundation
 * Large dokument text revisions like canvas styles
 * Obsidian - ChatGPT MD conversation styles
-* Basic conversational education styles
+* Conversational education styles
+* Prompt templating
 * Fragment based approaches
 
 **Suggestions**
