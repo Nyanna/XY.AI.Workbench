@@ -162,14 +162,6 @@
 				</command>
 			</toolbar>
 		</menuContribution>
-	   <menuContribution locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?after=group.new">
-	      <menu id="org.eclipse.ui.menu.new" 
-	            label="New"
-	            mnemonic="N">
-	         <separator name="group.new" visible="true"/>
-	         <command commandId="org.eclipse.ui.newWizard"/>
-	      </menu>
-	   </menuContribution>
 	</extension>
 	<extension
 		point="org.eclipse.ui.perspectiveExtensions">
