@@ -1,18 +1,24 @@
 package xy.ai.workbench;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
@@ -36,7 +42,9 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
@@ -405,34 +413,68 @@ public class AISessionManager {
 
 	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
 		display.syncExec(() -> {
-			try {
-				ITextEditor textEditor = editorListener.getLastTextEditor();
+			ITextEditor textEditor = editorListener.getLastTextEditor();
+			if (OutputMode.New_File.equals(cfg.getOuputMode())) {
+
+				IEditorInput editorInput = textEditor.getEditorInput();
+				IFile currentFile = ((IFileEditorInput) editorInput).getFile();
+				IContainer parent = currentFile.getParent();
+
+				String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"));
+				IFile newFile = parent.getFile(new Path(timestamp + ".md"));
+				String tag = generateTag(req);
+				try {
+					InputStream source = new ByteArrayInputStream(tag.getBytes("UTF-8"));
+
+					if (!newFile.exists()) {
+						newFile.create(source, true, null);
+					} else {
+						newFile.setContents(source, true, true, null);
+					}
+					newFile.touch(null);
+
+					IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+					IDE.openEditor(page, newFile);
+				} catch (PartInitException e) {
+					LOG.info("Error opening new editor file");
+				} catch (CoreException e) {
+					LOG.info("Error writting file");
+				} catch (UnsupportedEncodingException e) {
+					LOG.info("Error unsupported encoding");
+				}
+
+			} else {
 
 				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
 				ISelection selection = textEditor.getSelectionProvider().getSelection();
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 
-				switch (cfg.getOuputMode()) {
-				case Chat:
-					String replace = String.format("\n%s\n%s\n%s\n", AGENT, generateTag(req), USER);
-					doc.replace(doc.getLength(), 0, replace);
-					textEditor.selectAndReveal(doc.getLength(), 0);
-					break;
-				case Append:
-					doc.replace(doc.getLength(), 0, "\n" + generateTag(req));
-					break;
-				case Replace:
-					if (tsel != null)
-						doc.replace(tsel.getOffset(), tsel.getLength(), generateTag(req));
-					break;
-				case Cursor:
-					if (tsel != null)
-						doc.replace(tsel.getOffset(), 0, generateTag(req));
-					break;
+				try {
+					String tag = generateTag(req);
+					switch (cfg.getOuputMode()) {
+					case Chat:
+						String replace = String.format("\n%s\n%s\n%s\n", AGENT, tag, USER);
+						doc.replace(doc.getLength(), 0, replace);
+						textEditor.selectAndReveal(doc.getLength(), 0);
+						break;
+					case Append:
+						doc.replace(doc.getLength(), 0, "\n" + tag);
+						break;
+					case Replace:
+						if (tsel != null)
+							doc.replace(tsel.getOffset(), tsel.getLength(), tag);
+						break;
+					case Cursor:
+						if (tsel != null)
+							doc.replace(tsel.getOffset(), 0, tag);
+						break;
+					case New_File:
+						throw new UnsupportedOperationException();
+					}
+					textEditor.doSave(mon);
+				} catch (BadLocationException e) {
+					LOG.info("Error adding text");
 				}
-				textEditor.doSave(mon);
-			} catch (BadLocationException e) {
-				LOG.info("Error adding text");
 			}
 		});
 	}

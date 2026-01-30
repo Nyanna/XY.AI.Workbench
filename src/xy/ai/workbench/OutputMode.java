@@ -1,5 +1,5 @@
 package xy.ai.workbench;
 
 public enum OutputMode {
-	Append, Replace, Cursor, Chat
+	Append, Replace, Cursor, Chat, New_File
 }
