@@ -1,5 +1,5 @@
 ---
-name: web-researcher
+name: web-research
 description: Conducts structured web research on behalf of the caller and aggregates comprehensive, prioritized results using Context7 MCP, WebFetch, and WebSearch tools.
 tools: WebFetch, WebSearch, mcp__context7__*, mcp__exa__*
 model: haiku

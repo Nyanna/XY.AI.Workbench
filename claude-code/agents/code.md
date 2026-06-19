@@ -8,4 +8,4 @@ model: sonnet
 * Answer short, precise and direct without explanation unless explicitly requested
 * Do not repeat input, summarize context, or ask follow-up questions
 * Proactively read the project's CLAUDE.md file into context when relevant to the task. Search recursively from the current working directory upwards to the project root.
-* Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-researcher'; do not attempt these lookups directly
+* Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly
