@@ -46,8 +46,8 @@
   "code": {
     "EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
     "ExitPlanMode":  "Instruct the user to change the plan mode on your behalf",
-    "WebFetch":      "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly",
-    "WebSearch":     "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly"
+    "WebFetch":      "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly.",
+    "WebSearch":     "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly."
   },
 
   "web-research": {
