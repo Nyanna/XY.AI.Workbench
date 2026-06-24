@@ -66,7 +66,7 @@ CTX_SEG="${DIM}ctx:${R} ${C}${CTX_PCT}%${R}"
 # ── Segment 2: Tokens in / out ────────────────────────────────────────────────
 IN_HR=$(human_tokens "${IN_TOK:-0}")
 OUT_HR=$(human_tokens "${OUT_TOK:-0}")
-TOK_SEG="${DIM}in:${R} ${IN_HR}${DIM} out:${R} ${OUT_HR}"
+TOK_SEG="${DIM}(${R}${IN_HR})"
 
 # ── Segment 3: 5h-Rate-Limit ──────────────────────────────────────────────────
 if [ -n "$HOUR_PCT" ] && [ -n "$HOUR_RST" ]; then
@@ -88,7 +88,7 @@ fi
 
 # ── Ausgabe ────────────────────────────────────────────────────────────────────
 printf "%b%b%b%b%b%b%b%b%b\n" \
-  "$CTX_SEG" "$SEP" \
-  "$TOK_SEG" "$SEP" \
+  "$CTX_SEG" \
+  " $TOK_SEG" "$SEP" \
   "$HOUR_SEG" "$SEP" \
   "$DAY_SEG" "$R"
