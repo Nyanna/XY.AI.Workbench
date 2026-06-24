@@ -103,16 +103,27 @@
 	"autoCompactEnabled": false,
 	"switchModelsOnFlag": false,
 	"hooks": {
-	  "PreToolUse": [
-	    {
-	      "hooks": [
-	        {
-	          "type": "command",
-	          "command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh"
-	        }
-	      ]
-	    }
-	  ]
+		"PreToolUse": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh"
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "$CLAUDE_CONFIG_DIR/agents/spell-check.sh",
+						"timeout": 10
+					}
+				]
+			}
+		]
 	},
 	"mcpServers": {
 		"context7": {

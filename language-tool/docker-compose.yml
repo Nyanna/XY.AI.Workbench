@@ -1,0 +1,7 @@
+services:
+   languagetool:
+      image: meyay/languagetool:latest
+      ports:
+      - 8010:8081
+      environment:
+      - download_ngrams_for_langs=de

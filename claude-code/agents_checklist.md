@@ -9,6 +9,7 @@
 * Avoid MCP for overhead reason, preffer CLI
 * Use modell intuition with lazy tool injection on intercept
 * Modell should report failing or not intercepted intuition like not enabled tools in the session
+* Spell corrections increases quality
 
 
 ## Findings
