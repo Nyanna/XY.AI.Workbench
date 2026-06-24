@@ -8,3 +8,4 @@
 * Best prompt pattern ist structure as soft-prompt
 * Avoid MCP for overhead reason, preffer CLI
 * Use modell intuition with lazy tool injection on intercept
+* Modell should report failing or not intercepted intuition like not enabled tools in the session

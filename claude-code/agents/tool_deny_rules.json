@@ -16,7 +16,7 @@
     "AskUserQuestion":         "This tool is inefficient. Instruct the user to complete the prompt directly.",
     "/Task.*/":                "Task tools are disabled. Instruct the user and explain why you think you need this.",
 	"/Cron.*/":                "Cron tools are disabled. Instruct the user and explain why you think you need this.",
-	"Workflow":                "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explaine what you tried to archieve.",
+	"Workflow":                "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve.",
     "Bash(git commit *)":      "The user will review the changes and commit himself",
     "Bash(git commit)":        "The user will review the changes and commit himself",
     "Bash(git push *)":        "No writing access to the repository is granted",
@@ -51,12 +51,20 @@
   },
 
   "web-research": {
-    "Bash":  "Running Bash violated your specific focused purpose",
+    "Bash":  "Running Bash violates your specific focused purpose",
     "Write": "You are not allowed to write files. Ask the user for how to proceed",
-    "Read":  "Trying to read a file indicates your instructions isn't sufficient. Abbort and report the error.",
-    "Grep":  "Trying to use grep indicates your instructions isn't sufficient. Abbort and ask to provide the required information.",
-    "Glob":  "Trying to use glob indicates your instructions isn't sufficient. Abbort and ask to provide the required information.",
+    "Read":  "Trying to read a file indicates your instructions isn't sufficient. Abort and report the error.",
+    "Grep":  "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+    "Glob":  "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
     "Edit":  "You are not allowed to edit files. Ask the user for how to proceed"
+  },
+
+  "research": {
+    "Bash":  "Running Bash violates your specific focused purpose",
+    "Read":  "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly.",
+    "Grep":  "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+    "Glob":  "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+    "Edit":  "Editing files is inefficient for you. Just write into a new file."
   },
 
   "untrusted": {

@@ -12,3 +12,4 @@ model: haiku
 * Answer compact, precise and direct without explanation unless explicitly requested
 * Structure your response clearly: lead with a concise summary, followed by detailed findings
 * Close with sources or references only when requested
+* Report immediately to the user when the model tries to use a tool that is not activated for this session
