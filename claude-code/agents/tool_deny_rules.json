@@ -1,0 +1,69 @@
+{
+  "_comment": [
+    "Mapping: agent_id -> rule_key -> deny_reason.",
+    "agent_id '*' applies to ALL agents.",
+    "rule_key formats:",
+    "  'ToolName'          – exact match against tool name",
+    "  '/regex/'           – regex match against tool name (e.g. '/Task.*/' matches TaskCreate, TaskGet, …)",
+    "  'Bash(glob)'        – blocks Bash if command matches the glob pattern (same syntax as Claude Code settings deny)",
+    "Keys starting with '_' are ignored (comments / metadata).",
+    "Empty string reasons are placeholders – the tool call is NOT blocked when reason is empty."
+  ],
+
+  "*": {
+    "_comment": "Rules that apply to every agent",
+    "ToolSearch":              "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed",
+    "AskUserQuestion":         "This tool is inefficient. Instruct the user to complete the prompt directly.",
+    "/Task.*/":                "Task tools are disabled. Instruct the user and explain why you think you need this.",
+	"/Cron.*/":                "Cron tools are disabled. Instruct the user and explain why you think you need this.",
+	"Workflow":                "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explaine what you tried to archieve.",
+    "Bash(git commit *)":      "The user will review the changes and commit himself",
+    "Bash(git commit)":        "The user will review the changes and commit himself",
+    "Bash(git push *)":        "No writing access to the repository is granted",
+    "Bash(git push)":          "No writing access to the repository is granted",
+    "Bash(git add *)":         "The user will review the changes and add files himself",
+    "Bash(git add)":           "The user will review the changes and add files himself",
+    "Bash(git merge *)":       "You are not allowed to merge. Ask the user for instructions",
+    "Bash(git rebase *)":      "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git reset *)":       "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git revert *)":      "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git rm *)":          "Instruct the user which files to remove manually",
+    "Bash(git mv *)":          "The user will review the changes and move files himself",
+    "Bash(git tag *)":         "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git stash *)":       "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git cherry-pick *)": "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git fetch *)":       "Instruct the user to fetch.",
+    "Bash(git pull *)":        "Instruct the user to pull.",
+    "Bash(git restore *)":     "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git switch *)":      "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git checkout *)":    "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git branch -d *)":   "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git branch -D *)":   "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git branch -m *)":   "You are not allowed to modify the repository state. Instruct the user.",
+    "Bash(git clean *)":       "You are not allowed to modify the repository state. Instruct the user."
+  },
+
+  "code": {
+    "EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
+    "ExitPlanMode":  "Instruct the user to change the plan mode on your behalf",
+    "WebFetch":      "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly",
+    "WebSearch":     "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly"
+  },
+
+  "web-research": {
+    "Bash":  "Running Bash violated your specific focused purpose",
+    "Write": "You are not allowed to write files. Ask the user for how to proceed",
+    "Read":  "Trying to read a file indicates your instructions isn't sufficient. Abbort and report the error.",
+    "Grep":  "Trying to use grep indicates your instructions isn't sufficient. Abbort and ask to provide the required information.",
+    "Glob":  "Trying to use glob indicates your instructions isn't sufficient. Abbort and ask to provide the required information.",
+    "Edit":  "You are not allowed to edit files. Ask the user for how to proceed"
+  },
+
+  "untrusted": {
+    "Bash":         "untrusted agent cannot execute shell commands.",
+    "Write":        "untrusted agent cannot write files.",
+    "Edit":         "untrusted agent cannot edit files.",
+    "MultiEdit":    "untrusted agent cannot perform multi-file edits.",
+    "NotebookEdit": "untrusted agent cannot edit notebooks."
+  }
+}

@@ -102,6 +102,18 @@
 	"theme": "light-daltonized",
 	"autoCompactEnabled": false,
 	"switchModelsOnFlag": false,
+	"hooks": {
+	  "PreToolUse": [
+	    {
+	      "hooks": [
+	        {
+	          "type": "command",
+	          "command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh"
+	        }
+	      ]
+	    }
+	  ]
+	},
 	"mcpServers": {
 		"context7": {
 			"type": "http",
