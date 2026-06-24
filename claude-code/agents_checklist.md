@@ -9,3 +9,7 @@
 * Avoid MCP for overhead reason, preffer CLI
 * Use modell intuition with lazy tool injection on intercept
 * Modell should report failing or not intercepted intuition like not enabled tools in the session
+
+
+## Findings
+* Use local LanguageTool Server with Docker + Watchtower
