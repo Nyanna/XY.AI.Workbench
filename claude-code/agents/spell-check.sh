@@ -3,39 +3,56 @@
 INPUT=$(cat)
 PROMPT=$(echo "$INPUT" | jq -r '.prompt')
 
-# Hash of current prompt for bypass detection
+# --- Bypass hash directory ---
 BYPASS_DIR="/tmp/spell-check-bypass"
 mkdir -p "$BYPASS_DIR"
+
+# Remove bypass hashes older than 6 hours (runs silently in background)
+find "$BYPASS_DIR" -maxdepth 1 -type f -mmin +360 -delete &
+
+# --- Bypass via identical resend ---
 PROMPT_HASH=$(echo "$PROMPT" | sha256sum | cut -d' ' -f1)
 BYPASS_FILE="$BYPASS_DIR/$PROMPT_HASH"
 
-# If this prompt was previously blocked and is resent → one-shot bypass
+# If this prompt was previously blocked, allow it through once and remove the marker
 if [ -f "$BYPASS_FILE" ]; then
   rm -f "$BYPASS_FILE"
   exit 0
 fi
 
-# LanguageTool API check
+# --- LanguageTool API check ---
 RESPONSE=$(curl -s --max-time 5 -X POST http://localhost:8010/v2/check \
   --data-urlencode "language=de-DE" \
   --data-urlencode "text=$PROMPT")
 
-# Check if LanguageTool is reachable
+# Block if LanguageTool is unreachable
 if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
-  echo "LanguageTool not reachable – prompt blocked." >&2
+  touch "$BYPASS_FILE"
+  echo "" >&2
+  echo "╔══ Spell Check: LanguageTool not reachable ══════════════════" >&2
+  echo "" >&2
+  echo "  Resend the prompt unchanged to bypass this check." >&2
+  echo "" >&2
+  echo "╚═════════════════════════════════════════════════════════════" >&2
   exit 2
 fi
 
-# Check if response is valid JSON
+# Block if response is not valid JSON
 if ! echo "$RESPONSE" | jq -e . > /dev/null 2>&1; then
-  echo "LanguageTool: invalid response – prompt blocked." >&2
+  touch "$BYPASS_FILE"
+  echo "" >&2
+  echo "╔══ Spell Check: invalid LanguageTool response ═══════════════" >&2
+  echo "" >&2
+  echo "  Resend the prompt unchanged to bypass this check." >&2
+  echo "" >&2
+  echo "╚═════════════════════════════════════════════════════════════" >&2
   exit 2
 fi
 
 MATCHES=$(echo "$RESPONSE" | jq '.matches | length')
 
 if [ "$MATCHES" -gt 0 ]; then
-  # Build correction list: error → suggestion(s)
+  # Build error list: offending word → suggestion(s)
   SUGGESTIONS=$(echo "$RESPONSE" | jq -r '
     .matches[] |
     "• \"" + .context.text[.context.offset:.context.offset+.context.length] +
@@ -57,22 +74,22 @@ for m in matches:
 print(text)
 ")
 
-  # Save hash so an identical resend triggers bypass
+  # Save hash so an identical resend triggers a one-shot bypass
   touch "$BYPASS_FILE"
 
-  # Output both options
   echo "" >&2
   echo "╔══ Spell Check Errors ($MATCHES found) ══════════════════════" >&2
   echo "" >&2
   echo "$SUGGESTIONS" >&2
   echo "" >&2
-  echo "╠══ Corrected Prompt (copy & paste) ═══════════════" >&2
+  echo "╠══ Corrected Prompt (copy & paste) ════════════════════════" >&2
   echo "" >&2
   echo "$CORRECTED" >&2
   echo "" >&2
   echo "╚═════════════════════════════════════════════════════════════" >&2
   echo "" >&2
-  echo "→ Correct manually, with copy block, or bypass by sending again" >&2
+  echo "→ Fix the errors, copy the corrected text – or resend the" >&2
+  echo "  prompt unchanged to skip this check (one-time bypass)." >&2
   exit 2
 fi
 
