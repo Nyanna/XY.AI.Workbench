@@ -10,13 +10,17 @@
 * Use modell intuition with lazy tool injection on intercept
 * Modell should report failing or not intercepted intuition like not enabled tools in the session
 * Spell corrections increases quality
+* Bind to model intuition for not internalized tools, lazy inject directions
 
 
 ## Findings
 * Use local LanguageTool Server with Docker + Watchtower
 * Exa is available as CLI but requieres extensive coding to implement a guided wizard for the agent to inject usage advice on demand. Without MCP overhead.
+* use and integrate commands
+* context7 is available asl CLI with command, agent and skill
 
 ## Todo
+* Split web research and context7
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
