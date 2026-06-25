@@ -14,3 +14,10 @@
 
 ## Findings
 * Use local LanguageTool Server with Docker + Watchtower
+* Exa is available as CLI but requieres extensive coding to implement a guided wizard for the agent to inject usage advice on demand. Without MCP overhead.
+
+## Todo
+* A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
+* A: python3 direkt ohne shell, python-mcp, persistent MCP python server
+* Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
+* Lanugagetool in workbench einbauen
