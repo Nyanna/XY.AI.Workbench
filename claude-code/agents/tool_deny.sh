@@ -13,11 +13,11 @@ COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // empty')
 SUBAGENT=$(echo "$INPUT" | jq -r '.agent_type')
 
 deny() {
-  echo "Blocked [$SUBAGENT / $TOOLNAME]: $1" >&2
+  echo "$1" >&2
   exit 2
 }
 
-# Evaluate all rules for a given agent section (agent_id or '*')
+# Evaluate all deny rules for a given agent section (agent_id or '*')
 check_section() {
   local section="$1"
 
@@ -52,7 +52,46 @@ check_section() {
   done < <(jq -r --arg s "$section" '.[$s] | keys[]' "$RULES_FILE" 2>/dev/null)
 }
 
+# Check a single allow-list section; returns 0 if the tool is explicitly allowed
+check_allow_section() {
+  local section="$1"
+
+  while IFS= read -r key; do
+    # Skip metadata keys starting with '_'
+    [[ "$key" == _* ]] && continue
+
+    # Fetch the allow entry; skip if empty (placeholder)
+    local entry
+    entry=$(jq -r --arg s "$section" --arg k "$key" '._allow[$s][$k] // empty' "$RULES_FILE")
+    [ -z "$entry" ] && continue
+
+    # --- /regex/ pattern – matched against tool name ---
+    if [[ "$key" =~ ^/(.+)/$ ]]; then
+      local pattern="${BASH_REMATCH[1]}"
+      [[ "$TOOLNAME" =~ $pattern ]] && return 0
+
+    # --- Bash(glob) pattern – matched against bash command ---
+    elif [[ "$key" =~ ^Bash\((.+)\)$ ]]; then
+      local pattern="${BASH_REMATCH[1]}"
+      [ "$TOOLNAME" = "Bash" ] && [[ "$COMMAND" == $pattern ]] && return 0
+
+    # --- Plain tool name – exact match ---
+    elif [ "$key" = "$TOOLNAME" ]; then
+      return 0
+    fi
+
+  done < <(jq -r --arg s "$section" '._allow[$s] | keys[]' "$RULES_FILE" 2>/dev/null)
+
+  return 1
+}
+
+# 1. Deny rules (specific reasons)
 check_section "*"
 check_section "$SUBAGENT"
 
-exit 0
+# 2. Allow-list (last resort permit)
+check_allow_section "*"  && exit 0
+check_allow_section "$SUBAGENT" && exit 0
+
+# 3. Generic fallback deny – tool passed no deny rule but is also not in the allow-list
+deny "Tool '$TOOLNAME' is neither allowed or has a specific rule. Abort and ask the user."

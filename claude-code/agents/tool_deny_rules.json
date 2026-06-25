@@ -7,16 +7,56 @@
     "  '/regex/'           – regex match against tool name (e.g. '/Task.*/' matches TaskCreate, TaskGet, …)",
     "  'Bash(glob)'        – blocks Bash if command matches the glob pattern (same syntax as Claude Code settings deny)",
     "Keys starting with '_' are ignored (comments / metadata).",
-    "Empty string reasons are placeholders – the tool call is NOT blocked when reason is empty."
+    "Empty string reasons are placeholders – the tool call is NOT blocked when reason is empty.",
+    "",
+    "Evaluation order:",
+    "  1. Deny rules ('*' section, then agent section) – block with specific reason on match.",
+    "  2. Allow-list ('_allow' -> '*' section, then '_allow' -> agent section) – permit on match.",
+    "  3. Generic deny – any tool that passes all deny rules but is not in the allow-list."
   ],
+
+  "_allow": {
+    "_comment": [
+      "Allow-list evaluated after all deny rules.",
+      "A tool call is permitted when it matches an entry here (non-empty value).",
+      "Empty values are placeholders and do NOT grant permission.",
+      "Key formats are identical to the deny-rule formats above."
+    ],
+
+    "code": {
+      "_comment": "Tools permitted for every agent (subject to deny rules above)",
+      "Read":          "Standard file read",
+      "Grep":          "File search",
+      "Glob":          "File glob",
+      "Bash":          "Shell execution",
+      "Write":         "Standard file write",
+      "Edit":          "Standard file edit",
+      "MultiEdit":     "Standard multi-file edit",
+      "Agent":         "Subagent spawning",
+      "WebFetch":      "HTTP fetch",
+      "WebSearch":     "Web search"
+    },
+	
+
+	"research": {
+	  "Write":         "Standard file write",
+	  "Agent":         "Subagent spawning",
+	},
+  	
+
+  	"web-research": {
+  	  "/mcp__context7__.*/" :   "Context7 MCP tool call",
+      "/mcp__exa__.*/" :        "Exa MCP tool call"
+  	}
+  },
 
   "*": {
     "_comment": "Rules that apply to every agent",
     "ToolSearch":              "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed",
     "AskUserQuestion":         "This tool is inefficient. Instruct the user to complete the prompt directly.",
     "/Task.*/":                "Task tools are disabled. Instruct the user and explain why you think you need this.",
-	"/Cron.*/":                "Cron tools are disabled. Instruct the user and explain why you think you need this.",
-	"Workflow":                "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve.",
+    "/Cron.*/":                "Cron tools are disabled. Instruct the user and explain why you think you need this.",
+    "Workflow":                "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve.",
     "Bash(git commit *)":      "The user will review the changes and commit himself",
     "Bash(git commit)":        "The user will review the changes and commit himself",
     "Bash(git push *)":        "No writing access to the repository is granted",
