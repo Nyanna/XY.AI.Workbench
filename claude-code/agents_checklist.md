@@ -20,8 +20,10 @@
 * context7 is available asl CLI with command, agent and skill
 
 ## Todo
+* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 * Split web research and context7
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 * Lanugagetool in workbench einbauen
+* workbench, session branching und prefix cache support, bessere tool loops

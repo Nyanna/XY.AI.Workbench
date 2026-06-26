@@ -21,7 +21,7 @@ if [ -f "$BYPASS_FILE" ]; then
 fi
 
 # --- LanguageTool API check ---
-RESPONSE=$(curl -s --max-time 5 -X POST http://localhost:8010/v2/check \
+RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:8010/v2/check \
   --data-urlencode "language=de-DE" \
   --data-urlencode "text=$PROMPT")
 
