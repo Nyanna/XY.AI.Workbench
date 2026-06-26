@@ -1,134 +1,134 @@
 {
-	"env": {
-		"ENABLE_CLAUDEAI_MCP_SERVERS": "false",
-		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-		"CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT": "1",
-		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
-		"DISABLE_COMPACT": "1",
-		"ENABLE_TOOL_SEARCH": "false"
-	},
-	"permissions": {
-		"defaultMode": "default",
-		"deny": [
-			"___*",
-			"NotebookEdit",
-			"PowerShell",
-			"_Agent",
-			"Workflow",
-			"ScheduleWakeup",
-			"ShareOnboardingGuide",
-			"CronCreate",
-			"CronDelete",
-			"CronList",
-			"EnterPlanMode",
-			"ExitPlanMode",
-			"EnterWorktree",
-			"ExitWorktree",
-			"ListMcpResourcesTool",
-			"ReadMcpResourceTool",
-			"WaitForMcpServers",
-			"PushNotification",
-			"RemoteTrigger",
-			"SendMessage",
-			"DesignSync",
-			"_WebFetch",
-			"_WebSearch",
-			"mcp__claude_ai_*",
-			"Monitor",
-			"TaskCreate",
-			"TaskGet",
-			"TaskList",
-			"TaskUpdate",
-			"TaskStop",
-			"TaskOutput",
-			"_Bash",
-			"_Read",
-			"_Edit",
-			"_Write",
-			"AskUserQuestion",
-			"ToolSearch",
-			"_Grep",
-			"_Glob",
-			"Bash(git commit *)",
-			"Bash(git commit)",
-			"Bash(git push *)",
-			"Bash(git push)",
-			"Bash(git add *)",
-			"Bash(git add)",
-			"Bash(git merge *)",
-			"Bash(git rebase *)",
-			"Bash(git reset *)",
-			"Bash(git revert *)",
-			"Bash(git rm *)",
-			"Bash(git mv *)",
-			"Bash(git tag *)",
-			"Bash(git stash *)",
-			"Bash(git cherry-pick *)",
-			"Bash(git fetch *)",
-			"Bash(git pull *)",
-			"Bash(git restore *)",
-			"Bash(git switch *)",
-			"Bash(git checkout *)",
-			"Bash(git branch -d *)",
-			"Bash(git branch -D *)",
-			"Bash(git branch -m *)",
-			"Bash(git clean *)"
-		]
-	},
-	"model": "haiku",
-	"verbose": true,
-	"disableBundledSkills": true,
-	"disableAgentView": true,
-	"disableRemoteControl": true,
-	"claudeMdExcludes": [
-		"**"
-	],
-	"enableWorkflows": false,
-	"workflowKeywordTriggerEnabled": false,
-	"allowAllClaudeAiMcps": false,
-	"showThinkingSummaries": false,
-	"statusLine": {
-		"type": "command",
-		"command": "~/.claude-personal/statusline.sh",
-		"padding": 0
-	},
-	"spinnerTipsEnabled": false,
-	"effortLevel": "medium",
-	"promptSuggestionEnabled": false,
-	"allowedChannelPlugins": [],
-	"prefersReducedMotion": true,
-	"autoMemoryEnabled": false,
-	"awaySummaryEnabled": false,
-	"theme": "light-daltonized",
-	"autoCompactEnabled": false,
-	"switchModelsOnFlag": false,
-	"hooks": {
-		"PreToolUse": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh"
-					}
-				]
-			}
-		],
-		"UserPromptSubmit": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "$CLAUDE_CONFIG_DIR/agents/spell-check.sh",
-						"timeout": 10
-					}
-				]
-			}
-		]
-	},
-	"mcpServers": {
-		"context7": {
-			"type": "http",
-			"url": "https://mcp.context7.com/mcp"
-		}
-	}
+  "env": {
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT": "1",
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
+    "DISABLE_COMPACT": "1",
+    "ENABLE_TOOL_SEARCH": "false"
+  },
+  "permissions": {
+    "deny": [
+      "___*",
+      "NotebookEdit",
+      "PowerShell",
+      "_Agent",
+      "Workflow",
+      "ScheduleWakeup",
+      "ShareOnboardingGuide",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "EnterWorktree",
+      "ExitWorktree",
+      "ListMcpResourcesTool",
+      "ReadMcpResourceTool",
+      "WaitForMcpServers",
+      "PushNotification",
+      "RemoteTrigger",
+      "SendMessage",
+      "DesignSync",
+      "_WebFetch",
+      "_WebSearch",
+      "mcp__claude_ai_*",
+      "Monitor",
+      "TaskCreate",
+      "TaskGet",
+      "TaskList",
+      "TaskUpdate",
+      "TaskStop",
+      "TaskOutput",
+      "_Bash",
+      "_Read",
+      "_Edit",
+      "_Write",
+      "AskUserQuestion",
+      "ToolSearch",
+      "_Grep",
+      "_Glob",
+      "Bash(git commit *)",
+      "Bash(git commit)",
+      "Bash(git push *)",
+      "Bash(git push)",
+      "Bash(git add *)",
+      "Bash(git add)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git revert *)",
+      "Bash(git rm *)",
+      "Bash(git mv *)",
+      "Bash(git tag *)",
+      "Bash(git stash *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git restore *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git branch -d *)",
+      "Bash(git branch -D *)",
+      "Bash(git branch -m *)",
+      "Bash(git clean *)"
+    ],
+    "defaultMode": "default"
+  },
+  "model": "haiku",
+  "disableBundledSkills": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_CONFIG_DIR/agents/spell-check.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "disableAgentView": true,
+  "disableRemoteControl": true,
+  "enableWorkflows": false,
+  "workflowKeywordTriggerEnabled": false,
+  "allowAllClaudeAiMcps": false,
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude-personal/statusline.sh",
+    "padding": 0
+  },
+  "spinnerTipsEnabled": false,
+  "effortLevel": "low",
+  "promptSuggestionEnabled": false,
+  "awaySummaryEnabled": false,
+  "allowedChannelPlugins": [],
+  "prefersReducedMotion": true,
+  "autoMemoryEnabled": false,
+  "showThinkingSummaries": false,
+  "claudeMdExcludes": [
+    "**"
+  ],
+  "theme": "light-daltonized",
+  "verbose": true,
+  "autoCompactEnabled": false,
+  "switchModelsOnFlag": false,
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
 }

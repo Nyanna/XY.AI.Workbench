@@ -53,6 +53,8 @@ mins_until() {
 CTX_PCT=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
 IN_TOK=$(echo  "$input" | jq -r '.context_window.total_input_tokens  // 0')
 OUT_TOK=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
+CCREATE_TOK=$(echo "$input" | jq -r '.context_window.cache_creation_input_tokens // 0')
+CREAD_TOK=$(echo "$input" | jq -r '.context_window.cache_read_input_tokens // 0')
 
 HOUR_PCT=$(echo   "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty' 2>/dev/null | cut -d. -f1)
 HOUR_RST=$(echo   "$input" | jq -r '.rate_limits.five_hour.resets_at       // empty' 2>/dev/null)
@@ -86,9 +88,13 @@ else
   DAY_SEG="${DIM}7d:${R} ${DIM}–${R}"
 fi
 
+# ── Segment 5: Cache ──────────────────────────────────────────────────
+CT="Cache: c:${CCREATE_TOK} r:${CREAD_TOK}"
+
 # ── Ausgabe ────────────────────────────────────────────────────────────────────
 printf "%b%b%b%b%b%b%b%b%b\n" \
   "$CTX_SEG" \
   " $TOK_SEG" "$SEP" \
   "$HOUR_SEG" "$SEP" \
-  "$DAY_SEG" "$R"
+  "$DAY_SEG" "$R" \
+  "   ---   " "$CT"

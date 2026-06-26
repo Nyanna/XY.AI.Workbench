@@ -33,7 +33,7 @@ if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
   echo "" >&2
   echo "  Resend the prompt unchanged to bypass this check." >&2
   echo "" >&2
-  echo "╚═════════════════════════════════════════════════════════════" >&2
+  echo "Response: $RESPONSE" >&2
   exit 2
 fi
 
@@ -44,8 +44,6 @@ if ! echo "$RESPONSE" | jq -e . > /dev/null 2>&1; then
   echo "╔══ Spell Check: invalid LanguageTool response ═══════════════" >&2
   echo "" >&2
   echo "  Resend the prompt unchanged to bypass this check." >&2
-  echo "" >&2
-  echo "╚═════════════════════════════════════════════════════════════" >&2
   exit 2
 fi
 
@@ -60,20 +58,6 @@ if [ "$MATCHES" -gt 0 ]; then
     ([ .replacements[:3][].value ] | join(" | "))
   ')
 
-  # Build fully corrected prompt via Python (offset-based replacement, back to front)
-  CORRECTED=$(ORIGINAL_TEXT="$PROMPT" MATCHES_JSON="$RESPONSE" python3 -c "
-import os, json
-text = os.environ['ORIGINAL_TEXT']
-response = json.loads(os.environ['MATCHES_JSON'])
-matches = sorted(response['matches'], key=lambda m: m['offset'], reverse=True)
-for m in matches:
-    offset = m['offset']
-    length = m['length']
-    replacement = m['replacements'][0]['value'] if m['replacements'] else ''
-    text = text[:offset] + replacement + text[offset + length:]
-print(text)
-")
-
   # Save hash so an identical resend triggers a one-shot bypass
   touch "$BYPASS_FILE"
 
@@ -81,15 +65,6 @@ print(text)
   echo "╔══ Spell Check Errors ($MATCHES found) ══════════════════════" >&2
   echo "" >&2
   echo "$SUGGESTIONS" >&2
-  echo "" >&2
-  echo "╠══ Corrected Prompt (copy & paste) ════════════════════════" >&2
-  echo "" >&2
-  echo "$CORRECTED" >&2
-  echo "" >&2
-  echo "╚═════════════════════════════════════════════════════════════" >&2
-  echo "" >&2
-  echo "→ Fix the errors, copy the corrected text – or resend the" >&2
-  echo "  prompt unchanged to skip this check (one-time bypass)." >&2
   exit 2
 fi
 
