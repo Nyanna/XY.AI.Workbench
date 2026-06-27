@@ -105,7 +105,7 @@ fi
 # ---------------------------------------------------------------------------
 # Build and run Claude command
 # ---------------------------------------------------------------------------
-CLAUDE_ARGS=(--system-prompt="" --verbose)
+CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
 
 if [[ -n "$AGENT_ARG" ]]; then
     CLAUDE_ARGS+=(--agent "$AGENT_ARG")
