@@ -1,6 +1,13 @@
 #!/bin/bash
 
 INPUT=$(cat)
+
+# Skip check when hook fires inside a subagent
+AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty')
+if [ -n "$AGENT_ID" ]; then
+  exit 0
+fi
+
 PROMPT=$(echo "$INPUT" | jq -r '.prompt')
 
 # --- Bypass hash directory ---
