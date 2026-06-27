@@ -13,6 +13,7 @@
       "NotebookEdit",
       "PowerShell",
       "_Agent",
+      "_Agent(claude-code-guide)",
       "Workflow",
       "ScheduleWakeup",
       "ShareOnboardingGuide",
@@ -106,6 +107,18 @@
   "workflowKeywordTriggerEnabled": false,
   "allowAllClaudeAiMcps": false,
   "alwaysCopyFullResponse": true,
+  "disableAutoMode": true,
+  "includeGitInstructions": false,
+  "showTurnDuration": false,
+  "respondToBashCommands": false,
+  "skipWebFetchPreflight": true,
+  "voice": {
+	"enabled": false
+  },
+  "disableDeepLinkRegistration": "disable",
+  "spinnerVerbs": {
+	"mode": "replace", "verbs": ["Processing"]
+  },
   "statusLine": {
     "type": "command",
     "command": "~/.claude-personal/statusline.sh",

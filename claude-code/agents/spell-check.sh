@@ -56,10 +56,12 @@ fi
 
 MATCHES=$(echo "$RESPONSE" | jq '.matches | length')
 
+MAX_SHOWN=15
+
 if [ "$MATCHES" -gt 0 ]; then
-  # Build error list: offending word → suggestion(s)
-  SUGGESTIONS=$(echo "$RESPONSE" | jq -r '
-    .matches[] |
+  # Build error list: offending word → suggestion(s), capped at MAX_SHOWN
+  SUGGESTIONS=$(echo "$RESPONSE" | jq -r --argjson max "$MAX_SHOWN" '
+    .matches[:$max][] |
     "• \"" + .context.text[.context.offset:.context.offset+.context.length] +
     "\"  →  " +
     ([ .replacements[:3][].value ] | join(" | "))
@@ -69,7 +71,11 @@ if [ "$MATCHES" -gt 0 ]; then
   touch "$BYPASS_FILE"
 
   echo "" >&2
-  echo "╔══ Spell Check Errors ($MATCHES found) ══════════════════════" >&2
+  if [ "$MATCHES" -gt "$MAX_SHOWN" ]; then
+    echo "╔══ Spell Check Errors ($MATCHES found, showing first $MAX_SHOWN) ═══" >&2
+  else
+    echo "╔══ Spell Check Errors ($MATCHES found) ══════════════════════" >&2
+  fi
   echo "" >&2
   echo "$SUGGESTIONS" >&2
   exit 2

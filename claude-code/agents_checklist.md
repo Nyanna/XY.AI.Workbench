@@ -25,6 +25,7 @@
 * Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
 * Cancel claude pro and go soley for API keys? At least test a month.
 * For exports use /copy, press W, enter filename
+* Current Bare-Mode don't supports Subscription OAuth
 
 Command/Skill
 : When simple, small or unchanged input/output
@@ -45,7 +46,10 @@ Subagent tool verbieten mit redirect zum bash wrapper script
 * Rag server bauen
 * github access 
 * command line MCP client that bypasses context pollution
-
+* context7 und exa CLI migration erübrigt sich durch zentralen MCP controller. Dieser filter und restrukturiert die beiden nach intuition
+* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
+* Kein extended exa und proxy MCP mit permissions, extended exa deaktivieren das belastet den promt zu sehr und es gibt ohnehin keine advanced intuition für exa
+* Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
 
 ### Ideas unformulated
 
@@ -53,11 +57,15 @@ Subagent tool verbieten mit redirect zum bash wrapper script
 	* Im prompt Anweisung keine Handlungsempfehlungen zu geben. Das ist Aufgabe des Coordinator
 	* Diese gegenanweisung frisst salienz
 	* Ein zwischenAgent könnte die Anweisungen filtern (Was ist besser oder günstiger?)
-* Zwischenagents könntenm generell Prompt und Result Pre/Postproccessing machen.
+* Zwischenagents könntenm generell Prompt und Result Pre/Postproccessing machen. In-place prompt optimize.
 	* Das Kostet Token oder verschlechtert vielleicht alles
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * Wenn ich einen MCP controller habe. Brauche ich dann noch eine aufrufende container session oder ist koordination nicht ein subagent mit gecachtem prompt?
-
+* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
+* ermissions hook zur umlritung kann zur umlenkung und steuerung in den MCP verwendet werden wenn er ohne timout läuft
+* Splitt terminal verwenden für permission controll und session visualisierung über MCP controller
+* maybe use in shell execution with !! in any subagents, for python
+* statusline links hook, footerLinksRegexes, maybe for command approvals
 
 ## Notes
 When running with --agent or inside a subagent, two additional fields are included:
