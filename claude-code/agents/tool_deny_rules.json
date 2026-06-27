@@ -78,11 +78,6 @@
 		"Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user.",
 		"Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user.",
 		"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Agent(Explore)": "Don't use the Explore-Agent; execute the analysis directly.",
-		"Agent(Plan)": "Planing mode is disabled.",
-		"Agent(General-purpose)": "The General-purpose isn't suited for this prompt.",
-		"Agent(claude-code-guide)": "The claude-code-guide isn't compatible and unreliable. Directly research the web when Claude-Code information is required.",
-		"Agent(statusline-setup)": "The status line setup agent is disabled. Call the user to create the status line himself.",
 		"Agent": "The agent you are trying to use isn't allowed. Inform the user about this incident."
 	},
 	"code": {
