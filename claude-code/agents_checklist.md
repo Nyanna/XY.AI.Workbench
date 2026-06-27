@@ -1,8 +1,9 @@
-* All agents Answer short, precise and direct without explanation unless explicitly requested
+
 
 
 ## Rules
 
+* All agents Answer short, precise and direct without explanation unless explicitly requested
 * Isolated modular interfaces with skills and scripts
 * Agents talk and prompt to each other
 * Best prompt pattern ist structure as soft-prompt
@@ -16,6 +17,7 @@
 
 
 ## Findings
+* Use Jira style Markdown threads, continously thread for internal project organization
 * Use local LanguageTool Server with Docker
 * Exa is available as CLI but requieres extensive coding to implement a guided wizard for the agent to inject usage advice on demand. Without MCP overhead.
 * use and integrate commands
@@ -34,7 +36,9 @@ Agent
 : When post- or preprocessing makes sense to condense or clarify
 
 ## Todo
-Subagent tool verbieten mit redirect zum bash wrapper script
+* gibt es timeouts für hook oder MCP?
+* Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
+* Subagent tool verbieten mit redirect zum bash wrapper script
 * eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
@@ -50,6 +54,7 @@ Subagent tool verbieten mit redirect zum bash wrapper script
 * Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
 * Kein extended exa und proxy MCP mit permissions, extended exa deaktivieren das belastet den promt zu sehr und es gibt ohnehin keine advanced intuition für exa
 * Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
+* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
 
 ### Ideas unformulated
 
@@ -71,3 +76,19 @@ Subagent tool verbieten mit redirect zum bash wrapper script
 When running with --agent or inside a subagent, two additional fields are included:
 : agent_id	Unique identifier for the subagent. Present only when the hook fires inside a subagent call. Use this to distinguish subagent hook calls from main-thread calls.
 : agent_type	Agent name (for example, "Explore" or "security-reviewer"). Present when the session uses --agent or the hook fires inside a subagent. For subagents, the subagent’s type takes precedence over the session’s --agent value. For custom subagents, this is the name field from the agent’s frontmatter, not the filename.
+
+
+
+
+# Agent Wrapper - !ändern, session launcher soll moddel und effort aus definition setzen
+Erstelle ein Bash-Skript, das eine Schnittstelle zu einem Subagenten darstellt. Das Skript nimmt Parameter von einer aufrufenden Instanz entgegen, wo es als Tool integriert ist, startet den Subagenten im non-interactive Modus (–print) und leitet die Ausgaben entsprechend zurück.
+
+Das Skript empfängt den Namen des Subagenten, und prüft dessen Definition.
+Der Name entspricht dem Dateinamenprefix.
+Die Agentendefinition befindet sich im selben Verzeichnis wie das Skript.
+Das Skript liest die Agentendefinition und wendet die Frontmatter-Felder Model (–model) und Effort (–effort) an.
+Das Skript leitet den Prompt des Aufrufers weiter
+Das Skript unterstützt das Fortführen einer Session mittels Resume (--resume)
+Das Ausgabeformat ist immer Stream-JSON (--output-format stream-json)
+Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. Der Dateiname beginnt mit dem Timecode im Format "YYMMDD.HHMMSS", gefolgt von dem Namen des Agents und einer zufälligen Hash aus 4 Hexadezimalzeichen.
+Recherchiere, wie das Agent-Tool von Claude-Code genau funktioniert. Wird intern eine neue Instanz erzeugt, ähnlich einer non-interactive Session wie über die CLI direkt? Nutzt Claude-Dabei das JSON-Stream-Ausgabeformat?

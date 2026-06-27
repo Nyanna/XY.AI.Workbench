@@ -3,6 +3,7 @@ name: web-research
 description: Conducts structured web research on behalf of the caller and aggregates comprehensive, prioritized results using Context7 and Exa MCP tools.
 tools: mcp__context7__*, mcp__exa__*
 model: haiku
+effort: low
 ---
 
 # General instructions
@@ -14,6 +15,7 @@ model: haiku
 * Answer compact, precise and direct without explanation unless explicitly requested
 * Structure your response clearly: lead with a concise summary, followed by detailed findings
 * Close with sources or references only when requested
+* Don't interfere with calling agent decision-making; don't give advice or recommendations, or ask follow-up questions
 
 # Web Search Tool Priority
 

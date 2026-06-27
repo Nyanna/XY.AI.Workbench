@@ -3,6 +3,7 @@ name: research
 description: Problem analysis using the model's internalized knowledge and web research.
 tools: Write, Agent
 model: sonnet
+effort: medium
 ---
 
 * Respond concisely and directly; provide explanations only when explicitly requested

@@ -29,7 +29,6 @@
 			"Bash": "Shell execution",
 			"Write": "Standard file write",
 			"Edit": "Standard file edit",
-			"MultiEdit": "Standard multi-file edit",
 			"Agent": "Subagent spawning",
 			"WebFetch": "HTTP fetch",
 			"WebSearch": "Web search",

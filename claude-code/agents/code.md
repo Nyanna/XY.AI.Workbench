@@ -1,8 +1,9 @@
 ---
 name: code
 description: Analyse, refactor and research code
-tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit, Agent, WebFetch, WebSearch
+tools: Read, Grep, Glob, Bash, Write, Edit, Agent
 model: sonnet
+effort: medium
 ---
 
 * Answer short, precise and direct without explanation unless explicitly requested

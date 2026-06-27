@@ -90,6 +90,7 @@ cleanup() {
             rm -rf "$LT_PID_DIR"
         fi
     fi
+    clear
 }
 trap cleanup EXIT INT TERM
 
