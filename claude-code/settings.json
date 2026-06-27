@@ -105,13 +105,14 @@
   "enableWorkflows": false,
   "workflowKeywordTriggerEnabled": false,
   "allowAllClaudeAiMcps": false,
+  "alwaysCopyFullResponse": true,
   "statusLine": {
     "type": "command",
     "command": "~/.claude-personal/statusline.sh",
     "padding": 0
   },
   "spinnerTipsEnabled": false,
-  "effortLevel": "low",
+  "effortLevel": "medium",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "allowedChannelPlugins": [],
