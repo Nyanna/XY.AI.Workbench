@@ -113,11 +113,14 @@
   "respondToBashCommands": false,
   "skipWebFetchPreflight": true,
   "voice": {
-	"enabled": false
+    "enabled": false
   },
   "disableDeepLinkRegistration": "disable",
   "spinnerVerbs": {
-	"mode": "replace", "verbs": ["Processing"]
+    "mode": "replace",
+    "verbs": [
+      "Processing"
+    ]
   },
   "statusLine": {
     "type": "command",
