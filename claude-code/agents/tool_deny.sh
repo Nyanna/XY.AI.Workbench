@@ -3,6 +3,7 @@
 SCRIPT_DIR="$(dirname "$0")"
 RULES_FILE="$SCRIPT_DIR/tool_deny_rules.json"
 LOG_FILE="$SCRIPT_DIR/tool_deny.log"
+RE_GLOB_KEY='^([^(]+)\((.+)\)$'
 
 log() {
   local level="$1"
@@ -25,7 +26,7 @@ fi
 
 INPUT=$(cat)
 TOOLNAME=$(echo "$INPUT" | jq -r '.tool_name')
-COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // empty')
+COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // .tool_input.subagent_type // empty')
 SUBAGENT=$(echo "$INPUT" | jq -r '.agent_type')
 
 log "INFO" "--- new invocation --- tool=$TOOLNAME agent=$SUBAGENT${COMMAND:+ command=$COMMAND}"
@@ -58,10 +59,11 @@ check_section() {
         deny "$reason"
       fi
 
-    # --- Bash(glob) pattern – matched against bash command ---
-    elif [[ "$key" =~ ^Bash\((.+)\)$ ]]; then
-      local pattern="${BASH_REMATCH[1]}"
-      if [ "$TOOLNAME" = "Bash" ] && [[ "$COMMAND" == $pattern ]]; then
+    # --- ToolName(glob) pattern – matched against COMMAND (bash command or subagent_type) ---
+    elif [[ "$key" =~ $RE_GLOB_KEY ]]; then
+      local tool="${BASH_REMATCH[1]}"
+      local pattern="${BASH_REMATCH[2]}"
+      if [ "$TOOLNAME" = "$tool" ] && [[ "$COMMAND" == $pattern ]]; then
         deny "$reason"
       fi
 
@@ -91,10 +93,11 @@ check_allow_section() {
       local pattern="${BASH_REMATCH[1]}"
       [[ "$TOOLNAME" =~ $pattern ]] && return 0
 
-    # --- Bash(glob) pattern – matched against bash command ---
-    elif [[ "$key" =~ ^Bash\((.+)\)$ ]]; then
-      local pattern="${BASH_REMATCH[1]}"
-      [ "$TOOLNAME" = "Bash" ] && [[ "$COMMAND" == $pattern ]] && return 0
+    # --- ToolName(glob) pattern – matched against COMMAND (bash command or subagent_type) ---
+    elif [[ "$key" =~ $RE_GLOB_KEY ]]; then
+      local tool="${BASH_REMATCH[1]}"
+      local pattern="${BASH_REMATCH[2]}"
+      [ "$TOOLNAME" = "$tool" ] && [[ "$COMMAND" == $pattern ]] && return 0
 
     # --- Plain tool name – exact match ---
     elif [ "$key" = "$TOOLNAME" ]; then

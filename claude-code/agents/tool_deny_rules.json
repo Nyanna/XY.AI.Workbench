@@ -99,12 +99,5 @@
 		"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 		"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 		"Edit": "Editing files is inefficient for you. Just write into a new file."
-	},
-	"untrusted": {
-		"Bash": "untrusted agent cannot execute shell commands.",
-		"Write": "untrusted agent cannot write files.",
-		"Edit": "untrusted agent cannot edit files.",
-		"MultiEdit": "untrusted agent cannot perform multi-file edits.",
-		"NotebookEdit": "untrusted agent cannot edit notebooks."
 	}
 }
