@@ -1,8 +1,24 @@
 #!/bin/bash
 
-RULES_FILE="$(dirname "$0")/tool_deny_rules.json"
+SCRIPT_DIR="$(dirname "$0")"
+RULES_FILE="$SCRIPT_DIR/tool_deny_rules.json"
+LOG_FILE="$SCRIPT_DIR/tool_deny.log"
+
+log() {
+  local level="$1"
+  shift
+  printf '[%s] [%-5s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$*" >> "$LOG_FILE"
+}
+
+log_json() {
+  local label="$1"
+  local json="$2"
+  log "INFO" "$label"
+  printf '%s\n' "$json" | jq '.' >> "$LOG_FILE" 2>/dev/null || printf '%s\n' "$json" >> "$LOG_FILE"
+}
 
 if [ ! -f "$RULES_FILE" ]; then
+  log "WARN" "EXIT(0) rules file not found: $RULES_FILE — permitting tool call"
   echo "tool_deny: rules file not found: $RULES_FILE" >&2
   exit 0
 fi
@@ -12,8 +28,13 @@ TOOLNAME=$(echo "$INPUT" | jq -r '.tool_name')
 COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // empty')
 SUBAGENT=$(echo "$INPUT" | jq -r '.agent_type')
 
+log "INFO" "--- new invocation --- tool=$TOOLNAME agent=$SUBAGENT${COMMAND:+ command=$COMMAND}"
+log_json "INPUT JSON:" "$INPUT"
+
 deny() {
-  echo "$1" >&2
+  local reason="$1"
+  log "DENY" "EXIT(2) tool=$TOOLNAME agent=$SUBAGENT — $reason"
+  echo "$reason" >&2
   exit 2
 }
 
@@ -90,8 +111,14 @@ check_section "*"
 check_section "$SUBAGENT"
 
 # 2. Allow-list (last resort permit)
-check_allow_section "*"  && exit 0
-check_allow_section "$SUBAGENT" && exit 0
+if check_allow_section "*"; then
+  log "ALLOW" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched allow-list section '*'"
+  exit 0
+fi
+if check_allow_section "$SUBAGENT"; then
+  log "ALLOW" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched allow-list section '$SUBAGENT'"
+  exit 0
+fi
 
 # 3. Generic fallback deny – tool passed no deny rule but is also not in the allow-list
 deny "Tool '$TOOLNAME' is neither allowed or has a specific rule. Abort and ask the user."
