@@ -110,6 +110,21 @@ CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
 
 if [[ -n "$AGENT_ARG" ]]; then
     CLAUDE_ARGS+=(--agent "$AGENT_ARG")
+
+    # Read agent definition from agents/ dir relative to this script
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    AGENT_FILE="${SCRIPT_DIR}/agents/${AGENT_ARG}.md"
+
+    if [[ -f "$AGENT_FILE" ]]; then
+        # Extract frontmatter block (between first pair of ---)
+        FRONTMATTER="$(awk '/^---/{if(++n==2) exit; next} n==1' "$AGENT_FILE")"
+
+        AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')"
+        AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')"
+
+        [[ -n "$AGENT_MODEL"  ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
+        [[ -n "$AGENT_EFFORT" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
+    fi
 fi
 
 CLAUDE_ARGS+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")

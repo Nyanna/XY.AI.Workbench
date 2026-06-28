@@ -37,23 +37,19 @@ Agent
 : When post- or preprocessing makes sense to condense or clarify
 
 * MCP timeout via millisecond setting in MCP config
+* MCP is preferred interface and will route other MCP by optimizing the interface specs. Thats better than CLI optimizing.
 
-## Todo
-* Main session script anpassen für effort und modell
+## Todo language-tool-watchtower
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 * eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
-* workbench, session branching und prefix cache support, bessere tool loops
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
-* selbst lerne agenten die ihren prompt selbst modifizieren
-* Rag server bauen
+* Rag server bauen/installieren und einbinden
 * github access via search und code API mit account key für bessere research -> research agent
-* command line MCP client that bypasses context pollution
-* context7 und exa CLI migration erübrigt sich durch zentralen MCP controller. Dieser filter und restrukturiert die beiden nach intuition
+
 * Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
-* Kein extended exa und proxy MCP mit permissions, extended exa deaktivieren das belastet den promt zu sehr und es gibt ohnehin keine advanced intuition für exa
 * Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
 * Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
 * MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
@@ -73,6 +69,7 @@ Agent
 * Splitt terminal verwenden für permission controll und session visualisierung über MCP controller
 * maybe use in shell execution with !! in any subagents, for python
 * statusline links hook, footerLinksRegexes, maybe for command approvals
+* selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 
 ## Notes
 When running with --agent or inside a subagent, two additional fields are included:

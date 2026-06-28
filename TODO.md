@@ -2,3 +2,4 @@
 * Thinking in editor flag für wirkbench, zeigt extended thinking irgendwo für prompt qualität check
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * Lanugagetool in workbench einbauen
+* workbench, session branching und prefix cache support, bessere tool loops
