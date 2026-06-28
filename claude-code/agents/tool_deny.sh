@@ -44,6 +44,7 @@ block() {
 # Evaluate all redirect rules for a given agent section (agent_id or '*')
 check_redirect_section() {
   local section="$1"
+  log "INFO" "check_redirect: evaluating section '$section'"
 
   while IFS= read -r key; do
     # Skip metadata keys starting with '_'
@@ -75,12 +76,16 @@ check_redirect_section() {
     fi
 
   done < <(jq -r --arg s "$section" '.[$s] | keys[]' "$RULES_FILE" 2>/dev/null)
+
+  log "INFO" "check_redirect: no match in section '$section'"
+  return 1
 }
 
 # Evaluate all deny rules for a given agent section (agent_id or '*');
 # used as configured fallback before the hardcoded generic deny
 check_deny_section() {
   local section="$1"
+  log "INFO" "check_deny: evaluating section '$section'"
 
   while IFS= read -r key; do
     # Skip metadata keys starting with '_'
@@ -112,6 +117,9 @@ check_deny_section() {
     fi
 
   done < <(jq -r --arg s "$section" '._deny[$s] | keys[]' "$RULES_FILE" 2>/dev/null)
+
+  log "INFO" "check_deny: no match in section '$section'"
+  return 1
 }
 
 # Check a single allow-list section; returns 0 if the tool is explicitly allowed
