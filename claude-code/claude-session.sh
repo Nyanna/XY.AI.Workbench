@@ -17,11 +17,23 @@ LT_PID_DIR="/tmp/claude-languagetool-pids"
 PROFILE=""
 AGENT_ARG=""
 EXTRA_ARGS=()
+EXPLICIT_MODEL=false
+EXPLICIT_EFFORT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --profile)
             PROFILE="$2"
+            shift 2
+            ;;
+        --model)
+            EXPLICIT_MODEL=true
+            EXTRA_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --effort)
+            EXPLICIT_EFFORT=true
+            EXTRA_ARGS+=("$1" "$2")
             shift 2
             ;;
         --*)
@@ -127,8 +139,8 @@ if [[ -n "$AGENT_ARG" ]]; then
         AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')"
         AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')"
 
-        [[ -n "$AGENT_MODEL"  ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
-        [[ -n "$AGENT_EFFORT" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
+        [[ -n "$AGENT_MODEL"  ]] && [[ "$EXPLICIT_MODEL"  == "false" ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
+        [[ -n "$AGENT_EFFORT" ]] && [[ "$EXPLICIT_EFFORT" == "false" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
     fi
 fi
 
