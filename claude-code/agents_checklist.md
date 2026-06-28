@@ -14,6 +14,7 @@
 * Bind to model intuition for not internalized tools, lazy inject directions
 * User level hooks should non block subagents, check for subagent context
 * Agents should have a meaningfull size. Not to small not to big to be token and salience efficient
+* Use Agent(web-research) tools definition to link and restrict subagents
 
 
 ## Findings
@@ -35,26 +36,27 @@ Command/Skill
 Agent
 : When post- or preprocessing makes sense to condense or clarify
 
+* MCP timeout via millisecond setting in MCP config
+
 ## Todo
-* gibt es timeouts für hook oder MCP?
+* Main session script anpassen für effort und modell
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
-* Subagent tool verbieten mit redirect zum bash wrapper script
 * eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
-* Lanugagetool in workbench einbauen
 * workbench, session branching und prefix cache support, bessere tool loops
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
 * selbst lerne agenten die ihren prompt selbst modifizieren
 * Rag server bauen
-* github access 
+* github access via search und code API mit account key für bessere research -> research agent
 * command line MCP client that bypasses context pollution
 * context7 und exa CLI migration erübrigt sich durch zentralen MCP controller. Dieser filter und restrukturiert die beiden nach intuition
 * Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
 * Kein extended exa und proxy MCP mit permissions, extended exa deaktivieren das belastet den promt zu sehr und es gibt ohnehin keine advanced intuition für exa
 * Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
 * Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
+* MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
 
 ### Ideas unformulated
 

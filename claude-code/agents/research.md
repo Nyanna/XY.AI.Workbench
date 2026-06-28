@@ -1,7 +1,7 @@
 ---
 name: research
 description: Problem analysis using the model's internalized knowledge and web research.
-tools: Write, Agent
+tools: Write, Agent(web-research)
 model: sonnet
 effort: medium
 ---

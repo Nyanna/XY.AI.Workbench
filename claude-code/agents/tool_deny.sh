@@ -62,7 +62,7 @@ block() {
 # Returns 0 when a rule matched, 1 otherwise.
 check_section() {
   local section="$1" jq_root="$2" label="$3" log_level="$4" mode="$5"
-  log "INFO" "$label: evaluating section '$section'"
+  #log "DEBUG" "$label: evaluating section '$section'"
 
   while IFS= read -r key; do
     # Skip metadata keys starting with '_'
@@ -99,7 +99,7 @@ check_section() {
 
   done < <(jq -r --arg s "$section" "${jq_root}[\$s] | keys[]" "$RULES_FILE" 2>/dev/null)
 
-  log "INFO" "$label: no match in section '$section'"
+  #log "DEBUG" "$label: no match in section '$section'"
   return 1
 }
 

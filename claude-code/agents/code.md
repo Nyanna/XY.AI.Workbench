@@ -1,7 +1,7 @@
 ---
 name: code
 description: Analyse, refactor and research code
-tools: Read, Grep, Glob, Bash, Write, Edit, Agent
+tools: Read, Grep, Glob, Bash, Write, Edit, Agent(web-research)
 model: sonnet
 effort: medium
 ---

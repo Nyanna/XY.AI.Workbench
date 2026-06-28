@@ -46,7 +46,8 @@
 			"Bash(git branch -d *)": "You are not allowed to modify the repository state. Instruct the user.",
 			"Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user.",
 			"Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user.",
-			"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user."
+			"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(curl *)": "Use the 'web-research' agent instead."
 		},
 		"code": {
 			"EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
