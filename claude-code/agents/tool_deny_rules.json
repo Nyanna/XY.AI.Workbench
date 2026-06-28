@@ -1,6 +1,6 @@
 {
 	"_comment": [
-		"Mapping: agent_id -> rule_key -> redirect_reason.",
+		"Mapping: agent_id -> rule_key -> reason.",
 		"agent_id '*' applies to ALL agents.",
 		"rule_key formats:",
 		"  'ToolName'          – exact match against tool name",
@@ -10,10 +10,66 @@
 		"Empty string reasons are placeholders – the tool call is NOT blocked when reason is empty.",
 		"",
 		"Evaluation order:",
-		"  1. Redirect rules ('*' section, then agent section) – block with specific reason on match.",
+		"  1. Redirect rules ('_redirect' -> '*' section, then '_redirect' -> agent section) – block with specific reason on match.",
 		"  2. Allow-list ('_allow' -> '*' section, then '_allow' -> agent section) – permit on match.",
-		"  3. Generic deny – any tool that passes all redirect rules but is not in the allow-list."
+		"  3. Deny rules ('_deny' -> '*' section, then '_deny' -> agent section) – block with specific reason on match.",
+		"  4. Generic deny – any tool that passes all rules but is not in the allow-list."
 	],
+	"_redirect": {
+		"*": {
+			"_comment": "Rules that apply to every agent",
+			"ToolSearch": "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed",
+			"AskUserQuestion": "This tool is inefficient. Instruct the user to complete the prompt directly.",
+			"/Task.*/": "Task tools are disabled. Instruct the user and explain why you think you need this.",
+			"/Cron.*/": "Cron tools are disabled. Instruct the user and explain why you think you need this.",
+			"Workflow": "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve.",
+			"Bash(git commit *)": "The user will review the changes and commit himself",
+			"Bash(git commit)": "The user will review the changes and commit himself",
+			"Bash(git push *)": "No writing access to the repository is granted",
+			"Bash(git push)": "No writing access to the repository is granted",
+			"Bash(git add *)": "The user will review the changes and add files himself",
+			"Bash(git add)": "The user will review the changes and add files himself",
+			"Bash(git merge *)": "You are not allowed to merge. Ask the user for instructions",
+			"Bash(git rebase *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git reset *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git revert *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git rm *)": "Instruct the user which files to remove manually",
+			"Bash(git mv *)": "The user will review the changes and move files himself",
+			"Bash(git tag *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git stash *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git cherry-pick *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git fetch *)": "Instruct the user to fetch.",
+			"Bash(git pull *)": "Instruct the user to pull.",
+			"Bash(git restore *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git switch *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git checkout *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git branch -d *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user.",
+			"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user."
+		},
+		"code": {
+			"EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
+			"ExitPlanMode": "Instruct the user to change the plan mode on your behalf",
+			"WebFetch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly.",
+			"WebSearch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly."
+		},
+		"web-research": {
+			"Bash": "Running Bash violates your specific focused purpose",
+			"Write": "You are not allowed to write files. Ask the user for how to proceed",
+			"Read": "Trying to read a file indicates your instructions isn't sufficient. Abort and report the error.",
+			"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Edit": "You are not allowed to edit files. Ask the user for how to proceed"
+		},
+		"research": {
+			"Bash": "Running Bash violates your specific focused purpose",
+			"Read": "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly.",
+			"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Edit": "Editing files is inefficient for you. Just write into a new file."
+		}
+	},
 	"_allow": {
 		"_comment": [
 			"Allow-list evaluated after all redirect rules.",
@@ -51,58 +107,5 @@
 			"_Agent": "Generic all agent deny if not allowed explicit",
 			"Agent": "The agent you are trying to use isn't allowed. Inform the user about this incident."
 		}
-	},
-	"*": {
-		"_comment": "Rules that apply to every agent",
-		"ToolSearch": "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed",
-		"AskUserQuestion": "This tool is inefficient. Instruct the user to complete the prompt directly.",
-		"/Task.*/": "Task tools are disabled. Instruct the user and explain why you think you need this.",
-		"/Cron.*/": "Cron tools are disabled. Instruct the user and explain why you think you need this.",
-		"Workflow": "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve.",
-		"Bash(git commit *)": "The user will review the changes and commit himself",
-		"Bash(git commit)": "The user will review the changes and commit himself",
-		"Bash(git push *)": "No writing access to the repository is granted",
-		"Bash(git push)": "No writing access to the repository is granted",
-		"Bash(git add *)": "The user will review the changes and add files himself",
-		"Bash(git add)": "The user will review the changes and add files himself",
-		"Bash(git merge *)": "You are not allowed to merge. Ask the user for instructions",
-		"Bash(git rebase *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git reset *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git revert *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git rm *)": "Instruct the user which files to remove manually",
-		"Bash(git mv *)": "The user will review the changes and move files himself",
-		"Bash(git tag *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git stash *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git cherry-pick *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git fetch *)": "Instruct the user to fetch.",
-		"Bash(git pull *)": "Instruct the user to pull.",
-		"Bash(git restore *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git switch *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git checkout *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git branch -d *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user."
-	},
-	"code": {
-		"EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
-		"ExitPlanMode": "Instruct the user to change the plan mode on your behalf",
-		"WebFetch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly.",
-		"WebSearch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly."
-	},
-	"web-research": {
-		"Bash": "Running Bash violates your specific focused purpose",
-		"Write": "You are not allowed to write files. Ask the user for how to proceed",
-		"Read": "Trying to read a file indicates your instructions isn't sufficient. Abort and report the error.",
-		"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
-		"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
-		"Edit": "You are not allowed to edit files. Ask the user for how to proceed"
-	},
-	"research": {
-		"Bash": "Running Bash violates your specific focused purpose",
-		"Read": "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly.",
-		"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
-		"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
-		"Edit": "Editing files is inefficient for you. Just write into a new file."
 	}
 }

@@ -104,8 +104,8 @@ check_section() {
 }
 
 # 1. Redirect rules – block with specific message
-if check_section "*"        "."       "check_redirect"  "REDIR" "block"; then exit 2; fi
-if check_section "$SUBAGENT" "."      "check_redirect"  "REDIR" "block"; then exit 2; fi
+if check_section "*"        "._redirect" "check_redirect"  "REDIR" "block"; then exit 2; fi
+if check_section "$SUBAGENT" "._redirect" "check_redirect"  "REDIR" "block"; then exit 2; fi
 
 # 2. Allow-list – explicit permit
 if check_section "*"        "._allow" "check_allowlist" "ALLOW" "allow"; then exit 0; fi
