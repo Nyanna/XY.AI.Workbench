@@ -2,7 +2,7 @@
 
 Comprehensive knowledge database
 
-## Rules
+## (MCP-)Agent Rules
 
 * All agents Answer short, precise and direct without explanation unless explicitly requested
 * Isolated modular interfaces with skills and scripts
@@ -19,6 +19,7 @@ Comprehensive knowledge database
 
 
 ## Findings
+
 * Use Jira style Markdown threads, continously thread for internal project organization
 * Use local LanguageTool Server with Docker
 * Set Effort and Thinking based on exspected input/output and total estimated token cost
@@ -38,20 +39,21 @@ Agent
 : Use pseudoagents via MCP
 
 
-## Todo language-tool-watchtower
+## Todo
+
+* github access via search und code API mit account key für bessere research -> research agent
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
-* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
+	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
+	* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
+	* Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
+	* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
+	* MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
+	
 * A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
-* Rag server bauen/installieren und einbinden
-* github access via search und code API mit account key für bessere research -> research agent
-
-* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
-* Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
-* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
-* MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
+* Rag server bauen/installieren und einbinden für projektknowledge
 
 ### Ideas unformulated
 
@@ -63,7 +65,7 @@ Agent
 	* Das Kostet Token oder verschlechtert vielleicht alles
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * Wenn ich einen MCP controller habe. Brauche ich dann noch eine aufrufende container session oder ist koordination nicht ein subagent mit gecachtem prompt?
-* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
+	* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
 * ermissions hook zur umlritung kann zur umlenkung und steuerung in den MCP verwendet werden wenn er ohne timout läuft
 * Splitt terminal verwenden für permission controll und session visualisierung über MCP controller
 * maybe use in shell execution with !! in any subagents, for python
@@ -71,22 +73,15 @@ Agent
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 
 ## Notes
+
 When running with --agent or inside a subagent, two additional fields are included:
 : agent_id	Unique identifier for the subagent. Present only when the hook fires inside a subagent call. Use this to distinguish subagent hook calls from main-thread calls.
 : agent_type	Agent name (for example, "Explore" or "security-reviewer"). Present when the session uses --agent or the hook fires inside a subagent. For subagents, the subagent’s type takes precedence over the session’s --agent value. For custom subagents, this is the name field from the agent’s frontmatter, not the filename.
 
+### MCP Agent Wrapper
 
-
-
-# Agent Wrapper - !ändern, session launcher soll moddel und effort aus definition setzen
 Erstelle ein Bash-Skript, das eine Schnittstelle zu einem Subagenten darstellt. Das Skript nimmt Parameter von einer aufrufenden Instanz entgegen, wo es als Tool integriert ist, startet den Subagenten im non-interactive Modus (–print) und leitet die Ausgaben entsprechend zurück.
 
-Das Skript empfängt den Namen des Subagenten, und prüft dessen Definition.
-Der Name entspricht dem Dateinamenprefix.
-Die Agentendefinition befindet sich im selben Verzeichnis wie das Skript.
-Das Skript liest die Agentendefinition und wendet die Frontmatter-Felder Model (–model) und Effort (–effort) an.
-Das Skript leitet den Prompt des Aufrufers weiter
 Das Skript unterstützt das Fortführen einer Session mittels Resume (--resume)
 Das Ausgabeformat ist immer Stream-JSON (--output-format stream-json)
 Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. Der Dateiname beginnt mit dem Timecode im Format "YYMMDD.HHMMSS", gefolgt von dem Namen des Agents und einer zufälligen Hash aus 4 Hexadezimalzeichen.
-Recherchiere, wie das Agent-Tool von Claude-Code genau funktioniert. Wird intern eine neue Instanz erzeugt, ähnlich einer non-interactive Session wie über die CLI direkt? Nutzt Claude-Dabei das JSON-Stream-Ausgabeformat?
