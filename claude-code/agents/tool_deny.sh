@@ -32,31 +32,33 @@ SUBAGENT=$(echo "$INPUT" | jq -r '.agent_type')
 log "INFO" "--- new invocation --- tool=$TOOLNAME agent=$SUBAGENT${COMMAND:+ command=$COMMAND}"
 log_json "INPUT JSON:" "$INPUT"
 
-deny() {
-  local reason="$1"
-  log "DENY" "EXIT(2) tool=$TOOLNAME agent=$SUBAGENT — $reason"
-  echo "$reason" >&2
+# Exit with code 2 – used by redirect rules and the generic fallback deny
+block() {
+  local message="$1"
+  local reason="$2"
+  log "$reason" "EXIT(2) tool=$TOOLNAME agent=$SUBAGENT — $message"
+  echo "$message" >&2
   exit 2
 }
 
-# Evaluate all deny rules for a given agent section (agent_id or '*')
-check_section() {
+# Evaluate all redirect rules for a given agent section (agent_id or '*')
+check_redirect_section() {
   local section="$1"
 
   while IFS= read -r key; do
     # Skip metadata keys starting with '_'
     [[ "$key" == _* ]] && continue
 
-    # Fetch the deny reason; skip if empty (placeholder)
-    local reason
-    reason=$(jq -r --arg s "$section" --arg k "$key" '.[$s][$k] // empty' "$RULES_FILE")
-    [ -z "$reason" ] && continue
+    # Fetch the redirect message; skip if empty (placeholder)
+    local message
+    message=$(jq -r --arg s "$section" --arg k "$key" '.[$s][$k] // empty' "$RULES_FILE")
+    [ -z "$message" ] && continue
 
     # --- /regex/ pattern – matched against tool name ---
     if [[ "$key" =~ ^/(.+)/$ ]]; then
       local pattern="${BASH_REMATCH[1]}"
       if [[ "$TOOLNAME" =~ $pattern ]]; then
-        deny "$reason"
+        block "$message" "REDIR"
       fi
 
     # --- ToolName(glob) pattern – matched against COMMAND (bash command or subagent_type) ---
@@ -64,26 +66,26 @@ check_section() {
       local tool="${BASH_REMATCH[1]}"
       local pattern="${BASH_REMATCH[2]}"
       if [ "$TOOLNAME" = "$tool" ] && [[ "$COMMAND" == $pattern ]]; then
-        deny "$reason"
+        block "$message" "REDIR"
       fi
 
     # --- Plain tool name – exact match ---
     elif [ "$key" = "$TOOLNAME" ]; then
-      deny "$reason"
+      block "$message" "REDIR"
     fi
 
   done < <(jq -r --arg s "$section" '.[$s] | keys[]' "$RULES_FILE" 2>/dev/null)
 }
 
 # Check a single allow-list section; returns 0 if the tool is explicitly allowed
-check_allow_section() {
+check_allowlist_section() {
   local section="$1"
 
   while IFS= read -r key; do
     # Skip metadata keys starting with '_'
     [[ "$key" == _* ]] && continue
 
-    # Fetch the allow entry; skip if empty (placeholder)
+    # Fetch the allow-list entry; skip if empty (placeholder)
     local entry
     entry=$(jq -r --arg s "$section" --arg k "$key" '._allow[$s][$k] // empty' "$RULES_FILE")
     [ -z "$entry" ] && continue
@@ -109,19 +111,19 @@ check_allow_section() {
   return 1
 }
 
-# 1. Deny rules (specific reasons)
-check_section "*"
-check_section "$SUBAGENT"
+# 1. Redirect rules – block with specific message
+check_redirect_section "*"
+check_redirect_section "$SUBAGENT"
 
-# 2. Allow-list (last resort permit)
-if check_allow_section "*"; then
+# 2. Allow-list – explicit permit
+if check_allowlist_section "*"; then
   log "ALLOW" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched allow-list section '*'"
   exit 0
 fi
-if check_allow_section "$SUBAGENT"; then
+if check_allowlist_section "$SUBAGENT"; then
   log "ALLOW" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched allow-list section '$SUBAGENT'"
   exit 0
 fi
 
-# 3. Generic fallback deny – tool passed no deny rule but is also not in the allow-list
-deny "Tool '$TOOLNAME' is neither allowed or has a specific rule. Abort and ask the user."
+# 3. Generic fallback deny – no redirect rule matched, tool is also not in the allow-list
+block "Tool '$TOOLNAME' is neither allowed nor has a redirect rule. Abort and ask the user." "DENY"

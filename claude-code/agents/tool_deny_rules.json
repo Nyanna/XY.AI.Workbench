@@ -1,6 +1,6 @@
 {
 	"_comment": [
-		"Mapping: agent_id -> rule_key -> deny_reason.",
+		"Mapping: agent_id -> rule_key -> redirect_reason.",
 		"agent_id '*' applies to ALL agents.",
 		"rule_key formats:",
 		"  'ToolName'          – exact match against tool name",
@@ -10,19 +10,19 @@
 		"Empty string reasons are placeholders – the tool call is NOT blocked when reason is empty.",
 		"",
 		"Evaluation order:",
-		"  1. Deny rules ('*' section, then agent section) – block with specific reason on match.",
+		"  1. Redirect rules ('*' section, then agent section) – block with specific reason on match.",
 		"  2. Allow-list ('_allow' -> '*' section, then '_allow' -> agent section) – permit on match.",
-		"  3. Generic deny – any tool that passes all deny rules but is not in the allow-list."
+		"  3. Generic deny – any tool that passes all redirect rules but is not in the allow-list."
 	],
 	"_allow": {
 		"_comment": [
-			"Allow-list evaluated after all deny rules.",
+			"Allow-list evaluated after all redirect rules.",
 			"A tool call is permitted when it matches an entry here (non-empty value).",
 			"Empty values are placeholders and do NOT grant permission.",
-			"Key formats are identical to the deny-rule formats above."
+			"Key formats are identical to the redirect-rule formats above."
 		],
 		"code": {
-			"_comment": "Tools permitted for every agent (subject to deny rules above)",
+			"_comment": "Tools permitted for every agent (subject to redirect rules above)",
 			"Read": "Standard file read",
 			"Grep": "File search",
 			"Glob": "File glob",
