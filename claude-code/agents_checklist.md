@@ -1,43 +1,42 @@
+# Project Checklist
 
-
+Comprehensive knowledge database
 
 ## Rules
 
 * All agents Answer short, precise and direct without explanation unless explicitly requested
 * Isolated modular interfaces with skills and scripts
-* Agents talk and prompt to each other
+	* Agents talk and prompt to each other
+	* Use Agent(web-research) tools definition to link and restrict subagents
+	* Agents should have a meaningfull size. Not to small not to big to be token and salience efficient
 * Best prompt pattern ist structure as soft-prompt
-* Avoid MCP for overhead reason, preffer CLI. (MCP is bloated and not intuition optimized)
 * Use modell intuition with lazy tool injection on intercept
-* Modell should report failing or not intercepted intuition like not enabled tools in the session
+	* Modell should report failing or not intercepted intuition like not enabled tools in the session
 * Spell corrections increases quality
 * Bind to model intuition for not internalized tools, lazy inject directions
-* User level hooks should non block subagents, check for subagent context
-* Agents should have a meaningfull size. Not to small not to big to be token and salience efficient
-* Use Agent(web-research) tools definition to link and restrict subagents
+* User level hooks should not block subagents like spellchecking
+* Keep MCP minimal, e.g. don't use Exa advanced search for all agents
 
 
 ## Findings
 * Use Jira style Markdown threads, continously thread for internal project organization
 * Use local LanguageTool Server with Docker
-* Exa is available as CLI but requieres extensive coding to implement a guided wizard for the agent to inject usage advice on demand. Without MCP overhead.
-* use and integrate commands
-* context7 is available asl CLI with command, agent and skill
 * Set Effort and Thinking based on exspected input/output and total estimated token cost
 * Thinking cost is quality indicator for prompt. Better specified => less thinking.
-* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
+	* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
 * Cancel claude pro and go soley for API keys? At least test a month.
-* For exports use /copy, press W, enter filename
+* For exports use /copy and copy outputfile
 * Current Bare-Mode don't supports Subscription OAuth
+* MCP timeout via millisecond setting in MCP config
+* MCP is preferred interface and will route other MCP by optimizing the interface specs. Thats better than CLI optimizing.
 
 Command/Skill
 : When simple, small or unchanged input/output
 
 Agent
 : When post- or preprocessing makes sense to condense or clarify
+: Use pseudoagents via MCP
 
-* MCP timeout via millisecond setting in MCP config
-* MCP is preferred interface and will route other MCP by optimizing the interface specs. Thats better than CLI optimizing.
 
 ## Todo language-tool-watchtower
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
