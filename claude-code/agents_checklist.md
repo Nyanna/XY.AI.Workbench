@@ -47,7 +47,6 @@ Agent
 ## Todo
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 
-* !Bundle allow/deny/relay lists with frontmatter to agent definition, allow script read from there, thats also more efficient
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 	* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.

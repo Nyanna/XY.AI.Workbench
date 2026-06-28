@@ -6,6 +6,20 @@ tools: Bash
 model: haiku
 effort: low
 color: purple
+tool_deny:
+  redirect:
+    "Bash(cat *)": "Read the file using nodesh."
+    "Bash(grep *)": "Read the file using nodesh."
+    "Bash(ls *)": "The user should provide absolute file pathes."
+    Write: "Only write using nodesh."
+    Read: "Read a markdown file by first analyzing the heading structure using nodesh"
+    Grep: "Only use nodesh to analyse a Markdown file."
+    Glob: "Ask the user about required filenames."
+    Edit: "Only edit using nodesh"
+  allow:
+    "Bash(nodesh *)": "Execute remark script"
+  deny:
+    Bash: "You are only allowed to use the provided nodesh command."
 ---
 
 * You are a Markdown processor

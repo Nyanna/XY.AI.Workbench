@@ -6,9 +6,17 @@ tools: mcp__github__*
 model: haiku
 effort: low
 color: pink
+tool_deny:
+  redirect:
+    Bash: "Running Bash violates your specific focused purpose"
+    Write: "You are not allowed to write files. Ask the user for how to proceed"
+    Read: "Trying to read a file indicates your instructions isn't sufficient. Abort and report the error."
+    Grep: "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information."
+    Glob: "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information."
+    Edit: "You are not allowed to edit files. Ask the user for how to proceed"
+  allow:
+    "/mcp__github__.*/": "Github MCP tool call"
 ---
-
-# General instructions
 
 * You receive a research prompt targeting a specific topic, API, library, or set of Github sources — analyze the request carefully before beginning
 * Use the Github MCP to discover relevant sources

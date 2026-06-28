@@ -1,0 +1,37 @@
+---
+description: General and default Agent settings
+tool_deny:
+  redirect:
+    ToolSearch: "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed"
+    AskUserQuestion: "This tool is inefficient. Instruct the user to complete the prompt directly."
+    "/Task.*/": "Task tools are disabled. Instruct the user and explain why you think you need this."
+    "/Cron.*/": "Cron tools are disabled. Instruct the user and explain why you think you need this."
+    Workflow: "Workflow is disabled. Background processing isn't requested. Report this error and ask for advice. Explain what you tried to achieve."
+    "Bash(git commit *)": "The user will review the changes and commit himself"
+    "Bash(git commit)": "The user will review the changes and commit himself"
+    "Bash(git push *)": "No writing access to the repository is granted"
+    "Bash(git push)": "No writing access to the repository is granted"
+    "Bash(git add *)": "The user will review the changes and add files himself"
+    "Bash(git add)": "The user will review the changes and add files himself"
+    "Bash(git merge *)": "You are not allowed to merge. Ask the user for instructions"
+    "Bash(git rebase *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git reset *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git revert *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git rm *)": "Instruct the user which files to remove manually"
+    "Bash(git mv *)": "The user will review the changes and move files himself"
+    "Bash(git tag *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git stash *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git cherry-pick *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git fetch *)": "Instruct the user to fetch."
+    "Bash(git pull *)": "Instruct the user to pull."
+    "Bash(git restore *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git switch *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git checkout *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git branch -d *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user."
+    "Bash(curl *)": "Use the 'web-research' agent instead."
+  deny:
+    Agent: "The agent you are trying to use isn't allowed. Inform the user about this incident."
+---

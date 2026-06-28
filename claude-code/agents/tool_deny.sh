@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(dirname "$0")"
-RULES_FILE="$SCRIPT_DIR/tool_deny_rules.json"
+AGENTS_DIR="${AGENTS_DIR:-$SCRIPT_DIR}"
 LOG_FILE="$SCRIPT_DIR/tool_deny.log"
 RE_GLOB_KEY='^([^(]+)\((.+)\)$'
 
@@ -18,17 +18,20 @@ log_json() {
   printf '%s\n' "$json" | jq '.' >> "$LOG_FILE" 2>/dev/null || printf '%s\n' "$json" >> "$LOG_FILE"
 }
 
-if [ ! -f "$RULES_FILE" ]; then
-  log "WARN" "EXIT(0) rules file not found: $RULES_FILE — permitting tool call"
-  echo "tool_deny: rules file not found: $RULES_FILE" >&2
-  exit 0
-fi
+# Resolve agent name to its definition file; '*' maps to default.md
+agent_file() {
+  if [ "$1" = "*" ]; then
+    printf '%s/default.md' "$AGENTS_DIR"
+  else
+    printf '%s/%s.md' "$AGENTS_DIR" "$1"
+  fi
+}
 
-if ! jq empty "$RULES_FILE" 2>/dev/null; then
-  JQ_ERROR=$(jq empty "$RULES_FILE" 2>&1)
-  log "ERROR" "EXIT(2) rules file is not valid JSON: $JQ_ERROR"
-  echo "tool_deny: rules file is not valid JSON: $JQ_ERROR" >&2
-  exit 2
+DEFAULT_FILE=$(agent_file "*")
+if [ ! -f "$DEFAULT_FILE" ]; then
+  log "WARN" "EXIT(0) default agent file not found: $DEFAULT_FILE — permitting tool call"
+  echo "tool_deny: default agent file not found: $DEFAULT_FILE" >&2
+  exit 0
 fi
 
 INPUT=$(cat)
@@ -53,24 +56,26 @@ block() {
   exit 2
 }
 
-# Evaluate all rules in one configuration section.
-#   $1  section   – agent_id or '*'
-#   $2  jq_root   – jq path prefix for the rule object: '.' | '._deny' | '._allow'
+# Evaluate all rules in one agent+section combination.
+#   $1  agent     – agent name or '*' (maps to default.md)
+#   $2  section   – redirect | allow | deny
 #   $3  label     – log label, e.g. 'check_redirect'
 #   $4  log_level – level passed to emit_block / log on match: 'REDIR' | 'DENY' | 'ALLOW'
 #   $5  mode      – 'block' → emit_block + return 0 | 'allow' → log + return 0
 # Returns 0 when a rule matched, 1 otherwise.
 check_section() {
-  local section="$1" jq_root="$2" label="$3" log_level="$4" mode="$5"
-  #log "DEBUG" "$label: evaluating section '$section'"
+  local agent="$1" section="$2" label="$3" log_level="$4" mode="$5"
 
-  while IFS= read -r key; do
+  local file
+  file=$(agent_file "$agent")
+  [ -f "$file" ] || return 1
+
+  local frontmatter
+  frontmatter=$(awk 'BEGIN{n=0} /^---/{n++; if(n==2) exit; next} n==1{print}' "$file")
+
+  while IFS=$'\t' read -r key value; do
     # Skip metadata keys starting with '_'
     [[ "$key" == _* ]] && continue
-
-    # Fetch the rule value; skip empty placeholders
-    local value
-    value=$(jq -r --arg s "$section" --arg k "$key" "${jq_root}[\$s][\$k] // empty" "$RULES_FILE")
     [ -z "$value" ] && continue
 
     local matched=false
@@ -97,30 +102,30 @@ check_section() {
 
     if $matched; then
       if [ "$mode" = "allow" ]; then
-        log "$log_level" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched $label section '$section' key '$key'"
+        log "$log_level" "EXIT(0) tool=$TOOLNAME agent=$SUBAGENT — matched $label '$agent' key '$key'"
       else
         emit_block "$value" "$log_level"
       fi
       return 0
     fi
 
-  done < <(jq -r --arg s "$section" "${jq_root}[\$s] | keys[]" "$RULES_FILE" 2>/dev/null)
+  done < <(printf '%s\n' "$frontmatter" \
+    | yq -r ".tool_deny.${section} // {} | to_entries | .[] | .key + \"\t\" + .value" 2>/dev/null)
 
-  #log "DEBUG" "$label: no match in section '$section'"
   return 1
 }
 
 # 1. Redirect rules – block with specific message
-if check_section "*"        "._redirect" "check_redirect"  "REDIR" "block"; then exit 2; fi
-if check_section "$SUBAGENT" "._redirect" "check_redirect"  "REDIR" "block"; then exit 2; fi
+if check_section "*"         "redirect" "check_redirect" "REDIR" "block"; then exit 2; fi
+if check_section "$SUBAGENT" "redirect" "check_redirect" "REDIR" "block"; then exit 2; fi
 
 # 2. Allow-list – explicit permit
-if check_section "*"        "._allow" "check_allowlist" "ALLOW" "allow"; then exit 0; fi
-if check_section "$SUBAGENT" "._allow" "check_allowlist" "ALLOW" "allow"; then exit 0; fi
+if check_section "*"         "allow" "check_allowlist" "ALLOW" "allow"; then exit 0; fi
+if check_section "$SUBAGENT" "allow" "check_allowlist" "ALLOW" "allow"; then exit 0; fi
 
 # 3. Configured deny rules – specific deny message per tool/agent, before the hardcoded fallback
-if check_section "*"        "._deny"  "check_deny"      "DENY"  "block"; then exit 2; fi
-if check_section "$SUBAGENT" "._deny" "check_deny"      "DENY"  "block"; then exit 2; fi
+if check_section "*"         "deny" "check_deny" "DENY" "block"; then exit 2; fi
+if check_section "$SUBAGENT" "deny" "check_deny" "DENY" "block"; then exit 2; fi
 
 # 4. Generic fallback deny – no rule matched at all
 block "Tool '$TOOLNAME' is neither allowed nor has a redirect or deny rule. Abort and ask the user." "DENY"
