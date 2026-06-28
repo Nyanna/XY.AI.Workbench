@@ -24,6 +24,13 @@ if [ ! -f "$RULES_FILE" ]; then
   exit 0
 fi
 
+if ! jq empty "$RULES_FILE" 2>/dev/null; then
+  JQ_ERROR=$(jq empty "$RULES_FILE" 2>&1)
+  log "ERROR" "EXIT(2) rules file is not valid JSON: $JQ_ERROR"
+  echo "tool_deny: rules file is not valid JSON: $JQ_ERROR" >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 TOOLNAME=$(echo "$INPUT" | jq -r '.tool_name')
 COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // .tool_input.subagent_type // empty')
