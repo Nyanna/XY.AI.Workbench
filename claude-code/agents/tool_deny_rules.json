@@ -46,6 +46,12 @@
 			"/mcp__exa__.*/": "Exa MCP tool call"
 		}
 	},
+	"_deny": {
+		"*": {
+			"_Agent": "Generic all agent deny if not allowed explicit",
+			"Agent": "The agent you are trying to use isn't allowed. Inform the user about this incident."
+		}
+	},
 	"*": {
 		"_comment": "Rules that apply to every agent",
 		"ToolSearch": "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed",
@@ -77,7 +83,6 @@
 		"Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user.",
 		"Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user.",
 		"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user.",
-		"Agent": "The agent you are trying to use isn't allowed. Inform the user about this incident."
 	},
 	"code": {
 		"EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
