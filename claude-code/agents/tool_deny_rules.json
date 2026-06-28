@@ -49,12 +49,21 @@
 			"Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user.",
 			"Bash(curl *)": "Use the 'web-research' agent instead."
 		},
+		"_coordinator agents": {},
 		"code": {
 			"EnterPlanMode": "Instruct the user to change the plan mode on your behalf",
 			"ExitPlanMode": "Instruct the user to change the plan mode on your behalf",
 			"WebFetch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly.",
 			"WebSearch": "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research'; do not attempt these lookups directly."
 		},
+		"research": {
+			"Bash": "Running Bash violates your specific focused purpose",
+			"Read": "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly.",
+			"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
+			"Edit": "Editing files is inefficient for you. Just write into a new file."
+		},
+		"_labor agents": {},
 		"web-research": {
 			"Bash": "Running Bash violates your specific focused purpose",
 			"Write": "You are not allowed to write files. Ask the user for how to proceed",
@@ -63,12 +72,13 @@
 			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 			"Edit": "You are not allowed to edit files. Ask the user for how to proceed"
 		},
-		"research": {
+		"github-research": {
 			"Bash": "Running Bash violates your specific focused purpose",
-			"Read": "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly.",
+			"Write": "You are not allowed to write files. Ask the user for how to proceed",
+			"Read": "Trying to read a file indicates your instructions isn't sufficient. Abort and report the error.",
 			"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
-			"Edit": "Editing files is inefficient for you. Just write into a new file."
+			"Edit": "You are not allowed to edit files. Ask the user for how to proceed"
 		}
 	},
 	"_allow": {
@@ -78,29 +88,26 @@
 			"Empty values are placeholders and do NOT grant permission.",
 			"Key formats are identical to the redirect-rule formats above."
 		],
+		"_coordinator agents": {},
 		"code": {
-			"_comment": "Tools permitted for every agent (subject to redirect rules above)",
 			"Read": "Standard file read",
 			"Grep": "File search",
 			"Glob": "File glob",
 			"Bash": "Shell execution",
 			"Write": "Standard file write",
 			"Edit": "Standard file edit",
-			"Agent": "Subagent spawning",
-			"WebFetch": "HTTP fetch",
-			"WebSearch": "Web search",
-			"_Agent(new)": "Add you custom agents here",
-			"Agent(research)": "Web search",
-			"Agent(web-research)": "Web search",
-			"Agent(code)": "Web search"
-		},
-		"research": {
-			"Write": "Standard file write",
 			"Agent": "Subagent spawning"
 		},
+		"research": {
+			"Agent": "Subagent spawning"
+		},
+		"_labor agents": {},
 		"web-research": {
 			"/mcp__context7__.*/": "Context7 MCP tool call",
 			"/mcp__exa__.*/": "Exa MCP tool call"
+		},
+		"github-research": {
+			"/mcp__github__.*/": "Github MCP tool call"
 		}
 	},
 	"_deny": {

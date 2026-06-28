@@ -9,6 +9,8 @@ Comprehensive knowledge database
 	* Agents talk and prompt to each other
 	* Use Agent(web-research) tools definition to link and restrict subagents
 	* Agents should have a meaningfull size. Not to small not to big to be token and salience efficient
+	* Use in-place Pre/Postproccessor agents for extensive interfaces that justifies additional optimization costs
+	* Use Advisors for in-proccess decision making an permission approvals
 * Best prompt pattern ist structure as soft-prompt
 * Use modell intuition with lazy tool injection on intercept
 	* Modell should report failing or not intercepted intuition like not enabled tools in the session
@@ -16,6 +18,7 @@ Comprehensive knowledge database
 * Bind to model intuition for not internalized tools, lazy inject directions
 * User level hooks should not block subagents like spellchecking
 * Keep MCP minimal, e.g. don't use Exa advanced search for all agents
+* Labor type Agents shoudl not inteferre  with calling agengs decission making, no suggestions or follow up questions
 
 
 ## Findings
@@ -40,8 +43,6 @@ Agent
 
 
 ## Todo
-
-* github access via search und code API mit account key für bessere research -> research agent
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 	* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
@@ -54,19 +55,19 @@ Agent
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
 * Rag server bauen/installieren und einbinden für projektknowledge
+* Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
+	* is this query related to context?
+	* is this agent use correct?
+	* violates this some target or increases costs or is meaningless?
+	* is this request good or this tool usage?
+	* Tool hook can be used to intercet and control
+* Github PAT MCP for work profile {"type":"http","url":"https://api.githubcopilot.com/mcp","headers":{"Authorization":"Bearer YOUR_GITHUB_PAT"}}
 
 ### Ideas unformulated
 
-* der web-researcher hat entscheidungsempfehlungen gegeben (schlecht)
-	* Im prompt Anweisung keine Handlungsempfehlungen zu geben. Das ist Aufgabe des Coordinator
-	* Diese gegenanweisung frisst salienz
-	* Ein zwischenAgent könnte die Anweisungen filtern (Was ist besser oder günstiger?)
-* Zwischenagents könntenm generell Prompt und Result Pre/Postproccessing machen. In-place prompt optimize.
-	* Das Kostet Token oder verschlechtert vielleicht alles
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * Wenn ich einen MCP controller habe. Brauche ich dann noch eine aufrufende container session oder ist koordination nicht ein subagent mit gecachtem prompt?
 	* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
-* ermissions hook zur umlritung kann zur umlenkung und steuerung in den MCP verwendet werden wenn er ohne timout läuft
 * Splitt terminal verwenden für permission controll und session visualisierung über MCP controller
 * maybe use in shell execution with !! in any subagents, for python
 * statusline links hook, footerLinksRegexes, maybe for command approvals
