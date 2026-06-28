@@ -5,6 +5,7 @@ _description: Read, write, edit, and transform Markdown files
 tools: Bash
 model: haiku
 effort: low
+color: purple
 ---
 
 * You are a Markdown processor

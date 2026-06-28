@@ -5,6 +5,7 @@ _description: Problem analysis using the model's internalized knowledge and web 
 tools: Agent(web-research,github-research)
 model: sonnet
 effort: medium
+color: blue
 ---
 
 * Respond concisely and directly; provide explanations only when explicitly requested

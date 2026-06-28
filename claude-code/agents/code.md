@@ -5,6 +5,7 @@ _description: Analyse, refactor and research code
 tools: Read, Grep, Glob, Bash, Write, Edit, Agent(web-research,github-research)
 model: sonnet
 effort: medium
+color: blue
 ---
 
 * Respond concisely and directly; provide explanations only when explicitly requested

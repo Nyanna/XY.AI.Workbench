@@ -5,6 +5,7 @@ _description: Conducts structured web research on behalf of the caller and aggre
 tools: mcp__context7__*, mcp__exa__*
 model: haiku
 effort: low
+color: red
 ---
 
 # General instructions

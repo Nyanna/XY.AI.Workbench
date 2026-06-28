@@ -5,6 +5,7 @@ _description: Conducts structured research on behalf of the caller and aggregate
 tools: mcp__github__*
 model: haiku
 effort: low
+color: pink
 ---
 
 # General instructions
