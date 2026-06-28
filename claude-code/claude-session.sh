@@ -104,6 +104,13 @@ if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Resolve script directory and export agents path for subagents
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export AGENTS_DIR="${SCRIPT_DIR}/agents"
+export PATH="${AGENTS_DIR}:${PATH}"
+
+# ---------------------------------------------------------------------------
 # Build and run Claude command
 # ---------------------------------------------------------------------------
 CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
@@ -111,9 +118,7 @@ CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
 if [[ -n "$AGENT_ARG" ]]; then
     CLAUDE_ARGS+=(--agent "$AGENT_ARG")
 
-    # Read agent definition from agents/ dir relative to this script
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    AGENT_FILE="${SCRIPT_DIR}/agents/${AGENT_ARG}.md"
+    AGENT_FILE="${AGENTS_DIR}/${AGENT_ARG}.md"
 
     if [[ -f "$AGENT_FILE" ]]; then
         # Extract frontmatter block (between first pair of ---)

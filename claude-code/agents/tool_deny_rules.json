@@ -79,6 +79,16 @@
 			"Grep": "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 			"Glob": "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information.",
 			"Edit": "You are not allowed to edit files. Ask the user for how to proceed"
+		},
+		"markdown": {
+			"Bash(cat *)": "Read the file using nodesh.",
+			"Bash(grep *)": "Read the file using nodesh.",
+			"Bash(ls *)": "The user should provide absolute file pathes.",
+			"Write": "Only write using nodesh.",
+			"Read": "Read a markdown file by first analyzing the heading structure using nodesh",
+			"Grep": "Only use nodesh to analyse a Markdown file.",
+			"Glob": "Ask the user about required filenames.",
+			"Edit": "Only edit using nodesh"
 		}
 	},
 	"_allow": {
@@ -108,12 +118,18 @@
 		},
 		"github-research": {
 			"/mcp__github__.*/": "Github MCP tool call"
+		},
+		"markdown": {
+			"Bash(nodesh *)": "Execute remark script"
 		}
 	},
 	"_deny": {
 		"*": {
 			"_Agent": "Generic all agent deny if not allowed explicit",
 			"Agent": "The agent you are trying to use isn't allowed. Inform the user about this incident."
+		},
+		"markdown": {
+			"Bash": "You are only allowed to use the provided nodesh command."
 		}
 	}
 }

@@ -79,9 +79,16 @@ check_section() {
     if [[ "$key" =~ ^/(.+)/$ ]]; then
       [[ "$TOOLNAME" =~ ${BASH_REMATCH[1]} ]] && matched=true
 
-    # --- ToolName(glob) pattern – matched against COMMAND (bash command or subagent_type) ---
+    # --- ToolName(glob) or ToolName(/regex/) pattern – matched against COMMAND ---
     elif [[ "$key" =~ $RE_GLOB_KEY ]]; then
-      [ "$TOOLNAME" = "${BASH_REMATCH[1]}" ] && [[ "$COMMAND" == ${BASH_REMATCH[2]} ]] && matched=true
+      local tool_part="${BASH_REMATCH[1]}" cmd_pattern="${BASH_REMATCH[2]}"
+      if [ "$TOOLNAME" = "$tool_part" ]; then
+        if [[ "$cmd_pattern" =~ ^/(.+)/$ ]]; then
+          [[ "$COMMAND" =~ ${BASH_REMATCH[1]} ]] && matched=true
+        else
+          [[ "$COMMAND" == $cmd_pattern ]] && matched=true
+        fi
+      fi
 
     # --- Plain tool name – exact match ---
     elif [ "$key" = "$TOOLNAME" ]; then

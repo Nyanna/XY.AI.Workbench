@@ -19,6 +19,8 @@ Comprehensive knowledge database
 * User level hooks should not block subagents like spellchecking
 * Keep MCP minimal, e.g. don't use Exa advanced search for all agents
 * Labor type Agents shoudl not inteferre  with calling agengs decission making, no suggestions or follow up questions
+* Always check /Context and system prompt ,a injected agents and wools when creating a agent
+* Move Agent description from frontmatter to prompt, claude always injects all custom agent descriptions 
 
 
 ## Findings
@@ -43,6 +45,9 @@ Agent
 
 
 ## Todo
+* Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
+
+* !Bundle allow/deny/relay lists with frontmatter to agent definition, allow script read from there, thats also more efficient
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
 	* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
@@ -50,9 +55,7 @@ Agent
 	* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
 	* MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
 	
-* A:Remark, für remark subagent scripte bereitstellen, gehen agentenressourcen wie scripte? markdown ast parser und tool für mcp
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
-* Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
 * Rag server bauen/installieren und einbinden für projektknowledge
 * Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
@@ -62,6 +65,8 @@ Agent
 	* is this request good or this tool usage?
 	* Tool hook can be used to intercet and control
 * Github PAT MCP for work profile {"type":"http","url":"https://api.githubcopilot.com/mcp","headers":{"Authorization":"Bearer YOUR_GITHUB_PAT"}}
+* replace agent description hack by MCP controller agent relay
+* generische bash tool kompplet durch MCP controller ersetzen, intuition fällt ständig darauf zurück
 
 ### Ideas unformulated
 

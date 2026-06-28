@@ -1,6 +1,7 @@
 ---
 name: github-research
-description: Conducts structured research on behalf of the caller and aggregates comprehensive, prioritized results using Github MCP tools for Github repositories.
+description: .
+_description: Conducts structured research on behalf of the caller and aggregates comprehensive, prioritized results using Github MCP tools for Github repositories.
 tools: mcp__github__*
 model: haiku
 effort: low

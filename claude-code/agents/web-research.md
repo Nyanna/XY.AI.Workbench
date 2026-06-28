@@ -1,6 +1,7 @@
 ---
 name: web-research
-description: Conducts structured web research on behalf of the caller and aggregates comprehensive, prioritized results using Context7 and Exa MCP tools.
+description: .
+_description: Conducts structured web research on behalf of the caller and aggregates comprehensive, prioritized results using Context7 and Exa MCP tools.
 tools: mcp__context7__*, mcp__exa__*
 model: haiku
 effort: low
