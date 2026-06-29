@@ -21,6 +21,7 @@ Comprehensive knowledge database
 * Labor type Agents shoudl not inteferre  with calling agengs decission making, no suggestions or follow up questions
 * Always check /Context and system prompt ,a injected agents and wools when creating a agent
 * Use code blocks with shell name for prompts: ```bash
+* Group Context in skill or MD file trees, Models loads them lazy on demand, if required.
 
 
 ## Findings
@@ -50,8 +51,11 @@ Agent
 
 
 ## Todo
+!spellcheck ignoriert wenn mit @ anfängt, externer prompt
 !check and fix markdown server
 !there is stil own and default plugin description in context
+! compare api key versus abo fair use
+! compare cache hit costs versus batch proccessing for workbench
 	
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 

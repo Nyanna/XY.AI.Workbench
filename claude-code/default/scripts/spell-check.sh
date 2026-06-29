@@ -10,6 +10,11 @@ fi
 
 PROMPT=$(echo "$INPUT" | jq -r '.prompt')
 
+# --- Skip single-line prompts starting with "@" (externally injected prompts) ---
+if echo "$PROMPT" | grep -qP '^\@[^\n]*$'; then
+  exit 0
+fi
+
 # --- Bypass hash directory ---
 BYPASS_DIR="/tmp/spell-check-bypass"
 mkdir -p "$BYPASS_DIR"

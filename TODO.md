@@ -3,3 +3,4 @@
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * Lanugagetool in workbench einbauen
 * workbench, session branching und prefix cache support, bessere tool loops
+* Tree viewer für kontext cache verwaltung und laufzeit von cache
