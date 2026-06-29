@@ -39,7 +39,7 @@ fi
 
 INPUT=$(cat)
 TOOLNAME=$(echo "$INPUT" | jq -r '.tool_name')
-COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // .tool_input.subagent_type // empty')
+COMMAND=$(echo "$INPUT"  | jq -r '.tool_input.command // .tool_input.subagent_type  // .tool_input.skill // empty')
 SUBAGENT=$(echo "$INPUT" | jq -r '.agent_type')
 
 log "INFO" "--- new invocation --- tool=$TOOLNAME agent=$SUBAGENT${COMMAND:+ command=$COMMAND}"

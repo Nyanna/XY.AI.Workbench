@@ -55,7 +55,7 @@ Agent
 
 
 ## Todo
-! check and fix markdown server
+/ markdwon-format skill discription not inserted in markdown agent
 ! there is stil own and default plugin description in context
 
 	

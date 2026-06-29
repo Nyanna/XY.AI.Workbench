@@ -1,8 +1,8 @@
 ---
 name: markdown
 description: Read, write, edit, and transform Markdown files
-tools: Bash
-plugin: default
+tools: Bash,Skill(markdown-format:markdown-format)
+plugin: default,markdown-format
 model: haiku
 effort: low
 color: purple
@@ -18,6 +18,7 @@ tool_deny:
     Edit: "Only edit using nodesh"
   allow:
     "Bash(nodesh *)": "Execute remark script"
+    "Skill(markdown-format)": "Markdown format"
   deny:
     Bash: "You are only allowed to use the provided nodesh command."
 ---

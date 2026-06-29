@@ -15,6 +15,11 @@ if echo "$PROMPT" | grep -qP '^\@[^\n]*$'; then
   exit 0
 fi
 
+# --- Skip single-line prompts starting with "/" (skill) ---
+if echo "$PROMPT" | grep -qP '^\/[^\n]*$'; then
+  exit 0
+fi
+
 # --- Bypass hash directory ---
 BYPASS_DIR="/tmp/spell-check-bypass"
 mkdir -p "$BYPASS_DIR"
