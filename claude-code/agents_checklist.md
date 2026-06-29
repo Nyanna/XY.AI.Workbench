@@ -51,6 +51,7 @@ Agent
 
 ## Todo
 !check and fix markdown server
+!there is stil own and default plugin description in context
 	
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 

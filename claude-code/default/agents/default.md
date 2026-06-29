@@ -1,5 +1,8 @@
 ---
 description: General and default Agent settings
+tools:
+model: Haiku
+effort: low
 tool_deny:
   redirect:
     ToolSearch: "Trying to use ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed"
