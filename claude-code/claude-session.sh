@@ -119,6 +119,7 @@ fi
 # Resolve script directory for plugin loading
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export AGENTS_DIR="${SCRIPT_DIR}"
 
 # ---------------------------------------------------------------------------
 # Build and run Claude command

@@ -1,2 +1,2 @@
 #!/bin/bash
-cd "${AGENTS_DIR}/markdown" && node --input-type=module
+cd "${AGENTS_DIR}/markdown/remark" && node --input-type=module
