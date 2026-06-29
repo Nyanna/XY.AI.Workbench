@@ -14,37 +14,44 @@ Comprehensive knowledge database
 * Best prompt pattern ist structure as soft-prompt
 * Use modell intuition with lazy tool injection on intercept
 	* Modell should report failing or not intercepted intuition like not enabled tools in the session
-* Spell corrections increases quality
+* Spell corrections increases quality (LanguageTool Server with Docker)
 * Bind to model intuition for not internalized tools, lazy inject directions
 * User level hooks should not block subagents like spellchecking
 * Keep MCP minimal, e.g. don't use Exa advanced search for all agents
 * Labor type Agents shoudl not inteferre  with calling agengs decission making, no suggestions or follow up questions
 * Always check /Context and system prompt ,a injected agents and wools when creating a agent
-* Move Agent description from frontmatter to prompt, claude always injects all custom agent descriptions 
+* Use code blocks with shell name for prompts: ```bash
 
 
 ## Findings
 
 * Use Jira style Markdown threads, continously thread for internal project organization
-* Use local LanguageTool Server with Docker
 * Set Effort and Thinking based on exspected input/output and total estimated token cost
 * Thinking cost is quality indicator for prompt. Better specified => less thinking.
 	* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
 * Cancel claude pro and go soley for API keys? At least test a month.
 * For exports use /copy and copy outputfile
 * Current Bare-Mode don't supports Subscription OAuth
-* MCP timeout via millisecond setting in MCP config
 * MCP is preferred interface and will route other MCP by optimizing the interface specs. Thats better than CLI optimizing.
 
 Command/Skill
-: When simple, small or unchanged input/output
+: When simple, small or unchanged input/output or injectable prompt
 
 Agent
 : When post- or preprocessing makes sense to condense or clarify
 : Use pseudoagents via MCP
 
+### Skills
+* follow standard https://agentskills.io/home, Frontmatter: https://code.claude.com/docs/en/skills
+* who can use the skill disable-model-invocation, user-invocable
+* Only description loaded, executions inserts whole prompt
+* Has ARGUMENTS[1] placeholder and inline command execution !`gh pr diff` (dynamic contex)
+	* ${CLAUDE_SKILL_DIR} for Bash directory hint
+
 
 ## Todo
+!check and fix markdown server
+	
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
@@ -53,6 +60,7 @@ Agent
 	* Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
 	* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
 	* MCP COntroller muss Agent tool mit einer custom liste pro aufrufendem subagent liefern, damit nur die erlaubten in den kontext geladen werden
+	* MCP timeout via millisecond setting in MCP config
 	
 * A: python3 direkt ohne shell, python-mcp, persistent MCP python server
 * add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
@@ -83,7 +91,7 @@ When running with --agent or inside a subagent, two additional fields are includ
 : agent_id	Unique identifier for the subagent. Present only when the hook fires inside a subagent call. Use this to distinguish subagent hook calls from main-thread calls.
 : agent_type	Agent name (for example, "Explore" or "security-reviewer"). Present when the session uses --agent or the hook fires inside a subagent. For subagents, the subagent’s type takes precedence over the session’s --agent value. For custom subagents, this is the name field from the agent’s frontmatter, not the filename.
 
-### MCP Agent Wrapper
+### MCP Agent Wrapper Leftover idea
 
 Erstelle ein Bash-Skript, das eine Schnittstelle zu einem Subagenten darstellt. Das Skript nimmt Parameter von einer aufrufenden Instanz entgegen, wo es als Tool integriert ist, startet den Subagenten im non-interactive Modus (–print) und leitet die Ausgaben entsprechend zurück.
 

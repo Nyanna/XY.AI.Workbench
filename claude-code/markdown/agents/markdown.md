@@ -1,8 +1,8 @@
 ---
 name: markdown
-description: .
-_description: Read, write, edit, and transform Markdown files
+description: Read, write, edit, and transform Markdown files
 tools: Bash
+plugin: default
 model: haiku
 effort: low
 color: purple
@@ -31,7 +31,7 @@ tool_deny:
 
 # Example Script
 
-```
+```bash
 nodesh << 'EOF'
 	import { read, write } from 'to-vfile';
 	import { createRemark } from './remark.js';

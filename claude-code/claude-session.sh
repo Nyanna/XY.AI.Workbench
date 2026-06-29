@@ -116,35 +116,69 @@ if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Resolve script directory and export agents path for subagents
+# Resolve script directory for plugin loading
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export AGENTS_DIR="${SCRIPT_DIR}/agents"
-export PATH="${AGENTS_DIR}:${PATH}"
 
 # ---------------------------------------------------------------------------
 # Build and run Claude command
 # ---------------------------------------------------------------------------
 CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
 
-if [[ -n "$AGENT_ARG" ]]; then
-    CLAUDE_ARGS+=(--agent "$AGENT_ARG")
+# Array to collect plugin directories for PATH update
+PLUGIN_DIRS=()
 
-    AGENT_FILE="${AGENTS_DIR}/${AGENT_ARG}.md"
+if [[ -n "$AGENT_ARG" ]]; then
+	echo Loading Agent: $AGENT_ARG
+    # Agent name equals plugin name
+    AGENT_PLUGIN_DIR="${SCRIPT_DIR}/${AGENT_ARG}"
+    AGENT_FILE="${AGENT_PLUGIN_DIR}/agents/${AGENT_ARG}.md"
+
+    # Add the main agent plugin directory
+    CLAUDE_ARGS+=(--plugin-dir "$AGENT_PLUGIN_DIR")
+    PLUGIN_DIRS+=("$AGENT_PLUGIN_DIR")
 
     if [[ -f "$AGENT_FILE" ]]; then
+    	echo Using agent file: $AGENT_FILE
         # Extract frontmatter block (between first pair of ---)
         FRONTMATTER="$(awk '/^---/{if(++n==2) exit; next} n==1' "$AGENT_FILE")"
+        echo Frontmatter: $FRONTMATTER
 
-        AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')"
-        AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')"
+        AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')" || true
+        AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')" || true
+        AGENT_PLUGINS="$(echo "$FRONTMATTER" | grep -E '^plugin:[[:space:]]*' | sed 's/^plugin:[[:space:]]*//' | tr -d '[:space:]')" || true
 
         [[ -n "$AGENT_MODEL"  ]] && [[ "$EXPLICIT_MODEL"  == "false" ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
         [[ -n "$AGENT_EFFORT" ]] && [[ "$EXPLICIT_EFFORT" == "false" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
+
+        # Add additional plugins defined in frontmatter
+        if [[ -n "$AGENT_PLUGINS" ]]; then
+        	echo Loading further plugins: $AGENT_PLUGINS
+            IFS=',' read -ra PLUGIN_ARRAY <<< "$AGENT_PLUGINS"
+            for plugin_name in "${PLUGIN_ARRAY[@]}"; do
+                # Trim whitespace
+                plugin_name=$(echo "$plugin_name" | xargs)
+                if [[ -n "$plugin_name" ]]; then
+                    PLUGIN_DIR="${SCRIPT_DIR}/${plugin_name}"
+                    CLAUDE_ARGS+=(--plugin-dir "$PLUGIN_DIR")
+                    PLUGIN_DIRS+=("$PLUGIN_DIR")
+                fi
+            done
+        fi
     fi
+
+    CLAUDE_ARGS+=(--agent "$AGENT_ARG")
 fi
 
 CLAUDE_ARGS+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
+
+echo Updating PATH
+# Update PATH with all plugin directories
+if [[ ${#PLUGIN_DIRS[@]} -gt 0 ]]; then
+    for plugin_dir in "${PLUGIN_DIRS[@]}"; do
+        export PATH="${plugin_dir}:${PATH}"
+    done
+fi
 
 clear
 claude "${CLAUDE_ARGS[@]}"

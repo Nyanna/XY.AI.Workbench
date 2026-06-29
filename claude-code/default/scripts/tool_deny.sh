@@ -1,8 +1,6 @@
 #!/bin/bash
 
-SCRIPT_DIR="$(dirname "$0")"
-AGENTS_DIR="${AGENTS_DIR:-$SCRIPT_DIR}"
-LOG_FILE="$SCRIPT_DIR/tool_deny.log"
+LOG_FILE="${CLAUDE_PLUGIN_ROOT}/scripts/tool_deny.log"
 RE_GLOB_KEY='^([^(]+)\((.+)\)$'
 
 log() {
@@ -18,12 +16,17 @@ log_json() {
   printf '%s\n' "$json" | jq '.' >> "$LOG_FILE" 2>/dev/null || printf '%s\n' "$json" >> "$LOG_FILE"
 }
 
-# Resolve agent name to its definition file; '*' maps to default.md
+# Resolve agent name to its definition file; '*' maps to default agent.
+# Agent names are expected in the format 'plugin:agent' – the part before
+# the colon is used as the plugin/directory name, the part after as the
+# agent/file name.
 agent_file() {
   if [ "$1" = "*" ]; then
-    printf '%s/default.md' "$AGENTS_DIR"
+    printf '%s/../default/agents/default.md' "${CLAUDE_PLUGIN_ROOT}"
   else
-    printf '%s/%s.md' "$AGENTS_DIR" "$1"
+    local plugin="${1%%:*}"
+    local agent="${1##*:}"
+    printf '%s/../%s/agents/%s.md' "${CLAUDE_PLUGIN_ROOT}" "$plugin" "$agent"
   fi
 }
 

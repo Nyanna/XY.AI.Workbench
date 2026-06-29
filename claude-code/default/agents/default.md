@@ -31,7 +31,7 @@ tool_deny:
     "Bash(git branch -D *)": "You are not allowed to modify the repository state. Instruct the user."
     "Bash(git branch -m *)": "You are not allowed to modify the repository state. Instruct the user."
     "Bash(git clean *)": "You are not allowed to modify the repository state. Instruct the user."
-    "Bash(curl *)": "Use the 'web-research' agent instead."
+    "Bash(curl *)": "Use the 'web-research:web-research' agent instead."
   deny:
     Agent: "The agent you are trying to use isn't allowed. Inform the user about this incident."
 ---

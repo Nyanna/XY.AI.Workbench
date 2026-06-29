@@ -82,30 +82,6 @@
   },
   "model": "haiku",
   "disableBundledSkills": true,
-  "hooks": {
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_CONFIG_DIR/agents/tool_deny.sh",
-			"timeout": 86400
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_CONFIG_DIR/agents/spell-check.sh",
-			"timeout": 86400
-          }
-        ]
-      }
-    ]
-  },
   "disableAgentView": true,
   "disableRemoteControl": true,
   "enableWorkflows": false,
@@ -146,11 +122,5 @@
   "theme": "light-daltonized",
   "verbose": true,
   "autoCompactEnabled": false,
-  "switchModelsOnFlag": false,
-  "mcpServers": {
-    "context7": {
-      "type": "http",
-      "url": "https://mcp.context7.com/mcp"
-    }
-  }
+  "switchModelsOnFlag": false
 }
