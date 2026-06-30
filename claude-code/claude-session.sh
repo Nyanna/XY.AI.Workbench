@@ -125,18 +125,14 @@ cleanup() {
     fi
     clear
 }
-trap cleanup EXIT INT TERM
-
-mkdir -p "$LT_PID_DIR"
-echo $$ > "${LT_PID_DIR}/$$"
 
 if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
     echo "Starting LanguageTool..."
-    LT_ERROR="$(docker compose -f "$LT_COMPOSE_FILE" up -d 2>&1)"
-    LT_EXIT=$?
+    LT_EXIT=0
+    LT_ERROR="$(docker compose -f "$LT_COMPOSE_FILE" up -d 2>&1)" || LT_EXIT=$?
     if [[ $LT_EXIT -ne 0 ]]; then
-        echo "$LT_ERROR" >&2
-        if echo "$LT_ERROR" | grep -qiE "cannot connect to the docker daemon|docker daemon is not running|is the docker daemon running|connect: no such file or directory"; then
+        echo "Docker Error: $LT_ERROR" >&2
+        if echo "$LT_ERROR" | grep -qiE "Cannot connect to the docker daemon|docker daemon is not running|is the docker daemon running|connect: no such file or directory"; then
             echo "Docker is not running. Starting Docker via systemctl --user start docker ..." >&2
             systemctl --user start docker
             echo "Retrying LanguageTool start..."
@@ -148,6 +144,11 @@ if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
     fi
     sleep 2
 fi
+
+# Trap und PID-Datei erst aktivieren, nachdem Docker erfolgreich gestartet ist
+trap cleanup EXIT INT TERM
+mkdir -p "$LT_PID_DIR"
+echo $$ > "${LT_PID_DIR}/$$"
 
 # ---------------------------------------------------------------------------
 # Resolve script directory for plugin loading

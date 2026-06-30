@@ -55,7 +55,6 @@ Agent
 
 
 ## Todo
-! skill mit command execution schreiben der /copy output in eine zieldatei per argument kopiert
 * python -c direkt benutzen
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md

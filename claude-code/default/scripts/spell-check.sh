@@ -90,11 +90,8 @@ RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:8010/v2/check \
 if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
   touch "$BYPASS_FILE"
   echo "" >&2
-  echo "╔══ Spell Check: LanguageTool not reachable ══════════════════" >&2
-  echo "" >&2
-  echo "  Resend the prompt unchanged to bypass this check." >&2
-  echo "" >&2
-  echo "Response: $RESPONSE" >&2
+  echo "LanguageTool not reachable" >&2
+  echo "Resend the prompt unchanged to bypass this check." >&2
   exit 2
 fi
 
@@ -102,9 +99,8 @@ fi
 if ! echo "$RESPONSE" | jq -e . > /dev/null 2>&1; then
   touch "$BYPASS_FILE"
   echo "" >&2
-  echo "╔══ Spell Check: invalid LanguageTool response ═══════════════" >&2
-  echo "" >&2
-  echo "  Resend the prompt unchanged to bypass this check." >&2
+  echo "Invalid LanguageTool response" >&2
+  echo "Resend the prompt unchanged to bypass this check." >&2
   exit 2
 fi
 
