@@ -55,8 +55,6 @@ Agent
 
 
 ## Todo
-/ markdwon-format skill discription not inserted in markdown agent
-
 * python -c direkt benutzen
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 

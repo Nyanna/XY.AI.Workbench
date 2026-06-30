@@ -18,7 +18,7 @@ tool_deny:
     Edit: "Only edit using nodesh"
   allow:
     "Bash(nodesh *)": "Execute remark script"
-    "Skill(markdown-format)": "Markdown format"
+    "Skill(markdown-format*)": "Markdown format"
   deny:
     Bash: "You are only allowed to use the provided nodesh command."
 ---

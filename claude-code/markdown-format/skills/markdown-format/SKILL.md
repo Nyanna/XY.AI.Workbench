@@ -1,7 +1,8 @@
 ---
 name: markdown-format
-description: Preferred formatting rules for Pandoc-compatible Markdown documents
+description: Preferred formatting rules for Pandoc-compatible Markdown documents. Load when formatting rules are requested or required.
 when_to_use: Use this to acquire Markdown formatting rules.
+disable-model-invocation: false
 ---
 
 * Use a line containing only `***` to insert a page break in PDF output.
