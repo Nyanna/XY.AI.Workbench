@@ -37,10 +37,35 @@ if [ -f "$BYPASS_FILE" ]; then
   exit 0
 fi
 
+# --- Build AnnotatedText JSON ---
+# markup regions are skipped by LanguageTool; text regions are checked.
+# Skipped: fenced code blocks, inline code, URLs, file paths, @mentions
+ANNOTATED=$(printf '%s' "$PROMPT" | python3 -c '
+import sys, re, json
+
+text = sys.stdin.read()
+
+MARKUP_RE = re.compile(
+    r"""(```[\s\S]*?```|`[^`]+`|https?://\S+|/\S+|@\S+)"""
+)
+
+parts = MARKUP_RE.split(text)
+annotation = []
+for i, part in enumerate(parts):
+    if not part:
+        continue
+    if i % 2 == 0:
+        annotation.append({"text": part})
+    else:
+        annotation.append({"markup": part, "interpretAs": " "})
+
+print(json.dumps({"annotation": annotation}))
+')
+
 # --- LanguageTool API check ---
 RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:8010/v2/check \
   --data-urlencode "language=de-DE" \
-  --data-urlencode "text=$PROMPT")
+  --data-urlencode "data=$ANNOTATED")
 
 # Block if LanguageTool is unreachable
 if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then

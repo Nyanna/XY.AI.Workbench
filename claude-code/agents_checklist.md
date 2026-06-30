@@ -57,7 +57,6 @@ Agent
 ## Todo
 / markdwon-format skill discription not inserted in markdown agent
 ! there is stil own and default plugin description in context
-!spell check bei gerade anzahl von backticke alle backticks rausschneiden
 
 	
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
