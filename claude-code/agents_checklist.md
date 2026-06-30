@@ -47,27 +47,26 @@ Agent
 	* Sonnet API   - Input: $3,   Output: $15,   5m Cache Writes: $3.75, 1h Cache Writes: $6, Hits/Refreshes: $0.3
 	* Sonnet Batch - Input: $1.5, Output: $7.5
 
-### Skills
-* follow standard https://agentskills.io/home, Frontmatter: https://code.claude.com/docs/en/skills
-* who can use the skill disable-model-invocation, user-invocable
-* Has ARGUMENTS[1] placeholder and inline command execution !`gh pr diff` (dynamic contex)
-	* ${CLAUDE_SKILL_DIR} for Bash directory hint
-
-
 ## Todo
-* python -c direkt benutzen
+
+* python agent ein python sprachmodell geben/LMA/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
-	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
-	* Alle commands, python markdown, cli können vom MCP controller abgebildet werden. Damit gibt es nur noch ein session/modell + kontext das sämtlicher tools beraubt nur noch den MCP controller als fenster zur welt hat. Alls hooks werden dahin umgeleitet.
+	* eigenes SUbagent tool, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
+	* Alle commands, bash, python markdown, cli können vom MCP controller abgebildet werden.
+	* Alls hooks werden dahin umgeleitet.
 	* Stream responses, Use --output-format stream-json with --verbose and --include-partial-messages
 	* Tools wie Bash, Read, Write, Edit, Agent haben 5k Token, das meiste in den Beschreibungen -> session/tools_systemprompt.md -> mit MCP Controller tools ersetzen
 	* MCP timeout via millisecond setting in MCP config
-	* MCP controller supports resume and optimiizes prompt cache
+	* MCP controller supports resume and optimizes prompt cache with hundreds of subsessions within an hour
+	* generische bash tool kompplet durch MCP controller ersetzen, intuition fällt ständig darauf zurück* generische bash tool kompplet durch MCP controller ersetzen, intuition fällt ständig darauf zurück
+	* Das Skript unterstützt das Fortführen einer Session mittels Resume (--resume)
+	* Das Ausgabeformat ist immer Stream-JSON (--output-format stream-json)
+	* Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. Der Dateiname beginnt mit dem Timecode im Format "YYMMDD.HHMMSS", gefolgt von dem Namen des Agents und einer zufälligen Hash aus 4 Hexadezimalzeichen.
 	
-* Statuszeile kann token loggen, subagents token loggen wie? Monthly usage tracken auf die art. Mit session tracken in logfile
+* Statuszeile kann token loggen für hauptagent, subagents token loggen wie? Monthly usage tracken auf die art. Mit session tracken in logfile
 	* add logging to all script to track an analyse execution and token costs. Whole analyzer tool für usage aggregation.
-* A: python3 direkt ohne shell, python-mcp, persistent MCP python server, via HEREDOC wie markdown
+	
 * Rag server bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
 * Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
 	* is this query related to context?
@@ -75,30 +74,18 @@ Agent
 	* violates this some target or increases costs or is meaningless?
 	* is this request good or this tool usage?
 	* Tool hook can be used to intercet and control
-* generische bash tool kompplet durch MCP controller ersetzen, intuition fällt ständig darauf zurück
+
 
 ### Ideas unformulated
 
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * Wenn ich einen MCP controller habe. Brauche ich dann noch eine aufrufende container session oder ist koordination nicht ein subagent mit gecachtem prompt?
 	* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
-* Splitt terminal verwenden für permission controll und session visualisierung über MCP controller
+* Splitt terminal verwenden für permission controll/state control und session visualisierung über MCP controller
 * statusline links hook, footerLinksRegexes, maybe for command approvals
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 
-## Notes
+## Known Bugs
 
-When running with --agent or inside a subagent, two additional fields are included:
-: agent_id	Unique identifier for the subagent. Present only when the hook fires inside a subagent call. Use this to distinguish subagent hook calls from main-thread calls.
-: agent_type	Agent name (for example, "Explore" or "security-reviewer"). Present when the session uses --agent or the hook fires inside a subagent. For subagents, the subagent’s type takes precedence over the session’s --agent value. For custom subagents, this is the name field from the agent’s frontmatter, not the filename.
-
-### MCP Agent Wrapper Leftover idea
-
-Das Skript unterstützt das Fortführen einer Session mittels Resume (--resume)
-Das Ausgabeformat ist immer Stream-JSON (--output-format stream-json)
-Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. Der Dateiname beginnt mit dem Timecode im Format "YYMMDD.HHMMSS", gefolgt von dem Namen des Agents und einer zufälligen Hash aus 4 Hexadezimalzeichen.
-
-### Known Bugs
-
-* Issue #49713 (17. April 2026): „Plugin subagent namespace prefix stripped when launching subagent"
-* Context stil lists default and self plugin, which is acceptable
+* Issue #49713 (17. April 2026): „Plugin subagent namespace prefix stripped when launching subagent", workaround -> deny redirect
+* Context still lists default and self plugin, empty, which is acceptable
