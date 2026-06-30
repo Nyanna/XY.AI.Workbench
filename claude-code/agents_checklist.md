@@ -57,7 +57,6 @@ Agent
 ## Todo
 / markdwon-format skill discription not inserted in markdown agent
 ! there is stil own and default plugin description in context
-!session start CLI support, auflistung der agents, autocompletion in der bash
 !spell check bei gerade anzahl von backticke alle backticks rausschneiden
 
 	
