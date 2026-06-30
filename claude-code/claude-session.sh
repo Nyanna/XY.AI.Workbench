@@ -12,6 +12,14 @@ LT_COMPOSE_FILE="${HOME}/xyan/xy.ai.workbench/language-tool/docker-compose.yml"
 LT_PID_DIR="/tmp/claude-languagetool-pids"
 
 # ---------------------------------------------------------------------------
+# Resolve script directory (needed early for agent listing)
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=claude-session-list.sh
+source "${SCRIPT_DIR}/claude-session-list.sh"
+
+# ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 PROFILE=""
@@ -19,9 +27,14 @@ AGENT_ARG=""
 EXTRA_ARGS=()
 EXPLICIT_MODEL=false
 EXPLICIT_EFFORT=false
+LIST_AGENTS=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -list)
+            LIST_AGENTS=true
+            shift
+            ;;
         --profile)
             PROFILE="$2"
             shift 2
@@ -52,6 +65,14 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# ---------------------------------------------------------------------------
+# List agents and exit (no profile required)
+# ---------------------------------------------------------------------------
+if [[ "$LIST_AGENTS" == "true" ]]; then
+    list_agents
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Profile → config directory
@@ -111,14 +132,26 @@ echo $$ > "${LT_PID_DIR}/$$"
 
 if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
     echo "Starting LanguageTool..."
-    docker compose -f "$LT_COMPOSE_FILE" up -d
+    LT_ERROR="$(docker compose -f "$LT_COMPOSE_FILE" up -d 2>&1)"
+    LT_EXIT=$?
+    if [[ $LT_EXIT -ne 0 ]]; then
+        echo "$LT_ERROR" >&2
+        if echo "$LT_ERROR" | grep -qiE "cannot connect to the docker daemon|docker daemon is not running|is the docker daemon running|connect: no such file or directory"; then
+            echo "Docker is not running. Starting Docker via systemctl --user start docker ..." >&2
+            systemctl --user start docker
+            echo "Retrying LanguageTool start..."
+            docker compose -f "$LT_COMPOSE_FILE" up -d
+        else
+            echo "Error: LanguageTool failed to start." >&2
+            exit $LT_EXIT
+        fi
+    fi
     sleep 2
 fi
 
 # ---------------------------------------------------------------------------
 # Resolve script directory for plugin loading
 # ---------------------------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export AGENTS_DIR="${SCRIPT_DIR}"
 
 # ---------------------------------------------------------------------------

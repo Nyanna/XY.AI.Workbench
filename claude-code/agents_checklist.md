@@ -57,6 +57,8 @@ Agent
 ## Todo
 / markdwon-format skill discription not inserted in markdown agent
 ! there is stil own and default plugin description in context
+!session start CLI support, auflistung der agents, autocompletion in der bash
+!spell check bei gerade anzahl von backticke alle backticks rausschneiden
 
 	
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
@@ -101,3 +103,7 @@ When running with --agent or inside a subagent, two additional fields are includ
 Das Skript unterstützt das Fortführen einer Session mittels Resume (--resume)
 Das Ausgabeformat ist immer Stream-JSON (--output-format stream-json)
 Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. Der Dateiname beginnt mit dem Timecode im Format "YYMMDD.HHMMSS", gefolgt von dem Namen des Agents und einer zufälligen Hash aus 4 Hexadezimalzeichen.
+
+### Known Bugs
+
+* Issue #49713 (17. April 2026): „Plugin subagent namespace prefix stripped when launching subagent"
