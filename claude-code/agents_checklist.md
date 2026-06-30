@@ -57,8 +57,6 @@ Agent
 ## Todo
 ! skill mit command execution schreiben der /copy output in eine zieldatei per argument kopiert
 * python -c direkt benutzen
-* Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
-* Workbench benutzen können mit Claude CLI aufruf, muss resume unterstützen für chats und cache
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 	* eigenes SUbagent tool, Agent call abfangen, mit eigenen settings für modell und effort, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich

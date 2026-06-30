@@ -4,3 +4,4 @@
 * Lanugagetool in workbench einbauen
 * workbench, session branching und prefix cache support, bessere tool loops
 * Tree viewer für kontext cache verwaltung und laufzeit von cache
+* Workbench benutzen können mit Claude CLI aufruf, muss resume unterstützen für chats und cache, speelcheck dann übergehen

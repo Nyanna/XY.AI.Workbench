@@ -126,11 +126,10 @@ if [ "$MATCHES" -gt 0 ]; then
 
   echo "" >&2
   if [ "$MATCHES" -gt "$MAX_SHOWN" ]; then
-    echo "╔══ Spell Check Errors ($MATCHES found, showing first $MAX_SHOWN) ═══" >&2
+    echo "Spell Check Errors $MAX_SHOWN/$MATCHES:" >&2
   else
-    echo "╔══ Spell Check Errors ($MATCHES found) ══════════════════════" >&2
+    echo "Spell Check Errors $MATCHES:" >&2
   fi
-  echo "" >&2
   echo "$SUGGESTIONS" >&2
   exit 2
 fi
