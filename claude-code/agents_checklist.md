@@ -56,9 +56,8 @@ Agent
 
 ## Todo
 / markdwon-format skill discription not inserted in markdown agent
-! there is stil own and default plugin description in context
 
-	
+* python -c direkt benutzen
 * Skill: Inline latex, chapter formating, remove subchapter headings, as skill, formatingskill mit sonderzeichen und Pandoc kompatibelität
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
@@ -105,3 +104,4 @@ Der Ausgabestrom wird parallel im Unterverzeichnis "sessions/" mitgeschrieben. D
 ### Known Bugs
 
 * Issue #49713 (17. April 2026): „Plugin subagent namespace prefix stripped when launching subagent"
+* Context stil lists default and self plugin, which is acceptable
