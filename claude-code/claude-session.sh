@@ -31,7 +31,7 @@ LIST_AGENTS=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -list)
+        --list)
             LIST_AGENTS=true
             shift
             ;;
