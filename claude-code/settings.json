@@ -7,6 +7,7 @@
     "DISABLE_COMPACT": "1",
     "ENABLE_TOOL_SEARCH": "false"
   },
+  "includeGitInstructions": false,
   "permissions": {
     "deny": [
       "___*",
@@ -14,10 +15,10 @@
       "PowerShell",
       "_Agent",
       "Agent(Explore)",
-	  "Agent(Plan)",
-	  "Agent(general-purpose)",
-	  "Agent(claude-code-guide)",
-	  "Agent(statusline-setup)",
+      "Agent(Plan)",
+      "Agent(general-purpose)",
+      "Agent(claude-code-guide)",
+      "Agent(statusline-setup)",
       "Workflow",
       "ScheduleWakeup",
       "ShareOnboardingGuide",
@@ -80,47 +81,46 @@
     ],
     "defaultMode": "default"
   },
-  "model": "haiku",
+  "model": "sonnet",
   "disableBundledSkills": true,
   "disableAgentView": true,
   "disableRemoteControl": true,
   "enableWorkflows": false,
   "workflowKeywordTriggerEnabled": false,
-  "allowAllClaudeAiMcps": false,
-  "alwaysCopyFullResponse": true,
-  "disableAutoMode": "disable",
-  "includeGitInstructions": false,
-  "showTurnDuration": false,
   "respondToBashCommands": false,
-  "skipWebFetchPreflight": true,
-  "voice": {
-    "enabled": false
+  "allowAllClaudeAiMcps": false,
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude-personal/statusline.sh",
+    "padding": 0
   },
-  "disableDeepLinkRegistration": "disable",
+  "skipWebFetchPreflight": true,
+  "spinnerTipsEnabled": false,
   "spinnerVerbs": {
     "mode": "replace",
     "verbs": [
       "Processing"
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude-personal/statusline.sh",
-    "padding": 0
-  },
-  "spinnerTipsEnabled": false,
   "effortLevel": "medium",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
+  "voice": {
+    "enabled": false
+  },
   "allowedChannelPlugins": [],
   "prefersReducedMotion": true,
   "autoMemoryEnabled": false,
   "showThinkingSummaries": false,
+  "disableAutoMode": "disable",
   "claudeMdExcludes": [
     "**"
   ],
   "theme": "light-daltonized",
   "verbose": true,
   "autoCompactEnabled": false,
-  "switchModelsOnFlag": false
+  "switchModelsOnFlag": false,
+  "showTurnDuration": false,
+  "disableDeepLinkRegistration": "disable",
+  "alwaysCopyFullResponse": true
 }

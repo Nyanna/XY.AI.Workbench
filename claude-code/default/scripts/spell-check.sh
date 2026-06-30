@@ -10,6 +10,13 @@ fi
 
 PROMPT=$(echo "$INPUT" | jq -r '.prompt')
 
+# --- Skip long prompts ---
+PROMPT_LINES=$(echo "$PROMPT" | wc -l)
+PROMPT_CHARS=$(echo -n "$PROMPT" | wc -c)
+if [ "$PROMPT_LINES" -gt 20 ] || [ "$PROMPT_CHARS" -gt 2000 ]; then
+  exit 0
+fi
+
 # --- Skip single-line prompts starting with "@" (externally injected prompts) ---
 if echo "$PROMPT" | grep -qP '^\@[^\n]*$'; then
   exit 0
@@ -76,6 +83,7 @@ print(json.dumps({"annotation": annotation}))
 # --- LanguageTool API check ---
 RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:8010/v2/check \
   --data-urlencode "language=de-DE" \
+  --data-urlencode "disabledRules=WHITESPACE_RULE,DOPPELTES_LEERZEICHEN,LEERZEICHEN_VOR_SATZZEICHEN" \
   --data-urlencode "data=$ANNOTATED")
 
 # Block if LanguageTool is unreachable
