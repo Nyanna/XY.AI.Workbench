@@ -36,6 +36,7 @@ Comprehensive knowledge database
 * For exports use /copy and copy outputfile
 * Current Bare-Mode don't supports Subscription OAuth
 * MCP is preferred interface and will route other MCP by optimizing the interface specs. Thats better than CLI optimizing.
+` Agent colors: red, blue, green, yellow, purple, orange, pink, cyan
 
 Skill
 : When simple, small or unchanged input/output or injectable context or context from commands
@@ -48,6 +49,7 @@ Agent
 	* Sonnet Batch - Input: $1.5, Output: $7.5
 
 ## Todo
+!session plugin parameter überschreibt agent tools, tool pro prompt aktivieren
 
 * python agent ein python sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 	* typescript for remark
@@ -81,6 +83,7 @@ Agent
 
 ### Ideas unformulated
 
+* in thought fragen abfangen und beantworten, mehr zwischenschritte zum einhaken
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * Wenn ich einen MCP controller habe. Brauche ich dann noch eine aufrufende container session oder ist koordination nicht ein subagent mit gecachtem prompt?
 	* ein MCP controller erlaubt Infinite subagents, infinite recursion und separate permissions steuerung
