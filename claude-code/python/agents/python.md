@@ -4,7 +4,7 @@ description: Python code agent that translates instructions, plans, and tasks in
 tools: Bash(python3:*)
 plugin: default
 model: haiku
-effort: medium
+effort: low
 color: purple
 tool_deny:
   redirect:

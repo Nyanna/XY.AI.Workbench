@@ -109,6 +109,7 @@ if lt_is_running; then
 fi
 
 cleanup() {
+	clear
     # Remove our PID file
     rm -f "${LT_PID_DIR}/$$"
 
@@ -123,7 +124,7 @@ cleanup() {
             rm -rf "$LT_PID_DIR"
         fi
     fi
-    clear
+    sleep 1
 }
 
 if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
@@ -137,6 +138,7 @@ if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
             systemctl --user start docker
             echo "Retrying LanguageTool start..."
             docker compose -f "$LT_COMPOSE_FILE" up -d
+		    sleep 2
         else
             echo "Error: LanguageTool failed to start." >&2
             exit $LT_EXIT
@@ -215,6 +217,7 @@ if [[ ${#PLUGIN_DIRS[@]} -gt 0 ]]; then
     done
 fi
 
+sleep 1
 clear
 claude "${CLAUDE_ARGS[@]}"
 clear

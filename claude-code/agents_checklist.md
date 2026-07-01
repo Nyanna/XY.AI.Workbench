@@ -49,7 +49,10 @@ Agent
 
 ## Todo
 
-* python agent ein python sprachmodell geben/LMA/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
+* python agent ein python sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
+	* typescript for remark
+	* hm nur über hooks vor und nach tool usage nutzbar oder via MCP
+	* Maybe produce something like skill as ouput so main kontext kann use scripts without knowing them ind etail
 
 * Suche möglichkeit von interaktivität mittel MCP controller -> retry session/mcp_interactive.md
 	* eigenes SUbagent tool, wie funktioniert das agent tool replizieren, auch interface, auch andere agents und KI möglich
