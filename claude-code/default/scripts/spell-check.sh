@@ -45,28 +45,22 @@ if [ -f "$BYPASS_FILE" ]; then
 fi
 
 # --- Build AnnotatedText JSON ---
-# markup regions are skipped by LanguageTool; text regions are checked.
-# Skipped: fenced code blocks, inline code, URLs, file paths, @mentions
-# Adjacent spaces are moved into interpretAs to avoid DOPPELTES_LEERZEICHEN.
+# markup regions are skipped by LanguageTool (interpretAs=""); text regions are checked.
+# Skipped: fenced code blocks, inline code, URLs, file paths, @mentions.
+# Each markup token captures one adjacent space (before > after > neither)
+# so punctuation following a token stays cleanly in the text segment.
 ANNOTATED=$(printf '%s' "$PROMPT" | python3 -c '
 import sys, re, json
 
 text = sys.stdin.read()
 
-MARKUP_RE = re.compile(
-    r"""(```[\s\S]*?```|`[^`]+`|https?://\S+|/\S+|@\S+)"""
-)
+# Markup regex: each alternative optionally captures one leading space
+# (fallthrough: else trailing space, else neither), so LT can ignore the
+# token interpretAs="" in all cases.
+INNER = r"""(?:```[\s\S]*?```|`[^`]+`|https?://\S+|/\S+|@\S+)"""
+MARKUP_RE = re.compile(r"""( """ + INNER + r"""|""" + INNER + r""" |""" + INNER + r""")""")
 
-raw = MARKUP_RE.split(text)
-
-# Strip one adjacent space from text neighbours of each markup segment
-# so that interpretAs=" " provides exactly one space (no double-space rule).
-parts = list(raw)
-for i in range(1, len(parts), 2):
-    if i > 0 and parts[i-1].endswith(" "):
-        parts[i-1] = parts[i-1][:-1]
-    if i+1 < len(parts) and parts[i+1].startswith(" "):
-        parts[i+1] = parts[i+1][1:]
+parts = MARKUP_RE.split(text)
 
 annotation = []
 for i, part in enumerate(parts):
@@ -75,7 +69,7 @@ for i, part in enumerate(parts):
     if i % 2 == 0:
         annotation.append({"text": part})
     else:
-        annotation.append({"markup": part, "interpretAs": " "})
+        annotation.append({"markup": part, "interpretAs": ""})
 
 print(json.dumps({"annotation": annotation}))
 ')
