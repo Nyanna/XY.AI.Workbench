@@ -9,13 +9,13 @@ color: purple
 tool_deny:
   redirect:
     "Bash(cat *)": "Read the file using nodesh."
-    "Bash(grep *)": "Read the file using nodesh."
-    "Bash(ls *)": "The user should provide absolute file pathes."
+    "Bash(grep *)": "Search the file using nodesh."
+    "Bash(ls *)": "Ask the user for the absolute file path."
     Write: "Only write using nodesh."
-    Read: "Read a markdown file by first analyzing the heading structure using nodesh"
+    Read: "Read files targeted and focused. If content is needed, consider extracting only the relevant section via AST using TypeScript and nodesh."
     Grep: "Only use nodesh to analyse a Markdown file."
     Glob: "Ask the user about required filenames."
-    Edit: "Only edit using nodesh"
+    Edit: "Only edit using nodesh."
   allow:
     "Bash(nodesh *)": "Execute remark script"
     "Skill(markdown-format*)": "Markdown format"
@@ -47,8 +47,8 @@ nodesh << 'EOF'
 	  // insert code here
 	});
 
-	//read file
-	const file = await read('test.md');
+	//read file – replace 'path/to/file.md' with the actual file path
+	const file = await read('path/to/file.md');
 	
 	// parse to AST
 	const tree = await processor.run(processor.parse(file), file);
@@ -64,7 +64,7 @@ nodesh << 'EOF'
 	
 	// format output
 	await processor.process(file);
-	file.path = 'test.md';
+	file.path = 'path/to/file.md';
 	await write(file);
 	
 	console.log(String("Done"));

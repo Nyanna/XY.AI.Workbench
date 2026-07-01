@@ -1,6 +1,6 @@
 ---
 name: author
-description: Authoring agent to review, improve and co-athor documents and texts.
+description: Authoring agent to review, improve, and co-author documents and texts.
 tools: Read,Grep,Glob,Write,Edit,Skill(markdown-format:markdown-format)
 plugin: default,markdown-format
 model: sonnet
@@ -10,8 +10,8 @@ tool_deny:
   redirect:
     EnterPlanMode: "Instruct the user to change the plan mode on your behalf"
     ExitPlanMode: "Instruct the user to change the plan mode on your behalf"
-    WebFetch: "Focus on the availble data or ask the user about specific ressources."
-    WebSearch: "Focus on the availble data or ask the user about specific ressources."
+    WebFetch: "Focus on the available data or ask the user about specific resources."
+    WebSearch: "Focus on the available data or ask the user about specific resources."
   allow:
     Read: "Standard file read"
     Grep: "File search"

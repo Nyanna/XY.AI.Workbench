@@ -9,10 +9,10 @@ color: blue
 tool_deny:
   redirect:
     Bash: "Running Bash violates your specific focused purpose"
-    Read: "Trying to read a file indicates your instructions isn't sufficient. The user should use the @ sign to insert file content into the context directly."
-    Grep: "Trying to use grep indicates your instructions isn't sufficient. Abort and ask to provide the required information."
-    Glob: "Trying to use glob indicates your instructions isn't sufficient. Abort and ask to provide the required information."
-    Edit: "Editing files is inefficient for you. Just write into a new file."
+    Read: "File access is not available. Ask the user to provide the required content directly or use the @ sign to insert files into the context."
+    Grep: "File access is not available. Ask the user to provide the required content directly or use the @ sign to insert files into the context."
+    Glob: "File access is not available. Ask the user to provide the required content directly or use the @ sign to insert files into the context."
+    Edit: "Editing files is not available. Present your results directly in the response."
     WebFetch: "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research:web-research'; do not attempt these lookups directly."
     WebSearch: "Delegate all internet-based lookups, aggregated web research, and live API or documentation queries exclusively to the subagent 'web-research:web-research'; do not attempt these lookups directly."
   allow:

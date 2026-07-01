@@ -24,7 +24,8 @@ Comprehensive knowledge database
 * Use external prompt injection single @/path/to/prompt
 * Group Context in skill or MD file trees, Models loads them lazy on demand, if required.
 * Always use a plan stage for big changes
-* Complete a task withing 1h/5m cuz Prompt prefix caching (pro/api) 
+* Complete a task withing 1h/5m cuz Prompt prefix caching (pro/api)
+* Optimize every agent definition with AI
 
 
 ## Findings
@@ -50,6 +51,7 @@ Agent
 
 ## Todo
 !session plugin parameter überschreibt agent tools, tool pro prompt aktivieren
+!ask the user tool, agent should have the possibillity to ask for user inforamtion when more efficient
 
 * python agent ein python sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 	* typescript for remark
