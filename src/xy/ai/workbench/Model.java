@@ -50,6 +50,18 @@ public enum Model {
 			.outTokens(0, 32000) //
 			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
 			.budget(1024, 31999) //
+	), //
+	CC_HAIKU("haiku", new Capabilities()//
+			.key(KeyPattern.Empty)//
+			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+	), //
+	CC_SONNET("sonnet", new Capabilities()//
+			.key(KeyPattern.Empty)//
+			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+	), //
+	CC_OPUS("opus", new Capabilities()//
+			.key(KeyPattern.Empty)//
+			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
 
@@ -62,7 +74,7 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), Empty("^$");
 
 		public final Pattern pattern;
 

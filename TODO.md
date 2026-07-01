@@ -1,3 +1,7 @@
+# TODO
+
+! idee: ich habe bei recherche nur den initialprompt, der ezeugt suchanfragen an exa im günstigen agent, die anwot der tools kann ich brauchen die zusammenfassung aber nicht. Mit MCP COntroller kann ich nach der Toolantwort abbrechen und token sparen. Alternativ starte ich einen neuen prompt für die zusammenfassung mit allem input
+
 * Workbench lokaler cli Agent Modus ohne key mit resume für cache, benutzt lokalen claude code, braucht extra panel, braucht kein Batch und diverse inputparameter entfallen, option panel muss dann wiederverwendet werden der mittlere teil
 * Thinking in editor flag für wirkbench, zeigt extended thinking irgendwo für prompt qualität check
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
