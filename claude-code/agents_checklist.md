@@ -92,6 +92,8 @@ Agent
 * Splitt terminal verwenden für permission controll/state control und session visualisierung über MCP controller
 * statusline links hook, footerLinksRegexes, maybe for command approvals
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
+* AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
+* stop oder intervention architektur. Je nach sweet spot 
 
 ## Known Bugs
 
