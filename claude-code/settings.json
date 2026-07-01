@@ -51,7 +51,7 @@
 			"_Edit",
 			"_Write",
 			"AskUserQuestion",
-			"ToolSearch",
+			"_ToolSearch",
 			"_Grep",
 			"_Glob",
 			"Bash(git commit *)",

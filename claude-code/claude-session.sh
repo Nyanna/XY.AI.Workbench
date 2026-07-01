@@ -6,6 +6,7 @@
 # The first non-key-value argument is treated as the Claude agent parameter.
 # Key-value pairs (e.g. --profile <value>) are consumed by this script.
 
+clear
 set -euo pipefail
 
 LT_COMPOSE_FILE="${HOME}/xyan/xy.ai.workbench/language-tool/docker-compose.yml"
@@ -109,7 +110,6 @@ if lt_is_running; then
 fi
 
 cleanup() {
-	clear
     # Remove our PID file
     rm -f "${LT_PID_DIR}/$$"
 
@@ -124,7 +124,6 @@ cleanup() {
             rm -rf "$LT_PID_DIR"
         fi
     fi
-    sleep 1
 }
 
 if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
@@ -138,13 +137,11 @@ if [[ "$LT_ALREADY_RUNNING" == "false" ]]; then
             systemctl --user start docker
             echo "Retrying LanguageTool start..."
             docker compose -f "$LT_COMPOSE_FILE" up -d
-		    sleep 2
         else
             echo "Error: LanguageTool failed to start." >&2
             exit $LT_EXIT
         fi
     fi
-    sleep 2
 fi
 
 # Trap und PID-Datei erst aktivieren, nachdem Docker erfolgreich gestartet ist
@@ -166,7 +163,7 @@ CLAUDE_ARGS=(--system-prompt=\"\" --verbose)
 PLUGIN_DIRS=()
 
 if [[ -n "$AGENT_ARG" ]]; then
-	echo Loading Agent: $AGENT_ARG
+	#DEBUG echo Loading Agent: $AGENT_ARG
     # Agent name equals plugin name
     AGENT_PLUGIN_DIR="${SCRIPT_DIR}/${AGENT_ARG}"
     AGENT_FILE="${AGENT_PLUGIN_DIR}/agents/${AGENT_ARG}.md"
@@ -176,10 +173,10 @@ if [[ -n "$AGENT_ARG" ]]; then
     PLUGIN_DIRS+=("$AGENT_PLUGIN_DIR")
 
     if [[ -f "$AGENT_FILE" ]]; then
-    	echo Using agent file: $AGENT_FILE
+    	#DEBUG echo Using agent file: $AGENT_FILE
         # Extract frontmatter block (between first pair of ---)
         FRONTMATTER="$(awk '/^---/{if(++n==2) exit; next} n==1' "$AGENT_FILE")"
-        echo Frontmatter: $FRONTMATTER
+        #DEBUG echo Frontmatter: $FRONTMATTER
 
         AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')" || true
         AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')" || true
@@ -209,7 +206,7 @@ fi
 
 CLAUDE_ARGS+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
 
-echo Updating PATH
+#DEBUG echo Updating PATH
 # Update PATH with all plugin directories
 if [[ ${#PLUGIN_DIRS[@]} -gt 0 ]]; then
     for plugin_dir in "${PLUGIN_DIRS[@]}"; do
@@ -217,7 +214,4 @@ if [[ ${#PLUGIN_DIRS[@]} -gt 0 ]]; then
     done
 fi
 
-sleep 1
-clear
 claude "${CLAUDE_ARGS[@]}"
-clear
