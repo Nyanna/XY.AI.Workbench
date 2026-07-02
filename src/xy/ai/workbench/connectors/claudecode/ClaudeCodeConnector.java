@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,9 +67,10 @@ public class ClaudeCodeConnector implements IAIConnector {
 			IProgressMonitor mon) {
 		String id = UUID.randomUUID().toString();
 
-		// --- Preprocessing: extract Allow/Deny lines from input ---
+		// --- Preprocessing: extract Allow/Deny lines and /exit command from input ---
 		List<String> preMessages = new ArrayList<>();
-		String processedInput = preprocessInput(input, preMessages);
+		boolean[] exitFlag = { false };
+		String processedInput = preprocessInput(input, preMessages, exitFlag);
 
 		// Combine systemPrompt, tools, and remaining input into a single text block
 		StringBuilder text = new StringBuilder();
@@ -114,7 +116,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 			}
 		});
 
-		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1]);
+		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1], exitFlag[0]);
 	}
 
 	private String buildPromptJson(String text) {
@@ -142,14 +144,42 @@ public class ClaudeCodeConnector implements IAIConnector {
 			for (String msg : req.preMessages) {
 				stdin.println(msg);
 			}
+			// /exit with no further prompt: terminate immediately, return control-flow response
+			if (req.exitAfterResult && req.promptJson == null) {
+				stdin.flush();
+				terminateProcess();
+				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "", false);
+				resp.isExited = true;
+				return resp;
+			}
 			// Send the prompt if present
 			if (req.promptJson != null) {
 				stdin.println(req.promptJson);
 			}
 			stdin.flush();
-			return readUntilResult(req);
+			ClaudeCodeResponse resp = readUntilResult(req);
+			// /exit after result: terminate subprocess
+			if (req.exitAfterResult) {
+				terminateProcess();
+				resp.isExited = true;
+			}
+			return resp;
 		} catch (IOException e) {
 			throw new IllegalStateException("Claude Code CLI error", e);
+		}
+	}
+
+	private synchronized void terminateProcess() {
+		if (process != null) {
+			try {
+				stdin.close();
+			} catch (Exception ignored) {
+			}
+			process.destroy();
+			process = null;
+			stdin = null;
+			stdout = null;
+			LOG.info("Claude Code process terminated via /exit command");
 		}
 	}
 
@@ -206,6 +236,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 			}
 		}
 
+		// Ordered map: key = "type\0content" for dedup, value = formatted markdown line
+		LinkedHashMap<String, String> assistantEvents = new LinkedHashMap<>();
+
 		try {
 			String line;
 			while ((line = stdout.readLine()) != null) {
@@ -216,14 +249,16 @@ public class ClaudeCodeConnector implements IAIConnector {
 					mirror.flush();
 				}
 
-				// Check for result or tool_use event
+				// Check for result, tool_use, or assistant event
 				try {
 					JsonNode node = mapper.readTree(line);
 					String type = node.path("type").asText();
 					if ("result".equals(type))
-						return parseResult(req.id, node);
+						return parseResult(req.id, node, assistantEvents);
 					if ("tool_use".equals(type))
 						return parseToolUse(req.id, node);
+					if ("assistant".equals(type))
+						collectAssistantEvents(node, assistantEvents);
 				} catch (Exception ignored) {
 					// Non-JSON or unrecognised line — continue reading
 				}
@@ -240,12 +275,42 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	/**
-	 * Scans {@code input} line by line. Lines that are solely "Allow <id>" or
-	 * "Deny <id>" are extracted: an approve/deny JSON is added to {@code preMessages}
-	 * and the line is removed from the returned text. The remaining lines (after
-	 * trimming the whole result) are returned; returns null when nothing is left.
+	 * Extracts "thinking" and "text" content blocks from an assistant event snapshot
+	 * and stores them in the ordered dedup map. Blocks already seen (same type + content)
+	 * are silently ignored so that repeated snapshots do not produce duplicates.
 	 */
-	private String preprocessInput(String input, List<String> preMessages) {
+	private void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+		JsonNode content = node.path("message").path("content");
+		if (!content.isArray())
+			return;
+		for (JsonNode block : content) {
+			String blockType = block.path("type").asText();
+			if ("thinking".equals(blockType)) {
+				// Some versions use "thinking" field, others fall back to "text"
+				String text = block.path("thinking").asText("");
+				if (text.isEmpty())
+					text = block.path("text").asText("");
+				if (!text.isEmpty())
+					assistantEvents.putIfAbsent("thinking\0" + text, "#Thinking: " + text);
+			} else if ("text".equals(blockType)) {
+				String text = block.path("text").asText("");
+				if (!text.isEmpty())
+					assistantEvents.putIfAbsent("text\0" + text, "#Text: " + text);
+			}
+		}
+	}
+
+	/**
+	 * Scans {@code input} line by line.
+	 * <ul>
+	 *   <li>Lines that are solely "/allow &lt;id&gt;" or "/deny &lt;id&gt;" are extracted:
+	 *       an approve/deny JSON is added to {@code preMessages} and the line is removed.</li>
+	 *   <li>A line that is solely "/exit" sets {@code exitFlag[0] = true} and is removed.</li>
+	 * </ul>
+	 * The remaining lines (after trimming the whole result) are returned; returns null
+	 * when nothing is left.
+	 */
+	private String preprocessInput(String input, List<String> preMessages, boolean[] exitFlag) {
 		if (input == null)
 			return null;
 		String[] lines = input.split("\n", -1);
@@ -258,6 +323,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 			} else if (trimmed.matches("/(?i)deny\\s+\\S+")) {
 				String toolUseId = trimmed.split("\\s+", 2)[1];
 				preMessages.add(buildDenyJson(toolUseId));
+			} else if ("/exit".equals(trimmed)) {
+				exitFlag[0] = true;
 			} else {
 				remaining.add(line);
 			}
@@ -309,10 +376,20 @@ public class ClaudeCodeConnector implements IAIConnector {
 		return new ClaudeCodeResponse(requestId, markdown, toolUseId);
 	}
 
-	private ClaudeCodeResponse parseResult(String id, JsonNode node) {
+	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents) {
 		boolean isError = node.path("is_error").asBoolean(false)
 				|| "error".equals(node.path("subtype").asText());
 		String resultText = node.path("result").asText("");
+
+		// Prepend collected thinking/text events as markdown lines
+		if (!assistantEvents.isEmpty()) {
+			StringBuilder prefix = new StringBuilder();
+			for (String line : assistantEvents.values()) {
+				prefix.append(line).append("\n");
+			}
+			prefix.append("\n");
+			resultText = prefix + resultText;
+		}
 
 		ClaudeCodeResponse resp = new ClaudeCodeResponse(id, resultText, isError);
 
