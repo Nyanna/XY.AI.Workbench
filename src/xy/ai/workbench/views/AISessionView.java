@@ -39,6 +39,7 @@ import org.eclipse.ui.part.ViewPart;
 import jakarta.inject.Inject;
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.Model;
@@ -122,16 +123,33 @@ public class AISessionView extends ViewPart {
 			keyInput.setText(cfg.getKeys() + "");
 			keyInput.addMouseListener(MouseListener.mouseDownAdapter(m -> keyInput.setFocus()));
 
-			toolkit.createLabel(top, "Model:");
-			Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-			modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			modelSel.addSelectionListener(
-					SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
-			cfg.addEnabledModelsObs(k -> {
-				modelSel.setItems(
-						Arrays.stream(k).map((m) -> m.name()).collect(Collectors.toList()).toArray(new String[0]));
-				modelSel.setText(cfg.getModel().name());
-			}, true);
+			{
+				toolkit.createLabel(top, "Model:");
+				Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+				modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+				modelSel.addSelectionListener(
+						SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
+				cfg.addEnabledModelsObs(k -> {
+					modelSel.setItems(
+							Arrays.stream(k).map((m) -> m.name()).collect(Collectors.toList()).toArray(new String[0]));
+					modelSel.setText(cfg.getModel().name());
+				}, true);
+			}
+
+			{
+				toolkit.createLabel(top, "Profile:");
+				Combo profileSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+				profileSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+				profileSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg.setProfile(
+						profileSel.getText().isBlank() ? null : AgentProfile.fromName(profileSel.getText()))));
+				cfg.addEnabledProfilesObs(k -> {
+					profileSel.setItems(
+							Arrays.stream(k).map((m) -> m.name).collect(Collectors.toList()).toArray(new String[0]));
+				}, true);
+				cfg.addProfileObs(p -> {
+					profileSel.setText(p != null ? p.name : "");
+				}, true);
+			}
 
 			Label maxTokenLabel = toolkit.createLabel(top, "Max Token:");
 			maxTokenLabel.setLayoutData(new GridData());
@@ -436,7 +454,7 @@ public class AISessionView extends ViewPart {
 			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
 			column4.setText("Reason");
 			column4.setWidth(50);
-			
+
 			TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
 			column5.setText("Cached");
 			column5.setWidth(50);
@@ -451,7 +469,7 @@ public class AISessionView extends ViewPart {
 				if (a != null) {
 					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
 					item.setText(new String[] { a.totalToken + "", a.inputToken + "", a.outputToken + "",
-							a.reasoningToken + "", a.cacheRead + "", a.cacheCreate + ""});
+							a.reasoningToken + "", a.cacheRead + "", a.cacheCreate + "" });
 					usageLog.setTopIndex(0);
 				}
 			});

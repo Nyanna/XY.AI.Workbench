@@ -182,7 +182,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		cmd.add("--profile");
 		cmd.add(profile);
 		cmd.add("--agent");
-		cmd.add("default");
+		cmd.add(cfg.getProfile().name);
 		cmd.add("--verbose");
 		cmd.add("--include-hook-events");
 		cmd.add("--include-partial-messages");
@@ -252,10 +252,10 @@ public class ClaudeCodeConnector implements IAIConnector {
 		List<String> remaining = new ArrayList<>();
 		for (String line : lines) {
 			String trimmed = line.strip();
-			if (trimmed.matches("(?i)Allow\\s+\\S+")) {
+			if (trimmed.matches("/(?i)allow\\s+\\S+")) {
 				String toolUseId = trimmed.split("\\s+", 2)[1];
 				preMessages.add(buildApproveJson(toolUseId));
-			} else if (trimmed.matches("(?i)Deny\\s+\\S+")) {
+			} else if (trimmed.matches("/(?i)deny\\s+\\S+")) {
 				String toolUseId = trimmed.split("\\s+", 2)[1];
 				preMessages.add(buildDenyJson(toolUseId));
 			} else {

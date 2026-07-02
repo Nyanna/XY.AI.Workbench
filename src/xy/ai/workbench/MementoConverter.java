@@ -21,6 +21,8 @@ public class MementoConverter {
 			m.putString("model", cfg.model.name());
 		if (cfg.reasoning != null)
 			m.putString("reasoning", cfg.reasoning.name());
+		if (cfg.profile != null)
+			m.putString("profile", cfg.profile.name());
 		if (cfg.reasoningBudget != null)
 			m.putInteger("reasoningBudget", cfg.reasoningBudget);
 		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
@@ -66,6 +68,8 @@ public class MementoConverter {
 		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
 		String rsn = m.getString("reasoning");
 		cfg.reasoning = rsn == null ? cfg.reasoning : Reasoning.valueOf(rsn);
+		String profile = m.getString("profile");
+		cfg.profile = rsn == null ? cfg.profile : AgentProfile.valueOf(profile);
 		Integer rsnb = m.getInteger("reasoningBudget");
 		cfg.reasoningBudget = rsnb != null ? cfg.reasoningBudget : rsnb;
 		Integer spLen = m.getInteger("systemPrompt.length");

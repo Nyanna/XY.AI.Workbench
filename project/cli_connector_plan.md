@@ -17,3 +17,8 @@ Wie agent auswählen?
 
 * output modus in capabillities verlagern claude code unterstützt nur append
 * subagent interleaing -> gibt es nicht mit MCP Controller
+
+* agenten-profil feld und capabilities hinzufügen
+! gedanken sammeln und als md comment ausgeben
+! /exit kommando beendet session und proccess
+* /resume setzt session hash aus datei fort - was bei session wechsel?

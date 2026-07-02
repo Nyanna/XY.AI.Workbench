@@ -6,6 +6,7 @@ public class SessionConfig {
 	public Double temperature = 0d;
 	public Double topP = 0.1d;
 	public Model model = Model.GPT_5_NANO;
+	public AgentProfile profile;
 	public String[] systemPrompt = new String[] { //
 			"Answer very short and precise", //
 			"Be objective and neutral", //
@@ -65,6 +66,14 @@ public class SessionConfig {
 
 	public void setModel(Model model) {
 		this.model = model;
+	}
+	
+	public void setProfile(AgentProfile profile) {
+		this.profile = profile;
+	}
+	
+	public AgentProfile getProfile() {
+		return profile;
 	}
 
 	public Reasoning getReasoning() {

@@ -37,6 +37,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 			new Color(Display.getCurrent(), new RGB(200, 200, 255)), SWT.BOLD);
 	private static final TextAttribute BLUE_ATTR = new TextAttribute(
 			new Color(Display.getCurrent(), new RGB(100, 100, 255)), null, SWT.NONE);
+	private static final TextAttribute GREY_ATTR = new TextAttribute(
+			new Color(Display.getCurrent(), new RGB(150, 150, 150)), null, SWT.NONE);
 	private static final TextAttribute DEFAULT_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
 	private static final TextAttribute COMMENT_ATTR = new TextAttribute(
@@ -50,6 +52,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 		IToken userToken = new Token(USER_ATTR);
 		IToken agentToken = new Token(AGENT_ATTR);
 		IToken blueToken = new Token(BLUE_ATTR);
+		IToken greyToken = new Token(GREY_ATTR);
 		IToken defaultToken = new Token(DEFAULT_ATTR);
 		IToken commentToken = new Token(COMMENT_ATTR);
 		IToken spacerToken = new Token(SPACER_ATTR);
@@ -90,6 +93,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 		rules.add(new EmphasisRule("*", italic));
 		rules.add(new EmphasisRule("$", italic));
 		rules.add(new EmphasisRule("`", blueToken));
+		rules.add(new EmphasisRule("\"", greyToken));
+		rules.add(new EmphasisRule("'", greyToken));
 		rules.add(new MultiLineRule("<!--", "-->", normal));
 		rules.add(new MultiLineRule("```", "```", blueToken));
 		rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));

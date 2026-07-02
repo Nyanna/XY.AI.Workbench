@@ -57,6 +57,7 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.agentProfiles(AgentProfile.values())//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
@@ -65,6 +66,7 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.agentProfiles(AgentProfile.values())//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_OPUS("opus", new Capabilities()//
@@ -73,6 +75,7 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.agentProfiles(AgentProfile.values())//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
@@ -111,9 +114,15 @@ public enum Model {
 		private int outTknMin = 0;
 		private int outTknMax = 128000; // max for gpt5
 		private KeyPattern keyPattern;
+		private AgentProfile[] agentProfiles = new AgentProfile[0];
 
 		public Capabilities supportTemperature(boolean flag) {
 			supportTemperature = flag;
+			return this;
+		}
+
+		public Capabilities agentProfiles(AgentProfile[] profiles) {
+			this.agentProfiles = profiles;
 			return this;
 		}
 
@@ -186,6 +195,10 @@ public enum Model {
 
 		public KeyPattern getKeyPattern() {
 			return keyPattern;
+		}
+		
+		public AgentProfile[] getAgentProfiles() {
+			return agentProfiles;
 		}
 
 		public int alignOutpuTokens(int tokens) {
