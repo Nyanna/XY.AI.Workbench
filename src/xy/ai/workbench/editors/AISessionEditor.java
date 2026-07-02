@@ -11,6 +11,7 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.part.FileEditorInput;
@@ -65,8 +66,9 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 
 	@Override
 	public void init(IEditorSite site, IEditorInput editorInput) throws PartInitException {
-		if (!(editorInput instanceof IFileEditorInput))
-			throw new PartInitException("Invalid Input: Must be IFileEditorInput");
+		if (!(editorInput instanceof IFileEditorInput) && !(editorInput instanceof IURIEditorInput))
+			throw new PartInitException(
+					"Invalid Input: Must be IFileEditorInput/IURIEditorInput [" + editorInput.getClass() + "]");
 		super.init(site, editorInput);
 	}
 

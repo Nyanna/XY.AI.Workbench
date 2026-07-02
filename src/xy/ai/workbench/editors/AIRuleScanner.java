@@ -89,6 +89,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 		rules.add(new EmphasisRule("**", bold));
 		rules.add(new EmphasisRule("*", italic));
 		rules.add(new EmphasisRule("$", italic));
+		rules.add(new EmphasisRule("`", blueToken));
 		rules.add(new MultiLineRule("<!--", "-->", normal));
 		rules.add(new MultiLineRule("```", "```", blueToken));
 		rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));

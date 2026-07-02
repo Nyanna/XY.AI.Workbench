@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
@@ -40,6 +42,7 @@ import org.eclipse.search.ui.text.Match;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
@@ -186,6 +189,8 @@ public class AISessionManager {
 							throw new IllegalStateException(e);
 						}
 					}
+				} else {
+					throw new IllegalStateException("Context prompt is not supported for non project files");
 				}
 			}
 			break;
@@ -417,7 +422,24 @@ public class AISessionManager {
 			if (OutputMode.New_File.equals(cfg.getOuputMode())) {
 
 				IEditorInput editorInput = textEditor.getEditorInput();
-				IFile currentFile = ((IFileEditorInput) editorInput).getFile();
+				IFile currentFile;
+				if (editorInput instanceof IFileEditorInput)
+					currentFile = ((IFileEditorInput) editorInput).getFile();
+				else if (editorInput instanceof IURIEditorInput) {
+					URI uri = ((IURIEditorInput) editorInput).getURI();
+					String fileName = new Path(uri.getPath()).lastSegment();
+					currentFile = ResourcesPlugin.getWorkspace().getRoot().getProject("ExternalFiles")
+							.getFile(fileName);
+
+					if (!currentFile.exists())
+						try {
+							currentFile.createLink(uri, IResource.ALLOW_MISSING_LOCAL, mon);
+						} catch (CoreException e) {
+							throw new IllegalStateException("Could not link external file", e);
+						}
+				} else
+					throw new IllegalArgumentException("Editor type not supported for new file output mode");
+
 				IContainer parent = currentFile.getParent();
 
 				String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"));
