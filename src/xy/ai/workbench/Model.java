@@ -52,15 +52,15 @@ public enum Model {
 			.budget(1024, 31999) //
 	), //
 	CC_HAIKU("haiku", new Capabilities()//
-			.key(KeyPattern.Empty)//
+			.key(KeyPattern.ClaudeCode)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
-			.key(KeyPattern.Empty)//
+			.key(KeyPattern.ClaudeCode)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_OPUS("opus", new Capabilities()//
-			.key(KeyPattern.Empty)//
+			.key(KeyPattern.ClaudeCode)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
@@ -74,7 +74,7 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), Empty("^$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), ClaudeCode("^(claude-work|claude-personal)$");
 
 		public final Pattern pattern;
 
