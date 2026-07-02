@@ -16,3 +16,4 @@ Wie agent auswählen?
 * Prompt, enqueue, batch in capabilities verlagen und alles bis auf Prompt deaktivieren bei Claude code
 
 * output modus in capabillities verlagern claude code unterstützt nur append
+* subagent interleaing -> gibt es nicht mit MCP Controller

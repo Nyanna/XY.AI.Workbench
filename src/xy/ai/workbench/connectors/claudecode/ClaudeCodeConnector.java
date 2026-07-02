@@ -66,7 +66,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 			IProgressMonitor mon) {
 		String id = UUID.randomUUID().toString();
 
-		// Combine systemPrompt, tools, and input into a single text block
+		// --- Preprocessing: extract Allow/Deny lines from input ---
+		List<String> preMessages = new ArrayList<>();
+		String processedInput = preprocessInput(input, preMessages);
+
+		// Combine systemPrompt, tools, and remaining input into a single text block
 		StringBuilder text = new StringBuilder();
 		if (systemPrompt != null && !systemPrompt.isBlank())
 			text.append(systemPrompt).append("\n\n");
@@ -74,10 +78,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 			for (String tool : tools)
 				if (tool != null && !tool.isBlank())
 					text.append(tool).append("\n\n");
-		if (input != null && !input.isBlank())
-			text.append(input);
+		if (processedInput != null && !processedInput.isBlank())
+			text.append(processedInput);
 
-		String promptJson = buildPromptJson(text.toString().trim());
+		String trimmed = text.toString().trim();
+		String promptJson = trimmed.isEmpty() ? null : buildPromptJson(trimmed);
 
 		// Resolve paths from the active editor on the UI thread
 		Path[] paths = new Path[2]; // [0]=workDir, [1]=outputJsonFile
@@ -109,7 +114,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 			}
 		});
 
-		return new ClaudeCodeRequest(id, promptJson, paths[0], paths[1]);
+		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1]);
 	}
 
 	private String buildPromptJson(String text) {
@@ -133,7 +138,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
 		try {
 			ensureProcess(req);
-			stdin.println(req.promptJson);
+			// Send approve/deny pre-messages first
+			for (String msg : req.preMessages) {
+				stdin.println(msg);
+			}
+			// Send the prompt if present
+			if (req.promptJson != null) {
+				stdin.println(req.promptJson);
+			}
 			stdin.flush();
 			return readUntilResult(req);
 		} catch (IOException e) {
@@ -204,11 +216,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 					mirror.flush();
 				}
 
-				// Check for result event
+				// Check for result or tool_use event
 				try {
 					JsonNode node = mapper.readTree(line);
-					if ("result".equals(node.path("type").asText()))
+					String type = node.path("type").asText();
+					if ("result".equals(type))
 						return parseResult(req.id, node);
+					if ("tool_use".equals(type))
+						return parseToolUse(req.id, node);
 				} catch (Exception ignored) {
 					// Non-JSON or unrecognised line — continue reading
 				}
@@ -222,6 +237,76 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 
 		throw new IllegalStateException("Claude Code process ended without a result event");
+	}
+
+	/**
+	 * Scans {@code input} line by line. Lines that are solely "Allow <id>" or
+	 * "Deny <id>" are extracted: an approve/deny JSON is added to {@code preMessages}
+	 * and the line is removed from the returned text. The remaining lines (after
+	 * trimming the whole result) are returned; returns null when nothing is left.
+	 */
+	private String preprocessInput(String input, List<String> preMessages) {
+		if (input == null)
+			return null;
+		String[] lines = input.split("\n", -1);
+		List<String> remaining = new ArrayList<>();
+		for (String line : lines) {
+			String trimmed = line.strip();
+			if (trimmed.matches("(?i)Allow\\s+\\S+")) {
+				String toolUseId = trimmed.split("\\s+", 2)[1];
+				preMessages.add(buildApproveJson(toolUseId));
+			} else if (trimmed.matches("(?i)Deny\\s+\\S+")) {
+				String toolUseId = trimmed.split("\\s+", 2)[1];
+				preMessages.add(buildDenyJson(toolUseId));
+			} else {
+				remaining.add(line);
+			}
+		}
+		String result = String.join("\n", remaining).strip();
+		return result.isEmpty() ? null : result;
+	}
+
+	private String buildApproveJson(String toolUseId) {
+		try {
+			ObjectNode node = mapper.createObjectNode();
+			node.put("type", "approve");
+			node.put("tool_use_id", toolUseId);
+			return mapper.writeValueAsString(node);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to build approve JSON", e);
+		}
+	}
+
+	private String buildDenyJson(String toolUseId) {
+		try {
+			ObjectNode node = mapper.createObjectNode();
+			node.put("type", "deny");
+			node.put("tool_use_id", toolUseId);
+			return mapper.writeValueAsString(node);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to build deny JSON", e);
+		}
+	}
+
+	private ClaudeCodeResponse parseToolUse(String requestId, JsonNode node) {
+		String toolName = node.path("name").asText("");
+		String toolUseId = node.path("id").asText("");
+		JsonNode input = node.path("input");
+
+		String inputStr;
+		if (input.isObject() && input.size() == 1) {
+			String val = input.fields().next().getValue().asText();
+			inputStr = "`" + val + "`";
+		} else {
+			try {
+				inputStr = mapper.writeValueAsString(input);
+			} catch (Exception e) {
+				inputStr = input.toString();
+			}
+		}
+
+		String markdown = "Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId;
+		return new ClaudeCodeResponse(requestId, markdown, toolUseId);
 	}
 
 	private ClaudeCodeResponse parseResult(String id, JsonNode node) {
