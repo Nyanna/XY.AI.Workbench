@@ -14,6 +14,9 @@ import xy.ai.workbench.connectors.claude.ClaudeBatchConnector;
 import xy.ai.workbench.connectors.claude.ClaudeConnector;
 import xy.ai.workbench.connectors.claude.ClaudeRequest;
 import xy.ai.workbench.connectors.claude.ClaudeResponse;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeConnector;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeResponse;
 import xy.ai.workbench.connectors.google.GeminiBatch;
 import xy.ai.workbench.connectors.google.GeminiBatchConnector;
 import xy.ai.workbench.connectors.google.GeminiConnector;
@@ -37,6 +40,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	private IAIBatchConnector batchGemini;
 	private ClaudeConnector claude;
 	private IAIBatchConnector batchClaude;
+	private ClaudeCodeConnector claudeCode;
 	private IAIBatchConnector newBatch;
 
 	public AdaptingConnector(ConfigManager cfg) {
@@ -44,6 +48,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
+		claudeCode = new ClaudeCodeConnector(cfg);
 		newBatch = new NewBatchConnector();
 	}
 	
@@ -65,6 +70,10 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		case CLAUDE_OPUS:
 		case CLAUDE_SONNET:
 			return claude;
+		case CC_HAIKU:
+		case CC_SONNET:
+		case CC_OPUS:
+			return claudeCode;
 		default:
 		}
 		throw new IllegalArgumentException("Model unsupported");
@@ -95,6 +104,8 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 			return chad;
 		else if (request instanceof ClaudeRequest)
 			return claude;
+		else if (request instanceof ClaudeCodeRequest)
+			return claudeCode;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
@@ -105,6 +116,8 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 			return chad;
 		else if (response instanceof ClaudeResponse)
 			return claude;
+		else if (response instanceof ClaudeCodeResponse)
+			return claudeCode;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 

@@ -133,7 +133,8 @@ public class AISessionView extends ViewPart {
 				modelSel.setText(cfg.getModel().name());
 			}, true);
 
-			toolkit.createLabel(top, "Max Token:");
+			Label maxTokenLabel = toolkit.createLabel(top, "Max Token:");
+			maxTokenLabel.setLayoutData(new GridData());
 			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
 			maxToken.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			maxToken.addFocusListener(
@@ -180,6 +181,7 @@ public class AISessionView extends ViewPart {
 			cfg.addModelObs(m -> {
 				toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
 				toogleControl(topPLabel, topP, m.cap.isSupportTopP());
+				toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
 
 				reasSel.setItems(cfg.getReasonings());
 				reasSel.setText(cfg.getReasoning().name());
@@ -401,6 +403,12 @@ public class AISessionView extends ViewPart {
 			bsbtn.setText("Batch");
 			bsbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(
 					e -> session.queueAndSubmit(bsbtn.getDisplay(), Activator.getDefault().batch)));
+
+			cfg.addModelObs(m -> {
+				bbtn.setEnabled(m.cap.isSupportBatch());
+				bsbtn.setEnabled(m.cap.isSupportBatch());
+				body.layout();
+			}, true);
 		}
 		{ // status display
 			Composite footer = new Composite(body, SWT.NONE);
@@ -428,6 +436,14 @@ public class AISessionView extends ViewPart {
 			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
 			column4.setText("Reason");
 			column4.setWidth(50);
+			
+			TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
+			column5.setText("Cached");
+			column5.setWidth(50);
+
+			TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
+			column6.setText("Created");
+			column6.setWidth(50);
 		}
 
 		session.addAnswerObs(a -> {
@@ -435,7 +451,7 @@ public class AISessionView extends ViewPart {
 				if (a != null) {
 					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
 					item.setText(new String[] { a.totalToken + "", a.inputToken + "", a.outputToken + "",
-							a.reasoningToken + "" });
+							a.reasoningToken + "", a.cacheRead + "", a.cacheCreate + ""});
 					usageLog.setTopIndex(0);
 				}
 			});

@@ -53,14 +53,26 @@ public enum Model {
 	), //
 	CC_HAIKU("haiku", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_OPUS("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
 			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
@@ -74,7 +86,7 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), ClaudeCode("^(claude-work|claude-personal)$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), ClaudeCode("^(work|personal)$");
 
 		public final Pattern pattern;
 
@@ -91,6 +103,8 @@ public enum Model {
 	public static class Capabilities {
 		private boolean supportTemperature = true;
 		private boolean supportTopP = true;
+		private boolean supportMaxToken = true;
+		private boolean supportBatch = true;
 		private Reasoning[] reasonings = Reasoning.values();
 		private int rsnBudgetMin = 0;
 		private int rsnBudgetMax = 32768;
@@ -105,6 +119,16 @@ public enum Model {
 
 		public Capabilities supportTopP(boolean flag) {
 			supportTopP = flag;
+			return this;
+		}
+		
+		public Capabilities supportMaxToken(boolean supportMaxToken) {
+			this.supportMaxToken = supportMaxToken;
+			return this;
+		}
+		
+		public Capabilities supportBatch(boolean supportBatch) {
+			this.supportBatch = supportBatch;
 			return this;
 		}
 
@@ -147,7 +171,15 @@ public enum Model {
 		public boolean isSupportTopP() {
 			return supportTopP;
 		}
-
+		
+		public boolean isSupportMaxToken() {
+			return supportMaxToken;
+		}
+		
+		public boolean isSupportBatch() {
+			return supportBatch;
+		}
+		
 		public Reasoning[] getReasonings() {
 			return reasonings;
 		}
