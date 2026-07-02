@@ -148,8 +148,12 @@ public class ClaudeCodeConnector implements IAIConnector {
 			if (req.exitAfterResult && req.promptJson == null) {
 				stdin.flush();
 				terminateProcess();
-				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "", false);
+				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
 				resp.isExited = true;
+				try {
+					Thread.sleep(1000); // die to delay for saving marker
+				} catch (InterruptedException e) {
+				}
 				return resp;
 			}
 			// Send the prompt if present
@@ -291,11 +295,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 				if (text.isEmpty())
 					text = block.path("text").asText("");
 				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("thinking\0" + text, "#Thinking: " + text);
+					assistantEvents.putIfAbsent("thinking\0" + text, "Thinking: " + text);
 			} else if ("text".equals(blockType)) {
 				String text = block.path("text").asText("");
 				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("text\0" + text, "#Text: " + text);
+					assistantEvents.putIfAbsent("text\0" + text, "Text: " + text);
 			}
 		}
 	}
@@ -373,7 +377,15 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 
 		String markdown = "Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId;
-		return new ClaudeCodeResponse(requestId, markdown, toolUseId);
+		return new ClaudeCodeResponse(requestId, commented(markdown), toolUseId);
+	}
+
+	private String commented(String input) {
+		while (input.indexOf("\n\n") != -1)
+			input = input.replace("\n\n", "\n");
+		if(input.endsWith("\n"))
+			input = input.substring(0, input.length() - 1);
+		return "#: " + input.replace("\n", "\n#: ");
 	}
 
 	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents) {
@@ -388,7 +400,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 				prefix.append(line).append("\n");
 			}
 			prefix.append("\n");
-			resultText = prefix + resultText;
+			resultText = commented(prefix.toString()) + "\n" + resultText;
 		}
 
 		ClaudeCodeResponse resp = new ClaudeCodeResponse(id, resultText, isError);

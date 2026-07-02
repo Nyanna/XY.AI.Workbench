@@ -1,6 +1,6 @@
 ---
 description: General and default Agent settings
-tools:
+tools: ""
 model: Haiku
 effort: low
 tool_deny:

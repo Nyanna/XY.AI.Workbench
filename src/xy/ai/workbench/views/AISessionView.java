@@ -145,6 +145,7 @@ public class AISessionView extends ViewPart {
 				cfg.addEnabledProfilesObs(k -> {
 					profileSel.setItems(
 							Arrays.stream(k).map((m) -> m.name).collect(Collectors.toList()).toArray(new String[0]));
+					profileSel.setText(k.length > 0 ? k[0].name : "");
 				}, true);
 				cfg.addProfileObs(p -> {
 					profileSel.setText(p != null ? p.name : "");

@@ -69,7 +69,7 @@ public class MementoConverter {
 		String rsn = m.getString("reasoning");
 		cfg.reasoning = rsn == null ? cfg.reasoning : Reasoning.valueOf(rsn);
 		String profile = m.getString("profile");
-		cfg.profile = rsn == null ? cfg.profile : AgentProfile.valueOf(profile);
+		cfg.profile = profile == null ? cfg.profile : AgentProfile.valueOf(profile);
 		Integer rsnb = m.getInteger("reasoningBudget");
 		cfg.reasoningBudget = rsnb != null ? cfg.reasoningBudget : rsnb;
 		Integer spLen = m.getInteger("systemPrompt.length");

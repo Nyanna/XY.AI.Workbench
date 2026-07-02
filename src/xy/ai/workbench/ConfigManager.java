@@ -81,8 +81,8 @@ public class ConfigManager {
 			setReasoning(getCapabilities().getReasonings()[0]);
 		setMaxOutputTokens((long) getCapabilities().alignOutpuTokens(Integer.MAX_VALUE));
 		setReasoningBudget(getCapabilities().alignBudget(Integer.MAX_VALUE));
-		
 		setEnabledProfiles(getCapabilities().getAgentProfiles());
+
 		var profiles = getCapabilities().getAgentProfiles();
 		setProfile(profiles.length > 0 ? profiles[0] : null);
 		modelObs.forEach(c -> c.accept(model));
@@ -280,8 +280,13 @@ public class ConfigManager {
 		enabledModels = avail.toArray(new Model[0]);
 		if (!avail.contains(cfg.model) && !avail.isEmpty())
 			setModel(avail.get(1));
-
+		
 		enabledModelsObs.forEach(c -> c.accept(enabledModels));
+		
+		if(cfg.model != null) 
+			enabledProfiles = cfg.model.cap.getAgentProfiles();
+		
+		enabledProfilesObs.forEach(c -> c.accept(enabledProfiles));
 	}
 	
 	public void setEnabledProfiles(AgentProfile[] enabledProfiles) {

@@ -20,6 +20,8 @@
 
 ## Todo - Agents
 
+* disable thinking MAX_THINKING_TOKENS=0 when frontmatter false
+
 *ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
 * python agent ein python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 	* hm nur über hooks vor und nach tool usage nutzbar oder via MCP
@@ -37,6 +39,7 @@
 
 * Thinking cost is quality indicator for prompt. Better specified => less thinking.
 	* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
+* Empty feault agent allready produces 6843 cache write token with /context reporting 31/200k
 
 ## Ideas
 
