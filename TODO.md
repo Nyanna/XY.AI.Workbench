@@ -1,10 +1,9 @@
 # TODO
 * LT englisch installieren
 * elicitation is supported by claude
-* der postproccessing task hat kein thinking verbraucht?!?
 
 ## TODO - MCP Controller
-* man kann permission permis=sions direkt über den tool hook abfangen und dort den input prüfen
+* man kann permission permissions direkt über den tool hook abfangen und dort den input prüfen
 	* CLI hooks sind fast besser als MCP, nur bash stört und das die scripte kein python sind
 	* Agent definition ließe sich auch nativ über CLI argumente und umgebungsvariablen aus eclipse heraus abbilden lassen
 	* allein ein MCP für die tool use und definitionen wäre dann notwendig, mcp per cli übergeben statt tools
@@ -12,7 +11,7 @@
 			* nur eine Tooldefinition, redirect ist ein spezialfall
 		 	* nur die schwierigkeit der agent schnittstelle gut zu emulieren
 		 	* agentenprofile sind dann obsolete und nur veränderbare presets
-
+	* permission check deaktiviert tool use ist für permission verantwortlich
 * Tree viewer für kontext cache verwaltung und laufzeit von cache
 * Eigenes read tool mit redirect wenn Datei schon gelesen, unverändert und im kontext
 * Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
@@ -23,25 +22,25 @@
 ! LT-Spellcheck support line listener in current line mark red only
 	* dann für claude hook mit umgebungsvariable deaktivieren
 	* startscript auch kein LT start oder shutdown dann
-! problem, tool zugriff ist zwar erlaubt permission aber nicht (decision.behavior) hook: PermissionRequest, !permission check temporär deaktiviert
-* im log die claude code connector 5h und week limits anzeigen und die context usage %
-* STop and correct mode
-	* PostToolBatch kann nach einer tool ausführung anhalten, so wie PermissionRequest auch
-* workbench, session branching und prefix cache support, bessere tool loops
+* Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
+	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
+* workbench, session branching und prefix cache support
 	* anzeige wie alt cache und zustand
+	* Workbench muss resume unterstützen für chats und cache /resume <session> command
+	
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
 	* Zeichen | mit offset an maxlength pro spalte ändern
 	* exten "---" grey the whole line?
-
-* Workbench muss resume unterstützen für chats und cache /resume <session> command
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
 
 
 ## TODO - Agents
 
-*ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
+* Stop and correct mode
+	* PostToolBatch kann nach einer tool ausführung anhalten, so wie PermissionRequest auch
+	*ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
 	* alternativ stop pattern und einhacken wenn falsch gerichtet
 * python agent ein python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 	* hm nur über hooks vor und nach tool usage nutzbar oder via MCP
@@ -64,7 +63,6 @@
 
 * in thought fragen abfangen und beantworten, mehr zwischenschritte zum einhaken
 	* idee: ich habe bei recherche nur den initialprompt, der ezeugt suchanfragen an exa im günstigen agent, die anwot der tools kann ich brauchen die zusammenfassung aber nicht. Mit MCP COntroller kann ich nach der Toolantwort abbrechen und token sparen. Alternativ starte ich einen neuen prompt für die zusammenfassung mit allem input
-	* stop oder intervention architektur. Je nach sweet spot 
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
