@@ -274,6 +274,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 							totalReasoningTokens += collectMessageDeltaEvent(node, assistantEvents);
 						}
 					}
+					if ("rate_limit_event".equals(type)) {
+						processRateLimitEvent(node);
+					}
 					if ("assistant".equals(type))
 						collectAssistantEvents(node, assistantEvents);
 				} catch (Exception ignored) {
@@ -425,6 +428,65 @@ public class ClaudeCodeConnector implements IAIConnector {
 		return "#: " + input.replace("\n", "\n#: ");
 	}
 
+	/**
+	 * Processes a rate_limit_event from the SDK.
+	 * Extracts rate limit info (utilization, resets_at, status, etc.) for both five_hour and seven_day limits,
+	 * and logs them in a human-readable format with timestamps converted to readable date/time.
+	 */
+	private void processRateLimitEvent(JsonNode node) {
+		try {
+			JsonNode rateLimitInfo = node.path("rate_limit_info");
+			String rateLimitType = rateLimitInfo.path("rateLimitType").asText();
+
+			// Extract fields (use 0 for missing values)
+			String status = rateLimitInfo.path("status").asText("unknown");
+			long resetsAt = rateLimitInfo.path("resetsAt").asLong(0);
+			double utilization = rateLimitInfo.path("utilization").asDouble(0.0);
+			String errorCode = rateLimitInfo.path("errorCode").asText("");
+			boolean canUserPurchaseCredits = rateLimitInfo.path("canUserPurchaseCredits").asBoolean(false);
+			boolean hasChargeableSavedPaymentMethod = rateLimitInfo.path("hasChargeableSavedPaymentMethod").asBoolean(false);
+			boolean isUsingOverage = rateLimitInfo.path("isUsingOverage").asBoolean(false);
+			String overageStatus = rateLimitInfo.path("overageStatus").asText("");
+			String overageDisabledReason = rateLimitInfo.path("overageDisabledReason").asText("");
+
+			// Convert resetsAt Unix timestamp to human-readable format
+			String resetsAtReadable = resetsAt > 0
+				? new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date(resetsAt * 1000))
+				: "unknown";
+
+			// Build log message
+			StringBuilder logMsg = new StringBuilder();
+			logMsg.append("Rate Limit Event [").append(rateLimitType).append("]: ");
+			logMsg.append("status=").append(status);
+			logMsg.append(" | utilization=").append(String.format("%.2f%%", utilization * 100));
+			logMsg.append(" | resets_at=").append(resetsAtReadable);
+
+			// Add optional fields only if they have meaningful values
+			if (!errorCode.isEmpty()) {
+				logMsg.append(" | errorCode=").append(errorCode);
+			}
+			if (canUserPurchaseCredits) {
+				logMsg.append(" | canUserPurchaseCredits=").append(canUserPurchaseCredits);
+			}
+			if (hasChargeableSavedPaymentMethod) {
+				logMsg.append(" | hasChargeableSavedPaymentMethod=").append(hasChargeableSavedPaymentMethod);
+			}
+			if (isUsingOverage) {
+				logMsg.append(" | isUsingOverage=").append(isUsingOverage);
+			}
+			if (!overageStatus.isEmpty()) {
+				logMsg.append(" | overageStatus=").append(overageStatus);
+			}
+			if (!overageDisabledReason.isEmpty()) {
+				logMsg.append(" | overageDisabledReason=").append(overageDisabledReason);
+			}
+
+			LOG.info(logMsg.toString());
+		} catch (Exception e) {
+			LOG.error("ClaudeCodeConnector: failed to process rate limit event", e);
+		}
+	}
+
 	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents, long totalReasoningTokens) {
 		boolean isError = node.path("is_error").asBoolean(false)
 				|| "error".equals(node.path("subtype").asText());
@@ -463,7 +525,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
 		ClaudeCodeResponse resp = (ClaudeCodeResponse) response;
 		AIAnswer answer = new AIAnswer(resp.id);
-		answer.inputToken = resp.inputTokens;
+		answer.inputToken = resp.inputTokens + resp.cacheCreationInputTokens;
 		answer.outputToken = resp.outputTokens;
 		answer.reasoningToken = resp.reasoningTokens;
 		answer.totalToken = answer.inputToken + answer.outputToken;

@@ -1,0 +1,1 @@
+Der Connector `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connectors/claudecode/ClaudeCodeConnector.java` ist zu groß geworden. Refactore ihn nach folgenden Punkten.
