@@ -14,6 +14,7 @@ public class ClaudeCodeResponse implements IModelResponse {
 
 	public long inputTokens;
 	public long outputTokens;
+	public long reasoningTokens;
 	public long cacheReadInputTokens;
 	public long cacheCreationInputTokens;
 	/** True when the subprocess was terminated as part of handling a /exit command. */

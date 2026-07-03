@@ -247,6 +247,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		// Ordered map: key = "type\0content" for dedup, value = formatted markdown line
 		LinkedHashMap<String, String> assistantEvents = new LinkedHashMap<>();
+		// Accumulate reasoning tokens across all message_delta events
+		long totalReasoningTokens = 0;
 
 		try {
 			String line;
@@ -258,14 +260,20 @@ public class ClaudeCodeConnector implements IAIConnector {
 					mirror.flush();
 				}
 
-				// Check for result, tool_use, or assistant event
+				// Check for result, tool_use, stream_event, or assistant event
 				try {
 					JsonNode node = mapper.readTree(line);
 					String type = node.path("type").asText();
 					if ("result".equals(type))
-						return parseResult(req.id, node, assistantEvents);
+						return parseResult(req.id, node, assistantEvents, totalReasoningTokens);
 					if ("tool_use".equals(type))
 						return parseToolUse(req.id, node);
+					if ("stream_event".equals(type)) {
+						String eventType = node.path("event").path("type").asText();
+						if ("message_delta".equals(eventType)) {
+							totalReasoningTokens += collectMessageDeltaEvent(node, assistantEvents);
+						}
+					}
 					if ("assistant".equals(type))
 						collectAssistantEvents(node, assistantEvents);
 				} catch (Exception ignored) {
@@ -281,6 +289,30 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 
 		throw new IllegalStateException("Claude Code process ended without a result event");
+	}
+
+	/**
+	 * Extracts reasoning tokens from a message_delta event.
+	 * The thinking_tokens are found at event.usage.output_tokens_details.thinking_tokens.
+	 * If present, appends "ReasoningToken: <count>" to assistantEvents with key "reasoning\0<count>".
+	 *
+	 * @return the thinking_tokens count extracted from this event, or 0 if not present
+	 */
+	private long collectMessageDeltaEvent(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+		long thinkingTokens = 0;
+		JsonNode usage = node.path("event").path("usage");
+		if (usage.isObject()) {
+			JsonNode outputTokensDetails = usage.path("output_tokens_details");
+			if (outputTokensDetails.isObject()) {
+				thinkingTokens = outputTokensDetails.path("thinking_tokens").asLong(0);
+				if (thinkingTokens > 0) {
+					String key = "reasoning\0" + thinkingTokens;
+					String value = "ReasoningToken: " + thinkingTokens;
+					assistantEvents.putIfAbsent(key, value);
+				}
+			}
+		}
+		return thinkingTokens;
 	}
 
 	/**
@@ -393,7 +425,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		return "#: " + input.replace("\n", "\n#: ");
 	}
 
-	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents, long totalReasoningTokens) {
 		boolean isError = node.path("is_error").asBoolean(false)
 				|| "error".equals(node.path("subtype").asText());
 		String resultText = resultPostProcessor.process(node.path("result").asText(""));
@@ -421,6 +453,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 			});
 		}
 
+		// Set the accumulated reasoning tokens
+		resp.reasoningTokens = totalReasoningTokens;
+
 		return resp;
 	}
 
@@ -430,6 +465,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		AIAnswer answer = new AIAnswer(resp.id);
 		answer.inputToken = resp.inputTokens;
 		answer.outputToken = resp.outputTokens;
+		answer.reasoningToken = resp.reasoningTokens;
 		answer.totalToken = answer.inputToken + answer.outputToken;
 		answer.cacheRead = resp.cacheReadInputTokens;
 		answer.cacheCreate = resp.cacheCreationInputTokens;
