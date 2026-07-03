@@ -1,49 +1,57 @@
 # TODO
-
-## Tasks - MCP Controller
-
 * LT englisch installieren
+* elicitation is supported by claude
+* der postproccessing task hat kein thinking verbraucht?!?
 
-* Workbench benutzen können mit Claude CLI aufruf, muss resume unterstützen für chats und cache, speelcheck dann übergehen
-* Workbench lokaler cli Agent Modus ohne key mit resume für cache, benutzt lokalen claude code, braucht extra panel, braucht kein Batch und diverse inputparameter entfallen, option panel muss dann wiederverwendet werden der mittlere teil
-* Thinking in editor flag für wirkbench, zeigt extended thinking irgendwo für prompt qualität check
-* Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
-* Lanugagetool in workbench einbauen
-	* eclipse spell check -> language tool, in seitenpannel korrekturen nur selektierter text
-* workbench, session branching und prefix cache support, bessere tool loops
+## TODO - MCP Controller
+* man kann permission permis=sions direkt über den tool hook abfangen und dort den input prüfen
+	* CLI hooks sind fast besser als MCP, nur bash stört und das die scripte kein python sind
+	* Agent definition ließe sich auch nativ über CLI argumente und umgebungsvariablen aus eclipse heraus abbilden lassen
+	* allein ein MCP für die tool use und definitionen wäre dann notwendig, mcp per cli übergeben statt tools
+		* "tool inject" und  "tool use (permission)" sind dann nur 2 schnittstellen von derselben konfiguration ausgehend
+			* nur eine Tooldefinition, redirect ist ein spezialfall
+		 	* nur die schwierigkeit der agent schnittstelle gut zu emulieren
+		 	* agentenprofile sind dann obsolete und nur veränderbare presets
+
 * Tree viewer für kontext cache verwaltung und laufzeit von cache
-
-* update model and model parameters -> fetch from models API and only report missing feature support
 * Eigenes read tool mit redirect wenn Datei schon gelesen, unverändert und im kontext
 * Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
 * Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
 
-## Todo - Agents
-! problem, tool zugriff ist zwar erlaubt permission aber nicht (decision.behavior) hook: PermissionRequest
-* PostToolBatch kann nach einer tool ausführung anhalten
-* elicitation is supported by claude
-* der postproccessing task hat kein thinking verbraucht?!?
+## TODO - Workbench
+
+! LT-Spellcheck support line listener in current line mark red only
+	* dann für claude hook mit umgebungsvariable deaktivieren
+	* startscript auch kein LT start oder shutdown dann
+! problem, tool zugriff ist zwar erlaubt permission aber nicht (decision.behavior) hook: PermissionRequest, !permission check temporär deaktiviert
+* im log die claude code connector 5h und week limits anzeigen und die context usage %
+* STop and correct mode
+	* PostToolBatch kann nach einer tool ausführung anhalten, so wie PermissionRequest auch
 * thinking token anzeigen
+	* thinking war leer bei der Q10 anfrage obwohl think blöcke gab
 	* es gibt bereits ein feld in der tabelle
 	* sind wichtig um einzuschätzen wieviel thinking ein block braucht
 	* am ende von einem thinking block einfügen #: Token: <thinking_token>
 	* {"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null},"usage":{"input_tokens":8,"cache_creation_input_tokens":1196,"cache_read_input_tokens":10612,"output_tokens":758,"output_tokens_details":{"thinking_tokens":241}},"context_management":{"applied_edits":[]}},"session_id":"20e5b528-540b-40ea-8fcc-1cd038008a1a","parent_tool_use_id":null,"uuid":"2832ae72-7b2b-438c-b8fe-279c82b4fb22"}
+* workbench, session branching und prefix cache support, bessere tool loops
+	* anzeige wie alt cache und zustand
+* Table renderer support
+	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
+	* Zeichen | mit offset an maxlength pro spalte ändern
+	* exten "---" grey the whole line?
 
-! convert spell check block, shorter, remove original prompt:
-
-UserPromptSubmit operation blocked by hook:
-[${CLAUDE_PLUGIN_ROOT}/scripts/spell-check.sh]: 
-.*
+* Workbench muss resume unterstützen für chats und cache /resume <session> command
+* Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
+* update alte api key  model and model parameters -> fetch from models API and only report missing feature support
 
 
-Original prompt: .*
-
+## TODO - Agents
 
 *ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
+	* alternativ stop pattern und einhacken wenn falsch gerichtet
 * python agent ein python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
 	* hm nur über hooks vor und nach tool usage nutzbar oder via MCP
 	* Maybe produce something like skill as ouput so main kontext kann use scripts without knowing them in detail
-
 * Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
 * Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
 	* is this query related to context?

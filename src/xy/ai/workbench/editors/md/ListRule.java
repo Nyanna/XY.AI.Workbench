@@ -16,15 +16,17 @@ public class ListRule extends AbstractRule {
 		int reads = 0, c;
 		while ((c = scn.read()) != ICharacterScanner.EOF) {
 			reads++;
-			if (!Character.isWhitespace(c)) {
-				int d = scn.read();
-				scn.unread();
-				if ((c == '-' || c == '*' || c == '+') && Character.isWhitespace(d))
-					return token;
-				else
-					break;
+			if (!isWhitespace((char) c)) {
+				if (c == '-' || c == '*' || c == '+') {
+					int d = scn.read();
+					scn.unread();
+					if (isWhitespace((char) d))
+						return token;
+				}
+				break;
 			}
 		}
+
 		for (; reads > 0; reads--)
 			scn.unread();
 		return Token.UNDEFINED;

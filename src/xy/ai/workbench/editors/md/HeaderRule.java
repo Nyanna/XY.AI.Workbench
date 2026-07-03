@@ -15,41 +15,30 @@ public class HeaderRule extends AbstractRule {
 		if (scn.getColumn() != 0)
 			return Token.UNDEFINED;
 
-		int c = -1, count = 0;
+		int c = -1, count = 0, underlines = 0;
+		boolean abort = false;
 		do {
 			c = scn.read();
 			count++;
-		} while (!isNewLine((char) c) && c != ICharacterScanner.EOF);
 
-		if (c == ICharacterScanner.EOF) {
-			for (; count > 0; count--)
-				scn.unread();
-			return Token.UNDEFINED;
-		}
-
-		c = scn.read();
-		count++;
-		if (c == '\r') {
-			c = scn.read();
-			count++;
-		}
-
-		if (!isUnderline((char) c)) {
-			for (; count > 0; count--)
-				scn.unread();
-			return Token.UNDEFINED;
-		}
-
-		while (true) {
-			c = scn.read();
-			count++;
-			if (isNewLine((char) c) || c == ICharacterScanner.EOF)
-				return token;
-			if (!isUnderline((char) c) && !isWhitespace((char) c) && c != '\r') {
-				for (; count > 0; count--)
-					scn.unread();
-				return Token.UNDEFINED;
+			if (isUnderline((char) c))
+				underlines++;
+			else if (isWhitespace((char) c) || c == '\r')
+				; // ok
+			else if (isNewLine((char) c) || c == ICharacterScanner.EOF)
+				break;
+			else {
+				abort = true;
+				break;
 			}
+		} while (true);
+
+		if (underlines < 3 || abort) {
+			for (; count > 0; count--)
+				scn.unread();
+			return Token.UNDEFINED;
 		}
+
+		return token;
 	}
 }
