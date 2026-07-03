@@ -5,6 +5,7 @@ tools: Read,Grep,Glob,Bash,Write,Edit,Agent(web-research:web-research,github-res
 plugin: default,web-research,github-research
 model: sonnet
 effort: medium
+thinking: true
 color: blue
 tool_deny:
   redirect:

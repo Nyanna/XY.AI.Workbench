@@ -19,8 +19,25 @@
 * Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
 
 ## Todo - Agents
+! problem, tool zugriff ist zwar erlaubt permission aber nicht (decision.behavior) hook: PermissionRequest
+* PostToolBatch kann nach einer tool ausführung anhalten
+* elicitation is supported by claude
+* der postproccessing task hat kein thinking verbraucht?!?
+* thinking token anzeigen
+	* es gibt bereits ein feld in der tabelle
+	* sind wichtig um einzuschätzen wieviel thinking ein block braucht
+	* am ende von einem thinking block einfügen #: Token: <thinking_token>
+	* {"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null},"usage":{"input_tokens":8,"cache_creation_input_tokens":1196,"cache_read_input_tokens":10612,"output_tokens":758,"output_tokens_details":{"thinking_tokens":241}},"context_management":{"applied_edits":[]}},"session_id":"20e5b528-540b-40ea-8fcc-1cd038008a1a","parent_tool_use_id":null,"uuid":"2832ae72-7b2b-438c-b8fe-279c82b4fb22"}
 
-* disable thinking MAX_THINKING_TOKENS=0 when frontmatter false
+! convert spell check block, shorter, remove original prompt:
+
+UserPromptSubmit operation blocked by hook:
+[${CLAUDE_PLUGIN_ROOT}/scripts/spell-check.sh]: 
+.*
+
+
+Original prompt: .*
+
 
 *ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
 * python agent ein python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3

@@ -7,6 +7,5 @@
 	* /resume setzt session hash aus datei fort
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * automatisch allow in erwähnten dateien
-* code agent mir nur lesen und schreiben ohen ausführen code-rw
-* datum/zeit vom sessionstart reinschreiben mit reinschreiben.
-	* relevante parameter aus panel in frontmatter übernehmen, wird ein MD Frontmatter sessionformat
+* datum/zeit vom sessionstart reinschreiben mit reinschreiben. in json datei als meta systen nachricht
+	* relevante parameter aus panel in frontmatter übernehmen, wird ein MD Frontmatter sessionformat, ebenfalls als systemnachricht übernehmen CLI path, profil usw

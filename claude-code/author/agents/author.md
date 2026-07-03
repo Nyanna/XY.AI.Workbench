@@ -5,6 +5,7 @@ tools: Read,Grep,Glob,Write,Edit,Skill(markdown-format:markdown-format)
 plugin: default,markdown-format
 model: sonnet
 effort: medium
+thinking: true
 color: orange
 tool_deny:
   redirect:

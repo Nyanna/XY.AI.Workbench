@@ -5,6 +5,7 @@ tools: Agent(web-research:web-research,github-research:github-research)
 plugin: default,web-research,github-research
 model: sonnet
 effort: medium
+thinking: true
 color: blue
 tool_deny:
   redirect:

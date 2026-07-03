@@ -181,9 +181,13 @@ if [[ -n "$AGENT_ARG" ]]; then
         AGENT_MODEL="$(echo "$FRONTMATTER" | grep -E '^model:[[:space:]]*' | sed 's/^model:[[:space:]]*//' | tr -d '[:space:]')" || true
         AGENT_EFFORT="$(echo "$FRONTMATTER" | grep -E '^effort:[[:space:]]*' | sed 's/^effort:[[:space:]]*//' | tr -d '[:space:]')" || true
         AGENT_PLUGINS="$(echo "$FRONTMATTER" | grep -E '^plugin:[[:space:]]*' | sed 's/^plugin:[[:space:]]*//' | tr -d '[:space:]')" || true
-
+		AGENT_THINKING="$(echo "$FRONTMATTER" | grep -E '^thinking:[[:space:]]*' | sed 's/^thinking:[[:space:]]*//' | tr -d '[:space:]')" || true
+		
         [[ -n "$AGENT_MODEL"  ]] && [[ "$EXPLICIT_MODEL"  == "false" ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
         [[ -n "$AGENT_EFFORT" ]] && [[ "$EXPLICIT_EFFORT" == "false" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
+        if [[ "$AGENT_THINKING" == "false" ]]; then
+    		export MAX_THINKING_TOKENS=0
+		fi
 
         # Add additional plugins defined in frontmatter
         if [[ -n "$AGENT_PLUGINS" ]]; then

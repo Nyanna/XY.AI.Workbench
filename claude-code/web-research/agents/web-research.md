@@ -5,6 +5,7 @@ tools: mcp__plugin_web-research_context7__*, mcp__plugin_web-research_exa__*, Ag
 plugin: default,research-github
 model: haiku
 effort: low
+thinking: false
 color: red
 tool_deny:
   redirect:

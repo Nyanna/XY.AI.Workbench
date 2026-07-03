@@ -5,6 +5,7 @@ tools: Bash(python3:*)
 plugin: default
 model: haiku
 effort: low
+thinking: true
 color: purple
 tool_deny:
   redirect:

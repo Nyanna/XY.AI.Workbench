@@ -3,6 +3,8 @@ description: General and default Agent settings
 tools: ""
 model: Haiku
 effort: low
+thinking: false
+color: cyan
 tool_deny:
   redirect:
     ToolSearch: "Using ToolSearch indicates missing instructions in the prompt. Ask the user how to proceed."

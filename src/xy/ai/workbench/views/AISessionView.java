@@ -442,27 +442,27 @@ public class AISessionView extends ViewPart {
 
 			TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
 			column1.setText("Total");
-			column1.setWidth(50);
+			column1.setWidth(60);
 
 			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
 			column2.setText("In");
-			column2.setWidth(50);
+			column2.setWidth(60);
 
 			TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
 			column3.setText("Out");
-			column3.setWidth(50);
+			column3.setWidth(60);
 
 			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
 			column4.setText("Reason");
-			column4.setWidth(50);
+			column4.setWidth(60);
 
 			TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
 			column5.setText("Cached");
-			column5.setWidth(50);
+			column5.setWidth(60);
 
 			TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
 			column6.setText("Created");
-			column6.setWidth(50);
+			column6.setWidth(60);
 		}
 
 		session.addAnswerObs(a -> {

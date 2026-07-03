@@ -5,6 +5,7 @@ tools: Bash,Skill(markdown-format:markdown-format)
 plugin: default,markdown-format
 model: haiku
 effort: low
+thinking: true
 color: purple
 tool_deny:
   redirect:

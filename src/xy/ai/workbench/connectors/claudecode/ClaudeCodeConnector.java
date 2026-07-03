@@ -42,6 +42,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 	private final ConfigManager cfg;
 	private final ObjectMapper mapper = new ObjectMapper();
+	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
+	private boolean recordText = false;
 
 	private Process process;
 	private PrintWriter stdin;
@@ -213,10 +215,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private List<String> buildCommand() {
 		List<String> cmd = new ArrayList<>();
 		cmd.add(SCRIPT);
+		cmd.add(cfg.getProfile().name); // Agent Definition
 		cmd.add("--profile");
 		cmd.add(profile);
-		cmd.add("--agent");
-		cmd.add(cfg.getProfile().name);
 		cmd.add("--verbose");
 		cmd.add("--include-hook-events");
 		cmd.add("--include-partial-messages");
@@ -225,8 +226,12 @@ public class ClaudeCodeConnector implements IAIConnector {
 		cmd.add("--output-format");
 		cmd.add("stream-json");
 		cmd.add("--replay-user-messages");
+		cmd.add("--model");
+		cmd.add(cfg.getModel().apiName);
 		cmd.add("--effort");
 		cmd.add(cfg.getReasoning().name().toLowerCase());
+		cmd.add("--dangerously-skip-permissions"); //as long there is no permission prompt handling implemented
+		LOG.info("Claude-CLI command: " + String.join(" ", cmd));
 		return cmd;
 	}
 
@@ -296,7 +301,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 					text = block.path("text").asText("");
 				if (!text.isEmpty())
 					assistantEvents.putIfAbsent("thinking\0" + text, "Thinking: " + text);
-			} else if ("text".equals(blockType)) {
+			} else if (recordText && "text".equals(blockType)) {
 				String text = block.path("text").asText("");
 				if (!text.isEmpty())
 					assistantEvents.putIfAbsent("text\0" + text, "Text: " + text);
@@ -391,7 +396,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents) {
 		boolean isError = node.path("is_error").asBoolean(false)
 				|| "error".equals(node.path("subtype").asText());
-		String resultText = node.path("result").asText("");
+		String resultText = resultPostProcessor.process(node.path("result").asText(""));
 
 		// Prepend collected thinking/text events as markdown lines
 		if (!assistantEvents.isEmpty()) {

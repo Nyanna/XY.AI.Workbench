@@ -5,6 +5,7 @@ tools: Read,Grep,Glob,Write,Edit
 plugin: default
 model: sonnet
 effort: medium
+thinking: false
 color: blue
 tool_deny:
   redirect:

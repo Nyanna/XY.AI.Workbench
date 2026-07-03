@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE="${CLAUDE_PLUGIN_ROOT}/scripts/tool_deny.log"
+LOG_FILE="${CLAUDE_PLUGIN_ROOT}/../tool_deny.$(date +%y%m%d).log"
 RE_GLOB_KEY='^([^(]+)\((.+)\)$'
 
 log() {

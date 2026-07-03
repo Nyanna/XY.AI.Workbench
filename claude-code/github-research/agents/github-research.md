@@ -6,6 +6,7 @@ plugin: default
 model: haiku
 effort: low
 color: pink
+thinking: false
 tool_deny:
   redirect:
     Bash: "Running Bash violates your specific focused purpose. Abort and report to the caller."
