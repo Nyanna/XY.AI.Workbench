@@ -185,7 +185,7 @@ if [[ -n "$AGENT_ARG" ]]; then
 		
         [[ -n "$AGENT_MODEL"  ]] && [[ "$EXPLICIT_MODEL"  == "false" ]] && CLAUDE_ARGS+=(--model  "$AGENT_MODEL")
         [[ -n "$AGENT_EFFORT" ]] && [[ "$EXPLICIT_EFFORT" == "false" ]] && CLAUDE_ARGS+=(--effort "$AGENT_EFFORT")
-        if [[ "$AGENT_THINKING" == "false" ]]; then
+        if [[ "$EXPLICIT_EFFORT" == "false" ]] && [[ "$AGENT_THINKING" == "false" ]]; then
     		export MAX_THINKING_TOKENS=0
 		fi
 

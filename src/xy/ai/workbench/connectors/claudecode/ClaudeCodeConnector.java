@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -46,9 +47,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private BufferedReader stdout;
 	private Path processWorkDir;
 	private String profile;
+	private ConfigManager cfg;
 
 	public ClaudeCodeConnector(ConfigManager cfg) {
 		this.requestBuilder = new ClaudeCodeRequestBuilder(mapper, cfg);
+		this.cfg = cfg;
 		this.jsonParser = new ClaudeCodeJsonParser(mapper, resultPostProcessor);
 		this.jsonParser.setRecordText(recordText);
 		cfg.addKeyObs(k -> {
@@ -191,6 +194,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		// Disable spell check: set environment variable for prompt hook
 		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
+		if (Reasoning.Disabled.equals(cfg.getReasoning())) {
+			pb.environment().put("MAX_THINKING_TOKENS", "0");
+		}
 
 		process = pb.start();
 		stdin = new PrintWriter(process.getOutputStream());

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.Reasoning;
 
 /**
  * Builds JSON structures and CLI commands for the Claude Code Connector.
@@ -107,8 +108,10 @@ public class ClaudeCodeRequestBuilder {
 		cmd.add("--replay-user-messages");
 		cmd.add("--model");
 		cmd.add(cfg.getModel().apiName);
-		cmd.add("--effort");
-		cmd.add(cfg.getReasoning().name().toLowerCase());
+		if (!Reasoning.Disabled.equals(cfg.getReasoning())) {
+			cmd.add("--effort");
+			cmd.add(cfg.getReasoning().name().toLowerCase());
+		}
 		cmd.add("--dangerously-skip-permissions"); // as long there is no permission prompt handling implemented
 		return cmd;
 	}
