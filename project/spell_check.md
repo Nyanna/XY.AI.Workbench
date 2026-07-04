@@ -1,33 +1,37 @@
+# Implementierung eines zeilenbasierten Spellchecks
+
+Eine vorhergehende Syntax- und Grammatikprüfung verbessert die Effizienz eines Prompts. Implementiere einen Spellcheck auf Basis eines laufenden LanguageTool-Servers.
+
 Das Herzstück ist das Zusammenspiel von **Reconciler** (Hintergrundthread), **IAnnotationModel** (Datenspeicher für Fehler) und **AnnotationPainter** (visuelle Darstellung).
 
----
+## Kontext
+
+* Die Implementierung findet innerhalb eines bestehenden Eclipse-Plugin-Projektes statt.
+* Die Implementierung erfolgt typisch und einfach.
+* Erweiterte Funktionen werden nicht innerhalb dieser Aufgabe implementiert.
+* Keine Dokumentation und Tests
+* Die verwendete Sprache im Code ist Englisch.
+  
+
+## Anforderungen
+
+* Die Implementierung erfolgt innerhalb des Projektes `/home/user/xyan/xy.ai.workbench`.
+* Das Rootpackage für alle Komponenten ist `xy.ai.workbench.editors.spellcheck`.
 
 ## Das Gesamtbild
 
-```
-Nutzer tippt
-    │
-    ▼
-Reconciler wartet ~500ms (debounce)
-    │
-    ▼
-IReconcilingStrategy.reconcile()  ← Hintergrundthread
-    │  Spell-Checking läuft hier
-    ▼
-Display.asyncExec()  ← zurück auf UI-Thread
-    │
-    ▼
-IAnnotationModel.replaceAnnotations()
-    │
-    ▼
-AnnotationPainter zeichnet Wellenlinie
-```
+1. Nutzer tippt und verändert eine Zeile.
+2. Reconciler wartet ~500ms (debounce).
+3. IReconcilingStrategy.reconcile(), Hintergrundthread, Spell-Checking läuft hier
+4. Display.asyncExec(), zurück auf UI-Thread
+5. IAnnotationModel.replaceAnnotations()
+6. AnnotationPainter zeichnet Wellenlinie.
 
----
+### 1. Reconciler – der Hintergrundthread-Manager
 
-## 1. Reconciler – der Hintergrundthread-Manager
+Der `MonoReconciler` startet einen BackgroundThread, der nach einer konfigurierbaren **Wartezeit nach dem letzten Tastendruck** eine Strategie aufruft:
 
-Der `MonoReconciler` startet einen BackgroundThread, der nach einer konfigurierbaren **Wartezeit nach dem letzten Tastendruck** deine Strategie aufruft:
+Beispiel:
 
 ```java
 SpellingStrategy strategy = new SpellingStrategy(sourceViewer);
@@ -36,9 +40,11 @@ reconciler.setDelay(500); // ms nach dem letzten Tastendruck
 sourceViewer.setReconciler(reconciler);
 ```
 
----
+### 2. IReconcilingStrategy – Logik im Hintergrund
 
-## 2. IReconcilingStrategy – deine Logik im Hintergrund
+Die Implementierung erhält hier entweder einen Change-Event für eine Zeile oder prüft die Zeile der aktuellen Cursor-Position.
+
+Beispielhafte Logik:
 
 ```java
 public class SpellingStrategy
@@ -81,11 +87,21 @@ public class SpellingStrategy
 }
 ```
 
----
+#### 2.1. Implementierung des SpellChecker
 
-## 3. Annotations setzen (auf UI-Thread)
+Es gibt bereits eine Hook/Bash-Integration, die für den SpellChecker als Referenz dient.
 
-`IAnnotationModelExtension.replaceAnnotations()` entfernt alte und fügt neue **atomar** ein – wichtig für Flicker-freie Aktualisierung:
+`/home/user/xyan/xy.ai.workbench/claude-code/default/scripts/spell-check.sh`
+
+Diese soll für die Ansteuerung mittels Java in Eclipse als Vorbild dienen.
+
+* Ausschlussregeln für Backticks, Zeilen mit einem vorangestellten `@`-Zeichen usw. sind zu beachten. 
+
+### 3. Annotations setzen (auf UI-Thread)
+
+`IAnnotationModelExtension.replaceAnnotations()` entfernt alte und fügt neue **atomar** ein – wichtig für flickerfreie Aktualisierung:
+
+Beispielhafte Logik:
 
 ```java
 private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {
@@ -126,9 +142,9 @@ private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {
 }
 ```
 
----
+### 4. AnnotationPainter – die Wellenlinie zeichnen
 
-## 4. AnnotationPainter – die Wellenlinie zeichnen
+Beispielhafte Implementierung:
 
 ```java
 AnnotationPainter painter = new AnnotationPainter(
@@ -148,33 +164,3 @@ painter.setAnnotationTypeColor(
 );
 painter.install(sourceViewer);
 ```
-
-> Alternativ zu `UnderlineStrategy` kannst du eine eigene `IDrawingStrategy` implementieren und mit `gc.drawPolyline()` komplett frei zeichnen.
-
----
-
-## 5. Alles nutzt Eclipses eingebauten SpellingService
-
-Wenn du kein eigenes Wörterbuch willst, kannst du direkt `SpellingReconcileStrategy` nehmen – die erledigt Schritte 2–3 automatisch:
-
-```java
-SpellingReconcileStrategy strategy = new SpellingReconcileStrategy(
-    sourceViewer,
-    EditorsUI.getSpellingService()  // nutzt die registrierten ISpellingEngine-Plugins
-);
-MonoReconciler reconciler = new MonoReconciler(strategy, false);
-reconciler.setDelay(500);
-sourceViewer.setReconciler(reconciler);
-```
-
----
-
-## Zusammenfassung der Verantwortlichkeiten
-
-| Klasse                 | Wofür                        | Thread            |
-| ---------------------- | ---------------------------- | ----------------- |
-| `MonoReconciler`       | Debounce + Hintergrundthread | verwaltet beide   |
-| `IReconcilingStrategy` | eigentliche Prüflogik        | **Hintergrund**   |
-| `Display.asyncExec()`  | Brücke zurück zur UI         | Hintergrund → UI  |
-| `IAnnotationModel`     | Fehler-Datenspeicher         | **UI**            |
-| `AnnotationPainter`    | Wellenlinien zeichnen        | UI (Paint-Events) |

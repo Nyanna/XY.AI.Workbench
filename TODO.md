@@ -19,11 +19,18 @@
 
 ## TODO - Workbench
 
+! Tool usage loogen
+	#: Tool:
+	* thinking mit extra Zeile
+	#: Thinking
+	* beide anders einfärben
+! reasoning disabled flag benutzen um es abzuschalten mit umgebungsvariable
 ! LT-Spellcheck support line listener in current line mark red only
 	* dann für claude hook mit umgebungsvariable deaktivieren
 	* startscript auch kein LT start oder shutdown dann
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
+	* vielleicht über tool use zyklen gehen
 * workbench, session branching und prefix cache support
 	* anzeige wie alt cache und zustand
 	* Workbench muss resume unterstützen für chats und cache /resume <session> command
@@ -34,6 +41,7 @@
 	* exten "---" grey the whole line?
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
+* docs aufarbeiten
 
 
 ## TODO - Agents
