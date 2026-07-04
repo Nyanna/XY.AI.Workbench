@@ -3,6 +3,8 @@ package xy.ai.workbench.editors;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.presentation.IPresentationReconciler;
 import org.eclipse.jface.text.presentation.PresentationReconciler;
+import org.eclipse.jface.text.quickassist.IQuickAssistAssistant;
+import org.eclipse.jface.text.quickassist.QuickAssistAssistant;
 import org.eclipse.jface.text.reconciler.IReconciler;
 import org.eclipse.jface.text.rules.DefaultDamagerRepairer;
 import org.eclipse.jface.text.source.ISourceViewer;
@@ -10,12 +12,20 @@ import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.eclipse.swt.graphics.Font;
 
 import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
+import xy.ai.workbench.editors.spellcheck.SpellingQuickAssistProcessor;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 
 	@Override
 	public IReconciler getReconciler(ISourceViewer sourceViewer) {
 		return SpellCheckInstaller.createReconciler(sourceViewer);
+	}
+
+	@Override
+	public IQuickAssistAssistant getQuickAssistAssistant(ISourceViewer sourceViewer) {
+		QuickAssistAssistant assistant = new QuickAssistAssistant();
+		assistant.setQuickAssistProcessor(new SpellingQuickAssistProcessor());
+		return assistant;
 	}
 
 	@Override

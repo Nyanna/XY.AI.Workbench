@@ -71,7 +71,7 @@ public class SpellingStrategy implements IReconcilingStrategy {
         for (SpellingProblem p : problems) {
             int absOffset = p.getOffset() + regionOffset;
             if (absOffset >= 0 && absOffset + p.getLength() <= docLength) {
-                valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage()));
+                valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage(), p.getSuggestions()));
             }
         }
 

@@ -71,7 +71,8 @@ public class LanguageToolClient {
                     int length = match.path("length").asInt();
                     String message = match.path("message").asText();
                     if (length > 0) {
-                        problems.add(new SpellingProblem(offset, length, message));
+                        List<String> suggestions = parseSuggestions(match);
+                        problems.add(new SpellingProblem(offset, length, message, suggestions));
                     }
                 }
             }
@@ -85,6 +86,20 @@ public class LanguageToolClient {
      * Replaces all markup regions with space characters of the same length so
      * that offsets in the returned text match 1-to-1 with the original document.
      */
+    private static final int MAX_SUGGESTIONS = 3;
+
+    private List<String> parseSuggestions(JsonNode match) {
+        List<String> suggestions = new ArrayList<>();
+        JsonNode replacements = match.path("replacements");
+        for (int i = 0; i < Math.min(replacements.size(), MAX_SUGGESTIONS); i++) {
+            String value = replacements.get(i).path("value").asText();
+            if (!value.isEmpty()) {
+                suggestions.add(value);
+            }
+        }
+        return suggestions;
+    }
+
     private String maskText(String text) {
         char[] chars = text.toCharArray();
 

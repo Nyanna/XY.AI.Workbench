@@ -58,7 +58,7 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -67,7 +67,7 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_OPUS("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -76,7 +76,7 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
 
