@@ -1,9 +1,9 @@
 # TODO
 
 ## TODO - MCP Controller
-* man kann permission permissions direkt über den tool hook abfangen und dort den input prüfen
+* man kann permission direkt über den Tool hook abfangen und dort den input prüfen
 	* CLI hooks sind fast besser als MCP, nur bash stört und das die scripte kein python sind
-	* Agent definition ließe sich auch nativ über CLI argumente und umgebungsvariablen aus eclipse heraus abbilden lassen
+	* Agent Definition ließe sich auch nativ über CLI Argumente und Umgebungsvariablen aus eclipse heraus abbilden lassen
 	* allein ein MCP für die tool use und definitionen wäre dann notwendig, mcp per cli übergeben statt tools
 		* "tool inject" und  "tool use (permission)" sind dann nur 2 schnittstellen von derselben konfiguration ausgehend
 			* nur eine Tooldefinition, redirect ist ein spezialfall
