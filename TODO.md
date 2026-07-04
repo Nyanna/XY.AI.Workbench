@@ -1,6 +1,4 @@
 # TODO
-* LT englisch installieren
-* elicitation is supported by claude
 
 ## TODO - MCP Controller
 * man kann permission permissions direkt über den tool hook abfangen und dort den input prüfen
@@ -18,22 +16,13 @@
 * Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
 
 ## TODO - Workbench
-
-! Tool usage loogen
-	#: Tool:
-	* thinking mit extra Zeile
-	#: Thinking
-	* beide anders einfärben
-! reasoning disabled flag benutzen um es abzuschalten mit umgebungsvariable
-! LT-Spellcheck support line listener in current line mark red only
-	* dann für claude hook mit umgebungsvariable deaktivieren
-	* startscript auch kein LT start oder shutdown dann
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
 	* vielleicht über tool use zyklen gehen
 * workbench, session branching und prefix cache support
 	* anzeige wie alt cache und zustand
 	* Workbench muss resume unterstützen für chats und cache /resume <session> command
+* docs aufarbeiten und publishen im docs folder
 	
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
@@ -41,8 +30,16 @@
 	* exten "---" grey the whole line?
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
-* docs aufarbeiten
 
+### CLI COnnector Plan 
+
+* Session UUID aus aktueller datei generieren, und mit frontmatter an den anfang schreiben, wenn von hand gelöscht neu generieren 
+	* Eine Session, was ist mit resume? oder Rewind?
+	* Initial subprocess starten und erst beim Session ID wechsel prüfen, beenden und neu starten
+	* mit resume wenn session vorhanden ist bei claude und im projektverzeichnis
+	* /resume setzt session hash aus datei fort
+* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
+* automatisch allow in erwähnten dateien
 
 ## TODO - Agents
 
@@ -69,6 +66,7 @@
 
 ## Ideas
 
+* elicitation is supported by claude
 * in thought fragen abfangen und beantworten, mehr zwischenschritte zum einhaken
 	* idee: ich habe bei recherche nur den initialprompt, der ezeugt suchanfragen an exa im günstigen agent, die anwot der tools kann ich brauchen die zusammenfassung aber nicht. Mit MCP COntroller kann ich nach der Toolantwort abbrechen und token sparen. Alternativ starte ich einen neuen prompt für die zusammenfassung mit allem input
 * Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md

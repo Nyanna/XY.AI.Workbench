@@ -6,14 +6,17 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.LOG;
 
 /**
- * Parses JSON structures from Claude Code API responses.
- * Handles extraction and processing of results, tool uses, events, and rate limits.
+ * Parses JSON structures from Claude Code API responses. Handles extraction and
+ * processing of results, tool uses, events, and rate limits.
  */
 public class ClaudeCodeJsonParser {
 	public static final String THINKING = "Thinking:";
@@ -35,19 +38,18 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
-	 * Parses a result event from the Claude Code API response.
-	 * Combines thinking/text events and model usage information into a ClaudeCodeResponse.
+	 * Parses a result event from the Claude Code API response. Combines
+	 * thinking/text events and model usage information into a ClaudeCodeResponse.
 	 *
-	 * @param id request ID
-	 * @param node the result JSON node
-	 * @param assistantEvents collected assistant events to prepend
+	 * @param id                   request ID
+	 * @param node                 the result JSON node
+	 * @param assistantEvents      collected assistant events to prepend
 	 * @param totalReasoningTokens accumulated reasoning tokens
 	 * @return ClaudeCodeResponse with parsed result
 	 */
-	public ClaudeCodeResponse parseResult(String id, JsonNode node,
-			LinkedHashMap<String, String> assistantEvents, long totalReasoningTokens) {
-		boolean isError = node.path("is_error").asBoolean(false)
-				|| "error".equals(node.path("subtype").asText());
+	public ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents,
+			long totalReasoningTokens) {
+		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		String resultText = resultPostProcessor.process(node.path("result").asText(""));
 
 		// Prepend collected thinking/text events as markdown lines
@@ -86,7 +88,7 @@ public class ClaudeCodeJsonParser {
 	 * Parses a tool_use event from the Claude Code API response.
 	 *
 	 * @param requestId the request ID
-	 * @param node the tool_use JSON node
+	 * @param node      the tool_use JSON node
 	 * @return ClaudeCodeResponse with tool use information
 	 */
 	public ClaudeCodeResponse parseToolUse(String requestId, JsonNode node) {
@@ -112,14 +114,19 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
-	 * Extracts "thinking" and "text" content blocks from an assistant event snapshot
-	 * and stores them in the ordered dedup map. Blocks already seen (same type + content)
-	 * are silently ignored so that repeated snapshots do not produce duplicates.
+	 * Extracts "thinking" and "text" content blocks from an assistant event
+	 * snapshot and stores them in the ordered dedup map. Blocks already seen (same
+	 * type + content) are silently ignored so that repeated snapshots do not
+	 * produce duplicates.
 	 *
-	 * @param node the assistant event JSON node
+	 * @param node            the assistant event JSON node
 	 * @param assistantEvents map to collect events
+	 * @param mon
 	 */
-	public void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+	public void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents,
+			IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Received Claude message", 1);
+
 		JsonNode content = node.path("message").path("content");
 		if (!content.isArray())
 			return;
@@ -132,37 +139,43 @@ public class ClaudeCodeJsonParser {
 					text = block.path("text").asText("");
 				if (!text.isEmpty())
 					assistantEvents.putIfAbsent("thinking\0" + text, THINKING + "\n" + text);
+				sub.subTask("Claude is thinking");
 			} else if (recordText && "text".equals(blockType)) {
 				String text = block.path("text").asText("");
 				if (!text.isEmpty())
 					assistantEvents.putIfAbsent("text\0" + text, TEXT + "\n" + text);
 			} else if ("tool_use".equals(blockType)) {
-				String text = " " + block.path("name").asText("") + "\n";
+				String toolName = block.path("name").asText("");
+				String text = " " + toolName + "\n";
 				JsonNode inputs = block.path("input");
 				if (inputs.isObject()) {
 					var inputNames = inputs.fieldNames();
 					while (inputNames.hasNext()) {
 						String inputName = inputNames.next();
 						String value = inputs.path(inputName).toString();
-						if(value.length() > TOOL_INPUT_MAX_LENGTH)
+						if (value.length() > TOOL_INPUT_MAX_LENGTH)
 							value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
 						text += inputName + ": " + value.replace('\n', ' ') + "\n";
 					}
 				}
-				if (!text.isEmpty())
+				if (!text.isEmpty()) {
 					assistantEvents.putIfAbsent("tool\0" + text, TOOLUSE + text);
+					sub.subTask("Claude uses tool: " + toolName);
+				}
 			}
 		}
 	}
 
 	/**
-	 * Extracts reasoning tokens from a message_delta event.
-	 * The thinking_tokens are found at event.usage.output_tokens_details.thinking_tokens.
-	 * If present, appends "ReasoningToken: <count>" to assistantEvents with key "reasoning\0<count>".
+	 * Extracts reasoning tokens from a message_delta event. The thinking_tokens are
+	 * found at event.usage.output_tokens_details.thinking_tokens. If present,
+	 * appends "ReasoningToken: <count>" to assistantEvents with key
+	 * "reasoning\0<count>".
 	 *
-	 * @param node the message_delta event JSON node
+	 * @param node            the message_delta event JSON node
 	 * @param assistantEvents map to collect events
-	 * @return the thinking_tokens count extracted from this event, or 0 if not present
+	 * @return the thinking_tokens count extracted from this event, or 0 if not
+	 *         present
 	 */
 	public long collectMessageDeltaEvent(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
 		long thinkingTokens = 0;
@@ -182,9 +195,10 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
-	 * Processes a rate_limit_event from the Claude Code API.
-	 * Extracts rate limit info (utilization, resets_at, status, etc.) for both five_hour and seven_day limits,
-	 * and logs them in a human-readable format with timestamps converted to readable date/time.
+	 * Processes a rate_limit_event from the Claude Code API. Extracts rate limit
+	 * info (utilization, resets_at, status, etc.) for both five_hour and seven_day
+	 * limits, and logs them in a human-readable format with timestamps converted to
+	 * readable date/time.
 	 *
 	 * @param node the rate_limit_event JSON node
 	 */
@@ -199,15 +213,16 @@ public class ClaudeCodeJsonParser {
 			double utilization = rateLimitInfo.path("utilization").asDouble(0.0);
 			String errorCode = rateLimitInfo.path("errorCode").asText("");
 			boolean canUserPurchaseCredits = rateLimitInfo.path("canUserPurchaseCredits").asBoolean(false);
-			boolean hasChargeableSavedPaymentMethod = rateLimitInfo.path("hasChargeableSavedPaymentMethod").asBoolean(false);
+			boolean hasChargeableSavedPaymentMethod = rateLimitInfo.path("hasChargeableSavedPaymentMethod")
+					.asBoolean(false);
 			boolean isUsingOverage = rateLimitInfo.path("isUsingOverage").asBoolean(false);
 			String overageStatus = rateLimitInfo.path("overageStatus").asText("");
 			String overageDisabledReason = rateLimitInfo.path("overageDisabledReason").asText("");
 
 			// Convert resetsAt Unix timestamp to human-readable format
 			String resetsAtReadable = resetsAt > 0
-				? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(resetsAt * 1000))
-				: "unknown";
+					? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(resetsAt * 1000))
+					: "unknown";
 
 			// Build log message
 			StringBuilder logMsg = new StringBuilder();
@@ -243,8 +258,8 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
-	 * Converts text to commented format (markdown-style comments).
-	 * Removes duplicate blank lines and prepends "#: " prefix to each line.
+	 * Converts text to commented format (markdown-style comments). Removes
+	 * duplicate blank lines and prepends "#: " prefix to each line.
 	 *
 	 * @param input the input text
 	 * @return commented text

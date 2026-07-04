@@ -14,6 +14,7 @@ import java.util.UUID;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -68,9 +69,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 	@Override
 	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
 
 		// --- Preprocessing: extract Allow/Deny lines and /exit command from input ---
+		sub.subTask("Preproccess input");
 		List<String> preMessages = new ArrayList<>();
 		boolean[] exitFlag = { false };
 		String processedInput = preprocessInput(input, preMessages, exitFlag);
@@ -86,6 +89,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		if (processedInput != null && !processedInput.isBlank())
 			text.append(processedInput);
 
+		sub.subTask("Build Prompt");
 		String trimmed = text.toString().trim();
 		String promptJson = trimmed.isEmpty() ? null : requestBuilder.buildPromptJson(trimmed);
 
@@ -122,19 +126,21 @@ public class ClaudeCodeConnector implements IAIConnector {
 		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1], exitFlag[0]);
 	}
 
-
 	@Override
 	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
 		try {
-			ensureProcess(req);
+			ensureProcess(req, sub);
 			// Send approve/deny pre-messages first
 			for (String msg : req.preMessages) {
 				stdin.println(msg);
 			}
-			// /exit with no further prompt: terminate immediately, return control-flow response
+			// /exit with no further prompt: terminate immediately, return control-flow
+			// response
 			if (req.exitAfterResult && req.promptJson == null) {
 				stdin.flush();
+				sub.subTask("Terminate Claude CLI proccess");
 				terminateProcess();
 				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
 				resp.isExited = true;
@@ -144,14 +150,19 @@ public class ClaudeCodeConnector implements IAIConnector {
 				}
 				return resp;
 			}
+
+			sub.subTask("Sending prompt");
 			// Send the prompt if present
 			if (req.promptJson != null) {
 				stdin.println(req.promptJson);
 			}
 			stdin.flush();
-			ClaudeCodeResponse resp = readUntilResult(req);
+
+			sub.subTask("Waiting for answer");
+			ClaudeCodeResponse resp = readUntilResult(req, sub);
 			// /exit after result: terminate subprocess
 			if (req.exitAfterResult) {
+				sub.subTask("Terminate Claude CLI proccess");
 				terminateProcess();
 				resp.isExited = true;
 			}
@@ -175,10 +186,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 	}
 
-	private synchronized void ensureProcess(ClaudeCodeRequest req) throws IOException {
-		if (process != null && process.isAlive())
+	private synchronized void ensureProcess(ClaudeCodeRequest req, SubMonitor sub) throws IOException {
+		sub.subTask("Check Proccess");
+		if (process != null && process.isAlive()) {
+			sub.subTask("Proccess already running");
 			return;
+		}
 
+		sub.subTask("Start Claude-Code-CLI...");
 		// Determine working directory: fixed on first start, preserved across restarts
 		if (processWorkDir == null)
 			if (req.workDir != null)
@@ -204,9 +219,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		LOG.info("Claude Code process started in: " + processWorkDir);
 		LOG.info("Claude-CLI command: " + String.join(" ", cmd));
+		sub.subTask("Claude proccess started");
 	}
 
-	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req) throws IOException {
+	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
+		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 100);
 		FileWriter mirror = null;
 		if (req.outputJsonFile != null) {
 			try {
@@ -235,10 +252,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 				try {
 					JsonNode node = mapper.readTree(line);
 					String type = node.path("type").asText();
-					if ("result".equals(type))
+					if ("result".equals(type)) {
+						sub.subTask("Received final result");
 						return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
-					if ("tool_use".equals(type))
+					}
+					if ("tool_use".equals(type)) {
+						sub.subTask("Received tool use requst");
 						return jsonParser.parseToolUse(req.id, node);
+					}
 
 					if ("stream_event".equals(type)) {
 						String eventType = node.path("event").path("type").asText();
@@ -247,9 +268,10 @@ public class ClaudeCodeConnector implements IAIConnector {
 						}
 					} else if ("rate_limit_event".equals(type))
 						jsonParser.processRateLimitEvent(node);
-					else if ("assistant".equals(type))
-						jsonParser.collectAssistantEvents(node, assistantEvents);
-					
+					else if ("assistant".equals(type)) {
+						jsonParser.collectAssistantEvents(node, assistantEvents, sub);
+					}
+
 				} catch (Exception ignored) {
 					// Non-JSON or unrecognised line — continue reading
 				}
@@ -265,16 +287,17 @@ public class ClaudeCodeConnector implements IAIConnector {
 		throw new IllegalStateException("Claude Code process ended without a result event");
 	}
 
-
 	/**
 	 * Scans {@code input} line by line.
 	 * <ul>
-	 *   <li>Lines that are solely "/allow &lt;id&gt;" or "/deny &lt;id&gt;" are extracted:
-	 *       an approve/deny JSON is added to {@code preMessages} and the line is removed.</li>
-	 *   <li>A line that is solely "/exit" sets {@code exitFlag[0] = true} and is removed.</li>
+	 * <li>Lines that are solely "/allow &lt;id&gt;" or "/deny &lt;id&gt;" are
+	 * extracted: an approve/deny JSON is added to {@code preMessages} and the line
+	 * is removed.</li>
+	 * <li>A line that is solely "/exit" sets {@code exitFlag[0] = true} and is
+	 * removed.</li>
 	 * </ul>
-	 * The remaining lines (after trimming the whole result) are returned; returns null
-	 * when nothing is left.
+	 * The remaining lines (after trimming the whole result) are returned; returns
+	 * null when nothing is left.
 	 */
 	private String preprocessInput(String input, List<String> preMessages, boolean[] exitFlag) {
 		if (input == null)
@@ -298,8 +321,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String result = String.join("\n", remaining).strip();
 		return result.isEmpty() ? null : result;
 	}
-
-
 
 	@Override
 	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
