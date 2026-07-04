@@ -19,6 +19,7 @@ public class ClaudeCodeJsonParser {
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
+	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
 	private final ObjectMapper mapper;
 	private final ResultPostProcessor resultPostProcessor;
@@ -143,6 +144,8 @@ public class ClaudeCodeJsonParser {
 					while (inputNames.hasNext()) {
 						String inputName = inputNames.next();
 						String value = inputs.path(inputName).toString();
+						if(value.length() > TOOL_INPUT_MAX_LENGTH)
+							value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
 						text += inputName + ": " + value.replace('\n', ' ') + "\n";
 					}
 				}
