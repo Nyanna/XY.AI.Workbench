@@ -2,6 +2,11 @@
 
 INPUT=$(cat)
 
+# Skip check when spell check is disabled via environment variable
+if [ -n "$CLAUDE_CODE_DISABLE_SPELLCHECK" ]; then
+  exit 0
+fi
+
 # Skip check when hook fires inside a subagent
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty')
 if [ -n "$AGENT_ID" ]; then

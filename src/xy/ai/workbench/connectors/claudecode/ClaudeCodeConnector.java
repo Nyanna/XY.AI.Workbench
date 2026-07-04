@@ -189,6 +189,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 		pb.directory(processWorkDir.toFile());
 		pb.redirectErrorStream(false);
 
+		// Disable spell check: set environment variable for prompt hook
+		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
+
 		process = pb.start();
 		stdin = new PrintWriter(process.getOutputStream());
 		stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
