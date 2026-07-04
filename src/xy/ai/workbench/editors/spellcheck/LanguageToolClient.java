@@ -34,6 +34,8 @@ public class LanguageToolClient {
     // Lines whose first non-space character is '@' are excluded entirely.
     private static final Pattern AT_LINE_RE =
             Pattern.compile("(?m)^[ \\t]*@[^\\n]*");
+    private static final Pattern COMMENT_LINE_RE =
+            Pattern.compile("(?m)^[ \\t]*#:[^\\n]*");
 
     // Inline markup regions: fenced code, inline code, URLs, file paths, @mentions.
     private static final Pattern MARKUP_RE = Pattern.compile(
@@ -109,7 +111,13 @@ public class LanguageToolClient {
             Arrays.fill(chars, atLine.start(), atLine.end(), ' ');
         }
 
-        // 2. Mask inline markup (re-run on original text so already-masked
+        // 2. ignore Markdown comment lines
+        Matcher commentLine = COMMENT_LINE_RE.matcher(text);
+        while (commentLine.find()) {
+            Arrays.fill(chars, commentLine.start(), commentLine.end(), ' ');
+        }
+
+        // 3. Mask inline markup (re-run on original text so already-masked
         //    regions don't interfere with regex matching)
         Matcher markup = MARKUP_RE.matcher(text);
         while (markup.find()) {
