@@ -35,7 +35,6 @@ import xy.ai.workbench.models.IModelResponse;
 
 public class ClaudeCodeConnector implements IAIConnector {
 
-	private final ConfigManager cfg;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
 	private final ClaudeCodeRequestBuilder requestBuilder;
@@ -49,7 +48,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private String profile;
 
 	public ClaudeCodeConnector(ConfigManager cfg) {
-		this.cfg = cfg;
 		this.requestBuilder = new ClaudeCodeRequestBuilder(mapper, cfg);
 		this.jsonParser = new ClaudeCodeJsonParser(mapper, resultPostProcessor);
 		this.jsonParser.setRecordText(recordText);
@@ -232,17 +230,17 @@ public class ClaudeCodeConnector implements IAIConnector {
 						return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
 					if ("tool_use".equals(type))
 						return jsonParser.parseToolUse(req.id, node);
+
 					if ("stream_event".equals(type)) {
 						String eventType = node.path("event").path("type").asText();
 						if ("message_delta".equals(eventType)) {
 							totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
 						}
-					}
-					if ("rate_limit_event".equals(type)) {
+					} else if ("rate_limit_event".equals(type))
 						jsonParser.processRateLimitEvent(node);
-					}
-					if ("assistant".equals(type))
+					else if ("assistant".equals(type))
 						jsonParser.collectAssistantEvents(node, assistantEvents);
+					
 				} catch (Exception ignored) {
 					// Non-JSON or unrecognised line — continue reading
 				}

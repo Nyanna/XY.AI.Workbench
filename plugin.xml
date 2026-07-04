@@ -261,4 +261,8 @@
 		</category>
 	</extension>
 
+	<extension point="org.eclipse.ui.editors.annotationTypes">
+		<type name="xy.ai.workbench.editors.spellcheck.spelling"/>
+	</extension>
+
 </plugin>

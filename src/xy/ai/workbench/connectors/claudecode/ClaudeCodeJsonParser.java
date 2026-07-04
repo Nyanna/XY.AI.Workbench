@@ -2,7 +2,9 @@ package xy.ai.workbench.connectors.claudecode;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Map.Entry;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +16,9 @@ import xy.ai.workbench.LOG;
  * Handles extraction and processing of results, tool uses, events, and rate limits.
  */
 public class ClaudeCodeJsonParser {
+	public static final String THINKING = "Thinking:";
+	public static final String TEXT = "Text:";
+	public static final String TOOLUSE = "Tool:";
 
 	private final ObjectMapper mapper;
 	private final ResultPostProcessor resultPostProcessor;
@@ -59,7 +64,9 @@ public class ClaudeCodeJsonParser {
 		// Extract token usage information
 		JsonNode modelUsage = node.path("modelUsage");
 		if (modelUsage.isObject()) {
-			modelUsage.fields().forEachRemaining(entry -> {
+			@SuppressWarnings("deprecation")
+			Iterator<Entry<String, JsonNode>> fields = modelUsage.fields();
+			fields.forEachRemaining(entry -> {
 				JsonNode usage = entry.getValue();
 				resp.inputTokens += usage.path("inputTokens").asLong(0);
 				resp.outputTokens += usage.path("outputTokens").asLong(0);
@@ -88,6 +95,7 @@ public class ClaudeCodeJsonParser {
 
 		String inputStr;
 		if (input.isObject() && input.size() == 1) {
+			@SuppressWarnings("deprecation")
 			String val = input.fields().next().getValue().asText();
 			inputStr = "`" + val + "`";
 		} else {
@@ -122,11 +130,24 @@ public class ClaudeCodeJsonParser {
 				if (text.isEmpty())
 					text = block.path("text").asText("");
 				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("thinking\0" + text, "Thinking: " + text);
+					assistantEvents.putIfAbsent("thinking\0" + text, THINKING + "\n" + text);
 			} else if (recordText && "text".equals(blockType)) {
 				String text = block.path("text").asText("");
 				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("text\0" + text, "Text: " + text);
+					assistantEvents.putIfAbsent("text\0" + text, TEXT + "\n" + text);
+			} else if ("tool_use".equals(blockType)) {
+				String text = " " + block.path("name").asText("") + "\n";
+				JsonNode inputs = block.path("input");
+				if (inputs.isObject()) {
+					var inputNames = inputs.fieldNames();
+					while (inputNames.hasNext()) {
+						String inputName = inputNames.next();
+						String value = inputs.path(inputName).toString();
+						text += inputName + ": " + value.replace('\n', ' ') + "\n";
+					}
+				}
+				if (!text.isEmpty())
+					assistantEvents.putIfAbsent("tool\0" + text, TOOLUSE + text);
 			}
 		}
 	}

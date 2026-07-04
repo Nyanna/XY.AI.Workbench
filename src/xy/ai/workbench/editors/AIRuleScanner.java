@@ -19,6 +19,7 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.AISessionManager;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeJsonParser;
 import xy.ai.workbench.editors.md.EmphasisRule;
 import xy.ai.workbench.editors.md.PrefixLineRule;
 import xy.ai.workbench.editors.md.HeaderRule;
@@ -41,6 +42,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
 	private static final TextAttribute COMMENT_ATTR = new TextAttribute(
 			new Color(Display.getCurrent(), new RGB(200, 200, 200)), null, SWT.NONE);
+	private static final TextAttribute COMMENT_DARK_ATTR = new TextAttribute(
+			new Color(Display.getCurrent(), new RGB(130, 130, 130)), null, SWT.NONE);
 	private static final TextAttribute SPACER_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
 			new Color(Display.getCurrent(), new RGB(200, 200, 200)), SWT.BOLD);
@@ -53,6 +56,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 		IToken greyToken = new Token(GREY_ATTR);
 		IToken defaultToken = new Token(DEFAULT_ATTR);
 		IToken commentToken = new Token(COMMENT_ATTR);
+		IToken commentDarkToken = new Token(COMMENT_DARK_ATTR);
 		IToken spacerToken = new Token(SPACER_ATTR);
 		IToken normal = new Token(new TextAttribute(c, null, SWT.NORMAL));
 		IToken bold = new Token(new TextAttribute(c, null, SWT.BOLD));
@@ -89,6 +93,9 @@ public class AIRuleScanner extends RuleBasedScanner {
 			rules.add(new MultiLineRule("<!--", "-->", normal));
 			rules.add(new MultiLineRule("```", "```", blueToken));
 			rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " +ClaudeCodeJsonParser.THINKING, commentDarkToken));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " +ClaudeCodeJsonParser.TEXT, commentDarkToken));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " +ClaudeCodeJsonParser.TOOLUSE, commentDarkToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
 			rules.add(new PrefixLineRule("---", spacerToken));
 			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
