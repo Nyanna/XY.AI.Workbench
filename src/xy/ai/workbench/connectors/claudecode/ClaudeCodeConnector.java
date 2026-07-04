@@ -186,7 +186,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 	}
 
-	private synchronized void ensureProcess(ClaudeCodeRequest req, SubMonitor sub) throws IOException {
+	private synchronized void ensureProcess(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
+		SubMonitor sub = SubMonitor.convert(mon, "Start CLI", IProgressMonitor.UNKNOWN);
+		
 		sub.subTask("Check Proccess");
 		if (process != null && process.isAlive()) {
 			sub.subTask("Proccess already running");
@@ -223,7 +225,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
-		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 100);
+		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
 		FileWriter mirror = null;
 		if (req.outputJsonFile != null) {
 			try {
