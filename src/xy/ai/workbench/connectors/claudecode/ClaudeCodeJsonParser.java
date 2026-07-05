@@ -250,6 +250,46 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
+	 * Parses a system init event from the Claude Code API response.
+	 * Extracts metadata: cwd, session_id, model, and plugin names (comma-separated).
+	 * Stores the formatted metadata line in assistantEvents.
+	 *
+	 * @param node            the system init event JSON node
+	 * @param assistantEvents map to collect events
+	 */
+	public void parseSystemInitEvent(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+		try {
+			String cwd = node.path("cwd").asText("");
+			String sessionId = node.path("session_id").asText("");
+			String model = node.path("model").asText("");
+
+			// Extract plugin names from the plugins array
+			StringBuilder pluginNames = new StringBuilder();
+			JsonNode plugins = node.path("plugins");
+			if (plugins.isArray()) {
+				boolean first = true;
+				for (JsonNode plugin : plugins) {
+					String name = plugin.path("name").asText("");
+					if (!name.isEmpty()) {
+						if (!first)
+							pluginNames.append(", ");
+						pluginNames.append(name);
+						first = false;
+					}
+				}
+			}
+
+			// Format as a single line with all metadata
+			String metadata = "SystemInit: cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
+					+ " | plugins=" + pluginNames.toString();
+
+			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
+		} catch (Exception e) {
+			LOG.error("ClaudeCodeJsonParser: failed to parse system init event", e);
+		}
+	}
+
+	/**
 	 * Converts text to commented format (markdown-style comments). Removes
 	 * duplicate blank lines and prepends "#: " prefix to each line.
 	 *

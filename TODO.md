@@ -1,31 +1,26 @@
 # TODO
 
 ## TODO - MCP Controller
+
 * man kann permission direkt über den Tool hook abfangen und dort den input prüfen
 	* CLI hooks sind fast besser als MCP, nur bash stört und das die scripte kein python sind
 	* Agent Definition ließe sich auch nativ über CLI Argumente und Umgebungsvariablen aus eclipse heraus abbilden lassen
+		* per elicitation auch tool nach bedarf hinzufügen
 	* allein ein MCP für die tool use und definitionen wäre dann notwendig, mcp per cli übergeben statt tools
 		* "tool inject" und  "tool use (permission)" sind dann nur 2 schnittstellen von derselben konfiguration ausgehend
 			* nur eine Tooldefinition, redirect ist ein spezialfall
 		 	* nur die schwierigkeit der agent schnittstelle gut zu emulieren
 		 	* agentenprofile sind dann obsolete und nur veränderbare presets
-	* permission check deaktiviert tool use ist für permission verantwortlich
-* Tree viewer für kontext cache verwaltung und laufzeit von cache
 * Eigenes read tool mit redirect wenn Datei schon gelesen, unverändert und im kontext
-* Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
-* Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
+	* Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
 * tool aufrufe verändern können um den kontext zu reduzieren: Bash(find /home/user/xyan/xy.ai.workbench/src -type f -name "*.java" | sort)
 	* Liefert beispielweise zu viele dateien für die aufgabe => zu viel im Kontext
+* Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
 
 ## TODO - Workbench
-!remove /exit in kombination with prompt
-* Eigenes Panel für Session Management mit Stop Button und selectir
-	* mit porgress und tool anzeige
-* workbench, session branching und prefix cache support
-	* anzeige wie alt cache und zustand
-	* Workbench muss resume unterstützen für chats und cache /resume <session> command
+
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
-	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
+	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
 	* vielleicht über tool use zyklen gehen
 	
 * Table renderer support
@@ -34,16 +29,9 @@
 	* exten "---" grey the whole line?
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
-
-### CLI COnnector Plan 
-
-* Session UUID aus aktueller datei generieren, und mit frontmatter an den anfang schreiben, wenn von hand gelöscht neu generieren 
-	* Eine Session, was ist mit resume? oder Rewind?
-	* Initial subprocess starten und erst beim Session ID wechsel prüfen, beenden und neu starten
-	* mit resume wenn session vorhanden ist bei claude und im projektverzeichnis
-	* /resume setzt session hash aus datei fort
+* Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
-* automatisch allow in erwähnten dateien
+
 
 ## TODO - Agents
 
@@ -67,12 +55,13 @@
 * Thinking cost is quality indicator for prompt. Better specified => less thinking.
 	* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
 * Empty feault agent allready produces 6843 cache write token with /context reporting 31/200k
+* Die sessionmanager wäre besser gelaufen wenn ich instream eingegriffen hätte.
+	* Dateiset und dateien vorher benennen oder durch top Level Plan ergründen, 2 Stufig wäre besser gewesen
 
 ## Ideas
 
 * elicitation is supported by claude
 * in thought fragen abfangen und beantworten, mehr zwischenschritte zum einhaken
 	* idee: ich habe bei recherche nur den initialprompt, der ezeugt suchanfragen an exa im günstigen agent, die anwot der tools kann ich brauchen die zusammenfassung aber nicht. Mit MCP COntroller kann ich nach der Toolantwort abbrechen und token sparen. Alternativ starte ich einen neuen prompt für die zusammenfassung mit allem input
-* Mehrstufige Aufgaben oder Prompts initial in Datenstruktur überführen mit klarer trennen der Steps, Aufgaben, Zwischenergebnisse und Zusammenführung. /session/multistep.md
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind

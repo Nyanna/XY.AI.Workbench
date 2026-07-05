@@ -59,7 +59,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		boolean[] exitFlag = { false };
 		String[] resumeUuidHolder = { null };
 		String processedInput = preprocessInput(input, exitFlag, resumeUuidHolder);
-		String title = input.substring(0, Math.min(100, input.length() - 1));
+		String title = input.substring(0, Math.min(100, input.length() - 1)).replace('\n', ' ');
 
 		// Combine system prompt, tools, and input into one text block
 		StringBuilder text = new StringBuilder();
@@ -160,7 +160,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 					return jsonParser.parseToolUse(req.id, node);
 				}
 
-				if ("stream_event".equals(type)) {
+				if ("system".equals(type)) {
+					String subtype = node.path("subtype").asText();
+					if ("init".equals(subtype)) {
+						sub.subTask("Received system init metadata");
+						jsonParser.parseSystemInitEvent(node, assistantEvents);
+						updateLastParsedMessage(session, assistantEvents);
+					}
+				} else if ("stream_event".equals(type)) {
 					String eventType = node.path("event").path("type").asText();
 					if ("message_delta".equals(eventType)) {
 						totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
