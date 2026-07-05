@@ -79,6 +79,9 @@
 			"Bash(git branch -m *)",
 			"Bash(git clean *)"
 		],
+		"ask": [
+			"*"
+		],
 		"allow": [
 			"Bash(savecopy.sh *)"
 		],

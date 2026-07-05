@@ -185,6 +185,10 @@ public class ClaudeCodeConnector implements IAIConnector {
 			}
 		}
 
+		while ((line = session.readLine()) != null) {
+			LOG.error(line);
+		}
+
 		throw new IllegalStateException("Claude Code process ended without a result event");
 	}
 

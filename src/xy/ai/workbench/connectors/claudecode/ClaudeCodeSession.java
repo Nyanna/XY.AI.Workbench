@@ -28,7 +28,6 @@ public class ClaudeCodeSession {
 	private Process process;
 	private PrintWriter stdin;
 	private BufferedReader stdout;
-	@SuppressWarnings("unused")
 	private BufferedReader stderr;
 	private FileWriter mirror;
 
@@ -146,6 +145,14 @@ public class ClaudeCodeSession {
 	}
 
 	public String readLine() {
+		return readLine(stdout);
+	}
+
+	public String readError() {
+		return readLine(stderr);
+	}
+
+	private String readLine(BufferedReader reader) {
 		if (mirror == null) {
 			File filePath = null;
 			try {
@@ -161,11 +168,13 @@ public class ClaudeCodeSession {
 		}
 
 		try {
-			var line = stdout.readLine();
+			var line = reader.readLine();
 
-			mirror.write(line);
-			mirror.write(System.lineSeparator());
-			mirror.flush();
+			if (line != null && line.length() > 0) {
+				mirror.write(line);
+				mirror.write(System.lineSeparator());
+				mirror.flush();
+			}
 
 			return line;
 		} catch (IOException e) {
