@@ -2,11 +2,9 @@
 
 * configuration on connect oder per agentendefinition
 * Tool hook intercept inklusive redirect, permission und stop
-* recursiv agenten als tool starten per agentendefinition oder on connect 
 
-* Subgenten als tool wrapper, unterstützt syntax und subsession mit resume
-	* Tool beschreibung muss statefull liefern für den hauptagenten
-	* Subagenten wieder durch MCP getunnelt
+* recursiv agenten als tool starten per agentendefinition oder on connect 
+	* Subgenten als tool wrapper, unterstützt syntax und subsession mit resume
 * proxy für End MCP
 	* Ersetzt toolbeschreibungen durch eigene
 	* ist selbst client
@@ -16,28 +14,15 @@
  * /hook endpunkt
  	* tool
  	
-### Basic-Tools
+ 
+### Agent
 
-Read
-	* cached dateien und  liefert redirect wenn inhalt in session nicht verändert, inhaltshash
-Edit
-Write
-Grep
-Glob
-Bash
-Agent
-Workflow
+### Python
+### Markdown
 
-### Erweiterte-Tools
-
-Python
-Markdown
-Github
-
-### MCP-Proxy
-
-Exa
-Context7
+### Github
+### Exa
+### Context7
  	
 ## Idea
 
