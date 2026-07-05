@@ -90,6 +90,7 @@ public class ClaudeCodeSession {
 		ProcessBuilder pb = new ProcessBuilder(cmd);
 		pb.directory(this.parameters.cwd.toFile());
 		pb.redirectErrorStream(false);
+		pb.environment().put("MCPC_SESSION_ID", uuid);
 		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
 		if (Reasoning.Disabled == parameters.reasoning)
 			pb.environment().put("MAX_THINKING_TOKENS", "0");
