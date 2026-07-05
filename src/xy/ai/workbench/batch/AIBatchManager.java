@@ -34,6 +34,7 @@ public class AIBatchManager implements IStructuredContentProvider{
 	public void updateBatches(IProgressMonitor mon, boolean updateAll) {
 		List<IAIBatch> updateBatches = connector.updateBatches(mon);
 		SubMonitor sub = SubMonitor.convert(mon, "Update view entry", updateBatches.size());
+		sub.subTask("Update view entries");
 		for (IAIBatch batch : updateBatches) {
 			if (updateAll)
 				addOrUpdateEntry(batch);
@@ -42,11 +43,11 @@ public class AIBatchManager implements IStructuredContentProvider{
 			sub.worked(1);
 		}
 		Display.getDefault().asyncExec(() -> viewer.setInput(this));
-		sub.done();
 	}
 
 	public void enqueue(IModelRequest req, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Enqueue request", 1);
+		sub.subTask("Enqueue request");
 		NewBatch unsent = (NewBatch) index.get(UNSEND_ID);
 		if (unsent == null)
 			addOrUpdateEntry(unsent = new NewBatch());
@@ -54,7 +55,6 @@ public class AIBatchManager implements IStructuredContentProvider{
 		final IAIBatch toUpdate = unsent;
 		Display.getDefault().syncExec(() -> viewer.refresh(toUpdate, true));
 		Display.getDefault().asyncExec(() -> viewer.setInput(this));
-		sub.done();
 	}
 
 	public void submitBatches(IProgressMonitor mon) {
@@ -63,31 +63,28 @@ public class AIBatchManager implements IStructuredContentProvider{
 			return;
 
 		SubMonitor sub = SubMonitor.convert(mon, "Submit Batch", 1);
-		IAIBatch res = connector.submitBatch(unsent, sub);
+		IAIBatch res = connector.submitBatch(unsent, sub.split(1));
 		addOrUpdateEntry(res);
 
 		unsent.clear();
 		Display.getDefault().syncExec(() -> viewer.refresh(unsent, true));
 		Display.getDefault().asyncExec(() -> viewer.setInput(this));
-		sub.done();
 	}
 
 	public void cancelBatch(IAIBatch batch, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Cancel Batch", 1);
-		IAIBatch res = connector.cancelBatch(batch, sub);
+		IAIBatch res = connector.cancelBatch(batch, sub.split(1));
 		if (res != null) {
 			sub.subTask("Update Batch");
 			batch.updateBy(res);
 			addOrUpdateEntry(batch);
 		}
-		sub.done();
 	}
 
 	public void removeBatch(IAIBatch batch, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Remove Batch", 1);
 		index.remove(batch.getID());
 		Display.getDefault().syncExec(() -> viewer.remove(batch));
-		sub.done();
 	}
 
 	private void addOrUpdateEntry(IAIBatch entry) {
@@ -127,9 +124,8 @@ public class AIBatchManager implements IStructuredContentProvider{
 			return;
 
 		SubMonitor sub = SubMonitor.convert(mon, "Load Batch", 1);
-		connector.loadBatch(entry, sub);
+		connector.loadBatch(entry, sub.split(1));
 		Display.getDefault().asyncExec(() -> viewer.refresh(entry, true));
-		sub.done();
 	}
 
 	public void setViewer(TableViewer viewer) {

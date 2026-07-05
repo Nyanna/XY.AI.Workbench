@@ -89,7 +89,7 @@ public class OpenAIConnector implements IAIConnector {
 			appendTools(builder, tools);
 
 		ResponseCreateParams params = builder.build();
-		sub.done();
+		sub.worked(1);
 		return new OpenAIRequest(params);
 	}
 
@@ -170,7 +170,7 @@ public class OpenAIConnector implements IAIConnector {
 					LOG.info("Other output!");
 				}
 			}
-		sub.done();
+		sub.worked(1);
 		return res;
 	}
 

@@ -69,7 +69,7 @@ public class ClaudeConnector implements IAIConnector {
 				builder.addUserMessage(tool);
 
 		MessageCreateParams createParams = builder.build();
-		sub.done();
+		sub.worked(1);
 		return new ClaudeRequest(createParams);
 	}
 
@@ -101,7 +101,7 @@ public class ClaudeConnector implements IAIConnector {
 				answer.append(content.asText().text());
 
 		res.answer = answer.toString();
-		sub.done();
+		sub.worked(1);
 		return res;
 	}
 }

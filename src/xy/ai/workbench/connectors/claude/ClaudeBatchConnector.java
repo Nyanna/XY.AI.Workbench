@@ -75,11 +75,10 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 			try (StreamResponse<MessageBatchIndividualResponse> response = client.messages().batches()
 					.resultsStreaming(batch.id())) {
 
-				SubMonitor sub1 = SubMonitor.convert(mon, "Load output", entry.getTaskCount());
+				SubMonitor sub1 = SubMonitor.convert(sub, "Load output", entry.getTaskCount());
 				oentry.setAnswers(response.stream().map(res -> {
-					sub1.worked(1);
 					if (res.result().isSucceeded())
-						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message(), res.customId()), sub);
+						return connector.convertResponse(new ClaudeResponse(res.result().asSucceeded().message(), res.customId()), sub1.split(1));
 					else {
 						AIAnswer an = new AIAnswer(res.customId());
 						if (res.result().isErrored()) {
@@ -109,13 +108,12 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 							an.answer = "Canceled: " + res.result().asCanceled().toString();
 						else if (res.result().isExpired())
 							an.answer = "Expired: " + res.result().asExpired().toString();
+						sub1.worked(1);
 						return an;
 					}
 				}).collect(Collectors.toList()));
-				sub1.done();
 			}
 		sub.worked(1);
-		sub.done();
 	}
 
 	@Override
@@ -138,8 +136,8 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	@Override
 	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 3);
-		sub.subTask("Collect requests");
 
+		sub.subTask("Collect requests");
 		Builder builder = BatchCreateParams.builder();
 		List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
 				.collect(Collectors.toList());
@@ -165,12 +163,11 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 			builder.addRequest(pbuilder.build());
 			sub1.worked(1);
 		}
-		sub1.done();
 		sub.worked(1);
 
 		sub.subTask("Submit batch");
 		MessageBatch batch = client.messages().batches().create(builder.build());
-		sub.done();
+		sub.worked(1);
 
 		return new ClaudeBatch(batch.id(), batch);
 	}

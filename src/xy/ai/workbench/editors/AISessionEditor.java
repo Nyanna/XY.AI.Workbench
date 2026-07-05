@@ -4,6 +4,7 @@ import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Display;
@@ -52,8 +53,9 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 	}
 
 	@Override
-	public void doSave(IProgressMonitor monitor) {
-		getEditor().doSave(monitor);
+	public void doSave(IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Save editor", 1);
+		getEditor().doSave(sub.split(1));
 	}
 
 	@Override

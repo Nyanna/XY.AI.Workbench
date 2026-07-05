@@ -97,7 +97,7 @@ public class GeminiConnector implements IAIConnector {
 				inputs.add(Content.fromParts(Part.fromText(tool)));
 
 		GenerateContentConfig contentConfig = config.build();
-		sub.done();
+		sub.worked(1);
 		return new GeminiRequest(cfg.getModel(), inputs, contentConfig, id + "");
 	}
 
@@ -165,7 +165,7 @@ public class GeminiConnector implements IAIConnector {
 		default:
 			res.answer += "Error: " + resp.finishReason().knownEnum().name();
 		}
-		sub.done();
+		sub.worked(1);
 		return res;
 	}
 }

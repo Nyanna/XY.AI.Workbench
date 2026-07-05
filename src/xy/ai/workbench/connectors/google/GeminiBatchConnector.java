@@ -129,7 +129,6 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 				}
 			}
 		sub.worked(1);
-		sub.done();
 	}
 
 	private String errorToString(JobError error) {
@@ -170,7 +169,6 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 
 		BatchJob batch = client.batches.create(cfg.getModel().apiName, bjs, cbjc);
 		sub.worked(1);
-		sub.done();
 		return new GeminiBatch(batch.name().orElseThrow(), batch);
 	}
 
@@ -204,11 +202,8 @@ public class GeminiBatchConnector implements IAIBatchConnector {
 			SubMonitor sub = SubMonitor.convert(mon, "Convert Answers", split.length);
 			String[] ids = entry.getRequestIDs();
 
-			for (int i = 0; i < split.length; i++) {
-				answ.add(convertToAnswer(split[i], ids[i], mon));
-				sub.worked(1);
-			}
-			sub.done();
+			for (int i = 0; i < split.length; i++)
+				answ.add(convertToAnswer(split[i], ids[i], sub.split(1)));
 		}
 
 		if (batch.error().isPresent()) {

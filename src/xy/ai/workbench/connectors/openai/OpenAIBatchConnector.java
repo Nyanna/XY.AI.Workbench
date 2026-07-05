@@ -110,7 +110,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 				.build();
 		Batch returned = client.batches().create(batchParams);
 		sub.worked(1);
-		sub.done();
 		return new OpenAIBatch(returned.id(), returned);
 	}
 
@@ -154,7 +153,6 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 			oentry.setResult(getFileAsString(batch.outputFileId().get()));
 		}
 		sub.worked(1);
-		sub.done();
 	}
 
 	private String getFileAsString(String fileId) {
@@ -210,6 +208,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		if (obj.getResult() != null) {
 			String[] split = obj.getResult().split("\n");
 			SubMonitor sub = SubMonitor.convert(mon, "Convert Answers", split.length);
+			sub.subTask("Convert Answers");
 			for (String InputJson : split) {
 				answ.add(convertToAnswer(InputJson, mon));
 				sub.worked(1);

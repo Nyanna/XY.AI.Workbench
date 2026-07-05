@@ -34,12 +34,9 @@ public class AIBatchResponseManager implements IStructuredContentProvider {
 		SubMonitor sub = SubMonitor.convert(mon, "Converting answers", 1);
 
 		loadedAnswers.clear();
-		if (obj.getResult() != null || obj.getError() != null || obj instanceof NewBatch) {
-			connector.convertAnswers(obj, sub);
-			mon.worked(1);
-		}
+		if (obj.getResult() != null || obj.getError() != null || obj instanceof NewBatch)
+			connector.convertAnswers(obj, sub.split(1));
 
-		sub.done();
 		loadedAnswers.addAll(obj.getAnswers());
 	}
 

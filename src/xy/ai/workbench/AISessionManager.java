@@ -322,16 +322,13 @@ public class AISessionManager {
 	}
 
 	private void queueSync(Display display, AIBatchManager batch, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Enqueue prompt", 3);
+		SubMonitor sub = SubMonitor.convert(mon, "Enqueue batch prompt", 3);
 		sub.subTask("Prepare inputs");
-		var req = prepareInner(display, true, sub);
-		sub.worked(1);
+		var req = prepareInner(display, true, sub.split(1));
 		sub.subTask("Insert Tag");
-		insertTag(display, req, sub);
-		mon.worked(1);
+		insertTag(display, req, sub.split(1));
 		sub.subTask("Enqueue prompt");
-		batch.enqueue(req, sub);
-		sub.worked(1);
+		batch.enqueue(req, sub.split(1));
 	}
 
 	public void queueAndSubmit(Display display, AIBatchManager batch) {

@@ -88,6 +88,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 					text.append(tool).append("\n\n");
 		if (processedInput != null && !processedInput.isBlank())
 			text.append(processedInput);
+		sub.worked(1);
 
 		sub.subTask("Build Prompt");
 		String trimmed = text.toString().trim();
@@ -122,6 +123,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 				LOG.error("ClaudeCodeConnector: failed to resolve editor paths", e);
 			}
 		});
+		sub.worked(1);
 
 		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1], exitFlag[0]);
 	}
@@ -131,7 +133,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
 		try {
-			ensureProcess(req, sub);
+			ensureProcess(req, sub.split(1));
 			// Send approve/deny pre-messages first
 			for (String msg : req.preMessages) {
 				stdin.println(msg);
@@ -159,7 +161,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 			stdin.flush();
 
 			sub.subTask("Waiting for answer");
-			ClaudeCodeResponse resp = readUntilResult(req, sub);
+			ClaudeCodeResponse resp = readUntilResult(req, sub.split(1));
 			// /exit after result: terminate subprocess
 			if (req.exitAfterResult) {
 				sub.subTask("Terminate Claude CLI proccess");
@@ -187,7 +189,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	private synchronized void ensureProcess(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
-		SubMonitor sub = SubMonitor.convert(mon, "Start CLI", IProgressMonitor.UNKNOWN);
+		SubMonitor sub = SubMonitor.convert(mon, "Start CLI", 1);
 		
 		sub.subTask("Check Proccess");
 		if (process != null && process.isAlive()) {
@@ -221,7 +223,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		LOG.info("Claude Code process started in: " + processWorkDir);
 		LOG.info("Claude-CLI command: " + String.join(" ", cmd));
-		sub.subTask("Claude proccess started");
+		sub.worked(1);;
 	}
 
 	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
@@ -271,7 +273,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 					} else if ("rate_limit_event".equals(type))
 						jsonParser.processRateLimitEvent(node);
 					else if ("assistant".equals(type)) {
-						jsonParser.collectAssistantEvents(node, assistantEvents, sub);
+						jsonParser.collectAssistantEvents(node, assistantEvents, sub.split(1));
 					}
 
 				} catch (Exception ignored) {

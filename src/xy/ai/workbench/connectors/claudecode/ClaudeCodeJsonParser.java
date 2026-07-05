@@ -164,6 +164,7 @@ public class ClaudeCodeJsonParser {
 				}
 			}
 		}
+		sub.worked(1);
 	}
 
 	/**
