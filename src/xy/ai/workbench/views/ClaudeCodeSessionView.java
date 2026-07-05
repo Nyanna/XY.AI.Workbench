@@ -92,7 +92,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		table.setLinesVisible(true);
 
 		{
-			createColumn("Session-UUID", 25)
+			createColumn("Session-UUID", 15)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((ClaudeCodeSession) e).getID()));
 
 			createColumn("State", 10)
@@ -107,7 +107,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 			createColumn("Effort", 8).setLabelProvider(ColumnLabelProvider
 					.createTextProvider(e -> ((ClaudeCodeSession) e).getParameters().reasoning.name()));
 
-			createColumn("Prompt", 39)
+			createColumn("Prompt", 50)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> promptLabel((ClaudeCodeSession) e)));
 		}
 

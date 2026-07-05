@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -116,6 +117,12 @@ public class ClaudeCodeSession {
 			stdin = null;
 			stdout = null;
 			stderr = null;
+
+			if (mirror != null)
+				try {
+					mirror.close();
+				} catch (IOException ignored) {
+				}
 			LOG.info("ClaudeCodeSession: terminated, uuid=" + uuid);
 			notifyChanged();
 		}
@@ -140,8 +147,11 @@ public class ClaudeCodeSession {
 		if (mirror == null) {
 			File filePath = null;
 			try {
-				filePath = parameters.cwd.resolve(uuid + ",json").toFile();
-				mirror = new FileWriter(filePath, false);
+				var di = parameters.cwd.resolve(".claude/logs/");
+				Files.createDirectories(di);
+				filePath = di.resolve(uuid + ".json").toFile();
+				mirror = new FileWriter(filePath, true);
+				LOG.info("Created mirror file: " + filePath);
 			} catch (IOException e) {
 				LOG.error("ClaudeCodeConnector: cannot open mirror file: " + filePath, e);
 				throw new IllegalStateException(e);
@@ -158,12 +168,6 @@ public class ClaudeCodeSession {
 			return line;
 		} catch (IOException e) {
 			throw new IllegalStateException(e);
-		} finally {
-			if (mirror != null)
-				try {
-					mirror.close();
-				} catch (IOException ignored) {
-				}
 		}
 	}
 
@@ -200,7 +204,10 @@ public class ClaudeCodeSession {
 	}
 
 	public void setInPrompt(boolean inPrompt) {
+		if (this.inPrompt == inPrompt)
+			return;
 		this.inPrompt = inPrompt;
+		notifyChanged();
 	}
 
 	public SessionParameters getParameters() {
