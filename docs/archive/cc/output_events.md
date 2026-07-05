@@ -1,4 +1,4 @@
-# Output Events
+# Claude Code Output Events
 
 Claude Code emits one JSON object per line on stdout. Each has a top-level `type` field.
 

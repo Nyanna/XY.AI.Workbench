@@ -1,3 +1,8 @@
+Arbeite das folgende Material in eine neue Form.
+Ziel ist dem Leser eine Hilfestellung zu bei der Promptgestaltung.
+Die Zielsprache ist englisch.
+
+
 ## LLMs und mehrstufige Aufgaben: Mechanik, Grenzen und die Effizienzfrage
 
 ---
@@ -96,3 +101,4 @@ Process Reward Models, die *jeden Schritt* bewerten, schlagen Outcome-only-Bewer
 ### Fazit
 
 Die mechanistische Intuition stimmt: Der KV-Cache ist eine passive Liste, und Attention optimiert lokal Token für Token — keine globale Planung, kein Backtracking. Dein vorgeschlagener Ansatz ist nicht nur effizienter, er entspricht dem, was die Forschung seit 2022 systematisch als überlegen belegt. Der State of the Art heisst ReAct / DSPy / LLM Compiler. Der echte Trade-off liegt nicht in der Qualität, sondern in Engineering-Komplexität und Latenz — letzteren löst die DAG-Parallelisierung (LLM Compiler) grösstenteils.
+

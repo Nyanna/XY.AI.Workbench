@@ -16,7 +16,8 @@
 * Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
 
 ## TODO - Workbench
-! cleanup docs/archive
+
+* Eigenes Panel für Session Management mit Stop Button und selectir
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
 	* vielleicht über tool use zyklen gehen
