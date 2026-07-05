@@ -1,0 +1,9 @@
+{
+	"mcpServers": {
+		"mcp": {
+			"type": "http",
+			"url": "http://localhost:9093/mcp",
+			"timeout": 86400000
+		}
+	}
+}
