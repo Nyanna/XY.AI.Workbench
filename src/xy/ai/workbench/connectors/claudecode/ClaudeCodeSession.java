@@ -122,6 +122,8 @@ public class ClaudeCodeSession {
 				try {
 					mirror.close();
 				} catch (IOException ignored) {
+				} finally {
+					mirror = null;
 				}
 			LOG.info("ClaudeCodeSession: terminated, uuid=" + uuid);
 			notifyChanged();
@@ -189,7 +191,7 @@ public class ClaudeCodeSession {
 	}
 
 	public void setLastParsedMessage(String msg) {
-		this.lastParsedMessage = msg;
+		this.lastParsedMessage = msg != null ? msg.replace('\n', ' ').strip() : "empty";
 		notifyChanged();
 	}
 

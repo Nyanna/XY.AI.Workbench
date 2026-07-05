@@ -95,6 +95,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 			if (req.resumeUuid != null) {
 				sub.subTask("Importing session");
 				sessionManager.importSession(req.resumeUuid, params);
+				waitFor();
 				return new ClaudeCodeResponse(req.id, "Session created", false);
 			}
 
@@ -109,10 +110,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 				session.terminate();
 				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
 				resp.isExited = true;
-				try {
-					Thread.sleep(1000); // brief delay before saving marker
-				} catch (InterruptedException ignored) {
-				}
+				waitFor();
 				return resp;
 			}
 
@@ -129,6 +127,13 @@ public class ClaudeCodeConnector implements IAIConnector {
 		} finally {
 			if (session != null)
 				session.setInPrompt(false);
+		}
+	}
+
+	private void waitFor() {
+		try {
+			Thread.sleep(1000); // brief delay before saving marker
+		} catch (InterruptedException ignored) {
 		}
 	}
 

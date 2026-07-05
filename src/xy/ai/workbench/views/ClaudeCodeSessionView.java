@@ -189,7 +189,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private String promptLabel(ClaudeCodeSession s) {
 		if (s.getState() == SessionState.PROMPT) {
 			String msg = s.getLastParsedMessage();
-			return msg != null ? msg : "";
+			return msg != null ? msg : "Last message empty";
 		}
 		String snippet = s.getParameters().getTitle();
 		return snippet != null ? snippet : "";
