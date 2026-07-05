@@ -18,6 +18,7 @@
 ## TODO - Workbench
 
 * Eigenes Panel für Session Management mit Stop Button und selectir
+	* mit porgress und tool anzeige
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
 	* vielleicht über tool use zyklen gehen
