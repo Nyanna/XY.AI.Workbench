@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import xy.ai.workbench.LOG;
 
 public class ClaudeCodeSessionManager {
+	public final static String CREATE_NEW_MARKER = "CREATE_NEW_MARKER";
 
 	/** Ordered list of all known sessions. Access must be {@code synchronized}. */
 	private final List<ClaudeCodeSession> sessions = new ArrayList<>();
@@ -24,25 +25,28 @@ public class ClaudeCodeSessionManager {
 		cleanupInvalidTerminated();
 
 		ClaudeCodeSession session;
-		if (selectedUuid != null && !selectedUuid.isBlank()) {
-			session = findByUuid(selectedUuid);
-			if (session == null)
-				throw new IllegalStateException("Selected session not found: " + selectedUuid);
-			if (session.isExpired())
-				throw new IllegalStateException("Selected session has expired");
-			if (!params.getHash().equals(session.getParameters().getHash()))
-				throw new IllegalStateException(
-						"Selected session parameters are incompatible with the current configuration");
-			return session;
+		if (!CREATE_NEW_MARKER.equals(selectedUuid)) {
+			if (selectedUuid != null) {
+				session = findByUuid(selectedUuid);
+				if (session == null)
+					throw new IllegalStateException("Selected session not found: " + selectedUuid);
+				if (session.isExpired())
+					throw new IllegalStateException("Selected session has expired");
+				if (!params.getHash().equals(session.getParameters().getHash()))
+					throw new IllegalStateException(
+							"Selected session parameters are incompatible with the current configuration");
+				return session;
+			}
+
+			session = findByHash(params.getHash());
+			if (session != null) {
+				if (session.isExpired())
+					throw new IllegalStateException("Selected session has expired");
+				return session;
+			}
 		}
 
-		session = findByHash(params.getHash());
-		if (session != null) {
-			if (session.isExpired())
-				throw new IllegalStateException("Selected session has expired");
-			return session;
-		}
-
+		// create new session
 		session = new ClaudeCodeSession(this, params);
 		sessions.add(session);
 		LOG.info("ClaudeCodeSessionManager: created session, hash=" + params.getHash());
@@ -116,9 +120,10 @@ public class ClaudeCodeSessionManager {
 	}
 
 	private ClaudeCodeSession findByUuid(String uuid) {
-		for (ClaudeCodeSession s : sessions)
-			if (uuid.equals(s.getSessionUuid()))
-				return s;
+		if (uuid != null)
+			for (ClaudeCodeSession s : sessions)
+				if (uuid.equals(s.getSessionUuid()))
+					return s;
 		return null;
 	}
 

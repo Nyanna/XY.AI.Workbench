@@ -1,5 +1,7 @@
 package xy.ai.workbench.views;
 
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jface.layout.TableColumnLayout;
@@ -22,8 +24,12 @@ import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.AgentProfile;
+import xy.ai.workbench.Model;
+import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeSession;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
+import xy.ai.workbench.connectors.claudecode.SessionParameters;
 import xy.ai.workbench.connectors.claudecode.SessionState;
 
 /**
@@ -62,6 +68,13 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 	/** Periodic TTL refresh interval in milliseconds. */
 	private static final int TTL_REFRESH_INTERVAL_MS = 30_000;
+	private static final ClaudeCodeSession CNEW_LAUDE_CODE_SESSION = new ClaudeCodeSession(
+			ClaudeCodeSessionManager.CREATE_NEW_MARKER, null,
+			new SessionParameters(Path.of("", ""), Model.NONE, Reasoning.Disabled, AgentProfile.basic, "") {
+				public String getHash() {
+					return "Create new session";
+				};
+			});
 
 	@Inject
 	org.eclipse.ui.IWorkbench workbench;
@@ -112,7 +125,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		}
 
 		viewer.setContentProvider(ArrayContentProvider.getInstance());
-		viewer.setInput(sessionManager.getSessions());
+		viewer.setInput(new ArrayList<ClaudeCodeSession>());
 
 		viewer.addSelectionChangedListener(event -> {
 			IStructuredSelection sel = viewer.getStructuredSelection();
@@ -205,7 +218,10 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private void refreshTable() {
 		if (viewer.getControl().isDisposed())
 			return;
-		viewer.setInput(sessionManager.getSessions());
+		var sessions = new ArrayList<ClaudeCodeSession>();
+		sessions.add(CNEW_LAUDE_CODE_SESSION);
+		sessions.addAll(sessionManager.getSessions());
+		viewer.setInput(sessions);
 		viewer.refresh();
 	}
 

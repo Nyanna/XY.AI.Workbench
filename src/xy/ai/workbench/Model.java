@@ -3,6 +3,11 @@ package xy.ai.workbench;
 import java.util.regex.Pattern;
 
 public enum Model {
+	NONE("none", new Capabilities()//
+			.key(KeyPattern.None)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+	), //
 	GPT_5_NANO("gpt-5-nano", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
@@ -49,7 +54,7 @@ public enum Model {
 			.key(KeyPattern.Claude)//
 			.outTokens(0, 32000) //
 			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
-			.budget(1024, 31999) //
+			.budget(1024, 31999)//
 	), //
 	CC_HAIKU("haiku", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -58,7 +63,8 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -67,7 +73,8 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
 	), //
 	CC_OPUS("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -76,7 +83,8 @@ public enum Model {
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high, Reasoning.xhigh, Reasoning.max })//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
 
@@ -89,7 +97,8 @@ public enum Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"), ClaudeCode("^(work|personal)$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"),
+		ClaudeCode("^(work|personal)$");
 
 		public final Pattern pattern;
 
@@ -130,12 +139,12 @@ public enum Model {
 			supportTopP = flag;
 			return this;
 		}
-		
+
 		public Capabilities supportMaxToken(boolean supportMaxToken) {
 			this.supportMaxToken = supportMaxToken;
 			return this;
 		}
-		
+
 		public Capabilities supportBatch(boolean supportBatch) {
 			this.supportBatch = supportBatch;
 			return this;
@@ -180,15 +189,15 @@ public enum Model {
 		public boolean isSupportTopP() {
 			return supportTopP;
 		}
-		
+
 		public boolean isSupportMaxToken() {
 			return supportMaxToken;
 		}
-		
+
 		public boolean isSupportBatch() {
 			return supportBatch;
 		}
-		
+
 		public Reasoning[] getReasonings() {
 			return reasonings;
 		}
@@ -196,7 +205,7 @@ public enum Model {
 		public KeyPattern getKeyPattern() {
 			return keyPattern;
 		}
-		
+
 		public AgentProfile[] getAgentProfiles() {
 			return agentProfiles;
 		}
