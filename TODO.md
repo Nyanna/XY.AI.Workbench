@@ -2,20 +2,7 @@
 
 ## TODO - MCP Controller
 
-* man kann permission direkt über den Tool hook abfangen und dort den input prüfen
-	* CLI hooks sind fast besser als MCP, nur bash stört und das die scripte kein python sind
-	* Agent Definition ließe sich auch nativ über CLI Argumente und Umgebungsvariablen aus eclipse heraus abbilden lassen
-		* per elicitation auch tool nach bedarf hinzufügen
-	* allein ein MCP für die tool use und definitionen wäre dann notwendig, mcp per cli übergeben statt tools
-		* "tool inject" und  "tool use (permission)" sind dann nur 2 schnittstellen von derselben konfiguration ausgehend
-			* nur eine Tooldefinition, redirect ist ein spezialfall
-		 	* nur die schwierigkeit der agent schnittstelle gut zu emulieren
-		 	* agentenprofile sind dann obsolete und nur veränderbare presets
-* Eigenes read tool mit redirect wenn Datei schon gelesen, unverändert und im kontext
-	* Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
-* tool aufrufe verändern können um den kontext zu reduzieren: Bash(find /home/user/xyan/xy.ai.workbench/src -type f -name "*.java" | sort)
-	* Liefert beispielweise zu viele dateien für die aufgabe => zu viel im Kontext
-* Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
+[mcpp/project/TODO.md]()
 
 ## TODO - Workbench
 

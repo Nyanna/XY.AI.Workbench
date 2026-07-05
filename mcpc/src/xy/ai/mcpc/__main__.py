@@ -1,0 +1,48 @@
+"""Command-line entry point: ``python -m xy.ai.mcpc``."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+from pathlib import Path
+
+from .config import ServerConfig
+from .server import run
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="xy.ai.mcpc",
+        description="MCP Controller — stateful Streamable HTTP MCP server.",
+    )
+    defaults = ServerConfig()
+    parser.add_argument("--host", default=defaults.host, help="Bind host (default: %(default)s)")
+    parser.add_argument("--port", type=int, default=defaults.port, help="Bind port (default: %(default)s)")
+    parser.add_argument("--path", default=defaults.path, help="MCP endpoint path (default: %(default)s)")
+    parser.add_argument("--log-dir", type=Path, default=defaults.log_dir,
+                        help="Communication log directory (default: %(default)s)")
+    parser.add_argument("--session-header", default=defaults.session_header,
+                        help="Session id header name (default: %(default)s)")
+    parser.add_argument("--log-level", default="INFO",
+                        help="Python logging level (default: %(default)s)")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    )
+    config = ServerConfig().with_overrides(
+        host=args.host,
+        port=args.port,
+        path=args.path,
+        log_dir=args.log_dir,
+        session_header=args.session_header,
+    )
+    run(config)
+
+
+if __name__ == "__main__":
+    main()

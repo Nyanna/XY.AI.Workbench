@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xy-ai-mcpc"
+version = "0.1.0"
+description = "MCP Controller — a stateful MCP server (Streamable HTTP, JSON-RPC 2.0)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "xyan" }]
+keywords = ["mcp", "model-context-protocol", "json-rpc", "streamable-http"]
+
+# No runtime dependencies: the server is built purely on the standard library.
+dependencies = []
+
+[project.scripts]
+mcpc = "xy.ai.mcpc.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["xy*"]
