@@ -1,14 +1,8 @@
 package xy.ai.workbench.connectors.claudecode;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.Reasoning;
 
 /**
  * Builds JSON structures and CLI commands for the Claude Code Connector.
@@ -16,16 +10,7 @@ import xy.ai.workbench.Reasoning;
  */
 public class ClaudeCodeRequestBuilder {
 
-	private static final String SCRIPT = System.getProperty("user.home")
-			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
-
-	private final ObjectMapper mapper;
-	private final ConfigManager cfg;
-
-	public ClaudeCodeRequestBuilder(ObjectMapper mapper, ConfigManager cfg) {
-		this.mapper = mapper;
-		this.cfg = cfg;
-	}
+    private final ObjectMapper mapper = new ObjectMapper();
 
 	/**
 	 * Builds a prompt JSON structure for a user message.
@@ -84,35 +69,5 @@ public class ClaudeCodeRequestBuilder {
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to build deny JSON", e);
 		}
-	}
-
-	/**
-	 * Builds the CLI command for the Claude Code process.
-	 *
-	 * @param profile the profile name
-	 * @return list of command arguments
-	 */
-	public List<String> buildCommand(String profile) {
-		List<String> cmd = new ArrayList<>();
-		cmd.add(SCRIPT);
-		cmd.add(cfg.getProfile().name); // Agent Definition
-		cmd.add("--profile");
-		cmd.add(profile);
-		cmd.add("--verbose");
-		cmd.add("--include-hook-events");
-		cmd.add("--include-partial-messages");
-		cmd.add("--input-format");
-		cmd.add("stream-json");
-		cmd.add("--output-format");
-		cmd.add("stream-json");
-		cmd.add("--replay-user-messages");
-		cmd.add("--model");
-		cmd.add(cfg.getModel().apiName);
-		if (!Reasoning.Disabled.equals(cfg.getReasoning())) {
-			cmd.add("--effort");
-			cmd.add(cfg.getReasoning().name().toLowerCase());
-		}
-		cmd.add("--dangerously-skip-permissions"); // as long there is no permission prompt handling implemented
-		return cmd;
 	}
 }

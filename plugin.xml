@@ -50,6 +50,15 @@
 			class="xy.ai.workbench.views.explorer.MarkdownExplorerView"
 			id="xy.ai.workbench.views.AIExplorer">
 		</view>
+		<view
+			allowMultiple="false"
+			category="XY.AI.Workbench"
+			class="xy.ai.workbench.views.ClaudeCodeSessionView"
+			icon="icons/sample.png"
+			id="xy.ai.workbench.views.ClaudeCodeSessionView"
+			inject="true"
+			name="Claude Code Sessions">
+		</view>
 	</extension>
 	<extension point="org.eclipse.ui.navigator.navigatorContent">
 		<navigatorContent

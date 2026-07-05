@@ -17,6 +17,7 @@ import xy.ai.workbench.connectors.claude.ClaudeResponse;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeConnector;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeResponse;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
 import xy.ai.workbench.connectors.google.GeminiBatch;
 import xy.ai.workbench.connectors.google.GeminiBatchConnector;
 import xy.ai.workbench.connectors.google.GeminiConnector;
@@ -43,12 +44,12 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	private ClaudeCodeConnector claudeCode;
 	private IAIBatchConnector newBatch;
 
-	public AdaptingConnector(ConfigManager cfg) {
+	public AdaptingConnector(ConfigManager cfg, ClaudeCodeSessionManager sessionManager) {
 		this.cfg = cfg;
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
-		claudeCode = new ClaudeCodeConnector(cfg);
+		claudeCode = new ClaudeCodeConnector(cfg, sessionManager);
 		newBatch = new NewBatchConnector();
 	}
 	

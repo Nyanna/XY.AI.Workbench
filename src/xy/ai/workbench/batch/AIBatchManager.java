@@ -85,6 +85,7 @@ public class AIBatchManager implements IStructuredContentProvider{
 		SubMonitor sub = SubMonitor.convert(mon, "Remove Batch", 1);
 		index.remove(batch.getID());
 		Display.getDefault().syncExec(() -> viewer.remove(batch));
+		sub.worked(1);
 	}
 
 	private void addOrUpdateEntry(IAIBatch entry) {

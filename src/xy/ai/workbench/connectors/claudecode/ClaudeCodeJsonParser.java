@@ -24,18 +24,9 @@ public class ClaudeCodeJsonParser {
 	public static final String TOOLUSE = "Tool:";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
-	private final ObjectMapper mapper;
-	private final ResultPostProcessor resultPostProcessor;
+    private final ObjectMapper mapper = new ObjectMapper();
+    private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
 	private boolean recordText = false;
-
-	public ClaudeCodeJsonParser(ObjectMapper mapper, ResultPostProcessor resultPostProcessor) {
-		this.mapper = mapper;
-		this.resultPostProcessor = resultPostProcessor;
-	}
-
-	public void setRecordText(boolean recordText) {
-		this.recordText = recordText;
-	}
 
 	/**
 	 * Parses a result event from the Claude Code API response. Combines

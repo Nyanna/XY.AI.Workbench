@@ -1,13 +1,8 @@
 package xy.ai.workbench.connectors.claudecode;
 
-import java.io.BufferedReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -29,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
-import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -38,27 +32,15 @@ import xy.ai.workbench.models.IModelResponse;
 public class ClaudeCodeConnector implements IAIConnector {
 
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
-	private final ClaudeCodeRequestBuilder requestBuilder;
-	private final ClaudeCodeJsonParser jsonParser;
-	private boolean recordText = false;
+	private final ClaudeCodeRequestBuilder requestBuilder = new ClaudeCodeRequestBuilder();
+	private final ClaudeCodeJsonParser jsonParser = new ClaudeCodeJsonParser();
+	private final ClaudeCodeSessionManager sessionManager;
 
-	private Process process;
-	private PrintWriter stdin;
-	private BufferedReader stdout;
-	private Path processWorkDir;
-	private String profile;
 	private ConfigManager cfg;
 
-	public ClaudeCodeConnector(ConfigManager cfg) {
-		this.requestBuilder = new ClaudeCodeRequestBuilder(mapper, cfg);
+	public ClaudeCodeConnector(ConfigManager cfg, ClaudeCodeSessionManager sessionManager) {
 		this.cfg = cfg;
-		this.jsonParser = new ClaudeCodeJsonParser(mapper, resultPostProcessor);
-		this.jsonParser.setRecordText(recordText);
-		cfg.addKeyObs(k -> {
-			if (getSupportedKeyPattern().matches(k))
-				this.profile = k;
-		}, true);
+		this.sessionManager = sessionManager;
 	}
 
 	@Override
@@ -72,13 +54,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
 
-		// --- Preprocessing: extract Allow/Deny lines and /exit command from input ---
-		sub.subTask("Preproccess input");
-		List<String> preMessages = new ArrayList<>();
+		// Preprocessing: extract Allow/Deny/exit/resume lines
+		sub.subTask("Preprocess input");
 		boolean[] exitFlag = { false };
-		String processedInput = preprocessInput(input, preMessages, exitFlag);
+		String[] resumeUuidHolder = { null };
+		String processedInput = preprocessInput(input, exitFlag, resumeUuidHolder);
+		String title = input.substring(0, Math.min(100, input.length() - 1));
 
-		// Combine systemPrompt, tools, and remaining input into a single text block
+		// Combine system prompt, tools, and input into one text block
 		StringBuilder text = new StringBuilder();
 		if (systemPrompt != null && !systemPrompt.isBlank())
 			text.append(systemPrompt).append("\n\n");
@@ -90,239 +73,138 @@ public class ClaudeCodeConnector implements IAIConnector {
 			text.append(processedInput);
 		sub.worked(1);
 
-		sub.subTask("Build Prompt");
+		sub.subTask("Build prompt");
 		String trimmed = text.toString().trim();
 		String promptJson = trimmed.isEmpty() ? null : requestBuilder.buildPromptJson(trimmed);
-
-		// Resolve paths from the active editor on the UI thread
-		Path[] paths = new Path[2]; // [0]=workDir, [1]=outputJsonFile
-		Display.getDefault().syncExec(() -> {
-			try {
-				IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-				if (window == null)
-					return;
-				IWorkbenchPage page = window.getActivePage();
-				if (page == null)
-					return;
-				IEditorPart editor = page.getActiveEditor();
-				if (editor == null)
-					return;
-				IEditorInput editorInput = editor.getEditorInput();
-				if (!(editorInput instanceof IFileEditorInput))
-					throw new IllegalArgumentException("Connector don't supports external files");
-
-				IFileEditorInput fileInput = (IFileEditorInput) editorInput;
-				IProject project = fileInput.getFile().getProject();
-				paths[0] = Paths.get(project.getLocation().toOSString());
-
-				String filePath = fileInput.getFile().getLocation().toOSString();
-				int dotIdx = filePath.lastIndexOf('.');
-				String jsonPath = (dotIdx >= 0 ? filePath.substring(0, dotIdx) : filePath) + ".json";
-				paths[1] = Paths.get(jsonPath);
-			} catch (Exception e) {
-				LOG.error("ClaudeCodeConnector: failed to resolve editor paths", e);
-			}
-		});
 		sub.worked(1);
 
-		return new ClaudeCodeRequest(id, preMessages, promptJson, paths[0], paths[1], exitFlag[0]);
+		return new ClaudeCodeRequest(id, title, promptJson, exitFlag[0], resumeUuidHolder[0]);
 	}
 
 	@Override
 	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
+		ClaudeCodeSession session = null;
+
 		try {
-			ensureProcess(req, sub.split(1));
-			// Send approve/deny pre-messages first
-			for (String msg : req.preMessages) {
-				stdin.println(msg);
+			SessionParameters params = new SessionParameters(getEditorFilePath(), cfg.getModel(), cfg.getReasoning(),
+					cfg.getProfile(), cfg.getKeys());
+			params.setTitle(req.title);
+
+			if (req.resumeUuid != null) {
+				sub.subTask("Importing session");
+				sessionManager.importSession(req.resumeUuid, params);
+				return new ClaudeCodeResponse(req.id, "Session created", false);
 			}
-			// /exit with no further prompt: terminate immediately, return control-flow
-			// response
+
+			sub.subTask("Acquiring session");
+			session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
+			session.setInPrompt(true);
+			sub.worked(1);
+
+			// /exit with no prompt: terminate and return
 			if (req.exitAfterResult && req.promptJson == null) {
-				stdin.flush();
-				sub.subTask("Terminate Claude CLI proccess");
-				terminateProcess();
+				sub.subTask("Terminating CLI process");
+				session.terminate();
 				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
 				resp.isExited = true;
 				try {
-					Thread.sleep(1000); // die to delay for saving marker
-				} catch (InterruptedException e) {
+					Thread.sleep(1000); // brief delay before saving marker
+				} catch (InterruptedException ignored) {
 				}
 				return resp;
 			}
 
-			sub.subTask("Sending prompt");
-			// Send the prompt if present
 			if (req.promptJson != null) {
-				stdin.println(req.promptJson);
+				sub.subTask("Sending prompt");
+				session.writeLine(req.promptJson);
 			}
-			stdin.flush();
 
 			sub.subTask("Waiting for answer");
-			ClaudeCodeResponse resp = readUntilResult(req, sub.split(1));
-			// /exit after result: terminate subprocess
-			if (req.exitAfterResult) {
-				sub.subTask("Terminate Claude CLI proccess");
-				terminateProcess();
-				resp.isExited = true;
-			}
-			return resp;
+			return readUntilResult(req, session, sub.split(1));
+
 		} catch (IOException e) {
 			throw new IllegalStateException("Claude Code CLI error", e);
+		} finally {
+			if (session != null)
+				session.setInPrompt(false);
 		}
 	}
 
-	private synchronized void terminateProcess() {
-		if (process != null) {
-			try {
-				stdin.close();
-			} catch (Exception ignored) {
-			}
-			process.destroy();
-			process = null;
-			stdin = null;
-			stdout = null;
-			LOG.info("Claude Code process terminated via /exit command");
-		}
-	}
-
-	private synchronized void ensureProcess(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
-		SubMonitor sub = SubMonitor.convert(mon, "Start CLI", 1);
-		
-		sub.subTask("Check Proccess");
-		if (process != null && process.isAlive()) {
-			sub.subTask("Proccess already running");
-			return;
-		}
-
-		sub.subTask("Start Claude-Code-CLI...");
-		// Determine working directory: fixed on first start, preserved across restarts
-		if (processWorkDir == null)
-			if (req.workDir != null)
-				processWorkDir = req.workDir;
-			else
-				throw new IllegalStateException(
-						"No active editor to determine working directory for Claude Code process");
-
-		List<String> cmd = requestBuilder.buildCommand(profile);
-		ProcessBuilder pb = new ProcessBuilder(cmd);
-		pb.directory(processWorkDir.toFile());
-		pb.redirectErrorStream(false);
-
-		// Disable spell check: set environment variable for prompt hook
-		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
-		if (Reasoning.Disabled.equals(cfg.getReasoning())) {
-			pb.environment().put("MAX_THINKING_TOKENS", "0");
-		}
-
-		process = pb.start();
-		stdin = new PrintWriter(process.getOutputStream());
-		stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-		LOG.info("Claude Code process started in: " + processWorkDir);
-		LOG.info("Claude-CLI command: " + String.join(" ", cmd));
-		sub.worked(1);;
-	}
-
-	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, IProgressMonitor mon) throws IOException {
+	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, ClaudeCodeSession session, IProgressMonitor mon)
+			throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
-		FileWriter mirror = null;
-		if (req.outputJsonFile != null) {
-			try {
-				mirror = new FileWriter(req.outputJsonFile.toFile(), false);
-			} catch (IOException e) {
-				LOG.error("ClaudeCodeConnector: cannot open mirror file: " + req.outputJsonFile, e);
-			}
-		}
 
 		// Ordered map: key = "type\0content" for dedup, value = formatted markdown line
 		LinkedHashMap<String, String> assistantEvents = new LinkedHashMap<>();
-		// Accumulate reasoning tokens across all message_delta events
 		long totalReasoningTokens = 0;
 
-		try {
-			String line;
-			while ((line = stdout.readLine()) != null) {
-				// Mirror every line to the output JSON file
-				if (mirror != null) {
-					mirror.write(line);
-					mirror.write(System.lineSeparator());
-					mirror.flush();
+		String line;
+		while ((line = session.readLine()) != null) {
+			try {
+				JsonNode node = mapper.readTree(line);
+				String type = node.path("type").asText();
+
+				if ("result".equals(type)) {
+					sub.subTask("Received final result");
+					return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
+				}
+				if ("tool_use".equals(type)) {
+					sub.subTask("Received tool use request");
+					return jsonParser.parseToolUse(req.id, node);
 				}
 
-				// Check for result, tool_use, stream_event, or assistant event
-				try {
-					JsonNode node = mapper.readTree(line);
-					String type = node.path("type").asText();
-					if ("result".equals(type)) {
-						sub.subTask("Received final result");
-						return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
+				if ("stream_event".equals(type)) {
+					String eventType = node.path("event").path("type").asText();
+					if ("message_delta".equals(eventType)) {
+						totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
+						updateLastParsedMessage(session, assistantEvents);
 					}
-					if ("tool_use".equals(type)) {
-						sub.subTask("Received tool use requst");
-						return jsonParser.parseToolUse(req.id, node);
-					}
-
-					if ("stream_event".equals(type)) {
-						String eventType = node.path("event").path("type").asText();
-						if ("message_delta".equals(eventType)) {
-							totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
-						}
-					} else if ("rate_limit_event".equals(type))
-						jsonParser.processRateLimitEvent(node);
-					else if ("assistant".equals(type)) {
-						jsonParser.collectAssistantEvents(node, assistantEvents, sub.split(1));
-					}
-
-				} catch (Exception ignored) {
-					// Non-JSON or unrecognised line — continue reading
+				} else if ("rate_limit_event".equals(type)) {
+					jsonParser.processRateLimitEvent(node);
+				} else if ("assistant".equals(type)) {
+					jsonParser.collectAssistantEvents(node, assistantEvents, sub.split(1));
+					updateLastParsedMessage(session, assistantEvents);
 				}
+
+			} catch (Exception ignored) {
+				// Non-JSON or unrecognised line — continue reading
 			}
-		} finally {
-			if (mirror != null)
-				try {
-					mirror.close();
-				} catch (IOException ignored) {
-				}
 		}
 
 		throw new IllegalStateException("Claude Code process ended without a result event");
 	}
 
-	/**
-	 * Scans {@code input} line by line.
-	 * <ul>
-	 * <li>Lines that are solely "/allow &lt;id&gt;" or "/deny &lt;id&gt;" are
-	 * extracted: an approve/deny JSON is added to {@code preMessages} and the line
-	 * is removed.</li>
-	 * <li>A line that is solely "/exit" sets {@code exitFlag[0] = true} and is
-	 * removed.</li>
-	 * </ul>
-	 * The remaining lines (after trimming the whole result) are returned; returns
-	 * null when nothing is left.
-	 */
-	private String preprocessInput(String input, List<String> preMessages, boolean[] exitFlag) {
+	private void updateLastParsedMessage(ClaudeCodeSession session, LinkedHashMap<String, String> assistantEvents) {
+		if (!assistantEvents.isEmpty()) {
+			String last = null;
+			for (String v : assistantEvents.values())
+				last = v;
+			session.setLastParsedMessage(last);
+		}
+	}
+
+	private String preprocessInput(String input, boolean[] exitFlag, String[] resumeUuidHolder) {
 		if (input == null)
 			return null;
-		String[] lines = input.split("\n", -1);
-		List<String> remaining = new ArrayList<>();
-		for (String line : lines) {
+		for (String line : input.split("\n", -1)) {
 			String trimmed = line.strip();
 			if (trimmed.matches("/(?i)allow\\s+\\S+")) {
 				String toolUseId = trimmed.split("\\s+", 2)[1];
-				preMessages.add(requestBuilder.buildApproveJson(toolUseId));
+				return requestBuilder.buildApproveJson(toolUseId);
 			} else if (trimmed.matches("/(?i)deny\\s+\\S+")) {
 				String toolUseId = trimmed.split("\\s+", 2)[1];
-				preMessages.add(requestBuilder.buildDenyJson(toolUseId));
-			} else if ("/exit".equals(trimmed)) {
+				return requestBuilder.buildDenyJson(toolUseId);
+			} else if ("/exit".equalsIgnoreCase(trimmed)) {
 				exitFlag[0] = true;
-			} else {
-				remaining.add(line);
+				return trimmed;
+			} else if (trimmed.matches("/(?i)resume\\s+\\S+")) {
+				resumeUuidHolder[0] = trimmed.split("\\s+", 2)[1];
+				return trimmed;
 			}
 		}
-		String result = String.join("\n", remaining).strip();
+		String result = input.strip();
 		return result.isEmpty() ? null : result;
 	}
 
@@ -338,5 +220,34 @@ public class ClaudeCodeConnector implements IAIConnector {
 		answer.cacheCreate = resp.cacheCreationInputTokens;
 		answer.answer = resp.resultText;
 		return answer;
+	}
+
+	private Path getEditorFilePath() {
+		Path[] paths = new Path[1];
+		Display.getDefault().syncExec(() -> {
+			try {
+				IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+				if (window == null)
+					return;
+				IWorkbenchPage page = window.getActivePage();
+				if (page == null)
+					return;
+				IEditorPart editor = page.getActiveEditor();
+				if (editor == null)
+					return;
+				IEditorInput editorInput = editor.getEditorInput();
+				if (!(editorInput instanceof IFileEditorInput))
+					throw new IllegalArgumentException("Connector does not support external files");
+
+				IFileEditorInput fileInput = (IFileEditorInput) editorInput;
+				IProject project = fileInput.getFile().getProject();
+				paths[0] = Paths.get(project.getLocation().toOSString());
+			} catch (Exception e) {
+				LOG.error("ClaudeCodeConnector: failed to resolve editor paths", e);
+			}
+		});
+		if (paths[0] == null)
+			throw new IllegalStateException("Failed to resolve editor paths");
+		return paths[0];
 	}
 }

@@ -14,18 +14,19 @@
 * Eigenes read tool mit redirect wenn Datei schon gelesen, unverändert und im kontext
 * Die user tool input JSON benutzen um dateinhalt proaktiv einzufügen
 * Change set virtuell im MCP cache, dateiänderung im MCP cahce und erst beim commit anwenden, oder checkpoints und versioning pro datei, vielleit in memory git
+* tool aufrufe verändern können um den kontext zu reduzieren: Bash(find /home/user/xyan/xy.ai.workbench/src -type f -name "*.java" | sort)
+	* Liefert beispielweise zu viele dateien für die aufgabe => zu viel im Kontext
 
 ## TODO - Workbench
-
+!remove /exit in kombination with prompt
 * Eigenes Panel für Session Management mit Stop Button und selectir
 	* mit porgress und tool anzeige
-* Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
-	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
-	* vielleicht über tool use zyklen gehen
 * workbench, session branching und prefix cache support
 	* anzeige wie alt cache und zustand
 	* Workbench muss resume unterstützen für chats und cache /resume <session> command
-* docs aufarbeiten und publishen im docs folder
+* Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
+	*datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
+	* vielleicht über tool use zyklen gehen
 	
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
