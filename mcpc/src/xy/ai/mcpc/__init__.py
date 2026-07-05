@@ -1,4 +1,4 @@
-"""MCP Controller — a stateful MCP server (Streamable HTTP) built without an SDK.
+"""MCP Controller — a stateful MCP server (Streamable HTTP).
 
 Public API::
 
