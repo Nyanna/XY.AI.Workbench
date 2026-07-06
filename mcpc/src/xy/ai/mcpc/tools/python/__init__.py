@@ -1,0 +1,76 @@
+"""Python tool – executes a Python script directly from context (no file)."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from typing import Any
+
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+
+
+def register_python_tool(registry: ToolRegistry) -> None:
+    @registry.tool(
+        "python",
+        title="Run Python script",
+        description=(
+            "Execute a Python script passed directly as content, without writing "
+            "a script file. The script is fed to the interpreter on standard input. "
+            "Returns the exit code, standard output and, if present, standard error output."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "script": {
+                    "type": "string",
+                    "description": "Python script content to execute.",
+                },
+            },
+            "required": ["script"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "exit_code": {"type": "integer"},
+                "stdout": {"type": "string"},
+                "stderr": {"type": "string"},
+            },
+            "required": ["exit_code", "stdout"],
+        },
+        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True},
+    )
+    def python(ctx: ToolContext) -> ToolResult:
+        args: dict[str, Any] = ctx.arguments
+        script: str = args["script"]
+
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-"],
+                input=script,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as exc:
+            return ToolResult(
+                content=[text_content(f"Failed to launch Python: {exc}")],
+                is_error=True,
+            )
+
+        structured: dict[str, Any] = {
+            "exit_code": proc.returncode,
+            "stdout": proc.stdout,
+        }
+        if proc.stderr:
+            structured["stderr"] = proc.stderr
+
+        parts = [f"exit_code: {proc.returncode}"]
+        if proc.stdout:
+            parts.append(f"stdout:\n{proc.stdout}")
+        if proc.stderr:
+            parts.append(f"stderr:\n{proc.stderr}")
+
+        return ToolResult(
+            content=[text_content("\n".join(parts))],
+            structured_content=structured,
+            is_error=proc.returncode != 0,
+        )

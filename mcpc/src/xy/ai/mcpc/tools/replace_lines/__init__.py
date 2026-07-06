@@ -1,4 +1,8 @@
-"""Replace-chars tool – replaces a character range inside an existing file."""
+"""Replace-lines tool – replaces a range of lines inside an existing file.
+
+This is the line-oriented analogue of ``replace-chars``: the range is given as a
+zero-based *line* offset and a *line* count instead of character offsets.
+"""
 
 from __future__ import annotations
 
@@ -8,16 +12,17 @@ from typing import Any
 from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 
-def register_replace_chars_tool(registry: ToolRegistry) -> None:
+def register_replace_lines_tool(registry: ToolRegistry) -> None:
     @registry.tool(
-        "replace-chars",
-        title="Replace characters in file",
+        "replace-lines",
+        title="Replace lines in file",
         description=(
-            "Replace a range of characters inside an existing file with new content. "
-            "The range is defined by a zero-based character ``offset`` and a ``length`` "
-            "(number of characters to remove starting at the offset). "
-            "The supplied ``content`` is written in place of the removed range. "
-            "To replace whole lines instead, use ``replace-lines``."
+            "Replace a range of lines inside an existing file with new content. "
+            "The range is defined by a zero-based line ``offset`` and a ``length`` "
+            "(number of lines to remove starting at the offset). "
+            "The supplied ``content`` is written in place of the removed lines; "
+            "it should include its own trailing newline if a line break is wanted. "
+            "To replace an arbitrary character range instead, use ``replace-chars``."
         ),
         input_schema={
             "type": "object",
@@ -28,12 +33,12 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
                 },
                 "offset": {
                     "type": "integer",
-                    "description": "Zero-based character offset of the first character to replace.",
+                    "description": "Zero-based line offset of the first line to replace.",
                     "minimum": 0,
                 },
                 "length": {
                     "type": "integer",
-                    "description": "Number of characters to remove starting at ``offset``.",
+                    "description": "Number of lines to remove starting at ``offset``.",
                     "minimum": 0,
                 },
                 "content": {
@@ -45,7 +50,7 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
         },
         annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
     )
-    def replace_chars(ctx: ToolContext) -> ToolResult:
+    def replace_lines(ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         offset: int = args["offset"]
@@ -71,19 +76,20 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
 
         try:
             text = path.read_text(encoding="utf-8")
-            file_len = len(text)
-            if offset > file_len:
+            lines = text.splitlines(keepends=True)
+            line_count = len(lines)
+            if offset > line_count:
                 return ToolResult(
                     content=[
                         text_content(
                             f"Offset {offset} is beyond end of file "
-                            f"(file length: {file_len} characters)."
+                            f"(file length: {line_count} lines)."
                         )
                     ],
                     is_error=True,
                 )
-            end = min(offset + length, file_len)
-            result = text[:offset] + new_content + text[end:]
+            end = min(offset + length, line_count)
+            result = "".join(lines[:offset]) + new_content + "".join(lines[end:])
             path.write_text(result, encoding="utf-8")
         except OSError as exc:
             return ToolResult(

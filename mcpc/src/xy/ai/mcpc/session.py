@@ -24,6 +24,39 @@ def is_valid_uuid(value: str) -> bool:
 
 
 @dataclass(slots=True)
+class AgentSubSession:
+    """Bookkeeping for a single sub-agent spawned from a session.
+
+    A session may spawn an arbitrary number of sub-agents; each one is tracked
+    here and keyed by its CLI-session id (which is also the id of the pre-created
+    MCPC session the sub-agent connects back with).  The last-used timestamp
+    drives the one-hour idle TTL used when a ``resume`` is requested.
+    """
+
+    cli_session_id: str
+    created_at: float = field(default_factory=time.time)
+    last_used_at: float = field(default_factory=time.time)
+    model: str | None = None
+    profile: str | None = None
+
+    def touch(self) -> None:
+        self.last_used_at = time.time()
+
+    def is_valid(self, ttl_seconds: float, *, now: float | None = None) -> bool:
+        now = time.time() if now is None else now
+        return (now - self.last_used_at) <= ttl_seconds
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "cliSessionId": self.cli_session_id,
+            "createdAt": self.created_at,
+            "lastUsedAt": self.last_used_at,
+            "model": self.model,
+            "profile": self.profile,
+        }
+
+
+@dataclass(slots=True)
 class Session:
     """Server-side state for a single ``X-MCPC-SESSION-ID``."""
 
@@ -44,6 +77,10 @@ class Session:
     #: on every ``tools/list`` / ``tools/call``.
     enabled_tools: set[str] | None = None
 
+    #: Sub-agents spawned from this session, keyed by their CLI-session id.  A
+    #: single session may drive an arbitrary number of sub-agents concurrently.
+    agent_sessions: dict[str, AgentSubSession] = field(default_factory=dict)
+
     #: Arbitrary per-session key/value state persisted across requests.
     state: dict[str, Any] = field(default_factory=dict)
 
@@ -62,6 +99,34 @@ class Session:
     def is_tool_enabled(self, name: str) -> bool:
         return self.enabled_tools is None or name in self.enabled_tools
 
+    def set_enabled_tools(self, names: "set[str] | list[str] | None") -> None:
+        """Replace the set of enabled tools (``None`` re-enables everything)."""
+        with self.lock:
+            self.enabled_tools = None if names is None else set(names)
+
+    def register_agent_session(
+        self,
+        cli_session_id: str,
+        *,
+        model: str | None = None,
+        profile: str | None = None,
+    ) -> AgentSubSession:
+        """Record (or refresh) a sub-agent spawned from this session."""
+        with self.lock:
+            record = self.agent_sessions.get(cli_session_id)
+            if record is None:
+                record = AgentSubSession(
+                    cli_session_id=cli_session_id, model=model, profile=profile
+                )
+                self.agent_sessions[cli_session_id] = record
+            else:
+                record.touch()
+            return record
+
+    def get_agent_session(self, cli_session_id: str) -> AgentSubSession | None:
+        with self.lock:
+            return self.agent_sessions.get(cli_session_id)
+
     def summary(self) -> dict[str, Any]:
         """A JSON-serialisable snapshot, e.g. for diagnostics tools."""
         return {
@@ -72,6 +137,7 @@ class Session:
             "initialized": self.initialized,
             "clientInfo": self.client_info,
             "enabledTools": sorted(self.enabled_tools) if self.enabled_tools is not None else None,
+            "agentSessions": [r.summary() for r in self.agent_sessions.values()],
             "stateKeys": sorted(self.state),
         }
 
@@ -96,6 +162,41 @@ class SessionStore:
             session = Session(id=session_id)
             self._sessions[session_id] = session
             return session, True
+
+    def precreate(
+        self,
+        session_id: str,
+        *,
+        enabled_tools: "set[str] | list[str] | None" = None,
+    ) -> Session:
+        """Create (or fetch) a session *before* the client first connects.
+
+        This is what the agent tool uses to stage a sub-agent's session with a
+        pre-configured toolset: the sub-agent's CLI later connects with the same
+        session id and never has to send the ``X-MCPC-TOOLS`` header itself.
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                session = Session(id=session_id)
+                self._sessions[session_id] = session
+            if enabled_tools is not None:
+                session.enabled_tools = set(enabled_tools)
+            return session
+
+    def set_enabled_tools(
+        self,
+        session_id: str,
+        names: "set[str] | list[str] | None",
+    ) -> Session:
+        """Configure the active tools for *session_id*, creating it if needed.
+
+        Convenience for use from within a tool implementation that needs to
+        reconfigure the active toolset of an (existing or future) session id.
+        """
+        session = self.precreate(session_id)
+        session.set_enabled_tools(names)
+        return session
 
     def remove(self, session_id: str) -> bool:
         with self._lock:

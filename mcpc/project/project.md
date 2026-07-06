@@ -1,6 +1,7 @@
 # Tasks
 * agenten systemprompts setzen
 *suchagenten toolnamen ändern zu den konkreten mcp tool namen von exa
+* Adapt exa descriptions
 
 * tool use and stop pattern
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state

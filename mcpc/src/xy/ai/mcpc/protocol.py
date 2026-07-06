@@ -9,13 +9,16 @@ in a JSON-RPC envelope.
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import errors
 from .config import ServerConfig
 from .jsonrpc import JsonRpcRequest
 from .registry import ToolContext, ToolRegistry, normalize_result
 from .session import Session
+
+if TYPE_CHECKING:
+    from .context import AppServices
 
 # Methods a client may call before the initialize handshake has completed.
 _PRE_INIT_METHODS = {"initialize", "ping"}
@@ -38,9 +41,15 @@ def _decode_cursor(cursor: str) -> int:
 class McpProtocol:
     """Dispatches MCP methods against a session."""
 
-    def __init__(self, config: ServerConfig, registry: ToolRegistry) -> None:
+    def __init__(
+        self,
+        config: ServerConfig,
+        registry: ToolRegistry,
+        services: "AppServices | None" = None,
+    ) -> None:
         self.config = config
         self.registry = registry
+        self.services = services
         self._handlers = {
             "initialize": self._handle_initialize,
             "ping": self._handle_ping,
@@ -143,7 +152,7 @@ class McpProtocol:
 
         _validate_arguments(tool.input_schema, arguments)
 
-        context = ToolContext(session=session, arguments=arguments)
+        context = ToolContext(session=session, arguments=arguments, services=self.services)
         # Tool execution errors are reported *inside* the result (isError=true)
         # so the model can see and self-correct, not as protocol errors.
         try:

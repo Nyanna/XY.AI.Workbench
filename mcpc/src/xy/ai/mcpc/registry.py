@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from .session import Session
+
+if TYPE_CHECKING:
+    from .context import AppServices
 
 
 @dataclass(slots=True)
@@ -20,6 +23,9 @@ class ToolContext:
 
     session: Session
     arguments: dict[str, Any]
+    #: Shared process-wide services (session store, CLI manager, profiles).
+    #: ``None`` for tools that never orchestrate other sessions.
+    services: "AppServices | None" = None
 
 
 @dataclass(slots=True)

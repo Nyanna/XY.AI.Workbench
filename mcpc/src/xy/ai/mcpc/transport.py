@@ -100,6 +100,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         if created:
             self.comm_log.log(session_id, EVENT, {"event": "session.created"})
         session.touch()
+        self._apply_tools_header(session_id, session)
 
         if kind is MessageKind.REQUEST:
             self._handle_request(session_id, session, request)  # type: ignore[arg-type]
@@ -138,6 +139,27 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             self._send_empty(HTTPStatus.NO_CONTENT, session_id)
         else:
             self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown session", session_id=session_id)
+
+    def _apply_tools_header(self, session_id: str, session) -> None:
+        """Reconcile the session's active toolset with the ``X-MCPC-TOOLS`` header.
+
+        The header carries a comma-separated list of tool names and is honoured
+        on every request.  When it is *absent* the session's configuration is
+        left untouched — this is deliberate: a spawned sub-agent inherits a
+        pre-configured toolset and never sends the header itself.  A present but
+        empty header activates the empty toolset (no tools).
+        """
+        raw = self.headers.get(self.config.tools_header)
+        if raw is None:
+            return
+        names = {part.strip() for part in raw.split(",") if part.strip()}
+        if session.enabled_tools != names:
+            session.set_enabled_tools(names)
+            self.comm_log.log(
+                session_id,
+                EVENT,
+                {"event": "session.tools", "tools": sorted(names)},
+            )
 
     # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:

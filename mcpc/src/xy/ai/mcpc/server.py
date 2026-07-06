@@ -6,11 +6,14 @@ import logging
 from http.server import ThreadingHTTPServer
 from typing import Any
 
+from .cli import CliSessionManager
 from .config import ServerConfig
+from .context import AppServices
 from .logging_utils import CommunicationLog
 from .protocol import McpProtocol
 from .registry import ToolRegistry
 from .session import SessionStore
+from .tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
 from .transport import StreamableHttpHandler
 
 logger = logging.getLogger("xy.ai.mcpc")
@@ -28,11 +31,13 @@ class McpHTTPServer(ThreadingHTTPServer):
         protocol: McpProtocol,
         sessions: SessionStore,
         comm_log: CommunicationLog,
+        services: AppServices,
     ) -> None:
         self.config = config
         self.protocol = protocol
         self.sessions = sessions
         self.comm_log = comm_log
+        self.services = services
         self.logger = logger
         super().__init__((config.host, config.port), StreamableHttpHandler)
 
@@ -55,17 +60,33 @@ def build_server(
     """
     config = config or ServerConfig()
 
+    profiles = ProfileRegistry(list(DEFAULT_PROFILES))
+
     if registry is None:
         registry = ToolRegistry()
         if register_builtin:
             from .tools import register_builtin_tools
+            from .tools.agent import register_agent_tools
 
             register_builtin_tools(registry)
+            register_agent_tools(registry, profiles)
 
-    protocol = McpProtocol(config, registry)
     sessions = SessionStore()
+    cli_manager = CliSessionManager(
+        log_dir=config.cli_log_dir,
+        ttl_seconds=config.agent_session_ttl_seconds,
+        response_timeout=config.agent_response_timeout_seconds,
+    )
+    services = AppServices(
+        config=config,
+        registry=registry,
+        sessions=sessions,
+        cli_manager=cli_manager,
+        profiles=profiles,
+    )
+    protocol = McpProtocol(config, registry, services)
     comm_log = CommunicationLog(config.log_dir)
-    return McpHTTPServer(config, protocol, sessions, comm_log)
+    return McpHTTPServer(config, protocol, sessions, comm_log, services)
 
 
 def run(config: ServerConfig | None = None, **build_kwargs: Any) -> None:
@@ -79,5 +100,6 @@ def run(config: ServerConfig | None = None, **build_kwargs: Any) -> None:
     except KeyboardInterrupt:  # pragma: no cover - interactive
         logger.info("Shutting down")
     finally:
+        server.services.cli_manager.shutdown()
         server.shutdown()
         server.server_close()
