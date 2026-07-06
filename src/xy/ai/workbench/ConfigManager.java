@@ -111,13 +111,13 @@ public class ConfigManager {
 	public void setSystemPrompt(String[] systemPrompt) {
 		cfg.setSystemPrompt(systemPrompt);
 		systemPromptObs.forEach(c -> c.accept(cfg));
-		inputModeObs.forEach(c -> c.accept(InputMode.Instructions));
+		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
 	
 	public void setSystemFree(String systemPrompt) {
 		cfg.setSystemPrompt(systemPrompt);
 		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
-		inputModeObs.forEach(c -> c.accept(InputMode.Instructions));
+		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
 
 	public String getKeys() {

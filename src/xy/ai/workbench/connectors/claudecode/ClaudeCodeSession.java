@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.UUID;
 
 import xy.ai.workbench.LOG;
-import xy.ai.workbench.Reasoning;
 
 public class ClaudeCodeSession {
 	private static final long TTL_HOURS = 1;
@@ -88,12 +87,9 @@ public class ClaudeCodeSession {
 		cmd.add(uuid);
 
 		ProcessBuilder pb = new ProcessBuilder(cmd);
-		pb.directory(this.parameters.cwd.toFile());
-		pb.redirectErrorStream(false);
+		parameters.buildEvironment(pb);
 		pb.environment().put("MCPC_SESSION_ID", uuid);
-		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
-		if (Reasoning.Disabled == parameters.reasoning)
-			pb.environment().put("MAX_THINKING_TOKENS", "0");
+		pb.redirectErrorStream(false);
 
 		process = pb.start();
 		stdin = new PrintWriter(process.getOutputStream());

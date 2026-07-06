@@ -2,7 +2,7 @@ package xy.ai.workbench;
 
 public enum AgentProfile {
 	basic("default"), author, research, code, python, web_research("web-research"), markdown, code_rw("code-rw"),
-	code_plan("code-plan"), github_research("github-research");
+	code_plan("code-plan"), github_research("github-research"), MCPC;
 
 	public final String name;
 

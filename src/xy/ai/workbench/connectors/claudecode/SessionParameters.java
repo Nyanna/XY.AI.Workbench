@@ -14,9 +14,11 @@ import xy.ai.workbench.Reasoning;
 public class SessionParameters {
 	private static final String SCRIPT = System.getProperty("user.home")
 			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
+	private static final String COMMAND = "claude";
 
 	/** Deterministic hash of the session parameters. Immutable. */
 	public final Path cwd;
+	public final String systemPrompt;
 	public final Model model;
 	public final Reasoning reasoning;
 	public final AgentProfile agentProfile;
@@ -24,8 +26,10 @@ public class SessionParameters {
 	private String hash;
 	private String title;
 
-	public SessionParameters(Path cwd, Model model, Reasoning reasoning, AgentProfile agentProfile, String cliProfile) {
+	public SessionParameters(Path cwd, String systemPrompt, Model model, Reasoning reasoning, AgentProfile agentProfile,
+			String cliProfile) {
 		this.cwd = cwd;
+		this.systemPrompt = systemPrompt != null ? systemPrompt : "";
 		this.model = model;
 		this.reasoning = reasoning;
 		this.agentProfile = agentProfile;
@@ -36,10 +40,21 @@ public class SessionParameters {
 
 	public List<String> buildBaseCommand() {
 		List<String> cmd = new ArrayList<>();
-		cmd.add(SCRIPT);
-		cmd.add(agentProfile != null ? agentProfile.name : ""); // Agent definition
-		cmd.add("--profile");
-		cmd.add(cliProfile);
+		if (AgentProfile.MCPC.equals(agentProfile)) {
+			cmd.add(COMMAND);
+			cmd.add("--system-prompt");
+			cmd.add(systemPrompt);
+			cmd.add("--tools");
+			cmd.add("\"\"");
+			// --mcp-config
+			// --settings
+		} else {
+			cmd.add(SCRIPT);
+			cmd.add(agentProfile != null ? agentProfile.name : ""); // Agent definition
+			cmd.add("--profile");
+			cmd.add(cliProfile);
+		}
+
 		cmd.add("--verbose");
 		cmd.add("--include-hook-events");
 		cmd.add("--include-partial-messages");
@@ -58,6 +73,35 @@ public class SessionParameters {
 		return cmd;
 	}
 
+	public void buildEvironment(ProcessBuilder pb) {
+		pb.directory(cwd.toFile());
+		if (AgentProfile.MCPC.equals(agentProfile)) {
+			pb.environment().put("CLAUDE_CONFIG_DIR", System.getProperty("user.home") + "/.claude-" + cliProfile);
+			pb.environment().put("CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS", "1");
+		}
+		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
+		if (Reasoning.Disabled == reasoning) {
+			pb.environment().put("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1");
+			pb.environment().put("MAX_THINKING_TOKENS", "0");
+			pb.environment().put("CLAUDE_CODE_DISABLE_AGENT_VIEW", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_CRON", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_POLICY_SKILLS", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_WORKFLOWS", "1");
+			pb.environment().put("CLAUDE_CODE_ENABLE_AWAY_SUMMARY", "0");
+			pb.environment().put("CLAUDE_CODE_ENABLE_BACKGROUND_PLUGIN_REFRESH", "1");
+			pb.environment().put("CLAUDE_CODE_FORK_SUBAGENT", "0");
+			pb.environment().put("CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", "1"); // number of parralel read tools
+			pb.environment().put("ENABLE_TOOL_SEARCH", "false");
+		}
+		pb.environment().put("CLAUDE_CODE_DISABLE_ADVISOR_TOOL", "1");
+	}
+
 	public String getHash() {
 		if (hash == null)
 			hash = computeHash();
@@ -65,8 +109,8 @@ public class SessionParameters {
 	}
 
 	private String computeHash() {
-		String input = cwd.toString() + "|" + model.apiName + "|" + reasoning.name() + "|" + agentProfile.name + "|"
-				+ cliProfile;
+		String input = systemPrompt.toString() + "|" + cwd.toString() + "|" + model.apiName + "|" + reasoning.name()
+				+ "|" + agentProfile.name + "|" + cliProfile;
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
@@ -87,7 +131,7 @@ public class SessionParameters {
 		if (this.title == null)
 			this.title = title;
 	}
-	
+
 	public String getTitle() {
 		return title;
 	}

@@ -92,6 +92,7 @@
   },
   "model": "opus",
   "disableBundledSkills": true,
+  "disableClaudeAiConnectors": true,
   "disableAgentView": true,
   "disableRemoteControl": true,
   "enableWorkflows": false,

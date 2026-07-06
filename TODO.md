@@ -6,6 +6,7 @@
 
 ## TODO - Workbench
 
+* in preset tab presets aus unterverzeichnis anzeigen und on click laden
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
 	
@@ -21,6 +22,7 @@
 
 ## TODO - Agents
 
+* tool für science research wie google scholar
 * Stop and correct mode
 	* PostToolBatch kann nach einer tool ausführung anhalten, so wie PermissionRequest auch
 	*ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before

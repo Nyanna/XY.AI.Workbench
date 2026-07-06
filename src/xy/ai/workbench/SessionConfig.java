@@ -24,7 +24,7 @@ public class SessionConfig {
 	public String freeText;
 
 	public SessionConfig() {
-		setInputMode(InputMode.Instructions, true);
+		setInputMode(InputMode.SystemPrompt, true);
 		setInputMode(InputMode.Editor, true);
 	}
 

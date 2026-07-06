@@ -6,6 +6,7 @@ public class ClaudeCodeRequest implements IModelRequest {
 
 	public final String id;
 
+	public final String thissystemPrompt;
 	/** Prompt JSON to send after preMessages, or null if no remaining text. */
 	public final String promptJson;
 
@@ -16,9 +17,10 @@ public class ClaudeCodeRequest implements IModelRequest {
 
 	public final String title;
 
-	public ClaudeCodeRequest(String id, String title, String promptJson, boolean exitAfterResult, String resumeUuid) {
+	public ClaudeCodeRequest(String id, String title, String systemPrompt, String promptJson, boolean exitAfterResult, String resumeUuid) {
 		this.id = id;
 		this.title = title;
+		thissystemPrompt = systemPrompt;
 		this.promptJson = promptJson;
 		this.exitAfterResult = exitAfterResult;
 		this.resumeUuid = resumeUuid;

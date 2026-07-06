@@ -85,6 +85,37 @@ public enum Model {
 			.agentProfiles(AgentProfile.values())//
 			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
 					Reasoning.xhigh, Reasoning.max })//
+	), //
+	// MCPC Root Agents
+	CC_MCPC_HAIKU("haiku", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
+	), //
+	CC_MCPC_SONNET("sonnet", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
+	), //
+	CC_MCPC_OPUS("opus", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
+					Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
 

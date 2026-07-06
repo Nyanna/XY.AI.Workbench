@@ -227,7 +227,7 @@ public class AISessionView extends ViewPart {
 			ldat2.heightHint = 100;
 			middle.setLayoutData(ldat2);
 
-			toolkit.createLabel(middle, "Instructions:");
+			toolkit.createLabel(middle, "System Prompt:");
 			Composite sashComp = new Composite(middle, SWT.NONE);
 			sashComp.setLayout(new GridLayout(1, false));
 			GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);

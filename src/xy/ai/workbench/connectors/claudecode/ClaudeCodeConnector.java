@@ -63,8 +63,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		// Combine system prompt, tools, and input into one text block
 		StringBuilder text = new StringBuilder();
-		if (systemPrompt != null && !systemPrompt.isBlank())
-			text.append(systemPrompt).append("\n\n");
 		if (tools != null)
 			for (String tool : tools)
 				if (tool != null && !tool.isBlank())
@@ -78,7 +76,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String promptJson = trimmed.isEmpty() ? null : requestBuilder.buildPromptJson(trimmed);
 		sub.worked(1);
 
-		return new ClaudeCodeRequest(id, title, promptJson, exitFlag[0], resumeUuidHolder[0]);
+		return new ClaudeCodeRequest(id, title, systemPrompt, promptJson, exitFlag[0], resumeUuidHolder[0]);
 	}
 
 	@Override
@@ -88,7 +86,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		ClaudeCodeSession session = null;
 
 		try {
-			SessionParameters params = new SessionParameters(getEditorFilePath(), cfg.getModel(), cfg.getReasoning(),
+			SessionParameters params = new SessionParameters(getEditorFilePath(), req.thissystemPrompt, cfg.getModel(), cfg.getReasoning(),
 					cfg.getProfile(), cfg.getKeys());
 			params.setTitle(req.title);
 

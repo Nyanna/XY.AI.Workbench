@@ -74,6 +74,9 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		case CC_HAIKU:
 		case CC_SONNET:
 		case CC_OPUS:
+		case CC_MCPC_HAIKU:
+		case CC_MCPC_SONNET:
+		case CC_MCPC_OPUS:
 			return claudeCode;
 		default:
 		}

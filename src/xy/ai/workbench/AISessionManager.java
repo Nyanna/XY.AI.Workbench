@@ -146,7 +146,7 @@ public class AISessionManager {
 		ITextEditor textEditor = editorListener.getLastTextEditor();
 
 		switch (mode) {
-		case Instructions:
+		case SystemPrompt:
 			StringBuffer systemPrompt = new StringBuffer();
 			Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
 					.forEach(e -> systemPrompt.append("* ").append(e).append(".\n"));
@@ -362,8 +362,8 @@ public class AISessionManager {
 		});
 
 		StringBuffer systemPrompt = new StringBuffer();
-		if (cfg.isInputEnabled(InputMode.Instructions))
-			systemPrompt.append(getInput(InputMode.Instructions));
+		if (cfg.isInputEnabled(InputMode.SystemPrompt))
+			systemPrompt.append(getInput(InputMode.SystemPrompt));
 		if (cfg.isInputEnabled(InputMode.Context_prompt)) {
 			if (systemPrompt.length() > 0)
 				systemPrompt.append("\n");
@@ -371,7 +371,7 @@ public class AISessionManager {
 		}
 
 		if ((input == null || input.isBlank()) && systemPrompt.length() == 0)
-			throw new IllegalArgumentException("Input and instructions Empty");
+			throw new IllegalArgumentException("Input and System Prompt Empty");
 
 		if (editorListener.getLastTextEditor() == null && !batchFix)
 			throw new IllegalArgumentException("Result editor unset");
