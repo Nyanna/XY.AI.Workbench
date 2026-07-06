@@ -46,8 +46,10 @@ public class SessionParameters {
 			cmd.add(systemPrompt);
 			cmd.add("--tools");
 			cmd.add("\"\"");
-			// --mcp-config
-			// --settings
+			cmd.add("--settings");
+			cmd.add("{\"hooks\":{\"PreToolUse\":[{\"type\":\"http\",\"url\":\"http://localhost:9093/hooks/tool\",\"headers\":{\"X-MCPC-SESSION-ID\":\"$MCPC_SESSION_ID\"},\"allowedEnvVars\":[\"MCPC_SESSION_ID\"],\"timeout\":86400}]}}");
+			cmd.add("--mcp-config");
+			cmd.add("{\"mcpServers\": {\"mcp\": {\"type\": \"http\",\"url\": \"http://localhost:9093/mcp\", \"timeout\": 86400000, \"headers\": {\"X-MCPC-SESSION-ID\": \"$MCPC_SESSION_ID\"}}}}");
 		} else {
 			cmd.add(SCRIPT);
 			cmd.add(agentProfile != null ? agentProfile.name : ""); // Agent definition
@@ -78,11 +80,6 @@ public class SessionParameters {
 		if (AgentProfile.MCPC.equals(agentProfile)) {
 			pb.environment().put("CLAUDE_CONFIG_DIR", System.getProperty("user.home") + "/.claude-" + cliProfile);
 			pb.environment().put("CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS", "1");
-		}
-		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
-		if (Reasoning.Disabled == reasoning) {
-			pb.environment().put("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1");
-			pb.environment().put("MAX_THINKING_TOKENS", "0");
 			pb.environment().put("CLAUDE_CODE_DISABLE_AGENT_VIEW", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS", "1");
@@ -98,6 +95,11 @@ public class SessionParameters {
 			pb.environment().put("CLAUDE_CODE_FORK_SUBAGENT", "0");
 			pb.environment().put("CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", "1"); // number of parralel read tools
 			pb.environment().put("ENABLE_TOOL_SEARCH", "false");
+		}
+		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
+		if (Reasoning.Disabled == reasoning) {
+			pb.environment().put("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1");
+			pb.environment().put("MAX_THINKING_TOKENS", "0");
 		}
 		pb.environment().put("CLAUDE_CODE_DISABLE_ADVISOR_TOOL", "1");
 	}

@@ -6,6 +6,7 @@
 
 ## TODO - Workbench
 
+* tool konfiguration und "X-MCPC-TOOLS" implementieren
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
@@ -42,14 +43,14 @@
 
 * Thinking cost is quality indicator for prompt. Better specified => less thinking.
 	* Thinking costs measures resistance against prompt. Two high thinking costs and the prompt should optiimized an tuned to the model.
+* Parralele Agents bringen garnichts wenn man das ergebnis ohnehin stundenlang verifiziert
+	* Unterscheidung gleich unterbechen für wichtige sachen im folgekontext
+	* spätere unwichtigere korrekturen auf bassis des finalen kontextes
 * Empty feault agent allready produces 6843 cache write token with /context reporting 31/200k
 * Die sessionmanager wäre besser gelaufen wenn ich instream eingegriffen hätte.
 	* Dateiset und dateien vorher benennen oder durch top Level Plan ergründen, 2 Stufig wäre besser gewesen
 
 ## Ideas
 
-* elicitation is supported by claude
-* in thought fragen abfangen und beantworten, mehr zwischenschritte zum einhaken
-	* idee: ich habe bei recherche nur den initialprompt, der ezeugt suchanfragen an exa im günstigen agent, die anwot der tools kann ich brauchen die zusammenfassung aber nicht. Mit MCP COntroller kann ich nach der Toolantwort abbrechen und token sparen. Alternativ starte ich einen neuen prompt für die zusammenfassung mit allem input
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
