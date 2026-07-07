@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 from pathlib import Path
 
@@ -33,14 +34,18 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
-    )
-    config = ServerConfig().with_overrides(
-        host=args.host,
-        port=args.port,
-        path=args.path,
-        log_dir=args.log_dir,
-        session_header=args.session_header,
-    )
+    )# 1. basics from env
+    config = ServerConfig.from_env()
+    
+    # 2. add CLI arguments
+    valid_fields = {f.name for f in dataclasses.fields(ServerConfig)}
+    overrides = {
+        k: v for k, v in vars(args).items() 
+        if v is not None and k in valid_fields
+    }
+    
+    # 3. Overridesn
+    config = config.with_overrides(**overrides)
     run(config)
 
 

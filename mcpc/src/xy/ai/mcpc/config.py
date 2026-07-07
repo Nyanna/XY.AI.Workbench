@@ -7,9 +7,13 @@ protocol → registry) instead of relying on globals.
 
 from __future__ import annotations
 
+import logging
+
 import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+
+logger = logging.getLogger("xy.ai.mcpc.config")
 
 #: Protocol revisions understood by this server, newest first.  The first entry
 #: is the version the server prefers when the client requests something it does
@@ -61,7 +65,18 @@ class ServerConfig:
 
     #: Base URL of the Exa remote MCP server and the API key used to reach it.
     exa_mcp_url: str = "https://mcp.exa.ai/mcp"
+    #: x-api-key header
     exa_api_key: str | None = None
+    
+    #: Base URL of the Context7 remote MCP server and the API key used to reach it.
+    context7_mcp_url: str = "https://mcp.context7.com/mcp"
+    #: CONTEXT7_API_KEY header
+    context7_api_key: str | None = None
+    
+    #: Base URL of the Github remote MCP server and the API key used to reach it.
+    github_mcp_url: str = "https://api.githubcopilot.com/mcp"
+    #: Authorization Header
+    github_api_pat: str | None = None
 
     #: Time-to-live, in seconds, after which an idle agent / CLI session becomes
     #: invalid.  Measured from the timestamp of the last message sent to the CLI.
@@ -116,12 +131,25 @@ class ServerConfig:
             kwargs["cli_log_dir"] = Path(env["MCPC_CLI_LOG_DIR"])
         if "MCPC_MARKDOWN_ENV_DIR" in env:
             kwargs["markdown_env_dir"] = Path(env["MCPC_MARKDOWN_ENV_DIR"])
+            
         if "MCPC_EXA_MCP_URL" in env:
             kwargs["exa_mcp_url"] = env["MCPC_EXA_MCP_URL"]
         if "MCPC_EXA_API_KEY" in env:
+            logger.info("Added EXA key from env")
             kwargs["exa_api_key"] = env["MCPC_EXA_API_KEY"]
-        elif "EXA_API_KEY" in env:
-            kwargs["exa_api_key"] = env["EXA_API_KEY"]
+            
+        if "MCPC_CONTEXT7_MCP_URL" in env:
+            kwargs["context7_mcp_url"] = env["MCPC_CONTEXT7_MCP_URL"]
+        if "MCPC_CONTEXT7_API_KEY" in env:
+            logger.info("Added Context7 key from env")
+            kwargs["context7_api_key"] = env["MCPC_CONTEXT7_API_KEY"]
+            
+        if "MCPC_GITHUB_MCP_URL" in env:
+            kwargs["github_mcp_url"] = env["MCPC_GITHUB_MCP_URL"]
+        if "MCPC_GITHUB_PAT" in env:
+            logger.info("Added GitHub key from env")
+            kwargs["github_api_pat"] = env["MCPC_GITHUB_PAT"]
+            
         if "MCPC_SESSION_HEADER" in env:
             kwargs["session_header"] = env["MCPC_SESSION_HEADER"]
         if "MCPC_TOOLS_HEADER" in env:

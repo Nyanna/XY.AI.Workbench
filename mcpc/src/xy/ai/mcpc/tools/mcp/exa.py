@@ -112,7 +112,8 @@ def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None"=None) 
     bridge = bridge or ExaBridge()
     bridge.register_tool(
         registry,
-        name="web_search_exa",
+        name="web-search-exa",
+        remote_tool="web_search_exa",
         title="Exa web search",
         description=_WEB_SEARCH_DESCRIPTION,
         input_schema=_WEB_SEARCH_SCHEMA,
@@ -120,7 +121,8 @@ def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None"=None) 
     )
     bridge.register_tool(
         registry,
-        name="web_fetch_exa",
+        name="web-fetch-exa",
+        remote_tool="web_fetch_exa",
         title="Exa web fetch",
         description=_WEB_FETCH_DESCRIPTION,
         input_schema=_WEB_FETCH_SCHEMA,
