@@ -24,7 +24,7 @@ from ..registry import ToolRegistry
 from .bash import register_bash_tool
 from .insert import register_insert_tool
 from .markdown import register_markdown_tool
-from .mcp import register_exa_tools
+from .mcp import register_context7_tools, register_exa_tools, register_github_tools
 from .python import register_python_tool
 from .read import register_read_tool
 from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
@@ -45,6 +45,8 @@ def register_tools(registry: ToolRegistry) -> None:
     register_markdown_tool(registry)
     register_skills(registry)
     register_exa_tools(registry)
+    register_github_tools(registry)
+    register_context7_tools(registry)
 
 
 # Keep the old name available so existing call sites don't break.

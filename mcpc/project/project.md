@@ -20,14 +20,20 @@
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
 
 # MCP-Tools
+Implementiere Analog zu Exa entsprechende Brücken zu Github und Context7.
+In der Konfiguration sind die Felder für URL und API-Keys bereits angelegt.
+
 ## Github
+
+Die Tool-Dokumentation liegt hier`/home/user/xyan/xy.ai.workbench/mcpc/project/github-api.md`.
+Es werden nur Tools benötigt, die mit reinem Lesezugriff auskommen und Recherchezwecken dienen. Hauptsächlich der Abruf von Code und Dateien, Issues, Discussions, Projektinformationen.
+
 ## Context7
 
-* environment toolt und sesssion cli flag für header
+Implementiere für Context7 die beiden hier`/home/user/xyan/xy.ai.workbench/mcpc/project/context7.md` Dokumentierten Tools.
 
+## Tools Checkliste
 
-## Tools Checklist
-
-* inputschema
-* outputscheme
-* structuredConten statt content
+* Inputschema vorhanden
+* Outputscheme vorhanden
+* Result: structuredContent verwendet, nicht content

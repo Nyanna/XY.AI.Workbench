@@ -86,7 +86,7 @@ DEFAULT_PROFILES: list[AgentProfile] = [
     ),
     AgentProfile(
         name="agt-web-research",
-        tools=("web_search_exa", "web_fetch_exa", "context7"),
+        tools=("web-search-exa", "web-fetch-exa", "context7-libraries", "context7-documentation"),
         description=(
             "Conducts structured web research, internet-based lookups, and "
             "external queries; aggregates comprehensive, prioritized results "
@@ -108,7 +108,7 @@ DEFAULT_PROFILES: list[AgentProfile] = [
     ),
     AgentProfile(
         name="agt-github-research",
-        tools=("github",),
+        tools=("github-get-file","github-get-tree","github-search-code","github-search-repos","github-projects-get","github-projects-list"),
         description=(
             "Conducts structured research on behalf of the caller and "
             "aggregates comprehensive, prioritized results using GitHub MCP "
