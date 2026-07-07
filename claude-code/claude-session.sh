@@ -30,6 +30,7 @@ EXPLICIT_MODEL=false
 EXPLICIT_EFFORT=false
 EXPLICIT_SESSION_ID=
 LIST_AGENTS=false
+SET_MCPC_TOOLS=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -59,6 +60,10 @@ while [[ $# -gt 0 ]]; do
         --resume)
             EXPLICIT_SESSION_ID="$2"
             EXTRA_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --tools)
+            SET_MCPC_TOOLS="$2"
             shift 2
             ;;
         --*)
@@ -200,6 +205,7 @@ if [[ -n "$AGENT_ARG" ]]; then
     		export MAX_THINKING_TOKENS=0
 		fi
 		export MCPC_SESSION_ID="${EXPLICIT_SESSION_ID:-$(uuidgen)}"
+		export MCPC_TOOLS="${MCPC_TOOLS:-${SET_MCPC_TOOLS:-read}}"
 
         # Add additional plugins defined in frontmatter
         if [[ -n "$AGENT_PLUGINS" ]]; then

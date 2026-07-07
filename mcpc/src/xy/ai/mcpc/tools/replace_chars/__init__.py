@@ -46,7 +46,7 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
         output_schema={
             "type": "object",
             "properties": {
-                "path": {"type": "string"},
+                "result": {"type": "string"},
             },
             "required": ["path"],
         },
@@ -98,4 +98,4 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
                 is_error=True,
             )
 
-        return ToolResult(structured_content={"path": path_str})
+        return ToolResult(structured_content={"result": "success"})

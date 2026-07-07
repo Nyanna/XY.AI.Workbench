@@ -1,5 +1,5 @@
 # Tasks
-* test machen auf cli mit mcpc plugin im pfad
+* test von subagent und mcp
 
 * tool use and stop pattern
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state

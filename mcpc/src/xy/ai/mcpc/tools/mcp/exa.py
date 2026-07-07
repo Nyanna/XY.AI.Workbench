@@ -20,14 +20,6 @@ _WEB_SEARCH_DESCRIPTION = (
     "answering questions about any topic.\n"
     "Returns: Clean text content from top search results."
 )
-
-_WEB_FETCH_DESCRIPTION = (
-    "Read a webpage's full content as clean markdown. Use to read any URL.\n\n"
-    "Best for: Extracting full content from known URLs. Batch multiple URLs in "
-    "one call.\n"
-    "Returns: Clean text content and metadata from the page(s)."
-)
-
 _WEB_SEARCH_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -46,7 +38,23 @@ _WEB_SEARCH_SCHEMA: dict[str, Any] = {
     },
     "required": ["query"],
 }
+_SEARCH_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "Clean text content from the top search results.",
+        },
+    },
+    "required": ["content"],
+}
 
+_WEB_FETCH_DESCRIPTION = (
+    "Read a webpage's full content as clean markdown. Use to read any URL.\n\n"
+    "Best for: Extracting full content from known URLs. Batch multiple URLs in "
+    "one call.\n"
+    "Returns: Clean text content and metadata from the page(s)."
+)
 _WEB_FETCH_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -62,6 +70,16 @@ _WEB_FETCH_SCHEMA: dict[str, Any] = {
         },
     },
     "required": ["urls"],
+}
+_FETCH_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "Clean text content extracted from the requested page(s).",
+        },
+    },
+    "required": ["content"],
 }
 
 
@@ -89,30 +107,7 @@ class ExaBridge(McpBridge):
         return McpClient(config.exa_mcp_url, headers={"x-api-key": api_key})
 
 
-_SEARCH_OUTPUT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "content": {
-            "type": "string",
-            "description": "Clean text content from the top search results.",
-        },
-    },
-    "required": ["content"],
-}
-
-_FETCH_OUTPUT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "content": {
-            "type": "string",
-            "description": "Clean text content extracted from the requested page(s).",
-        },
-    },
-    "required": ["content"],
-}
-
-
-def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None" = None) -> None:
+def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None"=None) -> None:
     """Register the Exa-backed ``web_search_exa`` and ``web_fetch_exa`` tools."""
     bridge = bridge or ExaBridge()
     bridge.register_tool(

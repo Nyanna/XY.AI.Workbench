@@ -59,15 +59,17 @@ def register_read_tool(registry: ToolRegistry) -> None:
         output_schema={
             "type": "object",
             "properties": {
-                "path": {"type": "string"},
-                "sha256": {"type": "string"},
-                "total_lines": {"type": "integer"},
-                "returned_lines": {"type": "integer"},
+                #"path": {"type": "string"},
+                #"sha256": {"type": "string"},
+                #"total_lines": {"type": "integer"},
+                #"returned_lines": {"type": "integer"},
                 "content": {"type": "string"},
-                "min_line": {"type": "integer"},
-                "max_line": {"type": "integer"},
+                #"min_line": {"type": "integer"},
+                #"max_line": {"type": "integer"},
             },
-            "required": ["path", "sha256", "total_lines", "returned_lines", "content"],
+            "required": ["content"
+                         #, "path", "sha256", "total_lines", "returned_lines"
+                         ],
         },
         annotations={"readOnlyHint": True, "openWorldHint": False},
     )
@@ -122,10 +124,10 @@ def register_read_tool(registry: ToolRegistry) -> None:
         sliced = "".join(lines[lo:hi])
 
         structured: dict[str, Any] = {
-            "path": key,
-            "sha256": current_hash,
-            "total_lines": total_lines,
-            "returned_lines": hi - lo,
+            #"path": key,
+            #"sha256": current_hash,
+            #"total_lines": total_lines,
+            #"returned_lines": hi - lo,
             "content": sliced,
         }
         if min_line is not None:
