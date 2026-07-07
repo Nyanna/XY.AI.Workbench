@@ -92,7 +92,7 @@ class CliSession:
         self.ttl_seconds = ttl_seconds
         self.response_timeout = response_timeout
         self._launcher = launcher
-        self._log_path = Path(log_dir) / f"{self.id}.json" if log_dir else None
+        self._log_path = Path(log_dir) / f"{self.id}.json.log" if log_dir else None
 
         self.created_at = time.time()
         self.started_at: float | None = None

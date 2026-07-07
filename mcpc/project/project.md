@@ -1,8 +1,8 @@
 # Tasks
-* test von subagent und mcp
 * claude config dir muss durchgereicht werden, bis dahin ur personal
 
 * tool use and stop pattern
+	* hook in extra datei
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state
 	* Tool hook intercept inklusive redirect, permission und stop
 	* REST control endpunkt prüft auf tool use und liefert liste von tool use requests
@@ -19,20 +19,7 @@
 * Block diff tool implementieren
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
-
-# MCP-Tools
-Implementiere Analog zu Exa entsprechende Brücken zu Github und Context7.
-In der Konfiguration sind die Felder für URL und API-Keys bereits angelegt.
-
-## Github
-
-Die Tool-Dokumentation liegt hier`/home/user/xyan/xy.ai.workbench/mcpc/project/github-api.md`.
-Es werden nur Tools benötigt, die mit reinem Lesezugriff auskommen und Recherchezwecken dienen. Hauptsächlich der Abruf von Code und Dateien, Issues, Discussions, Projektinformationen.
-
-## Context7
-
-Implementiere für Context7 die beiden hier`/home/user/xyan/xy.ai.workbench/mcpc/project/context7.md` Dokumentierten Tools.
-
+	
 ## Tools Checkliste
 
 * Inputschema vorhanden

@@ -1,7 +1,7 @@
 """Per-session communication logging.
 
 Every JSON message exchanged with a client is appended, one JSON object per
-line (JSON Lines / NDJSON), to ``<log_dir>/<session-id>.log``.  This gives a
+line (JSON Lines / NDJSON), to ``<log_dir>/<session-id>.json.log``.  This gives a
 complete, replayable audit trail keyed by the session id.
 """
 
@@ -46,7 +46,7 @@ class CommunicationLog:
         return self._dir
 
     def path_for(self, session_id: str) -> Path:
-        return self._dir / f"{_safe_name(session_id)}.log"
+        return self._dir / f"{_safe_name(session_id)}.json.log"
 
     def _lock_for(self, key: str) -> threading.Lock:
         with self._guard:
@@ -78,7 +78,7 @@ class CommunicationLog:
         entry["message"] = payload
         line = json.dumps(entry, ensure_ascii=False, default=str)
         key = _safe_name(session_id)
-        path = self._dir / f"{key}.log"
+        path = self._dir / f"{key}.json.log"
         with self._lock_for(key):
             with path.open("a", encoding="utf-8") as fh:
                 fh.write(line)

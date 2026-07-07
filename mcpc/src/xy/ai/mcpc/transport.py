@@ -70,6 +70,9 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
         logger.info("Accept POST")
+        if self._hook_path_matches():
+            self._handle_hook()
+            return
         if not self._path_matches():
             logger.info("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
             self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
@@ -187,6 +190,25 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
         self.comm_log.log(session_id, OUT, response, http="POST")
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id)
+
+    # -- hook handler -------------------------------------------------------
+    def _hook_path_matches(self) -> bool:
+        return urlparse(self.path).path == self.config.hook_path
+
+    def _handle_hook(self) -> None:
+        """Handle a PreToolUse hook call from a spawned CLI process.
+
+        Reads the JSON body (ignored for now), and always responds with
+        ``{"continue": true, "suppressOutput": false}`` — i.e. every tool
+        call is allowed unconditionally.
+        """
+        raw = self._read_body()
+        if raw is None:
+            return
+        logger.info("PreToolUse hook called: %s", raw.decode("utf-8", "replace"))
+        response: dict[str, Any] = {"continue": True, "suppressOutput": False}
+        body = jsonrpc.dumps(response)
+        self._send_json(HTTPStatus.OK, body, session_id=None)
 
     # -- validation helpers -------------------------------------------------
     def _path_matches(self) -> bool:

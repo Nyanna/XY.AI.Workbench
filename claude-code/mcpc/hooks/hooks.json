@@ -1,0 +1,22 @@
+{
+	"hooks": {
+		"PreToolUse": [
+			{
+				"hooks": [
+					{
+						"type": "http",
+						"url":"http://localhost:9093/hooks/tool",
+						"headers":{
+						   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
+						},
+						"allowedEnvVars":[
+						   "MCPC_SESSION_ID"
+						],
+						"timeout": 1,
+						"_timeout": 86400
+					}
+				]
+			}
+		]
+	}
+}

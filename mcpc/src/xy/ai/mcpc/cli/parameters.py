@@ -84,17 +84,16 @@ class CliParameters:
         session_header = "X-MCPC-SESSION-ID"
 
         settings = {
-#            "hooks": {
-#                "PreToolUse": [
-#                    {
-#                        "type": "http",
-#                        "url": self.hook_url,
-#                        "headers": {session_header: env_ref},
-#                        "allowedEnvVars": [MCPC_SESSION_ENV],
-#                        "timeout": 86400,
-#                    }
-#                ]
-#            }
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "type": "http",
+                        "url": self.hook_url,
+                        "headers": {session_header: cli_session_id},
+                        "timeout": 86400,
+                    }
+                ]
+            }
         }
         mcp_config = {
             "mcpServers": {
