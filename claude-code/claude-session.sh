@@ -206,6 +206,7 @@ if [[ -n "$AGENT_ARG" ]]; then
 		fi
 		export MCPC_SESSION_ID="${EXPLICIT_SESSION_ID:-$(uuidgen)}"
 		export MCPC_TOOLS="${MCPC_TOOLS:-${SET_MCPC_TOOLS:-read}}"
+		export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=1
 
         # Add additional plugins defined in frontmatter
         if [[ -n "$AGENT_PLUGINS" ]]; then

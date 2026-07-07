@@ -74,7 +74,7 @@ class ServerConfig:
     context7_api_key: str | None = None
     
     #: Base URL of the Github remote MCP server and the API key used to reach it.
-    github_mcp_url: str = "https://api.githubcopilot.com/mcp"
+    github_mcp_url: str = "https://api.githubcopilot.com/mcp/x/all/readonly"
     #: Authorization Header
     github_api_pat: str | None = None
 
