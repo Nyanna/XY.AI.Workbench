@@ -52,5 +52,6 @@
 
 ## Ideas
 
+* lokale claude code alternativre anbinden wie olama
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
