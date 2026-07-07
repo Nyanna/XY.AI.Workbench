@@ -2,6 +2,7 @@
 * agenten systemprompts setzen
 *suchagenten toolnamen ändern zu den konkreten mcp tool namen von exa
 * Adapt exa descriptions
+* test machen auf cli mit mcpc plugin im pfad
 
 * tool use and stop pattern
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state
@@ -17,7 +18,9 @@
 	* auch tool result return reporten und abbrechbar machen, wenn sich das ergebnis bereits reicht, token für zusammenfassung sparen, manchmal sind die search prompts ausreichend. Dann search und zusammanefassung extra
 		* In eclipse result anzeigen an claude aber nur erfolgreiche durchführung melden
  	
-* replace ersetzen wie ersetzt eine KI am effizientesten? recherchieren, generell textbearbeitung KI.
+* Block diff tool implementieren
+* AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
+	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
 
 # MCP-Tools
 ## Github
