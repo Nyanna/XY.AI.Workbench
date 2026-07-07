@@ -1,7 +1,4 @@
 # Tasks
-* agenten systemprompts setzen
-*suchagenten toolnamen ändern zu den konkreten mcp tool namen von exa
-* Adapt exa descriptions
 * test machen auf cli mit mcpc plugin im pfad
 
 * tool use and stop pattern
@@ -25,3 +22,12 @@
 # MCP-Tools
 ## Github
 ## Context7
+
+* environment toolt und sesssion cli flag für header
+
+
+## Tools Checklist
+
+* inputschema
+* outputscheme
+* structuredConten statt content

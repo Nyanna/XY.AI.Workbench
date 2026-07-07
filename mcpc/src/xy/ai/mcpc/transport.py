@@ -13,8 +13,9 @@ Implements the client-facing half of the MCP *Streamable HTTP* transport:
 The session id is taken from the configured ``X-MCPC-SESSION-ID`` header, which
 the client must send on every request.
 """
-
 from __future__ import annotations
+
+import logging
 
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -25,6 +26,9 @@ from . import errors, jsonrpc
 from .jsonrpc import MessageKind
 from .logging_utils import EVENT, IN, OUT
 from .session import is_valid_uuid
+from aptdaemon import logger
+
+logger = logging.getLogger("xy.ai.mcpc.transport")
 
 
 def _origin_host(origin: str) -> str:
@@ -65,15 +69,20 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
     # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
+        logger.info("Accept POST")
         if not self._path_matches():
+            logger.info("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
             self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
             return
         if not self._check_origin():
+            logger.info("Origin forbidden")
             return
         session_id = self._require_session_id()
         if session_id is None:
+            logger.info("Session id missing [%s]", self.headers)
             return
         if not self._check_protocol_version_header():
+            logger.info("Protocol version missing")
             return
 
         raw = self._read_body()
@@ -152,6 +161,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         raw = self.headers.get(self.config.tools_header)
         if raw is None:
             return
+        logger.info("Process tool header: %s", raw)
         names = {part.strip() for part in raw.split(",") if part.strip()}
         if session.enabled_tools != names:
             session.set_enabled_tools(names)
@@ -198,6 +208,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def _require_session_id(self) -> str | None:
         session_id = self.headers.get(self.config.session_header)
         if not session_id:
+            logger.info("Session id header not found")
             self._send_jsonrpc_error(
                 HTTPStatus.BAD_REQUEST,
                 None,
@@ -208,6 +219,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             )
             return None
         if self.config.require_uuid_session and not is_valid_uuid(session_id):
+            logger.info("Session id is invalid UUID")
             self._send_jsonrpc_error(
                 HTTPStatus.BAD_REQUEST,
                 None,
@@ -217,6 +229,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
                 session_id=session_id,
             )
             return None
+        logger.info("Session id: %s", session_id)
         return session_id
 
     def _check_protocol_version_header(self) -> bool:

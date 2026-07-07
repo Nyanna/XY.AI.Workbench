@@ -13,7 +13,7 @@ import threading
 from typing import Any, Callable
 
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 from .client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
@@ -48,7 +48,7 @@ class McpBridge:
             result = client.call_tool(remote_tool, arguments)
         except McpClientError as exc:
             return ToolResult(
-                content=[text_content(f"'{remote_tool}' failed: {exc}")],
+                structured_content={"error": f"'{remote_tool}' failed: {exc}"},
                 is_error=True,
             )
         return _to_tool_result(result)
@@ -89,12 +89,27 @@ class McpBridge:
 
 def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     """Mirror a remote ``CallToolResult`` into an MCPC :class:`ToolResult`."""
-    content = result.get("content")
-    if not isinstance(content, list):
-        content = [text_content("")]
+    # Prefer structuredContent from the remote server if present.
     structured = result.get("structuredContent")
+    if isinstance(structured, dict):
+        return ToolResult(
+            structured_content=structured,
+            is_error=bool(result.get("isError", False)),
+        )
+
+    # Otherwise extract text from content blocks and expose it as structured_content.
+    content_blocks = result.get("content")
+    if isinstance(content_blocks, list):
+        texts = [
+            block.get("text", "")
+            for block in content_blocks
+            if isinstance(block, dict) and block.get("type") == "text"
+        ]
+        text = "\n".join(texts)
+    else:
+        text = ""
+
     return ToolResult(
-        content=content,
-        structured_content=structured if isinstance(structured, dict) else None,
+        structured_content={"content": text},
         is_error=bool(result.get("isError", False)),
     )

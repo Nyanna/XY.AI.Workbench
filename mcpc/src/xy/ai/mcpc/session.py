@@ -8,12 +8,14 @@ arbitrary per-session state for the lifetime of the process.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
+logger = logging.getLogger("xy.ai.mcpc.session")
 
 def is_valid_uuid(value: str) -> bool:
     try:
@@ -71,11 +73,10 @@ class Session:
 
     client_info: dict[str, Any] | None = None
     client_capabilities: dict[str, Any] | None = None
-
-    #: Names of tools enabled for this session.  ``None`` means "all tools
-    #: currently in the registry" — the registry is reconciled against this set
-    #: on every ``tools/list`` / ``tools/call``.
-    enabled_tools: set[str] | None = None
+    
+    #: Names of tools enabled for this session. An empty set means 
+    #: no tools are enabled.
+    enabled_tools: set[str] = field(default_factory=set)
 
     #: Sub-agents spawned from this session, keyed by their CLI-session id.  A
     #: single session may drive an arbitrary number of sub-agents concurrently.
@@ -97,12 +98,13 @@ class Session:
         self.last_seen_at = time.time()
 
     def is_tool_enabled(self, name: str) -> bool:
-        return self.enabled_tools is None or name in self.enabled_tools
+        return name in self.enabled_tools
 
     def set_enabled_tools(self, names: "set[str] | list[str] | None") -> None:
-        """Replace the set of enabled tools (``None`` re-enables everything)."""
+        """Replace the set of enabled tools (``None`` or empty input clears it)."""
+        logger.info("Enable tools for session: %s", names)
         with self.lock:
-            self.enabled_tools = None if names is None else set(names)
+            self.enabled_tools = set() if names is None else set(names)
 
     def register_agent_session(
         self,

@@ -28,6 +28,7 @@ AGENT_ARG=""
 EXTRA_ARGS=()
 EXPLICIT_MODEL=false
 EXPLICIT_EFFORT=false
+EXPLICIT_SESSION_ID=
 LIST_AGENTS=false
 
 while [[ $# -gt 0 ]]; do
@@ -47,6 +48,16 @@ while [[ $# -gt 0 ]]; do
             ;;
         --effort)
             EXPLICIT_EFFORT=true
+            EXTRA_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --session-id)
+            EXPLICIT_SESSION_ID="$2"
+            EXTRA_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --resume)
+            EXPLICIT_SESSION_ID="$2"
             EXTRA_ARGS+=("$1" "$2")
             shift 2
             ;;
@@ -188,6 +199,7 @@ if [[ -n "$AGENT_ARG" ]]; then
         if [[ "$EXPLICIT_EFFORT" == "false" ]] && [[ "$AGENT_THINKING" == "false" ]]; then
     		export MAX_THINKING_TOKENS=0
 		fi
+		export MCPC_SESSION_ID="${EXPLICIT_SESSION_ID:-$(uuidgen)}"
 
         # Add additional plugins defined in frontmatter
         if [[ -n "$AGENT_PLUGINS" ]]; then

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 
 def register_write_tool(registry: ToolRegistry) -> None:
@@ -40,6 +40,13 @@ def register_write_tool(registry: ToolRegistry) -> None:
             },
             "required": ["path", "mode", "content"],
         },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+        },
         annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
     )
     def write(ctx: ToolContext) -> ToolResult:
@@ -51,7 +58,7 @@ def register_write_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                content=[text_content(f"Path must be absolute: {path_str}")],
+                structured_content={"error": f"Path must be absolute: {path_str}"},
                 is_error=True,
             )
 
@@ -62,8 +69,8 @@ def register_write_tool(registry: ToolRegistry) -> None:
                 fh.write(content)
         except OSError as exc:
             return ToolResult(
-                content=[text_content(f"Write failed: {exc}")],
+                structured_content={"error": f"Write failed: {exc}"},
                 is_error=True,
             )
 
-        return ToolResult(content=[text_content(f"OK: {path_str}")])
+        return ToolResult(structured_content={"path": path_str})

@@ -6,7 +6,7 @@ import subprocess
 import sys
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 
 def register_python_tool(registry: ToolRegistry) -> None:
@@ -52,7 +52,7 @@ def register_python_tool(registry: ToolRegistry) -> None:
             )
         except OSError as exc:
             return ToolResult(
-                content=[text_content(f"Failed to launch Python: {exc}")],
+                structured_content={"error": f"Failed to launch Python: {exc}"},
                 is_error=True,
             )
 
@@ -63,14 +63,7 @@ def register_python_tool(registry: ToolRegistry) -> None:
         if proc.stderr:
             structured["stderr"] = proc.stderr
 
-        parts = [f"exit_code: {proc.returncode}"]
-        if proc.stdout:
-            parts.append(f"stdout:\n{proc.stdout}")
-        if proc.stderr:
-            parts.append(f"stderr:\n{proc.stderr}")
-
         return ToolResult(
-            content=[text_content("\n".join(parts))],
             structured_content=structured,
             is_error=proc.returncode != 0,
         )

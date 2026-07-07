@@ -44,7 +44,7 @@ class McpHTTPServer(ThreadingHTTPServer):
     @property
     def endpoint_url(self) -> str:
         host, port = self.server_address[0], self.server_address[1]
-        return f"http://{host}:{port}{self.config.path}"
+        return f"http://{host}:{port}/{self.config.path}"
 
 
 def build_server(
@@ -58,10 +58,14 @@ def build_server(
     If no *registry* is supplied a fresh one is created; unless
     ``register_builtin`` is false the built-in example tools are registered.
     """
+    logger.info("Aquiring config")
     config = config or ServerConfig()
 
+    logger.info("Reading profiles")
     profiles = ProfileRegistry(list(DEFAULT_PROFILES))
 
+
+    logger.info("Initialising Tool-Registry")
     if registry is None:
         registry = ToolRegistry()
         if register_builtin:
@@ -71,7 +75,9 @@ def build_server(
             register_builtin_tools(registry)
             register_agent_tools(registry, profiles)
 
+    logger.info("Initialising Session-Store")
     sessions = SessionStore()
+    logger.info("Initialising CLI-Manager")
     cli_manager = CliSessionManager(
         log_dir=config.cli_log_dir,
         ttl_seconds=config.agent_session_ttl_seconds,
@@ -85,6 +91,7 @@ def build_server(
         profiles=profiles,
     )
     protocol = McpProtocol(config, registry, services)
+    logger.info("Initialising Communikation-Log")
     comm_log = CommunicationLog(config.log_dir)
     return McpHTTPServer(config, protocol, sessions, comm_log, services)
 

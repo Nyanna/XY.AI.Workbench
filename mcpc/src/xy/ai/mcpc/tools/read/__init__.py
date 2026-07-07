@@ -16,7 +16,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 #: Key used inside ``Session.state`` to persist the per-session file cache.
 _CACHE_KEY = "_read_cache"
@@ -56,6 +56,19 @@ def register_read_tool(registry: ToolRegistry) -> None:
             },
             "required": ["path"],
         },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "sha256": {"type": "string"},
+                "total_lines": {"type": "integer"},
+                "returned_lines": {"type": "integer"},
+                "content": {"type": "string"},
+                "min_line": {"type": "integer"},
+                "max_line": {"type": "integer"},
+            },
+            "required": ["path", "sha256", "total_lines", "returned_lines", "content"],
+        },
         annotations={"readOnlyHint": True, "openWorldHint": False},
     )
     def read(ctx: ToolContext) -> ToolResult:
@@ -67,17 +80,17 @@ def register_read_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                content=[text_content(f"Path must be absolute: {path_str}")],
+                structured_content={"error": f"Path must be absolute: {path_str}"},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                content=[text_content(f"File not found: {path_str}")],
+                structured_content={"error": f"File not found: {path_str}"},
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                content=[text_content(f"Not a regular file: {path_str}")],
+                structured_content={"error": f"Not a regular file: {path_str}"},
                 is_error=True,
             )
 
@@ -89,11 +102,9 @@ def register_read_tool(registry: ToolRegistry) -> None:
         key = str(path.resolve())
         if cache.get(key) == current_hash:
             return ToolResult(
-                content=[
-                    text_content(
-                        f"File has not changed since the last read (sha256={current_hash}): {path_str}"
-                    )
-                ],
+                structured_content={
+                    "error": f"File has not changed since the last read (sha256={current_hash}): {path_str}"
+                },
                 is_error=True,
             )
         cache[key] = current_hash
@@ -115,13 +126,11 @@ def register_read_tool(registry: ToolRegistry) -> None:
             "sha256": current_hash,
             "total_lines": total_lines,
             "returned_lines": hi - lo,
+            "content": sliced,
         }
         if min_line is not None:
             structured["min_line"] = min_line
         if max_line is not None:
             structured["max_line"] = max_line
 
-        return ToolResult(
-            content=[text_content(sliced)],
-            structured_content=structured,
-        )
+        return ToolResult(structured_content=structured)

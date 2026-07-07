@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 #: Example script surfaced in the tool description.
 _EXAMPLE = """\
@@ -100,7 +100,7 @@ def register_markdown_tool(registry: ToolRegistry) -> None:
         cwd = Path(config.markdown_env_dir)
         if not cwd.is_dir():
             return ToolResult(
-                content=[text_content(f"Markdown environment not found: {cwd}")],
+                structured_content={"error": f"Markdown environment not found: {cwd}"},
                 is_error=True,
             )
 
@@ -114,7 +114,7 @@ def register_markdown_tool(registry: ToolRegistry) -> None:
             )
         except OSError as exc:
             return ToolResult(
-                content=[text_content(f"Failed to launch node: {exc}")],
+                structured_content={"error": f"Failed to launch node: {exc}"},
                 is_error=True,
             )
 
@@ -125,14 +125,7 @@ def register_markdown_tool(registry: ToolRegistry) -> None:
         if proc.stderr:
             structured["stderr"] = proc.stderr
 
-        parts = [f"exit_code: {proc.returncode}"]
-        if proc.stdout:
-            parts.append(f"stdout:\n{proc.stdout}")
-        if proc.stderr:
-            parts.append(f"stderr:\n{proc.stderr}")
-
         return ToolResult(
-            content=[text_content("\n".join(parts))],
             structured_content=structured,
             is_error=proc.returncode != 0,
         )

@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 
 def register_bash_tool(registry: ToolRegistry) -> None:
@@ -50,12 +50,12 @@ def register_bash_tool(registry: ToolRegistry) -> None:
         cwd = Path(cwd_str)
         if not cwd.is_absolute():
             return ToolResult(
-                content=[text_content(f"cwd must be an absolute path: {cwd_str}")],
+                structured_content={"error": f"cwd must be an absolute path: {cwd_str}"},
                 is_error=True,
             )
         if not cwd.is_dir():
             return ToolResult(
-                content=[text_content(f"Working directory not found or not a directory: {cwd_str}")],
+                structured_content={"error": f"Working directory not found or not a directory: {cwd_str}"},
                 is_error=True,
             )
 
@@ -68,7 +68,7 @@ def register_bash_tool(registry: ToolRegistry) -> None:
             )
         except OSError as exc:
             return ToolResult(
-                content=[text_content(f"Failed to launch bash: {exc}")],
+                structured_content={"error": f"Failed to launch bash: {exc}"},
                 is_error=True,
             )
 
@@ -79,14 +79,7 @@ def register_bash_tool(registry: ToolRegistry) -> None:
         if proc.stderr:
             structured["stderr"] = proc.stderr
 
-        parts = [f"exit_code: {proc.returncode}"]
-        if proc.stdout:
-            parts.append(f"stdout:\n{proc.stdout}")
-        if proc.stderr:
-            parts.append(f"stderr:\n{proc.stderr}")
-
         return ToolResult(
-            content=[text_content("\n".join(parts))],
             structured_content=structured,
             is_error=proc.returncode != 0,
         )

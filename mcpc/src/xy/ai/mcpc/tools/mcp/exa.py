@@ -16,20 +16,13 @@ from .client import McpClient, McpClientError
 
 _WEB_SEARCH_DESCRIPTION = (
     "Search the web for any topic and get clean, ready-to-use content.\n\n"
-    "Best for: Finding current information, news, facts, people, companies, or "
+    "Best for: Finding current information, facts, or "
     "answering questions about any topic.\n"
-    "Returns: Clean text content from top search results.\n\n"
-    "Query tips:\n"
-    "describe the ideal page, not keywords. \"blog post comparing React and Vue "
-    "performance\" not \"React vs Vue\".\n"
-    "Use category:people / category:company to search through Linkedin profiles "
-    "/ companies respectively.\n"
-    "If highlights are insufficient, follow up with web_fetch_exa on the best URLs."
+    "Returns: Clean text content from top search results."
 )
 
 _WEB_FETCH_DESCRIPTION = (
-    "Read a webpage's full content as clean markdown. Use after web_search_exa "
-    "when highlights are insufficient or to read any URL.\n\n"
+    "Read a webpage's full content as clean markdown. Use to read any URL.\n\n"
     "Best for: Extracting full content from known URLs. Batch multiple URLs in "
     "one call.\n"
     "Returns: Clean text content and metadata from the page(s)."
@@ -42,9 +35,7 @@ _WEB_SEARCH_SCHEMA: dict[str, Any] = {
             "type": "string",
             "description": (
                 "Natural language search query. Should be a semantically rich "
-                "description of the ideal page, not just keywords. Optionally "
-                "include category:<type> (company, people) to focus results — "
-                "e.g. 'category:people John Doe software engineer'."
+                "description of the ideal page."
             ),
         },
         "numResults": {
@@ -98,6 +89,29 @@ class ExaBridge(McpBridge):
         return McpClient(config.exa_mcp_url, headers={"x-api-key": api_key})
 
 
+_SEARCH_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "Clean text content from the top search results.",
+        },
+    },
+    "required": ["content"],
+}
+
+_FETCH_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "Clean text content extracted from the requested page(s).",
+        },
+    },
+    "required": ["content"],
+}
+
+
 def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None" = None) -> None:
     """Register the Exa-backed ``web_search_exa`` and ``web_fetch_exa`` tools."""
     bridge = bridge or ExaBridge()
@@ -107,6 +121,7 @@ def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None" = None
         title="Exa web search",
         description=_WEB_SEARCH_DESCRIPTION,
         input_schema=_WEB_SEARCH_SCHEMA,
+        output_schema=_SEARCH_OUTPUT_SCHEMA,
     )
     bridge.register_tool(
         registry,
@@ -114,5 +129,6 @@ def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None" = None
         title="Exa web fetch",
         description=_WEB_FETCH_DESCRIPTION,
         input_schema=_WEB_FETCH_SCHEMA,
+        output_schema=_FETCH_OUTPUT_SCHEMA,
         transform=_coerce_urls,
     )

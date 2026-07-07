@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +41,17 @@ def register_skill(registry: ToolRegistry, skill: Skill) -> None:
         title=skill.name,
         description=skill.tool_description,
         input_schema={"type": "object", "properties": {}},
+        output_schema={
+            "type": "object",
+            "properties": {
+                "instructions": {"type": "string"},
+            },
+            "required": ["instructions"],
+        },
         annotations={"readOnlyHint": True, "openWorldHint": False},
     )
     def skill_tool(ctx: ToolContext, _skill: Skill = skill) -> ToolResult:
-        return ToolResult(content=[text_content(_skill.instructions)])
+        return ToolResult(structured_content={"instructions": _skill.instructions})
 
 
 #: All declared skills.  Append here to add a new one.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 
 def register_replace_chars_tool(registry: ToolRegistry) -> None:
@@ -43,6 +43,13 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
             },
             "required": ["path", "offset", "length", "content"],
         },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+        },
         annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
     )
     def replace_chars(ctx: ToolContext) -> ToolResult:
@@ -55,17 +62,17 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                content=[text_content(f"Path must be absolute: {path_str}")],
+                structured_content={"error": f"Path must be absolute: {path_str}"},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                content=[text_content(f"File not found: {path_str}")],
+                structured_content={"error": f"File not found: {path_str}"},
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                content=[text_content(f"Not a regular file: {path_str}")],
+                structured_content={"error": f"Not a regular file: {path_str}"},
                 is_error=True,
             )
 
@@ -74,12 +81,12 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
             file_len = len(text)
             if offset > file_len:
                 return ToolResult(
-                    content=[
-                        text_content(
+                    structured_content={
+                        "error": (
                             f"Offset {offset} is beyond end of file "
                             f"(file length: {file_len} characters)."
                         )
-                    ],
+                    },
                     is_error=True,
                 )
             end = min(offset + length, file_len)
@@ -87,8 +94,8 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
             path.write_text(result, encoding="utf-8")
         except OSError as exc:
             return ToolResult(
-                content=[text_content(f"Replace failed: {exc}")],
+                structured_content={"error": f"Replace failed: {exc}"},
                 is_error=True,
             )
 
-        return ToolResult(content=[text_content(f"OK: {path_str}")])
+        return ToolResult(structured_content={"path": path_str})

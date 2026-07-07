@@ -28,7 +28,7 @@ class ServerConfig:
     host: str = "127.0.0.1"
     port: int = 9093
     #: The single MCP endpoint path.  ``basics.md`` specifies ``/mpc``.
-    path: str = "/mpc"
+    path: str = "/mcp"
     #: Path of the PreToolUse hook endpoint the spawned CLI calls back into.
     hook_path: str = "/hooks/tool"
 
@@ -73,11 +73,10 @@ class ServerConfig:
 
     #: Advertised server identity (returned in the ``initialize`` result).
     server_name: str = "xy.ai.mcpc"
-    server_title: str = "MCP Controller"
+    server_title: str = "MCP-Controller"
     server_version: str = "0.1.0"
     instructions: str | None = (
-        "MCP Controller reference server. Tools are managed in a central "
-        "registry and enabled per session."
+        "MCP-Controller"
     )
 
     supported_protocol_versions: tuple[str, ...] = SUPPORTED_PROTOCOL_VERSIONS

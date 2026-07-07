@@ -27,7 +27,7 @@ from .markdown import register_markdown_tool
 from .mcp import register_exa_tools
 from .python import register_python_tool
 from .read import register_read_tool
-from .replace import register_replace_chars_tool
+from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
 from .replace_lines import register_replace_lines_tool
 from .skills import register_skills
 from .write import register_write_tool
