@@ -1,5 +1,6 @@
 # Tasks
 * test von subagent und mcp
+* claude config dir muss durchgereicht werden, bis dahin ur personal
 
 * tool use and stop pattern
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state

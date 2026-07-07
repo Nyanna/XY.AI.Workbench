@@ -60,7 +60,7 @@ class CliParameters:
     effort: str = Effort.MEDIUM.value
     #: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different
     #: agent profiles keep isolated credentials/caches.
-    cli_profile: str = "default"
+    cli_profile: str = "personal"
 
     executable: str = "claude"
     extra_env: dict[str, str] = field(default_factory=dict)
@@ -79,31 +79,30 @@ class CliParameters:
         return f"{self.base_url}{self.config.hook_path}"
 
     # -- Command ------------------------------------------------------------
-    def build_base_command(self) -> list[str]:
+    def build_base_command(self, cli_session_id: str) -> list[str]:
         """Build the command line shared by initial-start and resume."""
         session_header = "X-MCPC-SESSION-ID"
-        env_ref = f"${MCPC_SESSION_ENV}"
 
         settings = {
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "type": "http",
-                        "url": self.hook_url,
-                        "headers": {session_header: env_ref},
-                        "allowedEnvVars": [MCPC_SESSION_ENV],
-                        "timeout": 86400,
-                    }
-                ]
-            }
+#            "hooks": {
+#                "PreToolUse": [
+#                    {
+#                        "type": "http",
+#                        "url": self.hook_url,
+#                        "headers": {session_header: env_ref},
+#                        "allowedEnvVars": [MCPC_SESSION_ENV],
+#                        "timeout": 86400,
+#                    }
+#                ]
+#            }
         }
         mcp_config = {
             "mcpServers": {
-                "mcp": {
+                "mcpc": {
                     "type": "http",
                     "url": self.mcp_url,
                     "timeout": 86400000,
-                    "headers": {session_header: env_ref},
+                    "headers": {session_header: cli_session_id},
                 }
             }
         }
@@ -134,7 +133,7 @@ class CliParameters:
         ``resume`` selects ``--resume`` over ``--session-id`` to reattach to an
         existing CLI-side session while reusing its prompt cache.
         """
-        cmd = self.build_base_command()
+        cmd = self.build_base_command(cli_session_id)
         cmd.append("--resume" if resume else "--session-id")
         cmd.append(cli_session_id)
         return cmd

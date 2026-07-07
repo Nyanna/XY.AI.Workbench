@@ -25,7 +25,7 @@ _MODELS = tuple(m.value for m in Model)
 _EFFORTS = tuple(e.value for e in Effort)
 
 
-def _base_properties(*, include_profile: bool, include_system_prompt: bool) -> dict[str, Any]:
+def _base_properties(*, include_system_prompt: bool) -> dict[str, Any]:
     props: dict[str, Any] = {
         "prompt": {
             "type": "string",
@@ -53,11 +53,6 @@ def _base_properties(*, include_profile: bool, include_system_prompt: bool) -> d
         props["system_prompt"] = {
             "type": "string",
             "description": "System prompt used to initialise the agent.",
-        }
-    if include_profile:
-        props["profile"] = {
-            "type": "string",
-            "description": "Profile whose toolset the agent is granted.",
         }
     return props
 
@@ -123,7 +118,6 @@ def _run_agent(
         system_prompt=system_prompt,
         mcpc_session_id=sub_id,
         effort=effort,
-        cli_profile=profile_name or "default",
     )
 
     try:
@@ -182,7 +176,7 @@ def register_agent_tool(registry: ToolRegistry) -> None:
         ),
         input_schema={
             "type": "object",
-            "properties": _base_properties(include_profile=True, include_system_prompt=True),
+            "properties": _base_properties(include_system_prompt=True),
             "required": ["prompt"],
         },
         output_schema={
@@ -216,7 +210,7 @@ def _register_wrapper(registry: ToolRegistry, profile: AgentProfile) -> None:
         description=profile.description,
         input_schema={
             "type": "object",
-            "properties": _base_properties(include_profile=False, include_system_prompt=False),
+            "properties": _base_properties(include_system_prompt=False),
             "required": ["prompt"],
         },
         output_schema={
