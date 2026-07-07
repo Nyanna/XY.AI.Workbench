@@ -108,7 +108,7 @@ DEFAULT_PROFILES: list[AgentProfile] = [
     ),
     AgentProfile(
         name="agt-github-research",
-        tools=("github-get-file","github-get-tree","github-search-code","github-search-repos","github-projects-get","github-projects-list"),
+        tools=("github-get-file","github-get-tree","github-search-code","github-search-repos"),
         description=(
             "Conducts structured research on behalf of the caller and "
             "aggregates comprehensive, prioritized results using GitHub MCP "

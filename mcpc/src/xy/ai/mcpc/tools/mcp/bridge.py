@@ -13,7 +13,7 @@ import threading
 from typing import Any, Callable
 
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 from .client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
@@ -47,8 +47,10 @@ class McpBridge:
             client = self.get_client(config)
             result = client.call_tool(remote_tool, arguments)
         except McpClientError as exc:
+            msg = f"'{remote_tool}' failed: {exc}"
             return ToolResult(
-                structured_content={"error": f"'{remote_tool}' failed: {exc}"},
+                content=[text_content(msg)],
+                structured_content={"error": msg},
                 is_error=True,
             )
         return _to_tool_result(result)
@@ -89,27 +91,33 @@ class McpBridge:
 
 def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     """Mirror a remote ``CallToolResult`` into an MCPC :class:`ToolResult`."""
-    # Prefer structuredContent from the remote server if present.
-    structured = result.get("structuredContent")
-    if isinstance(structured, dict):
-        return ToolResult(
-            structured_content=structured,
-            is_error=bool(result.get("isError", False)),
-        )
+    is_error = bool(result.get("isError", False))
 
-    # Otherwise extract text from content blocks and expose it as structured_content.
-    content_blocks = result.get("content")
-    if isinstance(content_blocks, list):
+    # Always extract text blocks from the remote content array so that agents
+    # that read content[0].text (e.g. for error messages) receive the text.
+    raw_blocks = result.get("content")
+    if isinstance(raw_blocks, list):
         texts = [
             block.get("text", "")
-            for block in content_blocks
+            for block in raw_blocks
             if isinstance(block, dict) and block.get("type") == "text"
         ]
         text = "\n".join(texts)
+        content_blocks = [text_content(text)] if text else []
     else:
         text = ""
+        content_blocks = []
+
+    # Use structuredContent from the remote server when present; fall back to
+    # wrapping the extracted text so structured_content is never None.
+    structured = result.get("structuredContent")
+    if isinstance(structured, dict):
+        structured_content = structured
+    else:
+        structured_content = {"content": text}
 
     return ToolResult(
-        structured_content={"content": text},
-        is_error=bool(result.get("isError", False)),
+        content=content_blocks,
+        structured_content=structured_content,
+        is_error=is_error,
     )
