@@ -1,13 +1,14 @@
 # TODO
 
-## TODO - Workbench
+## Workbench
 
-* in workbench alter deny wird umgebraut, selber befehl andere ziel und quelle /allow 2342423 und /deny 234234 reason
+* in workbench control tool alter deny wird umgebraut, selber befehl andere ziel und quelle /allow 2342423 und /deny 234234 reason
 		* control abfrage returned immer zuerst und braucht neuen prompt
 		*  tool use ist #: mit vorgewählten /allow 234234 
 * tool konfiguration und "X-MCPC-TOOLS" implementieren
-* in preset tab presets aus unterverzeichnis anzeigen und on click laden
-* Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
+* in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
+
+* problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 	
 * Table renderer support
@@ -21,7 +22,7 @@
 * rechtklickmenü zum absoluten dateipfad kopieren
 
 
-## TODO - Agents
+## Agents
 
 * tool für science research wie google scholar
 * ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient
@@ -46,7 +47,10 @@
 	* das projekt muss entsprechend aspektisoliert modelliert sein (vielleicht hilft RAG hier oder AST)
 	* Der agent muss geignete tools haben um einen fokkusierten input zu ermitteln
 	
-
+* AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
+	1. Ein agent erstellt die notwendigen inputs für einen prompt, dateien, specs, schemas, studien, apis
+	2. Löst dann problem und delegiert umsetzung
+	3. Umsetzngsagents
 
 ## Findings
 
@@ -55,7 +59,7 @@
 * Parralele Agents bringen garnichts wenn man das ergebnis ohnehin stundenlang verifiziert
 	* Unterscheidung gleich unterbechen für wichtige sachen im folgekontext
 	* spätere unwichtigere korrekturen auf bassis des finalen kontextes
-* Empty feault agent allready produces 6843 cache write token with /context reporting 31/200k
+* Empty Default agent allready produces 6843 cache write token with /context reporting 31/200k
 * Die sessionmanager wäre besser gelaufen wenn ich instream eingegriffen hätte.
 	* Dateiset und dateien vorher benennen oder durch top Level Plan ergründen, 2 Stufig wäre besser gewesen
 * AGenten denken ressourcen also dateisystembasiert
@@ -65,7 +69,3 @@
 
 * lokale claude code alternativre anbinden wie olama
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
-* AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
-	1. Ein agent erstellt die notwendigen inputs für einen prompt, dateien, specs, schemas, studien, apis
-	2. Löst dann problem und delegiert umsetzung
-	3. Umsetzngsagents
