@@ -1,4 +1,6 @@
 # Tasks
+* ask block in settings setzen und entfernen je nach aufruf, CLI ja MCP nein
+* Brauche keine hooks, kann direkt tool call approve oder redirect machen oder output abfangen
 * claude config dir muss durchgereicht werden, bis dahin ur personal
 
 * tool use and stop pattern
@@ -15,8 +17,7 @@
 	* tool aufrufe verändern können um den kontext zu reduzieren: Bash(find /home/user/xyan/xy.ai.workbench/src -type f -name "*.java" | sort) => zu viel im Kontext
 	* auch tool result return reporten und abbrechbar machen, wenn sich das ergebnis bereits reicht, token für zusammenfassung sparen, manchmal sind die search prompts ausreichend. Dann search und zusammanefassung extra
 		* In eclipse result anzeigen an claude aber nur erfolgreiche durchführung melden
- 	
-* Block diff tool implementieren
+ 
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
 	

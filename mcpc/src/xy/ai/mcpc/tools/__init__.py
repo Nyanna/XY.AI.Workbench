@@ -7,6 +7,7 @@ Available tools
 * ``insert``        – insert text at a character offset
 * ``replace-chars`` – replace a character range with new text
 * ``replace-lines`` – replace a line range with new text
+* ``change``        – replace a delimited block identified by start/end markers
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
 * ``markdown``      – AST-based Markdown editing via a remark (Node.js) script
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 from ..registry import ToolRegistry
 from .bash import register_bash_tool
+from .change import register_change_tool
 from .insert import register_insert_tool
 from .markdown import register_markdown_tool
 from .mcp import register_context7_tools, register_exa_tools, register_github_tools
@@ -38,6 +40,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_read_tool(registry)
     register_write_tool(registry)
     register_insert_tool(registry)
+    register_change_tool(registry)
     register_replace_chars_tool(registry)
     register_replace_lines_tool(registry)
     register_bash_tool(registry)

@@ -47,6 +47,7 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
             "type": "object",
             "properties": {
                 "result": {"type": "string"},
+                "description": "``success`` on success.",
             },
             "required": ["path"],
         },
