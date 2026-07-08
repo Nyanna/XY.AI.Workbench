@@ -58,8 +58,19 @@ class McpProtocol:
         }
 
     # -- Request handling ---------------------------------------------------
-    def handle_request(self, session: Session, request: JsonRpcRequest) -> Any:
-        """Handle a JSON-RPC *request* and return its ``result`` payload."""
+    def handle_request(
+        self,
+        session: Session,
+        request: JsonRpcRequest,
+        *,
+        skip_control: bool = False,
+    ) -> Any:
+        """Handle a JSON-RPC *request* and return its ``result`` payload.
+
+        ``skip_control`` suppresses tool interception for this request,
+        regardless of whether a :class:`ToolControlManager` is configured.
+        It is set when the caller sends ``X-MCPC-CONTROL: off``.
+        """
         handler = self._handlers.get(request.method)
         if handler is None:
             raise errors.method_not_found(request.method)
@@ -69,6 +80,8 @@ class McpProtocol:
                 errors.NOT_INITIALIZED,
                 "Session is not initialized; send an 'initialize' request first",
             )
+        if request.method == "tools/call":
+            return self._handle_tools_call(session, request.params, skip_control=skip_control)
         return handler(session, request.params)
 
     def handle_notification(self, session: Session, request: JsonRpcRequest) -> None:
@@ -132,7 +145,13 @@ class McpProtocol:
             result["nextCursor"] = _encode_cursor(start + page_size)
         return result
 
-    def _handle_tools_call(self, session: Session, params: dict[str, Any]) -> dict[str, Any]:
+    def _handle_tools_call(
+        self,
+        session: Session,
+        params: dict[str, Any],
+        *,
+        skip_control: bool = False,
+    ) -> dict[str, Any]:
         name = params.get("name")
         if not isinstance(name, str) or not name:
             raise errors.invalid_params('"name" is required')
@@ -152,6 +171,21 @@ class McpProtocol:
 
         _validate_arguments(tool.input_schema, arguments)
 
+        # --- request interception -------------------------------------------
+        control = self.services.control_manager if self.services else None
+        if control is not None and not skip_control:
+            decision = control.submit_request(name, arguments)
+            if not decision.approved:
+                from .registry import ToolResult, text_content
+                reason = decision.rejection_reason or "Tool call rejected by controller"
+                return ToolResult(
+                    content=[text_content(reason)],
+                    is_error=True,
+                ).to_dict()
+            if decision.modified_arguments is not None:
+                arguments = decision.modified_arguments
+        # --------------------------------------------------------------------
+
         context = ToolContext(session=session, arguments=arguments, services=self.services)
         # Tool execution errors are reported *inside* the result (isError=true)
         # so the model can see and self-correct, not as protocol errors.
@@ -168,6 +202,21 @@ class McpProtocol:
                 content=[text_content(f"Tool '{name}' failed: {exc}")],
                 is_error=True,
             )
+
+        # --- result interception --------------------------------------------
+        if control is not None and not skip_control:
+            decision = control.submit_result(name, result.to_dict())
+            if not decision.approved:
+                from .registry import ToolResult, text_content
+                reason = decision.rejection_reason or "Tool result rejected by controller"
+                return ToolResult(
+                    content=[text_content(reason)],
+                    is_error=True,
+                ).to_dict()
+            if decision.modified_result is not None:
+                return decision.modified_result
+        # --------------------------------------------------------------------
+
         return result.to_dict()
 
 

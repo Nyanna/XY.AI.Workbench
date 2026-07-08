@@ -9,6 +9,7 @@ from typing import Any
 from .cli import CliSessionManager
 from .config import ServerConfig
 from .context import AppServices
+from .control import ToolControlManager
 from .logging_utils import CommunicationLog
 from .protocol import McpProtocol
 from .registry import ToolRegistry
@@ -52,6 +53,7 @@ def build_server(
     registry: ToolRegistry | None = None,
     *,
     register_builtin: bool = True,
+    enable_control: bool = True,
 ) -> McpHTTPServer:
     """Construct (but do not start) an :class:`McpHTTPServer`.
 
@@ -83,12 +85,19 @@ def build_server(
         ttl_seconds=config.agent_session_ttl_seconds,
         response_timeout=config.agent_response_timeout_seconds,
     )
+    control_manager: ToolControlManager | None = None
+    if enable_control:
+        logger.info("Initialising Tool-Control-Manager")
+        control_manager = ToolControlManager(
+            timeout=config.agent_response_timeout_seconds,
+        )
     services = AppServices(
         config=config,
         registry=registry,
         sessions=sessions,
         cli_manager=cli_manager,
         profiles=profiles,
+        control_manager=control_manager,
     )
     protocol = McpProtocol(config, registry, services)
     logger.info("Initialising Communikation-Log")

@@ -73,6 +73,9 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         if self._hook_path_matches():
             self._handle_hook()
             return
+        if self._control_path_matches():
+            self._handle_control()
+            return
         if not self._path_matches():
             logger.info("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
             self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
@@ -192,9 +195,10 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
     # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:
+        skip_control = self.headers.get(self.config.control_header, "").lower() == "off"
         try:
             with session.lock:
-                result = self.protocol.handle_request(session, request)
+                result = self.protocol.handle_request(session, request, skip_control=skip_control)
             response = jsonrpc.success_response(request.id, result)
         except errors.JsonRpcError as exc:
             response = jsonrpc.error_response(request.id, exc)
@@ -206,6 +210,53 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
         self.comm_log.log(session_id, OUT, response, http="POST")
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id)
+
+    # -- control handler ----------------------------------------------------
+    def _control_path_matches(self) -> bool:
+        return urlparse(self.path).path == self.config.control_path
+
+    def _handle_control(self) -> None:
+        """Handle a poll request from the human-in-the-loop control client.
+
+        Request body (JSON):
+          ``{"approvals": [...]}``
+
+        Each approval entry:
+          * ``{"id": "…"}``                              — simple approval
+          * ``{"id": "…", "rejected": true, "reason": "…"}``  — rejection
+          * ``{"id": "…", "arguments": {…}}``           — approve with modified args
+          * ``{"id": "…", "result": {…}}``              — approve with replaced result
+
+        Response body (JSON):
+          ``{"pending": [...]}``  — items still waiting for a decision
+        """
+        control = self.server.services.control_manager  # type: ignore[attr-defined]
+        if control is None:
+            self._send_http_error(HTTPStatus.NOT_FOUND, "Tool control is not enabled")
+            return
+
+        raw = self._read_body()
+        if raw is None:
+            return
+
+        if raw:
+            try:
+                body = jsonrpc.parse_body(raw)
+            except Exception:
+                self._send_http_error(HTTPStatus.BAD_REQUEST, "Invalid JSON body")
+                return
+            approvals = body.get("approvals", [])
+            if not isinstance(approvals, list):
+                self._send_http_error(HTTPStatus.BAD_REQUEST, '"approvals" must be an array')
+                return
+            # 1. Process decisions first so callers can be unblocked before
+            #    the next pending list is assembled.
+            control.process_approvals(approvals)
+
+        # 2. Return the remaining (or new) pending items.
+        pending = control.get_pending()
+        response: dict[str, Any] = {"pending": pending}
+        self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
 
     # -- hook handler -------------------------------------------------------
     def _hook_path_matches(self) -> bool:

@@ -57,6 +57,6 @@
 * lokale claude code alternativre anbinden wie olama
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
-	1. Ein agent erstellt die notwendigen inputs für einen prompt
+	1. Ein agent erstellt die notwendigen inputs für einen prompt, dateien, specs, schemas, studien, apis
 	2. Löst dann problem und delegiert umsetzung
 	3. Umsetzngsagents

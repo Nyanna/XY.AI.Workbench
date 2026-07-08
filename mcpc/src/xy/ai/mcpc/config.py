@@ -35,6 +35,12 @@ class ServerConfig:
     path: str = "/mcp"
     #: Path of the PreToolUse hook endpoint the spawned CLI calls back into.
     hook_path: str = "/hooks/tool"
+    #: Path of the human-in-the-loop control endpoint.
+    control_path: str = "/control/tool"
+    #: Header that lets a caller opt out of tool interception for a single
+    #: request.  When present with the value ``"off"`` the control manager is
+    #: bypassed entirely for that request.
+    control_header: str = "X-MCPC-CONTROL"
 
     #: HTTP header the client uses to carry the session id (a UUID).  This is
     #: the primary key for every operation and must be present on every request.

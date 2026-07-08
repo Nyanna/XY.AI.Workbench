@@ -9,12 +9,13 @@ through :class:`~xy.ai.mcpc.registry.ToolContext`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .cli import CliSessionManager
     from .config import ServerConfig
+    from .control import ToolControlManager
     from .registry import ToolRegistry
     from .session import SessionStore
     from .tools.agent.profiles import ProfileRegistry
@@ -29,3 +30,7 @@ class AppServices:
     sessions: "SessionStore"
     cli_manager: "CliSessionManager"
     profiles: "ProfileRegistry"
+    #: Optional human-in-the-loop tool interceptor.  When set, every tool call
+    #: is held for approval before execution and again before the result is
+    #: returned to the agent.  ``None`` disables interception entirely.
+    control_manager: "ToolControlManager | None" = None
