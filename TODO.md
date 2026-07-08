@@ -1,15 +1,14 @@
 # TODO
 
-## TODO - MCP Controller
-
-[mcpp/project/TODO.md]()
-
 ## TODO - Workbench
 
+* in workbench alter deny wird umgebraut, selber befehl andere ziel und quelle /allow 2342423 und /deny 234234 reason
+		* control abfrage returned immer zuerst und braucht neuen prompt
+		*  tool use ist #: mit vorgewählten /allow 234234 
 * tool konfiguration und "X-MCPC-TOOLS" implementieren
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden
 * Bessere Tool Loops anzeigen, problem mit nicht gespeicherter datei?
-	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne index
+	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 	
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
@@ -25,20 +24,29 @@
 ## TODO - Agents
 
 * tool für science research wie google scholar
-* Stop and correct mode
-	* PostToolBatch kann nach einer tool ausführung anhalten, so wie PermissionRequest auch
-	*ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient, enable ask back by plugin and do research before
-	* alternativ stop pattern und einhacken wenn falsch gerichtet
-* python agent ein python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier, als preproccessor, lanugageserver für python3
+* ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient
+* python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier/block diff, als preproccessor, lanugageserver
 	* hm nur über hooks vor und nach tool usage nutzbar oder via MCP
-	* Maybe produce something like skill as ouput so main kontext kann use scripts without knowing them in detail
-* Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
 * Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
 	* is this query related to context?
 	* is this agent use correct?
 	* violates this some target or increases costs or is meaningless?
 	* is this request good or this tool usage?
 	* Tool hook can be used to intercet and control
+
+* AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
+	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
+	
+* RAG tool zur indizierung von projekten nach aspekten, projekte -> module -> dateien -> methoden -> parameter/rückgaben
+	* Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
+	* research der kompletten baumstruktur mit allen aspekten eines projektes
+	* Callback tools zum Problem, Projektverzeichnis, Projektinfo, Kontexte
+	
+* EIngabeoptimierung, der agent ließt ganze codebäume obwohl nur bestimmte pfade für eine problemlösung relevant ist
+	* das projekt muss entsprechend aspektisoliert modelliert sein (vielleicht hilft RAG hier oder AST)
+	* Der agent muss geignete tools haben um einen fokkusierten input zu ermitteln
+	
+
 
 ## Findings
 
