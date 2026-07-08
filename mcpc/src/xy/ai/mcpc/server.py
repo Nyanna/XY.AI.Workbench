@@ -17,6 +17,7 @@ from .registry import ToolRegistry
 from .session import SessionStore
 from .tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
 from .transport import StreamableHttpHandler
+from .ws_transport import WebSocketMcpServer
 
 logger = logging.getLogger("xy.ai.mcpc")
 
@@ -127,17 +128,44 @@ def build_server(
     return McpHTTPServer(config, protocol, sessions, comm_log, services)
 
 
+def build_ws_server(server: McpHTTPServer) -> WebSocketMcpServer | None:
+    """Build the WebSocket transport sharing *server*'s component graph.
+
+    Returns ``None`` (after logging a warning) when the transport is disabled
+    via configuration, or when the optional ``websockets`` dependency is not
+    installed — the HTTP transport keeps working either way.
+    """
+    if not server.config.ws_enabled:
+        logger.info("WebSocket transport disabled (ws_enabled=False)")
+        return None
+    try:
+        return WebSocketMcpServer(
+            server.config, server.protocol, server.sessions, server.comm_log, server.services
+        )
+    except RuntimeError as exc:
+        logger.warning("WebSocket transport unavailable: %s", exc)
+        return None
+
+
 def run(config: ServerConfig | None = None, **build_kwargs: Any) -> None:
     """Build a server from *config* and serve until interrupted."""
     server = build_server(config, **build_kwargs)
     logger.info("MCP Controller listening on %s", server.endpoint_url)
     logger.info("Session header: %s | log dir: %s",
                 server.config.session_header, server.comm_log.directory)
+
+    ws_server = build_ws_server(server)
+    if ws_server is not None:
+        ws_server.start()
+        logger.info("MCP Controller (WebSocket) listening on %s", ws_server.endpoint_url)
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:  # pragma: no cover - interactive
         logger.info("Shutting down")
     finally:
+        if ws_server is not None:
+            ws_server.stop()
         server.services.cli_manager.shutdown()
         server.shutdown()
         server.server_close()

@@ -26,6 +26,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Session id header name (default: %(default)s)")
     parser.add_argument("--log-level", default="INFO",
                         help="Python logging level (default: %(default)s)")
+    parser.add_argument("--ws-host", default=defaults.ws_host,
+                        help="WebSocket bind host (default: same as --host)")
+    parser.add_argument("--ws-port", type=int, default=defaults.ws_port,
+                        help="WebSocket bind port (default: %(default)s)")
+    parser.add_argument("--ws-path", default=defaults.ws_path,
+                        help="WebSocket endpoint path (default: %(default)s)")
+    parser.add_argument("--no-ws", dest="ws_enabled", action="store_false",
+                        default=defaults.ws_enabled,
+                        help="Disable the WebSocket transport")
     return parser
 
 

@@ -44,6 +44,19 @@ class ServerConfig:
     #: bypassed entirely for that request.
     control_header: str = "X-MCPC-CONTROL"
 
+    #: Whether the WebSocket transport (``ws_transport.WebSocketMcpServer``) is
+    #: started alongside the HTTP transport.  Requires the optional
+    #: ``websockets`` dependency to be installed.
+    ws_enabled: bool = True
+    #: Bind host for the WebSocket transport.  ``None`` defaults to ``host``.
+    ws_host: str | None = None
+    #: Bind port for the WebSocket transport.  Kept separate from ``port``
+    #: because the two transports are independent ``asyncio``/``socket``
+    #: servers running in different threads.
+    ws_port: int = 9094
+    #: WebSocket endpoint path, checked against the handshake request path.
+    ws_path: str = "/mcp"
+
     #: HTTP header the client uses to carry the session id (a UUID).  This is
     #: the primary key for every operation and must be present on every request.
     session_header: str = "X-MCPC-SESSION-ID"
@@ -120,6 +133,11 @@ class ServerConfig:
     def preferred_protocol_version(self) -> str:
         return self.supported_protocol_versions[0]
 
+    @property
+    def resolved_ws_host(self) -> str:
+        """The WebSocket bind host, falling back to ``host`` when unset."""
+        return self.ws_host if self.ws_host is not None else self.host
+
     def with_overrides(self, **changes) -> "ServerConfig":
         """Return a copy of this config with *changes* applied."""
         return replace(self, **changes)
@@ -160,6 +178,14 @@ class ServerConfig:
             logger.debug("Added GitHub key from env")
             kwargs["github_api_pat"] = env["MCPC_GITHUB_PAT"]
             
+        if "MCPC_WS_ENABLED" in env:
+            kwargs["ws_enabled"] = env["MCPC_WS_ENABLED"].strip().lower() not in ("0", "false", "no", "off")
+        if "MCPC_WS_HOST" in env:
+            kwargs["ws_host"] = env["MCPC_WS_HOST"]
+        if "MCPC_WS_PORT" in env:
+            kwargs["ws_port"] = int(env["MCPC_WS_PORT"])
+        if "MCPC_WS_PATH" in env:
+            kwargs["ws_path"] = env["MCPC_WS_PATH"]
         if "MCPC_SESSION_HEADER" in env:
             kwargs["session_header"] = env["MCPC_SESSION_HEADER"]
         if "MCPC_TOOLS_HEADER" in env:

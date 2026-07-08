@@ -40,6 +40,55 @@ def _origin_host(origin: str) -> str:
         return ""
 
 
+def is_origin_allowed(config, origin: str | None) -> bool:
+    """Shared Origin check, used by both the HTTP and the WebSocket transport.
+
+    ``origin`` of ``None`` means the request carried no ``Origin`` header at
+    all (typical for non-browser clients) and is always allowed.
+    """
+    if origin is None:
+        return True
+    host = _origin_host(origin)
+    allowed = {"localhost", "127.0.0.1", "::1", "[::1]", config.host}
+    if config.allowed_origins:
+        allowed.update(config.allowed_origins)
+    return host in allowed
+
+
+def apply_tools_header(config, comm_log, session_id: str, session, raw: str | None) -> None:
+    """Reconcile *session*'s active toolset with an ``X-MCPC-TOOLS`` value.
+
+    Shared between the HTTP and the WebSocket transport; see
+    ``StreamableHttpHandler._apply_tools_header`` for the semantics of a
+    missing vs. empty header value.
+    """
+    if raw is None:
+        return
+    logger.debug("Process tool header: %s", raw)
+    names = {part.strip() for part in raw.split(",") if part.strip()}
+    if session.enabled_tools != names:
+        session.set_enabled_tools(names)
+        comm_log.log(
+            session_id,
+            EVENT,
+            {"event": "session.tools", "tools": sorted(names)},
+        )
+
+
+def apply_ccprofile_header(comm_log, session_id: str, session, raw: str | None) -> None:
+    """Reconcile *session*'s active CC-profile with an ``X-MCPC-CC-PROFILE`` value."""
+    if raw is None:
+        return
+    logger.debug("Process CC-profile header: %s", raw)
+    if session.cc_profile != raw:
+        session.cc_profile = raw
+        comm_log.log(
+            session_id,
+            EVENT,
+            {"event": "session.cc_profile", "cc_profile": raw},
+        )
+
+
 class StreamableHttpHandler(BaseHTTPRequestHandler):
     """Handles a single HTTP connection for the MCP endpoint."""
 
@@ -182,32 +231,13 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         empty header activates the empty toolset (no tools).
         """
         raw = self.headers.get(self.config.tools_header)
-        if raw is None:
-            return
-        logger.debug("Process tool header: %s", raw)
-        names = {part.strip() for part in raw.split(",") if part.strip()}
-        if session.enabled_tools != names:
-            session.set_enabled_tools(names)
-            self.comm_log.log(
-                session_id,
-                EVENT,
-                {"event": "session.tools", "tools": sorted(names)},
-            )
-            
+        apply_tools_header(self.config, self.comm_log, session_id, session, raw)
+
     def _apply_ccprofile_header(self, session_id: str, session) -> None:
         """Reconcile the session's active CC-profile with the ``X-MCPC-CC-PROFILE`` header.
         """
         raw = self.headers.get(self.config.ccprofile_header)
-        if raw is None:
-            return
-        logger.debug("Process CC-profile header: %s", raw)
-        if session.cc_profile != raw:
-            session.cc_profile = raw
-            self.comm_log.log(
-                session_id,
-                EVENT,
-                {"event": "session.cc_profile", "cc_profile": raw},
-            )
+        apply_ccprofile_header(self.comm_log, session_id, session, raw)
 
     # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:
@@ -233,13 +263,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
     def _check_origin(self) -> bool:
         origin = self.headers.get("Origin")
-        if origin is None:
-            return True  # non-browser client
-        host = _origin_host(origin)
-        allowed = {"localhost", "127.0.0.1", "::1", "[::1]", self.config.host}
-        if self.config.allowed_origins:
-            allowed.update(self.config.allowed_origins)
-        if host in allowed:
+        if is_origin_allowed(self.config, origin):
             return True
         self._send_http_error(HTTPStatus.FORBIDDEN, f"Origin not allowed: {origin}")
         return False

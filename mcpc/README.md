@@ -7,7 +7,9 @@ MCP **Streamable HTTP** transport and targets the current protocol revision
 
 ## Highlights
 
-- No runtime dependencies — built on the Python standard library only.
+- Streamable-HTTP transport built on the Python standard library only; the
+  WebSocket transport (see below) is the one part that depends on the
+  `websockets` package.
 - Single MCP endpoint (default `http://127.0.0.1:9093/mpc`), `POST` + `GET` + `DELETE`.
 - Central **tool registry**, enabled **per session** (registry is reconciled
   against the session context on every `tools/list` / `tools/call`).
@@ -29,8 +31,54 @@ mcpc --port 9093
 ```
 
 CLI options: `--host`, `--port`, `--path`, `--log-dir`, `--session-header`,
-`--log-level`. Equivalent `MCPC_*` environment variables are also honoured
-(`MCPC_HOST`, `MCPC_PORT`, `MCPC_PATH`, `MCPC_LOG_DIR`, `MCPC_SESSION_HEADER`).
+`--log-level`, `--ws-host`, `--ws-port`, `--ws-path`, `--no-ws`. Equivalent
+`MCPC_*` environment variables are also honoured (`MCPC_HOST`, `MCPC_PORT`,
+`MCPC_PATH`, `MCPC_LOG_DIR`, `MCPC_SESSION_HEADER`, `MCPC_WS_ENABLED`,
+`MCPC_WS_HOST`, `MCPC_WS_PORT`, `MCPC_WS_PATH`).
+
+## WebSocket transport
+
+A second interface to the same server-side sessions, tools and protocol
+logic — no functionality is duplicated, just exposed over a different wire
+format. It listens independently of the HTTP transport (default
+`ws://127.0.0.1:9094/mcp`) and is started automatically unless `--no-ws` /
+`MCPC_WS_ENABLED=0` is set or the `websockets` package is missing (in which
+case the HTTP transport still starts normally, with a warning logged).
+
+One WebSocket connection = one MCP session for its whole lifetime:
+
+- The session id, `X-MCPC-TOOLS` and `X-MCPC-CC-PROFILE` are read once from
+  the **opening handshake** request (headers, or — for clients that cannot
+  set custom headers — same-named query parameters) and applied exactly like
+  their HTTP-header counterparts. `X-MCPC-CONTROL: off` on the handshake
+  disables tool-call interception for every request on that connection.
+- Every text frame is one JSON-RPC message: a request gets one JSON-RPC
+  response frame back; a notification produces no reply; the server never
+  sends unsolicited messages.
+- Handshake validation mirrors the HTTP transport (unknown path, forbidden
+  `Origin`, missing/invalid session id) and rejects the connection with
+  WebSocket close code `1008` (policy violation) instead of an HTTP status.
+- All traffic is appended to the same per-session NDJSON log
+  (`<log_dir>/<session-id>.json.log`), tagged `"transport": "ws"`.
+
+```python
+import asyncio, json, uuid, websockets
+
+async def main():
+    session_id = str(uuid.uuid4())
+    async with websockets.connect(
+        "ws://127.0.0.1:9094/mcp",
+        additional_headers={"X-MCPC-SESSION-ID": session_id},
+    ) as ws:
+        await ws.send(json.dumps({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                       "clientInfo": {"name": "example", "version": "0"}},
+        }))
+        print(await ws.recv())
+
+asyncio.run(main())
+```
 
 ## Transport semantics
 
@@ -61,7 +109,8 @@ src/xy/ai/mcpc/
 ├── registry.py       Tool, ToolRegistry, ToolResult, content helpers
 ├── protocol.py       McpProtocol: initialize / ping / tools.list / tools.call
 ├── transport.py      StreamableHttpHandler (http.server)
-├── server.py         McpHTTPServer + build_server() / run()
+├── ws_transport.py   WebSocketMcpServer — second interface, same protocol/sessions
+├── server.py         McpHTTPServer + build_server() / build_ws_server() / run()
 ├── tools/            built-in example tools
 └── __main__.py       CLI entry point
 ```

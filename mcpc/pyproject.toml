@@ -12,8 +12,11 @@ license = { text = "Proprietary" }
 authors = [{ name = "xyan" }]
 keywords = ["mcp", "model-context-protocol", "json-rpc", "streamable-http"]
 
-# No runtime dependencies: the server is built purely on the standard library.
-dependencies = []
+# The Streamable-HTTP transport is built purely on the standard library; the
+# WebSocket transport (an additional, optional interface) uses "websockets".
+dependencies = [
+    "websockets>=13",
+]
 
 [project.scripts]
 mcpc = "xy.ai.mcpc.__main__:main"

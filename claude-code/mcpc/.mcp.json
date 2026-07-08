@@ -1,8 +1,8 @@
 {
 	"mcpServers": {
 		"mcpc": {
-			"type": "http",
-			"url": "http://localhost:9093/mcp",
+			"type": "ws",
+			"url": "http://localhost:9094/mcp",
 			"timeout": 86400000,
 			"alwaysLoad": true,
 			"headers": {
