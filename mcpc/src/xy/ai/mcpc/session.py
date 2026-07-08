@@ -77,6 +77,10 @@ class Session:
     #: Names of tools enabled for this session. An empty set means 
     #: no tools are enabled.
     enabled_tools: set[str] = field(default_factory=set)
+    
+    #: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different
+    #: agent profiles keep isolated credentials/caches.
+    cc_profile: str = "none"
 
     #: Sub-agents spawned from this session, keyed by their CLI-session id.  A
     #: single session may drive an arbitrary number of sub-agents concurrently.
@@ -170,6 +174,7 @@ class SessionStore:
         session_id: str,
         *,
         enabled_tools: "set[str] | list[str] | None" = None,
+        cc_profile: str,
     ) -> Session:
         """Create (or fetch) a session *before* the client first connects.
 
@@ -184,6 +189,8 @@ class SessionStore:
                 self._sessions[session_id] = session
             if enabled_tools is not None:
                 session.enabled_tools = set(enabled_tools)
+            if cc_profile is not None:
+                session.cc_profile = cc_profile
             return session
 
     def set_enabled_tools(

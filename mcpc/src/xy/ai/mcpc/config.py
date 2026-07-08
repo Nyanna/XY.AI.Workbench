@@ -39,6 +39,8 @@ class ServerConfig:
     #: HTTP header the client uses to carry the session id (a UUID).  This is
     #: the primary key for every operation and must be present on every request.
     session_header: str = "X-MCPC-SESSION-ID"
+    ccprofile_header: str = "X-MCPC-CC-PROFILE"
+    
     #: If true, the session id must be a syntactically valid UUID.
     require_uuid_session: bool = True
 

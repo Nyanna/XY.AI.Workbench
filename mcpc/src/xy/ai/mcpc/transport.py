@@ -113,6 +113,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             self.comm_log.log(session_id, EVENT, {"event": "session.created"})
         session.touch()
         self._apply_tools_header(session_id, session)
+        self._apply_ccprofile_header(session_id, session)
 
         if kind is MessageKind.REQUEST:
             self._handle_request(session_id, session, request)  # type: ignore[arg-type]
@@ -173,6 +174,21 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
                 EVENT,
                 {"event": "session.tools", "tools": sorted(names)},
             )
+            
+    def _apply_ccprofile_header(self, session_id: str, session) -> None:
+        """Reconcile the session's active CC-profile with the ``X-MCPC-CC-PROFILE`` header.
+        """
+        raw = self.headers.get(self.config.ccprofile_header)
+        if raw is None:
+            return
+        logger.info("Process CC-profile header: %s", raw)
+        if session.cc_profile != raw:
+            session.set_enabled_tools(raw)
+            self.comm_log.log(
+                session_id,
+                EVENT,
+                {"event": "session.cc_profile", "cc_profile": raw},
+            )
 
     # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:
@@ -201,6 +217,8 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         Reads the JSON body (ignored for now), and always responds with
         ``{"continue": true, "suppressOutput": false}`` — i.e. every tool
         call is allowed unconditionally.
+        Intended for use in headless subagents. The usual tool use will
+        handle permission implicite.
         """
         raw = self._read_body()
         if raw is None:

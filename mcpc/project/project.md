@@ -1,10 +1,8 @@
 # Tasks
-* ask block in settings setzen und entfernen je nach aufruf, CLI ja MCP nein
-* Brauche keine hooks, kann direkt tool call approve oder redirect machen oder output abfangen
-* claude config dir muss durchgereicht werden, bis dahin ur personal
+* "ask" block in settings setzen und entfernen je nach aufruf, CLI ja MCP nein
 
 * tool use and stop pattern
-	* hook in extra datei
+	* Brauche keine hooks, kann direkt tool call approve oder redirect machen oder output abfangen
 	* Wrapper um den Tooolaufruf blockiert schreibt in session state
 	* Tool hook intercept inklusive redirect, permission und stop
 	* REST control endpunkt prüft auf tool use und liefert liste von tool use requests

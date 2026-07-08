@@ -110,7 +110,8 @@ def _run_agent(
     # sub-agent's toolset) and the CLI session (--session-id).  The sub-agent's
     # CLI connects back with this id and never sends X-MCPC-TOOLS itself.
     sub_id = str(uuid.uuid4())
-    services.sessions.precreate(sub_id, enabled_tools=set(tools))
+    cc_profile = ctx.session.cc_profile
+    services.sessions.precreate(sub_id, enabled_tools=set(tools), cc_profile = cc_profile)
 
     params = CliParameters(
         config=services.config,
@@ -118,6 +119,7 @@ def _run_agent(
         system_prompt=system_prompt,
         mcpc_session_id=sub_id,
         effort=effort,
+        cc_profile=cc_profile,
     )
 
     try:

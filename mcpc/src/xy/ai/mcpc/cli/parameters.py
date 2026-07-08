@@ -60,7 +60,7 @@ class CliParameters:
     effort: str = Effort.MEDIUM.value
     #: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different
     #: agent profiles keep isolated credentials/caches.
-    cli_profile: str = "personal"
+    cc_profile: str = "none"
 
     executable: str = "claude"
     extra_env: dict[str, str] = field(default_factory=dict)
@@ -81,7 +81,8 @@ class CliParameters:
     # -- Command ------------------------------------------------------------
     def build_base_command(self, cli_session_id: str) -> list[str]:
         """Build the command line shared by initial-start and resume."""
-        session_header = "X-MCPC-SESSION-ID"
+        session_header = self.config.session_header
+        ccprofile_header = self.config.ccprofile_header
 
         settings = {
             "hooks": {
@@ -101,7 +102,7 @@ class CliParameters:
                     "type": "http",
                     "url": self.mcp_url,
                     "timeout": 86400000,
-                    "headers": {session_header: cli_session_id},
+                    "headers": {session_header: cli_session_id, ccprofile_header: self.cc_profile},
                 }
             }
         }
@@ -143,7 +144,7 @@ class CliParameters:
         import os
 
         home = os.path.expanduser("~")
-        env["CLAUDE_CONFIG_DIR"] = f"{home}/.claude-{self.cli_profile}"
+        env["CLAUDE_CONFIG_DIR"] = f"{home}/.claude-{self.cc_profile}"
         env[MCPC_SESSION_ENV] = self.mcpc_session_id
         env["CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS"] = "1"
         env["CLAUDE_CODE_DISABLE_SPELLCHECK"] = "true"
