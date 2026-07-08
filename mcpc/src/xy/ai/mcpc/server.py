@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 from http.server import ThreadingHTTPServer
 from typing import Any
 
@@ -41,6 +42,27 @@ class McpHTTPServer(ThreadingHTTPServer):
         self.services = services
         self.logger = logger
         super().__init__((config.host, config.port), StreamableHttpHandler)
+
+    def get_request(self):
+        """Accept a connection and enable TCP keepalive.
+
+        Long-blocking tool-call requests (waiting for human approval) keep the
+        HTTP connection open for up to 24 h.  Without keepalive, NAT gateways
+        and proxies typically drop idle TCP connections after 5–15 minutes,
+        causing ``ConnectionResetError`` on the server when it eventually
+        tries to write the response.
+        """
+        conn, addr = super().get_request()
+        conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # Start probing after 60 s of inactivity, retry every 10 s, drop
+        # after 6 consecutive failures (= ~1 minute of unresponsiveness).
+        if hasattr(socket, "TCP_KEEPIDLE"):
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+        if hasattr(socket, "TCP_KEEPINTVL"):
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        if hasattr(socket, "TCP_KEEPCNT"):
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 6)
+        return conn, addr
 
     @property
     def endpoint_url(self) -> str:

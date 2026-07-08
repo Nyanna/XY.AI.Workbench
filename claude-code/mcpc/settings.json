@@ -6,8 +6,6 @@
     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
     "DISABLE_COMPACT": "1",
     "ENABLE_TOOL_SEARCH": "false",
-	"CLAUDE_ENABLE_STREAM_WATCHDOG": "0",
-	"CLAUDE_STREAM_IDLE_TIMEOUT_MS": "86400000"
   },
   "includeGitInstructions": false,
   "permissions": {

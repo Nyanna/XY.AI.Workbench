@@ -23,6 +23,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import errors, jsonrpc
+from .control.handler import ControlHandler
+from .hooks import HookHandler, PermissionHookHandler
 from .jsonrpc import MessageKind
 from .logging_utils import EVENT, IN, OUT
 from .session import is_valid_uuid
@@ -65,17 +67,19 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
         # Route access logs through the standard logging framework instead of
         # writing straight to stderr.
-        self.server.logger.info("%s - %s", self.address_string(), fmt % args)  # type: ignore[attr-defined]
+        self.server.logger.debug("%s - %s", self.address_string(), fmt % args)  # type: ignore[attr-defined]
 
     # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
         logger.debug("Accept POST")
-        if self._hook_path_matches():
-            self._handle_hook()
+        if HookHandler(self).matches():
+            HookHandler(self).handle()
             return
-        if self._control_path_matches():
-            logger.debug("Control path matched: %s", urlparse(self.path).path)
-            self._handle_control()
+        if PermissionHookHandler(self).matches():
+            PermissionHookHandler(self).handle()
+            return
+        if ControlHandler(self).matches():
+            ControlHandler(self).handle()
             return
         if not self._path_matches():
             logger.error("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
@@ -211,83 +215,6 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
         self.comm_log.log(session_id, OUT, response, http="POST")
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id)
-
-    # -- control handler ----------------------------------------------------
-    def _control_path_matches(self) -> bool:
-        return urlparse(self.path).path == self.config.control_path
-
-    def _handle_control(self) -> None:
-        """Handle a poll request from the human-in-the-loop control client.
-
-        Request body (JSON):
-          ``{"approvals": [...]}``
-
-        Each approval entry:
-          * ``{"id": "…"}``                              — simple approval
-          * ``{"id": "…", "rejected": true, "reason": "…"}``  — rejection
-          * ``{"id": "…", "arguments": {…}}``           — approve with modified args
-          * ``{"id": "…", "result": {…}}``              — approve with replaced result
-
-        Response body (JSON):
-          ``{"pending": [...]}``  — items still waiting for a decision
-        """
-        logger.debug("Control endpoint reached")
-        control = self.server.services.control_manager  # type: ignore[attr-defined]
-        if control is None:
-            logger.warning("Control: manager not enabled, returning 404")
-            self._send_http_error(HTTPStatus.NOT_FOUND, "Tool control is not enabled")
-            return
-
-        raw = self._read_body()
-        logger.debug("Control: body read, length=%d", len(raw) if raw is not None else -1)
-        if raw is None:
-            return
-
-        if raw:
-            try:
-                body = jsonrpc.parse_body(raw)
-            except Exception as exc:
-                logger.warning("Control: invalid JSON body: %s", exc)
-                self._send_http_error(HTTPStatus.BAD_REQUEST, "Invalid JSON body")
-                return
-            approvals = body.get("approvals", [])
-            if not isinstance(approvals, list):
-                logger.warning("Control: 'approvals' is not a list: %r", approvals)
-                self._send_http_error(HTTPStatus.BAD_REQUEST, '"approvals" must be an array')
-                return
-            logger.debug("Control: processing %d approval(s)", len(approvals))
-            # 1. Process decisions first so callers can be unblocked before
-            #    the next pending list is assembled.
-            control.process_approvals(approvals)
-        else:
-            logger.error("Control: empty body, poll only")
-
-        # 2. Return the remaining (or new) pending items.
-        pending = control.get_pending()
-        logger.debug("Control: returning %d pending item(s)", len(pending))
-        response: dict[str, Any] = {"pending": pending}
-        self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
-
-    # -logger.debugler -------------------------------------------------------
-    def _hook_path_matches(self) -> bool:
-        return urlparse(self.path).path == self.config.hook_path
-
-    def _handle_hook(self) -> None:
-        """Handle a PreToolUse hook call from a spawned CLI process.
-
-        Reads the JSON body (ignored for now), and always responds with
-        ``{"continue": true, "suppressOutput": false}`` — i.e. every tool
-        call is allowed unconditionally.
-        Intended for use in headless subagents. The usual tool use will
-        handle permission implicite.
-        """
-        raw = self._read_body()
-        if raw is None:
-            return
-        logger.debug("PreToolUse hook called: %s", raw.decode("utf-8", "replace"))
-        response: dict[str, Any] = {"continue": True, "suppressOutput": False}
-        body = jsonrpc.dumps(response)
-        self._send_json(HTTPStatus.OK, body, session_id=None)
 
     # -- validation helpers -------------------------------------------------
     def _path_matches(self) -> bool:
