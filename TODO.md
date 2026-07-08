@@ -19,6 +19,7 @@
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
 * Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
+* rechtklickmenü zum absoluten dateipfad kopieren
 
 
 ## TODO - Agents
@@ -49,9 +50,13 @@
 * Empty feault agent allready produces 6843 cache write token with /context reporting 31/200k
 * Die sessionmanager wäre besser gelaufen wenn ich instream eingegriffen hätte.
 	* Dateiset und dateien vorher benennen oder durch top Level Plan ergründen, 2 Stufig wäre besser gewesen
+* AGenten denken ressourcen also dateisystembasiert
 
 ## Ideas
 
 * lokale claude code alternativre anbinden wie olama
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * AI self has the ability to decide abouts it's capacilities. I can match effort, modell structure and coordination of a federated mind
+	1. Ein agent erstellt die notwendigen inputs für einen prompt
+	2. Löst dann problem und delegiert umsetzung
+	3. Umsetzngsagents
