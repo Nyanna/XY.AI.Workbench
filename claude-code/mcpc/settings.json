@@ -1,0 +1,58 @@
+{
+  "env": {
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT": "1",
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
+    "DISABLE_COMPACT": "1",
+    "ENABLE_TOOL_SEARCH": "false",
+	"CLAUDE_ENABLE_STREAM_WATCHDOG": "0",
+	"CLAUDE_STREAM_IDLE_TIMEOUT_MS": "86400000"
+  },
+  "includeGitInstructions": false,
+  "permissions": {
+  	"allow": [
+    	"mcp__plugin_mcpc_mcpc*"
+	],
+    "defaultMode": "default",
+    "additionalDirectories": [
+      "/tmp/claude-1000"
+    ]
+  },
+  "disableClaudeAiConnectors": true,
+  "disableBundledSkills": true,
+  "disableAgentView": true,
+  "disableRemoteControl": true,
+  "enableWorkflows": false,
+  "workflowKeywordTriggerEnabled": false,
+  "respondToBashCommands": false,
+  "allowAllClaudeAiMcps": false,
+  "skipWebFetchPreflight": true,
+  "spinnerTipsEnabled": false,
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Processing"
+    ]
+  },
+  "promptSuggestionEnabled": false,
+  "awaySummaryEnabled": false,
+  "voice": {
+    "enabled": false
+  },
+  "allowedChannelPlugins": [],
+  "prefersReducedMotion": true,
+  "autoMemoryEnabled": false,
+  "showThinkingSummaries": false,
+  "disableAutoMode": "disable",
+  "claudeMdExcludes": [
+    "**"
+  ],
+  "theme": "light-daltonized",
+  "verbose": true,
+  "autoCompactEnabled": false,
+  "switchModelsOnFlag": false,
+  "showTurnDuration": false,
+  "disableDeepLinkRegistration": "disable",
+  "alwaysCopyFullResponse": true
+}

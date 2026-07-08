@@ -12,8 +12,7 @@
 						"allowedEnvVars":[
 						   "MCPC_SESSION_ID"
 						],
-						"timeout": 1,
-						"_timeout": 86400
+						"timeout": 86400
 					}
 				]
 			}

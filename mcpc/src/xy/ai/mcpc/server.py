@@ -60,14 +60,14 @@ def build_server(
     If no *registry* is supplied a fresh one is created; unless
     ``register_builtin`` is false the built-in example tools are registered.
     """
-    logger.info("Aquiring config")
+    logger.debug("Aquiring config")
     config = config or ServerConfig()
 
-    logger.info("Reading profiles")
+    logger.debug("Reading profiles")
     profiles = ProfileRegistry(list(DEFAULT_PROFILES))
 
 
-    logger.info("Initialising Tool-Registry")
+    logger.debug("Initialising Tool-Registry")
     if registry is None:
         registry = ToolRegistry()
         if register_builtin:
@@ -77,9 +77,9 @@ def build_server(
             register_builtin_tools(registry)
             register_agent_tools(registry, profiles)
 
-    logger.info("Initialising Session-Store")
+    logger.debug("Initialising Session-Store")
     sessions = SessionStore()
-    logger.info("Initialising CLI-Manager")
+    logger.debug("Initialising CLI-Manager")
     cli_manager = CliSessionManager(
         log_dir=config.cli_log_dir,
         ttl_seconds=config.agent_session_ttl_seconds,
@@ -87,7 +87,7 @@ def build_server(
     )
     control_manager: ToolControlManager | None = None
     if enable_control:
-        logger.info("Initialising Tool-Control-Manager")
+        logger.debug("Initialising Tool-Control-Manager")
         control_manager = ToolControlManager(
             timeout=config.agent_response_timeout_seconds,
         )
@@ -100,7 +100,7 @@ def build_server(
         control_manager=control_manager,
     )
     protocol = McpProtocol(config, registry, services)
-    logger.info("Initialising Communikation-Log")
+    logger.debug("Initialising Communikation-Log")
     comm_log = CommunicationLog(config.log_dir)
     return McpHTTPServer(config, protocol, sessions, comm_log, services)
 

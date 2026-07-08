@@ -106,7 +106,7 @@ class Session:
 
     def set_enabled_tools(self, names: "set[str] | list[str] | None") -> None:
         """Replace the set of enabled tools (``None`` or empty input clears it)."""
-        logger.info("Enable tools for session: %s", names)
+        logger.info("Enable tools for session %s: %s", id, names)
         with self.lock:
             self.enabled_tools = set() if names is None else set(names)
 

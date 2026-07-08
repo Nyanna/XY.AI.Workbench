@@ -9,9 +9,9 @@
   },
   "includeGitInstructions": false,
   "permissions": {
-    "allow": [
-      "Bash(savecopy.sh *)"
-    ],
+  	"ask": [
+    	"*"
+  	],
     "deny": [
       "___*",
       "NotebookEdit",
@@ -87,7 +87,6 @@
       "/tmp/claude-1000"
     ]
   },
-  "model": "sonnet",
   "disableClaudeAiConnectors": true,
   "disableBundledSkills": true,
   "disableAgentView": true,
@@ -96,11 +95,6 @@
   "workflowKeywordTriggerEnabled": false,
   "respondToBashCommands": false,
   "allowAllClaudeAiMcps": false,
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude-personal/statusline.sh",
-    "padding": 0
-  },
   "skipWebFetchPreflight": true,
   "spinnerTipsEnabled": false,
   "spinnerVerbs": {
@@ -109,7 +103,6 @@
       "Processing"
     ]
   },
-  "effortLevel": "high",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "voice": {

@@ -174,11 +174,13 @@ class ToolControlManager:
                 )
 
             item._decision = decision
-            item._event.set()
+            with self._lock:
+                self._pending.pop(item_id, None)
             logger.info(
-                "Decision for %s [%s/%s]: approved=%s",
+                "Dequeued control item %s [%s/%s]: approved=%s",
                 item.tool_name, item.phase, item_id, decision.approved,
             )
+            item._event.set()
 
     # ------------------------------------------------------------------
     # Internal helpers

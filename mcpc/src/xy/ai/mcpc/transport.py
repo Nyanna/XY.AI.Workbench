@@ -69,26 +69,27 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
     # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
-        logger.info("Accept POST")
+        logger.debug("Accept POST")
         if self._hook_path_matches():
             self._handle_hook()
             return
         if self._control_path_matches():
+            logger.debug("Control path matched: %s", urlparse(self.path).path)
             self._handle_control()
             return
         if not self._path_matches():
-            logger.info("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
+            logger.error("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
             self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
             return
         if not self._check_origin():
-            logger.info("Origin forbidden")
+            logger.error("Origin forbidden")
             return
         session_id = self._require_session_id()
         if session_id is None:
-            logger.info("Session id missing [%s]", self.headers)
+            logger.error("Session id missing [%s]", self.headers)
             return
         if not self._check_protocol_version_header():
-            logger.info("Protocol version missing")
+            logger.error("Protocol version missing")
             return
 
         raw = self._read_body()
@@ -168,7 +169,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         raw = self.headers.get(self.config.tools_header)
         if raw is None:
             return
-        logger.info("Process tool header: %s", raw)
+        logger.debug("Process tool header: %s", raw)
         names = {part.strip() for part in raw.split(",") if part.strip()}
         if session.enabled_tools != names:
             session.set_enabled_tools(names)
@@ -184,9 +185,9 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         raw = self.headers.get(self.config.ccprofile_header)
         if raw is None:
             return
-        logger.info("Process CC-profile header: %s", raw)
+        logger.debug("Process CC-profile header: %s", raw)
         if session.cc_profile != raw:
-            session.set_enabled_tools(raw)
+            session.cc_profile = raw
             self.comm_log.log(
                 session_id,
                 EVENT,
@@ -230,35 +231,44 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         Response body (JSON):
           ``{"pending": [...]}``  — items still waiting for a decision
         """
+        logger.debug("Control endpoint reached")
         control = self.server.services.control_manager  # type: ignore[attr-defined]
         if control is None:
+            logger.warning("Control: manager not enabled, returning 404")
             self._send_http_error(HTTPStatus.NOT_FOUND, "Tool control is not enabled")
             return
 
         raw = self._read_body()
+        logger.debug("Control: body read, length=%d", len(raw) if raw is not None else -1)
         if raw is None:
             return
 
         if raw:
             try:
                 body = jsonrpc.parse_body(raw)
-            except Exception:
+            except Exception as exc:
+                logger.warning("Control: invalid JSON body: %s", exc)
                 self._send_http_error(HTTPStatus.BAD_REQUEST, "Invalid JSON body")
                 return
             approvals = body.get("approvals", [])
             if not isinstance(approvals, list):
+                logger.warning("Control: 'approvals' is not a list: %r", approvals)
                 self._send_http_error(HTTPStatus.BAD_REQUEST, '"approvals" must be an array')
                 return
+            logger.debug("Control: processing %d approval(s)", len(approvals))
             # 1. Process decisions first so callers can be unblocked before
             #    the next pending list is assembled.
             control.process_approvals(approvals)
+        else:
+            logger.error("Control: empty body, poll only")
 
         # 2. Return the remaining (or new) pending items.
         pending = control.get_pending()
+        logger.debug("Control: returning %d pending item(s)", len(pending))
         response: dict[str, Any] = {"pending": pending}
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
 
-    # -- hook handler -------------------------------------------------------
+    # -logger.debugler -------------------------------------------------------
     def _hook_path_matches(self) -> bool:
         return urlparse(self.path).path == self.config.hook_path
 
@@ -274,7 +284,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         raw = self._read_body()
         if raw is None:
             return
-        logger.info("PreToolUse hook called: %s", raw.decode("utf-8", "replace"))
+        logger.debug("PreToolUse hook called: %s", raw.decode("utf-8", "replace"))
         response: dict[str, Any] = {"continue": True, "suppressOutput": False}
         body = jsonrpc.dumps(response)
         self._send_json(HTTPStatus.OK, body, session_id=None)
@@ -299,7 +309,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def _require_session_id(self) -> str | None:
         session_id = self.headers.get(self.config.session_header)
         if not session_id:
-            logger.info("Session id header not found")
+            logger.error("Session id header not found")
             self._send_jsonrpc_error(
                 HTTPStatus.BAD_REQUEST,
                 None,
@@ -310,7 +320,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             )
             return None
         if self.config.require_uuid_session and not is_valid_uuid(session_id):
-            logger.info("Session id is invalid UUID")
+            logger.error("Session id is invalid UUID")
             self._send_jsonrpc_error(
                 HTTPStatus.BAD_REQUEST,
                 None,
@@ -320,7 +330,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
                 session_id=session_id,
             )
             return None
-        logger.info("Session id: %s", session_id)
+        logger.debug("Session id: %s", session_id)
         return session_id
 
     def _check_protocol_version_header(self) -> bool:

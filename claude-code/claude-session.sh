@@ -208,6 +208,8 @@ if [[ -n "$AGENT_ARG" ]]; then
 		export MCPC_TOOLS="${MCPC_TOOLS:-${SET_MCPC_TOOLS:-read}}"
 		export MCPC_CC_PROFILE=${PROFILE}
 		export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=1
+		export CLAUDE_ENABLE_STREAM_WATCHDOG=0
+		export CLAUDE_STREAM_IDLE_TIMEOUT_MS=86400000
 
         # Add additional plugins defined in frontmatter
         if [[ -n "$AGENT_PLUGINS" ]]; then

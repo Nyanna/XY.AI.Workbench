@@ -143,19 +143,19 @@ class ServerConfig:
         if "MCPC_EXA_MCP_URL" in env:
             kwargs["exa_mcp_url"] = env["MCPC_EXA_MCP_URL"]
         if "MCPC_EXA_API_KEY" in env:
-            logger.info("Added EXA key from env")
+            logger.debug("Added EXA key from env")
             kwargs["exa_api_key"] = env["MCPC_EXA_API_KEY"]
             
         if "MCPC_CONTEXT7_MCP_URL" in env:
             kwargs["context7_mcp_url"] = env["MCPC_CONTEXT7_MCP_URL"]
         if "MCPC_CONTEXT7_API_KEY" in env:
-            logger.info("Added Context7 key from env")
+            logger.debug("Added Context7 key from env")
             kwargs["context7_api_key"] = env["MCPC_CONTEXT7_API_KEY"]
             
         if "MCPC_GITHUB_MCP_URL" in env:
             kwargs["github_mcp_url"] = env["MCPC_GITHUB_MCP_URL"]
         if "MCPC_GITHUB_PAT" in env:
-            logger.info("Added GitHub key from env")
+            logger.debug("Added GitHub key from env")
             kwargs["github_api_pat"] = env["MCPC_GITHUB_PAT"]
             
         if "MCPC_SESSION_HEADER" in env:

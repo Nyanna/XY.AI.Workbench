@@ -51,6 +51,7 @@
 * Die sessionmanager wäre besser gelaufen wenn ich instream eingegriffen hätte.
 	* Dateiset und dateien vorher benennen oder durch top Level Plan ergründen, 2 Stufig wäre besser gewesen
 * AGenten denken ressourcen also dateisystembasiert
+* Wenn erweiterung oder bezug auf tickets ist das patch/diff delta ein kleiner und fokussierter eingabekontext, besser als den agenten das feature neu verstehen zu lassen
 
 ## Ideas
 
