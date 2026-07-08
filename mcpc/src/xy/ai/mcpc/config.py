@@ -35,6 +35,8 @@ class ServerConfig:
     path: str = "/mcp"
     #: Path of the PreToolUse hook endpoint the spawned CLI calls back into.
     hook_path: str = "/hooks/tool"
+    #: Path of the PermissionRequest hook endpoint the spawned CLI calls back into.
+    permission_hook_path: str = "/hooks/permission"
     #: Path of the human-in-the-loop control endpoint.
     control_path: str = "/control/tool"
     #: Header that lets a caller opt out of tool interception for a single
