@@ -4,6 +4,7 @@
 			"type": "http",
 			"url": "http://localhost:9093/mcp",
 			"timeout": 86400000,
+			"alwaysLoad": true,
 			"headers": {
 				"X-MCPC-SESSION-ID": "${MCPC_SESSION_ID}",
 				"X-MCPC-TOOLS": "${MCPC_TOOLS}",

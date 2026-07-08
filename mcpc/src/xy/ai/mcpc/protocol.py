@@ -174,7 +174,7 @@ class McpProtocol:
         # --- request interception -------------------------------------------
         control = self.services.control_manager if self.services else None
         if control is not None and not skip_control:
-            decision = control.submit_request(name, arguments)
+            decision = control.submit_request(session, name, arguments)
             if not decision.approved:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool call rejected by controller"

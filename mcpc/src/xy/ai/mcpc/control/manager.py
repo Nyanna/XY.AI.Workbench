@@ -19,6 +19,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from xy.ai.mcpc.session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.control")
 
@@ -104,6 +105,7 @@ class ToolControlManager:
 
     def submit_request(
         self,
+        session: Session,
         tool_name: str,
         arguments: dict[str, Any],
     ) -> ControlDecision:
@@ -113,7 +115,7 @@ class ToolControlManager:
         ``modified_arguments``, the caller should substitute them before
         invoking the tool handler.
         """
-        item = self._enqueue("request", tool_name, arguments=arguments, result=None)
+        item = self._enqueue(session, "request", tool_name, arguments=arguments, result=None)
         return self._wait(item)
 
     def submit_result(
@@ -188,6 +190,7 @@ class ToolControlManager:
 
     def _enqueue(
         self,
+        session: Session,
         phase: str,
         tool_name: str,
         arguments: dict[str, Any] | None,
@@ -203,7 +206,7 @@ class ToolControlManager:
         )
         with self._lock:
             self._pending[item_id] = item
-        logger.info("Enqueued control item %s [%s/%s]", tool_name, phase, item_id)
+        logger.info("Enqueued control item %s [%s/%s/%s]", tool_name, phase, session.id, item_id)
         return item
 
     def _wait(self, item: _PendingItem) -> ControlDecision:
