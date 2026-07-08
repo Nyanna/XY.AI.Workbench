@@ -69,6 +69,17 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         # writing straight to stderr.
         self.server.logger.debug("%s - %s", self.address_string(), fmt % args)  # type: ignore[attr-defined]
 
+    def handle_one_request(self) -> None:
+        # The client may reset the connection at any point (e.g. between
+        # requests, or while we are still reading the request line/headers).
+        # ``BaseHTTPRequestHandler`` does not guard against this, so it would
+        # otherwise bubble up as an unhandled exception in the request thread.
+        try:
+            super().handle_one_request()
+        except ConnectionResetError as exc:
+            logger.debug("Connection reset by peer while handling request: %s", exc)
+            self.close_connection = True
+
     # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
         logger.debug("Accept POST")
@@ -290,12 +301,15 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             self.send_header(self.config.session_header, session_id)
 
     def _send_json(self, status: HTTPStatus, body: bytes, session_id: str | None) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self._base_headers(session_id)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self._base_headers(session_id)
+            self.end_headers()
+            self.wfile.write(body)
+        except ConnectionResetError as exc:
+            logger.debug("Client disconnected before response could be sent: %s", exc)
 
     def _send_accepted(self, session_id: str | None) -> None:
         self._send_empty(HTTPStatus.ACCEPTED, session_id)

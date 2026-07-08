@@ -120,6 +120,7 @@ class ToolControlManager:
 
     def submit_result(
         self,
+        session: Session,
         tool_name: str,
         result: dict[str, Any],
     ) -> ControlDecision:
@@ -129,7 +130,7 @@ class ToolControlManager:
         ``modified_result``, the caller should use that instead of the
         original result.
         """
-        item = self._enqueue("result", tool_name, arguments=None, result=result)
+        item = self._enqueue(session, "result", tool_name, arguments=None, result=result)
         return self._wait(item)
 
     # ------------------------------------------------------------------
