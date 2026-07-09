@@ -2,9 +2,6 @@
 
 ## Workbench
 
-* tool konfiguration und "--tools" argument implementieren
-	* selectionlist zur auswahl, integrieren in presets, model flag für supports tools
-
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
