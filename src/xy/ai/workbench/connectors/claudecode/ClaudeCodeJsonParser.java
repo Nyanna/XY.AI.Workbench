@@ -296,7 +296,7 @@ public class ClaudeCodeJsonParser {
 	 * @param input the input text
 	 * @return commented text
 	 */
-	public String commented(String input) {
+	public static String commented(String input) {
 		while (input.indexOf("\n\n") != -1)
 			input = input.replace("\n\n", "\n");
 		if (input.endsWith("\n"))

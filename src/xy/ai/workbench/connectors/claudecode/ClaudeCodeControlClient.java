@@ -34,12 +34,24 @@ public class ClaudeCodeControlClient {
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
-	/**
-	 * Polls the control endpoint without submitting any decision.
-	 *
-	 * @return the current list of pending items (never {@code null}, possibly empty)
-	 */
-	public ArrayNode poll() {
+	public ClaudeCodeResponse checkControlEndpoint(ClaudeCodeRequest req) {
+		JsonNode pending = poll();
+		if (pending == null || pending.isEmpty())
+			return null;
+
+		JsonNode first = pending.get(0);
+		String text;
+		try {
+			text = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(first);
+		} catch (Exception e) {
+			text = first.toString();
+		}
+		String prepared = "#: Control Request:\n" + ClaudeCodeJsonParser.commented(text) + "\n/allow "
+				+ first.path("id").asText();
+		return new ClaudeCodeResponse(req.id, prepared, false);
+	}
+	
+	private ArrayNode poll() {
 		return post(mapper.createObjectNode());
 	}
 

@@ -146,7 +146,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		String line;
 		while (true) {
-			ClaudeCodeResponse pendingResponse = checkControlEndpoint(req);
+			ClaudeCodeResponse pendingResponse = controlClient.checkControlEndpoint(req);
 			if (pendingResponse != null)
 				return pendingResponse;
 
@@ -196,21 +196,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 
 		throw new IllegalStateException("Claude Code process ended without a result event");
-	}
-
-	private ClaudeCodeResponse checkControlEndpoint(ClaudeCodeRequest req) {
-		JsonNode pending = controlClient.poll();
-		if (pending == null || pending.isEmpty())
-			return null;
-
-		JsonNode first = pending.get(0);
-		String text;
-		try {
-			text = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(first);
-		} catch (Exception e) {
-			text = first.toString();
-		}
-		return new ClaudeCodeResponse(req.id, jsonParser.commented(text), false);
 	}
 
 	private void updateLastParsedMessage(ClaudeCodeSession session, LinkedHashMap<String, String> assistantEvents) {

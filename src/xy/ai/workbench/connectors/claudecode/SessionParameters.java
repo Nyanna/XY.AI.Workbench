@@ -47,9 +47,64 @@ public class SessionParameters {
 			cmd.add("--tools");
 			cmd.add("\"\"");
 			cmd.add("--settings");
-			cmd.add("{\"hooks\":{\"PreToolUse\":[{\"type\":\"http\",\"url\":\"http://localhost:9093/hooks/tool\",\"headers\":{\"X-MCPC-SESSION-ID\":\"$MCPC_SESSION_ID\"},\"allowedEnvVars\":[\"MCPC_SESSION_ID\"],\"timeout\":86400}]}}");
+			cmd.add("""
+{
+	"hooks": {
+		"PreToolUse": [
+			{
+				"hooks": [
+					{
+						"type": "http",
+						"url":"http://localhost:9093/hooks/tool",
+						"headers":{
+						   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
+						},
+						"allowedEnvVars":[
+						   "MCPC_SESSION_ID"
+						],
+						"timeout": 86400
+					}
+				]
+			}
+		],
+		"PermissionRequest": [
+			{
+				"hooks": [
+					{
+						"type": "http",
+						"url":"http://localhost:9093/hooks/permission",
+						"headers":{
+						   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
+						},
+						"allowedEnvVars":[
+						   "MCPC_SESSION_ID"
+						],
+						"timeout": 86400
+					}
+				]
+			}
+		]
+	}
+}
+					""");
 			cmd.add("--mcp-config");
-			cmd.add("{\"mcpServers\": {\"mcp\": {\"type\": \"http\",\"url\": \"http://localhost:9093/mcp\", \"timeout\": 86400000, \"headers\": {\"X-MCPC-SESSION-ID\": \"$MCPC_SESSION_ID\"}}}}");
+			cmd.add("""
+{
+	"mcpServers": {
+		"mcpc": {
+			"type": "ws",
+			"url": "http://localhost:9094/mcp",
+			"timeout": 86400000,
+			"alwaysLoad": true,
+			"headers": {
+				"X-MCPC-SESSION-ID": "${MCPC_SESSION_ID}",
+				"X-MCPC-TOOLS": "${MCPC_TOOLS}",
+				"X-MCPC-CC-PROFILE": "${MCPC_CC_PROFILE}"
+			}
+		}
+	}
+}
+					""");
 		} else {
 			cmd.add(SCRIPT);
 			cmd.add(agentProfile != null ? agentProfile.name : ""); // Agent definition
@@ -97,6 +152,14 @@ public class SessionParameters {
 			pb.environment().put("ENABLE_TOOL_SEARCH", "false");
 		}
 		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
+		pb.environment().put("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", "0");
+		pb.environment().put("MCP_TOOL_TIMEOUT", "86400000");
+		pb.environment().put("CLAUDE_ENABLE_STREAM_WATCHDOG", "0");
+		pb.environment().put("CLAUDE_ENABLE_BYTE_WATCHDOG", "0");
+		pb.environment().put("CLAUDE_STREAM_IDLE_TIMEOUT_MS", "86400000");
+		pb.environment().put("API_FORCE_IDLE_TIMEOUT", "0");
+		pb.environment().put("MCP_TIMEOUT", "86400000");
+
 		if (Reasoning.Disabled == reasoning) {
 			pb.environment().put("CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", "1");
 			pb.environment().put("MAX_THINKING_TOKENS", "0");
