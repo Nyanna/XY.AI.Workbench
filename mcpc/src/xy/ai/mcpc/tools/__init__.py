@@ -11,6 +11,7 @@ Available tools
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
 * ``markdown``      – AST-based Markdown editing via a remark (Node.js) script
+* ``ask-user``      – ask the user a clarifying question (back-channel)
 
 Skills (on-demand hint tools) are registered from the ``skills`` sub-package.
 Bridges to external MCP servers (e.g. Exa) live in the ``mcp`` sub-package.
@@ -20,6 +21,8 @@ Call :func:`register_tools` to register all tools onto a
 """
 
 from __future__ import annotations
+
+import importlib
 
 from ..registry import ToolRegistry
 from .bash import register_bash_tool
@@ -34,6 +37,13 @@ from .replace_lines import register_replace_lines_tool
 from .skills import register_skills
 from .write import register_write_tool
 
+# ``ask-user`` uses a hyphenated directory name, which is not a valid Python
+# identifier, so it cannot be imported with a regular ``from .ask-user import``
+# statement. Use ``importlib`` instead.
+register_ask_user_tool = importlib.import_module(
+    "xy.ai.mcpc.tools.ask-user"
+).register_ask_user_tool
+
 
 def register_tools(registry: ToolRegistry) -> None:
     """Register all built-in file-system and shell tools onto *registry*."""
@@ -46,6 +56,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_bash_tool(registry)
     register_python_tool(registry)
     register_markdown_tool(registry)
+    register_ask_user_tool(registry)
     register_skills(registry)
     register_exa_tools(registry)
     register_github_tools(registry)

@@ -2,7 +2,7 @@ package xy.ai.workbench;
 
 public class Tools {
 	private static String toolList = //
-			"bash,change,insert,markdown,markdown-format,python,read,replace-chars,replace-lines,write,"
+			"ask-user,bash,change,insert,markdown,markdown-format,python,read,replace-chars,replace-lines,write,"
 					+ "agt-python,agt-markdown,agt-web-research,agt-github-research," //
 					+ "web-search-exa,web-fetch-exa," //
 					+ "context7-libraries,context7-documentation,"
