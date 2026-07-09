@@ -70,7 +70,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private static final int TTL_REFRESH_INTERVAL_MS = 30_000;
 	private static final ClaudeCodeSession CNEW_LAUDE_CODE_SESSION = new ClaudeCodeSession(
 			ClaudeCodeSessionManager.CREATE_NEW_MARKER, null,
-			new SessionParameters(Path.of("", ""), Model.NONE, Reasoning.Disabled, AgentProfile.basic, "") {
+			new SessionParameters(Path.of("", ""), "", Model.NONE, Reasoning.Disabled, AgentProfile.basic, "") {
 				public String getHash() {
 					return "Create new session";
 				};
