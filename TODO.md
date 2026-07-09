@@ -1,7 +1,7 @@
 # TODO
 
 ## Workbench
-! bug beim erstellen von sessions
+! null token kosten results nicht anzeigen
 
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern
@@ -23,7 +23,6 @@
 
 ## Agents
 
-* block-diff read toool paramater für offet bei target string, bis zum ersten vorkommen von X
 * tool für science research wie google scholar
 * ask the user back tool, agent should have the possibillity to ask for user inforamtion when more efficient
 * python/ typescript(remark) sprachmodell geben/LSP/syntax parser/lint/prettier/block diff, als preproccessor, lanugageserver

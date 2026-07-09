@@ -1,13 +1,8 @@
-"""Read tool – reads a file and returns its contents.
+"""Read tool – returns file contents, optionally sliced by line or unique marker.
 
-Features
---------
-* Optional line-range restriction (``min_line`` / ``max_line``, 1-based inclusive).
-* Content-hash caching per session: if the client requests the same file again
-  and the file on disk has not changed, an error is returned to avoid redundant
-  transfers.
-* The cache is stored under the ``_read_cache`` key in the session's ``state``
-  dict as ``{absolute_path: sha256_hex}``.
+Range: start = min_line | start-marker | file start; end = max_line | end-marker
+| file end (all inclusive). Markers must be unique substrings. Per-session
+sha256 cache rejects unchanged re-reads (key ``_read_cache`` in session state).
 """
 
 from __future__ import annotations
@@ -31,27 +26,33 @@ def register_read_tool(registry: ToolRegistry) -> None:
         "read",
         title="Read file",
         description=(
-            "Read the contents of a file and return them as text. "
-            "Optionally restrict the result to a line range (1-based, inclusive). "
-            "Results are cached per session by content hash; if the file has not "
-            "changed since the last read an error is returned indicating so."
+            "Read a file as text, optionally sliced to a range. Repeated "
+            "unchanged reads return an error."
         ),
         input_schema={
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Absolute path to the file to read.",
+                    "description": "Absolute file path.",
                 },
                 "min_line": {
                     "type": "integer",
-                    "description": "First line to return (1-based, inclusive). Omit to start from the beginning.",
+                    "description": "Range start: line number, inclusive, 1-based. Excludes start.",
                     "minimum": 1,
                 },
                 "max_line": {
                     "type": "integer",
-                    "description": "Last line to return (1-based, inclusive). Omit to read to the end of the file.",
+                    "description": "Range end: line number, inclusive, 1-based. Excludes end.",
                     "minimum": 1,
+                },
+                "start": {
+                    "type": "string",
+                    "description": "Range start: unique marker substring, inclusive. Excludes min_line.",
+                },
+                "end": {
+                    "type": "string",
+                    "description": "Range end: unique marker substring, inclusive. Excludes max_line.",
                 },
             },
             "required": ["path"],
@@ -78,6 +79,24 @@ def register_read_tool(registry: ToolRegistry) -> None:
         path_str: str = args["path"]
         min_line: int | None = args.get("min_line")
         max_line: int | None = args.get("max_line")
+        start_marker: str | None = args.get("start")
+        end_marker: str | None = args.get("end")
+
+        # --- mutual exclusivity validation ---
+        if min_line is not None and start_marker is not None:
+            return ToolResult(
+                structured_content={
+                    "error": "``min_line`` and ``start`` are mutually exclusive."
+                },
+                is_error=True,
+            )
+        if max_line is not None and end_marker is not None:
+            return ToolResult(
+                structured_content={
+                    "error": "``max_line`` and ``end`` are mutually exclusive."
+                },
+                is_error=True,
+            )
 
         path = Path(path_str)
         if not path.is_absolute():
@@ -111,28 +130,89 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
         cache[key] = current_hash
 
-        # --- decode and slice ---
+        # --- decode ---
         text = raw_bytes.decode("utf-8", errors="replace")
         lines = text.splitlines(keepends=True)
         total_lines = len(lines)
 
-        lo = (min_line - 1) if min_line is not None else 0
-        hi = max_line if max_line is not None else total_lines
-        lo = max(0, lo)
-        hi = min(total_lines, hi)
+        def line_start_offset(line_num: int) -> int:
+            n = max(0, min(line_num - 1, total_lines))
+            return sum(len(l) for l in lines[:n])
 
-        sliced = "".join(lines[lo:hi])
+        def line_end_offset(line_num: int) -> int:
+            n = max(0, min(line_num, total_lines))
+            return sum(len(l) for l in lines[:n])
 
-        structured: dict[str, Any] = {
-            #"path": key,
-            #"sha256": current_hash,
-            #"total_lines": total_lines,
-            #"returned_lines": hi - lo,
-            "content": sliced,
-        }
+        # --- resolve start boundary ---
+        if start_marker is not None:
+            start_count = text.count(start_marker)
+            if start_count == 0:
+                return ToolResult(
+                    structured_content={"error": f"Start marker not found in file: {start_marker!r}"},
+                    is_error=True,
+                )
+            if start_count > 1:
+                return ToolResult(
+                    structured_content={
+                        "error": (
+                            f"Start marker is ambiguous – found {start_count} occurrences "
+                            f"in file: {start_marker!r}"
+                        )
+                    },
+                    is_error=True,
+                )
+            region_start = text.index(start_marker)
+        elif min_line is not None:
+            region_start = line_start_offset(min_line)
+        else:
+            region_start = 0
+
+        # --- resolve end boundary ---
+        if end_marker is not None:
+            end_count = text.count(end_marker)
+            if end_count == 0:
+                return ToolResult(
+                    structured_content={"error": f"End marker not found in file: {end_marker!r}"},
+                    is_error=True,
+                )
+            if end_count > 1:
+                return ToolResult(
+                    structured_content={
+                        "error": (
+                            f"End marker is ambiguous – found {end_count} occurrences "
+                            f"in file: {end_marker!r}"
+                        )
+                    },
+                    is_error=True,
+                )
+            region_end = text.index(end_marker) + len(end_marker)
+        elif max_line is not None:
+            region_end = line_end_offset(max_line)
+        else:
+            region_end = len(text)
+
+        # --- order validation ---
+        if region_end < region_start:
+            return ToolResult(
+                structured_content={
+                    "error": (
+                        f"Resolved end position ({region_end}) must not lie before "
+                        f"the resolved start position ({region_start})."
+                    )
+                },
+                is_error=True,
+            )
+
+        sliced = text[region_start:region_end]
+
+        structured: dict[str, Any] = {"content": sliced}
         if min_line is not None:
             structured["min_line"] = min_line
         if max_line is not None:
             structured["max_line"] = max_line
+        if start_marker is not None:
+            structured["start_line"] = text.count("\n", 0, region_start) + 1
+        if end_marker is not None:
+            structured["end_line"] = text.count("\n", 0, region_end) + 1
 
         return ToolResult(structured_content=structured)
