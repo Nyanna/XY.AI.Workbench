@@ -8,6 +8,7 @@ in a JSON-RPC envelope.
 
 from __future__ import annotations
 
+import logging
 import base64
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,8 @@ from .config import ServerConfig
 from .jsonrpc import JsonRpcRequest
 from .registry import ToolContext, ToolRegistry, normalize_result
 from .session import Session
+
+logger = logging.getLogger("xy.ai.mcpc.protocol")
 
 if TYPE_CHECKING:
     from .context import AppServices

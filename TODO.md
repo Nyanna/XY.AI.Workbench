@@ -1,6 +1,7 @@
 # TODO
 
 ## Workbench
+! bug beim erstellen von sessions
 
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern

@@ -43,10 +43,12 @@ def register_write_tool(registry: ToolRegistry) -> None:
         output_schema={
             "type": "object",
             "properties": {
-                "result": {"type": "string"},
-                "description": "``success`` on success.",
+                "result": {
+                    "type": "string",
+                    "description": "``success`` on success.",
+                },
             },
-            "required": ["path"],
+            "required": ["result"],
         },
         annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
     )
