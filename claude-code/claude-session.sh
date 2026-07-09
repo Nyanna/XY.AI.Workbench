@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
             EXTRA_ARGS+=("$1" "$2")
             shift 2
             ;;
-        --tools)
+        --mcp-tools)
             SET_MCPC_TOOLS="$2"
             shift 2
             ;;

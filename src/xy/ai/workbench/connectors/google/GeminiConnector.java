@@ -51,7 +51,7 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix,
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
@@ -80,25 +80,27 @@ public class GeminiConnector implements IAIConnector {
 		if (!batchFix)
 			config.safetySettings(safetySettings);
 
-		List<Content> inputs = new ArrayList<>();
+		List<Content> proccessedInputs = new ArrayList<>();
 		if (systemPrompt != null && !systemPrompt.isBlank()) {
 			Content systemInstruction = Content.fromParts(Part.fromText(systemPrompt));
 			if (!batchFix)
 				config.systemInstruction(systemInstruction);
 			else
-				inputs.add(systemInstruction);
+				proccessedInputs.add(systemInstruction);
 		}
 
-		if (input != null && !input.isBlank())
-			inputs.add(Content.fromParts(Part.fromText(input)));
+		if (inputs != null && !inputs.isEmpty())
+			for (String input : inputs)
+				if (input != null && !input.isBlank())
+					proccessedInputs.add(Content.fromParts(Part.fromText(input)));
 
 		if (tools != null && !tools.isEmpty())
 			for (String tool : tools)
-				inputs.add(Content.fromParts(Part.fromText(tool)));
+				proccessedInputs.add(Content.fromParts(Part.fromText(tool)));
 
 		GenerateContentConfig contentConfig = config.build();
 		sub.worked(1);
-		return new GeminiRequest(cfg.getModel(), inputs, contentConfig, id + "");
+		return new GeminiRequest(cfg.getModel(), proccessedInputs, contentConfig, id + "");
 	}
 
 	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {

@@ -89,7 +89,6 @@ public class ClaudeCodeSession {
 		ProcessBuilder pb = new ProcessBuilder(cmd);
 		parameters.buildEvironment(pb);
 		pb.environment().put("MCPC_SESSION_ID", uuid);
-		pb.environment().put("MCPC_TOOLS", "read"); //TODO
 		pb.redirectErrorStream(false);
 
 		process = pb.start();

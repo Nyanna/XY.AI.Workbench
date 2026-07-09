@@ -15,6 +15,7 @@ public class ConfigManager {
 	private SessionConfig cfg = new SessionConfig();
 	private Model[] enabledModels = new Model[0];
 	private AgentProfile[] enabledProfiles = new AgentProfile[0];
+	private String[] enabledTools = new String[0];
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
 	private List<Consumer<String>> systemFreeObs = new ArrayList<>();
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
@@ -118,6 +119,10 @@ public class ConfigManager {
 		cfg.setSystemPrompt(systemPrompt);
 		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
+	}
+	
+	public void setEnabledTools(String[] enabledTools) {
+		this.enabledTools = enabledTools;
 	}
 
 	public String getKeys() {
@@ -320,5 +325,9 @@ public class ConfigManager {
 
 	public Capabilities getCapabilities() {
 		return cfg.model.cap;
+	}
+
+	public String[] getTools() {
+		return enabledTools;
 	}
 }

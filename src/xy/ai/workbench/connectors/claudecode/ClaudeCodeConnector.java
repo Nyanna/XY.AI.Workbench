@@ -50,7 +50,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix,
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
@@ -59,17 +59,23 @@ public class ClaudeCodeConnector implements IAIConnector {
 		sub.subTask("Preprocess input");
 		boolean[] exitFlag = { false };
 		String[] resumeUuidHolder = { null };
-		String processedInput = preprocessInput(input, exitFlag, resumeUuidHolder);
-		String title = input.substring(0, Math.min(100, input.length() - 1)).replace('\n', ' ');
-
-		// Combine system prompt, tools, and input into one text block
+		String title = null;
 		StringBuilder text = new StringBuilder();
-		if (tools != null)
-			for (String tool : tools)
-				if (tool != null && !tool.isBlank())
-					text.append(tool).append("\n\n");
-		if (processedInput != null && !processedInput.isBlank())
-			text.append(processedInput);
+		
+		for (String input : inputs) {
+			String processedInput = preprocessInput(input, exitFlag, resumeUuidHolder);
+			if (title == null && processedInput != null) {
+				String candidate = processedInput.strip();
+				if (candidate.length() > 0)
+					title = candidate.substring(0, Math.min(100, candidate.length() - 1)).replace('\n', ' ');
+			}
+
+			if (processedInput != null && !processedInput.isBlank()) {
+				if (text.length() > 0)
+					text.append("\n");
+				text.append(processedInput);
+			}
+		}
 		sub.worked(1);
 
 		sub.subTask("Build prompt");
@@ -77,7 +83,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String promptJson = trimmed.isEmpty() ? null : requestBuilder.buildPromptJson(trimmed);
 		sub.worked(1);
 
-		return new ClaudeCodeRequest(id, title, systemPrompt, promptJson, exitFlag[0], resumeUuidHolder[0]);
+		return new ClaudeCodeRequest(id, title, systemPrompt, tools, promptJson, exitFlag[0], resumeUuidHolder[0]);
 	}
 
 	@Override
@@ -87,7 +93,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 		ClaudeCodeSession session = null;
 
 		try {
-			SessionParameters params = new SessionParameters(getEditorFilePath(), req.thissystemPrompt, cfg.getModel(), cfg.getReasoning(),
+			SessionParameters params = new SessionParameters(getEditorFilePath(), req.systemPrompt, req.tools, cfg.getModel(), cfg.getReasoning(),
 					cfg.getProfile(), cfg.getKeys());
 			params.setTitle(req.title);
 

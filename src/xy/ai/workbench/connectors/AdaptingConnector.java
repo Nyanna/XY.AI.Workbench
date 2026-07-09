@@ -148,8 +148,8 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
-		return getConnector(cfg.getModel()).createRequest(input, systemPrompt, tools, batchFix, mon);
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+		return getConnector(cfg.getModel()).createRequest(inputs, systemPrompt, tools, batchFix, mon);
 	}
 
 	@Override

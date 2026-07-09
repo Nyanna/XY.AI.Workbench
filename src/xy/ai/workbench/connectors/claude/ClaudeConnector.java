@@ -41,7 +41,7 @@ public class ClaudeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		Builder builder = MessageCreateParams.builder();
@@ -61,12 +61,10 @@ public class ClaudeConnector implements IAIConnector {
 		if (systemPrompt != null && !systemPrompt.isBlank())
 			builder.system(systemPrompt);
 
-		if (input != null && !input.isBlank())
-			builder.addUserMessage(input);
-
-		if (tools != null && !tools.isEmpty())
-			for (String tool : tools)
-				builder.addUserMessage(tool);
+		if (inputs != null && !inputs.isEmpty())
+			for (String input : inputs)
+				if (input != null && !input.isBlank())
+					builder.addUserMessage(input);
 
 		MessageCreateParams createParams = builder.build();
 		sub.worked(1);

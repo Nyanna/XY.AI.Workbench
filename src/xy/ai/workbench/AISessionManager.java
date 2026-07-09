@@ -346,19 +346,18 @@ public class AISessionManager {
 		}).schedule();
 	}
 
-	private String input;
 
 	private IModelRequest prepareInner(Display display, boolean batchFix, IProgressMonitor mon) {
 		LOG.info("Preparing Call");
 
-		input = "";
+		List<String> inputs = new ArrayList<String>();
 		display.syncExec(() -> {
 			if (cfg.isInputEnabled(InputMode.Editor))
-				input += getInput(InputMode.Editor);
+				inputs.add(getInput(InputMode.Editor));
 			else if (cfg.isInputEnabled(InputMode.Selection))
-				input += getInput(InputMode.Selection);
+				inputs.add(getInput(InputMode.Selection));
 			else if (cfg.isInputEnabled(InputMode.Current_line))
-				input += getInput(InputMode.Current_line);
+				inputs.add(getInput(InputMode.Current_line));
 		});
 
 		StringBuffer systemPrompt = new StringBuffer();
@@ -370,15 +369,16 @@ public class AISessionManager {
 			systemPrompt.append(getInput(InputMode.Context_prompt));
 		}
 
-		if ((input == null || input.isBlank()) && systemPrompt.length() == 0)
+		if ((inputs == null || inputs.isEmpty()) && systemPrompt.length() == 0)
 			throw new IllegalArgumentException("Input and System Prompt Empty");
 
 		if (editorListener.getLastTextEditor() == null && !batchFix)
 			throw new IllegalArgumentException("Result editor unset");
+		
+		List<String> tools = List.of(cfg.getTools());
 
-		List<String> tools = new ArrayList<String>();
 		if (cfg.isInputEnabled(InputMode.Files))
-			tools.addAll(selectedFiles.stream().map(f -> {
+			inputs.addAll(selectedFiles.stream().map(f -> {
 				try {
 					return f.readString();
 				} catch (CoreException e) {
@@ -390,13 +390,13 @@ public class AISessionManager {
 		if (cfg.isInputEnabled(InputMode.Search)) {
 			String search = getInput(InputMode.Search);
 			if (search != null && !search.isBlank())
-				tools.add(search);
+				inputs.add(search);
 		}
 
 		LOG.info("Input prepared");
 
 		IModelRequest req = connector.createRequest(//
-				input, //
+				inputs, //
 				systemPrompt.toString(), //
 				tools, //
 				batchFix, //

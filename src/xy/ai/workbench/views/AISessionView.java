@@ -1,5 +1,6 @@
 package xy.ai.workbench.views;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -42,6 +43,7 @@ import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.OutputMode;
@@ -64,10 +66,13 @@ public class AISessionView extends ViewPart {
 
 	private Table usageLog;
 	private List instructionList;
+	private List toolsList;
 	private Text instructionEdit, instructionFree;
 	private boolean isUpdating = false;
 
 	public Display display;
+
+	java.util.List<String> instructionSelection = new ArrayList<String>();
 
 	class ViewLabelProvider extends LabelProvider implements ITableLabelProvider {
 		@Override
@@ -245,13 +250,9 @@ public class AISessionView extends ViewPart {
 			GridData ldat1 = new GridData(SWT.FILL, SWT.FILL, true, true);
 			ldat1.heightHint = 100;
 			instr.setLayoutData(ldat1);
+
 			TabItem instrSel = new TabItem(instr, SWT.NONE);
 			instrSel.setText("Select");
-			TabItem instrEdit = new TabItem(instr, SWT.NONE);
-			instrEdit.setText("Edit");
-			TabItem presEdit = new TabItem(instr, SWT.NONE);
-			presEdit.setText("Presets");
-
 			{ // instruction select
 				Composite comp = new Composite(instr, SWT.NONE);
 				comp.setLayout(new GridLayout());
@@ -267,26 +268,32 @@ public class AISessionView extends ViewPart {
 				gridData.heightHint = 100;
 				instructionList.setLayoutData(gridData);
 				instructionList.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionList.setFocus()));
+
 				instructionList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
 					if (isUpdating)
 						return;
 					String[] cur = instructionList.getItems();
-					String[] upd = new String[cur.length];
-					java.util.List<String> sel = Arrays.asList(instructionList.getSelection());
-					for (int i = 0; i < cur.length; i++) {
-						String line = cur[i];
-						boolean isSelected = sel.contains(line);
-						if (!isSelected && !line.startsWith("#")) {
-							line = "#" + line;
-						} else if (isSelected && line.startsWith("#")) {
-							line = line.substring(1);
-						}
-						upd[i] = line;
-					}
-					cfg.setSystemPrompt(upd);
+					instructionSelection = new ArrayList<>(Arrays.asList(instructionList.getSelection()));
+					cfg.setSystemPrompt(updatePromptLines(cur));
 				}));
+				instructionList.addListener(SWT.MouseDown, event -> {
+					if (isUpdating)
+						return;
+					String[] clickedIndex = instructionList.getSelection();
+					LOG.info(Arrays.toString(clickedIndex));
+					if (clickedIndex.length != 1)
+						return;
+
+					if (!instructionSelection.remove(clickedIndex[0]))
+						instructionSelection.add(clickedIndex[0]);
+
+					String[] cur = instructionList.getItems();
+					cfg.setSystemPrompt(updatePromptLines(cur));
+				});
 			}
 
+			TabItem instrEdit = new TabItem(instr, SWT.NONE);
+			instrEdit.setText("Edit");
 			{ // instruction edit
 				Composite comp = new Composite(instr, SWT.NONE);
 				comp.setLayout(new GridLayout());
@@ -307,6 +314,34 @@ public class AISessionView extends ViewPart {
 				instructionEdit.setLayoutData(gridData);
 				instructionEdit.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionEdit.setFocus()));
 			}
+
+			TabItem toolSel = new TabItem(instr, SWT.NONE);
+			toolSel.setText("Tools");
+			{ // tools select
+				Composite comp = new Composite(instr, SWT.NONE);
+				comp.setLayout(new GridLayout());
+				GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
+				ldat3.heightHint = 100;
+				comp.setLayoutData(ldat3);
+				toolSel.setControl(comp);
+				toolsList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
+
+				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+				gridData.widthHint = 1;
+				gridData.heightHint = 100;
+				toolsList.setLayoutData(gridData);
+				toolsList.addMouseListener(MouseListener.mouseDownAdapter(m -> toolsList.setFocus()));
+				toolsList.addSelectionListener(
+						SelectionListener.widgetSelectedAdapter(e -> cfg.setEnabledTools(toolsList.getSelection())));
+				cfg.addModelObs(m -> {
+					if (m != null)
+						toolsList.setItems(m.cap.getTools());
+				}, true);
+				new MultiSelectListener(toolsList);
+			}
+
+			TabItem presEdit = new TabItem(instr, SWT.NONE);
+			presEdit.setText("Presets");
 			{ // instruction presets
 				Composite comp = new Composite(instr, SWT.NONE);
 				comp.setLayout(new GridLayout());
@@ -332,6 +367,7 @@ public class AISessionView extends ViewPart {
 					}
 				});
 			}
+
 			{ // Free text
 				instructionFree = toolkit.createText(sash, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
 				cfg.addSystemFreeObs(p -> {
@@ -373,17 +409,17 @@ public class AISessionView extends ViewPart {
 					if (e.detail == SWT.CHECK) {
 						TableItem item = (TableItem) e.item;
 						InputMode mode = InputMode.valueOf(item.getText(1).replace(" ", "_"));
-						cfg.setInputMode(mode, item.getChecked());
+						cfg.setInputMode(mode, !cfg.isInputEnabled(mode));
 					}
 				});
 
 				for (int i = 0; i < InputMode.values().length; i++) {
 					TableItem item = new TableItem(table, SWT.NONE);
 					InputMode mode = InputMode.values()[i];
-					item.setText(new String[] { "", mode.name().replace("_", " "), "0" });
-					item.setChecked(cfg.isInputEnabled(mode));
 					session.addInputStatObs(is -> {
+						var checked = item.getChecked();
 						item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
+						item.setChecked(checked);
 					}, true);
 					cfg.addInputObs(is -> {
 						item.setChecked(is[mode.ordinal()]);
@@ -480,6 +516,21 @@ public class AISessionView extends ViewPart {
 		form.reflow(true);
 	}
 
+	private String[] updatePromptLines(String[] cur) {
+		String[] upd = new String[cur.length];
+		for (int i = 0; i < cur.length; i++) {
+			String line = cur[i];
+			boolean isSelected = instructionSelection.contains(line);
+			if (!isSelected && !line.startsWith("#")) {
+				line = "#" + line;
+			} else if (isSelected && line.startsWith("#")) {
+				line = line.substring(1);
+			}
+			upd[i] = line;
+		}
+		return upd;
+	}
+
 	private boolean isTemperatureEnabled(Model m, Reasoning reasoning) {
 		if (m.cap.getKeyPattern().equals(KeyPattern.Claude))
 			return m.cap.isSupportTemperature() && Reasoning.Disabled.equals(reasoning);
@@ -524,5 +575,23 @@ public class AISessionView extends ViewPart {
 	@Override
 	public void setFocus() {
 		// form.setFocus();
+	}
+
+	private static class MultiSelectListener {
+		private ArrayList<Integer> selectedIndices = new ArrayList<>();
+
+		MultiSelectListener(List component) {
+			component.addListener(SWT.MouseDown, event -> {
+				int clickedIndex = component.getSelectionIndex();
+
+				if (selectedIndices.contains(clickedIndex))
+					selectedIndices.remove(Integer.valueOf(clickedIndex));
+				else
+					selectedIndices.add(clickedIndex);
+
+				int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
+				component.setSelection(selection);
+			});
+		}
 	}
 }

@@ -11,7 +11,7 @@ import xy.ai.workbench.models.IModelResponse;
 
 public interface IAIConnector {
 
-	IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon);
+	IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon);
 
 	IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon);
 

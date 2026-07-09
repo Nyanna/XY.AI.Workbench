@@ -50,7 +50,7 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(String input, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
 		boolean isBackground = false;
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
@@ -73,17 +73,19 @@ public class OpenAIConnector implements IAIConnector {
 		if (cfg.getCapabilities().isSupportTopP())
 			builder.topP(cfg.getTopP());
 
-		if (input != null && !input.isBlank()) {
-			List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
-			ResponseInputText inputText = ResponseInputText.builder() //
-					.text(input) //
-					.build();
-			ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
-					.role(ResponseInputItem.Message.Role.USER)//
-					.addContent(inputText).build());
-			inputs.add(inputItem);
-			builder.inputOfResponse(inputs);
-		}
+		if (inputs != null && !inputs.isEmpty())
+			for (String input : inputs)
+				if (input != null && !input.isBlank()) {
+					List<ResponseInputItem> respInputs = new ArrayList<ResponseInputItem>();
+					ResponseInputText inputText = ResponseInputText.builder() //
+							.text(input) //
+							.build();
+					ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
+							.role(ResponseInputItem.Message.Role.USER)//
+							.addContent(inputText).build());
+					respInputs.add(inputItem);
+					builder.inputOfResponse(respInputs);
+				}
 
 		if (tools != null && !tools.isEmpty())
 			appendTools(builder, tools);

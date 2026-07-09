@@ -86,14 +86,15 @@ public enum Model {
 			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
 					Reasoning.xhigh, Reasoning.max })//
 	), //
-	// MCPC Root Agents
+		// MCPC Root Agents
 	CC_MCPC_HAIKU("haiku", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
-			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.tools(Tools.ALL)//
+			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
 			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
 					Reasoning.xhigh, Reasoning.max })//
 	), //
@@ -103,7 +104,8 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
-			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.tools(Tools.ALL)//
+			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
 			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
 					Reasoning.xhigh, Reasoning.max })//
 	), //
@@ -113,11 +115,13 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
-			.agentProfiles(new AgentProfile[] {AgentProfile.MCPC})//
+			.tools(Tools.ALL)//
+			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
 			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
 					Reasoning.xhigh, Reasoning.max })//
 	) //
 	;
+
 
 	public final String apiName;
 	public final Capabilities cap;
@@ -155,9 +159,15 @@ public enum Model {
 		private int outTknMax = 128000; // max for gpt5
 		private KeyPattern keyPattern;
 		private AgentProfile[] agentProfiles = new AgentProfile[0];
+		private String[] tools = new String[0];
 
 		public Capabilities supportTemperature(boolean flag) {
 			supportTemperature = flag;
+			return this;
+		}
+
+		public Capabilities tools(String[] tools) {
+			this.tools = tools;
 			return this;
 		}
 
@@ -239,6 +249,10 @@ public enum Model {
 
 		public AgentProfile[] getAgentProfiles() {
 			return agentProfiles;
+		}
+		
+		public String[] getTools() {
+			return tools;
 		}
 
 		public int alignOutpuTokens(int tokens) {

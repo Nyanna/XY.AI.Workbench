@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import xy.ai.workbench.AgentProfile;
@@ -19,6 +20,7 @@ public class SessionParameters {
 	/** Deterministic hash of the session parameters. Immutable. */
 	public final Path cwd;
 	public final String systemPrompt;
+	public final List<String> tools;
 	public final Model model;
 	public final Reasoning reasoning;
 	public final AgentProfile agentProfile;
@@ -26,10 +28,11 @@ public class SessionParameters {
 	private String hash;
 	private String title;
 
-	public SessionParameters(Path cwd, String systemPrompt, Model model, Reasoning reasoning, AgentProfile agentProfile,
+	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning, AgentProfile agentProfile,
 			String cliProfile) {
 		this.cwd = cwd;
 		this.systemPrompt = systemPrompt != null ? systemPrompt : "";
+		this.tools = tools != null ? tools : Collections.emptyList();
 		this.model = model;
 		this.reasoning = reasoning;
 		this.agentProfile = agentProfile;
@@ -45,7 +48,7 @@ public class SessionParameters {
 			cmd.add("--system-prompt");
 			cmd.add(systemPrompt);
 			cmd.add("--tools");
-			cmd.add("\"\"");
+			cmd.add("\"\""); //restrict builtin tools
 			cmd.add("--settings");
 			cmd.add("""
 {
@@ -133,6 +136,8 @@ public class SessionParameters {
 	public void buildEvironment(ProcessBuilder pb) {
 		pb.directory(cwd.toFile());
 		if (AgentProfile.MCPC.equals(agentProfile)) {
+			if (!tools.isEmpty())
+				pb.environment().put("MCPC_TOOLS", String.join(",", tools));
 			pb.environment().put("CLAUDE_CONFIG_DIR", System.getProperty("user.home") + "/.claude-" + cliProfile);
 			pb.environment().put("CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_AGENT_VIEW", "1");
@@ -174,8 +179,8 @@ public class SessionParameters {
 	}
 
 	private String computeHash() {
-		String input = systemPrompt.toString() + "|" + cwd.toString() + "|" + model.apiName + "|" + reasoning.name()
-				+ "|" + agentProfile.name + "|" + cliProfile;
+		String input = systemPrompt.toString() + "|" + String.join(",", tools) + "|" + cwd.toString() + "|"
+				+ model.apiName + "|" + reasoning.name() + "|" + agentProfile.name + "|" + cliProfile;
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
