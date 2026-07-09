@@ -101,6 +101,15 @@ class ServerConfig:
     #: Authorization Header
     github_api_pat: str | None = None
 
+    #: Base URL of the OpenAlex REST API.  Overridable for testing / mirrors.
+    openalex_base_url: str = "https://api.openalex.org"
+    #: OpenAlex API key, appended to the request URL as ``api_key=...``.
+    #: Read from ``MCPC_OPENALEX_KEY``.
+    openalex_api_key: str | None = None
+    #: Optional contact e-mail added as ``mailto=...`` to enter OpenAlex's
+    #: faster "polite pool".  Read from ``MCPC_OPENALEX_MAILTO``.
+    openalex_mailto: str | None = "openalex@xyan.icu"
+
     #: Time-to-live, in seconds, after which an idle agent / CLI session becomes
     #: invalid.  Measured from the timestamp of the last message sent to the CLI.
     agent_session_ttl_seconds: float = 3600.0
@@ -177,6 +186,14 @@ class ServerConfig:
         if "MCPC_GITHUB_PAT" in env:
             logger.debug("Added GitHub key from env")
             kwargs["github_api_pat"] = env["MCPC_GITHUB_PAT"]
+
+        if "MCPC_OPENALEX_BASE_URL" in env:
+            kwargs["openalex_base_url"] = env["MCPC_OPENALEX_BASE_URL"]
+        if "MCPC_OPENALEX_KEY" in env:
+            logger.debug("Added OpenAlex key from env")
+            kwargs["openalex_api_key"] = env["MCPC_OPENALEX_KEY"]
+        if "MCPC_OPENALEX_MAILTO" in env:
+            kwargs["openalex_mailto"] = env["MCPC_OPENALEX_MAILTO"]
             
         if "MCPC_WS_ENABLED" in env:
             kwargs["ws_enabled"] = env["MCPC_WS_ENABLED"].strip().lower() not in ("0", "false", "no", "off")

@@ -6,6 +6,7 @@ public class Tools {
 					+ "agt-python,agt-markdown,agt-web-research,agt-github-research," //
 					+ "web-search-exa,web-fetch-exa," //
 					+ "context7-libraries,context7-documentation,"
+					+ "openalex-search,openalex-semantic-search,openalex-work,"
 					+ "github-get-file,github-get-tree,github-search-code,github-search-commits,"
 					+ "github-search-repos,github-issue-read,github-list-issues,github-search-issues";
 	public static String[] ALL = toolList.split(",");

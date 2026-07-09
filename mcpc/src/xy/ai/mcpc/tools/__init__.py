@@ -15,6 +15,7 @@ Available tools
 
 Skills (on-demand hint tools) are registered from the ``skills`` sub-package.
 Bridges to external MCP servers (e.g. Exa) live in the ``mcp`` sub-package.
+OpenAlex scholarly-search tools live in the ``openalex`` sub-package.
 
 Call :func:`register_tools` to register all tools onto a
 :class:`~xy.ai.mcpc.registry.ToolRegistry` instance.
@@ -30,6 +31,7 @@ from .change import register_change_tool
 from .insert import register_insert_tool
 from .markdown import register_markdown_tool
 from .mcp import register_context7_tools, register_exa_tools, register_github_tools
+from .openalex import register_openalex_tools
 from .python import register_python_tool
 from .read import register_read_tool
 from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
@@ -61,6 +63,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_exa_tools(registry)
     register_github_tools(registry)
     register_context7_tools(registry)
+    register_openalex_tools(registry)
 
 
 # Keep the old name available so existing call sites don't break.

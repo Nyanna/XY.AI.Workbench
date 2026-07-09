@@ -87,7 +87,7 @@
       "/tmp/claude-1000"
     ]
   },
-  "model": "sonnet",
+  "model": "opus",
   "disableClaudeAiConnectors": true,
   "disableBundledSkills": true,
   "disableAgentView": true,
