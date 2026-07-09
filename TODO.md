@@ -4,16 +4,14 @@
 
 * tool konfiguration und "--tools" argument implementieren
 	* selectionlist zur auswahl, integrieren in presets, model flag für supports tools
-* subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
-	* load, save, select
-	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
-
-* Warum zwei logverzeichnisse in mcpc?
 
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
-	
+
+* subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
+	* load, save, select
+	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
 	* Zeichen | mit offset an maxlength pro spalte ändern

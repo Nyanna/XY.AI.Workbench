@@ -23,7 +23,7 @@ class CliSessionManager:
     def __init__(
         self,
         *,
-        log_dir: Path | str = "logs/cli",
+        log_dir: Path | str = "logs",
         ttl_seconds: float = 3600.0,
         response_timeout: float = 300.0,
         launcher: Launcher = default_launcher,
