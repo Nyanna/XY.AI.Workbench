@@ -35,39 +35,4 @@ public class ClaudeCodeRequestBuilder {
 		}
 	}
 
-	/**
-	 * Builds a JSON structure to approve a tool use request.
-	 *
-	 * @param toolUseId the tool use ID to approve
-	 * @return JSON string representation
-	 * @throws IllegalStateException if JSON serialization fails
-	 */
-	public String buildApproveJson(String toolUseId) {
-		try {
-			ObjectNode node = mapper.createObjectNode();
-			node.put("type", "approve");
-			node.put("tool_use_id", toolUseId);
-			return mapper.writeValueAsString(node);
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to build approve JSON", e);
-		}
-	}
-
-	/**
-	 * Builds a JSON structure to deny a tool use request.
-	 *
-	 * @param toolUseId the tool use ID to deny
-	 * @return JSON string representation
-	 * @throws IllegalStateException if JSON serialization fails
-	 */
-	public String buildDenyJson(String toolUseId) {
-		try {
-			ObjectNode node = mapper.createObjectNode();
-			node.put("type", "deny");
-			node.put("tool_use_id", toolUseId);
-			return mapper.writeValueAsString(node);
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to build deny JSON", e);
-		}
-	}
 }

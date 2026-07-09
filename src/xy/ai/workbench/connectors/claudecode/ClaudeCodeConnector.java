@@ -34,6 +34,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final ClaudeCodeRequestBuilder requestBuilder = new ClaudeCodeRequestBuilder();
 	private final ClaudeCodeJsonParser jsonParser = new ClaudeCodeJsonParser();
+	private final ClaudeCodeControlClient controlClient = new ClaudeCodeControlClient();
 	private final ClaudeCodeSessionManager sessionManager;
 
 	private ConfigManager cfg;
@@ -144,7 +145,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 		long totalReasoningTokens = 0;
 
 		String line;
-		while ((line = session.readLine()) != null) {
+		while (true) {
+			ClaudeCodeResponse pendingResponse = checkControlEndpoint(req);
+			if (pendingResponse != null)
+				return pendingResponse;
+
+			if ((line = session.readLine()) == null)
+				break;
+
 			try {
 				JsonNode node = mapper.readTree(line);
 				String type = node.path("type").asText();
@@ -190,6 +198,21 @@ public class ClaudeCodeConnector implements IAIConnector {
 		throw new IllegalStateException("Claude Code process ended without a result event");
 	}
 
+	private ClaudeCodeResponse checkControlEndpoint(ClaudeCodeRequest req) {
+		JsonNode pending = controlClient.poll();
+		if (pending == null || pending.isEmpty())
+			return null;
+
+		JsonNode first = pending.get(0);
+		String text;
+		try {
+			text = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(first);
+		} catch (Exception e) {
+			text = first.toString();
+		}
+		return new ClaudeCodeResponse(req.id, jsonParser.commented(text), false);
+	}
+
 	private void updateLastParsedMessage(ClaudeCodeSession session, LinkedHashMap<String, String> assistantEvents) {
 		if (!assistantEvents.isEmpty()) {
 			String last = null;
@@ -202,24 +225,31 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private String preprocessInput(String input, boolean[] exitFlag, String[] resumeUuidHolder) {
 		if (input == null)
 			return null;
-		for (String line : input.split("\n", -1)) {
-			String trimmed = line.strip();
-			if (trimmed.matches("/(?i)allow\\s+\\S+")) {
-				String toolUseId = trimmed.split("\\s+", 2)[1];
-				return requestBuilder.buildApproveJson(toolUseId);
-			} else if (trimmed.matches("/(?i)deny\\s+\\S+")) {
-				String toolUseId = trimmed.split("\\s+", 2)[1];
-				return requestBuilder.buildDenyJson(toolUseId);
-			} else if ("/exit".equalsIgnoreCase(trimmed)) {
-				exitFlag[0] = true;
-				return trimmed;
-			} else if (trimmed.matches("/(?i)resume\\s+\\S+")) {
-				resumeUuidHolder[0] = trimmed.split("\\s+", 2)[1];
-				return trimmed;
-			}
+		String stripped = input.strip();
+
+		if ("/exit".equalsIgnoreCase(stripped)) {
+			exitFlag[0] = true;
+			return stripped;
 		}
-		String result = input.strip();
-		return result.isEmpty() ? null : result;
+		if (stripped.matches("(?i)/resume\\s+\\S+")) {
+			resumeUuidHolder[0] = stripped.split("\\s+", 2)[1];
+			return stripped;
+		}
+		if (stripped.matches("(?i)/allow\\s+\\S+")) {
+			String id = stripped.split("\\s+", 2)[1].strip();
+			controlClient.approve(id);
+			return null;
+		}
+		if (stripped.matches("(?i)/deny\\s+\\S+(\\s+.*)?")) {
+			String rest = stripped.split("\\s+", 2)[1];
+			String[] parts = rest.split("\\s+", 2);
+			controlClient.deny(parts[0].strip(), parts.length > 1 ? parts[1] : "");
+			return null;
+		}
+		if (controlClient.submitEdit(stripped))
+			return null;
+
+		return stripped.isEmpty() ? null : stripped;
 	}
 
 	@Override

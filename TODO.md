@@ -2,12 +2,15 @@
 
 ## Workbench
 
-* in workbench control tool alter deny wird umgebraut, selber befehl andere ziel und quelle /allow 2342423 und /deny 234234 reason
-		* control abfrage returned immer zuerst und braucht neuen prompt
-		*  tool use ist #: mit vorgewählten /allow 234234 
-* tool konfiguration und "X-MCPC-TOOLS" implementieren
-* in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
+* tool konfiguration und "--tools" argument implementieren
+	* selectionlist zur auswahl, integrieren in presets, model flag für supports tools
+* subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
+	* load, save, select
+	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
 
+* Warum zwei logverzeichnisse in mcpc?
+
+* in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 	
