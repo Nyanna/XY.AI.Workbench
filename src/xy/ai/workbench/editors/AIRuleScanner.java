@@ -20,7 +20,6 @@ import xy.ai.workbench.connectors.claudecode.ClaudeCodeJsonParser;
 import xy.ai.workbench.editors.md.BlockRule;
 import xy.ai.workbench.editors.md.EmphasisRule;
 import xy.ai.workbench.editors.md.PrefixLineRule;
-import xy.ai.workbench.editors.md.RestRule;
 import xy.ai.workbench.editors.md.HeaderRule;
 import xy.ai.workbench.editors.md.LineMatchRule;
 import xy.ai.workbench.editors.md.LinkRule;

@@ -54,6 +54,25 @@ public class ClaudeCodeSessionManager {
 		return session;
 	}
 
+	/**
+	 * Looks up an existing, non-expired session without ever creating one. Used by
+	 * control commands ({@code /exit}, {@code /allow}, {@code /deny}) which must
+	 * operate on an already-running session and must never spawn a new CLI process.
+	 *
+	 * @return the matching session, or {@code null} if none exists (or it expired)
+	 */
+	public synchronized ClaudeCodeSession findSession(String selectedUuid, SessionParameters params) {
+		cleanupInvalidTerminated();
+
+		if (CREATE_NEW_MARKER.equals(selectedUuid))
+			return null;
+
+		ClaudeCodeSession session = selectedUuid != null ? findByUuid(selectedUuid) : findByHash(params.getHash());
+		if (session == null || session.isExpired())
+			return null;
+		return session;
+	}
+
 	public synchronized ClaudeCodeSession importSession(String uuid, SessionParameters params) {
 		cleanupInvalidTerminated();
 

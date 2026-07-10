@@ -18,8 +18,8 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
@@ -31,7 +31,6 @@ import xy.ai.workbench.models.IModelResponse;
 
 public class ClaudeCodeConnector implements IAIConnector {
 
-	private final ObjectMapper mapper = new ObjectMapper();
 	private final ClaudeCodeRequestBuilder requestBuilder = new ClaudeCodeRequestBuilder();
 	private final ClaudeCodeJsonParser jsonParser = new ClaudeCodeJsonParser();
 	private final ClaudeCodeControlClient controlClient = new ClaudeCodeControlClient();
@@ -67,7 +66,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 			if (title == null && processedInput != null) {
 				String candidate = processedInput.strip();
 				if (candidate.length() > 0)
-					title = candidate.substring(0, Math.min(100, candidate.length() - 1)).replace('\n', ' ');
+					// Cap at 100 chars — use length() (not length()-1) so the last
+					// character of a short title is not dropped.
+					title = candidate.substring(0, Math.min(100, candidate.length())).replace('\n', ' ');
 			}
 
 			if (processedInput != null && !processedInput.isBlank()) {
@@ -97,6 +98,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 					cfg.getProfile(), cfg.getKeys());
 			params.setTitle(req.title);
 
+			// /resume is the only command allowed to create/import a session.
 			if (req.resumeUuid != null) {
 				sub.subTask("Importing session");
 				sessionManager.importSession(req.resumeUuid, params);
@@ -104,25 +106,38 @@ public class ClaudeCodeConnector implements IAIConnector {
 				return new ClaudeCodeResponse(req.id, "Session created", false);
 			}
 
+			// No prompt text => a pure control command (/exit, /allow, /deny).
+			// These must never spawn a new CLI process; they act on an existing
+			// session (or, for /allow and /deny, purely on the control endpoint).
+			if (req.promptJson == null) {
+				ClaudeCodeSession existing = sessionManager.findSession(sessionManager.getSelectedSessionUuid(), params);
+
+				if (req.exitAfterResult) {
+					if (existing == null)
+						throw new IllegalStateException(
+								"Cannot process /exit: no active Claude Code session exists");
+					session = existing;
+					session.setInPrompt(true);
+					sub.subTask("Terminating CLI process");
+					session.terminate();
+					ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
+					resp.isExited = true;
+					waitFor();
+					return resp;
+				}
+
+				// /allow and /deny were already dispatched to the control endpoint
+				// during createRequest and require no active session.
+				return new ClaudeCodeResponse(req.id, "Control command acknowledged", false);
+			}
+
 			sub.subTask("Acquiring session");
 			session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
 			session.setInPrompt(true);
 			sub.worked(1);
 
-			// /exit with no prompt: terminate and return
-			if (req.exitAfterResult && req.promptJson == null) {
-				sub.subTask("Terminating CLI process");
-				session.terminate();
-				ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
-				resp.isExited = true;
-				waitFor();
-				return resp;
-			}
-
-			if (req.promptJson != null) {
-				sub.subTask("Sending prompt");
-				session.writeLine(req.promptJson);
-			}
+			sub.subTask("Sending prompt");
+			session.writeLine(req.promptJson);
 
 			sub.subTask("Waiting for answer");
 			return readUntilResult(req, session, sub.split(1));
@@ -159,10 +174,23 @@ public class ClaudeCodeConnector implements IAIConnector {
 			if ((line = session.readLine()) == null)
 				break;
 
+			// Step 1: parse. A malformed line is a genuine problem (e.g. a large web
+			// research result truncated by the transport) and must be logged, never
+			// silently swallowed — swallowing it is why long results never appeared.
+			JsonNode node;
 			try {
-				JsonNode node = mapper.readTree(line);
-				String type = node.path("type").asText();
+				node = JsonUtil.readTree(line);
+			} catch (JsonProcessingException parseError) {
+				LOG.error("ClaudeCodeConnector: could not parse CLI line as JSON (length="
+						+ line.length() + "): " + JsonUtil.abbreviate(line), parseError);
+				continue;
+			}
 
+			// Step 2: dispatch. A failure here is a bug in our handling of a valid
+			// event; log it with context (type + length) and keep reading so a single
+			// bad event cannot strand the whole response.
+			String type = JsonUtil.plainText(node.path("type"));
+			try {
 				if ("result".equals(type)) {
 					sub.subTask("Received final result");
 					return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
@@ -173,14 +201,14 @@ public class ClaudeCodeConnector implements IAIConnector {
 				}
 
 				if ("system".equals(type)) {
-					String subtype = node.path("subtype").asText();
+					String subtype = JsonUtil.plainText(node.path("subtype"));
 					if ("init".equals(subtype)) {
 						sub.subTask("Received system init metadata");
 						jsonParser.parseSystemInitEvent(node, assistantEvents);
 						updateLastParsedMessage(session, assistantEvents);
 					}
 				} else if ("stream_event".equals(type)) {
-					String eventType = node.path("event").path("type").asText();
+					String eventType = JsonUtil.plainText(node.path("event").path("type"));
 					if ("message_delta".equals(eventType)) {
 						totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
 						updateLastParsedMessage(session, assistantEvents);
@@ -191,15 +219,15 @@ public class ClaudeCodeConnector implements IAIConnector {
 					jsonParser.collectAssistantEvents(node, assistantEvents, sub.split(1));
 					updateLastParsedMessage(session, assistantEvents);
 				}
-
-			} catch (Exception ignored) {
-				// Non-JSON or unrecognised line — continue reading
+			} catch (Exception processingError) {
+				LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length="
+						+ line.length() + "): " + JsonUtil.abbreviate(line), processingError);
 			}
 		}
 
-		while ((line = session.readLine()) != null) {
-			LOG.error(line);
-		}
+		// STDOUT closed without a result — surface anything the CLI left on STDERR.
+		while ((line = session.readError()) != null)
+			LOG.error("ClaudeCodeConnector: CLI stderr: " + line);
 
 		throw new IllegalStateException("Claude Code process ended without a result event");
 	}
@@ -220,11 +248,13 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		if ("/exit".equalsIgnoreCase(stripped)) {
 			exitFlag[0] = true;
-			return stripped;
+			// Control command — must not become prompt text nor create a session.
+			return null;
 		}
 		if (stripped.matches("(?i)/resume\\s+\\S+")) {
 			resumeUuidHolder[0] = stripped.split("\\s+", 2)[1];
-			return stripped;
+			// Handled via the resume path in executeRequest; not prompt text.
+			return null;
 		}
 		if (stripped.matches("(?i)/allow\\s+\\S+")) {
 			String id = stripped.split("\\s+", 2)[1].strip();

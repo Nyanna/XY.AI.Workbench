@@ -10,7 +10,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.LOG;
 
@@ -24,7 +23,6 @@ public class ClaudeCodeJsonParser {
 	public static final String TOOLUSE = "Tool:";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
-    private final ObjectMapper mapper = new ObjectMapper();
     private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
 	private boolean recordText = false;
 
@@ -41,7 +39,9 @@ public class ClaudeCodeJsonParser {
 	public ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents,
 			long totalReasoningTokens) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
-		String resultText = resultPostProcessor.process(node.path("result").asText(""));
+		// plainText yields the logical result value without JSON quoting/escaping
+		// (and handles a structured result node), instead of a bare asText().
+		String resultText = resultPostProcessor.process(JsonUtil.plainText(node.path("result")));
 
 		// Prepend collected thinking/text events as markdown lines
 		if (!assistantEvents.isEmpty()) {
@@ -89,15 +89,13 @@ public class ClaudeCodeJsonParser {
 
 		String inputStr;
 		if (input.isObject() && input.size() == 1) {
+			// Show the single argument's logical value (no JSON quoting/escaping).
 			@SuppressWarnings("deprecation")
-			String val = input.fields().next().getValue().asText();
+			String val = JsonUtil.plainText(input.fields().next().getValue());
 			inputStr = "`" + val + "`";
 		} else {
-			try {
-				inputStr = mapper.writeValueAsString(input);
-			} catch (Exception e) {
-				inputStr = input.toString();
-			}
+			// Multiple/structured arguments: keep them as valid, once-escaped JSON.
+			inputStr = JsonUtil.compact(input);
 		}
 
 		String markdown = "Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId;
@@ -143,7 +141,9 @@ public class ClaudeCodeJsonParser {
 					var inputNames = inputs.fieldNames();
 					while (inputNames.hasNext()) {
 						String inputName = inputNames.next();
-						String value = inputs.path(inputName).toString();
+						// plainText avoids the double-escaping seen with toString():
+						// a value like [\s\S] must stay [\s\S], not become [\\s\\S].
+						String value = JsonUtil.plainText(inputs.path(inputName));
 						if (value.length() > TOOL_INPUT_MAX_LENGTH)
 							value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
 						text += inputName + ": " + value.replace('\n', ' ') + "\n";

@@ -1,6 +1,5 @@
 package xy.ai.workbench.connectors.claudecode;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -10,10 +9,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class ClaudeCodeRequestBuilder {
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
 	/**
-	 * Builds a prompt JSON structure for a user message.
+	 * Builds a prompt JSON structure for a user message. The prompt text is added
+	 * via the shared mapper (see {@link JsonUtil}), which escapes it correctly and
+	 * exactly once — no manual quoting.
 	 *
 	 * @param text the prompt text
 	 * @return JSON string representation
@@ -21,7 +20,7 @@ public class ClaudeCodeRequestBuilder {
 	 */
 	public String buildPromptJson(String text) {
 		try {
-			ObjectNode root = mapper.createObjectNode();
+			ObjectNode root = JsonUtil.mapper().createObjectNode();
 			root.put("type", "user");
 			ObjectNode message = root.putObject("message");
 			message.put("role", "user");
@@ -29,7 +28,7 @@ public class ClaudeCodeRequestBuilder {
 			ObjectNode textNode = content.addObject();
 			textNode.put("type", "text");
 			textNode.put("text", text);
-			return mapper.writeValueAsString(root);
+			return JsonUtil.mapper().writeValueAsString(root);
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to build prompt JSON", e);
 		}

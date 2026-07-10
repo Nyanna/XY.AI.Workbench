@@ -31,7 +31,7 @@ public class ClaudeCodeControlClient {
 	private static final String CONTROL_URL = "http://localhost:9093/control/tool";
 	private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
-	private final ObjectMapper mapper = new ObjectMapper();
+	private final ObjectMapper mapper = JsonUtil.mapper();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
 	public ClaudeCodeResponse checkControlEndpoint(ClaudeCodeRequest req) {
@@ -40,12 +40,9 @@ public class ClaudeCodeControlClient {
 			return null;
 
 		JsonNode first = pending.get(0);
-		String text;
-		try {
-			text = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(first);
-		} catch (Exception e) {
-			text = first.toString();
-		}
+		// Render the pending item as valid, once-escaped JSON via the shared utility
+		// (same pretty-print + safe fallback, no hand-rolled toString()).
+		String text = JsonUtil.pretty(first);
 		String prepared = "#: Control Request:\n" + ClaudeCodeJsonParser.commented(text) + "\n/allow "
 				+ first.path("id").asText();
 		return new ClaudeCodeResponse(req.id, prepared, false);
@@ -91,7 +88,7 @@ public class ClaudeCodeControlClient {
 
 		JsonNode edited;
 		try {
-			edited = mapper.readTree(rawJson);
+			edited = JsonUtil.readTree(rawJson);
 		} catch (Exception e) {
 			return false;
 		}
@@ -140,7 +137,7 @@ public class ClaudeCodeControlClient {
 
 	private ArrayNode post(ObjectNode body) {
 		try {
-			String json = mapper.writeValueAsString(body);
+			String json = JsonUtil.write(body);
 			HttpRequest request = HttpRequest.newBuilder()
 					.uri(URI.create(CONTROL_URL))
 					.timeout(TIMEOUT)
@@ -152,7 +149,12 @@ public class ClaudeCodeControlClient {
 				LOG.error("ClaudeCodeControlClient: control endpoint returned status " + response.statusCode());
 				return mapper.createArrayNode();
 			}
-			JsonNode root = mapper.readTree(response.body());
+			String responseBody = response.body();
+			if (responseBody == null || responseBody.isBlank()) {
+				LOG.error("ClaudeCodeControlClient: control endpoint returned an empty body");
+				return mapper.createArrayNode();
+			}
+			JsonNode root = JsonUtil.readTree(responseBody);
 			JsonNode pending = root.path("pending");
 			return pending.isArray() ? (ArrayNode) pending : mapper.createArrayNode();
 		} catch (IOException | InterruptedException e) {

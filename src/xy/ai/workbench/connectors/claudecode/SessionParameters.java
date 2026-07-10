@@ -30,6 +30,15 @@ public class SessionParameters {
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning, AgentProfile agentProfile,
 			String cliProfile) {
+		if (cwd == null)
+			throw new IllegalStateException("Work directory (cwd) not set");
+		if (model == null)
+			throw new IllegalArgumentException("Model must not be null");
+		if (model.apiName == null || model.apiName.isBlank())
+			throw new IllegalArgumentException("Model apiName must not be null or blank");
+		if (reasoning == null)
+			throw new IllegalArgumentException("Reasoning must not be null");
+
 		this.cwd = cwd;
 		this.systemPrompt = systemPrompt != null ? systemPrompt : "";
 		this.tools = tools != null ? tools : Collections.emptyList();
@@ -37,8 +46,6 @@ public class SessionParameters {
 		this.reasoning = reasoning;
 		this.agentProfile = agentProfile;
 		this.cliProfile = cliProfile;
-		if (cwd == null)
-			throw new IllegalStateException("Work directory not set");
 	}
 
 	public List<String> buildBaseCommand() {
@@ -180,7 +187,8 @@ public class SessionParameters {
 
 	private String computeHash() {
 		String input = systemPrompt.toString() + "|" + String.join(",", tools) + "|" + cwd.toString() + "|"
-				+ model.apiName + "|" + reasoning.name() + "|" + agentProfile.name + "|" + cliProfile;
+				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "")
+				+ "|" + cliProfile;
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

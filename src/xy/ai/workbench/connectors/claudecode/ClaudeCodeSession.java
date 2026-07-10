@@ -2,14 +2,15 @@ package xy.ai.workbench.connectors.claudecode;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import xy.ai.workbench.LOG;
@@ -21,14 +22,14 @@ public class ClaudeCodeSession {
 	 * The Claude session UUID. {@code null} until the process is started for the
 	 * first time (or until a UUID is pre-assigned via {@link #assignUuid}).
 	 */
-	private String uuid;
-	private SessionParameters parameters;
+	private final String uuid;
+	private final SessionParameters parameters;
 
 	private Process process;
 	private PrintWriter stdin;
 	private BufferedReader stdout;
 	private BufferedReader stderr;
-	private FileWriter mirror;
+	private Writer mirror;
 
 	@SuppressWarnings("unused")
 	private final Instant createdAt = Instant.now();
@@ -41,15 +42,25 @@ public class ClaudeCodeSession {
 
 	private volatile boolean inPrompt;
 	private volatile String lastParsedMessage;
+	private boolean resume;
 
 	private final ClaudeCodeSessionManager manager;
 
 	public ClaudeCodeSession(ClaudeCodeSessionManager manager, SessionParameters parameters) {
-		this(null, manager, parameters);
+		this(UUID.randomUUID().toString(), false, manager, parameters);
 	}
 
 	public ClaudeCodeSession(String sessionUuid, ClaudeCodeSessionManager manager, SessionParameters parameters) {
+		this(sessionUuid, true, manager, parameters);
+	}
+
+	private ClaudeCodeSession(String sessionUuid, boolean resume, ClaudeCodeSessionManager manager,
+			SessionParameters parameters) {
+		if (sessionUuid == null || sessionUuid.isBlank())
+			throw new IllegalArgumentException("Session UUID must not be null or blank");
+		Objects.requireNonNull(parameters, "session parameters must not be null");
 		this.uuid = sessionUuid;
+		this.resume = resume;
 		this.manager = manager;
 		this.parameters = parameters;
 	}
@@ -79,11 +90,10 @@ public class ClaudeCodeSession {
 		}
 
 		List<String> cmd = parameters.buildBaseCommand();
-		if (uuid == null) {
-			uuid = UUID.randomUUID().toString();
-			cmd.add("--session-id");
-		} else
+		if (resume)
 			cmd.add("--resume");
+		else
+			cmd.add("--session-id");
 		cmd.add(uuid);
 
 		ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -92,10 +102,12 @@ public class ClaudeCodeSession {
 		pb.redirectErrorStream(false);
 
 		process = pb.start();
-		stdin = new PrintWriter(process.getOutputStream());
-		stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
-		stderr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+		stdin = JsonUtil.newWriter(process.getOutputStream());
+		stdout = JsonUtil.newReader(process.getInputStream());
+		stderr = JsonUtil.newReader(process.getErrorStream());
 		startedAt = Instant.now();
+		// after first start use resume
+		resume = true;
 
 		LOG.info("ClaudeCodeSession: CLI started, uuid=" + uuid + ", workDir=" + parameters.cwd);
 		notifyChanged();
@@ -133,7 +145,10 @@ public class ClaudeCodeSession {
 			throw new IllegalStateException("Session has expired and can no longer be used");
 		}
 
+		Objects.requireNonNull(jsonLine, "line to write must not be null");
 		start(); // idempotent
+		if (stdin == null)
+			throw new IllegalStateException("STDIN unavailable after start(); process=" + process + ", uuid=" + uuid);
 
 		stdin.println(jsonLine);
 		stdin.flush();
@@ -142,27 +157,23 @@ public class ClaudeCodeSession {
 	}
 
 	public String readLine() {
-		return readLine(stdout);
+		return readLine(stdout, "STDOUT");
 	}
 
 	public String readError() {
-		return readLine(stderr);
+		return readLine(stderr, "STDERR");
 	}
 
-	private String readLine(BufferedReader reader) {
-		if (mirror == null) {
-			File filePath = null;
-			try {
-				var di = parameters.cwd.resolve(".claude/logs/");
-				Files.createDirectories(di);
-				filePath = di.resolve(uuid + ".json").toFile();
-				mirror = new FileWriter(filePath, true);
-				LOG.info("Created mirror file: " + filePath);
-			} catch (IOException e) {
-				LOG.error("ClaudeCodeConnector: cannot open mirror file: " + filePath, e);
-				throw new IllegalStateException(e);
-			}
-		}
+	private String readLine(BufferedReader reader, String channel) {
+		// Fail fast instead of throwing a cryptic NullPointerException deep inside
+		// readLine (the reported "reader is null" defect): reading before the CLI
+		// process was started is always a programming error in the calling loop.
+		if (reader == null)
+			throw new IllegalStateException("Cannot read " + channel + ": the CLI process is not started"
+					+ " (uuid=" + uuid + ", processAlive=" + isProcessAlive() + ")."
+					+ " A prompt must be sent (writeLine) before reading.");
+
+		openMirrorIfNeeded();
 
 		try {
 			var line = reader.readLine();
@@ -175,17 +186,31 @@ public class ClaudeCodeSession {
 
 			return line;
 		} catch (IOException e) {
-			throw new IllegalStateException(e);
+			throw new IllegalStateException("Failed to read " + channel + " for session " + uuid, e);
+		}
+	}
+
+	private void openMirrorIfNeeded() {
+		if (mirror != null)
+			return;
+		// Guard against ever producing a "null.json" (or similar) mirror file.
+		if (uuid == null || uuid.isBlank())
+			throw new IllegalStateException("Refusing to create a mirror file: session UUID is null/blank");
+		File filePath = null;
+		try {
+			var di = parameters.cwd.resolve(".claude/logs/");
+			Files.createDirectories(di);
+			filePath = di.resolve(uuid + ".json").toFile();
+			mirror = JsonUtil.newWriter(new FileOutputStream(filePath, true), false);
+			LOG.info("Created mirror file: " + filePath);
+		} catch (IOException e) {
+			LOG.error("ClaudeCodeConnector: cannot open mirror file: " + filePath, e);
+			throw new IllegalStateException("Cannot open mirror file: " + filePath, e);
 		}
 	}
 
 	public String getSessionUuid() {
 		return uuid;
-	}
-
-	public void setSessionUuid(String sessionUuid) {
-		this.uuid = sessionUuid;
-		notifyChanged();
 	}
 
 	public Instant getLastSentAt() {

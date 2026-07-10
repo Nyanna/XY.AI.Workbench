@@ -1,13 +1,12 @@
 # TODO
 
 ## Workbench
-
+!große web research werden nicht in eclipse angezeigt
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
-* problem einmal einen tool approval verpasst oder nicht anzeigen können, ich hätte breakpoint setzen können
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
