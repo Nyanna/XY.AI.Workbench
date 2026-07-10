@@ -22,9 +22,9 @@ Shared conventions
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
+from ...codec import JsonCodec
 from ...config import ServerConfig
 from ...openalex import (
     DEFAULT_SEARCH_PRESET,
@@ -80,7 +80,7 @@ def _error_result(exc: Exception) -> ToolResult:
 
 
 def _ok_result(structured: dict[str, Any]) -> ToolResult:
-    text = json.dumps(structured, ensure_ascii=False, indent=2, default=str)
+    text = JsonCodec.encode(structured, indent=2)
     return ToolResult(content=[text_content(text)], structured_content=structured)
 
 

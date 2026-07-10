@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import queue
 import subprocess
@@ -13,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 
+from ..codec import JsonCodec
 from .parameters import CliParameters
 
 if TYPE_CHECKING:
@@ -141,9 +141,8 @@ class CliSession:
                     break
                 self.last_received_at = time.time()
                 self._replicate("out", line.rstrip("\n"))
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
+                obj = JsonCodec.decode_line(line)
+                if obj is None:
                     continue
                 self._out.put(obj)
         finally:
@@ -197,11 +196,9 @@ class CliSession:
             "type": "user",
             "message": {"role": "user", "content": [{"type": "text", "text": text}]},
         }
-        line = json.dumps(message, ensure_ascii=False)
-        self._replicate("in", line)
+        self._replicate("in", JsonCodec.encode(message, compact=True))
         try:
-            self._process.stdin.write(line + "\n")
-            self._process.stdin.flush()
+            JsonCodec.write_line(self._process.stdin, message)
         except (BrokenPipeError, ValueError) as exc:
             raise CliSessionError(f"CLI session {self.id} is not accepting input: {exc}")
         # A sent prompt resets the remaining lifetime to the full TTL.
@@ -251,7 +248,7 @@ class CliSession:
             "direction": direction,
             "line": line,
         }
-        record = json.dumps(entry, ensure_ascii=False, default=str)
+        record = JsonCodec.encode(entry)
         with self._log_lock:
             self._log_path.parent.mkdir(parents=True, exist_ok=True)
             with self._log_path.open("a", encoding="utf-8") as fh:

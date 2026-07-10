@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from . import jsonrpc
+from .codec import JsonCodec
 
 if TYPE_CHECKING:
     from .transport import StreamableHttpHandler
@@ -39,7 +40,7 @@ class HookHandler:
         raw = self._http._read_body()
         if raw is None:
             return
-        logger.debug("PreToolUse hook called: %s", raw.decode("utf-8", "replace"))
+        logger.debug("PreToolUse hook called: %s", JsonCodec.for_log(raw))
         response: dict[str, Any] = {"continue": True, "suppressOutput": False}
         self._http._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
 
@@ -67,7 +68,7 @@ class PermissionHookHandler:
         raw = self._http._read_body()
         if raw is None:
             return
-        logger.debug("PermissionRequest hook called: %s", raw.decode("utf-8", "replace"))
+        logger.debug("PermissionRequest hook called: %s", JsonCodec.for_log(raw))
         response: dict[str, Any] = {
             "continue": True,
             "suppressOutput": False,

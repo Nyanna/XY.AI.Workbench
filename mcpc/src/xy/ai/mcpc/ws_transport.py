@@ -54,6 +54,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 
 from . import errors, jsonrpc
+from .codec import JsonCodec
 from .jsonrpc import JsonRpcRequest, MessageKind
 from .logging_utils import EVENT, IN, OUT
 from .session import Session, is_valid_uuid
@@ -226,7 +227,7 @@ class WebSocketMcpServer:
         try:
             message = jsonrpc.parse_body(text.encode("utf-8"))
         except errors.JsonRpcError as exc:
-            self.comm_log.log(session_id, IN, text, transport="ws", note="unparseable")
+            self.comm_log.log(session_id, IN, JsonCodec.for_log(text), transport="ws", note="unparseable")
             await self._send(connection, session_id, jsonrpc.error_response(None, exc))
             return
 

@@ -23,6 +23,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import errors, jsonrpc
+from .codec import JsonCodec
 from .control.handler import ControlHandler
 from .hooks import HookHandler, PermissionHookHandler
 from .jsonrpc import MessageKind
@@ -163,7 +164,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         try:
             message = jsonrpc.parse_body(raw)
         except errors.JsonRpcError as exc:
-            self.comm_log.log(session_id, IN, raw.decode("utf-8", "replace"), http="POST", note="unparseable")
+            self.comm_log.log(session_id, IN, JsonCodec.for_log(raw), http="POST", note="unparseable")
             self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, None, exc, session_id)
             return
 

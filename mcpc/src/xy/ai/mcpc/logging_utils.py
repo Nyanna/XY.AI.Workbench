@@ -7,11 +7,12 @@ complete, replayable audit trail keyed by the session id.
 
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .codec import JsonCodec
 
 #: Log entry directions.
 IN = "in"        # client -> server
@@ -76,7 +77,7 @@ class CommunicationLog:
         if meta:
             entry.update(meta)
         entry["message"] = payload
-        line = json.dumps(entry, ensure_ascii=False, default=str)
+        line = JsonCodec.encode(entry)
         key = _safe_name(session_id)
         path = self._dir / f"{key}.json.log"
         with self._lock_for(key):

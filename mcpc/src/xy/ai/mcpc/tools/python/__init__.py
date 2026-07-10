@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from typing import Any
 
 from ...registry import ToolContext, ToolRegistry, ToolResult
+from ..process import run_capture
 
 
 def register_python_tool(registry: ToolRegistry) -> None:
@@ -43,27 +43,8 @@ def register_python_tool(registry: ToolRegistry) -> None:
         args: dict[str, Any] = ctx.arguments
         script: str = args["script"]
 
-        try:
-            proc = subprocess.run(
-                [sys.executable, "-"],
-                input=script,
-                capture_output=True,
-                text=True,
-            )
-        except OSError as exc:
-            return ToolResult(
-                structured_content={"error": f"Failed to launch Python: {exc}"},
-                is_error=True,
-            )
-
-        structured: dict[str, Any] = {
-            "exit_code": proc.returncode,
-            "stdout": proc.stdout,
-        }
-        if proc.stderr:
-            structured["stderr"] = proc.stderr
-
-        return ToolResult(
-            structured_content=structured,
-            is_error=proc.returncode != 0,
+        return run_capture(
+            [sys.executable, "-"],
+            stdin=script,
+            launch_error="Failed to launch Python",
         )

@@ -9,10 +9,10 @@ toolset take effect.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from enum import Enum
 
+from ..codec import JsonCodec
 from ..config import ServerConfig
 
 
@@ -111,8 +111,8 @@ class CliParameters:
             self.executable,
             "--system-prompt", self.system_prompt,
             "--tools", "",  # no built-in tools; tools come from MCPC
-            "--settings", json.dumps(settings, ensure_ascii=False),
-            "--mcp-config", json.dumps(mcp_config, ensure_ascii=False),
+            "--settings", JsonCodec.encode(settings),
+            "--mcp-config", JsonCodec.encode(mcp_config),
             "--verbose",
             "--include-hook-events",
             "--include-partial-messages",

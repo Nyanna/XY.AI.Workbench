@@ -1,6 +1,10 @@
+# MCPC Escaping
+
 Ich habe Ausgaben wie die folgenden gesehen.
 Durch eine zentrale Utility-Klasse muss sichergestellt seine dass alle Ausgangs und Eingangströme, sowie JSON Behandlung und Building. Korrekt escapen und wieder zurück umwandeln können.
-Speziell beim Umverpacken von JSON in oder von Containern muss sichergestellt sein, dass das korrekte Escaping angewendet wird. Das betrifft den HTTP-Server, die Transports, den Web-Socket Adapter und die Control-Endpunkte.
+Speziell beim Umverpacken von JSON in oder aus Containern, muss sichergestellt sein, dass das korrekte Escaping angewendet wird. Das betrifft den HTTP-Server, die Transports, den Web-Socket Adapter, die Control-Endpunkte sowie STDIN, STDOUT und STDERR.
+
+* MCPC Python Server: `/home/user/xyan/xy.ai.workbench/mcpc/src`
 
 Log1
 ```log

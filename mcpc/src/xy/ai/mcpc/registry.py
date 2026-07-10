@@ -7,10 +7,10 @@ per-session configuration (:attr:`Session.enabled_tools`).
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
+from .codec import JsonCodec
 from .session import Session
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ def normalize_result(value: "ToolResult | str | dict[str, Any] | None") -> ToolR
                 is_error=bool(value.get("isError", False)),
             )
         # Otherwise treat the dict as structured content.
-        rendered = json.dumps(value, ensure_ascii=False, default=str)
+        rendered = JsonCodec.encode(value)
         return ToolResult(content=[text_content(rendered)], structured_content=value)
     raise TypeError(f"Unsupported tool return type: {type(value)!r}")
 

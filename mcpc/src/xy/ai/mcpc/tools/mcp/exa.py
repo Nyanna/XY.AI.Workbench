@@ -6,9 +6,9 @@ server configuration.  MCPC advertises its own descriptions and input schemas.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
+from ...codec import JsonCodec
 from ...config import ServerConfig
 from ...registry import ToolRegistry
 from .bridge import McpBridge
@@ -87,11 +87,10 @@ def _coerce_urls(arguments: dict[str, Any]) -> dict[str, Any]:
     """Accept a single URL or a JSON-encoded list for ``urls`` leniently."""
     urls = arguments.get("urls")
     if isinstance(urls, str):
-        try:
-            parsed = json.loads(urls)
-            arguments["urls"] = parsed if isinstance(parsed, list) else [urls]
-        except json.JSONDecodeError:
-            arguments["urls"] = [urls]
+        # Accept a JSON-encoded list carried as a string; a plain URL (or any
+        # non-list) is wrapped as a single-element list.
+        parsed = JsonCodec.try_decode(urls)
+        arguments["urls"] = parsed if isinstance(parsed, list) else [urls]
     return arguments
 
 

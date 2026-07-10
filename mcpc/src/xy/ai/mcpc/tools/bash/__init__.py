@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolRegistry, ToolResult
+from ..process import run_capture
 
 
 def register_bash_tool(registry: ToolRegistry) -> None:
@@ -59,27 +59,8 @@ def register_bash_tool(registry: ToolRegistry) -> None:
                 is_error=True,
             )
 
-        try:
-            proc = subprocess.run(
-                ["bash", "-c", script],
-                cwd=str(cwd),
-                capture_output=True,
-                text=True,
-            )
-        except OSError as exc:
-            return ToolResult(
-                structured_content={"error": f"Failed to launch bash: {exc}"},
-                is_error=True,
-            )
-
-        structured: dict[str, Any] = {
-            "exit_code": proc.returncode,
-            "stdout": proc.stdout,
-        }
-        if proc.stderr:
-            structured["stderr"] = proc.stderr
-
-        return ToolResult(
-            structured_content=structured,
-            is_error=proc.returncode != 0,
+        return run_capture(
+            ["bash", "-c", script],
+            cwd=cwd,
+            launch_error="Failed to launch bash",
         )

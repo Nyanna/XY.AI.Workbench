@@ -15,6 +15,8 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from ...codec import JsonCodec
+
 #: Protocol revision advertised on ``initialize`` (server may negotiate down).
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 
@@ -118,7 +120,7 @@ class McpClient:
         return headers
 
     def _send(self, payload: dict[str, Any], *, expect_response: bool) -> dict[str, Any] | None:
-        data = json.dumps(payload).encode("utf-8")
+        data = JsonCodec.encode_bytes(payload)
         request = urllib.request.Request(
             self.endpoint, data=data, method="POST", headers=self._headers()
         )
@@ -151,16 +153,15 @@ class McpClient:
                 if line.startswith("data:"):
                     chunk = line[len("data:"):].strip()
                     if chunk and chunk != "[DONE]":
-                        try:
-                            messages.append(json.loads(chunk))
-                        except json.JSONDecodeError:
-                            continue
+                        parsed = JsonCodec.try_decode(chunk)
+                        if parsed is not None:
+                            messages.append(parsed)
             for message in messages:
                 if isinstance(message, dict) and ("result" in message or "error" in message):
                     return message
             return messages[-1] if messages else None
         try:
-            return json.loads(text)
+            return JsonCodec.decode(text)
         except json.JSONDecodeError as exc:
             raise McpClientError(f"Malformed response from {content_type or 'server'}: {exc}")
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from .codec import JsonCodec
 from .errors import JsonRpcError, invalid_request, parse_error
 
 JSONRPC_VERSION = "2.0"
@@ -51,11 +52,9 @@ def parse_body(raw: bytes) -> dict[str, Any]:
     JSON and ``INVALID_REQUEST`` when the top-level value is not an object.
     """
     try:
-        text = raw.decode("utf-8")
+        value = JsonCodec.decode_bytes(raw)
     except UnicodeDecodeError as exc:  # pragma: no cover - defensive
         raise parse_error("Body is not valid UTF-8") from exc
-    try:
-        value = json.loads(text)
     except json.JSONDecodeError as exc:
         raise parse_error(str(exc)) from exc
     if isinstance(value, list):
@@ -122,5 +121,5 @@ def error_response(request_id: RequestId, error: JsonRpcError | dict[str, Any]) 
 
 
 def dumps(message: dict[str, Any]) -> bytes:
-    """Serialise a JSON-RPC message to UTF-8 bytes."""
-    return json.dumps(message, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    """Serialise a JSON-RPC message to UTF-8 bytes (compact, wire escaping)."""
+    return JsonCodec.encode_bytes(message)
