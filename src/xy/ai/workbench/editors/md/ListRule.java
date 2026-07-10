@@ -1,34 +1,31 @@
 package xy.ai.workbench.editors.md;
 
-import org.eclipse.jface.text.rules.ICharacterScanner;
 import org.eclipse.jface.text.rules.IToken;
-import org.eclipse.jface.text.rules.Token;
 
 public class ListRule extends AbstractRule {
+	private char[] MARKER = "-+*".toCharArray();
+
 	public ListRule(IToken tkn) {
 		super(tkn);
 	}
 
-	public IToken evaluate(ICharacterScanner scn) {
-		if (scn.getColumn() != 0)
-			return Token.UNDEFINED;
+	@Override
+	protected boolean evaluateMatch(Scanner s) {
+		if (s.getColumn() != 0)
+			return false;
 
-		int reads = 0, c;
-		while ((c = scn.read()) != ICharacterScanner.EOF) {
-			reads++;
-			if (!isWhitespace((char) c)) {
-				if (c == '-' || c == '*' || c == '+') {
-					int d = scn.read();
-					scn.unread();
-					if (isWhitespace((char) d))
-						return token;
-				}
-				break;
-			}
-		}
+		while (s.readNext() && !s.isNewLine() && s.isWhitespace())
+			; // consume
 
-		for (; reads > 0; reads--)
-			scn.unread();
-		return Token.UNDEFINED;
+		if (!s.isOneOf(MARKER) && !s.isNumber())
+			return s.reset();
+
+		if (s.isNumber()) {
+			if (!s.readNext() || !s.equals('.'))
+				return s.reset();
+		} else if (!s.readNext() || !s.isSpace())
+			return s.reset();
+
+		return true;
 	}
 }

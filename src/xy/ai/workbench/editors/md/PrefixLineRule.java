@@ -1,11 +1,25 @@
 package xy.ai.workbench.editors.md;
 
 import org.eclipse.jface.text.rules.IToken;
-import org.eclipse.jface.text.rules.PatternRule;
 
-public class PrefixLineRule extends PatternRule {
+public class PrefixLineRule extends AbstractRule {
+	private char[] prefix;
+
 	public PrefixLineRule(String prefix, IToken token) {
-		super(prefix, null, token, (char) 0, true, true);
-		setColumnConstraint(0);
+		super(token);
+		this.prefix = prefix.toCharArray();
+	}
+
+	@Override
+	protected boolean evaluateMatch(Scanner s) {
+		if (s.getColumn() != 0)
+			return false;
+
+		if (!s.isNextSequence(prefix))
+			return s.reset();
+
+		while (s.readNext() && !s.isNewLine())
+			; // consume
+		return true;
 	}
 }

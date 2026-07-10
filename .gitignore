@@ -1,2 +1,2 @@
 /bin/
-/,claude/logs/*.json
+/.claude/logs/*.json

@@ -4,64 +4,70 @@ import org.eclipse.jface.text.rules.ICharacterScanner;
 import org.eclipse.jface.text.rules.IToken;
 import org.eclipse.jface.text.rules.Token;
 
+/**
+ * Recognizes exactly three link patterns, none of which may span a line break:
+ * <ol>
+ * <li>Markdown link with title: {@code [url](title)}</li>
+ * <li>Markdown link without title: {@code [url]}</li>
+ * <li>Bare URL occurrence: {@code protocol://...}</li>
+ * </ol>
+ * Valid protocols for the bare-URL form are {@code http}, {@code https} and
+ * {@code file}. Since the scanner marks the entire region it read as soon as
+ * {@link #evaluate(ICharacterScanner)} returns a token, every character read
+ * while probing a pattern that ultimately fails to match must be unread again
+ * before returning {@link Token#UNDEFINED}.
+ */
 public class LinkRule extends AbstractRule {
+
+	private static final String[] PROTOCOLS = { "http", "https", "file" };
 
 	public LinkRule(IToken tkn) {
 		super(tkn);
 	}
 
-	public IToken evaluate(ICharacterScanner scn) {
-		char[][] delims = scn.getLegalLineDelimiters();
-		int c;
-		if ((c = scn.read()) != '[') {
-			if (isNotProtocoll(scn)) {
-				scn.unread();
-				return Token.UNDEFINED;
-			}
-
-			while ((c = scn.read()) != ICharacterScanner.EOF && !Character.isWhitespace(c))
-				for (int i = 0; i < delims.length; i++)
-					if (c == delims[i][0] && isSequence(scn, delims[i], true))
-						return token;
-			return token;
-		}
-		int readCount = 1;
-
-		boolean sequenceFound = false;
-		int delimiterCount = 0;
-		while ((c = scn.read()) != ICharacterScanner.EOF && delimiterCount < 2) {
-			readCount++;
-			if (!sequenceFound && c == ']') {
-				c = scn.read();
-				if (c == '(') {
-					readCount++;
-					sequenceFound = true;
-				} else
-					scn.unread();
-
-			} else if (c == ')')
-				return token;
-
-			int i;
-			for (i = 0; i < delims.length; i++)
-				if (c == delims[i][0] && isSequence(scn, delims[i], true)) {
-					delimiterCount++;
-					break;
-				}
-			if (i == delims.length)
-				delimiterCount = 0;
-		}
-
-		for (; readCount > 0; readCount--)
-			scn.unread();
-		return Token.UNDEFINED;
+	@Override
+	protected boolean evaluateMatch(Scanner s) {
+		return evaluateMarkdownLink(s) || evaluateBareUrl(s);
 	}
 
-	private boolean isNotProtocoll(ICharacterScanner scn) {
-		for (String prot : new String[] { "http", "https", "file" })
-			if (isSequence(scn, prot + "://", false))
-				return false;
+	private boolean evaluateMarkdownLink(Scanner s) {
+		if (!s.readNext() || !s.equals('['))
+			return s.reset();
+
+		while (s.readNext() && !s.equals(']') && !s.isNewLine())
+			; // consume
+
+		if (!s.equals(']'))
+			return s.reset();
+
+		Scanner s2 = new Scanner(s);
+		if (!s2.readNext() || !s.equals('('))
+			return s2.reset() || true;
+
+		while (s2.readNext() && !s2.equals(')') && !s2.isNewLine())
+			; // consume
+
+		if (!s2.equals(')'))
+			s2.reset();
 		return true;
 	}
 
+	private boolean evaluateBareUrl(Scanner s) {
+		if (!isProtocol(s))
+			return false;
+		while (s.readNext() && !isUrlTerminator(s.getChar()))
+			; // consume
+		return s.unread(1) || true;
+	}
+
+	private boolean isUrlTerminator(char c) {
+		return Character.isWhitespace(c) || c == '"' || c == '<' || c == '>' || c == '`';
+	}
+
+	private boolean isProtocol(Scanner s) {
+		for (String protocol : PROTOCOLS)
+			if (s.isNextSequence(protocol + "://"))
+				return true;
+		return false;
+	}
 }

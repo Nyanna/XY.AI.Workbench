@@ -19,9 +19,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Sends text to a local LanguageTool server and returns spelling/grammar problems.
  * <p>
- * Markup regions (fenced code blocks, inline code, URLs, file paths, @mentions)
- * and lines starting with '@' are masked with spaces before checking, so their
- * character offsets remain identical to the document offsets returned by LT.
+ * Markup regions (fenced code blocks, lines starting with '@', Markdown
+ * comment lines, inline code, URLs, file paths, @mentions) are masked with
+ * spaces before checking, line by line, so their character offsets remain
+ * identical to the document offsets returned by LT.
  */
 public class LanguageToolClient {
 
@@ -31,15 +32,13 @@ public class LanguageToolClient {
             "WHITESPACE_RULE,DOPPELTES_LEERZEICHEN,LEERZEICHEN_VOR_SATZZEICHEN";
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
-    // Lines whose first non-space character is '@' are excluded entirely.
-    private static final Pattern AT_LINE_RE =
-            Pattern.compile("(?m)^[ \\t]*@[^\\n]*");
-    private static final Pattern COMMENT_LINE_RE =
-            Pattern.compile("(?m)^[ \\t]*#:[^\\n]*");
-
-    // Inline markup regions: fenced code, inline code, URLs, file paths, @mentions.
+    // Inline markup within a single line: inline code, URLs, file paths,
+    // @mentions. None of these can legitimately contain a line break, so
+    // matching is always scoped to one line at a time (see maskText) -
+    // that guarantees this regex never runs over text that a block-level
+    // rule (fence / '@' line / comment line) has already claimed.
     private static final Pattern MARKUP_RE = Pattern.compile(
-            "```[\\s\\S]*?```|`[^`]+`|https?://\\S+|/\\S+|@\\S+");
+            "`[^`\\n]+`|https?://\\S+|/\\S+|@\\S+");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(TIMEOUT)
@@ -102,26 +101,56 @@ public class LanguageToolClient {
         return suggestions;
     }
 
+    /**
+     * Masks markup regions with space characters of the same length so that
+     * offsets in the masked text match 1-to-1 with the original document.
+     * <p>
+     * The whole text is walked exactly once, line by line, tracking a
+     * single "am I inside a fenced code block" flag. For each line, block
+     * level rules (fence / '@' line / comment line) are checked first and,
+     * if any applies, the whole line is blanked. Only lines that are not
+     * claimed by a block rule are scanned with {@link #MARKUP_RE} - and
+     * only within that single line's bounds. This ordering (blocks before
+     * inline regex, one line at a time) makes it structurally impossible
+     * for the inline regex to run across an already-masked block boundary,
+     * which was the root cause of previous mis-masking around fenced code.
+     */
     private String maskText(String text) {
         char[] chars = text.toCharArray();
+        boolean inFence = false;
+        int lineStart = 0;
+        int len = text.length();
 
-        // 1. Mask entire lines starting with '@'
-        Matcher atLine = AT_LINE_RE.matcher(text);
-        while (atLine.find()) {
-            Arrays.fill(chars, atLine.start(), atLine.end(), ' ');
-        }
+        while (lineStart <= len) {
+            int newline = text.indexOf('\n', lineStart);
+            int lineEnd = (newline == -1) ? len : newline;
+            String line = text.substring(lineStart, lineEnd);
+            String trimmed = line.stripLeading();
+            boolean isFenceLine = trimmed.startsWith("```");
 
-        // 2. ignore Markdown comment lines
-        Matcher commentLine = COMMENT_LINE_RE.matcher(text);
-        while (commentLine.find()) {
-            Arrays.fill(chars, commentLine.start(), commentLine.end(), ' ');
-        }
+            if (inFence) {
+                Arrays.fill(chars, lineStart, lineEnd, ' ');
+                if (isFenceLine) {
+                    inFence = false;
+                }
+            } else if (isFenceLine) {
+                Arrays.fill(chars, lineStart, lineEnd, ' ');
+                inFence = true;
+            } else if (trimmed.startsWith("@") || trimmed.startsWith("#:")) {
+                // whole line excluded: '@' lines and Markdown comment lines
+                Arrays.fill(chars, lineStart, lineEnd, ' ');
+            } else {
+                // no block rule applies: mask inline markup within this line only
+                Matcher markup = MARKUP_RE.matcher(line);
+                while (markup.find()) {
+                    Arrays.fill(chars, lineStart + markup.start(), lineStart + markup.end(), ' ');
+                }
+            }
 
-        // 3. Mask inline markup (re-run on original text so already-masked
-        //    regions don't interfere with regex matching)
-        Matcher markup = MARKUP_RE.matcher(text);
-        while (markup.find()) {
-            Arrays.fill(chars, markup.start(), markup.end(), ' ');
+            if (newline == -1) {
+                break;
+            }
+            lineStart = newline + 1;
         }
 
         return new String(chars);
