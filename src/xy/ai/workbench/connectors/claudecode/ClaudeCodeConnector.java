@@ -3,6 +3,7 @@ package xy.ai.workbench.connectors.claudecode;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -21,10 +22,12 @@ import org.eclipse.ui.PlatformUI;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
+import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest.Command;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -55,36 +58,36 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String id = UUID.randomUUID().toString();
 
 		// Preprocessing: extract Allow/Deny/exit/resume lines
-		sub.subTask("Preprocess input");
-		boolean[] exitFlag = { false };
-		String[] resumeUuidHolder = { null };
 		String title = null;
-		StringBuilder text = new StringBuilder();
-		
-		for (String input : inputs) {
-			String processedInput = preprocessInput(input, exitFlag, resumeUuidHolder);
-			if (title == null && processedInput != null) {
-				String candidate = processedInput.strip();
-				if (candidate.length() > 0)
-					// Cap at 100 chars — use length() (not length()-1) so the last
-					// character of a short title is not dropped.
-					title = candidate.substring(0, Math.min(100, candidate.length())).replace('\n', ' ');
-			}
+		Command command = null;
+		StringBuilder merged = null;
 
-			if (processedInput != null && !processedInput.isBlank()) {
-				if (text.length() > 0)
-					text.append("\n");
-				text.append(processedInput);
-			}
+		{ // Preprocess
+			sub.subTask("Preprocess input");
+			for (Command cmd : preprocessInput(inputs))
+				if (CommandType.Prompt.equals(cmd.type)) {
+					if (title == null)
+						title = cmd.parameter.substring(0, Math.min(100, cmd.parameter.length())).replace('\n', ' ');
+
+					if (merged != null)
+						merged.append("\n");
+					else
+						merged = new StringBuilder();
+					merged.append(cmd.parameter);
+				} else {
+					command = cmd;
+					break;
+				}
+			sub.worked(1);
 		}
-		sub.worked(1);
 
-		sub.subTask("Build prompt");
-		String trimmed = text.toString().trim();
-		String promptJson = trimmed.isEmpty() ? null : requestBuilder.buildPromptJson(trimmed);
-		sub.worked(1);
+		if (command == null && merged != null) {
+			sub.subTask("Build prompt");
+			command = new Command(CommandType.Prompt, requestBuilder.buildPromptJson(merged.toString().trim()));
+			sub.worked(1);
+		}
 
-		return new ClaudeCodeRequest(id, title, systemPrompt, tools, promptJson, exitFlag[0], resumeUuidHolder[0]);
+		return new ClaudeCodeRequest(id, title, systemPrompt, tools, command);
 	}
 
 	@Override
@@ -93,51 +96,52 @@ public class ClaudeCodeConnector implements IAIConnector {
 		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
 		ClaudeCodeSession session = null;
 
-		try {
-			SessionParameters params = new SessionParameters(getEditorFilePath(), req.systemPrompt, req.tools, cfg.getModel(), cfg.getReasoning(),
-					cfg.getProfile(), cfg.getKeys());
-			params.setTitle(req.title);
+		SessionParameters params = new SessionParameters(getEditorFilePath(), req.systemPrompt, req.tools,
+				cfg.getModel(), cfg.getReasoning(), cfg.getProfile(), cfg.getKeys());
+		params.setTitle(req.title);
 
-			// /resume is the only command allowed to create/import a session.
-			if (req.resumeUuid != null) {
-				sub.subTask("Importing session");
-				sessionManager.importSession(req.resumeUuid, params);
-				waitFor();
-				return new ClaudeCodeResponse(req.id, "Session created", false);
+		switch (req.cmd.type) {
+		case Resume:
+			sub.subTask("Importing session");
+			sessionManager.importSession(req.cmd.parameter, params);
+			waitFor();
+			return new ClaudeCodeResponse(req.id, "Session created", false);
+		case Exit:
+			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
+			sub.subTask("Terminating CLI process");
+			session.terminate();
+			waitFor();
+			return new ClaudeCodeResponse(req.id, "Session closed!", false);
+		case Allow:
+		case Deny:
+		case Modification:
+			switch (req.cmd.type) {
+			case Allow:
+				controlClient.approve(req.cmd.parameter);
+				break;
+			case Deny:
+				controlClient.deny(req.cmd.parameters[0], req.cmd.parameters[1]);
+				break;
+			case Modification:
+				break; // allready sent
+			default:
+				throw new UnsupportedOperationException();
 			}
-
-			// No prompt text => a pure control command (/exit, /allow, /deny).
-			// These must never spawn a new CLI process; they act on an existing
-			// session (or, for /allow and /deny, purely on the control endpoint).
-			if (req.promptJson == null) {
-				ClaudeCodeSession existing = sessionManager.findSession(sessionManager.getSelectedSessionUuid(), params);
-
-				if (req.exitAfterResult) {
-					if (existing == null)
-						throw new IllegalStateException(
-								"Cannot process /exit: no active Claude Code session exists");
-					session = existing;
-					session.setInPrompt(true);
-					sub.subTask("Terminating CLI process");
-					session.terminate();
-					ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id, "Session closed!", false);
-					resp.isExited = true;
-					waitFor();
-					return resp;
-				}
-
-				// /allow and /deny were already dispatched to the control endpoint
-				// during createRequest and require no active session.
-				return new ClaudeCodeResponse(req.id, "Control command acknowledged", false);
-			}
-
+			waitFor();
+			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
+			break;
+		case Prompt:
 			sub.subTask("Acquiring session");
 			session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
-			session.setInPrompt(true);
-			sub.worked(1);
+			break;
+		}
 
-			sub.subTask("Sending prompt");
-			session.writeLine(req.promptJson);
+		try {
+			session.setInPrompt(true);
+			if (CommandType.Prompt.equals(req.cmd.type)) {
+				sub.subTask("Sending prompt");
+				session.writeLine(req.cmd.parameter);
+			}
 
 			sub.subTask("Waiting for answer");
 			return readUntilResult(req, session, sub.split(1));
@@ -145,13 +149,12 @@ public class ClaudeCodeConnector implements IAIConnector {
 		} catch (IOException e) {
 			throw new IllegalStateException("Claude Code CLI error", e);
 		} finally {
-			if (session != null)
-				session.setInPrompt(false);
+			session.setInPrompt(false);
 		}
 	}
 
 	private void waitFor() {
-		try {
+		try { // TODO remove once bug is fixed
 			Thread.sleep(1000); // brief delay before saving marker
 		} catch (InterruptedException ignored) {
 		}
@@ -168,8 +171,10 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String line;
 		while (true) {
 			ClaudeCodeResponse pendingResponse = controlClient.checkControlEndpoint(req);
-			if (pendingResponse != null)
+			if (pendingResponse != null) {
+				waitFor();
 				return pendingResponse;
+			}
 
 			if ((line = session.readLine()) == null)
 				break;
@@ -181,8 +186,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 			try {
 				node = JsonUtil.readTree(line);
 			} catch (JsonProcessingException parseError) {
-				LOG.error("ClaudeCodeConnector: could not parse CLI line as JSON (length="
-						+ line.length() + "): " + JsonUtil.abbreviate(line), parseError);
+				LOG.error("ClaudeCodeConnector: could not parse CLI line as JSON (length=" + line.length() + "): "
+						+ JsonUtil.abbreviate(line), parseError);
 				continue;
 			}
 
@@ -216,12 +221,13 @@ public class ClaudeCodeConnector implements IAIConnector {
 				} else if ("rate_limit_event".equals(type)) {
 					jsonParser.processRateLimitEvent(node);
 				} else if ("assistant".equals(type)) {
-					jsonParser.collectAssistantEvents(node, assistantEvents, sub.split(1));
+					boolean recordToolUse = !AgentProfile.MCPC.equals(session.getParameters().agentProfile);
+					jsonParser.collectAssistantEvents(node, assistantEvents, false, recordToolUse, sub.split(1));
 					updateLastParsedMessage(session, assistantEvents);
 				}
 			} catch (Exception processingError) {
-				LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length="
-						+ line.length() + "): " + JsonUtil.abbreviate(line), processingError);
+				LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length=" + line.length()
+						+ "): " + JsonUtil.abbreviate(line), processingError);
 			}
 		}
 
@@ -241,36 +247,28 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 	}
 
-	private String preprocessInput(String input, boolean[] exitFlag, String[] resumeUuidHolder) {
-		if (input == null)
-			return null;
-		String stripped = input.strip();
-
-		if ("/exit".equalsIgnoreCase(stripped)) {
-			exitFlag[0] = true;
-			// Control command — must not become prompt text nor create a session.
-			return null;
-		}
-		if (stripped.matches("(?i)/resume\\s+\\S+")) {
-			resumeUuidHolder[0] = stripped.split("\\s+", 2)[1];
-			// Handled via the resume path in executeRequest; not prompt text.
-			return null;
-		}
-		if (stripped.matches("(?i)/allow\\s+\\S+")) {
-			String id = stripped.split("\\s+", 2)[1].strip();
-			controlClient.approve(id);
-			return null;
-		}
-		if (stripped.matches("(?i)/deny\\s+\\S+(\\s+.*)?")) {
-			String rest = stripped.split("\\s+", 2)[1];
-			String[] parts = rest.split("\\s+", 2);
-			controlClient.deny(parts[0].strip(), parts.length > 1 ? parts[1] : "");
-			return null;
-		}
-		if (controlClient.submitEdit(stripped))
-			return null;
-
-		return stripped.isEmpty() ? null : stripped;
+	private List<Command> preprocessInput(List<String> inputs) {
+		List<Command> commands = new ArrayList<Command>();
+		String clean;
+		for (String input : inputs)
+			if (!(clean = input != null ? input.strip() : "").isBlank())
+				if ("/exit".equalsIgnoreCase(clean))
+					commands.add(new Command(CommandType.Exit, ""));
+				else if (clean.matches("(?i)/resume\\s+\\S+"))
+					commands.add(new Command(CommandType.Resume, clean.split("\\s+", 2)[1].strip()));
+				else if (clean.matches("(?i)/allow\\s+\\S+"))
+					commands.add(new Command(CommandType.Allow, clean.split("\\s+", 2)[1].strip()));
+				else if (clean.matches("(?i)/deny\\s+\\S+(\\s+.*)?")) {
+					String[] parts = clean.split("\\s+", 2)[1].strip().split("\\s+", 2);
+					commands.add(
+							new Command(CommandType.Deny, parts[0].strip(), parts.length > 1 ? parts[1].strip() : ""));
+				} else if (controlClient.submitEdit(clean))
+					commands.add(new Command(CommandType.Modification, ""));
+				else
+					commands.add(new Command(CommandType.Prompt, clean));
+		if (commands.isEmpty())
+			throw new IllegalStateException("No commands in inputs");
+		return commands;
 	}
 
 	@Override

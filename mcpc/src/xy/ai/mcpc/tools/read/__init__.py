@@ -120,11 +120,20 @@ def register_read_tool(registry: ToolRegistry) -> None:
 
         # --- session cache check ---
         cache: dict[str, str] = ctx.session.state.setdefault(_CACHE_KEY, {})
-        key = str(path.resolve())
+        key = "|".join(
+            str(part)
+            for part in (
+                path.resolve(),
+                min_line,
+                max_line,
+                start_marker,
+                end_marker,
+            )
+        )
         if cache.get(key) == current_hash:
             return ToolResult(
                 structured_content={
-                    "error": f"File has not changed since the last read (sha256={current_hash}): {path_str}"
+                    "error": f"File has not changed since the last read. Use your context data instead!"
                 },
                 is_error=True,
             )

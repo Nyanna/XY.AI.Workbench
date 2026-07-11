@@ -1,29 +1,4 @@
-"""Change tool – replaces a block inside a file delimited by start/end markers.
-
-Modes
------
-``include_start``
-    The replaced region starts **at** the start marker (inclusive) and ends
-    **before** the end marker (exclusive).  The end marker is preserved in the
-    output.
-
-``include_end``
-    The replaced region starts **after** the start marker (exclusive) and ends
-    **at** the end of the end marker (inclusive).  The start marker is
-    preserved in the output.
-
-``full``
-    Both markers are included in the replaced region (both inclusive).
-
-Error conditions
-----------------
-* Path is not absolute, does not exist or is not a regular file.
-* A marker string does not occur in the file at all.
-* A marker string occurs more than once (ambiguous); the exact count is
-  reported so the caller can supply a more specific marker.
-* The first occurrence of the end marker lies before (or at the same position
-  as) the first occurrence of the start marker.
-"""
+"""Change tool – replaces the block between start/end markers (both inclusive)."""
 
 from __future__ import annotations
 
@@ -38,19 +13,10 @@ def register_change_tool(registry: ToolRegistry) -> None:
         "change",
         title="Change file block",
         description=(
-            "Replace a block of text inside a file that is delimited by a "
-            "start string and an end string.  The ``mode`` parameter controls "
-            "whether each marker is itself included in or excluded from the "
-            "replaced region:\n"
-            "* ``include_start`` – replace from the start marker (inclusive) "
-            "to just before the end marker (exclusive); the end marker is kept.\n"
-            "* ``include_end`` – replace from just after the start marker "
-            "(exclusive) to the end of the end marker (inclusive); the start "
-            "marker is kept.\n"
-            "* ``full`` – replace the entire range including both markers.\n\n"
-            "Both markers must appear exactly once in the file and the end "
-            "marker must follow the start marker.  A precise error is returned "
-            "otherwise."
+            "Replace the text between 'start' and 'end' (both included) with "
+            "'content'. Each marker must occur exactly once in the file; "
+            "'end' must come after 'start'. Repeat a marker inside 'content' "
+            "to keep it."
         ),
         input_schema={
             "type": "object",
@@ -59,29 +25,20 @@ def register_change_tool(registry: ToolRegistry) -> None:
                     "type": "string",
                     "description": "Absolute path to the target file.",
                 },
-                "mode": {
-                    "type": "string",
-                    "enum": ["include_start", "include_end", "full"],
-                    "description": (
-                        "``include_start`` – start marker inclusive, end marker exclusive. "
-                        "``include_end`` – start marker exclusive, end marker inclusive. "
-                        "``full`` – both markers inclusive."
-                    ),
-                },
                 "start": {
                     "type": "string",
-                    "description": "Exact string that marks the beginning of the block.",
+                    "description": "Unique substring marking the block's start (must occur exactly once).",
                 },
                 "end": {
                     "type": "string",
-                    "description": "Exact string that marks the end of the block.",
+                    "description": "Unique substring marking the block's end (must occur exactly once, after 'start').",
                 },
                 "content": {
                     "type": "string",
-                    "description": "Replacement text that will be written in place of the matched block.",
+                    "description": "Text that replaces the block, including where 'start'/'end' were.",
                 },
             },
-            "required": ["path", "mode", "start", "end", "content"],
+            "required": ["path", "start", "end", "content"],
         },
         output_schema={
             "type": "object",
@@ -102,7 +59,6 @@ def register_change_tool(registry: ToolRegistry) -> None:
     def change(ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
-        mode: str = args["mode"]
         start_marker: str = args["start"]
         end_marker: str = args["end"]
         new_content: str = args["content"]
@@ -179,16 +135,8 @@ def register_change_tool(registry: ToolRegistry) -> None:
                 is_error=True,
             )
 
-        # --- apply replacement based on mode ---
-        if mode == "include_start":
-            # replace from start_pos (inclusive) to end_pos (exclusive)
-            result_text = text[:start_pos] + new_content + text[end_pos:]
-        elif mode == "include_end":
-            # replace from start_pos + len(start) (exclusive) to end_pos + len(end) (inclusive)
-            result_text = text[:start_pos + len(start_marker)] + new_content + text[end_pos + len(end_marker):]
-        else:  # full
-            # replace from start_pos (inclusive) to end_pos + len(end) (inclusive)
-            result_text = text[:start_pos] + new_content + text[end_pos + len(end_marker):]
+        # --- apply replacement: both markers included (full range) ---
+        result_text = text[:start_pos] + new_content + text[end_pos + len(end_marker):]
 
         # --- write back ---
         try:

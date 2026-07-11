@@ -132,6 +132,11 @@
 			id="XY.AI.Workbench.commands.editor.comment"
 			name="Toggle AI Comment">
 		</command>
+		<command
+			categoryId="XY.AI.Workbench.commands.category"
+			id="XY.AI.Workbench.commands.copyPath"
+			name="Copy Path">
+		</command>
 	</extension>
 	<extension
 		point="org.eclipse.ui.handlers">
@@ -156,7 +161,12 @@
 				</and>
 			</activeWhen>
 		</handler>
+		<handler
+			class="xy.ai.workbench.handlers.CopyPathHandler"
+			commandId="XY.AI.Workbench.commands.copyPath">
+		</handler>
 	</extension>
+
 	<extension
 		point="org.eclipse.ui.bindings">
 		<key
@@ -199,6 +209,36 @@
 					tooltip="Submit the current prompt">
 				</command>
 			</toolbar>
+		</menuContribution>
+		<menuContribution
+			locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+			<command
+				commandId="XY.AI.Workbench.commands.copyPath"
+				label="Copy Path"
+				mnemonic="P"
+				style="push">
+				<visibleWhen
+					checkEnabled="false">
+					<with
+						variable="selection">
+						<iterate
+							ifEmpty="false">
+							<adapt
+								type="org.eclipse.core.resources.IResource">
+							</adapt>
+						</iterate>
+					</with>
+				</visibleWhen>
+			</command>
+		</menuContribution>
+		<menuContribution
+			locationURI="popup:#TextEditorContext?after=additions">
+			<command
+				commandId="XY.AI.Workbench.commands.copyPath"
+				label="Copy Path"
+				mnemonic="P"
+				style="push">
+			</command>
 		</menuContribution>
 	</extension>
 	<extension

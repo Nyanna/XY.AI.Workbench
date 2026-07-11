@@ -17,8 +17,6 @@ public class ClaudeCodeResponse implements IModelResponse {
 	public long reasoningTokens;
 	public long cacheReadInputTokens;
 	public long cacheCreationInputTokens;
-	/** True when the subprocess was terminated as part of handling a /exit command. */
-	public boolean isExited;
 
 	public ClaudeCodeResponse(String id, String resultText, boolean isError) {
 		this.id = id;

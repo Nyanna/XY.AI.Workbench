@@ -24,53 +24,41 @@ public class ClaudeCodeSessionManager {
 	public synchronized ClaudeCodeSession requestSession(String selectedUuid, SessionParameters params) {
 		cleanupInvalidTerminated();
 
-		ClaudeCodeSession session;
-		if (!CREATE_NEW_MARKER.equals(selectedUuid)) {
-			if (selectedUuid != null) {
-				session = findByUuid(selectedUuid);
-				if (session == null)
-					throw new IllegalStateException("Selected session not found: " + selectedUuid);
-				if (session.isExpired())
-					throw new IllegalStateException("Selected session has expired");
-				if (!params.getHash().equals(session.getParameters().getHash()))
-					throw new IllegalStateException(
-							"Selected session parameters are incompatible with the current configuration");
-				return session;
-			}
+		ClaudeCodeSession session = null;
+		if (CREATE_NEW_MARKER.equals(selectedUuid) || selectedUuid == null) {
+			session = new ClaudeCodeSession(this, params);
+			sessions.add(session);
+			LOG.info("ClaudeCodeSessionManager: created session, hash=" + params.getHash());
+			fireChanged();
+		} else {
+			session = findByUuid(selectedUuid);
+			if (session == null)
+				throw new IllegalStateException("Selected session not found: " + selectedUuid);
+			if (session.isExpired())
+				throw new IllegalStateException("Selected session has expired");
+			if (!params.getHash().equals(session.getParameters().getHash()))
+				throw new IllegalStateException(
+						"Selected session parameters are incompatible with the current configuration");
 
 			session = findByHash(params.getHash());
-			if (session != null) {
-				if (session.isExpired())
-					throw new IllegalStateException("Selected session has expired");
-				return session;
-			}
 		}
-
-		// create new session
-		session = new ClaudeCodeSession(this, params);
-		sessions.add(session);
-		LOG.info("ClaudeCodeSessionManager: created session, hash=" + params.getHash());
-		fireChanged();
+		if (session == null)
+			throw new IllegalStateException("No Session available");
+		if (session.isExpired())
+			throw new IllegalStateException("Session has expired");
 		return session;
 	}
 
-	/**
-	 * Looks up an existing, non-expired session without ever creating one. Used by
-	 * control commands ({@code /exit}, {@code /allow}, {@code /deny}) which must
-	 * operate on an already-running session and must never spawn a new CLI process.
-	 *
-	 * @return the matching session, or {@code null} if none exists (or it expired)
-	 */
-	public synchronized ClaudeCodeSession findSession(String selectedUuid, SessionParameters params) {
+	public synchronized ClaudeCodeSession getSession(String selectedUuid, SessionParameters params) {
 		cleanupInvalidTerminated();
+		ClaudeCodeSession res = null;
 
-		if (CREATE_NEW_MARKER.equals(selectedUuid))
-			return null;
+		if (!CREATE_NEW_MARKER.equals(selectedUuid))
+			res = selectedUuid != null ? findByUuid(selectedUuid) : findByHash(params.getHash());
 
-		ClaudeCodeSession session = selectedUuid != null ? findByUuid(selectedUuid) : findByHash(params.getHash());
-		if (session == null || session.isExpired())
-			return null;
-		return session;
+		if (res == null)
+			throw new IllegalStateException("Cannot process /exit: no active Claude Code session exists");
+		return res;
 	}
 
 	public synchronized ClaudeCodeSession importSession(String uuid, SessionParameters params) {

@@ -129,7 +129,19 @@ class ToolControlManager:
         Returns a :class:`ControlDecision`.  If the decision includes
         ``modified_result``, the caller should use that instead of the
         original result.
+
+        Simple "success" results (empty ``content`` and a
+        ``structuredContent`` of exactly ``{"result": "success"}``) are
+        auto-approved without involving the controller, since there is
+        nothing meaningful for a human to review.
         """
+        if self._is_simple_success_result(result):
+            logger.info(
+                "Auto-approving simple success result for %s [%s]",
+                tool_name, session.id,
+            )
+            return ControlDecision(approved=True)
+
         item = self._enqueue(session, "result", tool_name, arguments=None, result=result)
         return self._wait(item)
 
@@ -188,6 +200,29 @@ class ToolControlManager:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_simple_success_result(result: dict[str, Any]) -> bool:
+        """Return ``True`` for a plain success result with nothing to review.
+
+        Matches results of the shape::
+
+            {
+                "content": [],
+                "structuredContent": {"result": "success"}
+            }
+
+        Any additional content items, extra keys, or a differing
+        ``structuredContent`` payload disqualify the result from
+        auto-approval.
+        """
+        if not isinstance(result, dict):
+            return False
+        if set(result.keys()) - {"content", "structuredContent"}:
+            return False
+        if result.get("content") not in ([], None):
+            return False
+        return result.get("structuredContent") == {"result": "success"}
 
     def _enqueue(
         self,

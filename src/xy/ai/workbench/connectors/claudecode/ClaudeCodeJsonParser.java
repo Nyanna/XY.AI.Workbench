@@ -23,8 +23,7 @@ public class ClaudeCodeJsonParser {
 	public static final String TOOLUSE = "Tool:";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
-    private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
-	private boolean recordText = false;
+	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
 
 	/**
 	 * Parses a result event from the Claude Code API response. Combines
@@ -112,8 +111,8 @@ public class ClaudeCodeJsonParser {
 	 * @param assistantEvents map to collect events
 	 * @param mon
 	 */
-	public void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents,
-			IProgressMonitor mon) {
+	public void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents, boolean recordText,
+			boolean recordToolUse, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Received Claude message", 1);
 
 		JsonNode content = node.path("message").path("content");
@@ -133,7 +132,7 @@ public class ClaudeCodeJsonParser {
 				String text = block.path("text").asText("");
 				if (!text.isEmpty())
 					assistantEvents.putIfAbsent("text\0" + text, TEXT + "\n" + text);
-			} else if ("tool_use".equals(blockType)) {
+			} else if (recordToolUse && "tool_use".equals(blockType)) {
 				String toolName = block.path("name").asText("");
 				String text = " " + toolName + "\n";
 				JsonNode inputs = block.path("input");
@@ -250,9 +249,9 @@ public class ClaudeCodeJsonParser {
 	}
 
 	/**
-	 * Parses a system init event from the Claude Code API response.
-	 * Extracts metadata: cwd, session_id, model, and plugin names (comma-separated).
-	 * Stores the formatted metadata line in assistantEvents.
+	 * Parses a system init event from the Claude Code API response. Extracts
+	 * metadata: cwd, session_id, model, and plugin names (comma-separated). Stores
+	 * the formatted metadata line in assistantEvents.
 	 *
 	 * @param node            the system init event JSON node
 	 * @param assistantEvents map to collect events

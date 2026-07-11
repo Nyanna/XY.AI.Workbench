@@ -2,11 +2,14 @@
 
 ## Workbench
 !große web research werden nicht in eclipse angezeigt
+! einfache success nachrichten nicht abfangen
+
+!session view, init on first start
+* problem mit nicht gespeicherter datei und markern
+	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
-* problem mit nicht gespeicherter datei und markern
-	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
@@ -18,7 +21,7 @@
 * update alte api key  model and model parameters -> fetch from models API and only report missing feature support
 * Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
-* rechtklickmenü zum absoluten dateipfad kopieren
+* Diff support für edit commands
 
 
 ## Agents

@@ -28,8 +28,8 @@ public class SessionParameters {
 	private String hash;
 	private String title;
 
-	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning, AgentProfile agentProfile,
-			String cliProfile) {
+	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
+			AgentProfile agentProfile, String cliProfile) {
 		if (cwd == null)
 			throw new IllegalStateException("Work directory (cwd) not set");
 		if (model == null)
@@ -55,66 +55,68 @@ public class SessionParameters {
 			cmd.add("--system-prompt");
 			cmd.add(systemPrompt);
 			cmd.add("--tools");
-			cmd.add("\"\""); //restrict builtin tools
+			cmd.add(""); // restrict builtin tools
+			cmd.add("--debug");
+			cmd.add("mcp");
 			cmd.add("--settings");
 			cmd.add("""
-{
-	"hooks": {
-		"PreToolUse": [
-			{
-				"hooks": [
 					{
-						"type": "http",
-						"url":"http://localhost:9093/hooks/tool",
-						"headers":{
-						   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
-						},
-						"allowedEnvVars":[
-						   "MCPC_SESSION_ID"
-						],
-						"timeout": 86400
+						"hooks": {
+							"PreToolUse": [
+								{
+									"hooks": [
+										{
+											"type": "http",
+											"url":"http://localhost:9093/hooks/tool",
+											"headers":{
+											   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
+											},
+											"allowedEnvVars":[
+											   "MCPC_SESSION_ID"
+											],
+											"timeout": 86400
+										}
+									]
+								}
+							],
+							"PermissionRequest": [
+								{
+									"hooks": [
+										{
+											"type": "http",
+											"url":"http://localhost:9093/hooks/permission",
+											"headers":{
+											   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
+											},
+											"allowedEnvVars":[
+											   "MCPC_SESSION_ID"
+											],
+											"timeout": 86400
+										}
+									]
+								}
+							]
+						}
 					}
-				]
-			}
-		],
-		"PermissionRequest": [
-			{
-				"hooks": [
-					{
-						"type": "http",
-						"url":"http://localhost:9093/hooks/permission",
-						"headers":{
-						   "X-MCPC-SESSION-ID":"$MCPC_SESSION_ID"
-						},
-						"allowedEnvVars":[
-						   "MCPC_SESSION_ID"
-						],
-						"timeout": 86400
-					}
-				]
-			}
-		]
-	}
-}
-					""");
+										""".replace("\t", "").replace("\n", "").strip());
 			cmd.add("--mcp-config");
 			cmd.add("""
-{
-	"mcpServers": {
-		"mcpc": {
-			"type": "ws",
-			"url": "http://localhost:9094/mcp",
-			"timeout": 86400000,
-			"alwaysLoad": true,
-			"headers": {
-				"X-MCPC-SESSION-ID": "${MCPC_SESSION_ID}",
-				"X-MCPC-TOOLS": "${MCPC_TOOLS}",
-				"X-MCPC-CC-PROFILE": "${MCPC_CC_PROFILE}"
-			}
-		}
-	}
-}
-					""");
+					{
+						"mcpServers": {
+							"mcpc": {
+								"type": "ws",
+								"url": "http://localhost:9094/mcp",
+								"timeout": 86400000,
+								"alwaysLoad": true,
+								"headers": {
+									"X-MCPC-SESSION-ID": "${MCPC_SESSION_ID}",
+									"X-MCPC-TOOLS": "${MCPC_TOOLS}",
+									"X-MCPC-CC-PROFILE": "${MCPC_CC_PROFILE}"
+								}
+							}
+						}
+					}
+										""".replace("\t", "").replace("\n", "").strip());
 		} else {
 			cmd.add(SCRIPT);
 			cmd.add(agentProfile != null ? agentProfile.name : ""); // Agent definition
@@ -187,8 +189,8 @@ public class SessionParameters {
 
 	private String computeHash() {
 		String input = systemPrompt.toString() + "|" + String.join(",", tools) + "|" + cwd.toString() + "|"
-				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "")
-				+ "|" + cliProfile;
+				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "") + "|"
+				+ cliProfile;
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

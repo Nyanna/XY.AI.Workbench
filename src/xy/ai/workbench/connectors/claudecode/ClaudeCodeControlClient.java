@@ -95,16 +95,6 @@ public class ClaudeCodeControlClient {
 		if (!edited.isObject() || !edited.hasNonNull("id"))
 			return false;
 		String id = edited.path("id").asText();
-
-		boolean isPending = false;
-		for (JsonNode item : poll())
-			if (id.equals(item.path("id").asText())) {
-				isPending = true;
-				break;
-			}
-		if (!isPending)
-			return false;
-
 		String phase = edited.path("phase").asText("");
 		if ("result".equals(phase) && edited.has("result"))
 			submitModifiedResult(id, edited.path("result"));
