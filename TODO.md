@@ -2,9 +2,7 @@
 
 ## Workbench
 !große web research werden nicht in eclipse angezeigt
-! einfache success nachrichten nicht abfangen
 
-!session view, init on first start
 * problem mit nicht gespeicherter datei und markern
 	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
 

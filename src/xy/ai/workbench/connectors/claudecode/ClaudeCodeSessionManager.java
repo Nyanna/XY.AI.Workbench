@@ -96,6 +96,7 @@ public class ClaudeCodeSessionManager {
 		synchronized (changeListeners) {
 			changeListeners.add(listener);
 		}
+		fireChanged(List.of(listener));
 	}
 
 	public void removeChangeListener(Consumer<List<ClaudeCodeSession>> listener) {
@@ -142,6 +143,10 @@ public class ClaudeCodeSessionManager {
 	}
 
 	private void fireChanged() {
+		fireChanged(changeListeners);
+	}
+
+	private void fireChanged(List<Consumer<List<ClaudeCodeSession>>> changeListeners) {
 		List<ClaudeCodeSession> snapshot = Collections.unmodifiableList(new ArrayList<>(sessions));
 		List<Consumer<List<ClaudeCodeSession>>> copy;
 		synchronized (changeListeners) {
