@@ -26,6 +26,7 @@ public class Activator extends AbstractUIPlugin {
 	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager);
 
 	public AISessionManager session = new AISessionManager(cfg, connector);
+	public EditorInterface editIfc = session.editIfc;
 
 	public AIBatchManager batch = new AIBatchManager(connector);
 	public AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
@@ -39,7 +40,7 @@ public class Activator extends AbstractUIPlugin {
 		markerScanner = new MarkerRessourceScanner(context);
 		LOG.log = Platform.getLog(context.getBundle());
 	}
-	
+
 	@Override
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;

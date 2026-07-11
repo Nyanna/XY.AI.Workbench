@@ -25,25 +25,22 @@ public class ClaudeCodeSessionManager {
 		cleanupInvalidTerminated();
 
 		ClaudeCodeSession session = null;
-		if (CREATE_NEW_MARKER.equals(selectedUuid) || selectedUuid == null) {
-			session = new ClaudeCodeSession(this, params);
-			sessions.add(session);
-			LOG.info("ClaudeCodeSessionManager: created session, hash=" + params.getHash());
-			fireChanged();
-		} else {
-			session = findByUuid(selectedUuid);
-			if (session == null)
+		if (CREATE_NEW_MARKER.equals(selectedUuid)) {
+			session = addSession(new ClaudeCodeSession(this, params));
+			LOG.info("New session created, hash=" + params.getHash());
+		} else if (selectedUuid != null) {
+			if ((session = findByUuid(selectedUuid)) == null)
 				throw new IllegalStateException("Selected session not found: " + selectedUuid);
-			if (session.isExpired())
-				throw new IllegalStateException("Selected session has expired");
-			if (!params.getHash().equals(session.getParameters().getHash()))
+			else if (!params.getHash().equals(session.getParameters().getHash()))
 				throw new IllegalStateException(
 						"Selected session parameters are incompatible with the current configuration");
-
-			session = findByHash(params.getHash());
+		} else if ((session = findByHash(params.getHash())) != null) {
+			LOG.info("Use param hash session, hash=" + params.getHash());
+		} else {
+			session = addSession(new ClaudeCodeSession(this, params));
+			LOG.info("New session created, hash=" + params.getHash());
 		}
-		if (session == null)
-			throw new IllegalStateException("No Session available");
+
 		if (session.isExpired())
 			throw new IllegalStateException("Session has expired");
 		return session;
@@ -61,14 +58,16 @@ public class ClaudeCodeSessionManager {
 		return res;
 	}
 
-	public synchronized ClaudeCodeSession importSession(String uuid, SessionParameters params) {
-		cleanupInvalidTerminated();
-
-		ClaudeCodeSession session = new ClaudeCodeSession(uuid, this, params);
+	private ClaudeCodeSession addSession(ClaudeCodeSession session) {
 		sessions.add(session);
-		LOG.info("ClaudeCodeSessionManager: imported session, uuid=" + uuid);
 		fireChanged();
 		return session;
+	}
+
+	public synchronized ClaudeCodeSession importSession(String uuid, SessionParameters params) {
+		cleanupInvalidTerminated();
+		LOG.info("ClaudeCodeSessionManager: imported session, uuid=" + uuid);
+		return addSession(new ClaudeCodeSession(uuid, this, params));
 	}
 
 	public synchronized void terminateSessions(List<String> toTerminate) {

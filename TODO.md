@@ -3,9 +3,6 @@
 ## Workbench
 !große web research werden nicht in eclipse angezeigt
 
-* problem mit nicht gespeicherter datei und markern
-	* datei bei tag replace forced speichern? Tag aus dem laufenden Editor filtern als fallback? Ohne tag marker index
-
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
@@ -16,7 +13,7 @@
 	* Zeichen | mit offset an maxlength pro spalte ändern
 	* exten "---" grey the whole line?
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
-* update alte api key  model and model parameters -> fetch from models API and only report missing feature support
+* update alte api key model and model parameters -> fetch from models API and only report missing feature support
 * Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * Diff support für edit commands

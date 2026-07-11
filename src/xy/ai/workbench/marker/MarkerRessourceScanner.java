@@ -25,6 +25,14 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IEditorReference;
+import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
 import xy.ai.workbench.LOG;
@@ -116,6 +124,11 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		} catch (CoreException e) {
 			LOG.error(e.getMessage(), e);
 		}
+
+		// Fallback: the marker's stored position is outdated
+		if (!res)
+			res = findAndReplaceInOpenEditors(ans);
+
 		return res;
 	}
 
@@ -130,6 +143,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			return false;
 
 		ITextFileBufferManager bm = FileBuffers.getTextFileBufferManager();
+		boolean[] replaced = { false };
 		try {
 			bm.connect(file.getFullPath(), LocationKind.IFILE, null);
 			ITextFileBuffer tb = bm.getTextFileBuffer(file.getFullPath(), LocationKind.IFILE);
@@ -139,15 +153,23 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 					IDocument doc = tb.getDocument();
 					int off = marker.getAttribute(MARKER_OFF_ID_ATTR, -1);
 					int len = marker.getAttribute(MARKER_LEN_ID_ATTR, -1);
-					doc.replace(off, len, ans.answer);
+
+					int[] range = resolveTagRange(doc, ans.id, off, len);
+					if (range == null)
+						return; // stored position no longer matches the live document
+
+					doc.replace(range[0], range[1], ans.answer);
+					replaced[0] = true;
 				} catch (BadLocationException e) {
 					LOG.error(e.getMessage(), e);
 				}
 			});
 
-			tb.commit(null, false);
-			marker.delete();
-			return true;
+			if (replaced[0]) {
+				tb.commit(null, false);
+				marker.delete();
+				return true;
+			}
 
 		} catch (CoreException e) {
 			LOG.error(e.getMessage(), e);
@@ -159,6 +181,92 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Verifies that the given offset/length still points at the tag belonging to
+	 * the given request id. If it does not (e.g. because the document was edited in
+	 * the meantime and the marker position is stale) the whole document is searched
+	 * for the tag instead.
+	 *
+	 * @return an {offset, length} pair pointing at the current location of the tag
+	 *         in the document, or {@code null} if the tag can no longer be found.
+	 */
+	private int[] resolveTagRange(IDocument doc, String requestId, int off, int len) {
+		if (off >= 0 && len >= 0 && off + len <= doc.getLength()) {
+			try {
+				String candidate = doc.get(off, len);
+				Matcher m = pattern.matcher(candidate);
+				if (m.matches() && requestId.equals(m.group(2)))
+					return new int[] { off, len };
+			} catch (BadLocationException e) {
+				// fall through to full-document search
+			}
+		}
+		return findTagInDocument(doc, requestId);
+	}
+
+	/**
+	 * Scans the full document content for the tag belonging to the given request
+	 * id.
+	 *
+	 * @return an {offset, length} pair, or {@code null} if not found.
+	 */
+	private int[] findTagInDocument(IDocument doc, String requestId) {
+		String content = doc.get();
+		Matcher m = pattern.matcher(content);
+		while (m.find())
+			if (requestId.equals(m.group(2)))
+				return new int[] { m.start(), m.end() - m.start() };
+		return null;
+	}
+
+	/**
+	 * Fallback used when the marker based replacement failed, e.g. because the
+	 * marker's stored offset is no longer in sync with the (still dirty) editor
+	 * content, or no marker exists at all yet. Searches all currently open text
+	 * editors for the tag belonging to the given request id and replaces it
+	 * directly in the editor's document. The editor is intentionally not saved so
+	 * that a parallel edit by the user is not disturbed.
+	 */
+	private boolean findAndReplaceInOpenEditors(AIAnswer ans) {
+		boolean[] res = { false };
+		Display.getDefault().syncExec(() -> {
+			for (ITextEditor editor : getOpenTextEditors()) {
+				IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
+				if (doc == null)
+					continue;
+
+				int[] range = findTagInDocument(doc, ans.id);
+				if (range == null)
+					continue;
+
+				try {
+					doc.replace(range[0], range[1], ans.answer);
+					res[0] = true;
+					break;
+				} catch (BadLocationException e) {
+					LOG.error(e.getMessage(), e);
+				}
+			}
+		});
+		return res[0];
+	}
+
+	private java.util.List<ITextEditor> getOpenTextEditors() {
+		java.util.List<ITextEditor> editors = new java.util.ArrayList<>();
+		for (IWorkbenchWindow window : PlatformUI.getWorkbench().getWorkbenchWindows())
+			for (IWorkbenchPage page : window.getPages())
+				for (IEditorReference ref : page.getEditorReferences()) {
+					IEditorPart part = ref.getEditor(false);
+					if (part instanceof ITextEditor) {
+						IEditorInput input = part.getEditorInput();
+						// prefer file based / URI based editors, but any ITextEditor works
+						if (input instanceof IFileEditorInput || input != null)
+							editors.add((ITextEditor) part);
+					}
+				}
+		return editors;
 	}
 
 	public static String getPromptTag(String meta, String id) {

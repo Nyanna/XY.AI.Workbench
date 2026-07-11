@@ -42,6 +42,14 @@ public class ClaudeCodeJsonParser {
 		// (and handles a structured result node), instead of a bare asText().
 		String resultText = resultPostProcessor.process(JsonUtil.plainText(node.path("result")));
 
+		// Some subtypes (e.g. "error_during_execution") carry no "result" field but
+		// report the failure(s) in an "errors" array instead. Join them so the
+		// error is not silently dropped.
+		String errorsText = joinErrors(node.path("errors"));
+		if (!errorsText.isEmpty()) {
+			resultText = resultText.isEmpty() ? errorsText : resultText + "\n" + errorsText;
+		}
+
 		// Prepend collected thinking/text events as markdown lines
 		if (!assistantEvents.isEmpty()) {
 			StringBuilder prefix = new StringBuilder();
@@ -286,6 +294,29 @@ public class ClaudeCodeJsonParser {
 		} catch (Exception e) {
 			LOG.error("ClaudeCodeJsonParser: failed to parse system init event", e);
 		}
+	}
+
+	/**
+	 * Joins the entries of an "errors" JSON array (as found e.g. on
+	 * {@code error_during_execution} result events) into a single newline-separated
+	 * string of plain text messages.
+	 *
+	 * @param errors the "errors" JSON node (may be missing/non-array)
+	 * @return joined error messages, or the empty string if none are present
+	 */
+	private static String joinErrors(JsonNode errors) {
+		if (!errors.isArray() || errors.isEmpty())
+			return "";
+		StringBuilder sb = new StringBuilder();
+		for (JsonNode error : errors) {
+			String text = JsonUtil.plainText(error);
+			if (text.isEmpty())
+				continue;
+			if (sb.length() > 0)
+				sb.append("\n");
+			sb.append(text);
+		}
+		return sb.toString();
 	}
 
 	/**

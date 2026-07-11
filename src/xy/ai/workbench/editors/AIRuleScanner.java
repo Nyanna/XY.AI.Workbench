@@ -15,15 +15,15 @@ import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.AISessionManager;
+import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeJsonParser;
 import xy.ai.workbench.editors.md.BlockRule;
 import xy.ai.workbench.editors.md.EmphasisRule;
-import xy.ai.workbench.editors.md.PrefixLineRule;
 import xy.ai.workbench.editors.md.HeaderRule;
 import xy.ai.workbench.editors.md.LineMatchRule;
 import xy.ai.workbench.editors.md.LinkRule;
 import xy.ai.workbench.editors.md.ListRule;
+import xy.ai.workbench.editors.md.PrefixLineRule;
 
 public class AIRuleScanner extends RuleBasedScanner {
 	public static final String LINE_COMMENT = "#:";
@@ -68,8 +68,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 			rules.add(new BlockRule("<!--", "-->", normal));
 			rules.add(new BlockRule("```", "```", blueToken));
 			// 2. linme start
-			rules.add(new LineMatchRule(AISessionManager.USER, userToken));
-			rules.add(new LineMatchRule(AISessionManager.AGENT, agentToken));
+			rules.add(new LineMatchRule(EditorInterface.USER, userToken));
+			rules.add(new LineMatchRule(EditorInterface.AGENT, agentToken));
 			rules.add(new PrefixLineRule("---", spacerToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ClaudeCodeJsonParser.THINKING, commentDarkToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ClaudeCodeJsonParser.TEXT, commentDarkToken));

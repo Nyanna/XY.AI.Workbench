@@ -338,7 +338,7 @@ public class AIBatchView extends ViewPart {
 				Object obj = selection.getFirstElement();
 				if (obj instanceof AIAnswer) {
 					Job.create("Process Awswer", (mon) -> {
-						Activator.getDefault().session.replaceTag(Display.getDefault(), (AIAnswer) obj, mon);
+						Activator.getDefault().editIfc.replaceTag(Display.getDefault(), (AIAnswer) obj, mon);
 					}).schedule();
 				}
 			}

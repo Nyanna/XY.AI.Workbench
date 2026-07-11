@@ -56,8 +56,9 @@ public class SessionParameters {
 			cmd.add(systemPrompt);
 			cmd.add("--tools");
 			cmd.add(""); // restrict builtin tools
-			cmd.add("--debug");
-			cmd.add("mcp");
+			// evil: breaks STDIN handling
+//			cmd.add("--debug");
+//			cmd.add("mcp");
 			cmd.add("--settings");
 			cmd.add("""
 					{
@@ -147,7 +148,9 @@ public class SessionParameters {
 		if (AgentProfile.MCPC.equals(agentProfile)) {
 			if (!tools.isEmpty())
 				pb.environment().put("MCPC_TOOLS", String.join(",", tools));
+			pb.environment().put("MCPC_CC_PROFILE", cliProfile);
 			pb.environment().put("CLAUDE_CONFIG_DIR", System.getProperty("user.home") + "/.claude-" + cliProfile);
+
 			pb.environment().put("CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_AGENT_VIEW", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1");
