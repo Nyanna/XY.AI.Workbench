@@ -163,6 +163,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 
 		String line;
 		while (true) {
+			// TODO alternate
 			ClaudeCodeResponse pendingResponse = controlClient.checkControlEndpoint(req);
 			if (pendingResponse != null)
 				return pendingResponse;
@@ -170,9 +171,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 			if ((line = session.readLine()) == null)
 				break;
 
-			// Step 1: parse. A malformed line is a genuine problem (e.g. a large web
-			// research result truncated by the transport) and must be logged, never
-			// silently swallowed — swallowing it is why long results never appeared.
 			JsonNode node;
 			try {
 				node = JsonUtil.readTree(line);
@@ -182,9 +180,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 				continue;
 			}
 
-			// Step 2: dispatch. A failure here is a bug in our handling of a valid
-			// event; log it with context (type + length) and keep reading so a single
-			// bad event cannot strand the whole response.
 			String type = JsonUtil.plainText(node.path("type"));
 			try {
 				if ("result".equals(type)) {

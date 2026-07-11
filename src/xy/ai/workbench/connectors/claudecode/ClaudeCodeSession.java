@@ -1,6 +1,5 @@
 package xy.ai.workbench.connectors.claudecode;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,8 +26,8 @@ public class ClaudeCodeSession {
 
 	private Process process;
 	private PrintWriter stdin;
-	private BufferedReader stdout;
-	private BufferedReader stderr;
+	private TimedLineReader stdout;
+	private TimedLineReader stderr;
 	private Writer mirror;
 
 	@SuppressWarnings("unused")
@@ -103,8 +102,8 @@ public class ClaudeCodeSession {
 
 		process = pb.start();
 		stdin = JsonUtil.newWriter(process.getOutputStream());
-		stdout = JsonUtil.newReader(process.getInputStream());
-		stderr = JsonUtil.newReader(process.getErrorStream());
+		stdout = new TimedLineReader(JsonUtil.newReader(process.getInputStream()));
+		stderr = new TimedLineReader(JsonUtil.newReader(process.getErrorStream()));
 		startedAt = Instant.now();
 		// after first start use resume
 		resume = true;
@@ -174,10 +173,7 @@ public class ClaudeCodeSession {
 		return readLine(stderr, "STDERR");
 	}
 
-	private String readLine(BufferedReader reader, String channel) {
-		// Fail fast instead of throwing a cryptic NullPointerException deep inside
-		// readLine (the reported "reader is null" defect): reading before the CLI
-		// process was started is always a programming error in the calling loop.
+	private String readLine(TimedLineReader reader, String channel) {
 		if (reader == null)
 			throw new IllegalStateException(
 					"Cannot read " + channel + ": the CLI process is not started" + " (uuid=" + uuid + ", processAlive="

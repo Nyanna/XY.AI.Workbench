@@ -1,8 +1,7 @@
 # TODO
 
 ## Workbench
-!große web research werden nicht in eclipse angezeigt
-!wait entfernen
+!große websearch geht jetzt aber weniger toolausgaben. Dadurch wechseln sich claude und control loop nicht mehr ab. Die Schleife ändern und immer wechselseitig probieren, erst control, dann 500 ms auf claude zeilenstart warten und wenn nicht wieder control probieren.
 
 *tool auswahl in config speichern
 
