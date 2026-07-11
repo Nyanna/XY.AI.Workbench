@@ -150,10 +150,20 @@ public class ClaudeCodeSession {
 		if (stdin == null)
 			throw new IllegalStateException("STDIN unavailable after start(); process=" + process + ", uuid=" + uuid);
 
+		mirrorLine(jsonLine);
 		stdin.println(jsonLine);
 		stdin.flush();
 		lastSentAt = Instant.now();
 		notifyChanged();
+	}
+
+	private void mirrorLine(String jsonLine) throws IOException {
+		openMirrorIfNeeded();
+		if (jsonLine != null && jsonLine.length() > 0) {
+			mirror.write(jsonLine);
+			mirror.write(System.lineSeparator());
+			mirror.flush();
+		}
 	}
 
 	public String readLine() {
@@ -169,20 +179,13 @@ public class ClaudeCodeSession {
 		// readLine (the reported "reader is null" defect): reading before the CLI
 		// process was started is always a programming error in the calling loop.
 		if (reader == null)
-			throw new IllegalStateException("Cannot read " + channel + ": the CLI process is not started"
-					+ " (uuid=" + uuid + ", processAlive=" + isProcessAlive() + ")."
-					+ " A prompt must be sent (writeLine) before reading.");
-
-		openMirrorIfNeeded();
+			throw new IllegalStateException(
+					"Cannot read " + channel + ": the CLI process is not started" + " (uuid=" + uuid + ", processAlive="
+							+ isProcessAlive() + ")." + " A prompt must be sent (writeLine) before reading.");
 
 		try {
 			var line = reader.readLine();
-
-			if (line != null && line.length() > 0) {
-				mirror.write(line);
-				mirror.write(System.lineSeparator());
-				mirror.flush();
-			}
+			mirrorLine(line);
 
 			return line;
 		} catch (IOException e) {

@@ -2,6 +2,14 @@
 
 ## Workbench
 !große web research werden nicht in eclipse angezeigt
+!wait entfernen
+
+*tool auswahl in config speichern
+
+* Diff support für edit commands
+	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
+
+
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
@@ -16,7 +24,6 @@
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
 * Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
-* Diff support für edit commands
 
 
 ## Agents

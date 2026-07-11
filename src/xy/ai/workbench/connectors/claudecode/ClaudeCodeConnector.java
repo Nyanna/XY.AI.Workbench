@@ -104,13 +104,11 @@ public class ClaudeCodeConnector implements IAIConnector {
 		case Resume:
 			sub.subTask("Importing session");
 			sessionManager.importSession(req.cmd.parameter, params);
-			waitFor();
 			return new ClaudeCodeResponse(req.id, "Session created", false);
 		case Exit:
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 			sub.subTask("Terminating CLI process");
 			session.terminate();
-			waitFor();
 			return new ClaudeCodeResponse(req.id, "Session closed!", false);
 		case Allow:
 		case Deny:
@@ -127,7 +125,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 			default:
 				throw new UnsupportedOperationException();
 			}
-			waitFor();
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 			break;
 		case Prompt:
@@ -139,6 +136,9 @@ public class ClaudeCodeConnector implements IAIConnector {
 		try {
 			session.setInPrompt(true);
 			if (CommandType.Prompt.equals(req.cmd.type)) {
+				if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !controlClient.isMCPCAvailable())
+					throw new IllegalStateException("MCPC not reachable for AgentProfile");
+
 				sub.subTask("Sending prompt");
 				session.writeLine(req.cmd.parameter);
 			}
@@ -153,13 +153,6 @@ public class ClaudeCodeConnector implements IAIConnector {
 		}
 	}
 
-	private void waitFor() {
-		try { // TODO remove once bug is fixed
-			Thread.sleep(1000); // brief delay before saving marker
-		} catch (InterruptedException ignored) {
-		}
-	}
-
 	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, ClaudeCodeSession session, IProgressMonitor mon)
 			throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
@@ -171,10 +164,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 		String line;
 		while (true) {
 			ClaudeCodeResponse pendingResponse = controlClient.checkControlEndpoint(req);
-			if (pendingResponse != null) {
-				waitFor();
+			if (pendingResponse != null)
 				return pendingResponse;
-			}
 
 			if ((line = session.readLine()) == null)
 				break;

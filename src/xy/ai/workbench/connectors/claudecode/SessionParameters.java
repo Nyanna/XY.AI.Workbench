@@ -126,13 +126,15 @@ public class SessionParameters {
 		}
 
 		cmd.add("--verbose");
-		cmd.add("--include-hook-events");
+		// replaced by MCPC
+		// cmd.add("--include-hook-events");
 		cmd.add("--include-partial-messages");
 		cmd.add("--input-format");
 		cmd.add("stream-json");
 		cmd.add("--output-format");
 		cmd.add("stream-json");
-		cmd.add("--replay-user-messages");
+		// replaced by self mirror input
+		//cmd.add("--replay-user-messages");
 		cmd.add("--model");
 		cmd.add(model.apiName);
 		if (Reasoning.Disabled != reasoning) {
