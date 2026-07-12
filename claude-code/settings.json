@@ -9,9 +9,6 @@
   },
   "includeGitInstructions": false,
   "permissions": {
-    "allow": [
-      "Bash(savecopy.sh *)"
-    ],
     "deny": [
       "___*",
       "NotebookEdit",
