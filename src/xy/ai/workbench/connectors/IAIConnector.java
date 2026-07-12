@@ -9,14 +9,15 @@ import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
 
-public interface IAIConnector {
+public interface IAIConnector<REQ extends IModelRequest, RESP extends IModelResponse> {
 
-	IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon);
+	REQ createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon);
 
-	IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon);
+	RESP executeRequest(REQ req, IProgressMonitor mon);
 
-	AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon);
-	
+	AIAnswer convertResponse(RESP resp, IProgressMonitor mon);
+
 	KeyPattern getSupportedKeyPattern();
 
 }

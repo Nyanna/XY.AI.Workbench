@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,9 +18,6 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
@@ -29,13 +25,11 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest.Command;
 import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.models.IModelRequest;
-import xy.ai.workbench.models.IModelResponse;
 
-public class ClaudeCodeConnector implements IAIConnector {
+public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, ClaudeCodeResponse> {
 
 	private final ClaudeCodeRequestBuilder requestBuilder = new ClaudeCodeRequestBuilder();
-	private final ClaudeCodeJsonParser jsonParser = new ClaudeCodeJsonParser();
+	private final ClaudeCodeProtocol jsonParser = new ClaudeCodeProtocol();
 	private final ClaudeCodeControlClient controlClient = new ClaudeCodeControlClient();
 	private final ClaudeCodeSessionManager sessionManager;
 
@@ -52,8 +46,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
+	public ClaudeCodeRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools,
+			boolean batchFix, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
 
@@ -91,9 +85,8 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
+	public ClaudeCodeResponse executeRequest(ClaudeCodeRequest req, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
-		ClaudeCodeRequest req = (ClaudeCodeRequest) request;
 		ClaudeCodeSession session = null;
 
 		SessionParameters params = new SessionParameters(getEditorFilePath(), req.systemPrompt, req.tools,
@@ -104,12 +97,12 @@ public class ClaudeCodeConnector implements IAIConnector {
 		case Resume:
 			sub.subTask("Importing session");
 			sessionManager.importSession(req.cmd.parameter, params);
-			return new ClaudeCodeResponse(req.id, "Session created", false);
+			return new ClaudeCodeResponse(req.id, "Session created");
 		case Exit:
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 			sub.subTask("Terminating CLI process");
 			session.terminate();
-			return new ClaudeCodeResponse(req.id, "Session closed!", false);
+			return new ClaudeCodeResponse(req.id, "Session closed!");
 		case Allow:
 		case Deny:
 		case Modification:
@@ -156,80 +149,28 @@ public class ClaudeCodeConnector implements IAIConnector {
 	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, ClaudeCodeSession session, IProgressMonitor mon)
 			throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
-
-		// Ordered map: key = "type\0content" for dedup, value = formatted markdown line
-		LinkedHashMap<String, String> assistantEvents = new LinkedHashMap<>();
-		long totalReasoningTokens = 0;
+		ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id);
 
 		String line;
 		while (true) {
-			// TODO alternate
-			ClaudeCodeResponse pendingResponse = controlClient.checkControlEndpoint(req);
-			if (pendingResponse != null)
-				return pendingResponse;
+			// alternate read sources undtil answer
+			controlClient.checkControlEndpoint(resp);
 
-			if ((line = session.readLine()) == null)
-				break;
+			if (!resp.isReady())
+				try {
+					// wait 300 ms
+					if ((line = session.readLine()) != null) {
+						jsonParser.parseLine(resp, session, sub, line);
 
-			JsonNode node;
-			try {
-				node = JsonUtil.readTree(line);
-			} catch (JsonProcessingException parseError) {
-				LOG.error("ClaudeCodeConnector: could not parse CLI line as JSON (length=" + line.length() + "): "
-						+ JsonUtil.abbreviate(line), parseError);
-				continue;
-			}
-
-			String type = JsonUtil.plainText(node.path("type"));
-			try {
-				if ("result".equals(type)) {
-					sub.subTask("Received final result");
-					return jsonParser.parseResult(req.id, node, assistantEvents, totalReasoningTokens);
-				}
-				if ("tool_use".equals(type)) {
-					sub.subTask("Received tool use request");
-					return jsonParser.parseToolUse(req.id, node);
-				}
-
-				if ("system".equals(type)) {
-					String subtype = JsonUtil.plainText(node.path("subtype"));
-					if ("init".equals(subtype)) {
-						sub.subTask("Received system init metadata");
-						jsonParser.parseSystemInitEvent(node, assistantEvents);
-						updateLastParsedMessage(session, assistantEvents);
 					}
-				} else if ("stream_event".equals(type)) {
-					String eventType = JsonUtil.plainText(node.path("event").path("type"));
-					if ("message_delta".equals(eventType)) {
-						totalReasoningTokens += jsonParser.collectMessageDeltaEvent(node, assistantEvents);
-						updateLastParsedMessage(session, assistantEvents);
-					}
-				} else if ("rate_limit_event".equals(type)) {
-					jsonParser.processRateLimitEvent(node);
-				} else if ("assistant".equals(type)) {
-					boolean recordToolUse = !AgentProfile.MCPC.equals(session.getParameters().agentProfile);
-					jsonParser.collectAssistantEvents(node, assistantEvents, false, recordToolUse, sub.split(1));
-					updateLastParsedMessage(session, assistantEvents);
+				} catch (Exception ex) {
+					while ((line = session.readError()) != null)
+						LOG.error("ClaudeCodeConnector: CLI stderr: " + line);
+					throw ex;
 				}
-			} catch (Exception processingError) {
-				LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length=" + line.length()
-						+ "): " + JsonUtil.abbreviate(line), processingError);
-			}
-		}
 
-		// STDOUT closed without a result — surface anything the CLI left on STDERR.
-		while ((line = session.readError()) != null)
-			LOG.error("ClaudeCodeConnector: CLI stderr: " + line);
-
-		throw new IllegalStateException("Claude Code process ended without a result event");
-	}
-
-	private void updateLastParsedMessage(ClaudeCodeSession session, LinkedHashMap<String, String> assistantEvents) {
-		if (!assistantEvents.isEmpty()) {
-			String last = null;
-			for (String v : assistantEvents.values())
-				last = v;
-			session.setLastParsedMessage(last);
+			if (resp.isReady())
+				return resp;
 		}
 	}
 
@@ -258,8 +199,7 @@ public class ClaudeCodeConnector implements IAIConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
-		ClaudeCodeResponse resp = (ClaudeCodeResponse) response;
+	public AIAnswer convertResponse(ClaudeCodeResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
 		answer.inputToken = resp.inputTokens + resp.cacheCreationInputTokens;
 		answer.outputToken = resp.outputTokens;

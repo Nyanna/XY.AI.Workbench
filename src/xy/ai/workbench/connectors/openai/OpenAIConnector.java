@@ -29,10 +29,8 @@ import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.models.IModelRequest;
-import xy.ai.workbench.models.IModelResponse;
 
-public class OpenAIConnector implements IAIConnector {
+public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
 	private ConfigManager cfg;
 	private OpenAIClient client;
 
@@ -43,14 +41,15 @@ public class OpenAIConnector implements IAIConnector {
 				this.client = OpenAIOkHttpClient.builder().apiKey(k).build();
 		}, true);
 	}
-	
+
 	@Override
 	public KeyPattern getSupportedKeyPattern() {
 		return KeyPattern.OpenAI;
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public OpenAIRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		boolean isBackground = false;
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
@@ -96,8 +95,8 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
-		ResponseCreateParams params = ((OpenAIRequest) request).reqquest;
+	public OpenAIResponse executeRequest(OpenAIRequest req, IProgressMonitor mon) {
+		ResponseCreateParams params = ((OpenAIRequest) req).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
@@ -120,7 +119,7 @@ public class OpenAIConnector implements IAIConnector {
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
+	public AIAnswer convertResponse(OpenAIResponse response, IProgressMonitor mon) {
 		Response resp = ((OpenAIResponse) response).response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 

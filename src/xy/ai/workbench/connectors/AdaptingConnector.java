@@ -32,7 +32,7 @@ import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
 
-public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
+public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResponse>, IAIBatchConnector {
 
 	private ConfigManager cfg;
 	private OpenAIConnector chad;
@@ -52,13 +52,13 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		claudeCode = new ClaudeCodeConnector(cfg, sessionManager);
 		newBatch = new NewBatchConnector();
 	}
-	
+
 	@Override
 	public KeyPattern getSupportedKeyPattern() {
 		return KeyPattern.None;
 	}
 
-	private IAIConnector getConnector(Model model) {
+	private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
 		switch (model) {
 		case GPT_5:
 		case GPT_5_MINI:
@@ -101,6 +101,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
+	@SuppressWarnings("rawtypes")
 	public IAIConnector getConnector(IModelRequest request) {
 		if (request instanceof GeminiRequest)
 			return gemini;
@@ -113,6 +114,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
+	@SuppressWarnings("rawtypes")
 	private IAIConnector getConnector(IModelResponse response) {
 		if (response instanceof GeminiResponse)
 			return gemini;
@@ -148,7 +150,8 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		return getConnector(cfg.getModel()).createRequest(inputs, systemPrompt, tools, batchFix, mon);
 	}
 
@@ -162,6 +165,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		return getBatchConnector(cfg.getModel()).submitBatch(entry, mon);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
 		return getConnector(request).executeRequest(request, mon);
@@ -172,6 +176,7 @@ public class AdaptingConnector implements IAIConnector, IAIBatchConnector {
 		return getBatchConnector(reqs.iterator().next()).requestsToJson(reqs);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
 		return getConnector(response).convertResponse(response, mon);

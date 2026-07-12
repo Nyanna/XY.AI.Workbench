@@ -1,14 +1,11 @@
 # TODO
 
 ## Workbench
-!große websearch geht jetzt aber weniger toolausgaben. Dadurch wechseln sich claude und control loop nicht mehr ab. Die Schleife ändern und immer wechselseitig probieren, erst control, dann 500 ms auf claude zeilenstart warten und wenn nicht wieder control probieren.
-
-*tool auswahl in config speichern
-
+* tool auswahl in config speichern
+* Stop words entfernen aus exa
+	* recherchieren, macht sinn? Welche möglichkeiten und methoden?
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
-
-
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools

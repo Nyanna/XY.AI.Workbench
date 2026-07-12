@@ -20,10 +20,8 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.models.IModelRequest;
-import xy.ai.workbench.models.IModelResponse;
 
-public class ClaudeConnector implements IAIConnector {
+public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeResponse> {
 	private ConfigManager cfg;
 	private AnthropicClient client;
 
@@ -34,14 +32,15 @@ public class ClaudeConnector implements IAIConnector {
 				this.client = AnthropicOkHttpClient.builder().apiKey(k).build();
 		}, true);
 	}
-	
+
 	@Override
 	public KeyPattern getSupportedKeyPattern() {
 		return KeyPattern.Claude;
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix, IProgressMonitor mon) {
+	public ClaudeRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		Builder builder = MessageCreateParams.builder();
@@ -72,29 +71,26 @@ public class ClaudeConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
-		ClaudeRequest params = ((ClaudeRequest) request);
-
-		Message message = client.messages().create(params.params);
-		return new ClaudeResponse(message, request.getID());
+	public ClaudeResponse executeRequest(ClaudeRequest req, IProgressMonitor mon) {
+		Message message = client.messages().create(req.params);
+		return new ClaudeResponse(message, req.getID());
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
-		ClaudeResponse cresp = (ClaudeResponse) response;
-		Message resp = cresp.response;
+	public AIAnswer convertResponse(ClaudeResponse resp, IProgressMonitor mon) {
+		Message msg = resp.response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer(cresp.id);
+		AIAnswer res = new AIAnswer(resp.id);
 
-		res.inputToken = resp.usage().inputTokens();
-		res.outputToken = resp.usage().outputTokens();
+		res.inputToken = msg.usage().inputTokens();
+		res.outputToken = msg.usage().outputTokens();
 //		resp.usage().cacheCreationInputTokens();
 //		resp.usage().cacheReadInputTokens();
 		res.totalToken = res.inputToken + res.outputToken;
 
 		StringBuffer answer = new StringBuffer();
-		for (ContentBlock content : resp.content())
+		for (ContentBlock content : msg.content())
 			if (content.isText())
 				answer.append(content.asText().text());
 

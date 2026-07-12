@@ -35,22 +35,18 @@ public class ClaudeCodeControlClient {
 	private final ObjectMapper mapper = JsonUtil.mapper();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
-	public ClaudeCodeResponse checkControlEndpoint(ClaudeCodeRequest req) {
+	public void checkControlEndpoint(ClaudeCodeResponse resp) {
 		JsonNode pending = poll();
-		if (pending == null || pending.isEmpty())
-			return null;
+		if (pending.isEmpty())
+			return;
 
 		JsonNode first = pending.get(0);
-		// Render the pending item as valid, once-escaped JSON via the shared utility
-		// (same pretty-print + safe fallback, no hand-rolled toString()).
-		String text = JsonUtil.pretty(first);
-		String prepared = "#: Control Request:\n" + ClaudeCodeJsonParser.commented(text) + "\n/allow "
+		resp.resultText = "#: Control Request:\n" + ClaudeCodeProtocol.commented(JsonUtil.pretty(first)) + "\n/allow "
 				+ first.path("id").asText();
-		return new ClaudeCodeResponse(req.id, prepared, false);
 	}
 
 	public boolean isMCPCAvailable() {
-		return poll() != null;
+		return poll() != null; // never null, just check exceptions
 	}
 
 	private ArrayNode poll() {

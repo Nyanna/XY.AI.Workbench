@@ -3,21 +3,23 @@ package xy.ai.workbench.connectors.claudecode;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.LOG;
 
 /**
  * Parses JSON structures from Claude Code API responses. Handles extraction and
  * processing of results, tool uses, events, and rate limits.
  */
-public class ClaudeCodeJsonParser {
+public class ClaudeCodeProtocol {
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
@@ -25,18 +27,61 @@ public class ClaudeCodeJsonParser {
 
 	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
 
-	/**
-	 * Parses a result event from the Claude Code API response. Combines
-	 * thinking/text events and model usage information into a ClaudeCodeResponse.
-	 *
-	 * @param id                   request ID
-	 * @param node                 the result JSON node
-	 * @param assistantEvents      collected assistant events to prepend
-	 * @param totalReasoningTokens accumulated reasoning tokens
-	 * @return ClaudeCodeResponse with parsed result
-	 */
-	public ClaudeCodeResponse parseResult(String id, JsonNode node, LinkedHashMap<String, String> assistantEvents,
-			long totalReasoningTokens) {
+	public void parseLine(ClaudeCodeResponse resp, ClaudeCodeSession session, SubMonitor sub, String line) {
+		JsonNode node;
+		try {
+			node = JsonUtil.readTree(line);
+		} catch (JsonProcessingException parseError) {
+			throw new IllegalStateException(
+					"Could not parse CLI line as JSON (length=" + line.length() + "): " + JsonUtil.abbreviate(line),
+					parseError);
+		}
+
+		String type = JsonUtil.plainText(node.path("type"));
+		try {
+			if ("result".equals(type)) {
+				sub.subTask("Received final result");
+				parseResult(resp, node);
+			} else if ("tool_use".equals(type)) {
+				sub.subTask("Received tool use request");
+				parseToolUse(resp, node);
+			} else if ("system".equals(type)) {
+				String subtype = JsonUtil.plainText(node.path("subtype"));
+				if ("init".equals(subtype)) {
+					sub.subTask("Received system init metadata");
+					parseSystemInitEvent(resp, node);
+					updateLastParsedMessage(resp, session);
+				}
+			} else if ("stream_event".equals(type)) {
+				String eventType = JsonUtil.plainText(node.path("event").path("type"));
+				if ("message_delta".equals(eventType)) {
+					collectMessageDeltaEvent(resp, node);
+					updateLastParsedMessage(resp, session);
+				}
+			} else if ("rate_limit_event".equals(type)) {
+				parseRateLimitEvent(node);
+			} else if ("assistant".equals(type)) {
+				boolean recordToolUse = !AgentProfile.MCPC.equals(session.getParameters().agentProfile);
+				parseAssistantEvents(node, resp, false, recordToolUse, sub.split(1));
+				updateLastParsedMessage(resp, session);
+			}
+		} catch (Exception ex) {
+			LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length=" + line.length()
+					+ "): " + JsonUtil.abbreviate(line), ex);
+			throw ex;
+		}
+	}
+
+	private void updateLastParsedMessage(ClaudeCodeResponse resp, ClaudeCodeSession session) {
+		if (!resp.events.isEmpty()) {
+			String last = null;
+			for (String v : resp.events.values())
+				last = v;
+			session.setLastParsedMessage(last);
+		}
+	}
+
+	private void parseResult(ClaudeCodeResponse resp, JsonNode node) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		// plainText yields the logical result value without JSON quoting/escaping
 		// (and handles a structured result node), instead of a bare asText().
@@ -46,21 +91,20 @@ public class ClaudeCodeJsonParser {
 		// report the failure(s) in an "errors" array instead. Join them so the
 		// error is not silently dropped.
 		String errorsText = joinErrors(node.path("errors"));
-		if (!errorsText.isEmpty()) {
+		if (!errorsText.isEmpty())
 			resultText = resultText.isEmpty() ? errorsText : resultText + "\n" + errorsText;
-		}
 
 		// Prepend collected thinking/text events as markdown lines
-		if (!assistantEvents.isEmpty()) {
+		if (!resp.events.isEmpty()) {
 			StringBuilder prefix = new StringBuilder();
-			for (String line : assistantEvents.values()) {
+			for (String line : resp.events.values())
 				prefix.append(line).append("\n");
-			}
 			prefix.append("\n");
 			resultText = commented(prefix.toString()) + "\n" + resultText;
 		}
 
-		ClaudeCodeResponse resp = new ClaudeCodeResponse(id, resultText, isError);
+		resp.resultText = resultText;
+		resp.isError = isError;
 
 		// Extract token usage information
 		JsonNode modelUsage = node.path("modelUsage");
@@ -75,108 +119,70 @@ public class ClaudeCodeJsonParser {
 				resp.cacheCreationInputTokens += usage.path("cacheCreationInputTokens").asLong(0);
 			});
 		}
-
-		// Set the accumulated reasoning tokens
-		resp.reasoningTokens = totalReasoningTokens;
-
-		return resp;
 	}
 
-	/**
-	 * Parses a tool_use event from the Claude Code API response.
-	 *
-	 * @param requestId the request ID
-	 * @param node      the tool_use JSON node
-	 * @return ClaudeCodeResponse with tool use information
-	 */
-	public ClaudeCodeResponse parseToolUse(String requestId, JsonNode node) {
+	private void parseToolUse(ClaudeCodeResponse resp, JsonNode node) {
 		String toolName = node.path("name").asText("");
 		String toolUseId = node.path("id").asText("");
 		JsonNode input = node.path("input");
 
 		String inputStr;
 		if (input.isObject() && input.size() == 1) {
-			// Show the single argument's logical value (no JSON quoting/escaping).
 			@SuppressWarnings("deprecation")
 			String val = JsonUtil.plainText(input.fields().next().getValue());
 			inputStr = "`" + val + "`";
-		} else {
-			// Multiple/structured arguments: keep them as valid, once-escaped JSON.
+		} else
 			inputStr = JsonUtil.compact(input);
-		}
 
-		String markdown = "Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId;
-		return new ClaudeCodeResponse(requestId, commented(markdown), toolUseId);
+		resp.setToolUse(commented("Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId), toolUseId);
 	}
 
-	/**
-	 * Extracts "thinking" and "text" content blocks from an assistant event
-	 * snapshot and stores them in the ordered dedup map. Blocks already seen (same
-	 * type + content) are silently ignored so that repeated snapshots do not
-	 * produce duplicates.
-	 *
-	 * @param node            the assistant event JSON node
-	 * @param assistantEvents map to collect events
-	 * @param mon
-	 */
-	public void collectAssistantEvents(JsonNode node, LinkedHashMap<String, String> assistantEvents, boolean recordText,
-			boolean recordToolUse, IProgressMonitor mon) {
+	private void parseAssistantEvents(JsonNode node, ClaudeCodeResponse resp, boolean recordText, boolean recordToolUse,
+			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Received Claude message", 1);
 
 		JsonNode content = node.path("message").path("content");
-		if (!content.isArray())
-			return;
-		for (JsonNode block : content) {
-			String blockType = block.path("type").asText();
-			if ("thinking".equals(blockType)) {
-				// Some versions use "thinking" field, others fall back to "text"
-				String text = block.path("thinking").asText("");
-				if (text.isEmpty())
-					text = block.path("text").asText("");
-				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("thinking\0" + text, THINKING + "\n" + text);
-				sub.subTask("Claude is thinking");
-			} else if (recordText && "text".equals(blockType)) {
-				String text = block.path("text").asText("");
-				if (!text.isEmpty())
-					assistantEvents.putIfAbsent("text\0" + text, TEXT + "\n" + text);
-			} else if (recordToolUse && "tool_use".equals(blockType)) {
-				String toolName = block.path("name").asText("");
-				String text = " " + toolName + "\n";
-				JsonNode inputs = block.path("input");
-				if (inputs.isObject()) {
-					var inputNames = inputs.fieldNames();
-					while (inputNames.hasNext()) {
-						String inputName = inputNames.next();
-						// plainText avoids the double-escaping seen with toString():
-						// a value like [\s\S] must stay [\s\S], not become [\\s\\S].
-						String value = JsonUtil.plainText(inputs.path(inputName));
-						if (value.length() > TOOL_INPUT_MAX_LENGTH)
-							value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
-						text += inputName + ": " + value.replace('\n', ' ') + "\n";
+		if (content.isArray())
+			for (JsonNode block : content) {
+				String blockType = block.path("type").asText();
+				if ("thinking".equals(blockType)) {
+					// Some versions use "thinking" field, others fall back to "text"
+					String text = block.path("thinking").asText("");
+					if (text.isEmpty())
+						text = block.path("text").asText("");
+					if (!text.isEmpty())
+						resp.events.putIfAbsent("thinking\0" + text, THINKING + "\n" + text);
+					sub.subTask("Claude is thinking");
+				} else if (recordText && "text".equals(blockType)) {
+					String text = block.path("text").asText("");
+					if (!text.isEmpty())
+						resp.events.putIfAbsent("text\0" + text, TEXT + "\n" + text);
+				} else if (recordToolUse && "tool_use".equals(blockType)) {
+					String toolName = block.path("name").asText("");
+					String text = " " + toolName + "\n";
+					JsonNode inputs = block.path("input");
+					if (inputs.isObject()) {
+						var inputNames = inputs.fieldNames();
+						while (inputNames.hasNext()) {
+							String inputName = inputNames.next();
+							// plainText avoids the double-escaping seen with toString():
+							// a value like [\s\S] must stay [\s\S], not become [\\s\\S].
+							String value = JsonUtil.plainText(inputs.path(inputName));
+							if (value.length() > TOOL_INPUT_MAX_LENGTH)
+								value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
+							text += inputName + ": " + value.replace('\n', ' ') + "\n";
+						}
+					}
+					if (!text.isEmpty()) {
+						resp.events.putIfAbsent("tool\0" + text, TOOLUSE + text);
+						sub.subTask("Claude uses tool: " + toolName);
 					}
 				}
-				if (!text.isEmpty()) {
-					assistantEvents.putIfAbsent("tool\0" + text, TOOLUSE + text);
-					sub.subTask("Claude uses tool: " + toolName);
-				}
 			}
-		}
 		sub.worked(1);
 	}
 
-	/**
-	 * Extracts reasoning tokens from a message_delta event. The thinking_tokens are
-	 * found at event.usage.output_tokens_details.thinking_tokens. If present,
-	 * appends "ReasoningToken: <count>" to assistantEvents with key
-	 * "reasoning\0<count>".
-	 *
-	 * @param node            the message_delta event JSON node
-	 * @param assistantEvents map to collect events
-	 * @return the thinking_tokens count extracted from this event, or 0 if not
-	 *         present
-	 */
-	public long collectMessageDeltaEvent(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+	private void collectMessageDeltaEvent(ClaudeCodeResponse resp, JsonNode node) {
 		long thinkingTokens = 0;
 		JsonNode usage = node.path("event").path("usage");
 		if (usage.isObject()) {
@@ -186,22 +192,14 @@ public class ClaudeCodeJsonParser {
 				if (thinkingTokens > 0) {
 					String key = "reasoning\0" + thinkingTokens;
 					String value = "ReasoningToken: " + thinkingTokens;
-					assistantEvents.putIfAbsent(key, value);
+					resp.events.putIfAbsent(key, value);
 				}
 			}
 		}
-		return thinkingTokens;
+		resp.totalReasoningTokens += thinkingTokens;
 	}
 
-	/**
-	 * Processes a rate_limit_event from the Claude Code API. Extracts rate limit
-	 * info (utilization, resets_at, status, etc.) for both five_hour and seven_day
-	 * limits, and logs them in a human-readable format with timestamps converted to
-	 * readable date/time.
-	 *
-	 * @param node the rate_limit_event JSON node
-	 */
-	public void processRateLimitEvent(JsonNode node) {
+	private void parseRateLimitEvent(JsonNode node) {
 		try {
 			JsonNode rateLimitInfo = node.path("rate_limit_info");
 			String rateLimitType = rateLimitInfo.path("rateLimitType").asText();
@@ -218,59 +216,43 @@ public class ClaudeCodeJsonParser {
 			String overageStatus = rateLimitInfo.path("overageStatus").asText("");
 			String overageDisabledReason = rateLimitInfo.path("overageDisabledReason").asText("");
 
-			// Convert resetsAt Unix timestamp to human-readable format
 			String resetsAtReadable = resetsAt > 0
 					? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(resetsAt * 1000))
 					: "unknown";
 
-			// Build log message
 			StringBuilder logMsg = new StringBuilder();
 			logMsg.append("Rate Limit Event [").append(rateLimitType).append("]: ");
 			logMsg.append("status=").append(status);
 			logMsg.append(" | utilization=").append(String.format("%.2f%%", utilization * 100));
 			logMsg.append(" | resets_at=").append(resetsAtReadable);
 
-			// Add optional fields only if they have meaningful values
-			if (!errorCode.isEmpty()) {
+			if (!errorCode.isEmpty())
 				logMsg.append(" | errorCode=").append(errorCode);
-			}
-			if (canUserPurchaseCredits) {
+			if (canUserPurchaseCredits)
 				logMsg.append(" | canUserPurchaseCredits=").append(canUserPurchaseCredits);
-			}
-			if (hasChargeableSavedPaymentMethod) {
+			if (hasChargeableSavedPaymentMethod)
 				logMsg.append(" | hasChargeableSavedPaymentMethod=").append(hasChargeableSavedPaymentMethod);
-			}
-			if (isUsingOverage) {
+			if (isUsingOverage)
 				logMsg.append(" | isUsingOverage=").append(isUsingOverage);
-			}
-			if (!overageStatus.isEmpty()) {
+			if (!overageStatus.isEmpty())
 				logMsg.append(" | overageStatus=").append(overageStatus);
-			}
-			if (!overageDisabledReason.isEmpty()) {
+			if (!overageDisabledReason.isEmpty())
 				logMsg.append(" | overageDisabledReason=").append(overageDisabledReason);
-			}
 
 			LOG.info(logMsg.toString());
 		} catch (Exception e) {
 			LOG.error("ClaudeCodeConnector: failed to process rate limit event", e);
+			throw e;
 		}
 	}
 
-	/**
-	 * Parses a system init event from the Claude Code API response. Extracts
-	 * metadata: cwd, session_id, model, and plugin names (comma-separated). Stores
-	 * the formatted metadata line in assistantEvents.
-	 *
-	 * @param node            the system init event JSON node
-	 * @param assistantEvents map to collect events
-	 */
-	public void parseSystemInitEvent(JsonNode node, LinkedHashMap<String, String> assistantEvents) {
+	private void parseSystemInitEvent(ClaudeCodeResponse resp, JsonNode node) {
+		Map<String, String> assistantEvents = resp.events;
 		try {
 			String cwd = node.path("cwd").asText("");
 			String sessionId = node.path("session_id").asText("");
 			String model = node.path("model").asText("");
 
-			// Extract plugin names from the plugins array
 			StringBuilder pluginNames = new StringBuilder();
 			JsonNode plugins = node.path("plugins");
 			if (plugins.isArray()) {
@@ -286,24 +268,15 @@ public class ClaudeCodeJsonParser {
 				}
 			}
 
-			// Format as a single line with all metadata
 			String metadata = "SystemInit: cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
 					+ " | plugins=" + pluginNames.toString();
-
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {
 			LOG.error("ClaudeCodeJsonParser: failed to parse system init event", e);
+			throw e;
 		}
 	}
 
-	/**
-	 * Joins the entries of an "errors" JSON array (as found e.g. on
-	 * {@code error_during_execution} result events) into a single newline-separated
-	 * string of plain text messages.
-	 *
-	 * @param errors the "errors" JSON node (may be missing/non-array)
-	 * @return joined error messages, or the empty string if none are present
-	 */
 	private static String joinErrors(JsonNode errors) {
 		if (!errors.isArray() || errors.isEmpty())
 			return "";
@@ -319,13 +292,6 @@ public class ClaudeCodeJsonParser {
 		return sb.toString();
 	}
 
-	/**
-	 * Converts text to commented format (markdown-style comments). Removes
-	 * duplicate blank lines and prepends "#: " prefix to each line.
-	 *
-	 * @param input the input text
-	 * @return commented text
-	 */
 	public static String commented(String input) {
 		while (input.indexOf("\n\n") != -1)
 			input = input.replace("\n\n", "\n");

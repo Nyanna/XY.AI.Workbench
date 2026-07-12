@@ -28,10 +28,8 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.models.IModelRequest;
-import xy.ai.workbench.models.IModelResponse;
 
-public class GeminiConnector implements IAIConnector {
+public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
 	private ConfigManager cfg;
 	private Client client;
 
@@ -44,14 +42,14 @@ public class GeminiConnector implements IAIConnector {
 						.build();
 		}, true);
 	}
-	
+
 	@Override
 	public KeyPattern getSupportedKeyPattern() {
 		return KeyPattern.Gemini;
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+	public GeminiRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
@@ -117,28 +115,24 @@ public class GeminiConnector implements IAIConnector {
 	}
 
 	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
-		GeminiRequest params = ((GeminiRequest) request);
-
+	public GeminiResponse executeRequest(GeminiRequest req, IProgressMonitor mon) {
 		GenerateContentResponse res = client.models.generateContent( //
-				params.model.apiName, //
-				params.prompt, //
-				params.config);
-
-		return new GeminiResponse(request.getID(), res);
+				req.model.apiName, //
+				req.prompt, //
+				req.config);
+		return new GeminiResponse(req.getID(), res);
 	}
 
 	@Override
-	public AIAnswer convertResponse(IModelResponse modelResponse, IProgressMonitor mon) {
-		GeminiResponse response = (GeminiResponse) modelResponse;
-		GenerateContentResponse resp = response.response;
+	public AIAnswer convertResponse(GeminiResponse resp, IProgressMonitor mon) {
+		GenerateContentResponse cresp = resp.response;
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
-		AIAnswer res = new AIAnswer(response.id);
-		res.answer = resp.text();
+		AIAnswer res = new AIAnswer(resp.id);
+		res.answer = cresp.text();
 
-		if (resp.usageMetadata().isPresent()) {
-			GenerateContentResponseUsageMetadata usage = resp.usageMetadata().get();
+		if (cresp.usageMetadata().isPresent()) {
+			GenerateContentResponseUsageMetadata usage = cresp.usageMetadata().get();
 
 			res.inputToken = usage.promptTokenCount().orElse(-1).intValue();
 			res.reasoningToken = usage.thoughtsTokenCount().orElse(-1).intValue();
@@ -149,7 +143,7 @@ public class GeminiConnector implements IAIConnector {
 			}
 		}
 
-		switch (resp.finishReason().knownEnum()) {
+		switch (cresp.finishReason().knownEnum()) {
 		case STOP:
 			break; // no error
 		case BLOCKLIST:
@@ -165,7 +159,7 @@ public class GeminiConnector implements IAIConnector {
 		case SPII:
 		case UNEXPECTED_TOOL_CALL:
 		default:
-			res.answer += "Error: " + resp.finishReason().knownEnum().name();
+			res.answer += "Error: " + cresp.finishReason().knownEnum().name();
 		}
 		sub.worked(1);
 		return res;
