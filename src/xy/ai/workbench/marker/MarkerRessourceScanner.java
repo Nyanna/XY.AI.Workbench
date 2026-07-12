@@ -24,6 +24,8 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.ITextSelection;
+import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -35,7 +37,9 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
+import xy.ai.workbench.Activator;
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
@@ -158,8 +162,16 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 					if (range == null)
 						return; // stored position no longer matches the live document
 
+					ITextEditor editor = null;
+					if (isAutoFollowModeEnabled())
+						editor = findOpenEditorFor(file);
+					boolean autoFollow = shouldAutoFollow(editor, doc);
+
 					doc.replace(range[0], range[1], ans.answer);
 					replaced[0] = true;
+
+					if (autoFollow)
+						moveCursorToLastLineStart(editor, doc);
 				} catch (BadLocationException e) {
 					LOG.error(e.getMessage(), e);
 				}
@@ -242,8 +254,11 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 					continue;
 
 				try {
+					boolean autoFollow = isAutoFollowModeEnabled() && shouldAutoFollow(editor, doc);
 					doc.replace(range[0], range[1], ans.answer);
 					res[0] = true;
+					if (autoFollow)
+						moveCursorToLastLineStart(editor, doc);
 					break;
 				} catch (BadLocationException e) {
 					LOG.error(e.getMessage(), e);
@@ -251,6 +266,43 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			}
 		});
 		return res[0];
+	}
+
+	private ITextEditor findOpenEditorFor(IFile file) {
+		for (ITextEditor editor : getOpenTextEditors()) {
+			IEditorInput input = editor.getEditorInput();
+			if (input instanceof IFileEditorInput && file.equals(((IFileEditorInput) input).getFile()))
+				return editor;
+		}
+		return null;
+	}
+
+	private boolean isAutoFollowModeEnabled() {
+		OutputMode mode = Activator.getDefault().cfg.getOuputMode();
+		return mode == OutputMode.Append || mode == OutputMode.Chat;
+	}
+
+	private boolean shouldAutoFollow(ITextEditor editor, IDocument doc) {
+		if (editor == null || editor.isDirty())
+			return false;
+
+		ISelection selection = editor.getSelectionProvider().getSelection();
+		if (!(selection instanceof ITextSelection))
+			return false;
+
+		ITextSelection tsel = (ITextSelection) selection;
+		int lastLine = doc.getNumberOfLines() - 1;
+		return tsel.getStartLine() >= lastLine;
+	}
+
+	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
+		try {
+			int lastLine = doc.getNumberOfLines() - 1;
+			int offset = doc.getLineOffset(lastLine);
+			editor.selectAndReveal(offset, 0);
+		} catch (BadLocationException e) {
+			LOG.error(e.getMessage(), e);
+		}
 	}
 
 	private java.util.List<ITextEditor> getOpenTextEditors() {
