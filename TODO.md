@@ -1,11 +1,6 @@
 # TODO
 
 ## Workbench
-* editor scrolled nicht nach unten
-* write tool muss verzeichnis erzeugen
-
-* claude wollte ohne bash für code verzeichnisbäume anschauen, an der stelle währe ein AST für java besser gewesen
-	* vielleicht Eclipse/IntelliJ MCP Integration
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
 

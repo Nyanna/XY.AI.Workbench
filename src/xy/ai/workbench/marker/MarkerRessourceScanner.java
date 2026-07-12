@@ -40,6 +40,7 @@ import org.osgi.framework.BundleContext;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.OutputMode;
+import xy.ai.workbench.editors.AISessionEditor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
@@ -283,7 +284,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	private boolean shouldAutoFollow(ITextEditor editor, IDocument doc) {
-		if (editor == null || editor.isDirty())
+		if (editor == null)
 			return false;
 
 		ISelection selection = editor.getSelectionProvider().getSelection();
@@ -296,13 +297,10 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
-		try {
-			int lastLine = doc.getNumberOfLines() - 1;
-			int offset = doc.getLineOffset(lastLine);
-			editor.selectAndReveal(offset, 0);
-		} catch (BadLocationException e) {
-			LOG.error(e.getMessage(), e);
-		}
+		Display.getDefault().timerExec(500, () -> {
+			editor.selectAndReveal(0, 0);
+			editor.selectAndReveal(doc.getLength(), 0);
+		});
 	}
 
 	private java.util.List<ITextEditor> getOpenTextEditors() {
@@ -311,6 +309,8 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			for (IWorkbenchPage page : window.getPages())
 				for (IEditorReference ref : page.getEditorReferences()) {
 					IEditorPart part = ref.getEditor(false);
+					if (part instanceof AISessionEditor)
+						part = ((AISessionEditor) part).getEditor();
 					if (part instanceof ITextEditor) {
 						IEditorInput input = part.getEditorInput();
 						// prefer file based / URI based editors, but any ITextEditor works

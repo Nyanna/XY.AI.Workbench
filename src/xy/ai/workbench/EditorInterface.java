@@ -109,11 +109,11 @@ public class EditorInterface {
 					case Chat:
 						String replace = String.format("\n%s\n%s\n%s\n", AGENT, tag, USER);
 						doc.replace(doc.getLength(), 0, replace);
-						textEditor.selectAndReveal(doc.getLength(), 0);
+						display.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
 						break;
 					case Append:
 						doc.replace(doc.getLength(), 0, "\n" + tag);
-						textEditor.selectAndReveal(doc.getLength(), 0);
+						display.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
 						break;
 					case Replace:
 						if (tsel != null)
