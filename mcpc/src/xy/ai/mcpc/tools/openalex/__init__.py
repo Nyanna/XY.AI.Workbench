@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...codec import JsonCodec
 from ...config import ServerConfig
 from ...openalex import (
     DEFAULT_SEARCH_PRESET,
@@ -37,7 +36,7 @@ from ...openalex import (
 )
 from ...openalex.client import ENTITIES
 from ...openalex.presets import WORK_PRESET_NAMES
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolRegistry, ToolResult
 
 #: Hard caps that mirror the OpenAlex API limits.
 _MAX_PER_PAGE = 200
@@ -72,16 +71,11 @@ def _error_result(exc: Exception) -> ToolResult:
     structured: dict[str, Any] = {"error": message}
     if isinstance(exc, OpenAlexAPIError) and exc.status is not None:
         structured["status"] = exc.status
-    return ToolResult(
-        content=[text_content(message)],
-        structured_content=structured,
-        is_error=True,
-    )
+    return ToolResult(structured_content=structured, is_error=True)
 
 
 def _ok_result(structured: dict[str, Any]) -> ToolResult:
-    text = JsonCodec.encode(structured, indent=2)
-    return ToolResult(content=[text_content(text)], structured_content=structured)
+    return ToolResult(structured_content=structured)
 
 
 def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:
