@@ -334,7 +334,8 @@ public class AISessionManager {
 	}
 
 	private IModelRequest prepareInner(Display display, boolean batchFix, IProgressMonitor mon) {
-		LOG.info("Preparing Call");
+		SubMonitor sub = SubMonitor.convert(mon, "Preparing Call", 1);
+		sub.subTask("Preparing Call");
 
 		List<String> inputs = new ArrayList<String>();
 		display.syncExec(() -> {
@@ -379,15 +380,16 @@ public class AISessionManager {
 				inputs.add(search);
 		}
 
-		LOG.info("Input prepared");
+		sub.subTask("Input prepared");
 
 		IModelRequest req = connector.createRequest(//
 				inputs, //
 				systemPrompt.toString(), //
 				tools, //
 				batchFix, //
-				mon//
+				sub//
 		);
+		sub.worked(1);
 		return req;
 	}
 

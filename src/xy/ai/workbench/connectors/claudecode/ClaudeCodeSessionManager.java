@@ -54,7 +54,7 @@ public class ClaudeCodeSessionManager {
 			res = selectedUuid != null ? findByUuid(selectedUuid) : findByHash(params.getHash());
 
 		if (res == null)
-			throw new IllegalStateException("Cannot process /exit: no active Claude Code session exists");
+			throw new IllegalStateException("Cannot process command: no active Claude Code session exists");
 		return res;
 	}
 

@@ -13,8 +13,6 @@ import org.eclipse.jface.text.source.Annotation;
 import org.eclipse.jface.text.source.IAnnotationModel;
 import org.eclipse.jface.text.source.ISourceViewer;
 
-import xy.ai.workbench.LOG;
-
 /**
  * Quick-assist processor that offers LanguageTool suggestions as
  * {@link CompletionProposal}s when the cursor is on a {@link SpellingAnnotation}.
@@ -59,8 +57,8 @@ public class SpellingQuickAssistProcessor implements IQuickAssistProcessor {
             }
 
             SpellingProblem problem = ((SpellingAnnotation) annotation).getProblem();
-            LOG.info("SpellCheck: quick-assist at offset " + offset + " – "
-                    + problem.getSuggestions().size() + " suggestion(s)");
+//            LOG.info("SpellCheck: quick-assist at offset " + offset + " – "
+//                    + problem.getSuggestions().size() + " suggestion(s)");
 
             for (String suggestion : problem.getSuggestions()) {
                 proposals.add(new CompletionProposal(
