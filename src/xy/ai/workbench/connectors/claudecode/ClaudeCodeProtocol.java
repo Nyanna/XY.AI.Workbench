@@ -297,6 +297,6 @@ public class ClaudeCodeProtocol {
 			input = input.replace("\n\n", "\n");
 		if (input.endsWith("\n"))
 			input = input.substring(0, input.length() - 1);
-		return "#: " + input.replace("\n", "\n#: ");
+		return "#:" + input.replace("\n", "\n#:");
 	}
 }

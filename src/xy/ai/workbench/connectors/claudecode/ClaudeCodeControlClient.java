@@ -9,10 +9,13 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
 import xy.ai.workbench.LOG;
 
@@ -35,14 +38,55 @@ public class ClaudeCodeControlClient {
 	private final ObjectMapper mapper = JsonUtil.mapper();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
+	/**
+	 * A second, YAML-flavoured mapper used exclusively to render/parse the
+	 * human-facing side of the control loop (never for the wire protocol, which
+	 * stays plain JSON via {@link #mapper} / {@link JsonUtil}).
+	 *
+	 * <p>
+	 * Multi-line String values are written as literal block scalars
+	 * ({@code |...}) instead of {@code \n}-escaped one-liners &mdash; that is the
+	 * whole point: a human can read and edit them as real, multi-line text.
+	 * Everything else keeps the default double-quoting
+	 * ({@code MINIMIZE_QUOTES} stays disabled) so YAML's implicit scalar typing
+	 * never applies to untouched values: an unmodified String such as
+	 * {@code country_code: "NO"} can never silently turn into the boolean
+	 * {@code false} on the way back (the "Norway problem"), because it is never
+	 * written as a bare, unquoted scalar in the first place. That risk only
+	 * exists for values a user edits and (mistakenly) unquotes by hand &mdash;
+	 * an accepted trade-off for readability.
+	 */
+	private final YAMLMapper yaml = YAMLMapper.builder()
+			.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+			.disable(YAMLGenerator.Feature.SPLIT_LINES)
+			.enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE)
+			.build();
+
 	public void checkControlEndpoint(ClaudeCodeResponse resp) {
 		JsonNode pending = poll();
 		if (pending.isEmpty())
 			return;
 
 		JsonNode first = pending.get(0);
-		resp.resultText = "#: Control Request:\n" + ClaudeCodeProtocol.commented(JsonUtil.pretty(first)) + "\n/allow "
+		resp.resultText = "#: Control Request:\n" + ClaudeCodeProtocol.commented(toYaml(first)) + "\n/allow "
 				+ first.path("id").asText();
+	}
+
+	public String toYaml(JsonNode node) {
+		if (node == null || node.isMissingNode() || node.isNull())
+			return "";
+		try {
+			return yaml.writeValueAsString(node).stripTrailing();
+		} catch (JsonProcessingException e) {
+			// Should not happen for a tree that Jackson itself produced; fall back to
+			// plain JSON rather than losing the payload.
+			LOG.error("ClaudeCodeControlClient: failed to render control item as YAML", e);
+			return JsonUtil.pretty(node);
+		}
+	}
+
+	public JsonNode fromYaml(String text) throws JsonProcessingException {
+		return yaml.readTree(text);
 	}
 
 	public boolean isMCPCAvailable() {
@@ -80,26 +124,29 @@ public class ClaudeCodeControlClient {
 	}
 
 	/**
-	 * Detects whether {@code rawJson} is an edited pending control item: the
-	 * (originally unchanged) JSON structure of an open request/result whose "id"
-	 * matches one of the currently pending items at the control endpoint. If so,
-	 * the modified "arguments" (request phase) or "result" (result phase) are
-	 * submitted to the control endpoint.
+	 * Detects whether {@code rawText} is an edited pending control item: the
+	 * (possibly rewritten) YAML &mdash; or, unchanged, JSON &mdash; structure of
+	 * an open request/result whose "id" matches one of the currently pending
+	 * items at the control endpoint. If so, the modified "arguments" (request
+	 * phase) or "result" (result phase) are submitted to the control endpoint.
 	 *
-	 * @return {@code true} when {@code rawJson} was recognised as a pending item
+	 * @return {@code true} when {@code rawText} was recognised as a pending item
 	 *         and forwarded as a control decision
 	 */
-	public boolean submitEdit(String rawJson) {
-		if (rawJson == null || rawJson.isEmpty() || rawJson.charAt(0) != '{')
+	public boolean submitEdit(String rawText) {
+		if (rawText == null)
+			return false;
+		String trimmed = rawText.strip();
+		if (!trimmed.startsWith("id:") && !trimmed.startsWith("{"))
 			return false;
 
 		JsonNode edited;
 		try {
-			edited = JsonUtil.readTree(rawJson);
+			edited = fromYaml(trimmed);
 		} catch (Exception e) {
 			return false;
 		}
-		if (!edited.isObject() || !edited.hasNonNull("id"))
+		if (edited == null || !edited.isObject() || !edited.hasNonNull("id") || !edited.has("phase"))
 			return false;
 		String id = edited.path("id").asText();
 		String phase = edited.path("phase").asText("");
