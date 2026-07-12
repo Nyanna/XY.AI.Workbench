@@ -1,9 +1,8 @@
 # TODO
 
 ## Workbench
-* tool auswahl in config speichern
-* Stop words entfernen aus exa
-	* recherchieren, macht sinn? Welche möglichkeiten und methoden?
+* nach prompt und tag replace wenn append oder chat immer nach unten springen
+
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
 
