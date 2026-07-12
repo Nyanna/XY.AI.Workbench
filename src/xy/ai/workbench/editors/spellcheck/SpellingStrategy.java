@@ -27,104 +27,100 @@ import org.eclipse.jface.text.source.ISourceViewer;
  */
 public class SpellingStrategy implements IReconcilingStrategy {
 
-    private final ISourceViewer fViewer;
-    private final LanguageToolClient fClient = new LanguageToolClient();
+	private final ISourceViewer fViewer;
+	private final LanguageToolClient fClient = new LanguageToolClient();
+	private static final int LIMIT = 512 * 1024;
 
-    private IDocument fDocument;
+	private IDocument fDocument;
 
-    public SpellingStrategy(ISourceViewer viewer) {
-        fViewer = viewer;
-    }
+	public SpellingStrategy(ISourceViewer viewer) {
+		fViewer = viewer;
+	}
 
-    @Override
-    public void setDocument(IDocument document) {
-        fDocument = document;
-    }
+	@Override
+	public void setDocument(IDocument document) {
+		fDocument = document;
+	}
 
-    @Override
-    public void reconcile(IRegion partition) {
-        if (fDocument == null) {
-            return;
-        }
+	@Override
+	public void reconcile(IRegion partition) {
+		if (fDocument == null) {
+			return;
+		}
 
-        final String text = fDocument.get();
-        final int docLength = text.length();
+		final String text = fDocument.get();
+		final int docLength = text.length();
 
-        // Expand the dirty region to full line boundaries.
-        int start = Math.min(partition.getOffset(), docLength);
-        int end   = Math.min(start + partition.getLength(), docLength);
+		// Expand the dirty region to full line boundaries.
+		int start = Math.min(partition.getOffset(), docLength);
+		int end = Math.min(start + partition.getLength(), docLength);
+		if (end - start > LIMIT)
+			return;
 
-        while (start > 0 && text.charAt(start - 1) != '\n') {
-            start--;
-        }
-        while (end < docLength && text.charAt(end) != '\n') {
-            end++;
-        }
+		while (start > 0 && text.charAt(start - 1) != '\n')
+			start--;
+		while (end < docLength && text.charAt(end) != '\n')
+			end++;
 
-        final int regionOffset = start;
-        final String regionText = text.substring(start, end);
+		final int regionOffset = start;
+		final String regionText = text.substring(start, end);
 
-        List<SpellingProblem> problems = fClient.check(regionText);
+		List<SpellingProblem> problems = fClient.check(regionText);
 
-        // LT offsets are relative to regionText – shift them to document offsets.
-        List<SpellingProblem> valid = new ArrayList<>();
-        for (SpellingProblem p : problems) {
-            int absOffset = p.getOffset() + regionOffset;
-            if (absOffset >= 0 && absOffset + p.getLength() <= docLength) {
-                valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage(), p.getSuggestions()));
-            }
-        }
+		// LT offsets are relative to regionText – shift them to document offsets.
+		List<SpellingProblem> valid = new ArrayList<>();
+		for (SpellingProblem p : problems) {
+			int absOffset = p.getOffset() + regionOffset;
+			if (absOffset >= 0 && absOffset + p.getLength() <= docLength) {
+				valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage(), p.getSuggestions()));
+			}
+		}
 
-        final IRegion checkedRegion = new Region(regionOffset, end - start);
-        fViewer.getTextWidget().getDisplay().asyncExec(() ->
-                applyAnnotations(valid, checkedRegion));
-    }
+		final IRegion checkedRegion = new Region(regionOffset, end - start);
+		fViewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(valid, checkedRegion));
+	}
 
-    @Override
-    public void reconcile(DirtyRegion dirtyRegion, IRegion subRegion) {
-        reconcile(subRegion);
-    }
+	@Override
+	public void reconcile(DirtyRegion dirtyRegion, IRegion subRegion) {
+		reconcile(subRegion);
+	}
 
-    // ── UI thread ──────────────────────────────────────────────────────────────
+	// ── UI thread ──────────────────────────────────────────────────────────────
 
-    private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {
-        IAnnotationModel model = fViewer.getAnnotationModel();
-        if (!(model instanceof IAnnotationModelExtension)) {
-            return;
-        }
+	private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {
+		IAnnotationModel model = fViewer.getAnnotationModel();
+		if (!(model instanceof IAnnotationModelExtension)) {
+			return;
+		}
 
-        // Collect all existing spelling annotations in the checked region.
-        List<Annotation> toRemove = new ArrayList<>();
-        synchronized (model) {
-            Iterator<Annotation> it = model.getAnnotationIterator();
-            while (it.hasNext()) {
-                Annotation a = it.next();
-                if (SpellingAnnotation.TYPE.equals(a.getType())) {
-                    Position pos = model.getPosition(a);
-                    if (pos != null
-                            && pos.offset >= region.getOffset()
-                            && pos.offset < region.getOffset() + region.getLength()) {
-                        toRemove.add(a);
-                    }
-                }
-            }
-        }
+		// Collect all existing spelling annotations in the checked region.
+		List<Annotation> toRemove = new ArrayList<>();
+		synchronized (model) {
+			Iterator<Annotation> it = model.getAnnotationIterator();
+			while (it.hasNext()) {
+				Annotation a = it.next();
+				if (SpellingAnnotation.TYPE.equals(a.getType())) {
+					Position pos = model.getPosition(a);
+					if (pos != null && pos.offset >= region.getOffset()
+							&& pos.offset < region.getOffset() + region.getLength()) {
+						toRemove.add(a);
+					}
+				}
+			}
+		}
 
-        // Build new annotations.
-        Map<Annotation, Position> toAdd = new HashMap<>();
-        for (SpellingProblem p : problems) {
-            toAdd.put(
-                    new SpellingAnnotation(p),
-                    new Position(p.getOffset(), p.getLength()));
-        }
+		// Build new annotations.
+		Map<Annotation, Position> toAdd = new HashMap<>();
+		for (SpellingProblem p : problems) {
+			toAdd.put(new SpellingAnnotation(p), new Position(p.getOffset(), p.getLength()));
+		}
 
-        // Atomic swap – removes old, adds new in one operation.
-        synchronized (model) {
-            ((IAnnotationModelExtension) model)
-                    .replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
-        }
+		// Atomic swap – removes old, adds new in one operation.
+		synchronized (model) {
+			((IAnnotationModelExtension) model).replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
+		}
 
-        // Explicitly invalidate the region so the AnnotationPainter redraws it.
-        fViewer.invalidateTextPresentation();
-    }
+		// Explicitly invalidate the region so the AnnotationPainter redraws it.
+		fViewer.invalidateTextPresentation();
+	}
 }

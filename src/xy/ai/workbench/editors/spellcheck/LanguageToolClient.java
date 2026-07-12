@@ -39,6 +39,7 @@ public class LanguageToolClient {
     // rule (fence / '@' line / comment line) has already claimed.
     private static final Pattern MARKUP_RE = Pattern.compile(
             "`[^`\\n]+`|https?://\\S+|/\\S+|@\\S+");
+	private static final int LIMIT = 512 * 1024;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(TIMEOUT)
@@ -53,7 +54,7 @@ public class LanguageToolClient {
      */
     public List<SpellingProblem> check(String text) {
         List<SpellingProblem> problems = new ArrayList<>();
-        if (text == null || text.isBlank()) {
+        if (text == null || text.isBlank() || text.length() > LIMIT) {
             return problems;
         }
 

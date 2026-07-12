@@ -27,6 +27,9 @@ import xy.ai.workbench.editors.md.PrefixLineRule;
 
 public class AIRuleScanner extends RuleBasedScanner {
 	public static final String LINE_COMMENT = "#:";
+	public static final TextAttribute DEFAULT_ATTR = new TextAttribute(
+			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
+
 	private static final TextAttribute USER_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
 			new Color(Display.getCurrent(), new RGB(230, 230, 230)), SWT.BOLD);
