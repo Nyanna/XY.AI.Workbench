@@ -3,6 +3,7 @@
 Available tools
 ---------------
 * ``read``          – read a file (with session-level content-hash caching)
+* ``list``          – recursively list files below a directory
 * ``write``         – overwrite or append to a file
 * ``insert``        – insert text at a character offset
 * ``replace-chars`` – replace a character range with new text
@@ -29,6 +30,7 @@ from ..registry import ToolRegistry
 from .bash import register_bash_tool
 from .change import register_change_tool
 from .insert import register_insert_tool
+from .list import register_list_tool
 from .markdown import register_markdown_tool
 from .mcp import register_context7_tools, register_exa_tools, register_github_tools
 from .openalex import register_openalex_tools
@@ -50,6 +52,7 @@ register_ask_user_tool = importlib.import_module(
 def register_tools(registry: ToolRegistry) -> None:
     """Register all built-in file-system and shell tools onto *registry*."""
     register_read_tool(registry)
+    register_list_tool(registry)
     register_write_tool(registry)
     register_insert_tool(registry)
     register_change_tool(registry)
