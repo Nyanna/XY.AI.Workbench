@@ -3,6 +3,7 @@ package xy.ai.workbench.editors.md;
 import org.eclipse.jface.text.rules.IToken;
 
 public class BlockRule extends AbstractRule {
+	private static final int LIMIT = 20 * 200; // 20 lines a 200 chars
 	private char[] startBlock;
 	private char[] endBlock;
 
@@ -21,7 +22,8 @@ public class BlockRule extends AbstractRule {
 			return s.reset();
 
 		boolean endblock = false;
-		while (s.readNext() && (s.getColumn() != 0 || !(endblock = s.isNextSequence(endBlock))))
+		while (s.getReadCount() < LIMIT && s.readNext()
+				&& (s.getColumn() != 0 || !(endblock = s.isNextSequence(endBlock))))
 			; // consume
 		return endblock ? true : s.reset();
 	}

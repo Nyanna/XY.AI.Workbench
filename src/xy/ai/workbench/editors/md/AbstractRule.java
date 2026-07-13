@@ -115,6 +115,10 @@ public abstract class AbstractRule implements IRule {
 			p = ICharacterScanner.EOF;
 			readCount--;
 		}
+		
+		public int getReadCount() {
+			return readCount;
+		}
 
 		public int getColumn() {
 			return parent != null ? parent.getColumn() : scan.getColumn();

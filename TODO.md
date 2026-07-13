@@ -1,5 +1,7 @@
 # TODO
 
+* session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
+
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
