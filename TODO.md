@@ -4,7 +4,8 @@
 
 ## Workbench
 * Diff support für edit commands
-	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
+	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher
+	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analo
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools

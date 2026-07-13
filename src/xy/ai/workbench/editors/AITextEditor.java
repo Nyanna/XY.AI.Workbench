@@ -20,7 +20,6 @@ import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
 
 public class AITextEditor extends TextEditor {
 	private static final int LIMIT = 512 * 1024;
-	private static final int SEGMENT_THRESHOLD = 250;
 	private boolean rulerVisible = true;
 	private CompositeRuler ruler;
 	private List<IVerticalRulerColumn> decorators = new ArrayList<>();
@@ -64,20 +63,6 @@ public class AITextEditor extends TextEditor {
 					updateLineNumbers(newInput);
 				}
 			}
-		});
-		sourceViewer.getTextWidget().addBidiSegmentListener(event -> {
-			int length = event.lineText.length();
-			if (length <= SEGMENT_THRESHOLD)
-				return;
-
-			int segmentSize = 200;
-			int segmentCount = length / segmentSize;
-			int[] segments = new int[segmentCount + 2];
-			segments[0] = 0;
-			for (int i = 1; i <= segmentCount; i++)
-				segments[i] = i * segmentSize;
-			segments[segments.length - 1] = length;
-			event.segments = segments;
 		});
 
 		return sourceViewer;

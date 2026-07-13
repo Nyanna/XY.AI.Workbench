@@ -11,3 +11,7 @@
 * Code änderung immer über proccess Feature Analye -> Plan -> Ausführung (jeweiligen Kontexte klein und isoliert halten)
 * For exports use /copy and copy outputfile
 * Set Thinking Effort based on exspected input/output and total estimated token cost
+
+## Coding
+
+* Always start with a clean error free project -> confuses model
