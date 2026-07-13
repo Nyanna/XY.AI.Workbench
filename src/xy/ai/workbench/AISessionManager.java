@@ -86,7 +86,8 @@ public class AISessionManager {
 	}
 
 	public void updateInputStat(InputMode mode) {
-		inputStats[mode.ordinal()] = getInput(mode).length();
+		String input = getInput(mode);
+		inputStats[mode.ordinal()] = input != null ? input.length() : -1;
 		inputStatObs.forEach(c -> c.accept(inputStats));
 	}
 
@@ -137,16 +138,18 @@ public class AISessionManager {
 			StringBuffer systemPrompt = new StringBuffer();
 			Arrays.stream(cfg.getSystemPrompt()).filter(e -> !e.startsWith("#"))
 					.forEach(e -> systemPrompt.append("* ").append(e).append(".\n"));
-			if (cfg.getFreeText() != null)
+			String freeText = cfg.getFreeText();
+			if (freeText != null && !freeText.isBlank())
 				systemPrompt.append(".\n").append(cfg.getFreeText()).append(".\n");
-			return systemPrompt.toString();
+			String prompttext = systemPrompt.toString();
+			return prompttext.length() > 0 && !prompttext.isBlank() ? prompttext : null;
 		case Selection:
 			if (textEditor != null) {
 				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
 				if (selectionProvider != null) {
 					ISelection selection = selectionProvider.getSelection();
 					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-					if (tsel != null)
+					if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
 						return removeCommentLines(tsel.getText());
 				}
 			}
@@ -187,7 +190,7 @@ public class AISessionManager {
 				if (selectionProvider != null) {
 					ISelection selection = selectionProvider.getSelection();
 					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-					if (tsel != null) {
+					if (tsel != null && (tsel.isEmpty() || tsel.getLength() <= 1)) {
 						int line = tsel.getEndLine();
 						IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
 						try {
@@ -223,11 +226,11 @@ public class AISessionManager {
 					}
 				}).collect(Collectors.joining("\n"));
 
-				return lines;
+				return lines.length() > 0 ? lines : null;
 			}
 			break;
 		}
-		return "";
+		return null;
 	}
 
 	public String removeCommentLines(String input) {
@@ -265,7 +268,7 @@ public class AISessionManager {
 				LOG.error("Error on reading " + file.getName(), e);
 			}
 		}
-		return fullContent.toString();
+		return fullContent.length() > 0 ? fullContent.toString() : null;
 	}
 
 	public void execute(Display display) {
@@ -339,21 +342,31 @@ public class AISessionManager {
 
 		List<String> inputs = new ArrayList<String>();
 		display.syncExec(() -> {
+			String input = null;
 			if (cfg.isInputEnabled(InputMode.Editor))
-				inputs.add(getInput(InputMode.Editor));
+				input = getInput(InputMode.Editor);
 			else if (cfg.isInputEnabled(InputMode.Selection))
-				inputs.add(getInput(InputMode.Selection));
+				input = getInput(InputMode.Selection);
 			else if (cfg.isInputEnabled(InputMode.Current_line))
-				inputs.add(getInput(InputMode.Current_line));
+				input = getInput(InputMode.Current_line);
+			if (input != null)
+				inputs.add(input);
 		});
 
 		StringBuffer systemPrompt = new StringBuffer();
-		if (cfg.isInputEnabled(InputMode.SystemPrompt))
-			systemPrompt.append(getInput(InputMode.SystemPrompt));
+		if (cfg.isInputEnabled(InputMode.SystemPrompt)) {
+			String input = getInput(InputMode.SystemPrompt);
+			if (input == null)
+				throw new IllegalArgumentException("Systemprompt is selected but null");
+			systemPrompt.append(input);
+		}
 		if (cfg.isInputEnabled(InputMode.Context_prompt)) {
 			if (systemPrompt.length() > 0)
 				systemPrompt.append("\n");
-			systemPrompt.append(getInput(InputMode.Context_prompt));
+			String input = getInput(InputMode.Context_prompt);
+			if (input == null)
+				throw new IllegalArgumentException("Context prompt is selected but null");
+			systemPrompt.append(input);
 		}
 
 		if ((inputs == null || inputs.isEmpty()) && systemPrompt.length() == 0)
@@ -378,6 +391,8 @@ public class AISessionManager {
 			String search = getInput(InputMode.Search);
 			if (search != null && !search.isBlank())
 				inputs.add(search);
+			else
+				throw new IllegalArgumentException("Search prompt is selected but null");
 		}
 
 		sub.subTask("Input prepared");

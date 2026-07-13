@@ -1,5 +1,4 @@
 # TODO
-
 * session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
 
 ## Workbench

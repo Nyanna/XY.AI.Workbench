@@ -98,12 +98,12 @@ public class AITextEditor extends TextEditor {
 		Iterator<IVerticalRulerColumn> it = ruler.getDecoratorIterator();
 		IVerticalRulerColumn d;
 
-		if (it.hasNext() && size > LIMIT) {
+		if (size > LIMIT && it.hasNext()) {
 			while (it.hasNext() && (d = it.next()) != null)
 				decorators.add(d);
 			for (var dec : decorators)
 				ruler.removeDecorator(dec);
-		} else if (!it.hasNext() && !decorators.isEmpty()) {
+		} else if (size < LIMIT && !it.hasNext() && !decorators.isEmpty()) {
 			for (var i = 0; i < decorators.size(); i++)
 				ruler.addDecorator(i, decorators.get(i));
 			decorators.clear();
