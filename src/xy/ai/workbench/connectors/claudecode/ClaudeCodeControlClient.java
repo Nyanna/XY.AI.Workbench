@@ -104,14 +104,6 @@ public class ClaudeCodeControlClient {
 		return submit(approvalNode(id, null, null, reason == null ? "" : reason));
 	}
 
-	public ArrayNode submitModifiedArguments(String id, JsonNode arguments) {
-		return submit(approvalNode(id, arguments, null, null));
-	}
-
-	public ArrayNode submitModifiedResult(String id, JsonNode result) {
-		return submit(approvalNode(id, null, result, null));
-	}
-
 	public boolean submitEdit(String rawText) {
 		if (rawText == null)
 			return false;
@@ -127,14 +119,7 @@ public class ClaudeCodeControlClient {
 		}
 		if (edited == null || !edited.isObject() || !edited.hasNonNull("id"))
 			return false;
-		String id = edited.path("id").asText();
-		String phase = edited.path("phase").asText("");
-		if ("result".equals(phase) && edited.has("result"))
-			submitModifiedResult(id, edited.path("result"));
-		else if (edited.has("arguments"))
-			submitModifiedArguments(id, edited.path("arguments"));
-		else
-			approve(id);
+		submit((ObjectNode) edited);
 		return true;
 	}
 

@@ -83,19 +83,20 @@ public class ClaudeCodeProtocol {
 
 	private void parseResult(ClaudeCodeResponse resp, JsonNode node) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
+		StringBuilder res = new StringBuilder();
+		appendEvents(resp.events, res);
+
 		// plainText yields the logical result value without JSON quoting/escaping
 		// (and handles a structured result node), instead of a bare asText().
-		StringBuilder res = new StringBuilder(postProcessor.process(JsonUtil.plainText(node.path("result"))));
-		if (!res.isEmpty() && res.charAt(res.length() - 1) != '\n')
-			res.append("\n");
+		String resultText = postProcessor.process(JsonUtil.plainText(node.path("result")));
+		if (!resultText.isEmpty())
+			res.append(resultText.strip()).append("\n");
 
 		// Some subtypes (e.g. "error_during_execution") carry no "result" field but
 		// report the failure(s) in an "errors" array instead.
 		String errorsText = joinErrors(node.path("errors"));
 		if (!errorsText.isEmpty())
 			res.append(errorsText.strip()).append("\n");
-
-		appendEvents(resp.events, res);
 
 		resp.resultText = res.toString();
 		resp.isError = isError;
