@@ -72,12 +72,12 @@ def register_bash_tool(registry: ToolRegistry) -> None:
         cwd = Path(cwd_str)
         if not cwd.is_absolute():
             return ToolResult(
-                structured_content={"error": f"cwd must be an absolute path: {cwd_str}"},
+                structured_content={"error": f"cwd must be an absolute path."},
                 is_error=True,
             )
         if not cwd.is_dir():
             return ToolResult(
-                structured_content={"error": f"Working directory not found or not a directory: {cwd_str}"},
+                structured_content={"error": f"Working directory not found or not a directory."},
                 is_error=True,
             )
 

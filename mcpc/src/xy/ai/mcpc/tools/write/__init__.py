@@ -61,7 +61,7 @@ def register_write_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": f"Path must be absolute: {path_str}"},
+                structured_content={"error": "Path must be absolute."},
                 is_error=True,
             )
 

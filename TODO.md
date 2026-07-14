@@ -1,20 +1,5 @@
 # TODO
 
-!ausgabelimits für andere tools, read soll eine confirmation holenm bei großen dateien ohne line numbers
-	* wenn bash output zu großt in datei umleiten und dateinamen zurück, für weitere operationen
-
-* git trailing-space problem: Prüfen, bash stdout kann optimiert werden und muss nicht dateigenau sein?
-```yaml
-id: "af61fc55-237a-4816-903c-5717b5908757"
-phase: "result"
-toolName: "bash"
-result:
-  content: []
-  structuredContent:
-    exit_code: 0
-    stdout: "commit d855e3dd156685daf832b42f58751f602f6a064d\nAuthor: Xyan <Xyan@xyan.icu>\nDate:   Sun Jul 12 23:17:23 2026 +0200\n\n    -fixed double content\n\ndiff --git a/mcpc/src/xy/ai/mcpc/tools/openalex/__init__.py b/mcpc/src/xy/ai/mcpc/tools/openalex/__init__.py\nindex 693b879..9ee79ce 100644\n--- a/mcpc/src/xy/ai/mcpc/tools/openalex/__init__.py\n+++ b/mcpc/src/xy/ai/mcpc/tools/openalex/__init__.py\n@@ -24,7 +24,6 @@ from __future__ import annotations\n \n from typing import Any\n \n-from ...codec import JsonCodec\n from ...config import ServerConfig\n from ...openalex import (\n     DEFAULT_SEARCH_PRESET,\n@@ -37,7 +36,7 @@ from ...openalex import (\n )\n from ...openalex.client import ENTITIES\n from ...openalex.presets import WORK_PRESET_NAMES\n-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content\n+from ...registry import ToolContext, ToolRegistry, ToolResult\n \n #: Hard caps that mirror the OpenAlex API limits.\n _MAX_PER_PAGE = 200\n@@ -72,16 +71,11 @@ def _error_result(exc: Exception) -> ToolResult:\n     structured: dict[str, Any] = {\"error\": message}\n     if isinstance(exc, OpenAlexAPIError) and exc.status is not None:\n         structured[\"status\"] = exc.status\n-    return ToolResult(\n-        content=[text_content(message)],\n-        structured_content=structured,\n-        is_error=True,\n-    )\n+    return ToolResult(structured_content=structured, is_error=True)\n \n \n def _ok_result(structured: dict[str, Any]) -> ToolResult:\n-    text = JsonCodec.encode(structured, indent=2)\n-    return ToolResult(content=[text_content(text)], structured_content=structured)\n+    return ToolResult(structured_content=structured)\n \n \n def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:\n"
-```
-
 * wo ist der unterschied zwischen normaler Inferenz und thinking? Oft kein Unterschied macht das modell keinen unterschied und es ist dasselbe.
 
 ## Workbench

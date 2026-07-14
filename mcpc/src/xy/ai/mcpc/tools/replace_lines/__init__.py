@@ -70,17 +70,17 @@ def register_replace_lines_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": f"Path must be absolute: {path_str}"},
+                structured_content={"error": "Path must be absolute."},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": f"File not found: {path_str}"},
+                structured_content={"error": "File not found."},
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": f"Not a regular file: {path_str}"},
+                structured_content={"error": "Not a regular file."},
                 is_error=True,
             )
 

@@ -85,17 +85,17 @@ def register_read_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": f"Path must be absolute: {path_str}"},
+                structured_content={"error": "Path must be absolute."},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": f"File not found: {path_str}"},
+                structured_content={"error": "File not found."},
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": f"Not a regular file: {path_str}"},
+                structured_content={"error": "Not a regular file."},
                 is_error=True,
             )
 
@@ -118,16 +118,13 @@ def register_read_tool(registry: ToolRegistry) -> None:
             start_count = text.count(start_marker)
             if start_count == 0:
                 return ToolResult(
-                    structured_content={"error": f"Start marker not found in file: '{start_marker}'"},
+                    structured_content={"error": "Start marker not found in file."},
                     is_error=True,
                 )
             if start_count > 1:
                 return ToolResult(
                     structured_content={
-                        "error": (
-                            f"Start marker is ambiguous – found {start_count} occurrences "
-                            f"in file: '{start_marker}'"
-                        )
+                        "error": f"Start marker is ambiguous – found {start_count} occurrences in file."
                     },
                     is_error=True,
                 )
@@ -141,16 +138,13 @@ def register_read_tool(registry: ToolRegistry) -> None:
             end_count = text.count(end_marker)
             if end_count == 0:
                 return ToolResult(
-                    structured_content={"error": f"End marker not found in file: '{end_marker}'"},
+                    structured_content={"error": "End marker not found in file."},
                     is_error=True,
                 )
             if end_count > 1:
                 return ToolResult(
                     structured_content={
-                        "error": (
-                            f"End marker is ambiguous – found {end_count} occurrences "
-                            f"in file: '{end_marker}'"
-                        )
+                        "error": f"End marker is ambiguous – found {end_count} occurrences in file."
                     },
                     is_error=True,
                 )
@@ -165,8 +159,8 @@ def register_read_tool(registry: ToolRegistry) -> None:
             return ToolResult(
                 structured_content={
                     "error": (
-                        f"Resolved end position ({region_end}) must not lie before "
-                        f"the resolved start position ({region_start})."
+                        f"Resolved end position must not lie before "
+                        f"the resolved start position."
                     )
                 },
                 is_error=True,

@@ -131,7 +131,7 @@ def run_capture(
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
         stdout_file = _spill_to_file(stdout, "stdout")
         structured["stdout"] = (
-            f"STDOUT exceeded the {max_stream_chars}-character safety limit "
+            f"STDOUT exceeded the {max_stream_chars}-character limit "
             f"({len(stdout)} characters). Full output written to file."
         )
         structured["stdout_file"] = stdout_file
@@ -142,7 +142,7 @@ def run_capture(
         if max_stream_chars is not None and len(stderr) > max_stream_chars:
             stderr_file = _spill_to_file(stderr, "stderr")
             structured["stderr"] = (
-                f"STDERR exceeded the {max_stream_chars}-character safety limit "
+                f"STDERR exceeded the {max_stream_chars}-character limit "
                 f"({len(stderr)} characters). Full output written to file."
             )
             structured["stderr_file"] = stderr_file

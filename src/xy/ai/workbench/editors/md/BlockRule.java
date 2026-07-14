@@ -10,7 +10,7 @@ public class BlockRule extends AbstractRule {
 	public BlockRule(String start, String end, IToken token) {
 		super(token);
 		this.startBlock = start.toCharArray();
-		this.endBlock = end.toCharArray();
+		this.endBlock = ("\n" + end).toCharArray();
 	}
 
 	@Override
@@ -22,13 +22,8 @@ public class BlockRule extends AbstractRule {
 			return s.reset();
 
 		boolean endblock = false;
-		while (s.getReadCount() < LIMIT && s.readNext()
-				&& (s.getColumn() != 0 || !(endblock = s.isNextSequence(endBlock))))
+		while (s.getReadCount() < LIMIT && s.readNext() && !(endblock = s.isNextSequence(endBlock)))
 			; // consume
-		if (!endblock)
-			s.reset();
-		if (s.readNext() && !s.isNewLine())
-			s.reset(); // endblock not standalone
-		return true;
+		return endblock ? true : s.reset();
 	}
 }

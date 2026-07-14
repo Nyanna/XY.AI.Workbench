@@ -64,17 +64,17 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": f"Path must be absolute: {path_str}"},
+                structured_content={"error": "Path must be absolute."},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": f"File not found: {path_str}"},
+                structured_content={"error": "File not found."},
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": f"Not a regular file: {path_str}"},
+                structured_content={"error": "Not a regular file."},
                 is_error=True,
             )
         if old_text == "":
@@ -89,16 +89,13 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         occurrences = text.count(old_text)
         if occurrences == 0:
             return ToolResult(
-                structured_content={"error": f"Text not found in file: '{old_text}'"},
+                structured_content={"error": "Text not found in file."},
                 is_error=True,
             )
         if occurrences > 1:
             return ToolResult(
                 structured_content={
-                    "error": (
-                        f"Text is ambiguous – found {occurrences} occurrences "
-                        f"in file: '{old_text}'"
-                    )
+                    "error": f"Text is ambiguous – found {occurrences} occurrences in file."
                 },
                 is_error=True,
             )

@@ -85,17 +85,17 @@ def register_list_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": f"Path must be absolute: {path_str}"},
+                structured_content={"error": "Path must be absolute."},
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": f"Directory not found: {path_str}"},
+                structured_content={"error": "Directory not found."},
                 is_error=True,
             )
         if not path.is_dir():
             return ToolResult(
-                structured_content={"error": f"Not a directory: {path_str}"},
+                structured_content={"error": "Not a directory."},
                 is_error=True,
             )
 
