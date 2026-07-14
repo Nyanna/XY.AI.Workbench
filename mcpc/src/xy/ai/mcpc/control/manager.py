@@ -63,12 +63,9 @@ class _PendingItem:
     _decision: ControlDecision | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
-        item: dict[str, Any] = {
-            "id": self.id,
-            "phase": self.phase,
-            "toolName": self.tool_name,
-        }
+        item: dict[str, Any] = {"id": self.id}
         if self.arguments is not None:
+            item["toolName"] = self.tool_name
             item["arguments"] = self.arguments
         if self.result is not None:
             item["result"] = self.result
