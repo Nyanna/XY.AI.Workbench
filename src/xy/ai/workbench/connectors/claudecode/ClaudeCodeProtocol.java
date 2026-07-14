@@ -62,7 +62,7 @@ public class ClaudeCodeProtocol {
 				parseRateLimitEvent(node);
 			} else if ("assistant".equals(type)) {
 				boolean recordToolUse = !AgentProfile.MCPC.equals(session.getParameters().agentProfile);
-				parseAssistantEvents(node, resp, false, recordToolUse, sub.split(1));
+				parseAssistantEvents(node, resp, true, recordToolUse, sub.split(1));
 				updateLastParsedMessage(resp, session);
 			}
 		} catch (Exception ex) {
