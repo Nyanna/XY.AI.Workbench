@@ -176,7 +176,7 @@ public final class JsonUtil {
 	public static String abbreviate(String s) {
 		if (s == null)
 			return "null";
-		final int max = 500;
+		final int max = 100;
 		if (s.length() <= max)
 			return s;
 		return s.substring(0, max) + "…(" + s.length() + " chars total)";

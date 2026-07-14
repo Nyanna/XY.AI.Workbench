@@ -44,32 +44,31 @@ public class ClaudeCodeControlClient {
 	 * stays plain JSON via {@link #mapper} / {@link JsonUtil}).
 	 *
 	 * <p>
-	 * Multi-line String values are written as literal block scalars
-	 * ({@code |...}) instead of {@code \n}-escaped one-liners &mdash; that is the
-	 * whole point: a human can read and edit them as real, multi-line text.
-	 * Everything else keeps the default double-quoting
-	 * ({@code MINIMIZE_QUOTES} stays disabled) so YAML's implicit scalar typing
-	 * never applies to untouched values: an unmodified String such as
-	 * {@code country_code: "NO"} can never silently turn into the boolean
-	 * {@code false} on the way back (the "Norway problem"), because it is never
-	 * written as a bare, unquoted scalar in the first place. That risk only
-	 * exists for values a user edits and (mistakenly) unquotes by hand &mdash;
-	 * an accepted trade-off for readability.
+	 * Multi-line String values are written as literal block scalars ({@code |...})
+	 * instead of {@code \n}-escaped one-liners &mdash; that is the whole point: a
+	 * human can read and edit them as real, multi-line text. Everything else keeps
+	 * the default double-quoting ({@code MINIMIZE_QUOTES} stays disabled) so YAML's
+	 * implicit scalar typing never applies to untouched values: an unmodified
+	 * String such as {@code country_code: "NO"} can never silently turn into the
+	 * boolean {@code false} on the way back (the "Norway problem"), because it is
+	 * never written as a bare, unquoted scalar in the first place. That risk only
+	 * exists for values a user edits and (mistakenly) unquotes by hand &mdash; an
+	 * accepted trade-off for readability.
 	 */
-	private final YAMLMapper yaml = YAMLMapper.builder()
-			.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
-			.disable(YAMLGenerator.Feature.SPLIT_LINES)
-			.enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE)
-			.build();
+	private final YAMLMapper yaml = YAMLMapper.builder().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+			.disable(YAMLGenerator.Feature.SPLIT_LINES).enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE).build();
 
 	public void checkControlEndpoint(ClaudeCodeResponse resp) {
 		JsonNode pending = poll();
 		if (pending.isEmpty())
 			return;
-
+		StringBuilder res = new StringBuilder();
+		ClaudeCodeProtocol.appendEvents(resp.events, res);
+		
 		JsonNode first = pending.get(0);
-		resp.resultText = "Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()
-				+ " allow ";
+		res.append("Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()
+				+ " allow");
+		resp.resultText = res.toString();
 	}
 
 	public String toYaml(JsonNode node) {
@@ -97,42 +96,22 @@ public class ClaudeCodeControlClient {
 		return post(mapper.createObjectNode());
 	}
 
-	/**
-	 * Submits a simple approval (no modification) for the given pending item id.
-	 */
 	public ArrayNode approve(String id) {
 		return submit(approvalNode(id, null, null, null));
 	}
 
-	/** Submits a rejection with a reason for the given pending item id. */
 	public ArrayNode deny(String id, String reason) {
 		return submit(approvalNode(id, null, null, reason == null ? "" : reason));
 	}
 
-	/**
-	 * Submits an approval carrying modified arguments ({@code phase == "request"}).
-	 */
 	public ArrayNode submitModifiedArguments(String id, JsonNode arguments) {
 		return submit(approvalNode(id, arguments, null, null));
 	}
 
-	/**
-	 * Submits an approval carrying a modified result ({@code phase == "result"}).
-	 */
 	public ArrayNode submitModifiedResult(String id, JsonNode result) {
 		return submit(approvalNode(id, null, result, null));
 	}
 
-	/**
-	 * Detects whether {@code rawText} is an edited pending control item: the
-	 * (possibly rewritten) YAML &mdash; or, unchanged, JSON &mdash; structure of
-	 * an open request/result whose "id" matches one of the currently pending
-	 * items at the control endpoint. If so, the modified "arguments" (request
-	 * phase) or "result" (result phase) are submitted to the control endpoint.
-	 *
-	 * @return {@code true} when {@code rawText} was recognised as a pending item
-	 *         and forwarded as a control decision
-	 */
 	public boolean submitEdit(String rawText) {
 		if (rawText == null)
 			return false;
@@ -144,9 +123,9 @@ public class ClaudeCodeControlClient {
 		try {
 			edited = fromYaml(block);
 		} catch (Exception e) {
-			return false;
+			throw new IllegalArgumentException("YAML Error", e);
 		}
-		if (edited == null || !edited.isObject() || !edited.hasNonNull("id") || !edited.has("phase"))
+		if (edited == null || !edited.isObject() || !edited.hasNonNull("id"))
 			return false;
 		String id = edited.path("id").asText();
 		String phase = edited.path("phase").asText("");

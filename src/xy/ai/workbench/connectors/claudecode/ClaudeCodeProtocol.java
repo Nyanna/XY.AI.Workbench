@@ -25,7 +25,7 @@ public class ClaudeCodeProtocol {
 	public static final String TOOLUSE = "Tool:";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
-	private final ResultPostProcessor resultPostProcessor = new ResultPostProcessor();
+	private final ResultPostProcessor postProcessor = new ResultPostProcessor();
 
 	public void parseLine(ClaudeCodeResponse resp, ClaudeCodeSession session, SubMonitor sub, String line) {
 		JsonNode node;
@@ -85,25 +85,19 @@ public class ClaudeCodeProtocol {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		// plainText yields the logical result value without JSON quoting/escaping
 		// (and handles a structured result node), instead of a bare asText().
-		String resultText = resultPostProcessor.process(JsonUtil.plainText(node.path("result")));
+		StringBuilder res = new StringBuilder(postProcessor.process(JsonUtil.plainText(node.path("result"))));
+		if (!res.isEmpty() && res.charAt(res.length() - 1) != '\n')
+			res.append("\n");
 
 		// Some subtypes (e.g. "error_during_execution") carry no "result" field but
-		// report the failure(s) in an "errors" array instead. Join them so the
-		// error is not silently dropped.
+		// report the failure(s) in an "errors" array instead.
 		String errorsText = joinErrors(node.path("errors"));
 		if (!errorsText.isEmpty())
-			resultText = resultText.isEmpty() ? errorsText : resultText + "\n" + errorsText;
+			res.append(errorsText.strip()).append("\n");
 
-		// Prepend collected thinking/text events as markdown lines
-		if (!resp.events.isEmpty()) {
-			StringBuilder prefix = new StringBuilder();
-			for (String line : resp.events.values())
-				prefix.append(line).append("\n");
-			prefix.append("\n");
-			resultText = commented(prefix.toString()) + "\n" + resultText;
-		}
+		appendEvents(resp.events, res);
 
-		resp.resultText = resultText;
+		resp.resultText = res.toString();
 		resp.isError = isError;
 
 		// Extract token usage information
@@ -119,6 +113,12 @@ public class ClaudeCodeProtocol {
 				resp.cacheCreationInputTokens += usage.path("cacheCreationInputTokens").asLong(0);
 			});
 		}
+	}
+
+	public static void appendEvents(Map<String, String> events, StringBuilder resultText) {
+		if (!events.isEmpty())
+			for (String line : events.values())
+				resultText.append(commented(line)).append("\n");
 	}
 
 	private void parseToolUse(ClaudeCodeResponse resp, JsonNode node) {
