@@ -157,7 +157,7 @@ public class ClaudeCodeProtocol {
 				} else if (recordText && "text".equals(blockType)) {
 					String text = block.path("text").asText("");
 					if (!text.isEmpty())
-						resp.events.putIfAbsent("text\0" + text, TEXT + "\n" + text);
+						resp.events.putIfAbsent("text\0" + text, TEXT + " " + text);
 				} else if (recordToolUse && "tool_use".equals(blockType)) {
 					String toolName = block.path("name").asText("");
 					String text = " " + toolName + "\n";

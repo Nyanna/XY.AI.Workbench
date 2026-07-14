@@ -37,8 +37,10 @@ class ToolResult:
     is_error: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        result: dict[str, Any] = {"content": list(self.content)}
-        if self.structured_content is not None:
+        result: dict[str, Any] = {}
+        if self.content:
+            result["content"] = list(self.content)
+        if self.structured_content:
             result["structuredContent"] = self.structured_content
         if self.is_error:
             result["isError"] = True
