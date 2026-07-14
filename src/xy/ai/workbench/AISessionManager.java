@@ -37,7 +37,6 @@ import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.batch.AIBatchManager;
@@ -151,16 +150,17 @@ public class AISessionManager {
 					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
 					if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
 						return removeCommentLines(tsel.getText());
-				}
-			}
-			break;
-		case Editor:
-			if (textEditor != null) {
-				IDocumentProvider documentProvider = textEditor.getDocumentProvider();
-				if (documentProvider != null) {
-					IDocument doc = documentProvider.getDocument(textEditor.getEditorInput());
-					if (doc != null)
-						return removeCommentLines(doc.get());
+
+					if (tsel != null) {
+						int line = tsel.getEndLine();
+						IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+						try {
+							IRegion lineInfo = doc.getLineInformation(line);
+							return doc.get(lineInfo.getOffset(), lineInfo.getLength());
+						} catch (BadLocationException e1) {
+							LOG.error("Exception", e1);
+						}
+					}
 				}
 			}
 			break;
@@ -181,25 +181,6 @@ public class AISessionManager {
 					}
 				} else {
 					throw new IllegalStateException("Context prompt is not supported for non project files");
-				}
-			}
-			break;
-		case Current_line:
-			if (textEditor != null) {
-				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
-				if (selectionProvider != null) {
-					ISelection selection = selectionProvider.getSelection();
-					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-					if (tsel != null && (tsel.isEmpty() || tsel.getLength() <= 1)) {
-						int line = tsel.getEndLine();
-						IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-						try {
-							IRegion lineInfo = doc.getLineInformation(line);
-							return doc.get(lineInfo.getOffset(), lineInfo.getLength());
-						} catch (BadLocationException e1) {
-							LOG.error("Exception", e1);
-						}
-					}
 				}
 			}
 			break;
@@ -343,12 +324,8 @@ public class AISessionManager {
 		List<String> inputs = new ArrayList<String>();
 		display.syncExec(() -> {
 			String input = null;
-			if (cfg.isInputEnabled(InputMode.Editor))
-				input = getInput(InputMode.Editor);
-			else if (cfg.isInputEnabled(InputMode.Selection))
+			if (cfg.isInputEnabled(InputMode.Selection))
 				input = getInput(InputMode.Selection);
-			else if (cfg.isInputEnabled(InputMode.Current_line))
-				input = getInput(InputMode.Current_line);
 			if (input != null)
 				inputs.add(input);
 		});

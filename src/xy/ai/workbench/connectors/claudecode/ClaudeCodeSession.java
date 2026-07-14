@@ -36,11 +36,12 @@ public class ClaudeCodeSession {
 	private Instant startedAt;
 	/** The last time a prompt was sent to STDIN. Determines TTL. */
 	private Instant lastSentAt;
-	@SuppressWarnings("unused")
-	private Instant lastReceivedAt;
+	private volatile Instant lastReceivedAt;
 
 	private volatile boolean inPrompt;
 	private volatile String lastParsedMessage;
+	private volatile String lastRawLine;
+	private volatile boolean lastRawLineProcessed;
 	private boolean resume;
 
 	private final ClaudeCodeSessionManager manager;
@@ -73,12 +74,12 @@ public class ClaudeCodeSession {
 
 	public SessionState getState() {
 		if (isExpired())
-			return SessionState.EXPIRED;
+			return SessionState.Expired;
 		if (inPrompt)
-			return SessionState.PROMPT;
+			return SessionState.Prompting;
 		if (isProcessAlive())
-			return SessionState.READY;
-		return SessionState.CREATED;
+			return SessionState.Open;
+		return SessionState.Created;
 	}
 
 	private synchronized void start() throws IOException {
@@ -222,7 +223,27 @@ public class ClaudeCodeSession {
 
 	public void setLastParsedMessage(String msg) {
 		this.lastParsedMessage = msg != null ? msg.replace('\n', ' ').strip() : "empty";
+		this.lastRawLineProcessed = true;
 		notifyChanged();
+	}
+
+	public void setLastRawLine(String line) {
+		this.lastRawLine = line;
+		this.lastRawLineProcessed = false;
+		this.lastReceivedAt = Instant.now();
+		notifyChanged();
+	}
+
+	public String getLastRawLine() {
+		return lastRawLine;
+	}
+
+	public boolean isLastRawLineProcessed() {
+		return lastRawLineProcessed;
+	}
+
+	public Instant getLastReceivedAt() {
+		return lastReceivedAt;
 	}
 
 	public boolean isExpired() {

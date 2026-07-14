@@ -25,11 +25,17 @@ public class SessionParameters {
 	public final Reasoning reasoning;
 	public final AgentProfile agentProfile;
 	public final String cliProfile;
+	public final String filePath;
 	private String hash;
 	private String title;
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile) {
+		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, null);
+	}
+
+	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
+			AgentProfile agentProfile, String cliProfile, String filePath) {
 		if (cwd == null)
 			throw new IllegalStateException("Work directory (cwd) not set");
 		if (model == null)
@@ -46,6 +52,11 @@ public class SessionParameters {
 		this.reasoning = reasoning;
 		this.agentProfile = agentProfile;
 		this.cliProfile = cliProfile;
+		this.filePath = filePath;
+	}
+
+	public String getFilePath() {
+		return filePath;
 	}
 
 	public List<String> buildBaseCommand() {
@@ -195,7 +206,7 @@ public class SessionParameters {
 	private String computeHash() {
 		String input = systemPrompt.toString() + "|" + String.join(",", tools) + "|" + cwd.toString() + "|"
 				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "") + "|"
-				+ cliProfile;
+				+ cliProfile + "|" + (filePath != null ? filePath : "");
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

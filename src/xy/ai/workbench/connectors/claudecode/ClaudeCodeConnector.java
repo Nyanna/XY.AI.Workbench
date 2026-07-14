@@ -89,8 +89,9 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		ClaudeCodeSession session = null;
 
-		SessionParameters params = new SessionParameters(getEditorFilePath(), req.systemPrompt, req.tools,
-				cfg.getModel(), cfg.getReasoning(), cfg.getProfile(), cfg.getKeys());
+		EditorLocation loc = getEditorLocation();
+		SessionParameters params = new SessionParameters(loc.projectPath, req.systemPrompt, req.tools, cfg.getModel(),
+				cfg.getReasoning(), cfg.getProfile(), cfg.getKeys(), loc.relativeFilePath);
 		params.setTitle(req.title);
 
 		switch (req.cmd.type) {
@@ -160,6 +161,7 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 				try {
 					// wait 300 ms
 					if ((line = session.readLine()) != null) {
+						session.setLastRawLine(line);
 						jsonParser.parseLine(resp, session, sub, line);
 
 					}
@@ -183,12 +185,15 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 					commands.add(new Command(CommandType.Exit, ""));
 				else if (clean.matches("(?i)/resume\\s+\\S+"))
 					commands.add(new Command(CommandType.Resume, clean.split("\\s+", 2)[1].strip()));
-				else if (clean.matches("(?i)/allow\\s+\\S+"))
-					commands.add(new Command(CommandType.Allow, clean.split("\\s+", 2)[1].strip()));
-				else if (clean.matches("(?i)/deny\\s+\\S+(\\s+.*)?")) {
-					String[] parts = clean.split("\\s+", 2)[1].strip().split("\\s+", 2);
-					commands.add(
-							new Command(CommandType.Deny, parts[0].strip(), parts.length > 1 ? parts[1].strip() : ""));
+				else if (clean.matches("(?i)/answer\\s+\\S+\\s+(allow|deny)(\\s+.*)?")) {
+					String[] parts = clean.split("\\s+", 4);
+					String id = parts[1];
+					String action = parts[2].toLowerCase();
+					String reason = parts.length > 3 ? parts[3].strip() : "";
+					if ("allow".equals(action))
+						commands.add(new Command(CommandType.Allow, id));
+					else
+						commands.add(new Command(CommandType.Deny, id, reason));
 				} else if (controlClient.submitEdit(clean))
 					commands.add(new Command(CommandType.Modification, ""));
 				else
@@ -211,8 +216,8 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 		return answer;
 	}
 
-	private Path getEditorFilePath() {
-		Path[] paths = new Path[1];
+	private EditorLocation getEditorLocation() {
+		EditorLocation result = new EditorLocation();
 		Display.getDefault().syncExec(() -> {
 			try {
 				IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
@@ -230,13 +235,15 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 
 				IFileEditorInput fileInput = (IFileEditorInput) editorInput;
 				IProject project = fileInput.getFile().getProject();
-				paths[0] = Paths.get(project.getLocation().toOSString());
+				Path projectPath = Paths.get(project.getLocation().toOSString());
+				String relativeFilePath = fileInput.getFile().getProjectRelativePath().toString();
+				result.set(projectPath, relativeFilePath);
 			} catch (Exception e) {
 				LOG.error("ClaudeCodeConnector: failed to resolve editor paths", e);
 			}
 		});
-		if (paths[0] == null)
+		if (result.projectPath == null)
 			throw new IllegalStateException("Failed to resolve editor paths");
-		return paths[0];
+		return result;
 	}
 }

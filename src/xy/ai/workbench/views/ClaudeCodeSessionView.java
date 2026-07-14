@@ -1,14 +1,25 @@
 package xy.ai.workbench.views;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.ColumnWeightData;
 import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.swt.SWT;
@@ -18,9 +29,15 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.IPartListener2;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
@@ -29,6 +46,7 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeSession;
 import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
+import xy.ai.workbench.connectors.claudecode.JsonUtil;
 import xy.ai.workbench.connectors.claudecode.SessionParameters;
 import xy.ai.workbench.connectors.claudecode.SessionState;
 
@@ -38,21 +56,23 @@ import xy.ai.workbench.connectors.claudecode.SessionState;
  * <h3>Layout</h3>
  * <ul>
  * <li>Single area containing a {@link TableViewer}.</li>
- * <li>Toolbar with a "Terminate" action for the selected session.</li>
+ * <li>Toolbar with a "Terminate" action for the selected session and a "Sync"
+ * toggle that links the table selection to the currently focused editor.</li>
  * </ul>
  *
  * <h3>Table columns</h3>
  * <ol>
- * <li><b>Session-UUID</b> — parameter hash before first start, then the real
- * UUID.</li>
- * <li><b>State</b> — Expired / Prompt / Ready / Created (priority order).</li>
- * <li><b>TTL</b> — remaining session life in minutes, or "—" if not yet
- * started.</li>
- * <li><b>Model</b> — API model name.</li>
- * <li><b>Effort</b> — reasoning/effort level.</li>
- * <li><b>Prompt</b> — initial prompt snippet, or live {@code lastParsedMessage}
- * while in use.</li>
+ * <li><b>ID</b> — abbreviated hash/UUID (first group).</li>
+ * <li><b>State</b> — created / open / prompting / expired.</li>
+ * <li><b>Detail</b> — live status information, see {@link #detailLabel}.</li>
  * </ol>
+ *
+ * <p>
+ * The table is sorted by the time the last message was received (most recent
+ * first); the "Create new session" dummy entry always stays on top. Double
+ * clicking a row opens a popup with the full, copyable session details (full
+ * id, TTL, model, effort, tools, systemprompt).
+ * </p>
  *
  * <p>
  * The view registers a change listener with the
@@ -89,6 +109,30 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private Runnable ttlRefreshRunnable;
 	private boolean disposed = false;
 
+	/** Whether the table selection follows the currently focused editor. */
+	private boolean syncEnabled = true;
+	private Set<String> knownSessionIds = new HashSet<>();
+
+	private Path currentProjectPath;
+	private String currentRelativeFilePath;
+
+	private final IPartListener2 editorPartListener = new PartListener2Adapter() {
+		@Override
+		public void partActivated(IWorkbenchPartReference partRef) {
+			maybeUpdate(partRef);
+		}
+
+		private void maybeUpdate(IWorkbenchPartReference partRef) {
+			if (partRef.getPart(false) instanceof IEditorPart)
+				updateCurrentEditor();
+		}
+
+		@Override
+		public void partOpened(IWorkbenchPartReference partRef) {
+			maybeUpdate(partRef);
+		}
+	};
+
 	@Override
 	public void createPartControl(Composite parent) {
 		sessionManager = Activator.getDefault().cliSessionManager;
@@ -105,23 +149,14 @@ public class ClaudeCodeSessionView extends ViewPart {
 		table.setLinesVisible(true);
 
 		{
-			createColumn("Session-UUID", 15)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((ClaudeCodeSession) e).getID()));
+			createColumn("ID", 20)
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((ClaudeCodeSession) e)));
 
-			createColumn("State", 10)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> stateLabel((ClaudeCodeSession) e)));
+			createColumn("State", 15).setLabelProvider(
+					ColumnLabelProvider.createTextProvider(e -> ((ClaudeCodeSession) e).getState().name()));
 
-			createColumn("TTL", 8)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ttlLabel((ClaudeCodeSession) e)));
-
-			createColumn("Model", 10).setLabelProvider(
-					ColumnLabelProvider.createTextProvider(e -> ((ClaudeCodeSession) e).getParameters().model.name()));
-
-			createColumn("Effort", 8).setLabelProvider(ColumnLabelProvider
-					.createTextProvider(e -> ((ClaudeCodeSession) e).getParameters().reasoning.name()));
-
-			createColumn("Prompt", 50)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> promptLabel((ClaudeCodeSession) e)));
+			createColumn("Detail", 65)
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((ClaudeCodeSession) e)));
 		}
 
 		viewer.setContentProvider(ArrayContentProvider.getInstance());
@@ -137,6 +172,15 @@ public class ClaudeCodeSessionView extends ViewPart {
 			}
 		});
 
+		viewer.addDoubleClickListener(event -> {
+			IStructuredSelection sel = (IStructuredSelection) event.getSelection();
+			if (!sel.isEmpty() && sel.getFirstElement() instanceof ClaudeCodeSession) {
+				ClaudeCodeSession s = (ClaudeCodeSession) sel.getFirstElement();
+				if (s != CNEW_LAUDE_CODE_SESSION)
+					new SessionDetailDialog(viewer.getControl().getShell(), s).open();
+			}
+		});
+
 		sessionManager.addChangeListener(changeListener);
 
 		// Toolbar
@@ -145,12 +189,30 @@ public class ClaudeCodeSessionView extends ViewPart {
 		act.fillLocalToolBar(bars.getToolBarManager());
 		act.fillLocalPullDown(bars.getMenuManager());
 
+		Action syncAction = new Action("Sync", IAction.AS_CHECK_BOX) {
+			@Override
+			public void run() {
+				syncEnabled = isChecked();
+				if (syncEnabled)
+					syncSelectionToCurrentFile();
+			}
+		};
+		syncAction.setToolTipText("Link session selection to the focused editor");
+		syncAction.setChecked(syncEnabled);
+		bars.getToolBarManager().add(syncAction);
+		bars.getToolBarManager().update(true);
+
+		IWorkbenchPage activePage = getSite().getPage();
+		if (activePage != null)
+			activePage.addPartListener(editorPartListener);
+		updateCurrentEditor();
+
 		ttlRefreshRunnable = new Runnable() {
 			@Override
 			public void run() {
 				if (disposed)
 					return;
-				refreshTable();
+				refreshTable(false);
 				Display.getCurrent().timerExec(TTL_REFRESH_INTERVAL_MS, this);
 			}
 		};
@@ -161,6 +223,9 @@ public class ClaudeCodeSessionView extends ViewPart {
 	public void dispose() {
 		disposed = true;
 		sessionManager.removeChangeListener(changeListener);
+		IWorkbenchPage activePage = getSite().getPage();
+		if (activePage != null)
+			activePage.removePartListener(editorPartListener);
 		Display.getDefault().timerExec(-1, ttlRefreshRunnable);
 		super.dispose();
 	}
@@ -178,51 +243,116 @@ public class ClaudeCodeSessionView extends ViewPart {
 				}).done();
 	}
 
-	private String stateLabel(ClaudeCodeSession s) {
-		switch (s.getState()) {
-		case EXPIRED:
-			return "expired";
-		case PROMPT:
-			return "prompting";
-		case READY:
-			return "ready";
-		case CREATED:
-		default:
-			return "created";
+	private void updateCurrentEditor() {
+		currentProjectPath = null;
+		currentRelativeFilePath = null;
+
+		IWorkbenchPage page = getSite() != null ? getSite().getPage() : null;
+		IEditorPart editor = page != null ? page.getActiveEditor() : null;
+		if (editor != null) {
+			IEditorInput input = editor.getEditorInput();
+			if (input instanceof IFileEditorInput) {
+				IFile file = ((IFileEditorInput) input).getFile();
+				IProject project = file.getProject();
+				if (project != null && project.getLocation() != null) {
+					currentProjectPath = Paths.get(project.getLocation().toOSString());
+					currentRelativeFilePath = file.getProjectRelativePath().toString();
+				}
+			}
 		}
+
+		if (syncEnabled)
+			syncSelectionToCurrentFile();
 	}
 
-	private String ttlLabel(ClaudeCodeSession s) {
-		long remaining = s.getRemainingTtlMinutes();
-		if (remaining < 0)
-			return "—"; // em dash: not yet started
-		return remaining + " min";
+	private ClaudeCodeSession findAssociatedSession(List<ClaudeCodeSession> sessions) {
+		if (currentProjectPath == null)
+			return null;
+		for (ClaudeCodeSession s : sessions) {
+			SessionParameters p = s.getParameters();
+			if (p != null && currentProjectPath.equals(p.cwd) && Objects.equals(currentRelativeFilePath, p.filePath))
+				return s;
+		}
+		return null;
 	}
 
-	private String promptLabel(ClaudeCodeSession s) {
-		if (s.getState() == SessionState.PROMPT) {
+	private void selectSession(ClaudeCodeSession session) {
+		if (viewer == null || viewer.getControl().isDisposed())
+			return;
+		Object toSelect = session != null ? session : CNEW_LAUDE_CODE_SESSION;
+		viewer.setSelection(new StructuredSelection(toSelect), true);
+	}
+
+	private void syncSelectionToCurrentFile() {
+		if (viewer == null || viewer.getControl().isDisposed() || sessionManager == null)
+			return;
+		selectSession(findAssociatedSession(sessionManager.getSessions()));
+	}
+
+	private String idLabel(ClaudeCodeSession s) {
+		String id = s.getID();
+		if (id == null)
+			return "";
+		int dash = id.indexOf('-');
+		return dash > 0 ? id.substring(0, dash) : id;
+	}
+
+	private String detailLabel(ClaudeCodeSession s) {
+		if (s.getState() == SessionState.Prompting) {
+			if (!s.isLastRawLineProcessed() && s.getLastRawLine() != null)
+				return JsonUtil.abbreviate(s.getLastRawLine());
 			String msg = s.getLastParsedMessage();
-			return msg != null ? msg : "Last message empty";
+			if (msg != null && !msg.isBlank())
+				return msg;
 		}
-		String snippet = s.getParameters().getTitle();
-		return snippet != null ? snippet : "";
+
+		String fileName = fileNameOf(s.getParameters().getFilePath());
+		String title = s.getParameters().getTitle();
+		if (fileName != null && !fileName.isBlank())
+			return fileName + ": " + (title != null ? title : "");
+		return title != null && !title.isBlank() ? title : "—";
+	}
+
+	private static String fileNameOf(String path) {
+		if (path == null || path.isBlank())
+			return null;
+		int idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+		return idx >= 0 ? path.substring(idx + 1) : path;
 	}
 
 	private void refreshAsync() {
 		Display display = PlatformUI.getWorkbench().getDisplay();
 		if (display != null && !display.isDisposed())
-			display.asyncExec(this::refreshTable);
+			display.asyncExec(() -> refreshTable(true));
 	}
 
-	/** Updates the viewer input and refreshes. Must be called on the UI thread. */
-	private void refreshTable() {
+	/** Must be called on the UI thread. */
+	private void refreshTable(boolean allowSyncOnNewSession) {
 		if (viewer.getControl().isDisposed())
 			return;
-		var sessions = new ArrayList<ClaudeCodeSession>();
-		sessions.add(CNEW_LAUDE_CODE_SESSION);
-		sessions.addAll(sessionManager.getSessions());
-		viewer.setInput(sessions);
+
+		List<ClaudeCodeSession> sessions = new ArrayList<>(sessionManager.getSessions());
+		sessions.sort(Comparator.comparing(ClaudeCodeSession::getLastReceivedAt,
+				Comparator.nullsLast(Comparator.reverseOrder())));
+
+		Set<String> newIds = sessions.stream().map(ClaudeCodeSession::getID).collect(Collectors.toSet());
+		List<ClaudeCodeSession> added = sessions.stream().filter(s -> !knownSessionIds.contains(s.getID()))
+				.collect(Collectors.toList());
+
+		List<ClaudeCodeSession> withDummy = new ArrayList<>();
+		withDummy.add(CNEW_LAUDE_CODE_SESSION);
+		withDummy.addAll(sessions);
+
+		viewer.setInput(withDummy);
 		viewer.refresh();
+
+		knownSessionIds = newIds;
+
+		if (syncEnabled && allowSyncOnNewSession && !added.isEmpty()) {
+			ClaudeCodeSession match = findAssociatedSession(sessions);
+			if (match != null && added.contains(match))
+				selectSession(match);
+		}
 	}
 
 	private TableViewerColumn createColumn(String label, int weight) {

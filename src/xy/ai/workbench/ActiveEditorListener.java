@@ -74,9 +74,7 @@ public class ActiveEditorListener implements IPartListener2 {
 
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
-					manager.updateInputStat(InputMode.Editor);
 					manager.updateInputStat(InputMode.Selection);
-					manager.updateInputStat(InputMode.Current_line);
 					manager.updateInputStat(InputMode.Context_prompt);
 				});
 			}).schedule(300);
@@ -150,7 +148,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Current_line);
+				manager.updateInputStat(InputMode.Selection);
 			});
 		}
 	}
@@ -159,11 +157,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void documentChanged(DocumentEvent event) {
 			Job.create("Update Input Stats", (mon) -> {
-				Display.getDefault().asyncExec(() -> {
-					manager.updateInputStat(InputMode.Editor);
-					manager.updateInputStat(InputMode.Selection);
-					manager.updateInputStat(InputMode.Current_line);
-				});
+				Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
 			}).schedule(1000);
 
 		}
@@ -172,21 +166,14 @@ public class ActiveEditorListener implements IPartListener2 {
 	public class SelectionListener implements ISelectionChangedListener {
 		@Override
 		public void selectionChanged(SelectionChangedEvent event) {
-			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Selection);
-				manager.updateInputStat(InputMode.Current_line);
-			});
+			Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
 		}
 	}
 
 	public class TextChangeListener implements ITextListener {
 		@Override
 		public void textChanged(TextEvent event) {
-			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Editor);
-				manager.updateInputStat(InputMode.Selection);
-				manager.updateInputStat(InputMode.Current_line);
-			});
+			Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
 		}
 	}
 

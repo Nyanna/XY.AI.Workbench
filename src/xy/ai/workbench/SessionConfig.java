@@ -25,7 +25,6 @@ public class SessionConfig {
 
 	public SessionConfig() {
 		setInputMode(InputMode.SystemPrompt, true);
-		setInputMode(InputMode.Editor, true);
 	}
 
 	public String getKeys() {

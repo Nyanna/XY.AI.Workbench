@@ -68,8 +68,8 @@ public class ClaudeCodeControlClient {
 			return;
 
 		JsonNode first = pending.get(0);
-		resp.resultText = "#: Control Request:\n" + ClaudeCodeProtocol.commented(toYaml(first)) + "\n/allow "
-				+ first.path("id").asText();
+		resp.resultText = "Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()
+				+ " allow ";
 	}
 
 	public String toYaml(JsonNode node) {
@@ -136,13 +136,13 @@ public class ClaudeCodeControlClient {
 	public boolean submitEdit(String rawText) {
 		if (rawText == null)
 			return false;
-		String trimmed = rawText.strip();
-		if (!trimmed.startsWith("id:") && !trimmed.startsWith("{"))
+		String block = extractYamlBlock(rawText.strip());
+		if (block == null)
 			return false;
 
 		JsonNode edited;
 		try {
-			edited = fromYaml(trimmed);
+			edited = fromYaml(block);
 		} catch (Exception e) {
 			return false;
 		}
@@ -157,6 +157,17 @@ public class ClaudeCodeControlClient {
 		else
 			approve(id);
 		return true;
+	}
+
+	private String extractYamlBlock(String text) {
+		int start = text.indexOf("```yaml");
+		if (start == -1)
+			return null;
+		int contentStart = start + "```yaml".length();
+		int end = text.indexOf("```", contentStart);
+		if (end == -1)
+			return null;
+		return text.substring(contentStart, end).strip();
 	}
 
 	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason) {

@@ -257,18 +257,6 @@ public class ConfigManager {
 
 	public void setInputMode(InputMode mode, boolean enable) {
 		cfg.setInputMode(mode, enable);
-
-		if (InputMode.Selection.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Current_line, false);
-			cfg.setInputMode(InputMode.Editor, false);
-		} else if (InputMode.Editor.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Current_line, false);
-			cfg.setInputMode(InputMode.Selection, false);
-		} else if (InputMode.Current_line.equals(mode) && enable) {
-			cfg.setInputMode(InputMode.Editor, false);
-			cfg.setInputMode(InputMode.Selection, false);
-		}
-
 		inputObs.forEach(c -> c.accept(cfg.inputModes));
 		inputModeObs.forEach(c -> c.accept(mode));
 	}
