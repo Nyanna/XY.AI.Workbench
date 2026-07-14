@@ -8,6 +8,11 @@ from typing import Any
 from ...registry import ToolContext, ToolRegistry, ToolResult
 from ..process import run_capture
 
+#: Safety limit on inline STDOUT/STDERR size. Streams larger than this are
+#: written to a temp file instead, and the absolute path is returned so the
+#: caller can keep operating on the output (e.g. via the ``read`` tool).
+_MAX_STREAM_CHARS = 2000
+
 
 def register_bash_tool(registry: ToolRegistry) -> None:
     @registry.tool(
@@ -15,7 +20,10 @@ def register_bash_tool(registry: ToolRegistry) -> None:
         title="Run Bash script",
         description=(
             "Execute a Bash script in the specified working directory. "
-            "Returns the exit code, standard output and, if present, standard error output."
+            "Returns the exit code, standard output and, if present, standard error output. "
+            f"As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are "
+            "written to a temp file instead; the absolute file path is returned "
+            "(as 'stdout_file'/'stderr_file') so it can be inspected further."
         ),
         input_schema={
             "type": "object",
@@ -37,6 +45,20 @@ def register_bash_tool(registry: ToolRegistry) -> None:
                 "exit_code": {"type": "integer"},
                 "stdout": {"type": "string"},
                 "stderr": {"type": "string"},
+                "stdout_file": {
+                    "type": "string",
+                    "description": (
+                        "Absolute path to a file containing the full STDOUT, "
+                        "present only if STDOUT exceeded the safety limit."
+                    ),
+                },
+                "stderr_file": {
+                    "type": "string",
+                    "description": (
+                        "Absolute path to a file containing the full STDERR, "
+                        "present only if STDERR exceeded the safety limit."
+                    ),
+                },
             },
             "required": ["stdout"],
         },
@@ -65,4 +87,5 @@ def register_bash_tool(registry: ToolRegistry) -> None:
             launch_error="Failed to launch bash",
             normalize_output=True,
             omit_zero_exit_code=True,
+            max_stream_chars=_MAX_STREAM_CHARS,
         )

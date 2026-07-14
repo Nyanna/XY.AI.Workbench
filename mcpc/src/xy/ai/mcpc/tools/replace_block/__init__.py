@@ -89,7 +89,7 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         occurrences = text.count(old_text)
         if occurrences == 0:
             return ToolResult(
-                structured_content={"error": f"Text not found in file: {old_text!r}"},
+                structured_content={"error": f"Text not found in file: '{old_text}'"},
                 is_error=True,
             )
         if occurrences > 1:
@@ -97,7 +97,7 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
                 structured_content={
                     "error": (
                         f"Text is ambiguous – found {occurrences} occurrences "
-                        f"in file: {old_text!r}"
+                        f"in file: '{old_text}'"
                     )
                 },
                 is_error=True,

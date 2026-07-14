@@ -1,14 +1,9 @@
 # TODO
-!python benutzen für codearbeit? Oder besser script ast?
-	* bash wird gern zur erkundung eingesetzt und python für umsetzung und edit
 
 !ausgabelimits für andere tools, read soll eine confirmation holenm bei großen dateien ohne line numbers
 	* wenn bash output zu großt in datei umleiten und dateinamen zurück, für weitere operationen
-* control requests entfernen bei client disconencts
-	*felder im control request "phase", "tool" wird in der respone nicht gebraucht warum gebraucht?
 
 * git trailing-space problem: Prüfen, bash stdout kann optimiert werden und muss nicht dateigenau sein?
-	* multiple leerzeilen stauchen, leerzeilen mit whitespace bereinigen
 ```yaml
 id: "af61fc55-237a-4816-903c-5717b5908757"
 phase: "result"
@@ -21,33 +16,6 @@ result:
 ```
 
 * wo ist der unterschied zwischen normaler Inferenz und thinking? Oft kein Unterschied macht das modell keinen unterschied und es ist dasselbe.
-* session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
-	* eigentlich zwei phasen, input auswählen, output lösung validieren oder eingreifen
-	* für input muss der context aufs minimum und affected sources beschränkt werden
-	* für output muss der ansatz validiert werden
-* project > dir > file > imports/class > global > nodes, code ist immer ein baum 
-
-zu viel escaping, hin und zurück
-	#: Control Request:
-	#:id: "701d7547-df51-40e6-80ad-af4fc3e8b9cc"
-	#:phase: "request"
-	#:toolName: "change"
-	#:arguments:
-	#:  path: "/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connectors/claudecode/ClaudeCodeConnector.java"
-	#:  start: "\t\t\t\tif ((line = session.readLine()) != null) {\n\t\t\t\t\t\tjsonParser.parseLine(resp, session, sub, line);\n\n\t\t\t\t\t}"
-	#:  end: "\t\t\t\t}"
-	#:  content: "\t\t\t\tif ((line = session.readLine()) != null) {\n\t\t\t\t\t\tsession.setLastRawLine(line);\n\t\t\t\t\t\tjsonParser.parseLine(resp, session, sub, line);\n\n\t\t\t\t\t}"
-	/allow 701d7547-df51-40e6-80ad-af4fc3e8b9cc
-	#: Control Request:
-	#:id: "183f1a46-d6ed-49be-a06f-0f387abbb0c8"
-	#:phase: "result"
-	#:toolName: "change"
-	#:result:
-	#:  content: []
-	#:  structuredContent:
-	#:    error: "End marker is ambiguous – found 6 occurrences in file: '\\t\\t\\t\\t}'"
-	#:  isError: true
-	/allow 183f1a46-d6ed-49be-a06f-0f387abbb0c8
 
 ## Workbench
 * Diff support für edit commands
@@ -67,6 +35,14 @@ zu viel escaping, hin und zurück
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
 * Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
 * subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
+* session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
+	* eigentlich zwei phasen, input auswählen, output lösung validieren oder eingreifen
+	* für input muss der context aufs minimum und affected sources beschränkt werden
+	* für output muss der ansatz validiert werden
+* project > dir > file > imports/class > global > nodes, code ist immer ein baum 
+*python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?
+	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
+	* sed sogar zur editierung von python in batch edit
 
 
 ## Agents

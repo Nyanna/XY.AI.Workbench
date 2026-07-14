@@ -87,7 +87,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
         start_count = text.count(start_marker)
         if start_count == 0:
             return ToolResult(
-                structured_content={"error": f"Start marker not found in file: {start_marker!r}"},
+                structured_content={"error": f"Start marker not found in file: '{start_marker}'"},
                 is_error=True,
             )
         if start_count > 1:
@@ -95,7 +95,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
                 structured_content={
                     "error": (
                         f"Start marker is ambiguous – found {start_count} occurrences "
-                        f"in file: {start_marker!r}"
+                        f"in file: '{start_marker}'"
                     )
                 },
                 is_error=True,
@@ -105,7 +105,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
         end_count = text.count(end_marker)
         if end_count == 0:
             return ToolResult(
-                structured_content={"error": f"End marker not found in file: {end_marker!r}"},
+                structured_content={"error": f"End marker not found in file: '{end_marker}'"},
                 is_error=True,
             )
         if end_count > 1:
@@ -113,7 +113,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
                 structured_content={
                     "error": (
                         f"End marker is ambiguous – found {end_count} occurrences "
-                        f"in file: {end_marker!r}"
+                        f"in file: '{end_marker}'"
                     )
                 },
                 is_error=True,

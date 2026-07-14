@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tempfile
 from typing import Any
 
 from ..registry import ToolResult, text_content
@@ -49,6 +50,24 @@ def _normalize_stream(text: str) -> str:
     return normalized
 
 
+def _spill_to_file(text: str, label: str) -> str:
+    """Write *text* to a fresh temp file and return its absolute path.
+
+    Used as a safety limit: when a captured stream grows too large to be
+    returned inline, it is persisted to disk instead so the caller can
+    continue operating on it (e.g. via the ``read``/``bash`` tools) without
+    the full content ever passing through the structured result.
+    """
+    fd, path = tempfile.mkstemp(prefix=f"mcpc-{label}-", suffix=".log")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    except BaseException:
+        os.close(fd)
+        raise
+    return path
+
+
 def run_capture(
     cmd: list[str],
     *,
@@ -57,6 +76,7 @@ def run_capture(
     launch_error: str = "Failed to launch process",
     normalize_output: bool = False,
     omit_zero_exit_code: bool = False,
+    max_stream_chars: int | None = None,
 ) -> ToolResult:
     """Run *cmd*, capture its streams, and return a normalised :class:`ToolResult`.
 
@@ -67,6 +87,14 @@ def run_capture(
       improve YAML block-scalar compatibility (see :func:`_normalize_stream`).
     * ``omit_zero_exit_code`` — when ``True``, ``exit_code`` is left out of the
       result entirely if the process exited with code ``0``.
+    * ``max_stream_chars`` — safety limit on the number of characters of
+      STDOUT/STDERR returned inline.  When a stream exceeds this limit, its
+      full content is written to a temp file instead and the structured
+      result contains the absolute path (``stdout_file``/``stderr_file``) in
+      place of the raw text, so the caller can keep operating on it (e.g.
+      with the ``read`` tool) without the oversized content ever passing
+      through the result payload.  ``None`` (the default) disables the
+      limit.
 
     STDOUT/STDERR are decoded as UTF-8 with ``errors="replace"`` so decoding can
     never raise.  ``stdout`` is always present; ``stderr`` is included whenever
@@ -99,9 +127,27 @@ def run_capture(
     structured: dict[str, Any] = {}
     if not omit_zero_exit_code or proc.returncode != 0:
         structured["exit_code"] = proc.returncode
-    structured["stdout"] = stdout
+
+    if max_stream_chars is not None and len(stdout) > max_stream_chars:
+        stdout_file = _spill_to_file(stdout, "stdout")
+        structured["stdout"] = (
+            f"STDOUT exceeded the {max_stream_chars}-character safety limit "
+            f"({len(stdout)} characters). Full output written to file."
+        )
+        structured["stdout_file"] = stdout_file
+    else:
+        structured["stdout"] = stdout
+
     if stderr:
-        structured["stderr"] = stderr
+        if max_stream_chars is not None and len(stderr) > max_stream_chars:
+            stderr_file = _spill_to_file(stderr, "stderr")
+            structured["stderr"] = (
+                f"STDERR exceeded the {max_stream_chars}-character safety limit "
+                f"({len(stderr)} characters). Full output written to file."
+            )
+            structured["stderr_file"] = stderr_file
+        else:
+            structured["stderr"] = stderr
 
     text_lines: list[str] = []
 

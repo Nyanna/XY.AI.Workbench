@@ -25,6 +25,10 @@ public class BlockRule extends AbstractRule {
 		while (s.getReadCount() < LIMIT && s.readNext()
 				&& (s.getColumn() != 0 || !(endblock = s.isNextSequence(endBlock))))
 			; // consume
-		return endblock ? true : s.reset();
+		if (!endblock)
+			s.reset();
+		if (s.readNext() && !s.isNewLine())
+			s.reset(); // endblock not standalone
+		return true;
 	}
 }

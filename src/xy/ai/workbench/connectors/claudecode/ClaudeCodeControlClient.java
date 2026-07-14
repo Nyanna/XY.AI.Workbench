@@ -125,7 +125,7 @@ public class ClaudeCodeControlClient {
 
 	private String extractYamlBlock(String text) {
 		int start = text.indexOf("```yaml");
-		if (start == -1)
+		if (start != 0)
 			return null;
 		int contentStart = start + "```yaml".length();
 		int end = text.indexOf("```", contentStart);
