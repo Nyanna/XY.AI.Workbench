@@ -29,7 +29,7 @@ import subprocess
 import tempfile
 from typing import Any
 
-from ..registry import ToolResult, text_content
+from ..registry import ToolResult
 
 
 _BLANK_RUN_RE = re.compile(r"[ \t]+$", re.MULTILINE)
@@ -98,10 +98,9 @@ def run_capture(
 
     STDOUT/STDERR are decoded as UTF-8 with ``errors="replace"`` so decoding can
     never raise.  ``stdout`` is always present; ``stderr`` is included whenever
-    it is non-empty.  A human-readable text block is always attached to the
-    result (in addition to the structured content) so STDOUT/STDERR remain
-    visible even when the surrounding client only renders textual content —
-    e.g. on a non-zero exit code.  ``is_error`` mirrors a non-zero exit code.
+    it is non-empty.  The result carries no separate text content block —
+    ``structured_content`` alone conveys STDOUT/STDERR, avoiding duplication.
+    ``is_error`` mirrors a non-zero exit code.
     """
     try:
         proc = subprocess.run(
@@ -149,10 +148,7 @@ def run_capture(
         else:
             structured["stderr"] = stderr
 
-    text_lines: list[str] = []
-
     return ToolResult(
-        content=[text_content("\n".join(text_lines))],
         structured_content=structured,
         is_error=proc.returncode != 0,
     )
