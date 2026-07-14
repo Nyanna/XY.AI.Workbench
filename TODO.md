@@ -1,10 +1,9 @@
 # TODO
 !python benutzen für codearbeit? Oder besser script ast?
 	* bash wird gern zur erkundung eingesetzt und python für umsetzung und edit
-!replace tool? ist häufiger anwendungsfall
-!wenn content[] oder structured_content[] leer braucht auch nicht ausgegeben werden
 
 !ausgabelimits für andere tools, read soll eine confirmation holenm bei großen dateien ohne line numbers
+	* wenn bash output zu großt in datei umleiten und dateinamen zurück, für weitere operationen
 * control requests entfernen bei client disconencts
 	*felder im control request "phase", "tool" wird in der respone nicht gebraucht warum gebraucht?
 

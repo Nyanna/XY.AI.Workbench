@@ -8,6 +8,7 @@ Available tools
 * ``insert``        – insert text at a character offset
 * ``replace-chars`` – replace a character range with new text
 * ``replace-lines`` – replace a line range with new text
+* ``replace-block`` – replace an exact block of text (old text -> new text)
 * ``change``        – replace a delimited block identified by start/end markers
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
@@ -38,6 +39,7 @@ from .python import register_python_tool
 from .read import register_read_tool
 from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
 from .replace_lines import register_replace_lines_tool
+from .replace_block import register_replace_block_tool
 from .skills import register_skills
 from .write import register_write_tool
 
@@ -58,6 +60,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_change_tool(registry)
     register_replace_chars_tool(registry)
     register_replace_lines_tool(registry)
+    register_replace_block_tool(registry)
     register_bash_tool(registry)
     register_python_tool(registry)
     register_markdown_tool(registry)
