@@ -24,10 +24,29 @@ happens exactly once, later, when the :class:`ToolResult` is serialised through
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from typing import Any
 
-from ..registry import ToolResult
+from ..registry import ToolResult, text_content
+
+
+_BLANK_RUN_RE = re.compile(r"[ \t]+$", re.MULTILINE)
+_MULTI_BLANK_RE = re.compile(r"\n{3,}")
+
+
+def _normalize_stream(text: str) -> str:
+    """Improve compatibility with YAML block scalars.
+
+    * Lines that contain only whitespace are reduced to a bare line break
+      (trailing spaces/tabs on otherwise empty lines are stripped).
+    * Successive blank lines are collapsed to a single blank line.
+    """
+    if not text:
+        return text
+    normalized = _BLANK_RUN_RE.sub("", text)
+    normalized = _MULTI_BLANK_RE.sub("\n\n", normalized)
+    return normalized
 
 
 def run_capture(
@@ -36,17 +55,25 @@ def run_capture(
     cwd: str | os.PathLike[str] | None = None,
     stdin: str | None = None,
     launch_error: str = "Failed to launch process",
+    normalize_output: bool = False,
+    omit_zero_exit_code: bool = False,
 ) -> ToolResult:
     """Run *cmd*, capture its streams, and return a normalised :class:`ToolResult`.
 
     * ``cwd`` — working directory (already validated by the caller).
     * ``stdin`` — text fed to the child's standard input, or ``None``.
     * ``launch_error`` — message prefix used when the executable cannot start.
+    * ``normalize_output`` — when ``True``, post-process STDOUT/STDERR to
+      improve YAML block-scalar compatibility (see :func:`_normalize_stream`).
+    * ``omit_zero_exit_code`` — when ``True``, ``exit_code`` is left out of the
+      result entirely if the process exited with code ``0``.
 
     STDOUT/STDERR are decoded as UTF-8 with ``errors="replace"`` so decoding can
-    never raise.  The structured payload always carries ``exit_code`` and
-    ``stdout``; ``stderr`` is included only when non-empty.  ``is_error`` mirrors
-    a non-zero exit code.
+    never raise.  ``stdout`` is always present; ``stderr`` is included whenever
+    it is non-empty.  A human-readable text block is always attached to the
+    result (in addition to the structured content) so STDOUT/STDERR remain
+    visible even when the surrounding client only renders textual content —
+    e.g. on a non-zero exit code.  ``is_error`` mirrors a non-zero exit code.
     """
     try:
         proc = subprocess.run(
@@ -63,14 +90,23 @@ def run_capture(
             is_error=True,
         )
 
-    structured: dict[str, Any] = {
-        "exit_code": proc.returncode,
-        "stdout": proc.stdout,
-    }
-    if proc.stderr:
-        structured["stderr"] = proc.stderr
+    stdout = proc.stdout or ""
+    stderr = proc.stderr or ""
+    if normalize_output:
+        stdout = _normalize_stream(stdout)
+        stderr = _normalize_stream(stderr)
+
+    structured: dict[str, Any] = {}
+    if not omit_zero_exit_code or proc.returncode != 0:
+        structured["exit_code"] = proc.returncode
+    structured["stdout"] = stdout
+    if stderr:
+        structured["stderr"] = stderr
+
+    text_lines: list[str] = []
 
     return ToolResult(
+        content=[text_content("\n".join(text_lines))],
         structured_content=structured,
         is_error=proc.returncode != 0,
     )

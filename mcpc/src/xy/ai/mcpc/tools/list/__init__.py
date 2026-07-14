@@ -1,18 +1,43 @@
-"""List tool – returns a flat, sorted list of absolute file paths below a directory.
+"""List tool – returns a flat, sorted list of relative file paths below a directory.
 
 Walks the given absolute directory recursively and returns all file paths
-(files only, no directories) as an alphabetically sorted flat list of
-absolute path strings. An optional regular expression can be supplied to
-filter the resulting list (matched against each absolute file path).
+(files only, no directories) as an alphabetically sorted flat list of paths
+relative to the requested directory. An optional regular expression can be
+supplied to filter the resulting list (matched against each relative file
+path). Common VCS/build/cache directories (e.g. ``.git``) are always excluded.
+To keep results manageable, the number of returned entries is capped; use
+``pattern`` to narrow down large directories instead of raising the limit.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolRegistry, ToolResult
+
+_MAX_ENTRIES = 50
+
+_EXCLUDED_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".idea",
+    ".vscode",
+    "dist",
+    "build",
+    ".cache",
+}
 
 
 def register_list_tool(registry: ToolRegistry) -> None:
@@ -84,15 +109,29 @@ def register_list_tool(registry: ToolRegistry) -> None:
                     is_error=True,
                 )
 
+        root = path.resolve()
         entries: list[str] = []
-        for file_path in path.rglob("*"):
-            if not file_path.is_file():
-                continue
-            abs_path = str(file_path.resolve())
-            if regex is not None and not regex.search(abs_path):
-                continue
-            entries.append(abs_path)
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIRS]
+            for filename in filenames:
+                file_path = Path(dirpath) / filename
+                rel_path = str(file_path.relative_to(root))
+                if regex is not None and not regex.search(rel_path):
+                    continue
+                entries.append(rel_path)
 
         entries.sort()
+
+        if len(entries) > _MAX_ENTRIES:
+            return ToolResult(
+                structured_content={
+                    "error": (
+                        f"Too many entries ({len(entries)}) exceed the limit of "
+                        f"{_MAX_ENTRIES}. Narrow down the result using the "
+                        "'pattern' regular expression parameter."
+                    )
+                },
+                is_error=True,
+            )
 
         return ToolResult(structured_content={"entries": entries})

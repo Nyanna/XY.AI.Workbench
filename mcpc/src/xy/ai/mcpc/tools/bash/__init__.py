@@ -38,7 +38,7 @@ def register_bash_tool(registry: ToolRegistry) -> None:
                 "stdout": {"type": "string"},
                 "stderr": {"type": "string"},
             },
-            "required": ["exit_code", "stdout"],
+            "required": ["stdout"],
         },
         annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True},
     )
@@ -63,4 +63,6 @@ def register_bash_tool(registry: ToolRegistry) -> None:
             ["bash", "-c", script],
             cwd=cwd,
             launch_error="Failed to launch bash",
+            normalize_output=True,
+            omit_zero_exit_code=True,
         )

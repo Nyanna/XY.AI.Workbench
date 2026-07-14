@@ -13,14 +13,6 @@ from typing import Any
 
 from ...registry import ToolContext, ToolRegistry, ToolResult
 
-#: Key used inside ``Session.state`` to persist the per-session file cache.
-_CACHE_KEY = "_read_cache"
-
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def register_read_tool(registry: ToolRegistry) -> None:
     @registry.tool(
         "read",
@@ -60,17 +52,9 @@ def register_read_tool(registry: ToolRegistry) -> None:
         output_schema={
             "type": "object",
             "properties": {
-                #"path": {"type": "string"},
-                #"sha256": {"type": "string"},
-                #"total_lines": {"type": "integer"},
-                #"returned_lines": {"type": "integer"},
                 "content": {"type": "string"},
-                #"min_line": {"type": "integer"},
-                #"max_line": {"type": "integer"},
             },
-            "required": ["content"
-                         #, "path", "sha256", "total_lines", "returned_lines"
-                         ],
+            "required": ["content"],
         },
         annotations={"readOnlyHint": True, "openWorldHint": False},
     )
@@ -116,28 +100,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
 
         raw_bytes = path.read_bytes()
-        current_hash = _sha256(raw_bytes)
-
-        # --- session cache check ---
-        cache: dict[str, str] = ctx.session.state.setdefault(_CACHE_KEY, {})
-        key = "|".join(
-            str(part)
-            for part in (
-                path.resolve(),
-                min_line,
-                max_line,
-                start_marker,
-                end_marker,
-            )
-        )
-        if cache.get(key) == current_hash:
-            return ToolResult(
-                structured_content={
-                    "error": f"File has not changed since the last read. Use your context data instead!"
-                },
-                is_error=True,
-            )
-        cache[key] = current_hash
 
         # --- decode ---
         text = raw_bytes.decode("utf-8", errors="replace")
@@ -152,7 +114,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
             n = max(0, min(line_num, total_lines))
             return sum(len(l) for l in lines[:n])
 
-        # --- resolve start boundary ---
         if start_marker is not None:
             start_count = text.count(start_marker)
             if start_count == 0:
@@ -176,7 +137,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
         else:
             region_start = 0
 
-        # --- resolve end boundary ---
         if end_marker is not None:
             end_count = text.count(end_marker)
             if end_count == 0:
@@ -213,15 +173,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
 
         sliced = text[region_start:region_end]
-
         structured: dict[str, Any] = {"content": sliced}
-        if min_line is not None:
-            structured["min_line"] = min_line
-        if max_line is not None:
-            structured["max_line"] = max_line
-        if start_marker is not None:
-            structured["start_line"] = text.count("\n", 0, region_start) + 1
-        if end_marker is not None:
-            structured["end_line"] = text.count("\n", 0, region_end) + 1
 
         return ToolResult(structured_content=structured)

@@ -1,28 +1,10 @@
 # TODO
-!session abgleich mit CLI und alle gedanken angezeigt? > nein, der hier
-	* assistant messages müssen im result unt toollopp ausgegeben werden, mit token stand
-	{"type":"assistant","message":{"model":"claude-sonnet-5","id":"msg_011Cd2AKQMAwipwFa4MMAanE","type":"message","role":"assistant","content":[{"type":"text","text":"Good, no direct Current_line references there. Now let's implement Session Manager changes."}],"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":2059,"cache_read_input_tokens":71642,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":2059},"output_tokens":4,"service_tier":"standard","inference_geo":"not_available"},"context_management":null},"parent_tool_use_id":null,"session_id":"3967081a-7ff8-402b-a0ed-17596fd0ec00","uuid":"b6b60dc2-72b2-401b-93da-93aaea4a86e7","request_id":"req_011Cd2AKP4387NSGJtvk5Fbm"}
-		
-!bash tool kein stderr ausgabe
-!read tool protection ausbauen
 !python benutzen für codearbeit? Oder besser script ast?
+	* bash wird gern zur erkundung eingesetzt und python für umsetzung und edit
 !replace tool? ist häufiger anwendungsfall
-!bash exitcode nur !0 ausgeben
 !wenn content[] oder structured_content[] leer braucht auch nicht ausgegeben werden
 
-
 !ausgabelimits für andere tools, read soll eine confirmation holenm bei großen dateien ohne line numbers
-	!list muss die ausgabe beschränken, sonst fehler und trey (50)
-	!list pfad prefix sparen, kompaktere darstellung
-	!list wenn ergebniss zu viel fehlermeldung und einschränkung mit regexp
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/8034ec695cc80c977c25d86c184147458e53f2"
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/8221abcd467d7f1046ec48c5279b2868cf41b5"
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/8c42f5c2f22bec8975f3d1434c82632da34639"
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/afd109cd8bfaed7f96104557938f0b8deeadbe"
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/b1f1dbb120c037d24945f78db1b2764ddec85f"
-	#:    - "/home/user/xyan/xy.ai.workbench/.git/objects/17/b99536b3cb2d17a66cd62f0c743befda48f544"
-* checklist for tools ergänzen, immer ein und ausgabemenge prüfen, eventuell checks und output restrictions hinzufügen
-* finding: lieber etwas extra thinking durch iteration, als zu viel in den kontext laden, rechnung ist salienz gegen token
 * control requests entfernen bei client disconencts
 	*felder im control request "phase", "tool" wird in der respone nicht gebraucht warum gebraucht?
 
@@ -40,13 +22,10 @@ result:
 ```
 
 * wo ist der unterschied zwischen normaler Inferenz und thinking? Oft kein Unterschied macht das modell keinen unterschied und es ist dasselbe.
- 
-
 * session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
 	* eigentlich zwei phasen, input auswählen, output lösung validieren oder eingreifen
 	* für input muss der context aufs minimum und affected sources beschränkt werden
 	* für output muss der ansatz validiert werden
-	
 * project > dir > file > imports/class > global > nodes, code ist immer ein baum 
 
 zu viel escaping, hin und zurück
@@ -121,6 +100,7 @@ zu viel escaping, hin und zurück
 * Input hat großen Kontextanteil, fokussieren so gut wie möglich
 * Agenten denken ressourcen also dateisystembasiert
 * Wenn erweiterung oder bezug auf tickets ist das patch/diff delta ein kleiner und fokussierter eingabekontext, besser als den agenten das feature neu verstehen zu lassen
+* besser etwas extra thinking durch iteration und abbrüche von Tools, als zu viel in den Kontext laden, die Rechnung ist salienz gegen token
 
 ## Ideas
 
