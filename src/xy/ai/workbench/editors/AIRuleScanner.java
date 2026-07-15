@@ -54,6 +54,8 @@ public class AIRuleScanner extends RuleBasedScanner {
 		IToken agentToken = new Token(AGENT_ATTR);
 		IToken blueToken = new Token(BLUE_ATTR);
 		IToken greyToken = new Token(GREY_ATTR);
+		@SuppressWarnings("unused")
+		IToken defaultToken = new Token(DEFAULT_ATTR);
 		IToken commentToken = new Token(COMMENT_ATTR);
 		IToken commentDarkToken = new Token(COMMENT_DARK_ATTR);
 		IToken spacerToken = new Token(SPACER_ATTR);

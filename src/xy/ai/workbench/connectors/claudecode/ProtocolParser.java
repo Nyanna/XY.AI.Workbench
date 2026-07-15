@@ -115,7 +115,7 @@ public class ProtocolParser {
 	public static void appendEvents(Map<String, String> events, StringBuilder resultText) {
 		if (!events.isEmpty())
 			for (String line : events.values())
-				resultText.append(commented(line)).append("\n");
+				resultText.append(line).append("\n");
 	}
 
 	private void parseToolUse(CCResponse resp, JsonNode node) {

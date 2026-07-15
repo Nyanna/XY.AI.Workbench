@@ -7,19 +7,19 @@ public class PrefixLineRule extends AbstractRule {
 
 	public PrefixLineRule(String prefix, IToken token) {
 		super(token);
-		this.prefix = prefix.toCharArray();
+		this.prefix = ("\n" + prefix).toCharArray();
 	}
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (s.getColumn() != 0)
-			return false;
-
 		if (!s.isNextSequence(prefix))
 			return s.reset();
 
-		while (s.readNext() && !s.isNewLine())
+		boolean nl = false;
+		while (s.readNext() && !(nl = s.isNewLine()))
 			; // consume
+		if(nl)
+			s.unread();
 		return true;
 	}
 }

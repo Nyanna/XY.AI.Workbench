@@ -7,17 +7,11 @@ public class LineMatchRule extends AbstractRule {
 
 	public LineMatchRule(String prefix, IToken token) {
 		super(token);
-		this.match = prefix.toCharArray();
+		this.match = ("\n" + prefix + "\n").toCharArray();
 	}
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (s.getColumn() != 0)
-			return false;
-
-		if (!s.isNextSequence(match) || (s.readNext() && !s.isNewLine()))
-			return s.reset();
-
-		return true;
+		return s.isNextSequence(match) ? true : false;
 	}
 }

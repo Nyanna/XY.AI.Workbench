@@ -14,6 +14,9 @@ public class EmphasisRule extends AbstractRule {
 	protected boolean evaluateMatch(Scanner s) {
 		if (!s.isNextSequence(seq))
 			return s.reset();
+		
+		if (s.isNextSequence(seq)) // no direct closure
+			return s.reset();
 
 		boolean nextSequence = false;
 		while (s.readNext() && !s.isNewLine() && !(nextSequence = s.isNextSequence(seq)))

@@ -80,16 +80,24 @@ public abstract class AbstractRule implements IRule {
 		}
 
 		public boolean isNextSequence(char[] seq) {
-			for (int sr = 0; sr < seq.length; sr++)
-				if (read() != seq[sr])
-					return unread(sr + 1);
-			return true;
+			Scanner sub = new Scanner(this);
+			int sr = 0;
+			for (; sr < seq.length && sub.readNext(); sr++)
+				if (sub.getChar() != seq[sr])
+					return sub.reset();
+			return sr == seq.length ? true : sub.reset();
 		}
 
 		public boolean unread(int count) {
 			for (; count > 0; count--)
 				unread();
 			return false;
+		}
+
+		public boolean read(int count) {
+			for (; count > 0 && readNext(); count--)
+				read();
+			return count == 0;
 		}
 
 		public boolean equals(char o) {
@@ -115,7 +123,7 @@ public abstract class AbstractRule implements IRule {
 			p = ICharacterScanner.EOF;
 			readCount--;
 		}
-		
+
 		public int getReadCount() {
 			return readCount;
 		}

@@ -9,41 +9,15 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
-/**
- * Wires the spell-check components (reconciler + annotation painter) to an
- * {@link ISourceViewer}.
- * <p>
- * Usage:
- * <pre>
- *   // in SourceViewerConfiguration.getReconciler():
- *   return SpellCheckInstaller.createReconciler(sourceViewer);
- *
- *   // in TextEditor.createSourceViewer() after super call:
- *   SpellCheckInstaller.installPainter(sourceViewer);
- * </pre>
- */
-public final class SpellCheckInstaller {
+public class SpellCheckInstaller {
 
     private static final int RECONCILE_DELAY_MS = 500;
 
-    private SpellCheckInstaller() {
-    }
-
-    /**
-     * Creates and configures a {@link SpellCheckReconciler} backed by
-     * {@link SpellingStrategy}. Call this from
-     * {@code SourceViewerConfiguration.getReconciler()}.
-     */
     public static IReconciler createReconciler(ISourceViewer sourceViewer) {
         SpellingStrategy strategy = new SpellingStrategy(sourceViewer);
         return new SpellCheckReconciler(strategy, RECONCILE_DELAY_MS);
     }
 
-    /**
-     * Creates and installs an {@link AnnotationPainter} that draws a red
-     * squiggly underline for every {@link SpellingAnnotation}. Must be called
-     * on the UI thread after the source viewer has been fully initialized.
-     */
     public static void installPainter(ISourceViewer sourceViewer) {
         Display display = sourceViewer.getTextWidget().getDisplay();
 

@@ -1,13 +1,10 @@
 # TODO
 
-! tokenausgabe und implementierung prüfen, token mehr ausgeben und kontrollieren
-! eigene dmagerimplementierung die zuverlässiger auf der region arbeiten
-
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher
 	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analo
-* Scannerrules richtig verstehen buugy?
+* Scannerrules richtig implementieren mit regions, spellcheck invalidiert alles und rules kommen nicht mit regions klar daher full dokument scan
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools

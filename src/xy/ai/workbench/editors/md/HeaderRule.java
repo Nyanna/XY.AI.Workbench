@@ -10,8 +10,8 @@ public class HeaderRule extends AbstractRule {
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (s.getColumn() != 0)
-			return false;
+		if (!s.readNext() || !s.isNewLine())
+			return s.reset();
 
 		int found = 0;
 		while (s.readNext() && !s.isNewLine() && (s.isWhitespace() || s.isUnderline()))

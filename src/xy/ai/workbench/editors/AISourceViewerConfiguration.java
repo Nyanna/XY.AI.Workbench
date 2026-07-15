@@ -55,7 +55,8 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 				IDocument document = sourceViewer.getDocument();
 				if (document != null && document.getLength() > LIMIT)
 					return new Region(0, 1);
-				return super.getDamageRegion(partition, e, documentPartitioningChanged);
+				return new Region(0, document.getLength());
+//				return super.getDamageRegion(partition, e, documentPartitioningChanged);
 			}
 		};
 		reconciler.setDamager(dr, IDocument.DEFAULT_CONTENT_TYPE);

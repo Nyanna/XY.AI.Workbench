@@ -9,15 +9,12 @@ public class BlockRule extends AbstractRule {
 
 	public BlockRule(String start, String end, IToken token) {
 		super(token);
-		this.startBlock = start.toCharArray();
-		this.endBlock = ("\n" + end).toCharArray();
+		this.startBlock = ("\n" + start).toCharArray();
+		this.endBlock = ("\n" + end + "\n").toCharArray();
 	}
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (s.getColumn() != 0)
-			return false;
-
 		if (!s.isNextSequence(startBlock))
 			return s.reset();
 
