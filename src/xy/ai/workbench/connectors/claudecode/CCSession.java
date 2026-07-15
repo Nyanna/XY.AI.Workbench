@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.models.TokenStats;
 
 public class CCSession {
 	private static final long TTL_HOURS = 1;
@@ -38,6 +39,7 @@ public class CCSession {
 	private Instant lastSentAt;
 	private volatile Instant lastReceivedAt;
 
+	public volatile TokenStats stats;
 	private volatile boolean inPrompt;
 	private volatile String lastParsedMessage;
 	private volatile String lastRawLine;
@@ -45,6 +47,7 @@ public class CCSession {
 	private boolean resume;
 
 	private final CCSessionManager manager;
+
 
 	public CCSession(CCSessionManager manager, SessionParameters parameters) {
 		this(UUID.randomUUID().toString(), false, manager, parameters);

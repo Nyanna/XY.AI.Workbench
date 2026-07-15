@@ -3,6 +3,7 @@ package xy.ai.workbench.connectors.claudecode;
 import java.util.LinkedHashMap;
 
 import xy.ai.workbench.models.IModelResponse;
+import xy.ai.workbench.models.TokenStats;
 
 public class CCResponse implements IModelResponse {
 
@@ -17,12 +18,7 @@ public class CCResponse implements IModelResponse {
 	/** The tool_use id when isToolRequest is true, otherwise null. */
 	public String toolUseId;
 
-	public long inputTokens;
-	public long outputTokens;
-	public long reasoningTokens;
-	public long cacheReadInputTokens;
-	public long cacheCreationInputTokens;
-	public long totalReasoningTokens;
+	public final TokenStats stats = new TokenStats();
 	public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
 
 	public CCResponse(String id) {

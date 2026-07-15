@@ -139,9 +139,9 @@ public class AIBatchView extends ViewPart {
 						return processComment(be.answer);
 					}));
 			new TableViewerColumn(reqViewer, createColumn(reqViewer.getTable(), "Size", 5))
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).outputToken + ""));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).stats.outputToken + ""));
 			new TableViewerColumn(reqViewer, createColumn(reqViewer.getTable(), "Cost", 5))
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).totalToken + ""));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).stats.totalToken + ""));
 
 			table.requestLayout();
 		}

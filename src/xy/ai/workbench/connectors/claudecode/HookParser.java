@@ -19,7 +19,7 @@ package xy.ai.workbench.connectors.claudecode;
  *   &lt;hook output&gt;
  * </pre>
  */
-public class ResultPostProcessor {
+public class HookParser {
 
     private static final String BLOCKED_PREFIX = "UserPromptSubmit operation blocked by hook:";
     private static final String ORIGINAL_PROMPT_PREFIX = "Original prompt:";

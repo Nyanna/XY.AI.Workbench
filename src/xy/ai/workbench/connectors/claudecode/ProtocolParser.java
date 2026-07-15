@@ -15,17 +15,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.LOG;
 
-/**
- * Parses JSON structures from Claude Code API responses. Handles extraction and
- * processing of results, tool uses, events, and rate limits.
- */
-public class CCProtocol {
+public class ProtocolParser {
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
-	private final ResultPostProcessor postProcessor = new ResultPostProcessor();
+	private final HookParser postProcessor = new HookParser();
 
 	public void parseLine(CCResponse resp, CCSession session, SubMonitor sub, String line) {
 		JsonNode node;
@@ -66,8 +62,8 @@ public class CCProtocol {
 				updateLastParsedMessage(resp, session);
 			}
 		} catch (Exception ex) {
-			LOG.error("Failed to process CLI event (type=" + type + ", length=" + line.length()
-					+ "): " + JsonUtil.abbreviate(line), ex);
+			LOG.error("Failed to process CLI event (type=" + type + ", length=" + line.length() + "): "
+					+ JsonUtil.abbreviate(line), ex);
 			throw ex;
 		}
 	}
@@ -108,10 +104,10 @@ public class CCProtocol {
 			Iterator<Entry<String, JsonNode>> fields = modelUsage.fields();
 			fields.forEachRemaining(entry -> {
 				JsonNode usage = entry.getValue();
-				resp.inputTokens += usage.path("inputTokens").asLong(0);
-				resp.outputTokens += usage.path("outputTokens").asLong(0);
-				resp.cacheReadInputTokens += usage.path("cacheReadInputTokens").asLong(0);
-				resp.cacheCreationInputTokens += usage.path("cacheCreationInputTokens").asLong(0);
+				resp.stats.inputToken += usage.path("inputTokens").asLong(0);
+				resp.stats.outputToken += usage.path("outputTokens").asLong(0);
+				resp.stats.cacheRead += usage.path("cacheReadInputTokens").asLong(0);
+				resp.stats.cacheCreate += usage.path("cacheCreationInputTokens").asLong(0);
 			});
 		}
 	}
@@ -166,8 +162,6 @@ public class CCProtocol {
 						var inputNames = inputs.fieldNames();
 						while (inputNames.hasNext()) {
 							String inputName = inputNames.next();
-							// plainText avoids the double-escaping seen with toString():
-							// a value like [\s\S] must stay [\s\S], not become [\\s\\S].
 							String value = JsonUtil.plainText(inputs.path(inputName));
 							if (value.length() > TOOL_INPUT_MAX_LENGTH)
 								value = value.substring(0, TOOL_INPUT_MAX_LENGTH) + "…";
@@ -197,7 +191,7 @@ public class CCProtocol {
 				}
 			}
 		}
-		resp.totalReasoningTokens += thinkingTokens;
+		resp.stats.reasoningToken += thinkingTokens;
 	}
 
 	private void parseRateLimitEvent(JsonNode node) {

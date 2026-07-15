@@ -503,10 +503,11 @@ public class AISessionView extends ViewPart {
 
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
-				if (a != null && a.inputToken > 0) {
+				if (a != null && a.stats.inputToken > 0) {
 					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
-					item.setText(new String[] { a.totalToken + "", a.inputToken + "", a.outputToken + "",
-							a.reasoningToken + "", a.cacheRead + "", a.cacheCreate + "" });
+					item.setText(
+							new String[] { a.stats.totalToken + "", a.stats.inputToken + "", a.stats.outputToken + "",
+									a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "" });
 					usageLog.setTopIndex(0);
 				}
 			});

@@ -63,7 +63,7 @@ public class CCControlClient {
 		if (pending.isEmpty())
 			return;
 		StringBuilder res = new StringBuilder();
-		CCProtocol.appendEvents(resp.events, res);
+		ProtocolParser.appendEvents(resp.events, res);
 		
 		JsonNode first = pending.get(0);
 		res.append("Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()

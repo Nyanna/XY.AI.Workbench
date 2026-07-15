@@ -29,7 +29,7 @@ import xy.ai.workbench.models.AIAnswer;
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
 	private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
-	private final CCProtocol jsonParser = new CCProtocol();
+	private final ProtocolParser jsonParser = new ProtocolParser();
 	private final CCControlClient controlClient = new CCControlClient();
 	private final CCSessionManager sessionManager;
 
@@ -46,8 +46,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	}
 
 	@Override
-	public CCRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools,
-			boolean batchFix, IProgressMonitor mon) {
+	public CCRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
 
@@ -147,8 +147,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		}
 	}
 
-	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon)
-			throws IOException {
+	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon) throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
 		CCResponse resp = new CCResponse(req.id);
 
@@ -171,8 +170,10 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 					throw ex;
 				}
 
-			if (resp.isReady())
+			if (resp.isReady()) {
+				session.stats.add(resp.stats);
 				return resp;
+			}
 		}
 	}
 
@@ -206,12 +207,12 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
-		answer.inputToken = resp.inputTokens + resp.cacheCreationInputTokens;
-		answer.outputToken = resp.outputTokens;
-		answer.reasoningToken = resp.reasoningTokens;
-		answer.totalToken = answer.inputToken + answer.outputToken;
-		answer.cacheRead = resp.cacheReadInputTokens;
-		answer.cacheCreate = resp.cacheCreationInputTokens;
+		answer.stats.inputToken = resp.stats.inputToken + resp.stats.cacheCreate;
+		answer.stats.outputToken = resp.stats.outputToken;
+		answer.stats.reasoningToken = resp.stats.reasoningToken;
+		answer.stats.totalToken = answer.stats.inputToken + answer.stats.outputToken;
+		answer.stats.cacheRead = resp.stats.cacheRead;
+		answer.stats.cacheCreate = resp.stats.cacheCreate;
 		answer.answer = resp.resultText;
 		return answer;
 	}

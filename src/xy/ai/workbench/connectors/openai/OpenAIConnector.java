@@ -126,11 +126,11 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		AIAnswer res = new AIAnswer(resp.safetyIdentifier().orElse("none"));
 		if (resp.usage().isPresent()) {
 			ResponseUsage usage = resp.usage().get();
-			res.inputToken = usage.inputTokens();
-			res.outputToken = usage.outputTokens();
-			res.totalToken = usage.totalTokens();
+			res.stats.inputToken = usage.inputTokens();
+			res.stats.outputToken = usage.outputTokens();
+			res.stats.totalToken = usage.totalTokens();
 			if (usage.outputTokensDetails() != null)
-				res.reasoningToken = usage.outputTokensDetails().reasoningTokens();
+				res.stats.reasoningToken = usage.outputTokensDetails().reasoningTokens();
 		}
 
 		if (resp.instructions().isPresent()) {

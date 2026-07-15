@@ -134,9 +134,9 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		if (cresp.usageMetadata().isPresent()) {
 			GenerateContentResponseUsageMetadata usage = cresp.usageMetadata().get();
 
-			res.inputToken = usage.promptTokenCount().orElse(-1).intValue();
-			res.reasoningToken = usage.thoughtsTokenCount().orElse(-1).intValue();
-			res.totalToken = usage.totalTokenCount().orElse(-1).intValue();
+			res.stats.inputToken = usage.promptTokenCount().orElse(-1).intValue();
+			res.stats.reasoningToken = usage.thoughtsTokenCount().orElse(-1).intValue();
+			res.stats.totalToken = usage.totalTokenCount().orElse(-1).intValue();
 			if (usage.promptTokensDetails().isPresent()) {
 				List<ModalityTokenCount> details = usage.promptTokensDetails().get();
 				details.isEmpty();

@@ -57,6 +57,7 @@ public class SessionDetailDialog extends Dialog {
 		sb.append("Effort: ").append(p.reasoning != null ? p.reasoning.name() : "").append("\n");
 		sb.append("Tools: ").append(p.tools != null ? String.join(", ", p.tools) : "").append("\n");
 		sb.append("File: ").append(p.getFilePath() != null ? p.getFilePath() : "").append("\n");
+		sb.append("Stats: ").append(s.stats.print()).append("\n");
 		sb.append("\nSystemprompt:\n").append(p.systemPrompt != null ? p.systemPrompt : "");
 		return sb.toString();
 	}
