@@ -39,7 +39,7 @@ public class CCSession {
 	private Instant lastSentAt;
 	private volatile Instant lastReceivedAt;
 
-	public volatile TokenStats stats;
+	public final TokenStats stats = new TokenStats();
 	private volatile boolean inPrompt;
 	private volatile String lastParsedMessage;
 	private volatile String lastRawLine;
