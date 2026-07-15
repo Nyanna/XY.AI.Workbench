@@ -1,25 +1,26 @@
 # TODO
 
-* wo ist der unterschied zwischen normaler Inferenz und thinking? Oft kein Unterschied macht das modell keinen unterschied und es ist dasselbe.
+! tokenausgabe und implementierung prüfen, token mehr ausgeben und kontrollieren
+! eigene dmagerimplementierung die zuverlässiger auf der region arbeiten
 
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher
 	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analo
+* Scannerrules richtig verstehen buugy?
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
+	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
 	* Zeichen | mit offset an maxlength pro spalte ändern
 	* exten "---" grey the whole line?
 * Workbench support for Glossar : syntax mit Formatierung, maybe linespacing oder farbe in grau
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
-* Rewind support, in session, panel mit rebulld/reextraktion der session aus dem JSON, context rebuild
-* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * session logs für die implementierung überprüfen und auf optimierbarkeit checken, alle tools da, das richtige verständnis, wo falsch abgeboden usw.
 	* eigentlich zwei phasen, input auswählen, output lösung validieren oder eingreifen
 	* für input muss der context aufs minimum und affected sources beschränkt werden
@@ -28,6 +29,7 @@
 *python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?
 	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
 	* sed sogar zur editierung von python in batch edit
+* kleine Kontexte einzelaufgaben scheinen besser, nur wo wirklich sachen verknüpft werden müssen große
 
 
 ## Agents
@@ -61,6 +63,7 @@
 * Agenten denken ressourcen also dateisystembasiert
 * Wenn erweiterung oder bezug auf tickets ist das patch/diff delta ein kleiner und fokussierter eingabekontext, besser als den agenten das feature neu verstehen zu lassen
 * besser etwas extra thinking durch iteration und abbrüche von Tools, als zu viel in den Kontext laden, die Rechnung ist salienz gegen token
+* Seprate unterstanding -> separate Kontexts
 
 ## Ideas
 

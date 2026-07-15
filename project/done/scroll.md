@@ -9,7 +9,6 @@ Der Aufruf "textEditor.selectAndReveal(doc.getLength(), 0);" in `/home/user/xyan
 #:   }
 #: }
 /allow ea33e82a-1782-42f5-ba4b-3f79d0f3ecf0
-[xy.ai.req:ClaudeCode:ffd3c6ef-4183-41ac-b713-20e8c4cfc2e2]
 #: Control Request:
 #: {
 #:   "id" : "e794ba57-e07f-4fd6-b2d5-30d5cabe1b5d",
@@ -75,4 +74,4 @@ Falls das Problem weiterhin besteht, wäre es hilfreich zu wissen, ob der betrof
 
 ---
 
-Zur zusätzlichen Systemmeldung ("`[xy.ai.req:ClaudeCode:...]`"): Das sieht nach einem internen Tracking-/Request-ID-Marker deines Plugins aus, nicht nach einer eigenständigen Nutzerfrage – es enthält keinen weiteren Inhalt, den ich adressieren könnte. Falls das ein Fehler in der Nachrichtenübermittlung war, gib mir gern die eigentliche Frage dazu.
+Zur zusätzlichen Systemmeldung ("`[xy.ai.req :ClaudeCode:...]`"): Das sieht nach einem internen Tracking-/Request-ID-Marker deines Plugins aus, nicht nach einer eigenständigen Nutzerfrage – es enthält keinen weiteren Inhalt, den ich adressieren könnte. Falls das ein Fehler in der Nachrichtenübermittlung war, gib mir gern die eigentliche Frage dazu.
