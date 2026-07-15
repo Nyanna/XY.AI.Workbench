@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Builds JSON structures and CLI commands for the Claude Code Connector.
  * Handles construction of requests, approve/deny messages, and process commands.
  */
-public class ClaudeCodeRequestBuilder {
+public class CCRequestBuilder {
 
 	/**
 	 * Builds a prompt JSON structure for a user message. The prompt text is added

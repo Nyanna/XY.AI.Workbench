@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 
 import xy.ai.workbench.models.IModelResponse;
 
-public class ClaudeCodeResponse implements IModelResponse {
+public class CCResponse implements IModelResponse {
 
 	public final String id;
 	public String resultText;
@@ -25,13 +25,13 @@ public class ClaudeCodeResponse implements IModelResponse {
 	public long totalReasoningTokens;
 	public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
 
-	public ClaudeCodeResponse(String id) {
+	public CCResponse(String id) {
 		this.id = id;
 		this.isToolRequest = false;
 		this.toolUseId = null;
 	}
 
-	public ClaudeCodeResponse(String id, String resultText) {
+	public CCResponse(String id, String resultText) {
 		this.id = id;
 		this.resultText = resultText;
 	}

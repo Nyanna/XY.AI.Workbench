@@ -30,7 +30,7 @@ import xy.ai.workbench.LOG;
  * Request body: {@code {"approvals":[...]}} (may be empty for a plain poll).
  * Response body: {@code {"pending":[...]}}.
  */
-public class ClaudeCodeControlClient {
+public class CCControlClient {
 
 	private static final String CONTROL_URL = "http://localhost:9093/control/tool";
 	private static final Duration TIMEOUT = Duration.ofSeconds(5);
@@ -58,12 +58,12 @@ public class ClaudeCodeControlClient {
 	private final YAMLMapper yaml = YAMLMapper.builder().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
 			.disable(YAMLGenerator.Feature.SPLIT_LINES).enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE).build();
 
-	public void checkControlEndpoint(ClaudeCodeResponse resp) {
+	public void checkControlEndpoint(CCResponse resp) {
 		JsonNode pending = poll();
 		if (pending.isEmpty())
 			return;
 		StringBuilder res = new StringBuilder();
-		ClaudeCodeProtocol.appendEvents(resp.events, res);
+		CCProtocol.appendEvents(resp.events, res);
 		
 		JsonNode first = pending.get(0);
 		res.append("Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()
@@ -79,7 +79,7 @@ public class ClaudeCodeControlClient {
 		} catch (JsonProcessingException e) {
 			// Should not happen for a tree that Jackson itself produced; fall back to
 			// plain JSON rather than losing the payload.
-			LOG.error("ClaudeCodeControlClient: failed to render control item as YAML", e);
+			LOG.error("Failed to render control item as YAML", e);
 			return JsonUtil.pretty(node);
 		}
 	}
@@ -173,7 +173,7 @@ public class ClaudeCodeControlClient {
 			JsonNode pending = root.path("pending");
 			return pending.isArray() ? (ArrayNode) pending : mapper.createArrayNode();
 		} catch (IOException | InterruptedException e) {
-			LOG.error("ClaudeCodeControlClient: control endpoint unreachable", e);
+			LOG.error("Control endpoint unreachable", e);
 			if (e instanceof InterruptedException)
 				Thread.currentThread().interrupt();
 			throw new IllegalStateException("Error on control endpoint", e);

@@ -7,7 +7,7 @@ import org.osgi.framework.BundleContext;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connectors.AdaptingConnector;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
+import xy.ai.workbench.connectors.claudecode.CCSessionManager;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 
 /**
@@ -22,7 +22,7 @@ public class Activator extends AbstractUIPlugin {
 	private static Activator plugin;
 
 	public ConfigManager cfg = new ConfigManager();
-	public ClaudeCodeSessionManager cliSessionManager = new ClaudeCodeSessionManager();
+	public CCSessionManager cliSessionManager = new CCSessionManager();
 	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager);
 
 	public AISessionManager session = new AISessionManager(cfg, connector);

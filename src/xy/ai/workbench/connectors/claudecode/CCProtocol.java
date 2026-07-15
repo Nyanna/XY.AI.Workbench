@@ -19,7 +19,7 @@ import xy.ai.workbench.LOG;
  * Parses JSON structures from Claude Code API responses. Handles extraction and
  * processing of results, tool uses, events, and rate limits.
  */
-public class ClaudeCodeProtocol {
+public class CCProtocol {
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
@@ -27,7 +27,7 @@ public class ClaudeCodeProtocol {
 
 	private final ResultPostProcessor postProcessor = new ResultPostProcessor();
 
-	public void parseLine(ClaudeCodeResponse resp, ClaudeCodeSession session, SubMonitor sub, String line) {
+	public void parseLine(CCResponse resp, CCSession session, SubMonitor sub, String line) {
 		JsonNode node;
 		try {
 			node = JsonUtil.readTree(line);
@@ -66,13 +66,13 @@ public class ClaudeCodeProtocol {
 				updateLastParsedMessage(resp, session);
 			}
 		} catch (Exception ex) {
-			LOG.error("ClaudeCodeConnector: failed to process CLI event (type=" + type + ", length=" + line.length()
+			LOG.error("Failed to process CLI event (type=" + type + ", length=" + line.length()
 					+ "): " + JsonUtil.abbreviate(line), ex);
 			throw ex;
 		}
 	}
 
-	private void updateLastParsedMessage(ClaudeCodeResponse resp, ClaudeCodeSession session) {
+	private void updateLastParsedMessage(CCResponse resp, CCSession session) {
 		if (!resp.events.isEmpty()) {
 			String last = null;
 			for (String v : resp.events.values())
@@ -81,7 +81,7 @@ public class ClaudeCodeProtocol {
 		}
 	}
 
-	private void parseResult(ClaudeCodeResponse resp, JsonNode node) {
+	private void parseResult(CCResponse resp, JsonNode node) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		StringBuilder res = new StringBuilder();
 		appendEvents(resp.events, res);
@@ -122,7 +122,7 @@ public class ClaudeCodeProtocol {
 				resultText.append(commented(line)).append("\n");
 	}
 
-	private void parseToolUse(ClaudeCodeResponse resp, JsonNode node) {
+	private void parseToolUse(CCResponse resp, JsonNode node) {
 		String toolName = node.path("name").asText("");
 		String toolUseId = node.path("id").asText("");
 		JsonNode input = node.path("input");
@@ -138,7 +138,7 @@ public class ClaudeCodeProtocol {
 		resp.setToolUse(commented("Tool: " + toolName + "\nInput: " + inputStr + "\nID: " + toolUseId), toolUseId);
 	}
 
-	private void parseAssistantEvents(JsonNode node, ClaudeCodeResponse resp, boolean recordText, boolean recordToolUse,
+	private void parseAssistantEvents(JsonNode node, CCResponse resp, boolean recordText, boolean recordToolUse,
 			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Received Claude message", 1);
 
@@ -183,7 +183,7 @@ public class ClaudeCodeProtocol {
 		sub.worked(1);
 	}
 
-	private void collectMessageDeltaEvent(ClaudeCodeResponse resp, JsonNode node) {
+	private void collectMessageDeltaEvent(CCResponse resp, JsonNode node) {
 		long thinkingTokens = 0;
 		JsonNode usage = node.path("event").path("usage");
 		if (usage.isObject()) {
@@ -242,12 +242,12 @@ public class ClaudeCodeProtocol {
 
 			LOG.info(logMsg.toString());
 		} catch (Exception e) {
-			LOG.error("ClaudeCodeConnector: failed to process rate limit event", e);
+			LOG.error("Failed to process rate limit event", e);
 			throw e;
 		}
 	}
 
-	private void parseSystemInitEvent(ClaudeCodeResponse resp, JsonNode node) {
+	private void parseSystemInitEvent(CCResponse resp, JsonNode node) {
 		Map<String, String> assistantEvents = resp.events;
 		try {
 			String cwd = node.path("cwd").asText("");
@@ -273,7 +273,7 @@ public class ClaudeCodeProtocol {
 					+ " | plugins=" + pluginNames.toString();
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {
-			LOG.error("ClaudeCodeJsonParser: failed to parse system init event", e);
+			LOG.error("Failed to parse system init event", e);
 			throw e;
 		}
 	}

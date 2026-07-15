@@ -44,8 +44,8 @@ import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeSession;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
+import xy.ai.workbench.connectors.claudecode.CCSession;
+import xy.ai.workbench.connectors.claudecode.CCSessionManager;
 import xy.ai.workbench.connectors.claudecode.JsonUtil;
 import xy.ai.workbench.connectors.claudecode.SessionParameters;
 import xy.ai.workbench.connectors.claudecode.SessionState;
@@ -76,7 +76,7 @@ import xy.ai.workbench.connectors.claudecode.SessionState;
  *
  * <p>
  * The view registers a change listener with the
- * {@link ClaudeCodeSessionManager} and refreshes the table on any session state
+ * {@link CCSessionManager} and refreshes the table on any session state
  * change. A periodic timer refreshes the TTL column every 30 seconds even when
  * no prompt is active.
  * </p>
@@ -88,8 +88,8 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 	/** Periodic TTL refresh interval in milliseconds. */
 	private static final int TTL_REFRESH_INTERVAL_MS = 30_000;
-	private static final ClaudeCodeSession CNEW_LAUDE_CODE_SESSION = new ClaudeCodeSession(
-			ClaudeCodeSessionManager.CREATE_NEW_MARKER, null,
+	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(
+			CCSessionManager.CREATE_NEW_MARKER, null,
 			new SessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "") {
 				public String getHash() {
 					return "Create new session";
@@ -102,9 +102,9 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private TableViewer viewer;
 	private TableColumnLayout tableLayout;
 	private ActionManager act = new ActionManager();
-	private ClaudeCodeSessionManager sessionManager;
+	private CCSessionManager sessionManager;
 
-	private final java.util.function.Consumer<List<ClaudeCodeSession>> changeListener = sessions -> refreshAsync();
+	private final java.util.function.Consumer<List<CCSession>> changeListener = sessions -> refreshAsync();
 
 	private Runnable ttlRefreshRunnable;
 	private boolean disposed = false;
@@ -150,32 +150,32 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 		{
 			createColumn("ID", 20)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((ClaudeCodeSession) e)));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((CCSession) e)));
 
 			createColumn("State", 15).setLabelProvider(
-					ColumnLabelProvider.createTextProvider(e -> ((ClaudeCodeSession) e).getState().name()));
+					ColumnLabelProvider.createTextProvider(e -> ((CCSession) e).getState().name()));
 
 			createColumn("Detail", 65)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((ClaudeCodeSession) e)));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((CCSession) e)));
 		}
 
 		viewer.setContentProvider(ArrayContentProvider.getInstance());
-		viewer.setInput(new ArrayList<ClaudeCodeSession>());
+		viewer.setInput(new ArrayList<CCSession>());
 
 		viewer.addSelectionChangedListener(event -> {
 			IStructuredSelection sel = viewer.getStructuredSelection();
 			if (sel.isEmpty()) {
 				sessionManager.setSelectedSessionUuid(null);
 			} else {
-				ClaudeCodeSession s = (ClaudeCodeSession) sel.getFirstElement();
+				CCSession s = (CCSession) sel.getFirstElement();
 				sessionManager.setSelectedSessionUuid(s.getSessionUuid());
 			}
 		});
 
 		viewer.addDoubleClickListener(event -> {
 			IStructuredSelection sel = (IStructuredSelection) event.getSelection();
-			if (!sel.isEmpty() && sel.getFirstElement() instanceof ClaudeCodeSession) {
-				ClaudeCodeSession s = (ClaudeCodeSession) sel.getFirstElement();
+			if (!sel.isEmpty() && sel.getFirstElement() instanceof CCSession) {
+				CCSession s = (CCSession) sel.getFirstElement();
 				if (s != CNEW_LAUDE_CODE_SESSION)
 					new SessionDetailDialog(viewer.getControl().getShell(), s).open();
 			}
@@ -238,7 +238,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private void makeActions() {
 		act.create().text("Terminate Session", "Terminates the selected CLI session")
 				.image(ISharedImages.IMG_TOOL_DELETE).toolbar().pullDown()
-				.selection(viewer, ClaudeCodeSession.class, session -> {
+				.selection(viewer, CCSession.class, session -> {
 					sessionManager.terminateSessions(java.util.List.of(session.getID()));
 				}).done();
 	}
@@ -265,10 +265,10 @@ public class ClaudeCodeSessionView extends ViewPart {
 			syncSelectionToCurrentFile();
 	}
 
-	private ClaudeCodeSession findAssociatedSession(List<ClaudeCodeSession> sessions) {
+	private CCSession findAssociatedSession(List<CCSession> sessions) {
 		if (currentProjectPath == null)
 			return null;
-		for (ClaudeCodeSession s : sessions) {
+		for (CCSession s : sessions) {
 			SessionParameters p = s.getParameters();
 			if (p != null && currentProjectPath.equals(p.cwd) && Objects.equals(currentRelativeFilePath, p.filePath))
 				return s;
@@ -276,7 +276,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		return null;
 	}
 
-	private void selectSession(ClaudeCodeSession session) {
+	private void selectSession(CCSession session) {
 		if (viewer == null || viewer.getControl().isDisposed())
 			return;
 		Object toSelect = session != null ? session : CNEW_LAUDE_CODE_SESSION;
@@ -289,7 +289,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		selectSession(findAssociatedSession(sessionManager.getSessions()));
 	}
 
-	private String idLabel(ClaudeCodeSession s) {
+	private String idLabel(CCSession s) {
 		String id = s.getID();
 		if (id == null)
 			return "";
@@ -297,7 +297,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		return dash > 0 ? id.substring(0, dash) : id;
 	}
 
-	private String detailLabel(ClaudeCodeSession s) {
+	private String detailLabel(CCSession s) {
 		if (s.getState() == SessionState.Prompting) {
 			if (!s.isLastRawLineProcessed() && s.getLastRawLine() != null)
 				return JsonUtil.abbreviate(s.getLastRawLine());
@@ -331,15 +331,15 @@ public class ClaudeCodeSessionView extends ViewPart {
 		if (viewer.getControl().isDisposed())
 			return;
 
-		List<ClaudeCodeSession> sessions = new ArrayList<>(sessionManager.getSessions());
-		sessions.sort(Comparator.comparing(ClaudeCodeSession::getLastReceivedAt,
+		List<CCSession> sessions = new ArrayList<>(sessionManager.getSessions());
+		sessions.sort(Comparator.comparing(CCSession::getLastReceivedAt,
 				Comparator.nullsLast(Comparator.reverseOrder())));
 
-		Set<String> newIds = sessions.stream().map(ClaudeCodeSession::getID).collect(Collectors.toSet());
-		List<ClaudeCodeSession> added = sessions.stream().filter(s -> !knownSessionIds.contains(s.getID()))
+		Set<String> newIds = sessions.stream().map(CCSession::getID).collect(Collectors.toSet());
+		List<CCSession> added = sessions.stream().filter(s -> !knownSessionIds.contains(s.getID()))
 				.collect(Collectors.toList());
 
-		List<ClaudeCodeSession> withDummy = new ArrayList<>();
+		List<CCSession> withDummy = new ArrayList<>();
 		withDummy.add(CNEW_LAUDE_CODE_SESSION);
 		withDummy.addAll(sessions);
 
@@ -349,7 +349,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		knownSessionIds = newIds;
 
 		if (syncEnabled && allowSyncOnNewSession && !added.isEmpty()) {
-			ClaudeCodeSession match = findAssociatedSession(sessions);
+			CCSession match = findAssociatedSession(sessions);
 			if (match != null && added.contains(match))
 				selectSession(match);
 		}

@@ -23,19 +23,19 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connectors.IAIConnector;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest.Command;
+import xy.ai.workbench.connectors.claudecode.CCRequest.Command;
 import xy.ai.workbench.models.AIAnswer;
 
-public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, ClaudeCodeResponse> {
+public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
-	private final ClaudeCodeRequestBuilder requestBuilder = new ClaudeCodeRequestBuilder();
-	private final ClaudeCodeProtocol jsonParser = new ClaudeCodeProtocol();
-	private final ClaudeCodeControlClient controlClient = new ClaudeCodeControlClient();
-	private final ClaudeCodeSessionManager sessionManager;
+	private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
+	private final CCProtocol jsonParser = new CCProtocol();
+	private final CCControlClient controlClient = new CCControlClient();
+	private final CCSessionManager sessionManager;
 
 	private ConfigManager cfg;
 
-	public ClaudeCodeConnector(ConfigManager cfg, ClaudeCodeSessionManager sessionManager) {
+	public CCConnector(ConfigManager cfg, CCSessionManager sessionManager) {
 		this.cfg = cfg;
 		this.sessionManager = sessionManager;
 	}
@@ -46,7 +46,7 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 	}
 
 	@Override
-	public ClaudeCodeRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools,
+	public CCRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools,
 			boolean batchFix, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
 		String id = UUID.randomUUID().toString();
@@ -81,13 +81,13 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 			sub.worked(1);
 		}
 
-		return new ClaudeCodeRequest(id, title, systemPrompt, tools, command);
+		return new CCRequest(id, title, systemPrompt, tools, command);
 	}
 
 	@Override
-	public ClaudeCodeResponse executeRequest(ClaudeCodeRequest req, IProgressMonitor mon) {
+	public CCResponse executeRequest(CCRequest req, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
-		ClaudeCodeSession session = null;
+		CCSession session = null;
 
 		EditorLocation loc = getEditorLocation();
 		SessionParameters params = new SessionParameters(loc.projectPath, req.systemPrompt, req.tools, cfg.getModel(),
@@ -98,12 +98,12 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 		case Resume:
 			sub.subTask("Importing session");
 			sessionManager.importSession(req.cmd.parameter, params);
-			return new ClaudeCodeResponse(req.id, "Session created");
+			return new CCResponse(req.id, "Session created");
 		case Exit:
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 			sub.subTask("Terminating CLI process");
 			session.terminate();
-			return new ClaudeCodeResponse(req.id, "Session closed!");
+			return new CCResponse(req.id, "Session closed!");
 		case Allow:
 		case Deny:
 		case Modification:
@@ -147,10 +147,10 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 		}
 	}
 
-	private ClaudeCodeResponse readUntilResult(ClaudeCodeRequest req, ClaudeCodeSession session, IProgressMonitor mon)
+	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon)
 			throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
-		ClaudeCodeResponse resp = new ClaudeCodeResponse(req.id);
+		CCResponse resp = new CCResponse(req.id);
 
 		String line;
 		while (true) {
@@ -167,7 +167,7 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 					}
 				} catch (Exception ex) {
 					while ((line = session.readError()) != null)
-						LOG.error("ClaudeCodeConnector: CLI stderr: " + line);
+						LOG.error("CLI stderr: " + line);
 					throw ex;
 				}
 
@@ -204,7 +204,7 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 	}
 
 	@Override
-	public AIAnswer convertResponse(ClaudeCodeResponse resp, IProgressMonitor mon) {
+	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
 		answer.inputToken = resp.inputTokens + resp.cacheCreationInputTokens;
 		answer.outputToken = resp.outputTokens;
@@ -239,7 +239,7 @@ public class ClaudeCodeConnector implements IAIConnector<ClaudeCodeRequest, Clau
 				String relativeFilePath = fileInput.getFile().getProjectRelativePath().toString();
 				result.set(projectPath, relativeFilePath);
 			} catch (Exception e) {
-				LOG.error("ClaudeCodeConnector: failed to resolve editor paths", e);
+				LOG.error("Failed to resolve editor paths", e);
 			}
 		});
 		if (result.projectPath == null)

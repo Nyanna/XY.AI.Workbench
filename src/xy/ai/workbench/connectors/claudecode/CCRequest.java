@@ -6,7 +6,7 @@ import java.util.Objects;
 
 import xy.ai.workbench.models.IModelRequest;
 
-public class ClaudeCodeRequest implements IModelRequest {
+public class CCRequest implements IModelRequest {
 
 	public final String id;
 	public final String title;
@@ -15,7 +15,7 @@ public class ClaudeCodeRequest implements IModelRequest {
 	public final List<String> tools;
 	public final Command cmd;
 
-	public ClaudeCodeRequest(String id, String title, String systemPrompt, List<String> tools, Command cmd) {
+	public CCRequest(String id, String title, String systemPrompt, List<String> tools, Command cmd) {
 		Objects.requireNonNull(cmd, "Command can't be null");
 		this.id = id;
 		this.title = title;

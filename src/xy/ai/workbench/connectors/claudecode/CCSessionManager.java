@@ -7,11 +7,11 @@ import java.util.function.Consumer;
 
 import xy.ai.workbench.LOG;
 
-public class ClaudeCodeSessionManager {
+public class CCSessionManager {
 	public final static String CREATE_NEW_MARKER = "CREATE_NEW_MARKER";
 
 	/** Ordered list of all known sessions. Access must be {@code synchronized}. */
-	private final List<ClaudeCodeSession> sessions = new ArrayList<>();
+	private final List<CCSession> sessions = new ArrayList<>();
 
 	/**
 	 * UUID of the session currently selected in the panel, or {@code null}. Updated
@@ -19,14 +19,14 @@ public class ClaudeCodeSessionManager {
 	 */
 	private volatile String selectedSessionUuid;
 
-	private final List<Consumer<List<ClaudeCodeSession>>> changeListeners = new ArrayList<>();
+	private final List<Consumer<List<CCSession>>> changeListeners = new ArrayList<>();
 
-	public synchronized ClaudeCodeSession requestSession(String selectedUuid, SessionParameters params) {
+	public synchronized CCSession requestSession(String selectedUuid, SessionParameters params) {
 		cleanupInvalidTerminated();
 
-		ClaudeCodeSession session = null;
+		CCSession session = null;
 		if (CREATE_NEW_MARKER.equals(selectedUuid)) {
-			session = addSession(new ClaudeCodeSession(this, params));
+			session = addSession(new CCSession(this, params));
 			LOG.info("New session created, hash=" + params.getHash());
 		} else if (selectedUuid != null) {
 			if ((session = findByUuid(selectedUuid)) == null)
@@ -37,7 +37,7 @@ public class ClaudeCodeSessionManager {
 		} else if ((session = findByHash(params.getHash())) != null) {
 			LOG.info("Use param hash session, hash=" + params.getHash());
 		} else {
-			session = addSession(new ClaudeCodeSession(this, params));
+			session = addSession(new CCSession(this, params));
 			LOG.info("New session created, hash=" + params.getHash());
 		}
 
@@ -46,9 +46,9 @@ public class ClaudeCodeSessionManager {
 		return session;
 	}
 
-	public synchronized ClaudeCodeSession getSession(String selectedUuid, SessionParameters params) {
+	public synchronized CCSession getSession(String selectedUuid, SessionParameters params) {
 		cleanupInvalidTerminated();
-		ClaudeCodeSession res = null;
+		CCSession res = null;
 
 		if (!CREATE_NEW_MARKER.equals(selectedUuid))
 			res = selectedUuid != null ? findByUuid(selectedUuid) : findByHash(params.getHash());
@@ -58,16 +58,16 @@ public class ClaudeCodeSessionManager {
 		return res;
 	}
 
-	private ClaudeCodeSession addSession(ClaudeCodeSession session) {
+	private CCSession addSession(CCSession session) {
 		sessions.add(session);
 		fireChanged();
 		return session;
 	}
 
-	public synchronized ClaudeCodeSession importSession(String uuid, SessionParameters params) {
+	public synchronized CCSession importSession(String uuid, SessionParameters params) {
 		cleanupInvalidTerminated();
-		LOG.info("ClaudeCodeSessionManager: imported session, uuid=" + uuid);
-		return addSession(new ClaudeCodeSession(uuid, this, params));
+		LOG.info("Imported session, uuid=" + uuid);
+		return addSession(new CCSession(uuid, this, params));
 	}
 
 	public synchronized void terminateSessions(List<String> toTerminate) {
@@ -87,18 +87,18 @@ public class ClaudeCodeSessionManager {
 		fireChanged();
 	}
 
-	public synchronized List<ClaudeCodeSession> getSessions() {
+	public synchronized List<CCSession> getSessions() {
 		return Collections.unmodifiableList(new ArrayList<>(sessions));
 	}
 
-	public void addChangeListener(Consumer<List<ClaudeCodeSession>> listener) {
+	public void addChangeListener(Consumer<List<CCSession>> listener) {
 		synchronized (changeListeners) {
 			changeListeners.add(listener);
 		}
 		fireChanged(List.of(listener));
 	}
 
-	public void removeChangeListener(Consumer<List<ClaudeCodeSession>> listener) {
+	public void removeChangeListener(Consumer<List<CCSession>> listener) {
 		synchronized (changeListeners) {
 			changeListeners.remove(listener);
 		}
@@ -112,7 +112,7 @@ public class ClaudeCodeSessionManager {
 		this.selectedSessionUuid = uuid;
 	}
 
-	void onSessionChanged(ClaudeCodeSession session) {
+	void onSessionChanged(CCSession session) {
 		fireChanged();
 	}
 
@@ -126,16 +126,16 @@ public class ClaudeCodeSessionManager {
 		});
 	}
 
-	private ClaudeCodeSession findByUuid(String uuid) {
+	private CCSession findByUuid(String uuid) {
 		if (uuid != null)
-			for (ClaudeCodeSession s : sessions)
+			for (CCSession s : sessions)
 				if (uuid.equals(s.getSessionUuid()))
 					return s;
 		return null;
 	}
 
-	private ClaudeCodeSession findByHash(String hash) {
-		for (ClaudeCodeSession s : sessions)
+	private CCSession findByHash(String hash) {
+		for (CCSession s : sessions)
 			if (hash.equals(s.getParameters().getHash()))
 				return s;
 		return null;
@@ -145,13 +145,13 @@ public class ClaudeCodeSessionManager {
 		fireChanged(changeListeners);
 	}
 
-	private void fireChanged(List<Consumer<List<ClaudeCodeSession>>> changeListeners) {
-		List<ClaudeCodeSession> snapshot = Collections.unmodifiableList(new ArrayList<>(sessions));
-		List<Consumer<List<ClaudeCodeSession>>> copy;
+	private void fireChanged(List<Consumer<List<CCSession>>> changeListeners) {
+		List<CCSession> snapshot = Collections.unmodifiableList(new ArrayList<>(sessions));
+		List<Consumer<List<CCSession>>> copy;
 		synchronized (changeListeners) {
 			copy = new ArrayList<>(changeListeners);
 		}
-		for (Consumer<List<ClaudeCodeSession>> l : copy) {
+		for (Consumer<List<CCSession>> l : copy) {
 			try {
 				l.accept(snapshot);
 			} catch (Exception e) {

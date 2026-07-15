@@ -14,7 +14,7 @@ import java.util.UUID;
 
 import xy.ai.workbench.LOG;
 
-public class ClaudeCodeSession {
+public class CCSession {
 	private static final long TTL_HOURS = 1;
 
 	/**
@@ -44,17 +44,17 @@ public class ClaudeCodeSession {
 	private volatile boolean lastRawLineProcessed;
 	private boolean resume;
 
-	private final ClaudeCodeSessionManager manager;
+	private final CCSessionManager manager;
 
-	public ClaudeCodeSession(ClaudeCodeSessionManager manager, SessionParameters parameters) {
+	public CCSession(CCSessionManager manager, SessionParameters parameters) {
 		this(UUID.randomUUID().toString(), false, manager, parameters);
 	}
 
-	public ClaudeCodeSession(String sessionUuid, ClaudeCodeSessionManager manager, SessionParameters parameters) {
+	public CCSession(String sessionUuid, CCSessionManager manager, SessionParameters parameters) {
 		this(sessionUuid, true, manager, parameters);
 	}
 
-	private ClaudeCodeSession(String sessionUuid, boolean resume, ClaudeCodeSessionManager manager,
+	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager,
 			SessionParameters parameters) {
 		if (sessionUuid == null || sessionUuid.isBlank())
 			throw new IllegalArgumentException("Session UUID must not be null or blank");
@@ -109,7 +109,7 @@ public class ClaudeCodeSession {
 		// after first start use resume
 		resume = true;
 
-		LOG.info("ClaudeCodeSession: CLI started, uuid=" + uuid + ", workDir=" + parameters.cwd);
+		LOG.info("CLI started, uuid=" + uuid + ", workDir=" + parameters.cwd);
 		notifyChanged();
 	}
 
@@ -133,7 +133,7 @@ public class ClaudeCodeSession {
 				} finally {
 					mirror = null;
 				}
-			LOG.info("ClaudeCodeSession: terminated, uuid=" + uuid);
+			LOG.info("Terminated, uuid=" + uuid);
 			notifyChanged();
 		}
 	}
@@ -204,7 +204,7 @@ public class ClaudeCodeSession {
 			mirror = JsonUtil.newWriter(new FileOutputStream(filePath, true), false);
 			LOG.info("Created mirror file: " + filePath);
 		} catch (IOException e) {
-			LOG.error("ClaudeCodeConnector: cannot open mirror file: " + filePath, e);
+			LOG.error("Cannot open mirror file: " + filePath, e);
 			throw new IllegalStateException("Cannot open mirror file: " + filePath, e);
 		}
 	}

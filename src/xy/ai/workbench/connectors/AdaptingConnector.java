@@ -14,10 +14,10 @@ import xy.ai.workbench.connectors.claude.ClaudeBatchConnector;
 import xy.ai.workbench.connectors.claude.ClaudeConnector;
 import xy.ai.workbench.connectors.claude.ClaudeRequest;
 import xy.ai.workbench.connectors.claude.ClaudeResponse;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeConnector;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeRequest;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeResponse;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeSessionManager;
+import xy.ai.workbench.connectors.claudecode.CCConnector;
+import xy.ai.workbench.connectors.claudecode.CCRequest;
+import xy.ai.workbench.connectors.claudecode.CCResponse;
+import xy.ai.workbench.connectors.claudecode.CCSessionManager;
 import xy.ai.workbench.connectors.google.GeminiBatch;
 import xy.ai.workbench.connectors.google.GeminiBatchConnector;
 import xy.ai.workbench.connectors.google.GeminiConnector;
@@ -41,15 +41,15 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private IAIBatchConnector batchGemini;
 	private ClaudeConnector claude;
 	private IAIBatchConnector batchClaude;
-	private ClaudeCodeConnector claudeCode;
+	private CCConnector claudeCode;
 	private IAIBatchConnector newBatch;
 
-	public AdaptingConnector(ConfigManager cfg, ClaudeCodeSessionManager sessionManager) {
+	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager) {
 		this.cfg = cfg;
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
-		claudeCode = new ClaudeCodeConnector(cfg, sessionManager);
+		claudeCode = new CCConnector(cfg, sessionManager);
 		newBatch = new NewBatchConnector();
 	}
 
@@ -109,7 +109,7 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return chad;
 		else if (request instanceof ClaudeRequest)
 			return claude;
-		else if (request instanceof ClaudeCodeRequest)
+		else if (request instanceof CCRequest)
 			return claudeCode;
 		throw new IllegalArgumentException("Model unsupported");
 	}
@@ -122,7 +122,7 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return chad;
 		else if (response instanceof ClaudeResponse)
 			return claude;
-		else if (response instanceof ClaudeCodeResponse)
+		else if (response instanceof CCResponse)
 			return claudeCode;
 		throw new IllegalArgumentException("Model unsupported");
 	}

@@ -10,13 +10,13 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeSession;
+import xy.ai.workbench.connectors.claudecode.CCSession;
 import xy.ai.workbench.connectors.claudecode.SessionParameters;
 
 public class SessionDetailDialog extends Dialog {
-	private final ClaudeCodeSession session;
+	private final CCSession session;
 
-	protected SessionDetailDialog(Shell parentShell, ClaudeCodeSession session) {
+	protected SessionDetailDialog(Shell parentShell, CCSession session) {
 		super(parentShell);
 		this.session = session;
 		setShellStyle(getShellStyle() | SWT.RESIZE);
@@ -48,7 +48,7 @@ public class SessionDetailDialog extends Dialog {
 		return new Point(600, 420);
 	}
 
-	private static String buildDetailText(ClaudeCodeSession s) {
+	private static String buildDetailText(CCSession s) {
 		SessionParameters p = s.getParameters();
 		StringBuilder sb = new StringBuilder();
 		sb.append("Session ID: ").append(s.getID()).append("\n");
@@ -61,7 +61,7 @@ public class SessionDetailDialog extends Dialog {
 		return sb.toString();
 	}
 
-	private static String ttl(ClaudeCodeSession s) {
+	private static String ttl(CCSession s) {
 		long remaining = s.getRemainingTtlMinutes();
 		return remaining < 0 ? "—" : remaining + " min";
 	}

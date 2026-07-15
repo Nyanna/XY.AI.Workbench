@@ -16,7 +16,7 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.connectors.claudecode.ClaudeCodeProtocol;
+import xy.ai.workbench.connectors.claudecode.CCProtocol;
 import xy.ai.workbench.editors.md.BlockRule;
 import xy.ai.workbench.editors.md.EmphasisRule;
 import xy.ai.workbench.editors.md.HeaderRule;
@@ -74,9 +74,9 @@ public class AIRuleScanner extends RuleBasedScanner {
 			rules.add(new LineMatchRule(EditorInterface.USER, userToken));
 			rules.add(new LineMatchRule(EditorInterface.AGENT, agentToken));
 			rules.add(new PrefixLineRule("---", spacerToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ClaudeCodeProtocol.THINKING, commentDarkToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ClaudeCodeProtocol.TEXT, commentDarkToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ClaudeCodeProtocol.TOOLUSE, commentDarkToken));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " + CCProtocol.THINKING, commentDarkToken));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " + CCProtocol.TEXT, commentDarkToken));
+			rules.add(new PrefixLineRule(LINE_COMMENT + " " + CCProtocol.TOOLUSE, commentDarkToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
 			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
 			rules.add(new PrefixLineRule("##### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
