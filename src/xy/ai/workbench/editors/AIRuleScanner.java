@@ -86,6 +86,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 			rules.add(new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
 			rules.add(new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
+			rules.add(new PrefixLineRule(": ", italic)); // glossary syntax
 			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
 			rules.add(new PrefixLineRule("##### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
 			rules.add(new PrefixLineRule("#### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[2]))));
