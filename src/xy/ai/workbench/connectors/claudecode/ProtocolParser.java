@@ -19,6 +19,7 @@ public class ProtocolParser {
 	public static final String SYSTEM_INIT = "SystemInit: ";
 	public static final String REASONING_TOKEN = "ReasoningToken: ";
 	public static final String THINKING = "Thinking:";
+	public static final String TOKEN_STATS = "Token Usage: ";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
 	private static final String TEXT_CACHE_PREEFIX = "text\0";
@@ -40,7 +41,7 @@ public class ProtocolParser {
 		try {
 			if ("result".equals(type)) {
 				sub.subTask("Received final result");
-				parseResult(resp, node);
+				parseResult(resp, node, session);
 			} else if ("tool_use".equals(type)) {
 				sub.subTask("Received tool use request");
 				parseToolUse(resp, node);
@@ -80,7 +81,7 @@ public class ProtocolParser {
 		}
 	}
 
-	private void parseResult(CCResponse resp, JsonNode node) {
+	private void parseResult(CCResponse resp, JsonNode node, CCSession session) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		StringBuilder res = new StringBuilder();
 
@@ -99,6 +100,8 @@ public class ProtocolParser {
 		String errorsText = joinErrors(node.path("errors"));
 		if (!errorsText.isEmpty())
 			res.append(errorsText.strip()).append("\n");
+
+		res.append(TOKEN_STATS).append(session.stats.print()).append("\n");
 
 		resp.resultText = res.toString();
 		resp.isError = isError;
@@ -269,7 +272,7 @@ public class ProtocolParser {
 				}
 			}
 
-			String metadata = SYSTEM_INIT+"cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
+			String metadata = SYSTEM_INIT + "cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
 					+ " | plugins=" + pluginNames.toString();
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {

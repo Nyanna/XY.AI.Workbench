@@ -16,8 +16,8 @@ public class TokenStats {
 	}
 
 	public String print() {
-		return String.format("in: %st, out: %st, reas: %st \ntotal: %st, Cache: %st/%st", inputToken, outputToken,
-				reasoningToken, totalToken, cacheRead, cacheCreate);
+		return String.format("total: %s, in: %s, out: %s, reason: %s, read: %s, write: %s", totalToken, inputToken,
+				outputToken, reasoningToken, cacheRead, cacheCreate);
 	}
 
 	public void add(TokenStats stats) {

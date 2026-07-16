@@ -172,6 +172,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
 			if (resp.isReady()) {
 				session.stats.add(resp.stats);
+				session.stats.totalToken = session.stats.inputToken + session.stats.cacheCreate;
 				return resp;
 			}
 		}
