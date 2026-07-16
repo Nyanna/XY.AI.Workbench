@@ -1,5 +1,4 @@
 # TODO
-!in tool deny muss nweisung zum promt rein, agent versteht die deny anweisung nicht
 
 ## Workbench
 * Diff support für edit commands
