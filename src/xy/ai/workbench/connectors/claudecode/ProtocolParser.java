@@ -16,6 +16,7 @@ import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.LOG;
 
 public class ProtocolParser {
+	private static final String TEXT_CACHE_PREEFIX = "text\0";
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
@@ -80,11 +81,14 @@ public class ProtocolParser {
 	private void parseResult(CCResponse resp, JsonNode node) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		StringBuilder res = new StringBuilder();
-		appendEvents(resp.events, res);
 
 		// plainText yields the logical result value without JSON quoting/escaping
 		// (and handles a structured result node), instead of a bare asText().
 		String resultText = postProcessor.process(JsonUtil.plainText(node.path("result")));
+		resp.events.remove(TEXT_CACHE_PREEFIX + resultText);
+
+		appendEvents(resp.events, res);
+
 		if (!resultText.isEmpty())
 			res.append(resultText.strip()).append("\n");
 
@@ -153,7 +157,7 @@ public class ProtocolParser {
 				} else if (recordText && "text".equals(blockType)) {
 					String text = block.path("text").asText("");
 					if (!text.isEmpty())
-						resp.events.putIfAbsent("text\0" + text, TEXT + " " + text);
+						resp.events.putIfAbsent(TEXT_CACHE_PREEFIX + text, TEXT + " " + text);
 				} else if (recordToolUse && "tool_use".equals(blockType)) {
 					String toolName = block.path("name").asText("");
 					String text = " " + toolName + "\n";

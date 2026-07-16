@@ -40,6 +40,7 @@
 	* Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
 	* research der kompletten baumstruktur mit allen aspekten eines projektes
 	* Callback tools zum Problem, Projektverzeichnis, Projektinfo, Kontexte
+	* RAG muss in MD auf absätzen basieren. 
 * Coordinator vs Advisor, use advisors for in-proccess decisions, like agent use and permissions
 	* is this query related to context?, is this agent use correct?, violates this some target or increases costs or is meaningless? is this request good or this tool usage?
 	* Tool hook can be used to intercet and control
