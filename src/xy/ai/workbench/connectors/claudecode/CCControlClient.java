@@ -14,8 +14,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
 import xy.ai.workbench.LOG;
 
@@ -37,27 +35,8 @@ public class CCControlClient {
 	private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
 	private final ObjectMapper mapper = JsonUtil.mapper();
+	private YamlRenderer yaml = new YamlRenderer();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
-
-	/**
-	 * A second, YAML-flavoured mapper used exclusively to render/parse the
-	 * human-facing side of the control loop (never for the wire protocol, which
-	 * stays plain JSON via {@link #mapper} / {@link JsonUtil}).
-	 *
-	 * <p>
-	 * Multi-line String values are written as literal block scalars ({@code |...})
-	 * instead of {@code \n}-escaped one-liners &mdash; that is the whole point: a
-	 * human can read and edit them as real, multi-line text. Everything else keeps
-	 * the default double-quoting ({@code MINIMIZE_QUOTES} stays disabled) so YAML's
-	 * implicit scalar typing never applies to untouched values: an unmodified
-	 * String such as {@code country_code: "NO"} can never silently turn into the
-	 * boolean {@code false} on the way back (the "Norway problem"), because it is
-	 * never written as a bare, unquoted scalar in the first place. That risk only
-	 * exists for values a user edits and (mistakenly) unquotes by hand &mdash; an
-	 * accepted trade-off for readability.
-	 */
-	private final YAMLMapper yaml = YAMLMapper.builder().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
-			.disable(YAMLGenerator.Feature.SPLIT_LINES).enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE).build();
 
 	public void checkControlEndpoint(CCResponse resp) {
 		JsonNode pending = poll();
@@ -73,16 +52,7 @@ public class CCControlClient {
 	}
 
 	public String toYaml(JsonNode node) {
-		if (node == null || node.isMissingNode() || node.isNull())
-			return "";
-		try {
-			return yaml.writeValueAsString(node).stripTrailing();
-		} catch (JsonProcessingException e) {
-			// Should not happen for a tree that Jackson itself produced; fall back to
-			// plain JSON rather than losing the payload.
-			LOG.error("Failed to render control item as YAML", e);
-			return JsonUtil.pretty(node);
-		}
+		return yaml.toYaml(node);
 	}
 
 	public JsonNode fromYaml(String text) throws JsonProcessingException {
