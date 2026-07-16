@@ -159,7 +159,7 @@ public class ProtocolParser {
 				} else if (recordText && "text".equals(blockType)) {
 					String text = block.path("text").asText("");
 					if (!text.isEmpty())
-						resp.events.putIfAbsent(TEXT_CACHE_PREEFIX + text, TEXT + " " + text);
+						resp.events.putIfAbsent(TEXT_CACHE_PREEFIX + text, TEXT + "\n " + text);
 				} else if (recordToolUse && "tool_use".equals(blockType)) {
 					String toolName = block.path("name").asText("");
 					String text = " " + toolName + "\n";
