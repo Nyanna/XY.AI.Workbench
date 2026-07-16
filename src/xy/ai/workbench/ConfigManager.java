@@ -26,6 +26,7 @@ public class ConfigManager {
 	private List<Consumer<Long>> outTokenObs = new ArrayList<>();
 	private List<Consumer<Integer>> budgetObs = new ArrayList<>();
 	private List<Consumer<Reasoning>> reasonObs = new ArrayList<>();
+	private List<Consumer<CacheMode>> cacheObs = new ArrayList<>();
 	private List<Consumer<Model[]>> enabledModelsObs = new ArrayList<>();
 	private List<Consumer<AgentProfile[]>> enabledProfilesObs = new ArrayList<>();
 	private List<Consumer<Double>> temperatureObs = new ArrayList<>();
@@ -42,6 +43,7 @@ public class ConfigManager {
 		outTokenObs.clear();
 		budgetObs.clear();
 		reasonObs.clear();
+		cacheObs.clear();
 		enabledModelsObs.clear();
 		enabledProfilesObs.clear();
 		temperatureObs.clear();
@@ -103,7 +105,12 @@ public class ConfigManager {
 		cfg.setReasoning(reasoning);
 		reasonObs.forEach(c -> c.accept(cfg.reasoning));
 	}
-	
+
+	public void setCacheMode(CacheMode cacheMode) {
+		cfg.setCacheMode(cacheMode);
+		cacheObs.forEach(c -> c.accept(cfg.cacheMode));
+	}
+
 	public void setProfile(AgentProfile profile) {
 		cfg.setProfile(profile);
 		profileObs.forEach(c -> c.accept(cfg.profile));
@@ -114,13 +121,13 @@ public class ConfigManager {
 		systemPromptObs.forEach(c -> c.accept(cfg));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
-	
+
 	public void setSystemFree(String systemPrompt) {
 		cfg.setSystemPrompt(systemPrompt);
 		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
-	
+
 	public void setEnabledTools(String[] enabledTools) {
 		this.enabledTools = enabledTools;
 	}
@@ -153,10 +160,14 @@ public class ConfigManager {
 		return cfg.getReasoning();
 	}
 
+	public CacheMode getCacheMode() {
+		return cfg.getCacheMode();
+	}
+
 	public String[] getSystemPrompt() {
 		return cfg.getSystemPrompt();
 	}
-	
+
 	public String getFreeText() {
 		return cfg.getFreeText();
 	}
@@ -166,7 +177,7 @@ public class ConfigManager {
 		if (initialize)
 			obs.accept(cfg);
 	}
-	
+
 	public void addSystemFreeObs(Consumer<String> obs, boolean initialize) {
 		systemFreeObs.add(obs);
 		if (initialize)
@@ -178,7 +189,7 @@ public class ConfigManager {
 		if (initialize)
 			obs.accept(cfg.profile);
 	}
-	
+
 	public void addTemperatureObs(Consumer<Double> obs, boolean initialize) {
 		temperatureObs.add(obs);
 		if (initialize)
@@ -209,6 +220,12 @@ public class ConfigManager {
 			obs.accept(cfg.reasoning);
 	}
 
+	public void addCacheObs(Consumer<CacheMode> obs, boolean initialize) {
+		cacheObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.cacheMode);
+	}
+
 	public void addKeyObs(Consumer<String> obs, boolean initialize) {
 		keyObs.add(obs);
 		if (initialize)
@@ -232,7 +249,7 @@ public class ConfigManager {
 		if (initialize)
 			obs.accept(enabledModels);
 	}
-	
+
 	public void addEnabledProfilesObs(Consumer<AgentProfile[]> obs, boolean initialize) {
 		enabledProfilesObs.add(obs);
 		if (initialize)
@@ -273,15 +290,15 @@ public class ConfigManager {
 		enabledModels = avail.toArray(new Model[0]);
 		if (!avail.contains(cfg.model) && !avail.isEmpty())
 			setModel(avail.get(1));
-		
+
 		enabledModelsObs.forEach(c -> c.accept(enabledModels));
-		
-		if(cfg.model != null) 
+
+		if (cfg.model != null)
 			enabledProfiles = cfg.model.cap.getAgentProfiles();
-		
+
 		enabledProfilesObs.forEach(c -> c.accept(enabledProfiles));
 	}
-	
+
 	public void setEnabledProfiles(AgentProfile[] enabledProfiles) {
 		this.enabledProfiles = enabledProfiles;
 		enabledProfilesObs.forEach(c -> c.accept(enabledProfiles));

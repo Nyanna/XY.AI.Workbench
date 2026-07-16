@@ -91,7 +91,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
 		EditorLocation loc = getEditorLocation();
 		SessionParameters params = new SessionParameters(loc.projectPath, req.systemPrompt, req.tools, cfg.getModel(),
-				cfg.getReasoning(), cfg.getProfile(), cfg.getKeys(), loc.relativeFilePath);
+				cfg.getReasoning(), cfg.getProfile(), cfg.getKeys(), cfg.getCacheMode(), loc.relativeFilePath);
 		params.setTitle(req.title);
 
 		switch (req.cmd.type) {

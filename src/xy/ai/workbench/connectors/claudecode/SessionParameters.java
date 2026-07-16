@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 
 import xy.ai.workbench.AgentProfile;
+import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 
@@ -26,16 +27,17 @@ public class SessionParameters {
 	public final AgentProfile agentProfile;
 	public final String cliProfile;
 	public final String filePath;
+	public final CacheMode cacheMode;
 	private String hash;
 	private String title;
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
-			AgentProfile agentProfile, String cliProfile) {
-		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, null);
+			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode) {
+		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, null);
 	}
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
-			AgentProfile agentProfile, String cliProfile, String filePath) {
+			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
 		if (cwd == null)
 			throw new IllegalStateException("Work directory (cwd) not set");
 		if (model == null)
@@ -53,6 +55,7 @@ public class SessionParameters {
 		this.agentProfile = agentProfile;
 		this.cliProfile = cliProfile;
 		this.filePath = filePath;
+		this.cacheMode = cacheMode;
 	}
 
 	public String getFilePath() {
@@ -145,7 +148,7 @@ public class SessionParameters {
 		cmd.add("--output-format");
 		cmd.add("stream-json");
 		// replaced by self mirror input
-		//cmd.add("--replay-user-messages");
+		// cmd.add("--replay-user-messages");
 		cmd.add("--model");
 		cmd.add(model.apiName);
 		if (Reasoning.Disabled != reasoning) {
@@ -183,6 +186,20 @@ public class SessionParameters {
 			pb.environment().put("CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", "1"); // number of parralel read tools
 			pb.environment().put("ENABLE_TOOL_SEARCH", "false");
 		}
+
+		if (cacheMode != null)
+			switch (cacheMode) {
+			case Disabled:
+				pb.environment().put("DISABLE_PROMPT_CACHING", "1");
+				break;
+			case Minutes_5:
+				pb.environment().put("FORCE_PROMPT_CACHING_5M", "1");
+				break;
+			case Hours_1:
+				pb.environment().put("ENABLE_PROMPT_CACHING_1H", "1");
+			case Default:
+			default:
+			}
 		pb.environment().put("CLAUDE_CODE_DISABLE_SPELLCHECK", "true");
 		pb.environment().put("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", "0");
 		pb.environment().put("MCP_TOOL_TIMEOUT", "86400000");

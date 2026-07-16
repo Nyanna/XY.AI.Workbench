@@ -19,6 +19,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.List;
@@ -41,6 +42,7 @@ import jakarta.inject.Inject;
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
+import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.LOG;
@@ -183,46 +185,65 @@ public class AISessionView extends ViewPart {
 			topP.addMouseListener(MouseListener.mouseDownAdapter(m -> topP.setFocus()));
 			cfg.addTopPObs(tp -> topP.setText(tp + ""), true);
 
-			toolkit.createLabel(top, "Reasoning:");
-			Composite secReason = new Composite(top, SWT.NONE);
-			GridLayout secRLay = new GridLayout(2, false);
-			secRLay.marginHeight = secRLay.marginWidth = 0;
-			secReason.setLayout(secRLay);
-			secReason.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			{
+				toolkit.createLabel(top, "Reasoning:");
+				Composite secReason = new Composite(top, SWT.NONE);
+				GridLayout secRLay = new GridLayout(2, false);
+				secRLay.marginHeight = secRLay.marginWidth = 0;
+				secReason.setLayout(secRLay);
+				secReason.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-			Combo reasSel = new Combo(secReason, SWT.DROP_DOWN | SWT.READ_ONLY);
-			reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			reasSel.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
+				Combo reasSel = new Combo(secReason, SWT.DROP_DOWN | SWT.READ_ONLY);
+				reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+				reasSel.addSelectionListener(SelectionListener
+						.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
 
-			Text budget = toolkit.createText(secReason, "", SWT.BORDER);
-			budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			budget.addFocusListener(
-					FocusListener.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
-			budget.addMouseListener(MouseListener.mouseDownAdapter(m -> budget.setFocus()));
-			cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
+				Text budget = toolkit.createText(secReason, "", SWT.BORDER);
+				budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+				budget.addFocusListener(FocusListener
+						.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
+				budget.addMouseListener(MouseListener.mouseDownAdapter(m -> budget.setFocus()));
+				cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
-			cfg.addModelObs(m -> {
-				toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
-				toogleControl(topPLabel, topP, m.cap.isSupportTopP());
-				toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
+				cfg.addModelObs(m -> {
+					toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
+					toogleControl(topPLabel, topP, m.cap.isSupportTopP());
+					toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
 
-				reasSel.setItems(cfg.getReasonings());
-				reasSel.setText(cfg.getReasoning().name());
-				body.layout();
-			}, true);
-			cfg.addReasoningObs(r -> {
+					reasSel.setItems(cfg.getReasonings());
+					reasSel.setText(cfg.getReasoning().name());
+					body.layout();
+				}, true);
+				cfg.addReasoningObs(r -> {
 
-				boolean enabled = Reasoning.Budget.equals(r);
-				budget.setEnabled(enabled);
-				budget.setVisible(enabled);
-				((GridData) budget.getLayoutData()).exclude = !enabled;
+					boolean enabled = Reasoning.Budget.equals(r);
+					budget.setEnabled(enabled);
+					budget.setVisible(enabled);
+					((GridData) budget.getLayoutData()).exclude = !enabled;
 
-				toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
+					toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
 
-				secReason.layout();
-				body.layout();
-			}, true);
+					secReason.layout();
+					body.layout();
+				}, true);
+			}
+			{
+				Label cacheLabel = toolkit.createLabel(top, "Cache:");
+				cacheLabel.setLayoutData(new GridData());
+				Combo cacheSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+				cacheSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+				cacheSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg.setCacheMode(
+						cacheSel.getText().isBlank() ? CacheMode.Default : CacheMode.valueOf(cacheSel.getText()))));
+				cfg.addModelObs(m -> {
+					cacheSel.setItems(Arrays.stream(m.cap.getCacheMode()).map((c) -> c.name())
+							.collect(Collectors.toList()).toArray(new String[0]));
+					cacheSel.setText(m.cap.getCacheMode().length > 0 ? m.cap.getCacheMode()[0].name() : "");
+					toogleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
+				}, true);
+				cfg.addCacheObs(c -> {
+					cacheSel.setText(c != null ? c.name() : "");
+				}, true);
+			}
 		}
 		{ // instruction section
 
@@ -539,13 +560,13 @@ public class AISessionView extends ViewPart {
 			return m.cap.isSupportTemperature();
 	}
 
-	private void toogleControl(Label label, Text text, boolean enabled) {
+	private void toogleControl(Label label, Control ctrl, boolean enabled) {
 		label.setEnabled(enabled);
 		label.setVisible(enabled);
-		text.setEnabled(enabled);
-		text.setVisible(enabled);
+		ctrl.setEnabled(enabled);
+		ctrl.setVisible(enabled);
 		((GridData) label.getLayoutData()).exclude = !enabled;
-		((GridData) text.getLayoutData()).exclude = !enabled;
+		((GridData) ctrl.getLayoutData()).exclude = !enabled;
 	}
 
 	private void updateInstructionList(String[] systemPrompt) {

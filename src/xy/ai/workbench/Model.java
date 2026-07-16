@@ -12,48 +12,48 @@ public enum Model {
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
-			.openAIReasonings()//
+			.reasonings(Reasoning.OpenAI)//
 	), //
 	GPT_5_MINI("gpt-5-mini", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
-			.openAIReasonings()//
+			.reasonings(Reasoning.OpenAI)//
 	), //
 	GPT_5("gpt-5", new Capabilities()//
 			.key(KeyPattern.OpenAI)//
 			.supportTemperature(false)//
 			.supportTopP(false)//
-			.reasonings(new Reasoning[] { Reasoning.high, Reasoning.medium, Reasoning.low })//
+			.reasonings(Reasoning.high, Reasoning.medium, Reasoning.low)//
 	), //
 	GEMINI_25_PRO("gemini-2.5-pro", new Capabilities()//
 			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536) //
-			.reasonings(new Reasoning[] { Reasoning.Unlimited, Reasoning.Budget })//
+			.outTokens(0, 65536)//
+			.reasonings(Reasoning.Unlimited, Reasoning.Budget)//
 			.budget(128, 32768)//
 	), //
 	GEMINI_25_FLASH("gemini-2.5-flash", new Capabilities()//
 			.key(KeyPattern.Gemini)//
 			.outTokens(0, 65536)//
-			.budgetReasonings()//
+			.reasonings(Reasoning.Budgets)//
 			.budget(0, 24576)//
 	), //
 	GEMINI_25_LIGHT("gemini-2.5-flash-lite", new Capabilities()//
 			.key(KeyPattern.Gemini)//
 			.outTokens(0, 65536)//
-			.budgetReasonings()//
+			.reasonings(Reasoning.Budgets)//
 			.budget(512, 24576)//
 	), //
 	CLAUDE_OPUS("claude-opus-4-1", new Capabilities()//
 			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000) //
-			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
+			.outTokens(0, 32000)//
+			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
 			.budget(1024, 31999)//
 	), //
 	CLAUDE_SONNET("claude-sonnet-4-0", new Capabilities()//
 			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000) //
-			.reasonings(new Reasoning[] { Reasoning.Budget, Reasoning.Disabled })//
+			.outTokens(0, 32000)//
+			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
 			.budget(1024, 31999)//
 	), //
 	CC_HAIKU("haiku", new Capabilities()//
@@ -62,9 +62,9 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.reasonings(Reasoning.ClaudeCode)//
 	), //
 	CC_SONNET("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -72,9 +72,9 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.reasonings(Reasoning.ClaudeCode)//
 	), //
 	CC_OPUS("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -82,9 +82,9 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.agentProfiles(AgentProfile.values())//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.reasonings(Reasoning.ClaudeCode)//
 	), //
 		// MCPC Root Agents
 	CC_MCPC_HAIKU("haiku", new Capabilities()//
@@ -93,10 +93,10 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.tools(Tools.ALL)//
-			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
 	), //
 	CC_MCPC_SONNET("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -104,10 +104,10 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.tools(Tools.ALL)//
-			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
 	), //
 	CC_MCPC_OPUS("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
@@ -115,13 +115,12 @@ public enum Model {
 			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
 			.tools(Tools.ALL)//
-			.agentProfiles(new AgentProfile[] { AgentProfile.MCPC })//
-			.reasonings(new Reasoning[] { Reasoning.Disabled, Reasoning.low, Reasoning.medium, Reasoning.high,
-					Reasoning.xhigh, Reasoning.max })//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
 	) //
 	;
-
 
 	public final String apiName;
 	public final Capabilities cap;
@@ -160,6 +159,7 @@ public enum Model {
 		private KeyPattern keyPattern;
 		private AgentProfile[] agentProfiles = new AgentProfile[0];
 		private String[] tools = new String[0];
+		private CacheMode[] cacheMode = new CacheMode[0];
 
 		public Capabilities supportTemperature(boolean flag) {
 			supportTemperature = flag;
@@ -171,8 +171,9 @@ public enum Model {
 			return this;
 		}
 
-		public Capabilities agentProfiles(AgentProfile[] profiles) {
-			this.agentProfiles = profiles;
+		public Capabilities agentProfiles(AgentProfile... profiles) {
+			if (profiles.length > 0 && profiles[0] != null)
+				this.agentProfiles = profiles;
 			return this;
 		}
 
@@ -183,6 +184,11 @@ public enum Model {
 
 		public Capabilities supportMaxToken(boolean supportMaxToken) {
 			this.supportMaxToken = supportMaxToken;
+			return this;
+		}
+
+		public Capabilities cacheMode(CacheMode... cacheMode) {
+			this.cacheMode = cacheMode;
 			return this;
 		}
 
@@ -208,17 +214,7 @@ public enum Model {
 			return this;
 		}
 
-		public Capabilities openAIReasonings() {
-			reasonings = new Reasoning[] { Reasoning.high, Reasoning.medium, Reasoning.low, Reasoning.minimal };
-			return this;
-		}
-
-		public Capabilities budgetReasonings() {
-			reasonings = new Reasoning[] { Reasoning.Unlimited, Reasoning.Budget, Reasoning.Disabled };
-			return this;
-		}
-
-		public Capabilities reasonings(Reasoning[] val) {
+		public Capabilities reasonings(Reasoning... val) {
 			reasonings = val;
 			return this;
 		}
@@ -250,9 +246,13 @@ public enum Model {
 		public AgentProfile[] getAgentProfiles() {
 			return agentProfiles;
 		}
-		
+
 		public String[] getTools() {
 			return tools;
+		}
+
+		public CacheMode[] getCacheMode() {
+			return cacheMode;
 		}
 
 		public int alignOutpuTokens(int tokens) {

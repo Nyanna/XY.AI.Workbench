@@ -20,6 +20,7 @@ public class SessionConfig {
 	public OutputMode ouputMode = OutputMode.Append;
 	public boolean[] inputModes = new boolean[InputMode.values().length];
 	public Reasoning reasoning = Reasoning.minimal;
+	public CacheMode cacheMode = CacheMode.Default;
 	public Integer reasoningBudget = -1;
 	public String freeText;
 
@@ -66,11 +67,11 @@ public class SessionConfig {
 	public void setModel(Model model) {
 		this.model = model;
 	}
-	
+
 	public void setProfile(AgentProfile profile) {
 		this.profile = profile;
 	}
-	
+
 	public AgentProfile getProfile() {
 		return profile;
 	}
@@ -81,6 +82,14 @@ public class SessionConfig {
 
 	public void setReasoning(Reasoning reasoning) {
 		this.reasoning = reasoning;
+	}
+
+	public CacheMode getCacheMode() {
+		return cacheMode;
+	}
+
+	public void setCacheMode(CacheMode cacheMode) {
+		this.cacheMode = cacheMode;
 	}
 
 	public String[] getSystemPrompt() {
@@ -110,7 +119,7 @@ public class SessionConfig {
 	public void setSystemPrompt(String freeText) {
 		this.freeText = freeText;
 	}
-	
+
 	public String getFreeText() {
 		return freeText;
 	}

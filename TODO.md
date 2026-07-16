@@ -1,5 +1,7 @@
 # TODO
 
+! Sstream event wotrtzählung bessere ausgabe
+
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher

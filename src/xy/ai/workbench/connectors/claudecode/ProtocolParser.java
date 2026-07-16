@@ -195,10 +195,10 @@ public class ProtocolParser {
 					String key = "reasoning\0" + thinkingTokens;
 					String value = REASONING_TOKEN + thinkingTokens;
 					resp.events.putIfAbsent(key, value);
+					resp.stats.reasoningToken += thinkingTokens;
 				}
 			}
 		}
-		resp.stats.reasoningToken += thinkingTokens;
 	}
 
 	private void parseRateLimitEvent(JsonNode node) {

@@ -42,6 +42,7 @@ import org.eclipse.ui.IPartListener2;
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
+import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.claudecode.CCSession;
@@ -88,7 +89,8 @@ public class ClaudeCodeSessionView extends ViewPart {
 	/** Periodic TTL refresh interval in milliseconds. */
 	private static final int TTL_REFRESH_INTERVAL_MS = 30_000;
 	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null,
-			new SessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "") {
+			new SessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
+					CacheMode.Default) {
 				public String getHash() {
 					return "Create new session";
 				};
