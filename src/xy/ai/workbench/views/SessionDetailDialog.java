@@ -52,6 +52,7 @@ public class SessionDetailDialog extends Dialog {
 		SessionParameters p = s.getParameters();
 		StringBuilder sb = new StringBuilder();
 		sb.append("Session ID: ").append(s.getID()).append("\n");
+		sb.append("Ttile: ").append(p.getTitle()).append("\n");
 		sb.append("TTL: ").append(ttl(s)).append("\n");
 		sb.append("Model: ").append(p.model != null ? p.model.name() : "").append("\n");
 		sb.append("Effort: ").append(p.reasoning != null ? p.reasoning.name() : "").append("\n");

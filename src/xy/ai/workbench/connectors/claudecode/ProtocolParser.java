@@ -101,8 +101,6 @@ public class ProtocolParser {
 		if (!errorsText.isEmpty())
 			res.append(errorsText.strip()).append("\n");
 
-		res.append(TOKEN_STATS).append(session.stats.print()).append("\n");
-
 		resp.resultText = res.toString();
 		resp.isError = isError;
 
