@@ -186,7 +186,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 					commands.add(new Command(CommandType.Exit, ""));
 				else if (clean.matches("(?i)/resume\\s+\\S+"))
 					commands.add(new Command(CommandType.Resume, clean.split("\\s+", 2)[1].strip()));
-				else if (clean.matches("(?i)/answer\\s+\\S+\\s+(allow|deny)(\\s+.*)?")) {
+				else if (clean.matches("(?i)" + CCControlClient.ANSWER + "\\s+\\S+\\s+(allow|deny)(\\s+.*)?")) {
 					String[] parts = clean.split("\\s+", 4);
 					String id = parts[1];
 					String action = parts[2].toLowerCase();

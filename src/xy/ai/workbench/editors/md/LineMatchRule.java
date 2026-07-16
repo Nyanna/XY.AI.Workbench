@@ -12,6 +12,9 @@ public class LineMatchRule extends AbstractRule {
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		return s.isNextSequence(match) ? true : false;
+		if (!s.isNextSequence(match))
+			return false;
+		s.unread(); // unread NL
+		return true;
 	}
 }

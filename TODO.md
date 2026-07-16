@@ -1,4 +1,5 @@
 # TODO
+!in tool deny muss nweisung zum promt rein, agent versteht die deny anweisung nicht
 
 ## Workbench
 * Diff support für edit commands
@@ -8,6 +9,8 @@
 
 ### Ideas
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
+	* tool alias set support, mit einem tool alias mehrere tools aktivieren
+	* ein preset unterstützt prompts, settings und tools
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?

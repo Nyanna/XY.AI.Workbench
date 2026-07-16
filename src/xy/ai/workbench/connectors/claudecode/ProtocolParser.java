@@ -16,10 +16,12 @@ import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.LOG;
 
 public class ProtocolParser {
-	private static final String TEXT_CACHE_PREEFIX = "text\0";
+	public static final String SYSTEM_INIT = "SystemInit: ";
+	public static final String REASONING_TOKEN = "ReasoningToken: ";
 	public static final String THINKING = "Thinking:";
 	public static final String TEXT = "Text:";
 	public static final String TOOLUSE = "Tool:";
+	private static final String TEXT_CACHE_PREEFIX = "text\0";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
 	private final HookParser postProcessor = new HookParser();
@@ -190,7 +192,7 @@ public class ProtocolParser {
 				thinkingTokens = outputTokensDetails.path("thinking_tokens").asLong(0);
 				if (thinkingTokens > 0) {
 					String key = "reasoning\0" + thinkingTokens;
-					String value = "ReasoningToken: " + thinkingTokens;
+					String value = REASONING_TOKEN + thinkingTokens;
 					resp.events.putIfAbsent(key, value);
 				}
 			}
@@ -267,7 +269,7 @@ public class ProtocolParser {
 				}
 			}
 
-			String metadata = "SystemInit: cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
+			String metadata = SYSTEM_INIT+"cwd=" + cwd + " | session_id=" + sessionId + " | model=" + model
 					+ " | plugins=" + pluginNames.toString();
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {

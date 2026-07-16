@@ -16,6 +16,7 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.EditorInterface;
+import xy.ai.workbench.connectors.claudecode.CCControlClient;
 import xy.ai.workbench.connectors.claudecode.ProtocolParser;
 import xy.ai.workbench.editors.md.BlockRule;
 import xy.ai.workbench.editors.md.EmphasisRule;
@@ -75,10 +76,14 @@ public class AIRuleScanner extends RuleBasedScanner {
 			// 2. linme start
 			rules.add(new LineMatchRule(EditorInterface.USER, userToken));
 			rules.add(new LineMatchRule(EditorInterface.AGENT, agentToken));
+			rules.add(new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
 			rules.add(new PrefixLineRule("---", spacerToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ProtocolParser.THINKING, commentDarkToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ProtocolParser.TEXT, commentDarkToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT + " " + ProtocolParser.TOOLUSE, commentDarkToken));
+			rules.add(new PrefixLineRule(ProtocolParser.THINKING, agentToken));
+			rules.add(new PrefixLineRule(ProtocolParser.TEXT, agentToken));
+			rules.add(new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
+			rules.add(new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
+			rules.add(new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
+			rules.add(new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
 			rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
 			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
 			rules.add(new PrefixLineRule("##### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));

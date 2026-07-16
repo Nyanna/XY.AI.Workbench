@@ -31,7 +31,8 @@ import xy.ai.workbench.LOG;
  * Response body: {@code {"pending":[...]}}.
  */
 public class CCControlClient {
-
+	public static final String ANSWER = "/answer";
+	public static final String CONTROL_REQUEST = "Control Request:";
 	private static final String CONTROL_URL = "http://localhost:9093/control/tool";
 	private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
@@ -64,10 +65,10 @@ public class CCControlClient {
 			return;
 		StringBuilder res = new StringBuilder();
 		ProtocolParser.appendEvents(resp.events, res);
-		
+
 		JsonNode first = pending.get(0);
-		res.append("Control Request:\n```yaml\n" + toYaml(first) + "\n```\n/answer " + first.path("id").asText()
-				+ " allow");
+		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", CONTROL_REQUEST, toYaml(first), ANSWER,
+				first.path("id").asText()));
 		resp.resultText = res.toString();
 	}
 
