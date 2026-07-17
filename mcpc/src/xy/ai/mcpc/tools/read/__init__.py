@@ -8,6 +8,7 @@ sha256 cache rejects unchanged re-reads (key ``_read_cache`` in session state).
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,25 @@ def register_read_tool(registry: ToolRegistry) -> None:
             "type": "object",
             "properties": {
                 "content": {"type": "string"},
+                "path": {
+                    "type": "string",
+                    "description": "Absolute file path (only set for unrestricted reads).",
+                },
+                "modified": {
+                    "type": "string",
+                    "description": (
+                        "Last modification timestamp in ISO 8601 format "
+                        "(only set for unrestricted reads)."
+                    ),
+                },
+                "size": {
+                    "type": "integer",
+                    "description": "File size in bytes (only set for unrestricted reads).",
+                },
+                "lines": {
+                    "type": "integer",
+                    "description": "Total number of lines (only set for unrestricted reads).",
+                },
             },
             "required": ["content"],
         },
@@ -178,5 +198,14 @@ def register_read_tool(registry: ToolRegistry) -> None:
             and start_marker is None
             and end_marker is None
         )
+
+        if is_full_file:
+            stat = path.stat()
+            structured["path"] = str(path.resolve())
+            structured["modified"] = datetime.fromtimestamp(
+                stat.st_mtime, tz=timezone.utc
+            ).isoformat()
+            structured["size"] = stat.st_size
+            structured["lines"] = total_lines
 
         return ToolResult(structured_content=structured, auto_approve=is_full_file)
