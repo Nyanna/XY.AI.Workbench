@@ -150,5 +150,5 @@ def run_capture(
 
     return ToolResult(
         structured_content=structured,
-        is_error=proc.returncode != 0,
+        is_error=proc.returncode != 0 and stderr,
     )
