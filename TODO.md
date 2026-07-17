@@ -1,6 +1,6 @@
 # TODO
 
-! Sstream event wotrtzählung bessere ausgabe
+In kontext code änderungen funktionieren ohne schleife wenn der input in den kontext eingegeben statt über ein tool gelesen wird
 
 ## Workbench
 * Diff support für edit commands
