@@ -498,12 +498,8 @@ public class AISessionView extends ViewPart {
 			usageLog.setLayoutData(gridData);
 
 			TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
-			column1.setText("Total");
+			column1.setText("Total In");
 			column1.setWidth(60);
-
-			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
-			column2.setText("In");
-			column2.setWidth(60);
 
 			TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
 			column3.setText("Out");
@@ -520,15 +516,19 @@ public class AISessionView extends ViewPart {
 			TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
 			column6.setText("Created");
 			column6.setWidth(60);
+
+			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
+			column2.setText("In");
+			column2.setWidth(60);
 		}
 
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
 				if (a != null && a.stats.inputToken > 0) {
 					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
-					item.setText(
-							new String[] { a.stats.totalToken + "", a.stats.inputToken + "", a.stats.outputToken + "",
-									a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "" });
+					item.setText(new String[] { a.stats.totalinToken + "", a.stats.outputToken + "",
+							a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "",
+							a.stats.inputToken + "" });
 					usageLog.setTopIndex(0);
 				}
 			});

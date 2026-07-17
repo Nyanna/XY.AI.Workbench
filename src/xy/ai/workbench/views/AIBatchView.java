@@ -141,7 +141,7 @@ public class AIBatchView extends ViewPart {
 			new TableViewerColumn(reqViewer, createColumn(reqViewer.getTable(), "Size", 5))
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).stats.outputToken + ""));
 			new TableViewerColumn(reqViewer, createColumn(reqViewer.getTable(), "Cost", 5))
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).stats.totalToken + ""));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((AIAnswer) e).stats.totalinToken + ""));
 
 			table.requestLayout();
 		}

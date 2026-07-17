@@ -87,7 +87,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 		res.stats.outputToken = msg.usage().outputTokens();
 //		resp.usage().cacheCreationInputTokens();
 //		resp.usage().cacheReadInputTokens();
-		res.stats.totalToken = res.stats.inputToken + res.stats.outputToken;
+		res.stats.totalinToken = res.stats.inputToken + res.stats.outputToken;
 
 		StringBuffer answer = new StringBuffer();
 		for (ContentBlock content : msg.content())

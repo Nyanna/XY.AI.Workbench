@@ -136,7 +136,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 
 			res.stats.inputToken = usage.promptTokenCount().orElse(-1).intValue();
 			res.stats.reasoningToken = usage.thoughtsTokenCount().orElse(-1).intValue();
-			res.stats.totalToken = usage.totalTokenCount().orElse(-1).intValue();
+			res.stats.totalinToken = usage.totalTokenCount().orElse(-1).intValue();
 			if (usage.promptTokensDetails().isPresent()) {
 				List<ModalityTokenCount> details = usage.promptTokensDetails().get();
 				details.isEmpty();
