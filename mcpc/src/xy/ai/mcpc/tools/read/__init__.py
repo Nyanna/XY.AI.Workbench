@@ -1,18 +1,34 @@
 """Read tool – returns file contents, optionally sliced by line or unique marker.
 
 Range: start = min_line | start-marker | file start; end = max_line | end-marker
-| file end (all inclusive). Markers must be unique substrings. Per-session
-sha256 cache rejects unchanged re-reads (key ``_read_cache`` in session state).
+| file end (all inclusive). Markers must be unique substrings.
+
+Per-session cache (key ``_read_cache`` in ``Session.state``, keyed by the call
+arguments plus the session id): the sha256 checksum of every read is recorded.
+If a subsequent read with identical parameters yields the same checksum,
+``content`` is omitted from ``structured_content`` and replaced by an
+explanatory text content block; only the metrics (and the checksum itself)
+are still returned. ``structured_content`` always carries the ``checksum``.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+
+#: Key under which the per-session read cache is kept in ``Session.state``.
+_CACHE_STATE_KEY = "_read_cache"
+
+
+def _cache_key(session_id: str, arguments: dict[str, Any]) -> str:
+    """Derive a stable cache key from the session id and the call arguments."""
+    payload = json.dumps({"session": session_id, "arguments": arguments}, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 def register_read_tool(registry: ToolRegistry) -> None:
     @registry.tool(
@@ -72,8 +88,21 @@ def register_read_tool(registry: ToolRegistry) -> None:
                     "type": "integer",
                     "description": "Total number of lines (only set for unrestricted reads).",
                 },
+                "checksum": {
+                    "type": "string",
+                    "description": (
+                        "sha256 checksum of the read content."
+                    ),
+                },
+                "unchanged": {
+                    "type": "boolean",
+                    "description": (
+                        "True if the content is identical to a previous read with the "
+                        "same parameters"
+                    ),
+                },
             },
-            "required": ["content"],
+            "required": ["checksum"],
         },
         annotations={"readOnlyHint": True, "openWorldHint": False},
     )
@@ -186,7 +215,23 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
 
         sliced = text[region_start:region_end]
-        structured: dict[str, Any] = {"content": sliced}
+        checksum = hashlib.sha256(sliced.encode("utf-8")).hexdigest()
+
+        # --- per-session cache lookup ---
+        session = ctx.session
+        key = _cache_key(session.id, args)
+        with session.lock:
+            cache: dict[str, str] = session.state.setdefault(_CACHE_STATE_KEY, {})
+            previous_checksum = cache.get(key)
+            cache[key] = checksum
+
+        unchanged = previous_checksum == checksum
+
+        structured: dict[str, Any] = {"checksum": checksum}
+        if unchanged:
+            structured["unchanged"] = True
+        else:
+            structured["content"] = sliced
 
         # An unrestricted read (no line/marker range given) returns the
         # entire file verbatim; there is nothing a human reviewer could
@@ -208,4 +253,16 @@ def register_read_tool(registry: ToolRegistry) -> None:
             structured["size"] = stat.st_size
             structured["lines"] = total_lines
 
-        return ToolResult(structured_content=structured, auto_approve=is_full_file)
+        content: list[dict[str, Any]] = []
+        if unchanged:
+            content.append(
+                text_content(
+                    "Content unchanged since the last identical read. Use the former read result."
+                )
+            )
+
+        return ToolResult(
+            content=content,
+            structured_content=structured,
+            auto_approve=is_full_file,
+        )
