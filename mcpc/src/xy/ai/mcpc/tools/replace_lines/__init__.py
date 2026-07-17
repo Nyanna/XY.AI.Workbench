@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 
 def register_replace_lines_tool(registry: ToolRegistry) -> None:
@@ -70,17 +70,17 @@ def register_replace_lines_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": "File not found."},
+                content=[text_content("File not found.")],
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": "Not a regular file."},
+                content=[text_content("Not a regular file.")],
                 is_error=True,
             )
 
@@ -90,12 +90,10 @@ def register_replace_lines_tool(registry: ToolRegistry) -> None:
             line_count = len(lines)
             if offset > line_count:
                 return ToolResult(
-                    structured_content={
-                        "error": (
-                            f"Offset {offset} is beyond end of file "
-                            f"(file length: {line_count} lines)."
-                        )
-                    },
+                    content=[text_content(
+                        f"Offset {offset} is beyond end of file "
+                        f"(file length: {line_count} lines)."
+                    )],
                     is_error=True,
                 )
             end = min(offset + length, line_count)
@@ -103,7 +101,7 @@ def register_replace_lines_tool(registry: ToolRegistry) -> None:
             path.write_text(result, encoding="utf-8")
         except OSError as exc:
             return ToolResult(
-                structured_content={"error": f"Replace failed: {exc}"},
+                content=[text_content(f"Replace failed: {exc}")],
                 is_error=True,
             )
 

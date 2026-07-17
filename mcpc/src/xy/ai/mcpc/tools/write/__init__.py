@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 
 def register_write_tool(registry: ToolRegistry) -> None:
@@ -61,7 +61,7 @@ def register_write_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
 
@@ -72,7 +72,7 @@ def register_write_tool(registry: ToolRegistry) -> None:
                 fh.write(content)
         except OSError as exc:
             return ToolResult(
-                structured_content={"error": f"Write failed: {exc}"},
+                content=[text_content(f"Write failed: {exc}")],
                 is_error=True,
             )
 

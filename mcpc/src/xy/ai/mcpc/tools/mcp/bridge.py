@@ -51,7 +51,6 @@ class McpBridge:
             msg = f"'{remote_tool}' failed: {exc}"
             return ToolResult(
                 content=[text_content(msg)],
-                structured_content={"error": msg},
                 is_error=True,
             )
         return _to_tool_result(result)
@@ -109,6 +108,16 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     else:
         text = ""
 
+    # Mirrors the tools' own convention (see tools/CHECKLIST.md): a
+    # successful result relies on structuredContent alone; errors are
+    # reported purely through a readable text block, since agents commonly
+    # read content[0].text for the error message.
+    if is_error:
+        return ToolResult(
+            content=[text_content(text)] if text else [],
+            is_error=True,
+        )
+
     # Use structuredContent from the remote server when present. Otherwise
     # recover it from the text: some servers only ever fill in the text
     # block, and that text is frequently a JSON document that was serialised
@@ -122,14 +131,8 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
         parsed = JsonCodec.try_decode(text)
         structured_content = parsed if isinstance(parsed, dict) else {"content": text}
 
-    # Mirrors the tools' own convention (see tools/CHECKLIST.md): a
-    # successful result relies on structuredContent alone; only errors need a
-    # readable text block, since agents commonly read content[0].text for the
-    # error message.
-    content_blocks = [text_content(text)] if is_error and text else []
-
     return ToolResult(
-        content=content_blocks,
+        content=[],
         structured_content=structured_content,
-        is_error=is_error,
+        is_error=False,
     )

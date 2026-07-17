@@ -29,8 +29,7 @@ import subprocess
 import tempfile
 from typing import Any
 
-from ..registry import ToolResult
-
+from ..registry import ToolResult, text_content
 
 _BLANK_RUN_RE = re.compile(r"[ \t]+$", re.MULTILINE)
 _MULTI_BLANK_RE = re.compile(r"\n{3,}")
@@ -71,12 +70,12 @@ def _spill_to_file(text: str, label: str) -> str:
 def run_capture(
     cmd: list[str],
     *,
-    cwd: str | os.PathLike[str] | None = None,
-    stdin: str | None = None,
-    launch_error: str = "Failed to launch process",
-    normalize_output: bool = False,
-    omit_zero_exit_code: bool = False,
-    max_stream_chars: int | None = None,
+    cwd: str | os.PathLike[str] | None=None,
+    stdin: str | None=None,
+    launch_error: str="Failed to launch process",
+    normalize_output: bool=False,
+    omit_zero_exit_code: bool=False,
+    max_stream_chars: int | None=None,
 ) -> ToolResult:
     """Run *cmd*, capture its streams, and return a normalised :class:`ToolResult`.
 
@@ -113,7 +112,7 @@ def run_capture(
         )
     except OSError as exc:
         return ToolResult(
-            structured_content={"error": f"{launch_error}: {exc}"},
+            content=[text_content(f"{launch_error}: {exc}")],
             is_error=True,
         )
 
@@ -123,15 +122,18 @@ def run_capture(
         stdout = _normalize_stream(stdout)
         stderr = _normalize_stream(stderr)
 
+    content: list[dict[str, Any]] = []
     structured: dict[str, Any] = {}
     if not omit_zero_exit_code or proc.returncode != 0:
         structured["exit_code"] = proc.returncode
 
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
         stdout_file = _spill_to_file(stdout, "stdout")
-        structured["stdout"] = (
-            f"STDOUT exceeded the {max_stream_chars}-character limit "
-            f"({len(stdout)} characters). Full output written to file."
+        content.append(
+            text_content(
+                f"Full output written to file {len(stdout)} characters). "
+                f"Read only relevant excerpts (e.g. via grep/head/tail)."
+            )
         )
         structured["stdout_file"] = stdout_file
     else:
@@ -140,15 +142,18 @@ def run_capture(
     if stderr:
         if max_stream_chars is not None and len(stderr) > max_stream_chars:
             stderr_file = _spill_to_file(stderr, "stderr")
-            structured["stderr"] = (
-                f"STDERR exceeded the {max_stream_chars}-character limit "
-                f"({len(stderr)} characters). Full output written to file."
+            content.append(
+                text_content(
+                    f"Full output written to file {len(stderr)} characters). "
+                    f"Read only relevant excerpts (e.g. via grep/head/tail)."
+                )
             )
             structured["stderr_file"] = stderr_file
         else:
             structured["stderr"] = stderr
 
     return ToolResult(
+        content=content,
         structured_content=structured,
         is_error=proc.returncode != 0 and stderr,
     )

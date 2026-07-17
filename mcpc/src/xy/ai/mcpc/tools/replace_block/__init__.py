@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 
 def register_replace_block_tool(registry: ToolRegistry) -> None:
@@ -45,10 +45,6 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
                 "result": {
                     "type": "string",
                 },
-                "error": {
-                    "type": "string",
-                    "description": "Human-readable error message (only present when is_error is true).",
-                },
             },
             "required": [],
         },
@@ -64,22 +60,22 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": "File not found."},
+                content=[text_content("File not found.")],
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": "Not a regular file."},
+                content=[text_content("Not a regular file.")],
                 is_error=True,
             )
         if old_text == "":
             return ToolResult(
-                structured_content={"error": "'old_text' must not be empty."},
+                content=[text_content("'old_text' must not be empty.")],
                 is_error=True,
             )
 
@@ -89,14 +85,12 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         occurrences = text.count(old_text)
         if occurrences == 0:
             return ToolResult(
-                structured_content={"error": "Text not found in file."},
+                content=[text_content("Text not found in file.")],
                 is_error=True,
             )
         if occurrences > 1:
             return ToolResult(
-                structured_content={
-                    "error": f"Text is ambiguous – found {occurrences} occurrences in file."
-                },
+                content=[text_content(f"Text is ambiguous – found {occurrences} occurrences in file.")],
                 is_error=True,
             )
 
@@ -107,7 +101,7 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
             path.write_text(result_text, encoding="utf-8")
         except OSError as exc:
             return ToolResult(
-                structured_content={"error": f"Write failed: {exc}"},
+                content=[text_content(f"Write failed: {exc}")],
                 is_error=True,
             )
 

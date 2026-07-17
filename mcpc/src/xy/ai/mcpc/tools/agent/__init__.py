@@ -17,7 +17,7 @@ import uuid
 from typing import Any
 
 from ...cli import CliParameters, CliSessionError, Effort, Model
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 from ...session import AgentSubSession
 from .profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
 
@@ -58,7 +58,7 @@ def _base_properties(*, include_system_prompt: bool) -> dict[str, Any]:
 
 
 def _error(message: str) -> ToolResult:
-    return ToolResult(structured_content={"error": message}, is_error=True)
+    return ToolResult(content=[text_content(message)], is_error=True)
 
 
 def _run_agent(
@@ -159,9 +159,10 @@ def _resume_agent(ctx: ToolContext, resume_id: str, prompt: Any) -> ToolResult:
 
 
 def _result(text: str, session_id: str, *, is_error: bool) -> ToolResult:
+    if is_error:
+        return ToolResult(content=[text_content(text)], is_error=True)
     return ToolResult(
         structured_content={"response": text, "session_id": session_id},
-        is_error=is_error,
     )
 
 

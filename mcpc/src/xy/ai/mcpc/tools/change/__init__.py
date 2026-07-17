@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 
 def register_change_tool(registry: ToolRegistry) -> None:
@@ -47,10 +47,6 @@ def register_change_tool(registry: ToolRegistry) -> None:
                     "type": "string",
                     "description": "``success`` on success.",
                 },
-                "error": {
-                    "type": "string",
-                    "description": "Human-readable error message (only present when is_error is true).",
-                },
             },
             "required": [],
         },
@@ -67,17 +63,17 @@ def register_change_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": "File not found."},
+                content=[text_content("File not found.")],
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": "Not a regular file."},
+                content=[text_content("Not a regular file.")],
                 is_error=True,
             )
 
@@ -87,14 +83,12 @@ def register_change_tool(registry: ToolRegistry) -> None:
         start_count = text.count(start_marker)
         if start_count == 0:
             return ToolResult(
-                structured_content={"error": "Start marker not found in file."},
+                content=[text_content("Start marker not found in file.")],
                 is_error=True,
             )
         if start_count > 1:
             return ToolResult(
-                structured_content={
-                    "error": f"Start marker is ambiguous – found {start_count} occurrences in file."
-                },
+                content=[text_content(f"Start marker is ambiguous – found {start_count} occurrences in file.")],
                 is_error=True,
             )
 
@@ -102,14 +96,12 @@ def register_change_tool(registry: ToolRegistry) -> None:
         end_count = text.count(end_marker)
         if end_count == 0:
             return ToolResult(
-                structured_content={"error": "End marker not found in file."},
+                content=[text_content("End marker not found in file.")],
                 is_error=True,
             )
         if end_count > 1:
             return ToolResult(
-                structured_content={
-                    "error": f"End marker is ambiguous – found {end_count} occurrences in file."
-                },
+                content=[text_content(f"End marker is ambiguous – found {end_count} occurrences in file.")],
                 is_error=True,
             )
 
@@ -119,11 +111,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
         # --- order validation ---
         if end_pos <= start_pos:
             return ToolResult(
-                structured_content={
-                    "error": (
-                        f"End marker must appear after start marker."
-                    )
-                },
+                content=[text_content("End marker must appear after start marker.")],
                 is_error=True,
             )
 
@@ -135,7 +123,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
             path.write_text(result_text, encoding="utf-8")
         except OSError as exc:
             return ToolResult(
-                structured_content={"error": f"Write failed: {exc}"},
+                content=[text_content(f"Write failed: {exc}")],
                 is_error=True,
             )
 

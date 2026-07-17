@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 from ..process import run_capture
 
 #: Safety limit on inline STDOUT/STDERR size. Streams larger than this are
@@ -72,12 +72,12 @@ def register_bash_tool(registry: ToolRegistry) -> None:
         cwd = Path(cwd_str)
         if not cwd.is_absolute():
             return ToolResult(
-                structured_content={"error": f"cwd must be an absolute path."},
+                content=[text_content(f"cwd must be an absolute path.")],
                 is_error=True,
             )
         if not cwd.is_dir():
             return ToolResult(
-                structured_content={"error": f"Working directory not found or not a directory."},
+                content=[text_content(f"Working directory not found or not a directory.")],
                 is_error=True,
             )
 

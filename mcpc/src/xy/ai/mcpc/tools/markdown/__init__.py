@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 from ..process import run_capture
 
 #: Example script surfaced in the tool description.
@@ -100,7 +100,7 @@ def register_markdown_tool(registry: ToolRegistry) -> None:
         cwd = Path(config.markdown_env_dir)
         if not cwd.is_dir():
             return ToolResult(
-                structured_content={"error": f"Markdown environment not found: {cwd}"},
+                content=[text_content(f"Markdown environment not found: {cwd}")],
                 is_error=True,
             )
 

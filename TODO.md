@@ -1,7 +1,5 @@
 # TODO
 
-In kontext code änderungen funktionieren ohne schleife wenn der input in den kontext eingegeben statt über ein tool gelesen wird
-
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher

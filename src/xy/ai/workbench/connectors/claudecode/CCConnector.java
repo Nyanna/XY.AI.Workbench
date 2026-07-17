@@ -154,21 +154,21 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		String line;
 		while (true) {
 			// alternate read sources undtil answer
-			controlClient.checkControlEndpoint(resp);
+			try {
+				// wait 300 ms
+				if ((line = session.readLine()) != null) {
+					session.setLastRawLine(line);
+					jsonParser.parseLine(resp, session, sub, line);
+					
+				}
+			} catch (Exception ex) {
+				while ((line = session.readError()) != null)
+					LOG.error("CLI stderr: " + line);
+				throw ex;
+			}
 
 			if (!resp.isReady())
-				try {
-					// wait 300 ms
-					if ((line = session.readLine()) != null) {
-						session.setLastRawLine(line);
-						jsonParser.parseLine(resp, session, sub, line);
-
-					}
-				} catch (Exception ex) {
-					while ((line = session.readError()) != null)
-						LOG.error("CLI stderr: " + line);
-					throw ex;
-				}
+				controlClient.checkControlEndpoint(resp);
 
 			if (resp.isReady()) {
 				session.stats.add(resp.stats);

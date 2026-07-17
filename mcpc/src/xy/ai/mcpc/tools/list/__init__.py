@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 _MAX_ENTRIES = 50
 
@@ -85,17 +85,17 @@ def register_list_tool(registry: ToolRegistry) -> None:
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": "Directory not found."},
+                content=[text_content("Directory not found.")],
                 is_error=True,
             )
         if not path.is_dir():
             return ToolResult(
-                structured_content={"error": "Not a directory."},
+                content=[text_content("Not a directory.")],
                 is_error=True,
             )
 
@@ -105,7 +105,7 @@ def register_list_tool(registry: ToolRegistry) -> None:
                 regex = re.compile(pattern)
             except re.error as exc:
                 return ToolResult(
-                    structured_content={"error": f"Invalid regular expression: {exc}"},
+                    content=[text_content(f"Invalid regular expression: {exc}")],
                     is_error=True,
                 )
 
@@ -124,13 +124,11 @@ def register_list_tool(registry: ToolRegistry) -> None:
 
         if len(entries) > _MAX_ENTRIES:
             return ToolResult(
-                structured_content={
-                    "error": (
-                        f"Too many entries ({len(entries)}) exceed the limit of "
-                        f"{_MAX_ENTRIES}. Narrow down the result using the "
-                        "'pattern' regular expression parameter."
-                    )
-                },
+                content=[text_content(
+                    f"Too many entries ({len(entries)}) exceed the limit of "
+                    f"{_MAX_ENTRIES}. Narrow down the result using the "
+                    "'pattern' regular expression parameter."
+                )],
                 is_error=True,
             )
 

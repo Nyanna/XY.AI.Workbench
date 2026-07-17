@@ -117,33 +117,29 @@ def register_read_tool(registry: ToolRegistry) -> None:
         # --- mutual exclusivity validation ---
         if min_line is not None and start_marker is not None:
             return ToolResult(
-                structured_content={
-                    "error": "``min_line`` and ``start`` are mutually exclusive."
-                },
+                content=[text_content("``min_line`` and ``start`` are mutually exclusive.")],
                 is_error=True,
             )
         if max_line is not None and end_marker is not None:
             return ToolResult(
-                structured_content={
-                    "error": "``max_line`` and ``end`` are mutually exclusive."
-                },
+                content=[text_content("``max_line`` and ``end`` are mutually exclusive.")],
                 is_error=True,
             )
 
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
-                structured_content={"error": "Path must be absolute."},
+                content=[text_content("Path must be absolute.")],
                 is_error=True,
             )
         if not path.exists():
             return ToolResult(
-                structured_content={"error": "File not found."},
+                content=[text_content("File not found.")],
                 is_error=True,
             )
         if not path.is_file():
             return ToolResult(
-                structured_content={"error": "Not a regular file."},
+                content=[text_content("Not a regular file.")],
                 is_error=True,
             )
 
@@ -166,14 +162,12 @@ def register_read_tool(registry: ToolRegistry) -> None:
             start_count = text.count(start_marker)
             if start_count == 0:
                 return ToolResult(
-                    structured_content={"error": "Start marker not found in file."},
+                    content=[text_content("Start marker not found in file.")],
                     is_error=True,
                 )
             if start_count > 1:
                 return ToolResult(
-                    structured_content={
-                        "error": f"Start marker is ambiguous – found {start_count} occurrences in file."
-                    },
+                    content=[text_content(f"Start marker is ambiguous – found {start_count} occurrences in file.")],
                     is_error=True,
                 )
             region_start = text.index(start_marker)
@@ -186,14 +180,12 @@ def register_read_tool(registry: ToolRegistry) -> None:
             end_count = text.count(end_marker)
             if end_count == 0:
                 return ToolResult(
-                    structured_content={"error": "End marker not found in file."},
+                    content=[text_content("End marker not found in file.")],
                     is_error=True,
                 )
             if end_count > 1:
                 return ToolResult(
-                    structured_content={
-                        "error": f"End marker is ambiguous – found {end_count} occurrences in file."
-                    },
+                    content=[text_content(f"End marker is ambiguous – found {end_count} occurrences in file.")],
                     is_error=True,
                 )
             region_end = text.index(end_marker) + len(end_marker)
@@ -205,12 +197,10 @@ def register_read_tool(registry: ToolRegistry) -> None:
         # --- order validation ---
         if region_end < region_start:
             return ToolResult(
-                structured_content={
-                    "error": (
-                        f"Resolved end position must not lie before "
-                        f"the resolved start position."
-                    )
-                },
+                content=[text_content(
+                    "Resolved end position must not lie before "
+                    "the resolved start position."
+                )],
                 is_error=True,
             )
 

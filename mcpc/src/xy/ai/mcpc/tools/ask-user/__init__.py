@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 
 #: Answer returned whenever the user has not (yet) responded.
 _NOT_ANSWERED = "The user did not answer. Proceed on your own."
@@ -56,7 +56,7 @@ def register_ask_user_tool(registry: ToolRegistry) -> None:
         question: str = args["question"]
         if not question or not question.strip():
             return ToolResult(
-                structured_content={"error": "``question`` must not be empty."},
+                content=[text_content("``question`` must not be empty.")],
                 is_error=True,
             )
 
