@@ -16,8 +16,6 @@ import xy.ai.workbench.LOG;
 import xy.ai.workbench.models.TokenStats;
 
 public class CCSession {
-	private static final long TTL_HOURS = 1;
-
 	/**
 	 * The Claude session UUID. {@code null} until the process is started for the
 	 * first time (or until a UUID is pre-assigned via {@link #assignUuid}).
@@ -48,7 +46,6 @@ public class CCSession {
 
 	private final CCSessionManager manager;
 
-
 	public CCSession(CCSessionManager manager, SessionParameters parameters) {
 		this(UUID.randomUUID().toString(), false, manager, parameters);
 	}
@@ -57,8 +54,7 @@ public class CCSession {
 		this(sessionUuid, true, manager, parameters);
 	}
 
-	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager,
-			SessionParameters parameters) {
+	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, SessionParameters parameters) {
 		if (sessionUuid == null || sessionUuid.isBlank())
 			throw new IllegalArgumentException("Session UUID must not be null or blank");
 		Objects.requireNonNull(parameters, "session parameters must not be null");
@@ -252,7 +248,17 @@ public class CCSession {
 	public boolean isExpired() {
 		if (lastSentAt == null)
 			return false;
-		return Instant.now().isAfter(lastSentAt.plus(TTL_HOURS, ChronoUnit.HOURS));
+		if (parameters.cacheMode != null)
+			switch (parameters.cacheMode) {
+			case Disabled:
+				return true;
+			case Minutes_5:
+				return Instant.now().isAfter(lastSentAt.plus(5, ChronoUnit.MINUTES));
+			case Default:
+			case Hours_1:
+			default:
+			}
+		return Instant.now().isAfter(lastSentAt.plus(1, ChronoUnit.HOURS));
 	}
 
 	private boolean isProcessAlive() {
