@@ -18,8 +18,7 @@ def register_read_tool(registry: ToolRegistry) -> None:
         "read",
         title="Read file",
         description=(
-            "Read a file as text, optionally sliced to a range. Repeated "
-            "unchanged reads return an error."
+            "Read a file as text, optionally sliced to a range. Don't use for directories."
         ),
         input_schema={
             "type": "object",
