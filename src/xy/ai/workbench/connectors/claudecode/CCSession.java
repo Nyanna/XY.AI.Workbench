@@ -68,7 +68,17 @@ public class CCSession {
 		if (lastSentAt == null)
 			return -1;
 		long elapsed = ChronoUnit.MINUTES.between(lastSentAt, Instant.now());
-		return Math.max(0, TTL_HOURS * 60 - elapsed);
+
+		if (parameters.cacheMode != null)
+			switch (parameters.cacheMode) {
+			case Disabled:
+				return 0l;
+			case Minutes_5:
+				return Math.max(0, 5 - elapsed);
+			case Default:
+			case Hours_1:
+			}
+		return Math.max(0, 60 - elapsed);
 	}
 
 	public SessionState getState() {
@@ -256,7 +266,6 @@ public class CCSession {
 				return Instant.now().isAfter(lastSentAt.plus(5, ChronoUnit.MINUTES));
 			case Default:
 			case Hours_1:
-			default:
 			}
 		return Instant.now().isAfter(lastSentAt.plus(1, ChronoUnit.HOURS));
 	}
