@@ -101,4 +101,4 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
                 is_error=True,
             )
 
-        return ToolResult(structured_content={"result": "success"})
+        return ToolResult(structured_content={"result": "success"}, auto_approve=True)

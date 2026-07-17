@@ -35,6 +35,7 @@ class ToolResult:
     content: list[dict[str, Any]] = field(default_factory=list)
     structured_content: dict[str, Any] | None = None
     is_error: bool = False
+    auto_approve: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}

@@ -208,7 +208,9 @@ class McpProtocol:
 
         # --- result interception --------------------------------------------
         if control is not None and not skip_control:
-            decision = control.submit_result(session, name, result.to_dict())
+            decision = control.submit_result(
+                session, name, result.to_dict(), auto_approve=result.auto_approve
+            )
             if not decision.approved:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool result rejected by controller"

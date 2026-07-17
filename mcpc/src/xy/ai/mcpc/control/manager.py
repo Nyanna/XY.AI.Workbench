@@ -105,6 +105,8 @@ class ToolControlManager:
         session: Session,
         tool_name: str,
         arguments: dict[str, Any],
+        *,
+        auto_approve: bool = False,
     ) -> ControlDecision:
         """Block until the controller approves/rejects a tool-call *request*.
 
@@ -112,6 +114,13 @@ class ToolControlManager:
         ``modified_arguments``, the caller should substitute them before
         invoking the tool handler.
         """
+        if auto_approve:
+            logger.info(
+                "Auto-approving request for %s [%s] (tool-flagged)",
+                tool_name, session.id,
+            )
+            return ControlDecision(approved=True)
+
         item = self._enqueue(session, "request", tool_name, arguments=arguments, result=None)
         return self._wait(item)
 
@@ -120,6 +129,8 @@ class ToolControlManager:
         session: Session,
         tool_name: str,
         result: dict[str, Any],
+        *,
+        auto_approve: bool = False,
     ) -> ControlDecision:
         """Block until the controller approves/replaces a tool-call *result*.
 
@@ -127,14 +138,16 @@ class ToolControlManager:
         ``modified_result``, the caller should use that instead of the
         original result.
 
-        Simple "success" results (empty ``content`` and a
-        ``structuredContent`` of exactly ``{"result": "success"}``) are
-        auto-approved without involving the controller, since there is
-        nothing meaningful for a human to review.
+        ``auto_approve`` is a hint set by the *tool itself* (via
+        ``ToolResult.auto_approve``), not derived from the shape of the
+        result. A tool sets it when it judges its own result carries
+        nothing meaningful for a human to review (e.g. a plain success
+        acknowledgement, or an unrestricted full-file read). When set, the
+        result is approved without involving the controller.
         """
-        if self._is_simple_success_result(result):
+        if auto_approve:
             logger.info(
-                "Auto-approving simple success result for %s [%s]",
+                "Auto-approving result for %s [%s] (tool-flagged)",
                 tool_name, session.id,
             )
             return ControlDecision(approved=True)
@@ -197,29 +210,6 @@ class ToolControlManager:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _is_simple_success_result(result: dict[str, Any]) -> bool:
-        """Return ``True`` for a plain success result with nothing to review.
-
-        Matches results of the shape::
-
-            {
-                "content": [],
-                "structuredContent": {"result": "success"}
-            }
-
-        Any additional content items, extra keys, or a differing
-        ``structuredContent`` payload disqualify the result from
-        auto-approval.
-        """
-        if not isinstance(result, dict):
-            return False
-        if set(result.keys()) - {"content", "structuredContent"}:
-            return False
-        if result.get("content") not in ([], None):
-            return False
-        return result.get("structuredContent") == {"result": "success"}
 
     def _enqueue(
         self,
