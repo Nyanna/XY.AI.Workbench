@@ -2,7 +2,8 @@
 
 Available tools
 ---------------
-* ``read``          – read a file (with session-level content-hash caching)
+* ``read-file``          – read a file (with session-level content-hash caching, line/char slicing)
+* ``file-stats``    – get file metrics for access and processing planning
 * ``list``          – recursively list files below a directory
 * ``write``         – overwrite or append to a file
 * ``insert``        – insert text at a character offset
@@ -43,17 +44,22 @@ from .replace_block import register_replace_block_tool
 from .skills import register_skills
 from .write import register_write_tool
 
-# ``ask-user`` uses a hyphenated directory name, which is not a valid Python
-# identifier, so it cannot be imported with a regular ``from .ask-user import``
-# statement. Use ``importlib`` instead.
+# ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
+# Python identifiers, so they cannot be imported with a regular ``from`` statement.
+# Use ``importlib`` instead.
 register_ask_user_tool = importlib.import_module(
     "xy.ai.mcpc.tools.ask-user"
 ).register_ask_user_tool
+
+register_file_stats_tool = importlib.import_module(
+    "xy.ai.mcpc.tools.file-stats"
+).register_file_stats_tool
 
 
 def register_tools(registry: ToolRegistry) -> None:
     """Register all built-in file-system and shell tools onto *registry*."""
     register_read_tool(registry)
+    register_file_stats_tool(registry)
     register_list_tool(registry)
     register_write_tool(registry)
     register_insert_tool(registry)

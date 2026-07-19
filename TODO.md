@@ -1,5 +1,8 @@
 # TODO
 
+Suchtool für dateiinhalt
+bash mit exitcode null un dleeren SDOUT soll success zurückliefern und braucht kein confirm
+
 ## Workbench
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff", ist mit YAML jetzt einfacher

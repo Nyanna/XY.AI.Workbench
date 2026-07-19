@@ -1,14 +1,15 @@
-"""Read tool – returns file contents, optionally sliced by line or unique marker.
+"""Read tool – returns file contents, optionally sliced by line, character offset, or marker.
 
-Range: start = min_line | start-marker | file start; end = max_line | end-marker
-| file end (all inclusive). Markers must be unique substrings.
+Range: start = min_line | min_char | start-marker | file start; 
+end = max_line | max_char | end-marker | file end (all inclusive). 
+Markers must be unique substrings. Line and char ranges are mutually exclusive.
 
 Per-session cache (key ``_read_cache`` in ``Session.state``, keyed by the call
 arguments plus the session id): the sha256 checksum of every read is recorded.
 If a subsequent read with identical parameters yields the same checksum,
 ``content`` is omitted from ``structured_content`` and replaced by an
-explanatory text content block; only the metrics (and the checksum itself)
-are still returned. ``structured_content`` always carries the ``checksum``.
+explanatory text content block; only the checksum is still returned.
+``structured_content`` always carries the ``checksum``.
 """
 
 from __future__ import annotations
@@ -46,21 +47,31 @@ def register_read_tool(registry: ToolRegistry) -> None:
                 },
                 "min_line": {
                     "type": "integer",
-                    "description": "Range start: line number, inclusive, 1-based. Excludes start.",
+                    "description": "Range start: line number, inclusive, 1-based. Excludes start and min_char.",
                     "minimum": 1,
                 },
                 "max_line": {
                     "type": "integer",
-                    "description": "Range end: line number, inclusive, 1-based. Excludes end.",
+                    "description": "Range end: line number, inclusive, 1-based. Excludes end and max_char.",
                     "minimum": 1,
+                },
+                "min_char": {
+                    "type": "integer",
+                    "description": "Range start: character offset, inclusive, 0-based. Excludes min_line.",
+                    "minimum": 0,
+                },
+                "max_char": {
+                    "type": "integer",
+                    "description": "Range end: character offset, exclusive, 0-based. Excludes max_line.",
+                    "minimum": 0,
                 },
                 "start": {
                     "type": "string",
-                    "description": "Range start: unique marker substring, inclusive. Excludes min_line.",
+                    "description": "Range start: unique marker substring, inclusive. Excludes min_line and min_char.",
                 },
                 "end": {
                     "type": "string",
-                    "description": "Range end: unique marker substring, inclusive. Excludes max_line.",
+                    "description": "Range end: unique marker substring, inclusive. Excludes max_line and max_char.",
                 },
             },
             "required": ["path"],
@@ -69,25 +80,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
             "type": "object",
             "properties": {
                 "content": {"type": "string"},
-                "path": {
-                    "type": "string",
-                    "description": "Absolute file path (only set for unrestricted reads).",
-                },
-                "modified": {
-                    "type": "string",
-                    "description": (
-                        "Last modification timestamp in ISO 8601 format "
-                        "(only set for unrestricted reads)."
-                    ),
-                },
-                "size": {
-                    "type": "integer",
-                    "description": "File size in bytes (only set for unrestricted reads).",
-                },
-                "lines": {
-                    "type": "integer",
-                    "description": "Total number of lines (only set for unrestricted reads).",
-                },
                 "checksum": {
                     "type": "string",
                     "description": (
@@ -111,18 +103,40 @@ def register_read_tool(registry: ToolRegistry) -> None:
         path_str: str = args["path"]
         min_line: int | None = args.get("min_line")
         max_line: int | None = args.get("max_line")
+        min_char: int | None = args.get("min_char")
+        max_char: int | None = args.get("max_char")
         start_marker: str | None = args.get("start")
         end_marker: str | None = args.get("end")
 
         # --- mutual exclusivity validation ---
+        if min_line is not None and min_char is not None:
+            return ToolResult(
+                content=[text_content("``min_line`` and ``min_char`` are mutually exclusive.")],
+                is_error=True,
+            )
+        if max_line is not None and max_char is not None:
+            return ToolResult(
+                content=[text_content("``max_line`` and ``max_char`` are mutually exclusive.")],
+                is_error=True,
+            )
         if min_line is not None and start_marker is not None:
             return ToolResult(
                 content=[text_content("``min_line`` and ``start`` are mutually exclusive.")],
                 is_error=True,
             )
+        if min_char is not None and start_marker is not None:
+            return ToolResult(
+                content=[text_content("``min_char`` and ``start`` are mutually exclusive.")],
+                is_error=True,
+            )
         if max_line is not None and end_marker is not None:
             return ToolResult(
                 content=[text_content("``max_line`` and ``end`` are mutually exclusive.")],
+                is_error=True,
+            )
+        if max_char is not None and end_marker is not None:
+            return ToolResult(
+                content=[text_content("``max_char`` and ``end`` are mutually exclusive.")],
                 is_error=True,
             )
 
@@ -173,6 +187,8 @@ def register_read_tool(registry: ToolRegistry) -> None:
             region_start = text.index(start_marker)
         elif min_line is not None:
             region_start = line_start_offset(min_line)
+        elif min_char is not None:
+            region_start = min_char
         else:
             region_start = 0
 
@@ -191,6 +207,8 @@ def register_read_tool(registry: ToolRegistry) -> None:
             region_end = text.index(end_marker) + len(end_marker)
         elif max_line is not None:
             region_end = line_end_offset(max_line)
+        elif max_char is not None:
+            region_end = max_char
         else:
             region_end = len(text)
 
@@ -223,24 +241,18 @@ def register_read_tool(registry: ToolRegistry) -> None:
         else:
             structured["content"] = sliced
 
-        # An unrestricted read (no line/marker range given) returns the
+        # An unrestricted read (no line/char/marker range given) returns the
         # entire file verbatim; there is nothing a human reviewer could
         # meaningfully approve or reject beyond what a plain file read
         # already exposes, so the tool flags it for auto-approval.
         is_full_file = (
             min_line is None
             and max_line is None
+            and min_char is None
+            and max_char is None
             and start_marker is None
             and end_marker is None
         )
-
-        stat = path.stat()
-        structured["path"] = str(path.resolve())
-        structured["modified"] = datetime.fromtimestamp(
-            stat.st_mtime, tz=timezone.utc
-        ).isoformat()
-        structured["size"] = stat.st_size
-        structured["lines"] = total_lines
 
         content: list[dict[str, Any]] = []
         if unchanged:
