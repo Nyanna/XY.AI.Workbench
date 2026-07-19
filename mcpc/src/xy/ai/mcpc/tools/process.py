@@ -152,6 +152,10 @@ def run_capture(
         else:
             structured["stderr"] = stderr
 
+    # Simple success with auto_approve when exit code is 0 and both streams are empty
+    if proc.returncode == 0 and not stdout and not stderr:
+        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
     return ToolResult(
         content=content,
         structured_content=structured,

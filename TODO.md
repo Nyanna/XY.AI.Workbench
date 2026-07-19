@@ -1,7 +1,6 @@
 # TODO
 
-Suchtool für dateiinhalt
-bash mit exitcode null un dleeren SDOUT soll success zurückliefern und braucht kein confirm
+Suchtool für dateiinhalt, analog grep mit kontext
 
 ## Workbench
 * Diff support für edit commands
