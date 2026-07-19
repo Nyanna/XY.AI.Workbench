@@ -13,3 +13,5 @@ user-invocable: true
 * Use third-order headings and below only when necessary for navigation; use simple bold paragraph headings instead.
 * Chapter headings are numbered for H1–H3 only; lower-order headings do not contain numbering.
 * Use LaTeX (`$$`) for block mathematical expressions and inline LaTeX (`$`) for inline mathematical symbols, expressions, and formulas.
+* Never hard-wrap prose at a fixed line width.
+* Avoid internal references and cross-references
