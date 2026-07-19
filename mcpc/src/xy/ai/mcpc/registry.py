@@ -28,6 +28,13 @@ class ToolContext:
     services: "AppServices | None" = None
 
 
+#: Default value for the Anthropic-specific ``anthropic/maxResultSizeChars``
+#: meta annotation, applied generically to every tool result (see
+#: :meth:`ToolResult.to_dict`). This tells Anthropic-compatible MCP clients
+#: how many characters of the result they may render/keep before truncating.
+ANTHROPIC_MAX_RESULT_SIZE_CHARS = 500_000
+
+
 @dataclass(slots=True)
 class ToolResult:
     """The result of a tool call (maps onto MCP ``CallToolResult``)."""
@@ -71,6 +78,7 @@ class Tool:
     title: str | None = None
     output_schema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
     def to_spec(self) -> dict[str, Any]:
         """Return the MCP ``Tool`` object advertised via ``tools/list``."""
@@ -83,6 +91,8 @@ class Tool:
             spec["title"] = self.title
         if self.output_schema is not None:
             spec["outputSchema"] = self.output_schema
+        if self.meta is not None:
+            spec["_meta"] = self.meta
         if self.annotations is not None:
             spec["annotations"] = self.annotations
         return spec
@@ -151,6 +161,12 @@ class ToolRegistry:
         if tool.name in self._tools:
             raise ValueError(f"Tool already registered: {tool.name}")
         tool.input_schema = _with_mandatory_reason(tool.input_schema)
+        
+        meta: dict[str, Any] = {
+            "anthropic/maxResultSizeChars": ANTHROPIC_MAX_RESULT_SIZE_CHARS
+        }
+        tool.meta = meta
+        
         self._tools[tool.name] = tool
         return tool
 
