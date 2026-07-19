@@ -159,12 +159,17 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				if ((line = session.readLine()) != null) {
 					session.setLastRawLine(line);
 					jsonParser.parseLine(resp, session, sub, line);
-					
+
 				}
 			} catch (Exception ex) {
-				while ((line = session.readError()) != null)
-					LOG.error("CLI stderr: " + line);
-				throw ex;
+				LOG.error("Error reading line: ", ex);
+				try {
+					while ((line = session.readError()) != null)
+						LOG.error("CLI stderr: " + line);
+				} catch (Exception ex2) {
+					LOG.error("Error reading stderr: ", ex2);
+				}
+				resp.resultText = ex.getMessage();
 			}
 
 			if (!resp.isReady())

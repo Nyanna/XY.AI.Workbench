@@ -35,7 +35,7 @@ def register_read_tool(registry: ToolRegistry) -> None:
         "read",
         title="Read file",
         description=(
-            "Read a file as text, optionally sliced to a range. Don't use for directories."
+            "Read a file as text, optionally sliced to a range. Don't use to read directories."
         ),
         input_schema={
             "type": "object",
@@ -234,14 +234,13 @@ def register_read_tool(registry: ToolRegistry) -> None:
             and end_marker is None
         )
 
-        if is_full_file:
-            stat = path.stat()
-            structured["path"] = str(path.resolve())
-            structured["modified"] = datetime.fromtimestamp(
-                stat.st_mtime, tz=timezone.utc
-            ).isoformat()
-            structured["size"] = stat.st_size
-            structured["lines"] = total_lines
+        stat = path.stat()
+        structured["path"] = str(path.resolve())
+        structured["modified"] = datetime.fromtimestamp(
+            stat.st_mtime, tz=timezone.utc
+        ).isoformat()
+        structured["size"] = stat.st_size
+        structured["lines"] = total_lines
 
         content: list[dict[str, Any]] = []
         if unchanged:
