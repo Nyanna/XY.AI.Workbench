@@ -34,7 +34,7 @@ public class CCSession {
 	@SuppressWarnings("unused")
 	private Instant startedAt;
 	/** The last time a prompt was sent to STDIN. Determines TTL. */
-	private Instant lastSentAt = Instant.now();
+	private Instant lastSentAt;
 	private volatile Instant lastReceivedAt;
 
 	public final TokenStats stats = new TokenStats();
@@ -148,7 +148,7 @@ public class CCSession {
 	}
 
 	public synchronized void writeLine(String jsonLine) throws IOException {
-		if (isExpired()) {
+		if (lastSentAt != null && isExpired()) {
 			if (isProcessAlive())
 				terminate();
 			throw new IllegalStateException("Session has expired and can no longer be used");

@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.zip.CRC32;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
@@ -19,7 +20,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Central utility for JSON parsing/building and for stream handling used by the
  * Claude Code connector.
  *
- * <p>The connector repeatedly wraps and unwraps JSON documents as it moves data
+ * <p>
+ * The connector repeatedly wraps and unwraps JSON documents as it moves data
  * between the CLI's stream-json transport, the MCPC control endpoint and the
  * Eclipse UI. Doing this by hand ({@link JsonNode#toString()},
  * {@code new ObjectMapper()} per class, platform-default stream charsets, ...)
@@ -27,20 +29,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * regex {@code [\s\S]} is re-serialised into {@code [\\s\\S]} because a JSON
  * <em>string literal</em> was rendered instead of its logical text.
  *
- * <p>All connector code should therefore go through this class:
+ * <p>
+ * All connector code should therefore go through this class:
  * <ul>
- *   <li>{@link #mapper()} — one shared, consistently configured mapper.</li>
- *   <li>{@link #plainText(JsonNode)} — the logical value of a node
- *       <em>without</em> JSON quoting/escaping (the correct thing to show in the
- *       UI or embed into a text container).</li>
- *   <li>{@link #compact(JsonNode)} / {@link #pretty(JsonNode)} — a valid JSON
- *       document when the structure itself must be preserved.</li>
- *   <li>{@link #escape(String)} / {@link #unescape(String)} — round-trippable
- *       JSON string escaping when raw text is embedded into a hand-built JSON
- *       document.</li>
- *   <li>{@link #newReader(InputStream)} / {@link #newWriter(OutputStream)} —
- *       UTF-8 stream wrappers so bytes on the wire and characters in memory
- *       never disagree.</li>
+ * <li>{@link #mapper()} — one shared, consistently configured mapper.</li>
+ * <li>{@link #plainText(JsonNode)} — the logical value of a node
+ * <em>without</em> JSON quoting/escaping (the correct thing to show in the UI
+ * or embed into a text container).</li>
+ * <li>{@link #compact(JsonNode)} / {@link #pretty(JsonNode)} — a valid JSON
+ * document when the structure itself must be preserved.</li>
+ * <li>{@link #escape(String)} / {@link #unescape(String)} — round-trippable
+ * JSON string escaping when raw text is embedded into a hand-built JSON
+ * document.</li>
+ * <li>{@link #newReader(InputStream)} / {@link #newWriter(OutputStream)} —
+ * UTF-8 stream wrappers so bytes on the wire and characters in memory never
+ * disagree.</li>
  * </ul>
  */
 public final class JsonUtil {
@@ -61,8 +64,8 @@ public final class JsonUtil {
 	 * checked {@link JsonProcessingException} they must handle (log/skip) instead
 	 * of silently losing the line.
 	 *
-	 * @throws NullPointerException     if {@code json} is {@code null}
-	 * @throws JsonProcessingException  if {@code json} is not well-formed JSON
+	 * @throws NullPointerException    if {@code json} is {@code null}
+	 * @throws JsonProcessingException if {@code json} is not well-formed JSON
 	 */
 	public static JsonNode readTree(String json) throws JsonProcessingException {
 		Objects.requireNonNull(json, "json to parse must not be null");
@@ -78,12 +81,12 @@ public final class JsonUtil {
 	 * non-JSON text container.
 	 *
 	 * <ul>
-	 *   <li>A missing or explicit-null node yields the empty string.</li>
-	 *   <li>A value node (string/number/boolean) yields its plain text — e.g. the
-	 *       string node {@code "[\s\S]"} yields {@code [\s\S]}, <em>not</em>
-	 *       {@code "[\\s\\S]"}.</li>
-	 *   <li>An object/array node yields pretty-printed JSON, since the structure
-	 *       itself carries the meaning.</li>
+	 * <li>A missing or explicit-null node yields the empty string.</li>
+	 * <li>A value node (string/number/boolean) yields its plain text — e.g. the
+	 * string node {@code "[\s\S]"} yields {@code [\s\S]}, <em>not</em>
+	 * {@code "[\\s\\S]"}.</li>
+	 * <li>An object/array node yields pretty-printed JSON, since the structure
+	 * itself carries the meaning.</li>
 	 * </ul>
 	 */
 	public static String plainText(JsonNode node) {
@@ -94,7 +97,9 @@ public final class JsonUtil {
 		return pretty(node);
 	}
 
-	/** Compact single-line JSON for {@code node} (empty string for {@code null}). */
+	/**
+	 * Compact single-line JSON for {@code node} (empty string for {@code null}).
+	 */
 	public static String compact(JsonNode node) {
 		if (node == null || node.isMissingNode())
 			return "";
@@ -172,13 +177,15 @@ public final class JsonUtil {
 		return autoFlushPrintWriter ? new PrintWriter(w, true) : w;
 	}
 
-	/** Shortens {@code s} for log/exception messages so long payloads stay readable. */
 	public static String abbreviate(String s) {
 		if (s == null)
 			return "null";
 		final int max = 100;
 		if (s.length() <= max)
 			return s;
-		return s.substring(0, max) + "…(" + s.length() + " chars total)";
+
+		CRC32 crc = new CRC32();
+		crc.update(s.getBytes());
+		return s.substring(0, max) + "…(" + s.length() + " chars total, " + crc.getValue() + ")";
 	}
 }

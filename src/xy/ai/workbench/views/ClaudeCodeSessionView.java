@@ -299,7 +299,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	}
 
 	private String stateLabel(CCSession s) {
-		if (SessionState.Prompting.equals(s.getState()))
+		if (SessionState.Prompting.equals(s.getState()) && s.getLastSentAt() != null)
 			return s.getState().name() + " (" + (Instant.now().toEpochMilli() - s.getLastSentAt().toEpochMilli()) + ")";
 		return s.getState().name();
 	}

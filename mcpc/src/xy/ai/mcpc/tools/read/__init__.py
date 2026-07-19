@@ -32,7 +32,7 @@ def _cache_key(session_id: str, arguments: dict[str, Any]) -> str:
 
 def register_read_tool(registry: ToolRegistry) -> None:
     @registry.tool(
-        "read",
+        "read-file",
         title="Read file",
         description=(
             "Read a file as text, optionally sliced to a range. Don't use to read directories."

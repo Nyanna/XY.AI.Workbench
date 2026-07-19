@@ -34,15 +34,17 @@ public class CCSessionManager {
 			else if (!params.getHash().equals(session.getParameters().getHash()))
 				throw new IllegalStateException(
 						"Selected session parameters are incompatible with the current configuration");
+			if (session.isExpired())
+				throw new IllegalStateException("Session has expired");
 		} else if ((session = findByHash(params.getHash())) != null) {
 			LOG.info("Use param hash session, hash=" + params.getHash());
+			if (session.isExpired())
+				throw new IllegalStateException("Session has expired");
 		} else {
 			session = addSession(new CCSession(this, params));
 			LOG.info("New session created, hash=" + params.getHash());
 		}
 
-		if (session.isExpired())
-			throw new IllegalStateException("Session has expired");
 		return session;
 	}
 
