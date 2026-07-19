@@ -139,7 +139,7 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
         if not path.is_file():
             return ToolResult(
-                content=[text_content("Not a regular file.")],
+                content=[text_content("Not a regular file. Don't read directories with this tool!")],
                 is_error=True,
             )
 

@@ -182,7 +182,8 @@ class McpProtocol:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool call rejected by controller"
                 return ToolResult(
-                    content=[text_content(reason)],
+                    content=[text_content(f"DENIED: {reason}")],
+                    is_error=True,
                 ).to_dict()
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
@@ -214,7 +215,8 @@ class McpProtocol:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool result rejected by controller"
                 return ToolResult(
-                    content=[text_content(reason)],
+                    content=[text_content(f"DENIED: {reason}")],
+                    is_error=True,
                 ).to_dict()
             if decision.modified_result is not None:
                 return decision.modified_result

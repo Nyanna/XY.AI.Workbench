@@ -2,6 +2,7 @@ package xy.ai.workbench.views;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -153,7 +154,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((CCSession) e)));
 
 			createColumn("State", 15)
-					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> ((CCSession) e).getState().name()));
+					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> stateLabel((CCSession) e)));
 
 			createColumn("Detail", 65)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((CCSession) e)));
@@ -295,6 +296,12 @@ public class ClaudeCodeSessionView extends ViewPart {
 			return "";
 		int dash = id.indexOf('-');
 		return dash > 0 ? id.substring(0, dash) : id;
+	}
+
+	private String stateLabel(CCSession s) {
+		if (SessionState.Prompting.equals(s.getState()))
+			return s.getState().name() + " (" + (Instant.now().toEpochMilli() - s.getLastSentAt().toEpochMilli()) + ")";
+		return s.getState().name();
 	}
 
 	private String detailLabel(CCSession s) {

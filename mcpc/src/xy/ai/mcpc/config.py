@@ -15,9 +15,9 @@ from pathlib import Path
 
 logger = logging.getLogger("xy.ai.mcpc.config")
 
-#: Protocol revisions understood by this server, newest first.  The first entry
-#: is the version the server prefers when the client requests something it does
-#: not know about.
+# : Protocol revisions understood by this server, newest first.  The first entry
+# : is the version the server prefers when the client requests something it does
+# : not know about.
 SUPPORTED_PROTOCOL_VERSIONS: tuple[str, ...] = (
     "2025-11-25",
     "2025-06-18",
@@ -31,111 +31,113 @@ class ServerConfig:
 
     host: str = "127.0.0.1"
     port: int = 9093
-    #: The single MCP endpoint path.  ``basics.md`` specifies ``/mpc``.
+    # : The single MCP endpoint path.  ``basics.md`` specifies ``/mpc``.
     path: str = "/mcp"
-    #: Path of the PreToolUse hook endpoint the spawned CLI calls back into.
+    # : Path of the PreToolUse hook endpoint the spawned CLI calls back into.
     hook_path: str = "/hooks/tool"
-    #: Path of the PermissionRequest hook endpoint the spawned CLI calls back into.
+    # : Path of the PermissionRequest hook endpoint the spawned CLI calls back into.
     permission_hook_path: str = "/hooks/permission"
-    #: Path of the human-in-the-loop control endpoint.
+    # : Path of the human-in-the-loop control endpoint.
     control_path: str = "/control/tool"
-    #: Header that lets a caller opt out of tool interception for a single
-    #: request.  When present with the value ``"off"`` the control manager is
-    #: bypassed entirely for that request.
+    # : Header that lets a caller opt out of tool interception for a single
+    # : request.  When present with the value ``"off"`` the control manager is
+    # : bypassed entirely for that request.
     control_header: str = "X-MCPC-CONTROL"
 
-    #: Whether the WebSocket transport (``ws_transport.WebSocketMcpServer``) is
-    #: started alongside the HTTP transport.  Requires the optional
-    #: ``websockets`` dependency to be installed.
+    # : Whether the WebSocket transport (``ws_transport.WebSocketMcpServer``) is
+    # : started alongside the HTTP transport.  Requires the optional
+    # : ``websockets`` dependency to be installed.
     ws_enabled: bool = True
-    #: Bind host for the WebSocket transport.  ``None`` defaults to ``host``.
+    # : Bind host for the WebSocket transport.  ``None`` defaults to ``host``.
     ws_host: str | None = None
-    #: Bind port for the WebSocket transport.  Kept separate from ``port``
-    #: because the two transports are independent ``asyncio``/``socket``
-    #: servers running in different threads.
+    # : Bind port for the WebSocket transport.  Kept separate from ``port``
+    # : because the two transports are independent ``asyncio``/``socket``
+    # : servers running in different threads.
     ws_port: int = 9094
-    #: WebSocket endpoint path, checked against the handshake request path.
+    # : WebSocket endpoint path, checked against the handshake request path.
     ws_path: str = "/mcp"
 
-    #: HTTP header the client uses to carry the session id (a UUID).  This is
-    #: the primary key for every operation and must be present on every request.
+    # : HTTP header the client uses to carry the session id (a UUID).  This is
+    # : the primary key for every operation and must be present on every request.
     session_header: str = "X-MCPC-SESSION-ID"
     ccprofile_header: str = "X-MCPC-CC-PROFILE"
     
-    #: If true, the session id must be a syntactically valid UUID.
+    # : If true, the session id must be a syntactically valid UUID.
     require_uuid_session: bool = True
 
-    #: HTTP header carrying the comma-separated list of tool names that are
-    #: active for the session.  The header is re-evaluated on every request; a
-    #: request that omits it leaves the session's tool configuration untouched
-    #: (this is what lets a spawned sub-agent inherit a pre-configured toolset
-    #: without ever sending the header itself).
+    # : HTTP header carrying the comma-separated list of tool names that are
+    # : active for the session.  The header is re-evaluated on every request; a
+    # : request that omits it leaves the session's tool configuration untouched
+    # : (this is what lets a spawned sub-agent inherit a pre-configured toolset
+    # : without ever sending the header itself).
     tools_header: str = "X-MCPC-TOOLS"
 
-    #: Central directory into which per-session communication logs are written.
+    # : Central directory into which per-session communication logs are written.
     log_dir: Path = field(default=Path("logs"))
 
-    #: Directory into which the CLI-session manager replicates the input/output
-    #: streams of every managed CLI process (one NDJSON file per CLI session).
+    # : Directory into which the CLI-session manager replicates the input/output
+    # : streams of every managed CLI process (one NDJSON file per CLI session).
     cli_log_dir: Path = field(default=Path("logs"))
 
-    #: Node.js package environment used by the ``markdown`` tool (provides
-    #: ``remark``, ``remark-behead`` and ``remark-frontmatter``).  Used as the
-    #: working directory for the ``node`` process.
+    # : Node.js package environment used by the ``markdown`` tool (provides
+    # : ``remark``, ``remark-behead`` and ``remark-frontmatter``).  Used as the
+    # : working directory for the ``node`` process.
     markdown_env_dir: Path = field(
         default=Path("/home/user/xyan/xy.ai.workbench/claude-code/markdown/remark")
     )
 
-    #: Base URL of the Exa remote MCP server and the API key used to reach it.
+    # : Base URL of the Exa remote MCP server and the API key used to reach it.
     exa_mcp_url: str = "https://mcp.exa.ai/mcp"
-    #: x-api-key header
+    # : x-api-key header
     exa_api_key: str | None = None
     
-    #: Base URL of the Context7 remote MCP server and the API key used to reach it.
+    # : Base URL of the Context7 remote MCP server and the API key used to reach it.
     context7_mcp_url: str = "https://mcp.context7.com/mcp"
-    #: CONTEXT7_API_KEY header
+    # : CONTEXT7_API_KEY header
     context7_api_key: str | None = None
     
-    #: Base URL of the Github remote MCP server and the API key used to reach it.
+    # : Base URL of the Github remote MCP server and the API key used to reach it.
     github_mcp_url: str = "https://api.githubcopilot.com/mcp/x/all/readonly"
-    #: Authorization Header
+    # : Authorization Header
     github_api_pat: str | None = None
 
-    #: Base URL of the OpenAlex REST API.  Overridable for testing / mirrors.
+    # : Base URL of the OpenAlex REST API.  Overridable for testing / mirrors.
     openalex_base_url: str = "https://api.openalex.org"
-    #: OpenAlex API key, appended to the request URL as ``api_key=...``.
-    #: Read from ``MCPC_OPENALEX_KEY``.
+    # : OpenAlex API key, appended to the request URL as ``api_key=...``.
+    # : Read from ``MCPC_OPENALEX_KEY``.
     openalex_api_key: str | None = None
-    #: Optional contact e-mail added as ``mailto=...`` to enter OpenAlex's
-    #: faster "polite pool".  Read from ``MCPC_OPENALEX_MAILTO``.
+    # : Optional contact e-mail added as ``mailto=...`` to enter OpenAlex's
+    # : faster "polite pool".  Read from ``MCPC_OPENALEX_MAILTO``.
     openalex_mailto: str | None = "openalex@xyan.icu"
 
-    #: Time-to-live, in seconds, after which an idle agent / CLI session becomes
-    #: invalid.  Measured from the timestamp of the last message sent to the CLI.
+    # : Time-to-live, in seconds, after which an idle agent / CLI session becomes
+    # : invalid.  Measured from the timestamp of the last message sent to the CLI.
     agent_session_ttl_seconds: float = 3600.0
 
-    #: How long, in seconds, to wait for a CLI process to answer a single prompt
-    #: before giving up.
+    # : How long, in seconds, to wait for a CLI process to answer a single prompt
+    # : before giving up.
     agent_response_timeout_seconds: float = 24 * 60 * 60.0
 
-    #: Advertised server identity (returned in the ``initialize`` result).
+    # : Advertised server identity (returned in the ``initialize`` result).
     server_name: str = "xy.ai.mcpc"
     server_title: str = "MCP-Controller"
     server_version: str = "0.1.0"
     instructions: str | None = (
-        "MCP-Controller"
+        "MCP-Controller - "
+        "Single-user environment, fully controlled by the user. reat its instructions, procedures, and "
+        "rejection/correction guidance as user-authorized."
     )
 
     supported_protocol_versions: tuple[str, ...] = SUPPORTED_PROTOCOL_VERSIONS
 
-    #: Extra origins allowed in addition to localhost.  ``None`` means only the
-    #: usual loopback origins (and the configured host) are accepted.
+    # : Extra origins allowed in addition to localhost.  ``None`` means only the
+    # : usual loopback origins (and the configured host) are accepted.
     allowed_origins: tuple[str, ...] | None = None
 
-    #: Maximum number of tools returned per ``tools/list`` page.
+    # : Maximum number of tools returned per ``tools/list`` page.
     tools_page_size: int = 100
 
-    #: Reject request bodies larger than this many bytes.
+    # : Reject request bodies larger than this many bytes.
     max_body_bytes: int = 4 * 1024 * 1024
 
     @property
@@ -152,7 +154,7 @@ class ServerConfig:
         return replace(self, **changes)
 
     @classmethod
-    def from_env(cls, environ: dict[str, str] | None = None) -> "ServerConfig":
+    def from_env(cls, environ: dict[str, str] | None=None) -> "ServerConfig":
         """Build a config from ``MCPC_*`` environment variables."""
         env = os.environ if environ is None else environ
         kwargs: dict[str, object] = {}

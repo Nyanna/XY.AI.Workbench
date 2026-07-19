@@ -34,7 +34,7 @@ public class CCSession {
 	@SuppressWarnings("unused")
 	private Instant startedAt;
 	/** The last time a prompt was sent to STDIN. Determines TTL. */
-	private Instant lastSentAt;
+	private Instant lastSentAt = Instant.now();
 	private volatile Instant lastReceivedAt;
 
 	public final TokenStats stats = new TokenStats();
@@ -192,6 +192,7 @@ public class CCSession {
 		try {
 			var line = reader.readLine();
 			mirrorLine(line);
+			lastSentAt = Instant.now();
 
 			return line;
 		} catch (IOException e) {

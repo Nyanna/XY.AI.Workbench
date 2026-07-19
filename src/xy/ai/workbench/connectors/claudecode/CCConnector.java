@@ -175,6 +175,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				session.stats.totalinToken = session.stats.inputToken + session.stats.cacheCreate;
 				return resp;
 			}
+			sessionManager.onSessionChanged(session);
 		}
 	}
 

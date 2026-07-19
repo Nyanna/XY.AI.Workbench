@@ -110,6 +110,37 @@ def normalize_result(value: "ToolResult | str | dict[str, Any] | None") -> ToolR
     raise TypeError(f"Unsupported tool return type: {type(value)!r}")
 
 
+#: Name of the mandatory reason property injected into every tool's input
+#: schema (see :func:`_with_mandatory_reason`).
+REASON_PROPERTY = "reason"
+
+
+def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return *schema* with a mandatory, short ``reason`` property injected.
+
+    Every tool call must carry an extremely short reason/goal for the call so
+    the authorizing user can review it (e.g. via the human-in-the-loop
+    control layer) before or while it executes. This is applied centrally at
+    registration time so individual tool modules never need to declare it
+    themselves.
+    """
+    schema = dict(schema)
+    properties = dict(schema.get("properties", {}))
+    properties[REASON_PROPERTY] = {
+        "type": "string",
+        "reason": (
+            "Extremely short reason/goal for this specific tool call, "
+            "shown to the authorizing user for review."
+        ),
+    }
+    schema["properties"] = properties
+    required = list(schema.get("required", []))
+    if REASON_PROPERTY not in required:
+        required.append(REASON_PROPERTY)
+    schema["required"] = required
+    return schema
+
+
 class ToolRegistry:
     """Process-wide registry of available tools."""
 
@@ -119,6 +150,7 @@ class ToolRegistry:
     def register(self, tool: Tool) -> Tool:
         if tool.name in self._tools:
             raise ValueError(f"Tool already registered: {tool.name}")
+        tool.input_schema = _with_mandatory_reason(tool.input_schema)
         self._tools[tool.name] = tool
         return tool
 

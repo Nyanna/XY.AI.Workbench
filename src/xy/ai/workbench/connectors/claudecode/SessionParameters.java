@@ -185,6 +185,7 @@ public class SessionParameters {
 			pb.environment().put("CLAUDE_CODE_FORK_SUBAGENT", "0");
 			pb.environment().put("CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", "1"); // number of parralel read tools
 			pb.environment().put("ENABLE_TOOL_SEARCH", "false");
+			pb.environment().put("MAX_MCP_OUTPUT_TOKENS", "" + (25000 * 10));
 		}
 
 		if (cacheMode != null)
