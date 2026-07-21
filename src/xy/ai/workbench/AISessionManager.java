@@ -179,8 +179,6 @@ public class AISessionManager {
 							throw new IllegalStateException(e);
 						}
 					}
-				} else {
-					throw new IllegalStateException("Context prompt is not supported for non project files");
 				}
 			}
 			break;

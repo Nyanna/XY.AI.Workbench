@@ -82,10 +82,10 @@ public class CCSession {
 	}
 
 	public SessionState getState() {
-		if (isExpired())
-			return SessionState.Expired;
 		if (inPrompt)
 			return SessionState.Prompting;
+		if (isExpired())
+			return SessionState.Expired;
 		if (isProcessAlive())
 			return SessionState.Open;
 		return SessionState.Created;
