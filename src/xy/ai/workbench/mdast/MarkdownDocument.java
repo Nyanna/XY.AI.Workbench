@@ -101,6 +101,10 @@ public class MarkdownDocument {
 		node.end += delta;
 	}
 
+	public Node getRoot() {
+		return root;
+	}
+
 	public Node find(int lo, int hi) {
 		return find(root, lo, hi);
 	}

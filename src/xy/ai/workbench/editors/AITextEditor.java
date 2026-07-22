@@ -13,11 +13,14 @@ import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.IVerticalRuler;
 import org.eclipse.jface.text.source.IVerticalRulerColumn;
 import org.eclipse.jface.text.source.SourceViewer;
+import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.editors.text.TextEditor;
+import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 
 import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
 import xy.ai.workbench.mdast.MarkdownDocument;
+import xy.ai.workbench.mdast.nodes.Node;
 
 public class AITextEditor extends TextEditor {
 	private static final int LIMIT = 512 * 1024;
@@ -29,12 +32,15 @@ public class AITextEditor extends TextEditor {
 	private DocumentBuffer astBuffer;
 	private int pendingRemoved;
 
+	private MarkdownOutlinePage outlinePage;
+
 	private final IDocumentListener docListener = new IDocumentListener() {
 		@Override
 		public void documentChanged(DocumentEvent evt) {
 			updateRulerVisibility(evt.getDocument());
 			updateLineNumbers(evt.getDocument());
 			updateAst(evt);
+			refreshOutline();
 		}
 
 		@Override
@@ -69,9 +75,11 @@ public class AITextEditor extends TextEditor {
 					updateRulerVisibility(newInput); // initialer Check
 					updateLineNumbers(newInput);
 					buildAst(newInput);
+					refreshOutline();
 				} else {
 					ast = null;
 					astBuffer = null;
+					refreshOutline();
 				}
 			}
 		});
@@ -83,6 +91,39 @@ public class AITextEditor extends TextEditor {
 	public void createPartControl(Composite parent) {
 		super.createPartControl(parent);
 		SpellCheckInstaller.installPainter(getSourceViewer());
+
+		if (getSourceViewer() != null && getSourceViewer().getTextWidget() instanceof StyledText widget)
+			widget.addCaretListener(evt -> handleCaretMoved(evt.caretOffset));
+	}
+
+	private void handleCaretMoved(int offset) {
+		if (outlinePage != null)
+			outlinePage.selectNodeForOffset(offset);
+	}
+
+	@Override
+	public <T> T getAdapter(Class<T> adapter) {
+		if (IContentOutlinePage.class.equals(adapter)) {
+			if (outlinePage == null)
+				outlinePage = new MarkdownOutlinePage(this);
+			return adapter.cast(outlinePage);
+		}
+		return super.getAdapter(adapter);
+	}
+
+	private void refreshOutline() {
+		if (outlinePage != null)
+			outlinePage.refresh();
+	}
+
+	public void selectAndRevealNode(Node node) {
+		if (node == null)
+			return;
+		selectAndReveal(node.getOffset(), node.length());
+	}
+
+	public IDocument getMarkdownDocument() {
+		return astBuffer != null ? astBuffer.document() : null;
 	}
 
 	@Override
