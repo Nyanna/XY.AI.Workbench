@@ -2,7 +2,6 @@ package xy.ai.workbench.tools;
 
 import java.util.Arrays;
 
-// TODO index should be addon for scanner
 public class LineIndex {
 	private static final int DEFAULT_SEGMENT = 1 << 16; // 64K
 	private static final char[] EMPTY = new char[0];
@@ -74,6 +73,29 @@ public class LineIndex {
 
 		count = resultCount;
 		bufferLength += delta;
+	}
+
+	public void addOffset(int offset) {
+		if (count > 0 && offset <= nlIndex[count - 1]) {
+			int idx = lowerBound(offset);
+			if (idx < count && nlIndex[idx] == offset)
+				return; // offset already present, nothing to do
+			ensureCapacity(count + 1);
+			insertShifted(idx, offset);
+		} else {
+			ensureCapacity(count + 1);
+			nlIndex[count++] = offset;
+		}
+		if (offset >= bufferLength)
+			bufferLength = offset + 1;
+	}
+
+	private void insertShifted(int idx, int offset) {
+		int tailLen = count - idx;
+		if (tailLen > 0)
+			System.arraycopy(nlIndex, idx, nlIndex, idx + 1, tailLen);
+		nlIndex[idx] = offset;
+		count++;
 	}
 
 	public int lineCount() {

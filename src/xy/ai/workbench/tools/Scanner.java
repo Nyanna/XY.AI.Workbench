@@ -4,6 +4,7 @@ public class Scanner {
 	private char[] NUMBERS = "0123456789".toCharArray();
 	private CharacterScanner scan;
 	private Scanner parent;
+	private LineIndex lineIndex;
 	private int p;
 	private int c;
 	private int readCount = 0;
@@ -69,7 +70,7 @@ public class Scanner {
 
 	public boolean read(int count) {
 		for (; count > 0 && readNext(); count--)
-			read();
+			; // consume
 		return count == 0;
 	}
 
@@ -79,6 +80,8 @@ public class Scanner {
 
 	public boolean readNext() {
 		read();
+		if (lineIndex != null && isNewLine())
+			lineIndex.addOffset(readCount);
 		return !isEOF();
 	}
 
@@ -111,6 +114,14 @@ public class Scanner {
 
 	public boolean isNumber() {
 		return isOneOf(NUMBERS);
+	}
+
+	public void setLineIndex(LineIndex lineIndex) {
+		this.lineIndex = lineIndex;
+	}
+
+	public LineIndex getLineIndex() {
+		return lineIndex;
 	}
 
 	public interface CharacterScanner {
