@@ -1,7 +1,5 @@
 package xy.ai.workbench.mdast.nodes;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 import xy.ai.workbench.tools.Scanner;
@@ -18,20 +16,26 @@ public abstract class AbstractNode {
 		return category;
 	}
 
+	public boolean containChild(AbstractNode child) {
+		for (AbstractNode c : getChildNodes())
+			if (c == child)
+				return true;
+		return false;
+	}
+
 	private boolean isEnd(Scanner s, Node n) {
 		return n.parent != null && n.parent.instance.isEnd(s, n.parent) || isEndInner(s);
 	}
 
 	public final boolean scan(Scanner s, Node n) {
-		int actual = s.getReadCount();
 		if (!isStart(s))
 			return false;
-		n.start = actual - (n.parent != null ? n.parent.start : 0);
 
 		nextChar: while (!isEnd(s, n)) {
 			for (var child : getChildNodes()) {
-				Scanner sub = new Scanner(s);
 				var nn = new Node(n, child);
+				nn.start = s.getReadCount();
+				Scanner sub = new Scanner(s);
 
 				if (child.scan(sub, nn)) {
 					n.children.add(nn);
@@ -42,7 +46,7 @@ public abstract class AbstractNode {
 			if (!s.readNext())
 				break;
 		}
-		n.end = s.getReadCount() - (n.parent != null ? n.parent.start : 0);
+		n.end = n.start + s.getReadCount();
 		return true;
 	}
 
@@ -51,24 +55,6 @@ public abstract class AbstractNode {
 	protected abstract boolean isStart(Scanner s);
 
 	protected abstract boolean isEndInner(Scanner s);
-
-	public static class Node {
-		public final Node parent;
-		public final AbstractNode instance;
-		public final List<Node> children = new ArrayList<>();
-		public int start;
-		public int end;
-
-		public Node(Node parent, AbstractNode instance) {
-			super();
-			this.parent = parent;
-			this.instance = instance;
-		}
-
-		public int getOffset() {
-			return start + (parent != null ? parent.getOffset() : 0);
-		}
-	}
 
 	@Override
 	public int hashCode() {

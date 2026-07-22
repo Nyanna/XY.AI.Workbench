@@ -3,6 +3,7 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class Root extends AbstractNode {
+	public static final Root INSTANCE = new Root();
 	// contains all possible
 	private AbstractNode[] childNodes = new AbstractNode[] { //
 			HeadingSection.HEADINGS[0], //
@@ -14,7 +15,7 @@ public class Root extends AbstractNode {
 			Paragraph.INSTANCE //
 	};
 
-	public Root() {
+	private Root() {
 		super(Category.Section);
 	}
 

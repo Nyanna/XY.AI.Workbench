@@ -7,13 +7,14 @@ public class LineIndex {
 	private static final char[] EMPTY = new char[0];
 
 	private int[] nlIndex = new int[64];
-	private int count; // valid entries in index
+	// valid entries in index
+	private int count;
 	private int bufferLength;
 	private int[] scratch = new int[64];
 
 	public void update(Buffer buffer) {
 		int len = buffer.length();
-		this.count = 0;
+		reset();
 		this.bufferLength = len;
 		if (len == 0)
 			return;
@@ -24,6 +25,10 @@ public class LineIndex {
 			buffer.getChars(off, n, seg, 0);
 			update(seg, 0, n, off, n);
 		}
+	}
+
+	public void reset() {
+		this.count = 0;
 	}
 
 	public void update(Buffer buffer, int offset, int removedLen, int insertedLen) {

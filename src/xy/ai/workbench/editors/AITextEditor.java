@@ -17,6 +17,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.editors.text.TextEditor;
 
 import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
+import xy.ai.workbench.mdast.MarkdownDocument;
 
 public class AITextEditor extends TextEditor {
 	private static final int LIMIT = 512 * 1024;
@@ -24,15 +25,21 @@ public class AITextEditor extends TextEditor {
 	private CompositeRuler ruler;
 	private List<IVerticalRulerColumn> decorators = new ArrayList<>();
 
+	private MarkdownDocument ast;
+	private DocumentBuffer astBuffer;
+	private int pendingRemoved;
+
 	private final IDocumentListener docListener = new IDocumentListener() {
 		@Override
 		public void documentChanged(DocumentEvent evt) {
 			updateRulerVisibility(evt.getDocument());
 			updateLineNumbers(evt.getDocument());
+			updateAst(evt);
 		}
 
 		@Override
 		public void documentAboutToBeChanged(DocumentEvent evt) {
+			pendingRemoved = evt.getLength();
 		}
 	};
 
@@ -61,6 +68,10 @@ public class AITextEditor extends TextEditor {
 					newInput.addDocumentListener(docListener);
 					updateRulerVisibility(newInput); // initialer Check
 					updateLineNumbers(newInput);
+					buildAst(newInput);
+				} else {
+					ast = null;
+					astBuffer = null;
 				}
 			}
 		});
@@ -77,6 +88,24 @@ public class AITextEditor extends TextEditor {
 	@Override
 	protected boolean getInitialWordWrapStatus() {
 		return true;
+	}
+
+	private void buildAst(IDocument document) {
+		astBuffer = new DocumentBuffer(document);
+		ast = new MarkdownDocument(astBuffer);
+		ast.update(0, 0, astBuffer.length());
+	}
+
+	private void updateAst(DocumentEvent evt) {
+		if (ast == null || astBuffer == null || astBuffer.document() != evt.getDocument())
+			return;
+		String text = evt.getText();
+		int inserted = text == null ? 0 : text.length();
+		ast.update(evt.getOffset(), pendingRemoved, inserted);
+	}
+
+	public MarkdownDocument getMarkdownAst() {
+		return ast;
 	}
 
 	private void updateRulerVisibility(IDocument document) {
