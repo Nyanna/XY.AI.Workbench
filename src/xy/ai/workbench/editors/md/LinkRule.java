@@ -4,6 +4,8 @@ import org.eclipse.jface.text.rules.ICharacterScanner;
 import org.eclipse.jface.text.rules.IToken;
 import org.eclipse.jface.text.rules.Token;
 
+import xy.ai.workbench.tools.Scanner;
+
 /**
  * Recognizes exactly three link patterns, none of which may span a line break:
  * <ol>

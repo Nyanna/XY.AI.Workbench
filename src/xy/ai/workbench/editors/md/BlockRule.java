@@ -2,6 +2,8 @@ package xy.ai.workbench.editors.md;
 
 import org.eclipse.jface.text.rules.IToken;
 
+import xy.ai.workbench.tools.Scanner;
+
 public class BlockRule extends AbstractRule {
 	private static final int LIMIT = 20 * 200; // 20 lines a 200 chars
 	private char[] intermediateBreaks;

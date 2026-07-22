@@ -2,6 +2,8 @@ package xy.ai.workbench.editors.md;
 
 import org.eclipse.jface.text.rules.IToken;
 
+import xy.ai.workbench.tools.Scanner;
+
 public class WordRule extends AbstractRule {
 	private char[] word;
 

@@ -2,6 +2,8 @@ package xy.ai.workbench.editors.md;
 
 import org.eclipse.jface.text.rules.IToken;
 
+import xy.ai.workbench.tools.Scanner;
+
 public class EmphasisRule extends AbstractRule {
 	private static final int MAX_READ = 200;
 	private char[] sseq;
