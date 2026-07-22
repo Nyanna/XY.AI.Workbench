@@ -110,12 +110,16 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
                     "type": "number",
                     "description": "Average number of words per line.",
                 },
+                "checksum": {
+                    "type": "string",
+                    "description": "sha256 checksum of the file content.",
+                },
             },
             "required": [
                 "path", "size_bytes", "lines", "words", "complexity",
                 "created", "modified", "accessed",
                 "line_length_max", "line_length_min", "line_length_avg",
-                "words_per_line_avg"
+                "words_per_line_avg", "checksum"
             ],
         },
         annotations={"readOnlyHint": True, "openWorldHint": False},
@@ -156,6 +160,9 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
         
         # Complexity
         complexity = _calculate_complexity(text)
+
+        # Checksum
+        checksum = hashlib.sha256(text.encode("utf-8")).hexdigest()
         
         # Line length stats
         line_lengths = [len(line) for line in lines] if lines else [0]
@@ -198,6 +205,7 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
             "line_length_min": line_length_min,
             "line_length_avg": line_length_avg,
             "words_per_line_avg": words_per_line_avg,
+            "checksum": checksum,
         }
 
         return ToolResult(
