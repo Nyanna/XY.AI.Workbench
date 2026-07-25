@@ -40,7 +40,7 @@ public abstract class AbstractNode {
 
 				if (child.scan(sub, nn)) {
 					n.children.add(nn);
-					nn.enableSpellcheck = child.enableSpellcheck;
+					nn.enableSpellcheck = child.enableSpellcheck && enableSpellcheck;
 					continue nextChar;
 				} else
 					sub.reset();
