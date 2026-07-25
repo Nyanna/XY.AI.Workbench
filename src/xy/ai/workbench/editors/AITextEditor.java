@@ -21,6 +21,7 @@ import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 
 import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
 import xy.ai.workbench.mdast.MarkdownDocument;
+import xy.ai.workbench.mdast.TextRegion;
 import xy.ai.workbench.mdast.nodes.Node;
 
 public class AITextEditor extends TextEditor {
@@ -32,6 +33,7 @@ public class AITextEditor extends TextEditor {
 	private MarkdownDocument ast;
 	private DocumentBuffer astBuffer;
 	private int pendingRemoved;
+	private TextRegion lastAstChangeRegion;
 
 	private MarkdownOutlinePage outlinePage;
 
@@ -52,7 +54,7 @@ public class AITextEditor extends TextEditor {
 
 	public AITextEditor() {
 		super();
-		setSourceViewerConfiguration(new AISourceViewerConfiguration());
+		setSourceViewerConfiguration(new AISourceViewerConfiguration(this));
 	}
 
 	@Override
@@ -138,7 +140,7 @@ public class AITextEditor extends TextEditor {
 	private void buildAst(IDocument document) {
 		astBuffer = new DocumentBuffer(document);
 		ast = new MarkdownDocument(astBuffer);
-		ast.update(0, 0, astBuffer.length());
+		lastAstChangeRegion = ast.update(0, 0, astBuffer.length());
 	}
 
 	private void updateAst(DocumentEvent evt) {
@@ -146,11 +148,15 @@ public class AITextEditor extends TextEditor {
 			return;
 		String text = evt.getText();
 		int inserted = text == null ? 0 : text.length();
-		ast.update(evt.getOffset(), pendingRemoved, inserted);
+		lastAstChangeRegion = ast.update(evt.getOffset(), pendingRemoved, inserted);
 	}
 
 	public MarkdownDocument getMarkdownAst() {
 		return ast;
+	}
+
+	public TextRegion getLastAstChangeRegion() {
+		return lastAstChangeRegion;
 	}
 
 	private void updateRulerVisibility(IDocument document) {

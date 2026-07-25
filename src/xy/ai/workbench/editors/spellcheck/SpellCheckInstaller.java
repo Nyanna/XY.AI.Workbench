@@ -9,13 +9,15 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
+import xy.ai.workbench.editors.AITextEditor;
+
 public class SpellCheckInstaller {
 
     private static final int RECONCILE_DELAY_MS = 500;
 
-    public static IReconciler createReconciler(ISourceViewer sourceViewer) {
+    public static IReconciler createReconciler(ISourceViewer sourceViewer, AITextEditor editor) {
         SpellingStrategy strategy = new SpellingStrategy(sourceViewer);
-        return new SpellCheckReconciler(strategy, RECONCILE_DELAY_MS);
+        return new SpellCheckReconciler(strategy, RECONCILE_DELAY_MS, editor);
     }
 
     public static void installPainter(ISourceViewer sourceViewer) {

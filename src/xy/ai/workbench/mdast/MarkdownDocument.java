@@ -17,7 +17,7 @@ public class MarkdownDocument {
 		this.buffer = buffer;
 	}
 
-	public void update(int offset, int removed, int inserted) {
+	public TextRegion update(int offset, int removed, int inserted) {
 		int lo = offset;
 		int hi = offset + removed;
 		int delta = inserted - removed;
@@ -32,7 +32,7 @@ public class MarkdownDocument {
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
 				replace(sec, rn.children, delta);
-				return;
+				return new TextRegion(absStart, newLen);
 			}
 			sec = parent;
 		}

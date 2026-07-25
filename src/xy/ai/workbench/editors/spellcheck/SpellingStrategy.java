@@ -12,6 +12,7 @@ import org.eclipse.jface.text.Position;
 import org.eclipse.jface.text.Region;
 import org.eclipse.jface.text.reconciler.DirtyRegion;
 import org.eclipse.jface.text.reconciler.IReconcilingStrategy;
+import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.jface.text.source.Annotation;
 import org.eclipse.jface.text.source.IAnnotationModel;
 import org.eclipse.jface.text.source.IAnnotationModelExtension;
@@ -120,7 +121,12 @@ public class SpellingStrategy implements IReconcilingStrategy {
 			((IAnnotationModelExtension) model).replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
 		}
 
-		// Explicitly invalidate the region so the AnnotationPainter redraws it.
-		fViewer.invalidateTextPresentation();
+		// Explicitly invalidate only the checked region so the AnnotationPainter
+		// redraws it, instead of the whole viewer's text presentation.
+		if (fViewer instanceof ITextViewerExtension2) {
+			((ITextViewerExtension2) fViewer).invalidateTextPresentation(region.getOffset(), region.getLength());
+		} else {
+			fViewer.invalidateTextPresentation();
+		}
 	}
 }

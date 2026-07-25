@@ -18,13 +18,20 @@ import org.eclipse.swt.graphics.Font;
 
 import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;
 import xy.ai.workbench.editors.spellcheck.SpellingQuickAssistProcessor;
+import xy.ai.workbench.mdast.TextRegion;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 	private static final int LIMIT = 512 * 1024;
 
+	private final AITextEditor editor;
+
+	public AISourceViewerConfiguration(AITextEditor editor) {
+		this.editor = editor;
+	}
+
 	@Override
 	public IReconciler getReconciler(ISourceViewer sourceViewer) {
-		return SpellCheckInstaller.createReconciler(sourceViewer);
+		return SpellCheckInstaller.createReconciler(sourceViewer, editor);
 	}
 
 	@Override
@@ -53,10 +60,20 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 			public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e,
 					boolean documentPartitioningChanged) {
 				IDocument document = sourceViewer.getDocument();
-				if (document != null && document.getLength() > LIMIT)
+				if (document == null)
+					return partition;
+				if (document.getLength() > LIMIT)
 					return new Region(0, 1);
-				return new Region(0, document.getLength());
-//				return super.getDamageRegion(partition, e, documentPartitioningChanged);
+
+				TextRegion astRegion = editor != null ? editor.getLastAstChangeRegion() : null;
+				if (astRegion != null) {
+					int offset = Math.max(0, Math.min(astRegion.offset(), document.getLength()));
+					int end = Math.max(offset, Math.min(astRegion.offset() + astRegion.length(),
+							document.getLength()));
+					return new Region(offset, end - offset);
+				}
+
+				return super.getDamageRegion(partition, e, documentPartitioningChanged);
 			}
 		};
 		reconciler.setDamager(dr, IDocument.DEFAULT_CONTENT_TYPE);

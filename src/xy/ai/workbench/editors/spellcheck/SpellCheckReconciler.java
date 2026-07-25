@@ -15,6 +15,9 @@ import org.eclipse.jface.text.Region;
 import org.eclipse.jface.text.reconciler.IReconciler;
 import org.eclipse.jface.text.reconciler.IReconcilingStrategy;
 
+import xy.ai.workbench.editors.AITextEditor;
+import xy.ai.workbench.mdast.TextRegion;
+
 /**
  * Reconciler that tracks only the document region actually changed by the user.
  * <p>
@@ -27,6 +30,7 @@ public class SpellCheckReconciler implements IReconciler {
 
     private final SpellingStrategy fStrategy;
     private final int fDelayMs;
+    private final AITextEditor fEditor;
 
     private ITextViewer fViewer;
     private IDocument fDocument;
@@ -53,10 +57,18 @@ public class SpellCheckReconciler implements IReconciler {
 
         @Override
         public void documentChanged(DocumentEvent event) {
-            int start = event.getOffset();
-            int end   = start + Math.max(
-                    event.getLength(),
-                    event.getText() != null ? event.getText().length() : 0);
+            TextRegion astRegion = fEditor != null ? fEditor.getLastAstChangeRegion() : null;
+            int start;
+            int end;
+            if (astRegion != null) {
+                start = astRegion.offset();
+                end   = astRegion.offset() + astRegion.length();
+            } else {
+                start = event.getOffset();
+                end   = start + Math.max(
+                        event.getLength(),
+                        event.getText() != null ? event.getText().length() : 0);
+            }
             mergeDirty(start, Math.max(end, start + 1));
             scheduleReconcile();
         }
@@ -85,9 +97,10 @@ public class SpellCheckReconciler implements IReconciler {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    public SpellCheckReconciler(SpellingStrategy strategy, int delayMs) {
+    public SpellCheckReconciler(SpellingStrategy strategy, int delayMs, AITextEditor editor) {
         fStrategy = strategy;
         fDelayMs  = delayMs;
+        fEditor   = editor;
     }
 
     // ── IReconciler ────────────────────────────────────────────────────────────
