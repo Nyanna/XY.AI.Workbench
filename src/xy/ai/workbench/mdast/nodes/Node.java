@@ -9,6 +9,7 @@ public class Node {
 	public final List<Node> children = new ArrayList<>();
 	public int start;
 	public int end;
+	public boolean enableSpellcheck;
 
 	public Node(Node parent, AbstractNode instance) {
 		super();

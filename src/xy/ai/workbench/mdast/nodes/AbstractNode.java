@@ -6,6 +6,7 @@ import xy.ai.workbench.tools.Scanner;
 
 public abstract class AbstractNode {
 	private Category category;
+	protected boolean enableSpellcheck;
 
 	public AbstractNode(Category category) {
 		Objects.requireNonNull(category);
@@ -39,6 +40,7 @@ public abstract class AbstractNode {
 
 				if (child.scan(sub, nn)) {
 					n.children.add(nn);
+					nn.enableSpellcheck = child.enableSpellcheck;
 					continue nextChar;
 				} else
 					sub.reset();
