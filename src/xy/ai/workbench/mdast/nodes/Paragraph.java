@@ -11,6 +11,7 @@ public class Paragraph extends AbstractNode {
 
 	private Paragraph() {
 		super(Category.Section);
+		this.enableSpellcheck = true;
 	}
 
 	@Override
@@ -43,15 +44,5 @@ public class Paragraph extends AbstractNode {
 	@Override
 	protected AbstractNode[] getChildNodes() {
 		return childNodes;
-	}
-
-	@Override
-	public int hashCode() {
-		return getClass().hashCode();
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		return obj != null && getClass().equals(obj.getClass());
 	}
 }

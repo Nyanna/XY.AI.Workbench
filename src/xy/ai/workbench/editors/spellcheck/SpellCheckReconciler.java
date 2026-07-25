@@ -28,142 +28,141 @@ import xy.ai.workbench.mdast.TextRegion;
  */
 public class SpellCheckReconciler implements IReconciler {
 
-    private final SpellingStrategy fStrategy;
-    private final int fDelayMs;
-    private final AITextEditor fEditor;
+	private final SpellingStrategy fStrategy;
+	private final int fDelayMs;
+	private final AITextEditor fEditor;
 
-    private ITextViewer fViewer;
-    private IDocument fDocument;
+	private ITextViewer fViewer;
+	private IDocument fDocument;
 
-    // Pending dirty region – merged across rapid edits; guarded by 'this'.
-    private int fDirtyStart = Integer.MAX_VALUE;
-    private int fDirtyEnd   = 0;
+	// Pending dirty region – merged across rapid edits; guarded by 'this'.
+	private int fDirtyStart = Integer.MAX_VALUE;
+	private int fDirtyEnd = 0;
 
-    private final ScheduledExecutorService fScheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "SpellCheck-Reconciler");
-                t.setDaemon(true);
-                return t;
-            });
+	private final ScheduledExecutorService fScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+		Thread t = new Thread(r, "SpellCheck-Reconciler");
+		t.setDaemon(true);
+		return t;
+	});
 
-    private ScheduledFuture<?> fPending;
+	private ScheduledFuture<?> fPending;
 
-    // ── Listeners ──────────────────────────────────────────────────────────────
+	// ── Listeners ──────────────────────────────────────────────────────────────
 
-    private final IDocumentListener fDocumentListener = new IDocumentListener() {
-        @Override
-        public void documentAboutToBeChanged(DocumentEvent event) {
-        }
+	private final IDocumentListener fDocumentListener = new IDocumentListener() {
+		@Override
+		public void documentAboutToBeChanged(DocumentEvent event) {
+		}
 
-        @Override
-        public void documentChanged(DocumentEvent event) {
-            TextRegion astRegion = fEditor != null ? fEditor.getLastAstChangeRegion() : null;
-            int start;
-            int end;
-            if (astRegion != null) {
-                start = astRegion.offset();
-                end   = astRegion.offset() + astRegion.length();
-            } else {
-                start = event.getOffset();
-                end   = start + Math.max(
-                        event.getLength(),
-                        event.getText() != null ? event.getText().length() : 0);
-            }
-            mergeDirty(start, Math.max(end, start + 1));
-            scheduleReconcile();
-        }
-    };
+		@Override
+		public void documentChanged(DocumentEvent event) {
+			TextRegion astRegion = fEditor != null ? fEditor.getLastAstChangeRegion() : null;
+			int start;
+			int end;
+			if (astRegion != null) {
+				if (!astRegion.n().enableSpellcheck)
+					return;
+				start = astRegion.offset();
+				end = astRegion.offset() + astRegion.length();
+			} else {
+				start = event.getOffset();
+				end = start + Math.max(event.getLength(), event.getText() != null ? event.getText().length() : 0);
+			}
+			mergeDirty(start, Math.max(end, start + 1));
+			scheduleReconcile();
+		}
+	};
 
-    private final ITextInputListener fTextInputListener = new ITextInputListener() {
-        @Override
-        public void inputDocumentAboutToBeChanged(IDocument oldInput, IDocument newInput) {
-            if (oldInput != null) {
-                oldInput.removeDocumentListener(fDocumentListener);
-            }
-        }
+	private final ITextInputListener fTextInputListener = new ITextInputListener() {
+		@Override
+		public void inputDocumentAboutToBeChanged(IDocument oldInput, IDocument newInput) {
+			if (oldInput != null) {
+				oldInput.removeDocumentListener(fDocumentListener);
+			}
+		}
 
-        @Override
-        public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
-            fDocument = newInput;
-            fStrategy.setDocument(newInput);
-            if (newInput != null) {
-                newInput.addDocumentListener(fDocumentListener);
-                // Trigger a full-document check on the initial load.
-                mergeDirty(0, newInput.getLength());
-                scheduleReconcile();
-            }
-        }
-    };
+		@Override
+		public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
+			fDocument = newInput;
+			fStrategy.setDocument(newInput);
+			if (newInput != null) {
+				newInput.addDocumentListener(fDocumentListener);
+				// Trigger a full-document check on the initial load.
+				mergeDirty(0, newInput.getLength());
+				scheduleReconcile();
+			}
+		}
+	};
 
-    // ── Constructor ────────────────────────────────────────────────────────────
+	// ── Constructor ────────────────────────────────────────────────────────────
 
-    public SpellCheckReconciler(SpellingStrategy strategy, int delayMs, AITextEditor editor) {
-        fStrategy = strategy;
-        fDelayMs  = delayMs;
-        fEditor   = editor;
-    }
+	public SpellCheckReconciler(SpellingStrategy strategy, int delayMs, AITextEditor editor) {
+		fStrategy = strategy;
+		fDelayMs = delayMs;
+		fEditor = editor;
+	}
 
-    // ── IReconciler ────────────────────────────────────────────────────────────
+	// ── IReconciler ────────────────────────────────────────────────────────────
 
-    @Override
-    public void install(ITextViewer textViewer) {
-        fViewer = textViewer;
-        textViewer.addTextInputListener(fTextInputListener);
+	@Override
+	public void install(ITextViewer textViewer) {
+		fViewer = textViewer;
+		textViewer.addTextInputListener(fTextInputListener);
 
-        // Handle a document that is already set on the viewer.
-        IDocument doc = textViewer.getDocument();
-        if (doc != null) {
-            fTextInputListener.inputDocumentChanged(null, doc);
-        }
-    }
+		// Handle a document that is already set on the viewer.
+		IDocument doc = textViewer.getDocument();
+		if (doc != null) {
+			fTextInputListener.inputDocumentChanged(null, doc);
+		}
+	}
 
-    @Override
-    public void uninstall() {
-        cancelPending();
-        fScheduler.shutdownNow();
-        if (fDocument != null) {
-            fDocument.removeDocumentListener(fDocumentListener);
-        }
-        if (fViewer != null) {
-            fViewer.removeTextInputListener(fTextInputListener);
-        }
-    }
+	@Override
+	public void uninstall() {
+		cancelPending();
+		fScheduler.shutdownNow();
+		if (fDocument != null) {
+			fDocument.removeDocumentListener(fDocumentListener);
+		}
+		if (fViewer != null) {
+			fViewer.removeTextInputListener(fTextInputListener);
+		}
+	}
 
-    @Override
-    public IReconcilingStrategy getReconcilingStrategy(String contentType) {
-        return IDocument.DEFAULT_CONTENT_TYPE.equals(contentType) ? fStrategy : null;
-    }
+	@Override
+	public IReconcilingStrategy getReconcilingStrategy(String contentType) {
+		return IDocument.DEFAULT_CONTENT_TYPE.equals(contentType) ? fStrategy : null;
+	}
 
-    // ── Internal ───────────────────────────────────────────────────────────────
+	// ── Internal ───────────────────────────────────────────────────────────────
 
-    private synchronized void mergeDirty(int start, int end) {
-        fDirtyStart = Math.min(fDirtyStart, start);
-        fDirtyEnd   = Math.max(fDirtyEnd, end);
-    }
+	private synchronized void mergeDirty(int start, int end) {
+		fDirtyStart = Math.min(fDirtyStart, start);
+		fDirtyEnd = Math.max(fDirtyEnd, end);
+	}
 
-    private synchronized IRegion takeDirty() {
-        if (fDirtyStart > fDirtyEnd) {
-            return null;
-        }
-        IRegion region = new Region(fDirtyStart, fDirtyEnd - fDirtyStart);
-        fDirtyStart = Integer.MAX_VALUE;
-        fDirtyEnd   = 0;
-        return region;
-    }
+	private synchronized IRegion takeDirty() {
+		if (fDirtyStart > fDirtyEnd) {
+			return null;
+		}
+		IRegion region = new Region(fDirtyStart, fDirtyEnd - fDirtyStart);
+		fDirtyStart = Integer.MAX_VALUE;
+		fDirtyEnd = 0;
+		return region;
+	}
 
-    private synchronized void cancelPending() {
-        if (fPending != null) {
-            fPending.cancel(false);
-            fPending = null;
-        }
-    }
+	private synchronized void cancelPending() {
+		if (fPending != null) {
+			fPending.cancel(false);
+			fPending = null;
+		}
+	}
 
-    private void scheduleReconcile() {
-        cancelPending();
-        fPending = fScheduler.schedule(() -> {
-            IRegion dirty = takeDirty();
-            if (dirty != null)
-                fStrategy.reconcile(dirty);
-        }, fDelayMs, TimeUnit.MILLISECONDS);
-    }
+	private void scheduleReconcile() {
+		cancelPending();
+		fPending = fScheduler.schedule(() -> {
+			IRegion dirty = takeDirty();
+			if (dirty != null)
+				fStrategy.reconcile(dirty);
+		}, fDelayMs, TimeUnit.MILLISECONDS);
+	}
 }

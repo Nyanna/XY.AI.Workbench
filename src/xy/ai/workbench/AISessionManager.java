@@ -41,7 +41,7 @@ import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connectors.AdaptingConnector;
-import xy.ai.workbench.editors.AIRuleScanner;
+import xy.ai.workbench.editors.md.AbstractRule;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -220,7 +220,7 @@ public class AISessionManager {
 		String[] lines = input.split("\\R");
 
 		for (String line : lines)
-			if (!line.trim().startsWith(AIRuleScanner.LINE_COMMENT))
+			if (!line.trim().startsWith(AbstractRule.LINE_COMMENT))
 				result.append(line).append(System.lineSeparator());
 
 		return result.toString();

@@ -1,12 +1,7 @@
 # TODO
-! exa sehr langsam beim rendering, profiling machen, `/home/user/xyan/XY.Archiv/project/20260720.221219.md`
-! nicht alle spellcheck invalidieren sondern nur die aus bereich, kein invalidate sondern changeset und dann diff
 ! spellcheck nur in bestimmten bereichen, nicht code
-* block always starts with \n offxset for rules
 
 Suchtool für dateiinhalt, analog grep mit kontext
-
-wenn neue H1 in H2 block, bei neuen H1 alte section abschneiden neue einhängen und parsen
 
 ## Workbench
 * Diff support für edit commands

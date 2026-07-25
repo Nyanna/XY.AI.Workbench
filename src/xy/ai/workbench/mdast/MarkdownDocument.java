@@ -32,7 +32,7 @@ public class MarkdownDocument {
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
 				replace(sec, rn.children, delta);
-				return new TextRegion(absStart, newLen);
+				return new TextRegion(absStart, newLen, rn);
 			}
 			sec = parent;
 		}

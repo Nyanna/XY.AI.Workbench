@@ -18,6 +18,7 @@ import org.eclipse.swt.widgets.Display;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.connectors.claudecode.CCControlClient;
 import xy.ai.workbench.connectors.claudecode.ProtocolParser;
+import xy.ai.workbench.editors.md.AbstractRule;
 import xy.ai.workbench.editors.md.BlockRule;
 import xy.ai.workbench.editors.md.EmphasisRule;
 import xy.ai.workbench.editors.md.HeaderRule;
@@ -27,7 +28,6 @@ import xy.ai.workbench.editors.md.ListRule;
 import xy.ai.workbench.editors.md.PrefixLineRule;
 
 public class AIRuleScanner extends RuleBasedScanner {
-	public static final String LINE_COMMENT = "#:";
 	public static final TextAttribute DEFAULT_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
 
@@ -85,7 +85,7 @@ public class AIRuleScanner extends RuleBasedScanner {
 			rules.add(new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
 			rules.add(new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
 			rules.add(new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
-			rules.add(new PrefixLineRule(LINE_COMMENT, commentToken));
+			rules.add(new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
 			rules.add(new PrefixLineRule(": ", italic)); // glossary syntax
 			rules.add(new PrefixLineRule("> ", italic)); // citation syntax
 			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));

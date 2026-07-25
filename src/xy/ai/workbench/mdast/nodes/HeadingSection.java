@@ -26,6 +26,7 @@ public class HeadingSection extends AbstractNode {
 	private HeadingSection(int order) {
 		super(Category.Section);
 		this.order = order;
+		this.enableSpellcheck = true;
 
 		// starts with "\n## "
 		prefix = new char[order + 2];
@@ -54,25 +55,5 @@ public class HeadingSection extends AbstractNode {
 	@Override
 	protected AbstractNode[] getChildNodes() {
 		return childNodes;
-	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + order;
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		HeadingSection other = (HeadingSection) obj;
-		return order == other.order;
 	}
 }

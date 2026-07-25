@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.zip.CRC32;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -48,7 +49,6 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connectors.claudecode.CCSession;
 import xy.ai.workbench.connectors.claudecode.CCSessionManager;
-import xy.ai.workbench.connectors.claudecode.JsonUtil;
 import xy.ai.workbench.connectors.claudecode.SessionParameters;
 import xy.ai.workbench.connectors.claudecode.SessionState;
 
@@ -307,7 +307,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private String detailLabel(CCSession s) {
 		if (s.getState() == SessionState.Prompting) {
 			if (!s.isLastRawLineProcessed() && s.getLastRawLine() != null)
-				return JsonUtil.abbreviate(s.getLastRawLine());
+				return abbreviateForDisplay(s.getLastRawLine());
 			String msg = s.getLastParsedMessage();
 			if (msg != null && !msg.isBlank())
 				return msg;
@@ -318,6 +318,15 @@ public class ClaudeCodeSessionView extends ViewPart {
 		if (fileName != null && !fileName.isBlank())
 			return fileName + ": " + s.stats.print();
 		return title != null && !title.isBlank() ? title : "—";
+	}
+
+	private static String abbreviateForDisplay(String s) {
+		if (s == null)
+			return "null";
+		CRC32 crc = new CRC32();
+		crc.update(s.getBytes());
+		return String.format("(%d chars total, %d) %s…", s.length(), crc.getValue(),
+				s.length() > 40 ? s.substring(0, 40) : s);
 	}
 
 	private static String fileNameOf(String path) {

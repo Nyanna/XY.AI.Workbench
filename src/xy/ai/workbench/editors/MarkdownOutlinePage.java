@@ -11,11 +11,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.views.contentoutline.ContentOutlinePage;
 
-import xy.ai.workbench.LOG;
 import xy.ai.workbench.mdast.MarkdownDocument;
-import xy.ai.workbench.mdast.nodes.HeadingSection;
 import xy.ai.workbench.mdast.nodes.Node;
-import xy.ai.workbench.mdast.nodes.Paragraph;
 import xy.ai.workbench.mdast.nodes.Root;
 
 /**
@@ -66,7 +63,6 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	/** Highlights the deepest node that contains the given document offset. */
 	public void selectNodeForOffset(int offset) {
-		LOG.info("Select node for offset");
 		TreeViewer viewer = getTreeViewer();
 		if (!isAlive(viewer))
 			return;
@@ -97,11 +93,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	private String label(Node node) {
 		String snippet = snippet(node);
-		if (node.instance instanceof HeadingSection)
-			return snippet;
-		if (node.instance instanceof Paragraph)
-			return String.format("%s (%d)", snippet, snippet.length());
-		return node.instance.getCategory().name() + ": " + snippet;
+		return node.instance.getClass().getSimpleName() + ": " + String.format("%s (%d)", snippet, node.end - node.start);
 	}
 
 	private String snippet(Node node) {

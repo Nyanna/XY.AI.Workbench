@@ -21,7 +21,7 @@ import xy.ai.workbench.editors.spellcheck.SpellingQuickAssistProcessor;
 import xy.ai.workbench.mdast.TextRegion;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
-	private static final int LIMIT = 512 * 1024;
+	private static final int LIMIT = 2 * 512 * 1024;
 
 	private final AITextEditor editor;
 
