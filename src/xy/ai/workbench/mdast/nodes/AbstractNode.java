@@ -38,7 +38,7 @@ public abstract class AbstractNode {
 			for (var child : getChildNodes()) {
 				var nn = new Node(n, child);
 				nn.start = s.getReadCount();
-				Scanner sub = new Scanner(s);
+				Scanner sub = s.getSubscanner();
 
 				if (child.scan(sub, nn)) {
 					n.children.add(nn);

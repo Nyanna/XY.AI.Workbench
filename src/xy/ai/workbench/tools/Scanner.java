@@ -1,7 +1,7 @@
 package xy.ai.workbench.tools;
 
 public class Scanner {
-	private char[] NUMBERS = "0123456789".toCharArray();
+	private static final char[] NUMBERS = "0123456789".toCharArray();
 	private CharacterScanner scan;
 	private Scanner parent;
 	private LineIndex lineIndex;
@@ -13,8 +13,32 @@ public class Scanner {
 		this.parent = parent;
 	}
 
+	private Scanner subScanner;
+
+	public Scanner getSubscanner() {
+		if (subScanner == null)
+			subScanner = new Scanner(this);
+		else
+			subScanner.clear();
+		return subScanner;
+	}
+
+	private Scanner isNextSequenceSub;
+
+	private Scanner getSequenceScanner() {
+		if (isNextSequenceSub == null)
+			isNextSequenceSub = new Scanner(this);
+		else
+			isNextSequenceSub.clear();
+		return isNextSequenceSub;
+	}
+
 	public Scanner(CharacterScanner scan) {
 		this.scan = scan;
+	}
+
+	public void clear() {
+		p = c = readCount = 0;
 	}
 
 	public boolean reset() {
@@ -54,7 +78,7 @@ public class Scanner {
 	}
 
 	public boolean isNextSequence(char[] seq) {
-		Scanner sub = new Scanner(this);
+		Scanner sub = getSequenceScanner();
 		int sr = 0;
 		for (; sr < seq.length && sub.readNext(); sr++)
 			if (sub.getChar() != seq[sr])

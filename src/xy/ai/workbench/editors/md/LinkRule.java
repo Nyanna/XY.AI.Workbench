@@ -42,7 +42,7 @@ public class LinkRule extends AbstractRule {
 		if (!s.equals(']'))
 			return s.reset();
 
-		Scanner s2 = new Scanner(s);
+		Scanner s2 = s.getSubscanner();
 		if (!s2.readNext() || !s.equals('('))
 			return s2.reset() || true;
 

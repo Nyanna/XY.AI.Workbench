@@ -22,7 +22,7 @@ public class PageSection extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		Scanner sub = new Scanner(s);
+		Scanner sub = s.getSubscanner();
 		boolean end = sub.isNextSequence(separator);
 		sub.reset();
 		return end;

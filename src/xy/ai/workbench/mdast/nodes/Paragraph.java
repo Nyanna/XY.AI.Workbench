@@ -22,7 +22,7 @@ public class Paragraph extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		for (int i = 0; i < HeadingSection.HEADINGS.length; i++) {
-			Scanner sub = new Scanner(s);
+			Scanner sub = s.getSubscanner();
 			if (HeadingSection.HEADINGS[i].isStart(sub)) {
 				sub.reset();
 				return true;

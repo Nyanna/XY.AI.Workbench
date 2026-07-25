@@ -29,7 +29,7 @@ public class LineSection extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		Scanner sub = new Scanner(s);
+		Scanner sub = s.getSubscanner();
 		for (LineSection l : FAMILY)
 			if (l.isStart(sub)) {
 				sub.reset();

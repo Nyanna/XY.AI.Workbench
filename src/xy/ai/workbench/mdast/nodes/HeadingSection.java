@@ -43,7 +43,7 @@ public class HeadingSection extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		Scanner sub = new Scanner(s);
+		Scanner sub = s.getSubscanner();
 		for (int i = MAX_ORDER - order; i < HEADINGS.length; i++)
 			if (HEADINGS[i].isStart(sub)) {
 				sub.reset();

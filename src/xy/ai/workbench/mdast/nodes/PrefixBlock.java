@@ -29,7 +29,7 @@ public class PrefixBlock extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		Scanner sub = new Scanner(s);
+		Scanner sub = s.getSubscanner();
 		boolean end = !sub.readNext() || sub.isNewLine();
 		sub.reset();
 		return end;
