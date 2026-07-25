@@ -1,4 +1,6 @@
+
 # TODO
+
 ! spellcheck nur in bestimmten bereichen, nicht code
 
 Suchtool für dateiinhalt, analog grep mit kontext
