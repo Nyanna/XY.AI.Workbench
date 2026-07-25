@@ -46,7 +46,7 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 		PresentationReconciler reconciler = new PresentationReconciler();
 		Font font = sourceViewer.getTextWidget().getFont();
 
-		DefaultDamagerRepairer dr = new DefaultDamagerRepairer(new AIRuleScanner(font)) {
+		DefaultDamagerRepairer dr = new DefaultDamagerRepairer(new AIRuleScanner(font, editor)) {
 			@Override
 			public void createPresentation(TextPresentation presentation, ITypedRegion region) {
 				if (fDocument != null && fDocument.getLength() > LIMIT) {

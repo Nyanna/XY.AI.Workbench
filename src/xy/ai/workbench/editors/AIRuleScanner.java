@@ -1,11 +1,15 @@
 package xy.ai.workbench.editors;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.TextAttribute;
 import org.eclipse.jface.text.rules.IRule;
 import org.eclipse.jface.text.rules.IToken;
+import org.eclipse.jface.text.rules.ITokenScanner;
 import org.eclipse.jface.text.rules.RuleBasedScanner;
 import org.eclipse.jface.text.rules.Token;
 import org.eclipse.swt.SWT;
@@ -26,8 +30,23 @@ import xy.ai.workbench.editors.md.LineMatchRule;
 import xy.ai.workbench.editors.md.LinkRule;
 import xy.ai.workbench.editors.md.ListRule;
 import xy.ai.workbench.editors.md.PrefixLineRule;
+import xy.ai.workbench.mdast.MarkdownDocument;
+import xy.ai.workbench.mdast.nodes.AbstractNode;
+import xy.ai.workbench.mdast.nodes.Elements;
+import xy.ai.workbench.mdast.nodes.Node;
 
-public class AIRuleScanner extends RuleBasedScanner {
+/**
+ * AST optimized token scanner: instead of trying every markdown rule at every
+ * document position, the scanner walks the region of the markdown AST
+ * ({@link MarkdownDocument}) that overlaps the requested range and, for every
+ * node, only applies the (small) subset of rules that is configured for that
+ * node's own text. Text that belongs to a child node is only scanned once,
+ * using the rules assigned to that child - never using the rules of an
+ * ancestor. This way the changed/requested region is scanned exactly once,
+ * split into disjoint sub-regions each processed with only the rules that are
+ * allowed there.
+ */
+public class AIRuleScanner implements ITokenScanner {
 	public static final TextAttribute DEFAULT_ATTR = new TextAttribute(
 			Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND), null, SWT.NONE);
 
@@ -49,14 +68,31 @@ public class AIRuleScanner extends RuleBasedScanner {
 			Display.getCurrent().getSystemColor(SWT.COLOR_BLACK),
 			new Color(Display.getCurrent(), new RGB(200, 200, 200)), SWT.BOLD);
 
-	public AIRuleScanner(Font basefont) {
+	/** Token used to reset styling of regions for which no rule is configured. */
+	private static final IToken RESET_TOKEN = new Token(null);
+
+	private final AITextEditor editor;
+
+	/** One dedicated (stateless) rule based sub-scanner per AST node type. */
+	private final Map<AbstractNode, RuleBasedScanner> scannerByNode = new IdentityHashMap<>();
+	private final Map<RuleBasedScanner, IRule[]> ruleCache = new IdentityHashMap<>();
+
+	/** Fallback scanner (all rules) used while no AST is available yet. */
+	private final RuleBasedScanner fallbackScanner = new RuleBasedScanner();
+
+	private final List<Piece> pieces = new ArrayList<>();
+	private int pieceIndex;
+	private int tokenOffset;
+	private int tokenLength;
+
+	public AIRuleScanner(Font basefont, AITextEditor editor) {
+		this.editor = editor;
+
 		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
 		IToken userToken = new Token(USER_ATTR);
 		IToken agentToken = new Token(AGENT_ATTR);
 		IToken blueToken = new Token(BLUE_ATTR);
 		IToken greyToken = new Token(GREY_ATTR);
-		@SuppressWarnings("unused")
-		IToken defaultToken = new Token(DEFAULT_ATTR);
 		IToken commentToken = new Token(COMMENT_ATTR);
 		IToken commentDarkToken = new Token(COMMENT_DARK_ATTR);
 		IToken spacerToken = new Token(SPACER_ATTR);
@@ -66,52 +102,193 @@ public class AIRuleScanner extends RuleBasedScanner {
 		IToken bolditalic = new Token(new TextAttribute(c, null, SWT.BOLD | SWT.ITALIC));
 		IToken underline = new Token(new TextAttribute(c, null, TextAttribute.UNDERLINE));
 
-		List<IRule> rules = new ArrayList<>();
+		IRule commentRule = new BlockRule("<!--", "-->", normal);
 
-		{
-			Font[] headings = getOrCreateFonts(basefont.getFontData()[0]);
-			// 1. block
-			rules.add(new BlockRule("<!--", "-->", normal));
-			rules.add(new BlockRule("```", "```", blueToken));
-			// 2. linme start
-			rules.add(new LineMatchRule(EditorInterface.USER, userToken));
-			rules.add(new LineMatchRule(EditorInterface.AGENT, agentToken));
-			rules.add(new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
-			rules.add(new PrefixLineRule("---", spacerToken));
-			rules.add(new PrefixLineRule(ProtocolParser.THINKING, agentToken));
-			rules.add(new PrefixLineRule(ProtocolParser.TEXT, agentToken));
-			rules.add(new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
-			rules.add(new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
-			rules.add(new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
-			rules.add(new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
-			rules.add(new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
-			rules.add(new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
-			rules.add(new PrefixLineRule(": ", italic)); // glossary syntax
-			rules.add(new PrefixLineRule("> ", italic)); // citation syntax
-			rules.add(new PrefixLineRule("###### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[0]))));
-			rules.add(new PrefixLineRule("##### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[1]))));
-			rules.add(new PrefixLineRule("#### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[2]))));
-			rules.add(new PrefixLineRule("### ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[3]))));
-			rules.add(new PrefixLineRule("## ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[4]))));
-			rules.add(new PrefixLineRule("# ", new Token(new TextAttribute(c, null, SWT.BOLD, headings[5]))));
-			rules.add(new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD))));
-			rules.add(new ListRule(bold));
-			// 3. in text
-			rules.add(new EmphasisRule("***", bolditalic));
-			rules.add(new EmphasisRule("**", bold));
-			rules.add(new EmphasisRule("*", italic));
-			rules.add(new EmphasisRule("$", italic));
-			rules.add(new EmphasisRule("`", blueToken)); // file or variable
-			rules.add(new EmphasisRule("„", "\"", greyToken)); // literally
-			rules.add(new EmphasisRule("\"", greyToken)); // literally
-			rules.add(new EmphasisRule("'", greyToken)); // literally
-			rules.add(new EmphasisRule("»", "«", greyToken)); // literally
-			rules.add(new EmphasisRule("›", "‹", greyToken)); // literally
+		// ---- section: Root - only html comments may appear directly at the root ----
+		register(Elements.ROOT, commentRule);
 
-			rules.add(new LinkRule(underline));
+		// ---- section: headings - the marker/title line and setext-style headers ----
+		Font[] headingFonts = getOrCreateFonts(basefont.getFontData()[0]);
+		String[] headingPrefixes = { "###### ", "##### ", "#### ", "### ", "## ", "# " };
+		HeaderRule headerRule = new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD)));
+		for (int i = 0; i < Elements.HEADINGS.length; i++) {
+			IToken headingToken = new Token(new TextAttribute(c, null, SWT.BOLD, headingFonts[i]));
+			register(Elements.HEADINGS[i], new PrefixLineRule(headingPrefixes[i], headingToken), headerRule);
 		}
 
-		setRules(rules.toArray(new IRule[0]));
+		// ---- section: page separator ----
+		register(Elements.PAGESECTION, new PrefixLineRule("---", spacerToken));
+
+		// ---- section: chat line markers, each only valid for its own element ----
+		register(Elements.USER, new LineMatchRule(EditorInterface.USER, userToken));
+		register(Elements.AGENT, new LineMatchRule(EditorInterface.AGENT, agentToken));
+		register(Elements.CONTROL_REQUEST, new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
+
+		// ---- block: protocol prefix lines, each tied 1:1 to its own AST element ----
+		register(Elements.THINKING, new PrefixLineRule(ProtocolParser.THINKING, agentToken));
+		register(Elements.TEXT, new PrefixLineRule(ProtocolParser.TEXT, agentToken));
+		register(Elements.TOOLUSE, new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
+		register(Elements.ANSWER, new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
+		register(Elements.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
+		register(Elements.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
+		register(Elements.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
+		register(Elements.LINE_COMMENT, new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
+
+		// ---- block: fenced code, only valid inside a ScriptBlock ----
+		register(Elements.SCRIPTBLOCK, new BlockRule("```", "```", blueToken));
+
+		// ---- section: paragraph - lists, emphasis, links and quote/glossary prefixes
+		// ----
+		register(Elements.PARAGRAPH, //
+				commentRule, //
+				new PrefixLineRule(": ", italic), // glossary syntax
+				new PrefixLineRule("> ", italic), // citation syntax
+				new ListRule(bold), //
+				new EmphasisRule("***", bolditalic), //
+				new EmphasisRule("**", bold), //
+				new EmphasisRule("*", italic), //
+				new EmphasisRule("$", italic), //
+				new EmphasisRule("`", blueToken), // file or variable
+				new EmphasisRule("„", "\"", greyToken), // literally
+				new EmphasisRule("\"", greyToken), // literally
+				new EmphasisRule("'", greyToken), // literally
+				new EmphasisRule("»", "«", greyToken), // literally
+				new EmphasisRule("›", "‹", greyToken), // literally
+				new LinkRule(underline));
+
+		// ---- fallback (used while no AST is available, e.g. huge documents) ----
+		List<IRule> all = new ArrayList<>();
+		for (RuleBasedScanner s : scannerByNode.values())
+			for (IRule r : ruleCache.getOrDefault(s, new IRule[0]))
+				all.add(r);
+		fallbackScanner.setRules(all.toArray(new IRule[0]));
+	}
+
+	private void register(AbstractNode node, IRule... rules) {
+		RuleBasedScanner scanner = new RuleBasedScanner();
+		scanner.setRules(rules);
+		scannerByNode.put(node, scanner);
+		ruleCache.put(scanner, rules);
+	}
+
+	@Override
+	public void setRange(IDocument document, int offset, int length) {
+		pieces.clear();
+		pieceIndex = 0;
+		tokenOffset = offset;
+		tokenLength = 0;
+
+		if (length <= 0)
+			return;
+
+		MarkdownDocument ast = editor != null ? editor.getMarkdownAst() : null;
+		if (ast == null) {
+			scanFlat(fallbackScanner, document, offset, offset + length);
+			return;
+		}
+
+		Node governing = ast.find(offset, offset + length);
+		collect(document, governing, offset, offset + length);
+	}
+
+	/**
+	 * Walks the subtree of {@code node} that overlaps [lo, hi), emitting rule
+	 * matches for the node's own text (the "gaps" between its children) and
+	 * recursing into every overlapping child using the child's own rules. Every
+	 * character of [lo, hi) is visited exactly once.
+	 */
+	private void collect(IDocument document, Node node, int lo, int hi) {
+		int cursor = Math.max(node.getOffset(), lo);
+
+		for (Node child : node.children) {
+			int cs = child.getOffset();
+			int ce = child.getEndOffset();
+			if (ce <= lo || cs >= hi)
+				continue; // no overlap with requested range
+
+			if (cursor < cs)
+				scanGap(document, node.instance, cursor, Math.min(cs, hi));
+
+			collect(document, child, lo, hi);
+			cursor = ce;
+		}
+
+		int nodeEnd = Math.min(node.getEndOffset(), hi);
+		if (cursor < nodeEnd)
+			scanGap(document, node.instance, cursor, nodeEnd);
+	}
+
+	/**
+	 * Scans [start, end), the text directly owned by {@code type} (i.e. not part of
+	 * any child node), with the rules configured for {@code type}. The sub-range is
+	 * widened by a single character (if available) so that rules relying on a
+	 * boundary character shared with the following sibling/child (e.g. the trailing
+	 * line break of a line marker) can still match; any resulting token is clipped
+	 * back to [start, end).
+	 */
+	private void scanGap(IDocument document, AbstractNode type, int start, int end) {
+		if (start >= end)
+			return;
+
+		RuleBasedScanner scanner = scannerByNode.get(type);
+		if (scanner == null) {
+			pieces.add(new Piece(start, end - start, RESET_TOKEN));
+			return;
+		}
+
+		int widenedEnd = Math.min(document.getLength(), end + 1);
+		scanner.setRange(document, start, widenedEnd - start);
+
+		while (true) {
+			IToken token = scanner.nextToken();
+			if (token.isEOF())
+				break;
+
+			int off = scanner.getTokenOffset();
+			int len = scanner.getTokenLength();
+			if (off >= end)
+				break;
+			if (off + len > end)
+				len = end - off;
+			if (len <= 0)
+				continue;
+
+			pieces.add(new Piece(off, len, token));
+		}
+	}
+
+	private void scanFlat(RuleBasedScanner scanner, IDocument document, int lo, int hi) {
+		scanner.setRange(document, lo, hi - lo);
+		while (true) {
+			IToken token = scanner.nextToken();
+			if (token.isEOF())
+				break;
+			pieces.add(new Piece(scanner.getTokenOffset(), scanner.getTokenLength(), token));
+		}
+	}
+
+	@Override
+	public IToken nextToken() {
+		if (pieceIndex >= pieces.size())
+			return Token.EOF;
+
+		Piece p = pieces.get(pieceIndex++);
+		tokenOffset = p.offset;
+		tokenLength = p.length;
+		return p.token;
+	}
+
+	@Override
+	public int getTokenOffset() {
+		return tokenOffset;
+	}
+
+	@Override
+	public int getTokenLength() {
+		return tokenLength;
+	}
+
+	record Piece(int offset, int length, IToken token) {
 	}
 
 	private static Font[] cachedFonts;

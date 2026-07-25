@@ -3,13 +3,12 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class Paragraph extends AbstractNode {
-	public static final Paragraph INSTANCE = new Paragraph();
 	private AbstractNode[] childNodes = new AbstractNode[0];
 
 	private char[] prefix = "\n".toCharArray();
 	private char[] postfix = "\n\n".toCharArray();
 
-	private Paragraph() {
+	Paragraph() {
 		super(Category.Section);
 		this.enableSpellcheck = true;
 	}
@@ -21,9 +20,9 @@ public class Paragraph extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		for (int i = 0; i < HeadingSection.HEADINGS.length; i++) {
+		for (int i = 0; i < Elements.HEADINGS.length; i++) {
 			Scanner sub = s.getSubscanner();
-			if (HeadingSection.HEADINGS[i].isStart(sub)) {
+			if (Elements.HEADINGS[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}

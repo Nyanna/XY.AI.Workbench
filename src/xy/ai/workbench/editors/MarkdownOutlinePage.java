@@ -12,8 +12,8 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.views.contentoutline.ContentOutlinePage;
 
 import xy.ai.workbench.mdast.MarkdownDocument;
+import xy.ai.workbench.mdast.nodes.Elements;
 import xy.ai.workbench.mdast.nodes.Node;
-import xy.ai.workbench.mdast.nodes.Root;
 
 /**
  * Content outline page that visualizes the current state of the
@@ -71,7 +71,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 			return;
 
 		Node node = ast.find(offset, offset);
-		if (node == null || node.instance == Root.INSTANCE)
+		if (node == null || node.instance == Elements.ROOT)
 			return;
 
 		var sel = viewer.getSelection();

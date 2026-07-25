@@ -3,27 +3,13 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class HeadingSection extends AbstractNode {
-	private static final int MAX_ORDER = 6;
-	public static final HeadingSection[] HEADINGS = new HeadingSection[MAX_ORDER];
-	static {
-		for (int i = 0; i < HEADINGS.length; i++)
-			HEADINGS[i] = new HeadingSection(MAX_ORDER - i);
-
-		for (int i = 0; i < HEADINGS.length; i++) {
-			var childNodes = new AbstractNode[i + 1];
-			for (int j = 0; j < i; j++)
-				childNodes[j] = HEADINGS[j];
-			// and catch all paragraph
-			childNodes[childNodes.length - 1] = Paragraph.INSTANCE;
-			HEADINGS[i].childNodes = childNodes;
-		}
-	}
+	static final int MAX_ORDER = 6;
 
 	private int order;
 	private char[] prefix;
-	private AbstractNode[] childNodes;
+	AbstractNode[] childNodes;
 
-	private HeadingSection(int order) {
+	HeadingSection(int order) {
 		super(Category.Section);
 		this.order = order;
 		this.enableSpellcheck = true;
@@ -44,8 +30,8 @@ public class HeadingSection extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		Scanner sub = s.getSubscanner();
-		for (int i = MAX_ORDER - order; i < HEADINGS.length; i++)
-			if (HEADINGS[i].isStart(sub)) {
+		for (int i = MAX_ORDER - order; i < Elements.HEADINGS.length; i++)
+			if (Elements.HEADINGS[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}

@@ -3,11 +3,9 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class PageSection extends AbstractNode {
-	public static final PageSection INSTANCE = new PageSection();
-
 	private char[] separator = "\n---\n".toCharArray();
 
-	private PageSection() {
+	PageSection() {
 		super(Category.Section);
 		this.enableSpellcheck = true;
 	}
@@ -30,6 +28,6 @@ public class PageSection extends AbstractNode {
 
 	@Override
 	protected AbstractNode[] getChildNodes() {
-		return Elements.ALL;
+		return Elements.PAGE;
 	}
 }

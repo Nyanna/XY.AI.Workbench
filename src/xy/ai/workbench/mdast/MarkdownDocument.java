@@ -2,8 +2,8 @@ package xy.ai.workbench.mdast;
 
 import java.util.List;
 
+import xy.ai.workbench.mdast.nodes.Elements;
 import xy.ai.workbench.mdast.nodes.Node;
-import xy.ai.workbench.mdast.nodes.Root;
 import xy.ai.workbench.tools.LineIndex;
 import xy.ai.workbench.tools.Scanner;
 
@@ -11,7 +11,7 @@ public class MarkdownDocument {
 	private final IDocumentBuffer buffer;
 	private final LineIndex lines = new LineIndex();
 
-	private Node root = new Node(null, Root.INSTANCE);
+	private Node root = new Node(null, Elements.ROOT);
 
 	public MarkdownDocument(IDocumentBuffer buffer) {
 		this.buffer = buffer;
@@ -40,8 +40,8 @@ public class MarkdownDocument {
 
 	private Node parse(int absStart, int absEnd) {
 		char[] slice = readChars(absStart, absEnd - absStart);
-		Node rn = new Node(null, Root.INSTANCE);
-		Root.INSTANCE.scan(new Scanner(new BufferReader(slice, 0)), rn);
+		Node rn = new Node(null, Elements.ROOT);
+		Elements.ROOT.scan(new Scanner(new BufferReader(slice, 0)), rn);
 		return rn;
 	}
 

@@ -3,9 +3,7 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class Root extends AbstractNode {
-	public static final Root INSTANCE = new Root();
-
-	private Root() {
+	Root() {
 		super(Category.Section);
 		this.enableSpellcheck = true;
 	}

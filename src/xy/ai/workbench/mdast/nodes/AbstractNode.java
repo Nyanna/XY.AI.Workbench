@@ -5,8 +5,6 @@ import java.util.Objects;
 import xy.ai.workbench.tools.Scanner;
 
 public abstract class AbstractNode {
-	public static final AbstractNode[] NO_CHILDREN = new AbstractNode[0];
-	
 	private Category category;
 	protected boolean enableSpellcheck;
 

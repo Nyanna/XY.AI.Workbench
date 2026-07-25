@@ -1,22 +1,16 @@
 package xy.ai.workbench.mdast.nodes;
 
-import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.connectors.claudecode.CCControlClient;
 import xy.ai.workbench.tools.Scanner;
 
 public class LineSection extends AbstractNode {
-	public static final LineSection USER = new LineSection(EditorInterface.USER, true);
-	public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false);
-	public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false);
-
-	private static final LineSection[] FAMILY = { USER, AGENT, CONTROL_REQUEST };
-
 	private char[] prefix;
+	private AbstractNode[] childNodes;
 
-	private LineSection(String marker, boolean spellcheck) {
+	LineSection(String marker, boolean spellcheck, AbstractNode[] childNodes) {
 		super(Category.Section);
 		this.prefix = ("\n" + marker + "\n").toCharArray();
 		this.enableSpellcheck = spellcheck;
+		this.childNodes = childNodes;
 	}
 
 	@Override
@@ -30,7 +24,7 @@ public class LineSection extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		Scanner sub = s.getSubscanner();
-		for (LineSection l : FAMILY)
+		for (LineSection l : Elements.LINE_SECTION_FAMILY)
 			if (l.isStart(sub)) {
 				sub.reset();
 				return true;
@@ -40,6 +34,6 @@ public class LineSection extends AbstractNode {
 
 	@Override
 	protected AbstractNode[] getChildNodes() {
-		return Elements.ALL;
+		return childNodes;
 	}
 }

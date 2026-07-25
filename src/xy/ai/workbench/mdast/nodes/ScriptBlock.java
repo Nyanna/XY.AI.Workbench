@@ -3,14 +3,13 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class ScriptBlock extends AbstractNode {
-	public static final ScriptBlock INSTANCE = new ScriptBlock();
 	private static final int LIMIT = 100_000; // 50 lines a 200 chars
 
 	private char[] startBlock = "\n```".toCharArray();
 	private char[] endBlock = "\n```\n".toCharArray();
 	private char[] intermediateBreak = "```".toCharArray();
 
-	private ScriptBlock() {
+	ScriptBlock() {
 		super(Category.Block);
 	}
 
@@ -39,6 +38,6 @@ public class ScriptBlock extends AbstractNode {
 
 	@Override
 	protected AbstractNode[] getChildNodes() {
-		return NO_CHILDREN;
+		return Elements.NONE;
 	}
 }
