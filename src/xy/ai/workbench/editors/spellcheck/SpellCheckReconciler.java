@@ -1,5 +1,8 @@
 package xy.ai.workbench.editors.spellcheck;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -17,6 +20,7 @@ import org.eclipse.jface.text.reconciler.IReconcilingStrategy;
 
 import xy.ai.workbench.editors.AITextEditor;
 import xy.ai.workbench.mdast.TextRegion;
+import xy.ai.workbench.mdast.nodes.Node;
 
 /**
  * Reconciler that tracks only the document region actually changed by the user.
@@ -35,9 +39,11 @@ public class SpellCheckReconciler implements IReconciler {
 	private ITextViewer fViewer;
 	private IDocument fDocument;
 
-	// Pending dirty region – merged across rapid edits; guarded by 'this'.
-	private int fDirtyStart = Integer.MAX_VALUE;
-	private int fDirtyEnd = 0;
+	// Pending dirty regions – overlapping/touching regions are merged as they
+	// come in; disjoint regions (e.g. text before/after a non-spellchecked code
+	// block) are kept separate so the code block in between is never checked.
+	// Guarded by 'this'.
+	private final List<int[]> fDirtyRegions = new ArrayList<>();
 
 	private final ScheduledExecutorService fScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "SpellCheck-Reconciler");
@@ -57,18 +63,14 @@ public class SpellCheckReconciler implements IReconciler {
 		@Override
 		public void documentChanged(DocumentEvent event) {
 			TextRegion astRegion = fEditor != null ? fEditor.getLastAstChangeRegion() : null;
-			int start;
-			int end;
 			if (astRegion != null) {
-				if (!astRegion.n().enableSpellcheck)
+				if (!mergeEnabledLeaves(astRegion.n()))
 					return;
-				start = astRegion.offset();
-				end = astRegion.offset() + astRegion.length();
 			} else {
-				start = event.getOffset();
-				end = start + Math.max(event.getLength(), event.getText() != null ? event.getText().length() : 0);
+				int start = event.getOffset();
+				int end = start + Math.max(event.getLength(), event.getText() != null ? event.getText().length() : 0);
+				mergeDirty(start, Math.max(end, start + 1));
 			}
-			mergeDirty(start, Math.max(end, start + 1));
 			scheduleReconcile();
 		}
 	};
@@ -133,21 +135,48 @@ public class SpellCheckReconciler implements IReconciler {
 		return IDocument.DEFAULT_CONTENT_TYPE.equals(contentType) ? fStrategy : null;
 	}
 
-	// ── Internal ───────────────────────────────────────────────────────────────
-
-	private synchronized void mergeDirty(int start, int end) {
-		fDirtyStart = Math.min(fDirtyStart, start);
-		fDirtyEnd = Math.max(fDirtyEnd, end);
+	private boolean mergeEnabledLeaves(Node node) {
+		if (node == null)
+			return false;
+		if (node.children.isEmpty()) {
+			if (!node.enableSpellcheck)
+				return false;
+			int start = node.getOffset();
+			int end = node.getEndOffset();
+			mergeDirty(start, Math.max(end, start + 1));
+			return true;
+		}
+		boolean merged = false;
+		for (Node child : node.children)
+			merged |= mergeEnabledLeaves(child);
+		return merged;
 	}
 
-	private synchronized IRegion takeDirty() {
-		if (fDirtyStart > fDirtyEnd) {
+	private synchronized void mergeDirty(int start, int end) {
+		int newStart = start;
+		int newEnd = end;
+		for (Iterator<int[]> it = fDirtyRegions.iterator(); it.hasNext();) {
+			int[] r = it.next();
+			// Overlapping or directly adjacent -> merge.
+			if (newStart <= r[1] && r[0] <= newEnd) {
+				newStart = Math.min(newStart, r[0]);
+				newEnd = Math.max(newEnd, r[1]);
+				it.remove();
+			}
+		}
+		fDirtyRegions.add(new int[] { newStart, newEnd });
+	}
+
+	private synchronized List<IRegion> takeDirty() {
+		if (fDirtyRegions.isEmpty()) {
 			return null;
 		}
-		IRegion region = new Region(fDirtyStart, fDirtyEnd - fDirtyStart);
-		fDirtyStart = Integer.MAX_VALUE;
-		fDirtyEnd = 0;
-		return region;
+		List<IRegion> regions = new ArrayList<>(fDirtyRegions.size());
+		for (int[] r : fDirtyRegions) {
+			regions.add(new Region(r[0], r[1] - r[0]));
+		}
+		fDirtyRegions.clear();
+		return regions;
 	}
 
 	private synchronized void cancelPending() {
@@ -160,9 +189,10 @@ public class SpellCheckReconciler implements IReconciler {
 	private void scheduleReconcile() {
 		cancelPending();
 		fPending = fScheduler.schedule(() -> {
-			IRegion dirty = takeDirty();
+			List<IRegion> dirty = takeDirty();
 			if (dirty != null)
-				fStrategy.reconcile(dirty);
+				for (IRegion region : dirty)
+					fStrategy.reconcile(region);
 		}, fDelayMs, TimeUnit.MILLISECONDS);
 	}
 }

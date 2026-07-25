@@ -13,7 +13,7 @@ import xy.ai.workbench.editors.AITextEditor;
 
 public class SpellCheckInstaller {
 
-    private static final int RECONCILE_DELAY_MS = 500;
+    private static final int RECONCILE_DELAY_MS = 200;
 
     public static IReconciler createReconciler(ISourceViewer sourceViewer, AITextEditor editor) {
         SpellingStrategy strategy = new SpellingStrategy(sourceViewer);
