@@ -8,8 +8,8 @@ import xy.ai.workbench.connectors.claudecode.ProtocolParser;
 import xy.ai.workbench.editors.md.AbstractRule;
 
 public final class Elements {
-	//Instances
-	
+	// Instances
+
 	public static final Root ROOT = new Root();
 	public static final PageSection PAGESECTION = new PageSection();
 	public static final ScriptBlock SCRIPTBLOCK = new ScriptBlock();
@@ -33,12 +33,17 @@ public final class Elements {
 			HEADINGS[i] = new HeadingSection(HeadingSection.MAX_ORDER - i);
 
 		for (int i = 0; i < HEADINGS.length; i++) {
-			var childNodes = new AbstractNode[i + 1];
+			AbstractNode[] childNodes = new AbstractNode[i];
 			for (int j = 0; j < i; j++)
 				childNodes[j] = HEADINGS[j];
-			// and catch all paragraph
-			childNodes[childNodes.length - 1] = PARAGRAPH;
-			HEADINGS[i].childNodes = childNodes;
+
+			HEADINGS[i].childNodes = Stream.concat( //
+					Stream.of(childNodes), //
+					Stream.of(new AbstractNode[] { //
+							SCRIPTBLOCK, //
+							LINE_COMMENT, //
+							PARAGRAPH //
+					})).toArray(AbstractNode[]::new);
 		}
 	}
 
@@ -72,6 +77,13 @@ public final class Elements {
 			Stream.of(PAGESECTION), //
 			Stream.of(PAGE) //
 	).toArray(AbstractNode[]::new);
+
+	public static final AbstractNode[] PARAGRAPH_ENDS = Stream.concat( //
+			Stream.of(HEADINGS), //
+			Stream.of(new AbstractNode[] { //
+					SCRIPTBLOCK, //
+					LINE_COMMENT //
+			})).toArray(AbstractNode[]::new);
 
 	public static final AbstractNode[] NONE = new AbstractNode[0];
 

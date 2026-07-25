@@ -20,9 +20,9 @@ public class Paragraph extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		for (int i = 0; i < Elements.HEADINGS.length; i++) {
+		for (int i = 0; i < Elements.PARAGRAPH_ENDS.length; i++) {
 			Scanner sub = s.getSubscanner();
-			if (Elements.HEADINGS[i].isStart(sub)) {
+			if (Elements.PARAGRAPH_ENDS[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}
