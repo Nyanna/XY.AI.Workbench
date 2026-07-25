@@ -1,8 +1,6 @@
 
 # TODO
 
-! spellcheck nur in bestimmten bereichen, nicht code
-
 Suchtool für dateiinhalt, analog grep mit kontext
 
 ## Workbench
@@ -33,6 +31,7 @@ Suchtool für dateiinhalt, analog grep mit kontext
 ## Agents
 
 ### Ideas
+
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
 	* Project AST: project > dir > file > imports/class > global > nodes, code ist immer ein baum 
