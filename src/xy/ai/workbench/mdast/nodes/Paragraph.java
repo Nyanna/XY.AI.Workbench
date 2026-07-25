@@ -6,7 +6,8 @@ public class Paragraph extends AbstractNode {
 	public static final Paragraph INSTANCE = new Paragraph();
 	private AbstractNode[] childNodes = new AbstractNode[0];
 
-	private char[] prefix = "\n\n".toCharArray();
+	private char[] prefix = "\n".toCharArray();
+	private char[] postfix = "\n\n".toCharArray();
 
 	private Paragraph() {
 		super(Category.Section);
@@ -27,11 +28,16 @@ public class Paragraph extends AbstractNode {
 			}
 		}
 
-		if (s.isNextSequence(prefix)) {
+		if (s.isNextSequence(postfix)) {
 			s.unread();
 			return true;
 		}
 		return false;
+	}
+
+	@Override
+	protected boolean isValid(Node n) {
+		return n.end - n.start > 3;
 	}
 
 	@Override

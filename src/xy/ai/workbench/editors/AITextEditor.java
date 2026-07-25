@@ -15,6 +15,7 @@ import org.eclipse.jface.text.source.IVerticalRulerColumn;
 import org.eclipse.jface.text.source.SourceViewer;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.editors.text.TextEditor;
 import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 
@@ -97,8 +98,11 @@ public class AITextEditor extends TextEditor {
 	}
 
 	private void handleCaretMoved(int offset) {
-		if (outlinePage != null)
-			outlinePage.selectNodeForOffset(offset);
+		if (outlinePage != null) {
+			var selection = getSourceViewer().getSelectedRange();
+			if (selection.y == 0)
+				Display.getDefault().asyncExec(() -> outlinePage.selectNodeForOffset(offset));
+		}
 	}
 
 	@Override

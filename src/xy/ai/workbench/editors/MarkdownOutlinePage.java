@@ -8,8 +8,10 @@ import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.views.contentoutline.ContentOutlinePage;
 
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.mdast.MarkdownDocument;
 import xy.ai.workbench.mdast.nodes.HeadingSection;
 import xy.ai.workbench.mdast.nodes.Node;
@@ -24,7 +26,7 @@ import xy.ai.workbench.mdast.nodes.Root;
 public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	private static final Object[] EMPTY = new Object[0];
-	private static final int LABEL_LIMIT = 80;
+	private static final int LABEL_LIMIT = 40;
 
 	private final AITextEditor editor;
 	private boolean syncingFromEditor;
@@ -47,8 +49,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 	private void onOutlineSelection(SelectionChangedEvent event) {
 		if (syncingFromEditor)
 			return;
-		if (event.getSelection() instanceof StructuredSelection sel
-				&& sel.getFirstElement() instanceof Node node)
+		if (event.getSelection() instanceof StructuredSelection sel && sel.getFirstElement() instanceof Node node)
 			editor.selectAndRevealNode(node);
 	}
 
@@ -65,6 +66,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	/** Highlights the deepest node that contains the given document offset. */
 	public void selectNodeForOffset(int offset) {
+		LOG.info("Select node for offset");
 		TreeViewer viewer = getTreeViewer();
 		if (!isAlive(viewer))
 			return;
@@ -72,23 +74,21 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		if (ast == null || ast.getRoot() == null)
 			return;
 
-		Node node = deepest(ast.getRoot(), offset);
+		Node node = ast.find(offset, offset);
 		if (node == null || node.instance == Root.INSTANCE)
 			return;
 
-		syncingFromEditor = true;
-		try {
-			viewer.setSelection(new StructuredSelection(node), true);
-		} finally {
-			syncingFromEditor = false;
-		}
-	}
-
-	private Node deepest(Node node, int offset) {
-		for (Node child : node.children)
-			if (offset >= child.getOffset() && offset < child.getEndOffset())
-				return deepest(child, offset);
-		return node;
+		var sel = viewer.getSelection();
+		if (sel instanceof StructuredSelection ssel && ssel.getFirstElement() == node)
+			return;
+		Display.getDefault().asyncExec(() -> {
+			syncingFromEditor = true;
+			try {
+				viewer.setSelection(new StructuredSelection(node), true);
+			} finally {
+				syncingFromEditor = false;
+			}
+		});
 	}
 
 	private boolean isAlive(TreeViewer viewer) {
@@ -97,13 +97,11 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	private String label(Node node) {
 		String snippet = snippet(node);
-		if (!snippet.isEmpty())
-			return snippet;
 		if (node.instance instanceof HeadingSection)
-			return "Heading";
+			return snippet;
 		if (node.instance instanceof Paragraph)
-			return "Paragraph";
-		return node.instance.getCategory().name();
+			return String.format("%s (%d)", snippet, snippet.length());
+		return node.instance.getCategory().name() + ": " + snippet;
 	}
 
 	private String snippet(Node node) {
@@ -113,18 +111,19 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		int offset = node.getOffset();
 		int length = node.length();
 		if (offset < 0 || length <= 0)
-			return "";
+			return "Empty";
 		length = Math.min(length, doc.getLength() - offset);
 		if (length <= 0)
-			return "";
+			return "Empty";
 		try {
 			String text = doc.get(offset, length).strip();
 			int nl = text.indexOf('\n');
 			if (nl >= 0)
 				text = text.substring(0, nl).strip();
-			if (text.length() > LABEL_LIMIT)
-				text = text.substring(0, LABEL_LIMIT) + "…";
-			return text;
+			var limit = LABEL_LIMIT;
+			if (text.length() > limit)
+				text = text.substring(0, limit) + "…";
+			return text.strip();
 		} catch (BadLocationException e) {
 			return "";
 		}

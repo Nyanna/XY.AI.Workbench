@@ -47,7 +47,7 @@ public abstract class AbstractNode {
 				break;
 		}
 		n.end = n.start + s.getReadCount();
-		return true;
+		return isValid(n);
 	}
 
 	protected abstract AbstractNode[] getChildNodes();
@@ -55,6 +55,10 @@ public abstract class AbstractNode {
 	protected abstract boolean isStart(Scanner s);
 
 	protected abstract boolean isEndInner(Scanner s);
+
+	protected boolean isValid(Node n) {
+		return true;
+	}
 
 	@Override
 	public int hashCode() {
