@@ -13,6 +13,7 @@ public abstract class AbstractRule implements IRule {
 
 	private boolean docStart;
 	private boolean docEnd;
+	private boolean atRangeStart;
 
 	public AbstractRule() {
 	}
@@ -24,9 +25,12 @@ public abstract class AbstractRule implements IRule {
 	public void setDocumentBounds(boolean docStart, boolean docEnd) {
 		this.docStart = docStart;
 		this.docEnd = docEnd;
+		this.atRangeStart = true;
 	}
 
 	public final IToken evaluate(ICharacterScanner s) {
+		boolean isDocStart = docStart && atRangeStart;
+		atRangeStart = false;
 		return evaluateToken(new Scanner(new Scanner.CharacterScanner() {
 			@Override
 			public void unread() {
@@ -37,7 +41,7 @@ public abstract class AbstractRule implements IRule {
 			public int read() {
 				return s.read();
 			}
-		}, docStart, docEnd));
+		}, isDocStart, docEnd));
 	}
 
 	protected IToken evaluateToken(Scanner s) {
