@@ -297,8 +297,11 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
-		Display.getDefault().timerExec(500, () -> {
+		Display.getDefault().timerExec(200, () -> {
 			editor.selectAndReveal(0, 0);
+			editor.selectAndReveal(doc.getLength(), 0);
+		});
+		Display.getDefault().timerExec(500, () -> {
 			editor.selectAndReveal(doc.getLength(), 0);
 		});
 	}

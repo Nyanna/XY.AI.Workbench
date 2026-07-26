@@ -80,10 +80,8 @@ public final class Elements {
 
 	public static final AbstractNode[] PARAGRAPH_ENDS = Stream.concat( //
 			Stream.of(HEADINGS), //
-			Stream.of(new AbstractNode[] { //
-					SCRIPTBLOCK, //
-					LINE_COMMENT //
-			})).toArray(AbstractNode[]::new);
+			Stream.of(PAGE) //
+	).toArray(AbstractNode[]::new);
 
 	public static final AbstractNode[] NONE = new AbstractNode[0];
 

@@ -37,6 +37,7 @@ from ...openalex import (
 from ...openalex.client import ENTITIES
 from ...openalex.presets import WORK_PRESET_NAMES
 from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...text_sanitize import sanitize_value
 
 #: Hard caps that mirror the OpenAlex API limits.
 _MAX_PER_PAGE = 200
@@ -74,7 +75,10 @@ def _error_result(exc: Exception) -> ToolResult:
 
 
 def _ok_result(structured: dict[str, Any]) -> ToolResult:
-    return ToolResult(structured_content=structured)
+    # OpenAlex occasionally returns fields (titles, abstracts, ...) that
+    # contain raw non-printable control characters; strip them so downstream
+    # consumers (notably YAML block-scalar rendering) never choke on them.
+    return ToolResult(structured_content=sanitize_value(structured))
 
 
 def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:

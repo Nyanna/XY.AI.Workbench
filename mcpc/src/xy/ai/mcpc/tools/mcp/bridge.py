@@ -15,6 +15,7 @@ from typing import Any, Callable
 from ...codec import JsonCodec
 from ...config import ServerConfig
 from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...text_sanitize import sanitize_text, sanitize_value
 from .client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
@@ -107,6 +108,10 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
         text = "\n".join(texts)
     else:
         text = ""
+    # Some remote servers leak raw non-printable control bytes (e.g. an
+    # unescaped 0x02) into text content; strip them so downstream consumers
+    # (notably YAML block-scalar rendering) never choke on them.
+    text = sanitize_text(text)
 
     # Mirrors the tools' own convention (see tools/CHECKLIST.md): a
     # successful result relies on structuredContent alone; errors are
@@ -126,10 +131,10 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     # ``{"content": text}`` string.
     structured = result.get("structuredContent")
     if isinstance(structured, dict):
-        structured_content = structured
+        structured_content = sanitize_value(structured)
     else:
         parsed = JsonCodec.try_decode(text)
-        structured_content = parsed if isinstance(parsed, dict) else {"content": text}
+        structured_content = sanitize_value(parsed) if isinstance(parsed, dict) else {"content": text}
 
     return ToolResult(
         content=[],
