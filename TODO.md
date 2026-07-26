@@ -1,4 +1,3 @@
-
 # TODO
 
 Suchtool für dateiinhalt, analog grep mit kontext

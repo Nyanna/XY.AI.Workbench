@@ -35,7 +35,7 @@ public abstract class AbstractNode {
 		if (!isStart(s))
 			return false;
 
-		nextChar: while (!isEnd(s, n)) {
+		nextChar: while (true) {
 			for (var child : childNodes) {
 				var nn = new Node(n, child);
 				nn.start = s.getReadCount();
@@ -48,6 +48,8 @@ public abstract class AbstractNode {
 				} else
 					sub.reset();
 			}
+			if (isEnd(s, n))
+				break;
 			if (!s.readNext())
 				break;
 		}
