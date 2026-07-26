@@ -71,7 +71,10 @@ public class Elements {
 		public static final PageSection PAGE = new PageSection(PAGE_ELEMENTS);
 		static {
 			for (int i = 0; i < Headings.HEADINGS.length; i++)
-				Headings.HEADINGS[i].terminals = new AbstractNode[] { PAGE };
+				Headings.HEADINGS[i].terminals = concat( //
+						of(PAGE), //
+						Tools.ALL, //
+						Agent.ALL);
 		}
 	}
 

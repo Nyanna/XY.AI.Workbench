@@ -25,6 +25,6 @@ public class PrefixBlock extends AbstractNode {
 
 	@Override
 	public String toString() {
-		return "PrefixBlock: " + String.valueOf(prefix).replace('\n', ' ');
+		return String.valueOf(prefix).replace('\n', ' ');
 	}
 }
