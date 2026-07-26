@@ -93,7 +93,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 	private String label(Node node) {
 		String snippet = snippet(node);
-		return node.instance.getClass().getSimpleName() + ": " + String.format("%s (%d)", snippet, node.end - node.start);
+		return node.instance.toString() + ": " + String.format("%s (%d)", snippet, node.end - node.start);
 	}
 
 	private String snippet(Node node) {

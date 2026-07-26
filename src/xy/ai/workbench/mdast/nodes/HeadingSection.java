@@ -7,7 +7,7 @@ public class HeadingSection extends AbstractNode {
 
 	private int order;
 	private char[] prefix;
-	private AbstractNode[] terminals;
+	AbstractNode[] terminals;
 
 	HeadingSection(int order, AbstractNode[] childNodes, AbstractNode[] terminals) {
 		super(Category.Section, childNodes);
@@ -31,11 +31,22 @@ public class HeadingSection extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		Scanner sub = s.getSubscanner();
-		for (int i = MAX_ORDER - order; i < terminals.length; i++)
+		HeadingSection[] higherHeadings = Elements.Headings.HEADINGS;
+		for (int i = MAX_ORDER - order; i < higherHeadings.length; i++)
+			if (higherHeadings[i].isStart(sub)) {
+				sub.reset();
+				return true;
+			}
+		for (int i = 0; i < terminals.length; i++)
 			if (terminals[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}
 		return false;
+	}
+
+	@Override
+	public String toString() {
+		return "H" + order;
 	}
 }

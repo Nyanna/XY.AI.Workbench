@@ -5,9 +5,14 @@ import java.util.Objects;
 import xy.ai.workbench.tools.Scanner;
 
 public abstract class AbstractNode {
+	protected static enum Precedence {
+		Childs, Terminals
+	};
+
 	private Category category;
 	AbstractNode[] childNodes;
 	protected boolean enableSpellcheck;
+	protected Precedence precedense = Precedence.Childs;
 
 	protected AbstractNode(Category category, AbstractNode[] childNodes) {
 		Objects.requireNonNull(category);
@@ -37,6 +42,8 @@ public abstract class AbstractNode {
 
 		nextChar: while (true) {
 			for (var child : childNodes) {
+				if (Precedence.Terminals.equals(child.precedense) && isEnd(s, n))
+					break nextChar;
 				var nn = new Node(n, child);
 				nn.start = s.getReadCount();
 				Scanner sub = s.getSubscanner();
@@ -45,12 +52,10 @@ public abstract class AbstractNode {
 					n.children.add(nn);
 					nn.enableSpellcheck = child.enableSpellcheck && enableSpellcheck;
 					continue nextChar;
-				} else
-					sub.reset();
+				}
+				sub.reset();
 			}
-			if (isEnd(s, n))
-				break;
-			if (!s.readNext())
+			if (isEnd(s, n) || !s.readNext())
 				break;
 		}
 		n.end = n.start + s.getReadCount();

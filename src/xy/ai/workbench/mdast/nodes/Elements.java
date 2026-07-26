@@ -69,6 +69,10 @@ public class Elements {
 						Basics.PARAGRAPH //
 				));
 		public static final PageSection PAGE = new PageSection(PAGE_ELEMENTS);
+		static {
+			for (int i = 0; i < Headings.HEADINGS.length; i++)
+				Headings.HEADINGS[i].terminals = new AbstractNode[] { PAGE };
+		}
 	}
 
 	public static class Chat {
@@ -118,6 +122,7 @@ public class Elements {
 
 	public static class Roots {
 		private static final AbstractNode[] ROOT_ELEMENTS = concat( //
+				of(Page.PAGE), //
 				Headings.HEADINGS, //
 				Chat.ALL, //
 				Agent.ALL, //

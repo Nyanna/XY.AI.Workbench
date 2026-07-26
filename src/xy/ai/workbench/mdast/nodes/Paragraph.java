@@ -11,6 +11,7 @@ public class Paragraph extends AbstractNode {
 		super(Category.Section, Elements.NONE);
 		this.enableSpellcheck = true;
 		this.terminals = terminals;
+		this.precedense = Precedence.Terminals;
 	}
 
 	@Override
@@ -38,5 +39,10 @@ public class Paragraph extends AbstractNode {
 	@Override
 	protected boolean isValid(Node n) {
 		return n.end - n.start > 3;
+	}
+
+	@Override
+	public String toString() {
+		return "Paragraph";
 	}
 }

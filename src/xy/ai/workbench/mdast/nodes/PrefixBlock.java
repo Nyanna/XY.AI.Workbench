@@ -22,4 +22,9 @@ public class PrefixBlock extends AbstractNode {
 		sub.reset();
 		return end;
 	}
+
+	@Override
+	public String toString() {
+		return "PrefixBlock: " + String.valueOf(prefix).replace('\n', ' ');
+	}
 }

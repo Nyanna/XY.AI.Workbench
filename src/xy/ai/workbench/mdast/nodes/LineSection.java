@@ -33,4 +33,9 @@ public class LineSection extends AbstractNode {
 			}
 		return false;
 	}
+
+	@Override
+	public String toString() {
+		return "LineSection: " + String.valueOf(prefix).replace('\n', ' ');
+	}
 }

@@ -38,4 +38,8 @@ public class ScriptBlock extends AbstractNode {
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "Script";
+	}
 }
