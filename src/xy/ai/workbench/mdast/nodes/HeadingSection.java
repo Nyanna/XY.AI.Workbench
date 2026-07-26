@@ -24,7 +24,7 @@ public class HeadingSection extends AbstractNode {
 
 	@Override
 	protected boolean isStart(Scanner s) {
-		return s.isNextSequence(prefix);
+		return s.isNextSequenceBounded(prefix);
 	}
 
 	@Override

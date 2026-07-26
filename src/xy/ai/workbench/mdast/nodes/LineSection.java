@@ -17,9 +17,11 @@ public class LineSection extends AbstractNode {
 
 	@Override
 	protected boolean isStart(Scanner s) {
-		if (!s.isNextSequence(prefix))
+		if (!s.isNextSequenceBounded(prefix))
 			return false;
-		s.unread(); // keep trailing NL for child scanning
+		// keep trailing NL for child scanning
+		if (!s.isEOF())
+			s.unread();
 		return true;
 	}
 

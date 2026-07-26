@@ -9,6 +9,9 @@ public class Scanner {
 	private int c;
 	private int readCount = 0;
 
+	private boolean docStart;
+	private boolean docEnd;
+
 	public Scanner(Scanner parent) {
 		this.parent = parent;
 	}
@@ -34,7 +37,13 @@ public class Scanner {
 	}
 
 	public Scanner(CharacterScanner scan) {
+		this(scan, false, false);
+	}
+
+	public Scanner(CharacterScanner scan, boolean docStart, boolean docEnd) {
 		this.scan = scan;
+		this.docStart = docStart;
+		this.docEnd = docEnd;
 	}
 
 	public void clear() {
@@ -78,12 +87,41 @@ public class Scanner {
 	}
 
 	public boolean isNextSequence(char[] seq) {
+		return matchSequence(seq, 0);
+	}
+
+	public boolean isNextSequenceBounded(char[] seq) {
+		int from = seq.length > 0 && seq[0] == '\n' && isDocStart() ? 1 : 0;
+		return matchSequence(seq, from);
+	}
+
+	private boolean matchSequence(char[] seq, int from) {
 		Scanner sub = getSequenceScanner();
-		int sr = 0;
+		int sr = from;
 		for (; sr < seq.length && sub.readNext(); sr++)
 			if (sub.getChar() != seq[sr])
 				return sub.reset();
-		return sr == seq.length ? true : sub.reset();
+		if (sr == seq.length)
+			return true;
+		// ran out of real input before completing the match; tolerate a
+		// missing trailing '\n' exactly at the true document end
+		if (sr == seq.length - 1 && seq[sr] == '\n' && isDocEnd())
+			return true;
+		return sub.reset();
+	}
+
+	public boolean isDocStart() {
+		Scanner root = this;
+		while (root.parent != null)
+			root = root.parent;
+		return root.docStart && root.readCount == 0;
+	}
+
+	public boolean isDocEnd() {
+		Scanner root = this;
+		while (root.parent != null)
+			root = root.parent;
+		return root.docEnd;
 	}
 
 	public boolean unread(int count) {
@@ -110,9 +148,13 @@ public class Scanner {
 	}
 
 	private int read() {
-		readCount++;
-		p = c;
-		return (parent != null ? (c = parent.read()) : (c = scan.read()));
+		int prev = c;
+		int next = (parent != null ? parent.read() : scan.read());
+		if (next != CharacterScanner.EOF)
+			readCount++;
+		p = prev;
+		c = next;
+		return next;
 	}
 
 	public void unread() {

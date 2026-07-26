@@ -27,7 +27,7 @@ public class MarkdownDocument {
 		while (true) {
 			Node parent = sec.parent;
 			int absStart = sec.getOffset();
-			int newLen = (hi - absStart) + delta;
+			int newLen = Math.max(hi - absStart, sec.length()) + delta;
 			Node rn = parse(absStart, absStart + newLen);
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
@@ -41,7 +41,10 @@ public class MarkdownDocument {
 	private Node parse(int absStart, int absEnd) {
 		char[] slice = readChars(absStart, absEnd - absStart);
 		Node rn = new Node(null, Elements.ROOT);
-		Elements.ROOT.scan(new Scanner(new BufferReader(slice, 0)), rn);
+		boolean documentStart = absStart == 0;
+		boolean documentEnd = absEnd == buffer.length() && false;
+		Scanner scanner = new Scanner(new BufferReader(slice, 0), documentStart, documentEnd);
+		Elements.ROOT.scan(scanner, rn);
 		return rn;
 	}
 

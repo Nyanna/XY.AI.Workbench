@@ -15,18 +15,20 @@ public class ScriptBlock extends AbstractNode {
 
 	@Override
 	protected boolean isStart(Scanner s) {
-		if (!s.isNextSequence(startBlock))
+		if (!s.isNextSequenceBounded(startBlock))
 			return false;
 
 		boolean endblock = false, basicEnd = false;
-		while (s.getReadCount() < LIMIT && s.readNext() && !(endblock = s.isNextSequence(endBlock))
+		while (s.getReadCount() < LIMIT && s.readNext() && !(endblock = s.isNextSequenceBounded(endBlock))
 				&& !(basicEnd = s.isNextSequence(intermediateBreak)))
 			; // consume
 
 		if (basicEnd || !endblock)
 			return false;
 
-		s.unread(); // keep trailing NL for sibling scanning
+		// keep trailing NL for sibling scanning
+		if (!s.isEOF())
+			s.unread();
 		return true;
 	}
 

@@ -97,7 +97,8 @@ public final class Elements {
 
 	public static final AbstractNode[] PARAGRAPH_ENDS = Stream.concat( //
 			Stream.of(HEADINGS), //
-			Stream.of(PAGE) //
+			// all execpt itself
+			Stream.of(PAGE).filter(e -> e != PARAGRAPH) //
 	).toArray(AbstractNode[]::new);
 
 	public static final AbstractNode[] NONE = new AbstractNode[0];

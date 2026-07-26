@@ -12,9 +12,11 @@ public class PageSection extends AbstractNode {
 
 	@Override
 	protected boolean isStart(Scanner s) {
-		if (!s.isNextSequence(separator))
+		if (!s.isNextSequenceBounded(separator))
 			return false;
-		s.unread(); // keep trailing NL for child scanning
+		// keep trailing NL for child scanning
+		if (!s.isEOF())
+			s.unread();
 		return true;
 	}
 
