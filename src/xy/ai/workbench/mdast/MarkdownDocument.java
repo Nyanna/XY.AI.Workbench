@@ -23,11 +23,11 @@ public class MarkdownDocument {
 		int delta = inserted - removed;
 		lines.update(buffer, offset, removed, inserted);
 
-		Node sec = find(lo, hi);
+		Node sec = findForUpdate(lo, hi);
 		while (true) {
 			Node parent = sec.parent;
 			int absStart = sec.getOffset();
-			int newLen = sec.length() + delta;
+			int newLen = (hi - absStart) + delta;
 			Node rn = parse(absStart, absStart + newLen);
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
@@ -107,6 +107,19 @@ public class MarkdownDocument {
 
 	public Node find(int lo, int hi) {
 		return find(root, lo, hi);
+	}
+
+	private Node findForUpdate(int lo, int hi) {
+		Node tail = lastLeaf(root);
+		if (tail != root && tail.getEndOffset() <= lo)
+			return tail;
+		return find(lo, hi);
+	}
+
+	private Node lastLeaf(Node node) {
+		while (!node.children.isEmpty())
+			node = node.children.get(node.children.size() - 1);
+		return node;
 	}
 
 	private Node find(Node node, int lo, int hi) {
