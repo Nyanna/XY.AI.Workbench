@@ -5,12 +5,14 @@ import xy.ai.workbench.tools.Scanner;
 public class LineSection extends AbstractNode {
 	private char[] prefix;
 	private AbstractNode[] childNodes;
+	private AbstractNode[] terminalNodes;
 
-	LineSection(String marker, boolean spellcheck, AbstractNode[] childNodes) {
+	LineSection(String marker, boolean spellcheck, AbstractNode[] childNodes, AbstractNode[] terminalNodes) {
 		super(Category.Section);
 		this.prefix = ("\n" + marker + "\n").toCharArray();
 		this.enableSpellcheck = spellcheck;
 		this.childNodes = childNodes;
+		this.terminalNodes = terminalNodes;
 	}
 
 	@Override
@@ -24,7 +26,7 @@ public class LineSection extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		Scanner sub = s.getSubscanner();
-		for (LineSection l : Elements.LINE_SECTION_FAMILY)
+		for (AbstractNode l : terminalNodes)
 			if (l.isStart(sub)) {
 				sub.reset();
 				return true;

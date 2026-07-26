@@ -21,10 +21,6 @@ public final class Elements {
 	public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
 	public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
 	public static final PrefixBlock LINE_COMMENT = new PrefixBlock(AbstractRule.LINE_COMMENT);
-	public static final LineSection USER = new LineSection(EditorInterface.USER, true, Elements.PAGE);
-	public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, Elements.PAGE);
-	public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false,
-			new AbstractNode[] { ANSWER, SCRIPTBLOCK });
 	public static final Paragraph PARAGRAPH = new Paragraph();
 
 	public static final HeadingSection[] HEADINGS = new HeadingSection[HeadingSection.MAX_ORDER];
@@ -47,9 +43,30 @@ public final class Elements {
 		}
 	}
 
-	// Sets
+	public static final AbstractNode[] USER_AGENT_TERMINAL = new AbstractNode[2];
+	public static final LineSection USER = new LineSection(EditorInterface.USER, true, Elements.PAGE,
+			USER_AGENT_TERMINAL);
+	public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, Elements.PAGE,
+			USER_AGENT_TERMINAL);
+	static {
+		USER_AGENT_TERMINAL[0] = Elements.USER;
+		USER_AGENT_TERMINAL[1] = Elements.AGENT;
+	}
 
-	public static final LineSection[] LINE_SECTION_FAMILY = { Elements.USER, Elements.AGENT, Elements.CONTROL_REQUEST };
+	public static final AbstractNode[] CONTROL_REQUEST_TERMINAL = new AbstractNode[8];
+	public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false,
+			new AbstractNode[] { ANSWER, SCRIPTBLOCK }, CONTROL_REQUEST_TERMINAL);
+
+	static {
+		CONTROL_REQUEST_TERMINAL[0] = Elements.USER;
+		CONTROL_REQUEST_TERMINAL[1] = Elements.AGENT;
+		CONTROL_REQUEST_TERMINAL[2] = Elements.CONTROL_REQUEST;
+		CONTROL_REQUEST_TERMINAL[3] = HEADINGS[3];
+		CONTROL_REQUEST_TERMINAL[4] = HEADINGS[4];
+		CONTROL_REQUEST_TERMINAL[5] = HEADINGS[5];
+		CONTROL_REQUEST_TERMINAL[6] = REASONING_TOKEN;
+		CONTROL_REQUEST_TERMINAL[7] = TEXT;
+	}
 
 	public static final AbstractNode[] PAGE = new AbstractNode[] { //
 			HEADINGS[0], //
