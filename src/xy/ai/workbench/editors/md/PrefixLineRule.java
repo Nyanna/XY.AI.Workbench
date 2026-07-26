@@ -15,7 +15,7 @@ public class PrefixLineRule extends AbstractRule {
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (!s.isNextSequence(prefix))
+		if (!s.isNextSequenceBounded(prefix))
 			return s.reset();
 
 		boolean nl = false;

@@ -161,7 +161,9 @@ public class AIRuleScanner implements ITokenScanner {
 		for (RuleBasedScanner s : scannerByNode.values())
 			for (IRule r : ruleCache.getOrDefault(s, new IRule[0]))
 				all.add(r);
-		fallbackScanner.setRules(all.toArray(new IRule[0]));
+		IRule[] allRules = all.toArray(new IRule[0]);
+		fallbackScanner.setRules(allRules);
+		ruleCache.put(fallbackScanner, allRules);
 	}
 
 	private void register(AbstractNode node, IRule... rules) {
@@ -169,6 +171,18 @@ public class AIRuleScanner implements ITokenScanner {
 		scanner.setRules(rules);
 		scannerByNode.put(node, scanner);
 		ruleCache.put(scanner, rules);
+	}
+
+	private void applyDocumentBounds(RuleBasedScanner scanner, IDocument document, int start, int end) {
+		IRule[] rules = ruleCache.get(scanner);
+		if (rules == null)
+			return;
+
+		boolean atDocStart = start == 0;
+		boolean atDocEnd = end == document.getLength();
+		for (IRule rule : rules)
+			if (rule instanceof AbstractRule abstractRule)
+				abstractRule.setDocumentBounds(atDocStart, atDocEnd);
 	}
 
 	@Override
@@ -236,6 +250,8 @@ public class AIRuleScanner implements ITokenScanner {
 			return;
 		}
 
+		applyDocumentBounds(scanner, document, start, end);
+
 		int widenedEnd = Math.min(document.getLength(), end + 1);
 		scanner.setRange(document, start, widenedEnd - start);
 
@@ -258,6 +274,7 @@ public class AIRuleScanner implements ITokenScanner {
 	}
 
 	private void scanFlat(RuleBasedScanner scanner, IDocument document, int lo, int hi) {
+		applyDocumentBounds(scanner, document, lo, hi);
 		scanner.setRange(document, lo, hi - lo);
 		while (true) {
 			IToken token = scanner.nextToken();

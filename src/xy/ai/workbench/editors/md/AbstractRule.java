@@ -11,11 +11,19 @@ public abstract class AbstractRule implements IRule {
 	public static final String LINE_COMMENT = "#:";
 	private IToken token = Token.UNDEFINED;
 
+	private boolean docStart;
+	private boolean docEnd;
+
 	public AbstractRule() {
 	}
 
 	public AbstractRule(IToken token) {
 		this.token = token;
+	}
+
+	public void setDocumentBounds(boolean docStart, boolean docEnd) {
+		this.docStart = docStart;
+		this.docEnd = docEnd;
 	}
 
 	public final IToken evaluate(ICharacterScanner s) {
@@ -29,7 +37,7 @@ public abstract class AbstractRule implements IRule {
 			public int read() {
 				return s.read();
 			}
-		}));
+		}, docStart, docEnd));
 	}
 
 	protected IToken evaluateToken(Scanner s) {

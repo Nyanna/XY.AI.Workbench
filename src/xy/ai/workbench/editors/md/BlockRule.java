@@ -19,7 +19,7 @@ public class BlockRule extends AbstractRule {
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (!s.isNextSequence(startBlock))
+		if (!s.isNextSequenceBounded(startBlock))
 			return s.reset();
 
 		boolean endblock = false, basicEnd = false;
@@ -30,7 +30,8 @@ public class BlockRule extends AbstractRule {
 			return s.reset();
 		if (!endblock)
 			return s.reset();
-		s.unread();
+		if (!s.isEOF())
+			s.unread(); // unread trailing NL, unless doc end was reached
 		return true;
 	}
 }

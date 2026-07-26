@@ -14,9 +14,10 @@ public class LineMatchRule extends AbstractRule {
 
 	@Override
 	protected boolean evaluateMatch(Scanner s) {
-		if (!s.isNextSequence(match))
+		if (!s.isNextSequenceBounded(match))
 			return false;
-		s.unread(); // unread NL
+		if (!s.isEOF())
+			s.unread(); // unread NL, unless doc end was reached
 		return true;
 	}
 }
