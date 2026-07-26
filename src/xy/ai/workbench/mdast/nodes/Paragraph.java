@@ -3,14 +3,14 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class Paragraph extends AbstractNode {
-	private AbstractNode[] childNodes = new AbstractNode[0];
+	private final char[] prefix = "\n".toCharArray();
+	private final char[] postfix = "\n\n".toCharArray();
+	AbstractNode[] terminals;
 
-	private char[] prefix = "\n".toCharArray();
-	private char[] postfix = "\n\n".toCharArray();
-
-	Paragraph() {
-		super(Category.Section);
+	Paragraph(AbstractNode[] terminals) {
+		super(Category.Section, Elements.NONE);
 		this.enableSpellcheck = true;
+		this.terminals = terminals;
 	}
 
 	@Override
@@ -20,9 +20,9 @@ public class Paragraph extends AbstractNode {
 
 	@Override
 	protected boolean isEndInner(Scanner s) {
-		for (int i = 0; i < Elements.PARAGRAPH_ENDS.length; i++) {
+		for (int i = 0; i < terminals.length; i++) {
 			Scanner sub = s.getSubscanner();
-			if (Elements.PARAGRAPH_ENDS[i].isStart(sub)) {
+			if (terminals[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}
@@ -38,10 +38,5 @@ public class Paragraph extends AbstractNode {
 	@Override
 	protected boolean isValid(Node n) {
 		return n.end - n.start > 3;
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return childNodes;
 	}
 }

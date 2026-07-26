@@ -111,35 +111,35 @@ public class AIRuleScanner implements ITokenScanner {
 		Font[] headingFonts = getOrCreateFonts(basefont.getFontData()[0]);
 		String[] headingPrefixes = { "###### ", "##### ", "#### ", "### ", "## ", "# " };
 		HeaderRule headerRule = new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD)));
-		for (int i = 0; i < Elements.HEADINGS.length; i++) {
+		for (int i = 0; i < Elements.Headings.HEADINGS.length; i++) {
 			IToken headingToken = new Token(new TextAttribute(c, null, SWT.BOLD, headingFonts[i]));
-			register(Elements.HEADINGS[i], new PrefixLineRule(headingPrefixes[i], headingToken), headerRule);
+			register(Elements.Headings.HEADINGS[i], new PrefixLineRule(headingPrefixes[i], headingToken), headerRule);
 		}
 
 		// ---- section: page separator ----
-		register(Elements.PAGESECTION, new PrefixLineRule("---", spacerToken));
+		register(Elements.Page.PAGE, new PrefixLineRule("---", spacerToken));
 
 		// ---- section: chat line markers, each only valid for its own element ----
-		register(Elements.USER, new LineMatchRule(EditorInterface.USER, userToken));
-		register(Elements.AGENT, new LineMatchRule(EditorInterface.AGENT, agentToken));
-		register(Elements.CONTROL_REQUEST, new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
+		register(Elements.Chat.USER, new LineMatchRule(EditorInterface.USER, userToken));
+		register(Elements.Chat.AGENT, new LineMatchRule(EditorInterface.AGENT, agentToken));
+		register(Elements.Tools.CONTROL_REQUEST, new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
 
 		// ---- block: protocol prefix lines, each tied 1:1 to its own AST element ----
-		register(Elements.THINKING, new PrefixLineRule(ProtocolParser.THINKING, agentToken));
-		register(Elements.TEXT, new PrefixLineRule(ProtocolParser.TEXT, agentToken));
-		register(Elements.TOOLUSE, new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
-		register(Elements.ANSWER, new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
-		register(Elements.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
-		register(Elements.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
-		register(Elements.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
-		register(Elements.LINE_COMMENT, new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
+		register(Elements.Agent.THINKING, new PrefixLineRule(ProtocolParser.THINKING, agentToken));
+		register(Elements.Agent.TEXT, new PrefixLineRule(ProtocolParser.TEXT, agentToken));
+		register(Elements.Agent.TOOLUSE, new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
+		register(Elements.Tools.ANSWER, new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
+		register(Elements.Agent.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
+		register(Elements.Agent.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
+		register(Elements.Agent.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
+		register(Elements.Basics.LINE_COMMENT, new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
 
 		// ---- block: fenced code, only valid inside a ScriptBlock ----
-		register(Elements.SCRIPTBLOCK, new BlockRule("```", "```", blueToken));
+		register(Elements.Basics.SCRIPTBLOCK, new BlockRule("```", "```", blueToken));
 
 		// ---- section: paragraph - lists, emphasis, links and quote/glossary prefixes
 		// ----
-		register(Elements.PARAGRAPH, //
+		register(Elements.Basics.PARAGRAPH, //
 				commentRule, //
 				new PrefixLineRule(": ", italic), // glossary syntax
 				new PrefixLineRule("> ", italic), // citation syntax

@@ -6,7 +6,7 @@ public class PrefixBlock extends AbstractNode {
 	private char[] prefix;
 
 	PrefixBlock(String marker) {
-		super(Category.Block);
+		super(Category.Block, Elements.NONE);
 		this.prefix = ("\n" + marker).toCharArray();
 	}
 
@@ -21,10 +21,5 @@ public class PrefixBlock extends AbstractNode {
 		boolean end = !sub.readNext() || sub.isNewLine();
 		sub.reset();
 		return end;
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return Elements.NONE;
 	}
 }

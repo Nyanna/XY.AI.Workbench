@@ -1,6 +1,8 @@
 
 # TODO
 
+Start/end auch für syntaxhighlighting nutzen
+
 Suchtool für dateiinhalt, analog grep mit kontext
 
 ## Workbench

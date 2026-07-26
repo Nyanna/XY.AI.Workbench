@@ -6,11 +6,14 @@ import xy.ai.workbench.tools.Scanner;
 
 public abstract class AbstractNode {
 	private Category category;
+	AbstractNode[] childNodes;
 	protected boolean enableSpellcheck;
 
-	protected AbstractNode(Category category) {
+	protected AbstractNode(Category category, AbstractNode[] childNodes) {
 		Objects.requireNonNull(category);
+		Objects.requireNonNull(childNodes);
 		this.category = category;
+		this.childNodes = childNodes;
 	}
 
 	public Category getCategory() {
@@ -18,7 +21,7 @@ public abstract class AbstractNode {
 	}
 
 	public boolean containChild(AbstractNode child) {
-		for (AbstractNode c : getChildNodes())
+		for (AbstractNode c : childNodes)
 			if (c == child)
 				return true;
 		return false;
@@ -33,7 +36,7 @@ public abstract class AbstractNode {
 			return false;
 
 		nextChar: while (!isEnd(s, n)) {
-			for (var child : getChildNodes()) {
+			for (var child : childNodes) {
 				var nn = new Node(n, child);
 				nn.start = s.getReadCount();
 				Scanner sub = s.getSubscanner();
@@ -51,8 +54,6 @@ public abstract class AbstractNode {
 		n.end = n.start + s.getReadCount();
 		return isValid(n);
 	}
-
-	protected abstract AbstractNode[] getChildNodes();
 
 	protected abstract boolean isStart(Scanner s);
 

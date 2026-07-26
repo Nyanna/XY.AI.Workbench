@@ -3,8 +3,8 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class Root extends AbstractNode {
-	Root() {
-		super(Category.Section);
+	Root(AbstractNode[] childNodes) {
+		super(Category.Section, childNodes);
 		this.enableSpellcheck = true;
 	}
 
@@ -16,10 +16,5 @@ public class Root extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		return s.isEOF();
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return Elements.ALL;
 	}
 }

@@ -42,7 +42,7 @@ public class MarkdownDocument {
 		char[] slice = readChars(absStart, absEnd - absStart);
 		Node rn = new Node(null, Elements.ROOT);
 		boolean documentStart = absStart == 0;
-		boolean documentEnd = absEnd == buffer.length() && false;
+		boolean documentEnd = absEnd == buffer.length();
 		Scanner scanner = new Scanner(new BufferReader(slice, 0), documentStart, documentEnd);
 		Elements.ROOT.scan(scanner, rn);
 		return rn;

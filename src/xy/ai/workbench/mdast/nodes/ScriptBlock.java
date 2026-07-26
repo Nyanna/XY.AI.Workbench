@@ -10,7 +10,7 @@ public class ScriptBlock extends AbstractNode {
 	private char[] intermediateBreak = "```".toCharArray();
 
 	ScriptBlock() {
-		super(Category.Block);
+		super(Category.Block, Elements.NONE);
 	}
 
 	@Override
@@ -38,8 +38,4 @@ public class ScriptBlock extends AbstractNode {
 		return true;
 	}
 
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return Elements.NONE;
-	}
 }

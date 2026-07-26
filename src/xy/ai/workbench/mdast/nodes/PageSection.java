@@ -5,8 +5,8 @@ import xy.ai.workbench.tools.Scanner;
 public class PageSection extends AbstractNode {
 	private char[] separator = "\n---\n".toCharArray();
 
-	PageSection() {
-		super(Category.Section);
+	PageSection(AbstractNode[] childNodes) {
+		super(Category.Section, childNodes);
 		this.enableSpellcheck = true;
 	}
 
@@ -26,10 +26,5 @@ public class PageSection extends AbstractNode {
 		boolean end = sub.isNextSequence(separator);
 		sub.reset();
 		return end;
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return Elements.PAGE;
 	}
 }

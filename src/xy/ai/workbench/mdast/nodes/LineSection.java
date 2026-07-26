@@ -4,14 +4,12 @@ import xy.ai.workbench.tools.Scanner;
 
 public class LineSection extends AbstractNode {
 	private char[] prefix;
-	private AbstractNode[] childNodes;
-	private AbstractNode[] terminalNodes;
+	AbstractNode[] terminalNodes;
 
 	LineSection(String marker, boolean spellcheck, AbstractNode[] childNodes, AbstractNode[] terminalNodes) {
-		super(Category.Section);
+		super(Category.Section, childNodes);
 		this.prefix = ("\n" + marker + "\n").toCharArray();
 		this.enableSpellcheck = spellcheck;
-		this.childNodes = childNodes;
 		this.terminalNodes = terminalNodes;
 	}
 
@@ -34,10 +32,5 @@ public class LineSection extends AbstractNode {
 				return true;
 			}
 		return false;
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return childNodes;
 	}
 }

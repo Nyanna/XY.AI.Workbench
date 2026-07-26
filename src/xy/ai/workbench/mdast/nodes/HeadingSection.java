@@ -7,12 +7,13 @@ public class HeadingSection extends AbstractNode {
 
 	private int order;
 	private char[] prefix;
-	AbstractNode[] childNodes;
+	private AbstractNode[] terminals;
 
-	HeadingSection(int order) {
-		super(Category.Section);
+	HeadingSection(int order, AbstractNode[] childNodes, AbstractNode[] terminals) {
+		super(Category.Section, childNodes);
 		this.order = order;
 		this.enableSpellcheck = true;
+		this.terminals = terminals;
 
 		// starts with "\n## "
 		prefix = new char[order + 2];
@@ -30,16 +31,11 @@ public class HeadingSection extends AbstractNode {
 	@Override
 	protected boolean isEndInner(Scanner s) {
 		Scanner sub = s.getSubscanner();
-		for (int i = MAX_ORDER - order; i < Elements.HEADINGS.length; i++)
-			if (Elements.HEADINGS[i].isStart(sub)) {
+		for (int i = MAX_ORDER - order; i < terminals.length; i++)
+			if (terminals[i].isStart(sub)) {
 				sub.reset();
 				return true;
 			}
 		return false;
-	}
-
-	@Override
-	protected AbstractNode[] getChildNodes() {
-		return childNodes;
 	}
 }

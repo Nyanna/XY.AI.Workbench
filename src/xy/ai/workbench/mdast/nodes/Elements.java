@@ -7,102 +7,144 @@ import xy.ai.workbench.connectors.claudecode.CCControlClient;
 import xy.ai.workbench.connectors.claudecode.ProtocolParser;
 import xy.ai.workbench.editors.md.AbstractRule;
 
-public final class Elements {
-	// Instances
+/*
+ * Sorting must be inverted, root on bottom contains all 
+ */
+public class Elements {
+	public static final AbstractNode[] NONE = new AbstractNode[0];
 
-	public static final Root ROOT = new Root();
-	public static final PageSection PAGESECTION = new PageSection();
-	public static final ScriptBlock SCRIPTBLOCK = new ScriptBlock();
-	public static final PrefixBlock THINKING = new PrefixBlock(ProtocolParser.THINKING);
-	public static final PrefixBlock TEXT = new PrefixBlock(ProtocolParser.TEXT);
-	public static final PrefixBlock TOOLUSE = new PrefixBlock(ProtocolParser.TOOLUSE);
-	public static final PrefixBlock ANSWER = new PrefixBlock(CCControlClient.ANSWER);
-	public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
-	public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
-	public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
-	public static final PrefixBlock LINE_COMMENT = new PrefixBlock(AbstractRule.LINE_COMMENT);
-	public static final Paragraph PARAGRAPH = new Paragraph();
+	public static class Basics {
+		public static final ScriptBlock SCRIPTBLOCK = new ScriptBlock();
+		public static final PrefixBlock LINE_COMMENT = new PrefixBlock(AbstractRule.LINE_COMMENT);
+		public static final Paragraph PARAGRAPH = new Paragraph(NONE); // replaced later
+		public static final AbstractNode[] ALL = of(SCRIPTBLOCK, LINE_COMMENT, PARAGRAPH);
+	}
 
-	public static final HeadingSection[] HEADINGS = new HeadingSection[HeadingSection.MAX_ORDER];
-	static {
-		for (int i = 0; i < HEADINGS.length; i++)
-			HEADINGS[i] = new HeadingSection(HeadingSection.MAX_ORDER - i);
+	public static class Headings {
+		public static final HeadingSection[] HEADINGS = new HeadingSection[HeadingSection.MAX_ORDER];
+		static {
+			for (int i = 0; i < HEADINGS.length; i++)
+				HEADINGS[i] = new HeadingSection(HeadingSection.MAX_ORDER - i, NONE, HEADINGS); // None will be replaced
 
-		for (int i = 0; i < HEADINGS.length; i++) {
-			AbstractNode[] childNodes = new AbstractNode[i];
-			for (int j = 0; j < i; j++)
-				childNodes[j] = HEADINGS[j];
+			for (int i = 0; i < HEADINGS.length; i++) {
+				AbstractNode[] childNodes = new AbstractNode[i];
+				for (int j = 0; j < i; j++)
+					childNodes[j] = HEADINGS[j];
 
-			HEADINGS[i].childNodes = Stream.concat( //
-					Stream.of(childNodes), //
-					Stream.of(new AbstractNode[] { //
-							SCRIPTBLOCK, //
-							LINE_COMMENT, //
-							PARAGRAPH //
-					})).toArray(AbstractNode[]::new);
+				HEADINGS[i].childNodes = concat( //
+						childNodes, //
+						of( //
+								Basics.SCRIPTBLOCK, //
+								Basics.LINE_COMMENT, //
+								Basics.PARAGRAPH //
+						));
+			}
 		}
 	}
 
-	public static final AbstractNode[] USER_AGENT_TERMINAL = new AbstractNode[2];
-	public static final LineSection USER = new LineSection(EditorInterface.USER, true, Elements.PAGE,
-			USER_AGENT_TERMINAL);
-	public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, Elements.PAGE,
-			USER_AGENT_TERMINAL);
-	static {
-		USER_AGENT_TERMINAL[0] = Elements.USER;
-		USER_AGENT_TERMINAL[1] = Elements.AGENT;
+	public static class Agent {
+		public static final PrefixBlock THINKING = new PrefixBlock(ProtocolParser.THINKING);
+		public static final PrefixBlock TEXT = new PrefixBlock(ProtocolParser.TEXT);
+		public static final PrefixBlock TOOLUSE = new PrefixBlock(ProtocolParser.TOOLUSE);
+		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
+		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
+		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
+		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT);
 	}
 
-	public static final AbstractNode[] CONTROL_REQUEST_TERMINAL = new AbstractNode[8];
-	public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false,
-			new AbstractNode[] { ANSWER, SCRIPTBLOCK }, CONTROL_REQUEST_TERMINAL);
-
-	static {
-		CONTROL_REQUEST_TERMINAL[0] = Elements.USER;
-		CONTROL_REQUEST_TERMINAL[1] = Elements.AGENT;
-		CONTROL_REQUEST_TERMINAL[2] = Elements.CONTROL_REQUEST;
-		CONTROL_REQUEST_TERMINAL[3] = HEADINGS[3];
-		CONTROL_REQUEST_TERMINAL[4] = HEADINGS[4];
-		CONTROL_REQUEST_TERMINAL[5] = HEADINGS[5];
-		CONTROL_REQUEST_TERMINAL[6] = REASONING_TOKEN;
-		CONTROL_REQUEST_TERMINAL[7] = TEXT;
+	public static class Tools {
+		public static final PrefixBlock ANSWER = new PrefixBlock(CCControlClient.ANSWER);
+		public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false, of(//
+				ANSWER, //
+				Basics.SCRIPTBLOCK), //
+				NONE// replaced later
+		);
+		public static final AbstractNode[] ALL = of(CONTROL_REQUEST);
 	}
 
-	public static final AbstractNode[] PAGE = new AbstractNode[] { //
-			HEADINGS[0], //
-			HEADINGS[1], //
-			HEADINGS[2], //
-			HEADINGS[3], //
-			HEADINGS[4], //
-			HEADINGS[5], //
-			USER, //
-			AGENT, //
-			CONTROL_REQUEST, //
-			SCRIPTBLOCK, //
-			THINKING, //
-			TEXT, //
-			TOOLUSE, //
-			ANSWER, //
-			REASONING_TOKEN, //
-			TOKEN_STATS, //
-			SYSTEM_INIT, //
-			LINE_COMMENT, //
-			PARAGRAPH //
-	};
+	public static class Page {
+		private static final AbstractNode[] PAGE_ELEMENTS = concat( //
+				Headings.HEADINGS, //
+				of(//
+						Basics.PARAGRAPH //
+				));
+		public static final PageSection PAGE = new PageSection(PAGE_ELEMENTS);
+	}
 
-	public static final AbstractNode[] ALL = Stream.concat( //
-			Stream.of(PAGESECTION), //
-			Stream.of(PAGE) //
-	).toArray(AbstractNode[]::new);
+	public static class Chat {
+		private static final AbstractNode[] USER_ELEMENTS = concat( //
+				Headings.HEADINGS, //
+				of( //
+						Basics.SCRIPTBLOCK, //
+						Basics.LINE_COMMENT, //
+						Page.PAGE, //
+						Basics.PARAGRAPH //
+				));
 
-	public static final AbstractNode[] PARAGRAPH_ENDS = Stream.concat( //
-			Stream.of(HEADINGS), //
+		public static final LineSection USER = new LineSection(EditorInterface.USER, true, USER_ELEMENTS, //
+				NONE); // later replaced
+
+		private static final AbstractNode[] AGENT_ELEMENTS = concat( //
+				USER_ELEMENTS, //
+				of( //
+						Tools.CONTROL_REQUEST, //
+						Agent.THINKING, //
+						Agent.TEXT, //
+						Agent.TOOLUSE, //
+						Agent.REASONING_TOKEN, //
+						Agent.TOKEN_STATS, //
+						Agent.SYSTEM_INIT //
+				));
+		public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, AGENT_ELEMENTS, of(USER));
+		public static final AbstractNode[] ALL = of(USER, AGENT);
+
+		static {
+			USER.terminalNodes = of(AGENT);
+			Tools.CONTROL_REQUEST.terminalNodes = concat(//
+					of(USER, AGENT, //
+							Tools.CONTROL_REQUEST //
+					), //
+					Headings.HEADINGS, //
+					of(Agent.THINKING, //
+							Agent.TEXT, //
+							Agent.TOOLUSE, //
+							Agent.REASONING_TOKEN, //
+							Agent.TOKEN_STATS, //
+							Agent.SYSTEM_INIT, //
+							Basics.PARAGRAPH //
+					));
+		}
+	}
+
+	public static class Roots {
+		private static final AbstractNode[] ROOT_ELEMENTS = concat( //
+				Headings.HEADINGS, //
+				Chat.ALL, //
+				Agent.ALL, //
+				Tools.ALL, //
+				Basics.ALL //
+		);
+
+		public static final Root ROOT = new Root(ROOT_ELEMENTS);
+
+		static {
 			// all execpt itself
-			Stream.of(PAGE).filter(e -> e != PARAGRAPH) //
-	).toArray(AbstractNode[]::new);
+			Basics.PARAGRAPH.terminals = Stream.of(ROOT_ELEMENTS).filter(e -> e != Basics.PARAGRAPH)
+					.toArray(AbstractNode[]::new);
+		}
 
-	public static final AbstractNode[] NONE = new AbstractNode[0];
+	}
 
-	private Elements() {
+	public static final Root ROOT = Roots.ROOT;
+
+	private static AbstractNode[] of(AbstractNode... nodes) {
+		return nodes;
+	}
+
+	private static AbstractNode[] concat(AbstractNode[]... s) {
+		Stream<AbstractNode> ss = Stream.of(s[0]);
+		for (int i = 1; i < s.length; i++)
+			ss = Stream.concat(ss, Stream.of(s[i]));
+		return ss.toArray(AbstractNode[]::new);
 	}
 }
