@@ -13,10 +13,13 @@ public class MarkdownLabelProvider extends WorkbenchLabelProvider {
 		if (element instanceof IFile) {
 			IFile file = (IFile) element;
 			if (isMarkdownFile(file)) {
-				String title = getFirstLineFromFile(file);
-				if (title != null)
-					return title;
+				String s = getFirstLineFromFile(file);
+				if (s != null)
+					return s.length() > 40 ? s.substring(0, 40) + "…" : s;
 			}
+		} else if (element instanceof IContainer) {
+			IContainer dir = (IContainer) element;
+			return dir.getProjectRelativePath().toString();
 		}
 
 		return super.decorateText(input, element);

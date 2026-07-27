@@ -1,6 +1,9 @@
 package xy.ai.workbench.views.explorer;
 
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.viewers.*;
 
 public class ModificationDateComparator extends ViewerComparator {
@@ -13,9 +16,30 @@ public class ModificationDateComparator extends ViewerComparator {
 		IResource r1 = (IResource) e1;
 		IResource r2 = (IResource) e2;
 
-		if (r1.getType() != r2.getType())
-			return Integer.compare(r1.getType(), r2.getType());
+		return Long.compare(effectiveTimeStamp(r2), effectiveTimeStamp(r1));
+	}
 
-		return Long.compare(r2.getLocalTimeStamp(), r1.getLocalTimeStamp());
+	private long effectiveTimeStamp(IResource resource) {
+		if (resource instanceof IContainer) {
+			long newestMarkdown = newestMarkdownTimeStamp((IContainer) resource);
+			if (newestMarkdown >= 0)
+				return newestMarkdown;
+		}
+		return resource.getLocalTimeStamp();
+	}
+
+	private long newestMarkdownTimeStamp(IContainer container) {
+		long newest = -1;
+		try {
+			for (IResource member : container.members()) {
+				if (member instanceof IFile && member.getName().endsWith(".md")) {
+					long stamp = member.getLocalTimeStamp();
+					if (stamp > newest)
+						newest = stamp;
+				}
+			}
+		} catch (CoreException e) {
+		}
+		return newest;
 	}
 }
