@@ -267,3 +267,17 @@ def _validate_arguments(schema: dict[str, Any], arguments: dict[str, Any]) -> No
                 f"Argument '{key}' must be of type {expected}",
                 {"argument": key, "expectedType": expected},
             )
+
+        if expected in ("number", "integer"):
+            minimum = prop.get("minimum")
+            if isinstance(minimum, (int, float)) and value < minimum:
+                raise errors.invalid_params(
+                    f"Argument '{key}' must be >= {minimum}",
+                    {"argument": key, "minimum": minimum},
+                )
+            maximum = prop.get("maximum")
+            if isinstance(maximum, (int, float)) and value > maximum:
+                raise errors.invalid_params(
+                    f"Argument '{key}' must be <= {maximum}",
+                    {"argument": key, "maximum": maximum},
+                )

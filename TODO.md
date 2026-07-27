@@ -1,7 +1,4 @@
 # TODO
-!clear areas from annotation with spellcheck disabled
-!when tools cahce muss midnestenz 5m sein
-!github-search-issues ergebnisse limitieren, nur heading oder aggregate dann gezielt
 Suchtool für dateiinhalt, analog grep mit kontext
 
 ## Workbench

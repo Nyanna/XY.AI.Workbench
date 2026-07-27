@@ -40,7 +40,7 @@ from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
 from ...text_sanitize import sanitize_value
 
 #: Hard caps that mirror the OpenAlex API limits.
-_MAX_PER_PAGE = 200
+_MAX_PER_PAGE = 50 # was 200
 _MAX_SEMANTIC_RESULTS = 50
 _DEFAULT_SEARCH_LIMIT = 25
 _DEFAULT_SEMANTIC_LIMIT = 10
