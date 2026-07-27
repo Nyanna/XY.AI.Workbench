@@ -1,5 +1,5 @@
 # TODO
-
+!clear areas from annotation with spellcheck disabled
 Suchtool für dateiinhalt, analog grep mit kontext
 
 ## Workbench

@@ -92,7 +92,6 @@ public class Elements {
 				NONE); // later replaced
 
 		private static final AbstractNode[] AGENT_ELEMENTS = concat( //
-				USER_ELEMENTS, //
 				of( //
 						Tools.CONTROL_REQUEST, //
 						Agent.THINKING, //
@@ -101,7 +100,9 @@ public class Elements {
 						Agent.REASONING_TOKEN, //
 						Agent.TOKEN_STATS, //
 						Agent.SYSTEM_INIT //
-				));
+				), //
+				USER_ELEMENTS //
+		);
 		public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, AGENT_ELEMENTS, of(USER));
 		public static final AbstractNode[] ALL = of(USER, AGENT);
 
