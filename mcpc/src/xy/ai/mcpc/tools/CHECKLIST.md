@@ -9,3 +9,4 @@ Verify for new tools.
 * AI Instructions and descriptions should be short, clear, and distinct
 * Check input and output for technical limits; reduce input and output as much as semantically meaningfull
 * Never reflect input paramaeters, not even in error output
+* On MCP passthrough always reduce limits like results on pages
