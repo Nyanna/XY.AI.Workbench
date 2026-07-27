@@ -86,6 +86,16 @@ public class SpellingStrategy implements IReconcilingStrategy {
 		reconcile(subRegion);
 	}
 
+	public void clear(IRegion region) {
+		if (fDocument == null)
+			return;
+		int docLength = fDocument.getLength();
+		int start = Math.max(0, Math.min(region.getOffset(), docLength));
+		int end = Math.max(start, Math.min(start + region.getLength(), docLength));
+		final IRegion clearedRegion = new Region(start, end - start);
+		fViewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(new ArrayList<>(), clearedRegion));
+	}
+
 	// ── UI thread ──────────────────────────────────────────────────────────────
 
 	private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {

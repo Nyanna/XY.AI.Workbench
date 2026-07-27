@@ -39,11 +39,8 @@ public class SpellCheckReconciler implements IReconciler {
 	private ITextViewer fViewer;
 	private IDocument fDocument;
 
-	// Pending dirty regions – overlapping/touching regions are merged as they
-	// come in; disjoint regions (e.g. text before/after a non-spellchecked code
-	// block) are kept separate so the code block in between is never checked.
-	// Guarded by 'this'.
 	private final List<int[]> fDirtyRegions = new ArrayList<>();
+	private final List<int[]> fClearRegions = new ArrayList<>();
 
 	private final ScheduledExecutorService fScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "SpellCheck-Reconciler");
@@ -139,10 +136,12 @@ public class SpellCheckReconciler implements IReconciler {
 		if (node == null)
 			return false;
 		if (node.children.isEmpty()) {
-			if (!node.enableSpellcheck)
-				return false;
 			int start = node.getOffset();
 			int end = node.getEndOffset();
+			if (!node.enableSpellcheck) {
+				mergeClear(start, Math.max(end, start + 1));
+				return true;
+			}
 			mergeDirty(start, Math.max(end, start + 1));
 			return true;
 		}
@@ -153,9 +152,17 @@ public class SpellCheckReconciler implements IReconciler {
 	}
 
 	private synchronized void mergeDirty(int start, int end) {
+		merge(fDirtyRegions, start, end);
+	}
+
+	private synchronized void mergeClear(int start, int end) {
+		merge(fClearRegions, start, end);
+	}
+
+	private static void merge(List<int[]> regions, int start, int end) {
 		int newStart = start;
 		int newEnd = end;
-		for (Iterator<int[]> it = fDirtyRegions.iterator(); it.hasNext();) {
+		for (Iterator<int[]> it = regions.iterator(); it.hasNext();) {
 			int[] r = it.next();
 			// Overlapping or directly adjacent -> merge.
 			if (newStart <= r[1] && r[0] <= newEnd) {
@@ -164,19 +171,25 @@ public class SpellCheckReconciler implements IReconciler {
 				it.remove();
 			}
 		}
-		fDirtyRegions.add(new int[] { newStart, newEnd });
+		regions.add(new int[] { newStart, newEnd });
 	}
 
 	private synchronized List<IRegion> takeDirty() {
-		if (fDirtyRegions.isEmpty()) {
+		return take(fDirtyRegions);
+	}
+
+	private synchronized List<IRegion> takeClear() {
+		return take(fClearRegions);
+	}
+
+	private static List<IRegion> take(List<int[]> regions) {
+		if (regions.isEmpty())
 			return null;
-		}
-		List<IRegion> regions = new ArrayList<>(fDirtyRegions.size());
-		for (int[] r : fDirtyRegions) {
-			regions.add(new Region(r[0], r[1] - r[0]));
-		}
-		fDirtyRegions.clear();
-		return regions;
+		List<IRegion> result = new ArrayList<>(regions.size());
+		for (int[] r : regions)
+			result.add(new Region(r[0], r[1] - r[0]));
+		regions.clear();
+		return result;
 	}
 
 	private synchronized void cancelPending() {
@@ -189,6 +202,11 @@ public class SpellCheckReconciler implements IReconciler {
 	private void scheduleReconcile() {
 		cancelPending();
 		fPending = fScheduler.schedule(() -> {
+			List<IRegion> clear = takeClear();
+			if (clear != null)
+				for (IRegion region : clear)
+					fStrategy.clear(region);
+
 			List<IRegion> dirty = takeDirty();
 			if (dirty != null)
 				for (IRegion region : dirty)
