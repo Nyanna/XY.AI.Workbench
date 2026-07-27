@@ -3,11 +3,8 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class ScriptBlock extends AbstractNode {
-	private static final int LIMIT = 100_000; // 50 lines a 200 chars
-
 	private char[] startBlock = "\n```".toCharArray();
 	private char[] endBlock = "\n```\n".toCharArray();
-	private char[] intermediateBreak = "```".toCharArray();
 
 	ScriptBlock() {
 		super(Category.Block, Elements.NONE);
@@ -18,12 +15,11 @@ public class ScriptBlock extends AbstractNode {
 		if (!s.isNextSequenceBounded(startBlock))
 			return false;
 
-		boolean endblock = false, basicEnd = false;
-		while (s.getReadCount() < LIMIT && s.readNext() && !(endblock = s.isNextSequenceBounded(endBlock))
-				&& !(basicEnd = s.isNextSequence(intermediateBreak)))
+		boolean endblock = false;
+		while (s.readNext() && !(endblock = s.isNextSequenceBounded(endBlock)))
 			; // consume
 
-		if (basicEnd || !endblock)
+		if (!endblock)
 			return false;
 
 		// keep trailing NL for sibling scanning
