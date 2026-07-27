@@ -162,9 +162,11 @@ public class SessionParameters {
 	public void buildEvironment(ProcessBuilder pb) {
 		pb.directory(cwd.toFile());
 		if (AgentProfile.MCPC.equals(agentProfile)) {
-			if (!tools.isEmpty())
+			if (!tools.isEmpty()) {
+				if (CacheMode.Disabled.equals(cacheMode))
+					throw new IllegalArgumentException("Cache is required for tool loops");
 				pb.environment().put("MCPC_TOOLS", String.join(",", tools));
-			else
+			} else
 				pb.environment().put("MCPC_TOOLS", "None");
 			pb.environment().put("MCPC_CC_PROFILE", cliProfile);
 			pb.environment().put("CLAUDE_CONFIG_DIR", System.getProperty("user.home") + "/.claude-" + cliProfile);
