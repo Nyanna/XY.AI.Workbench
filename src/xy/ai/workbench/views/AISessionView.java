@@ -507,11 +507,11 @@ public class AISessionView extends ViewPart {
 
 			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
 			column4.setText("Reason");
-			column4.setWidth(60);
+			column4.setWidth(40);
 
 			TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
 			column5.setText("Cached");
-			column5.setWidth(60);
+			column5.setWidth(70);
 
 			TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
 			column6.setText("Created");
@@ -519,7 +519,7 @@ public class AISessionView extends ViewPart {
 
 			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
 			column2.setText("In");
-			column2.setWidth(60);
+			column2.setWidth(50);
 		}
 
 		session.addAnswerObs(a -> {

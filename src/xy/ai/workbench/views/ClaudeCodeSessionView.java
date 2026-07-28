@@ -14,8 +14,6 @@ import java.util.zip.CRC32;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.jface.action.Action;
-import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -51,6 +49,7 @@ import xy.ai.workbench.connectors.claudecode.CCSession;
 import xy.ai.workbench.connectors.claudecode.CCSessionManager;
 import xy.ai.workbench.connectors.claudecode.SessionParameters;
 import xy.ai.workbench.connectors.claudecode.SessionState;
+import xy.ai.workbench.views.ActionManager.ActionDescription;
 
 /**
  * Eclipse ViewPart that displays active Claude Code CLI sessions in real time.
@@ -103,6 +102,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private TableViewer viewer;
 	private TableColumnLayout tableLayout;
 	private ActionManager act = new ActionManager();
+	private ActionDescription syncAction;
 	private CCSessionManager sessionManager;
 
 	private final java.util.function.Consumer<List<CCSession>> changeListener = sessions -> refreshAsync();
@@ -110,8 +110,6 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private Runnable ttlRefreshRunnable;
 	private boolean disposed = false;
 
-	/** Whether the table selection follows the currently focused editor. */
-	private boolean syncEnabled = true;
 	private Set<String> knownSessionIds = new HashSet<>();
 
 	private Path currentProjectPath;
@@ -186,22 +184,11 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 		// Toolbar
 		makeActions();
+
 		IActionBars bars = getViewSite().getActionBars();
 		act.fillLocalToolBar(bars.getToolBarManager());
 		act.fillLocalPullDown(bars.getMenuManager());
-
-		Action syncAction = new Action("Sync", IAction.AS_CHECK_BOX) {
-			@Override
-			public void run() {
-				syncEnabled = isChecked();
-				if (syncEnabled)
-					syncSelectionToCurrentFile();
-			}
-		};
-		syncAction.setToolTipText("Link session selection to the focused editor");
-		syncAction.setChecked(syncEnabled);
-		bars.getToolBarManager().add(syncAction);
-		bars.getToolBarManager().update(true);
+		bars.updateActionBars();
 
 		IWorkbenchPage activePage = getSite().getPage();
 		if (activePage != null)
@@ -237,6 +224,14 @@ public class ClaudeCodeSessionView extends ViewPart {
 	}
 
 	private void makeActions() {
+		syncAction = act.create().toolbar().text("Sync", "Link session selection to the focused editor")
+				.image(ISharedImages.IMG_ELCL_SYNCED).runnable(() -> {
+					if (syncAction.isChecked())
+						syncSelectionToCurrentFile();
+				});
+		syncAction.done();
+		syncAction.setChecked(true);
+
 		act.create().text("Terminate Session", "Terminates the selected CLI session")
 				.image(ISharedImages.IMG_TOOL_DELETE).toolbar().pullDown()
 				.selection(viewer, CCSession.class, session -> {
@@ -262,7 +257,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 			}
 		}
 
-		if (syncEnabled)
+		if (syncAction.isChecked())
 			syncSelectionToCurrentFile();
 	}
 
@@ -364,7 +359,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 		knownSessionIds = newIds;
 
-		if (syncEnabled && allowSyncOnNewSession && !added.isEmpty()) {
+		if (syncAction.isChecked() && allowSyncOnNewSession && !added.isEmpty()) {
 			CCSession match = findAssociatedSession(sessions);
 			if (match != null && added.contains(match))
 				selectSession(match);
