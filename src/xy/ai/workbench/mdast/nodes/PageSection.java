@@ -3,7 +3,7 @@ package xy.ai.workbench.mdast.nodes;
 import xy.ai.workbench.tools.Scanner;
 
 public class PageSection extends AbstractNode {
-	private char[] separator = "\n---\n".toCharArray();
+	private char[] separator = "\n***\n".toCharArray();
 
 	PageSection(AbstractNode[] childNodes) {
 		super(Category.Section, childNodes);

@@ -1,4 +1,10 @@
 # TODO
+* #: `/home/user/xyan/XY.Archiv/project/dph_v3.md` sollen blöcke zusammenfassen
+* sync button in AI explorer, nur elemente aus aktuellem projekt anzeigen, button schon da aber macht nix
+	* reveal current file
+* debounce für ast parse, AST lösst spellcheck und syntax higlighting aUS
+
+* MCPC in eclipe integrieren und mitstarten
 
 ## Workbench
 
@@ -15,10 +21,6 @@
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
-* python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?
-	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
-	* sed sogar zur editierung von python in batch edit
-	* bash ist kürzer und effizienter daher kein python
 
 
 ## Agents
@@ -27,8 +29,14 @@
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
 	* Project AST: project > dir > file > imports/class > global > nodes, code ist immer ein baum 
 	* AST/LanguageServer python/typescript(remark) geben/LSP/syntax parser/lint/prettier/block diff
-	* MCPC proxy zu eclipse proxy für java project
+	* MCPC proxy zu eclipse proxy für java project?
+	* python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?
+	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
+	* sed sogar zur editierung von python in batch edit
+	* bash ist kürzer und effizienter daher kein python
 * RAG tool zur indizierung von projekten
+	* suchergebniss semantisch komprimieren in mcpc
+	* eignet sich RAG zur kondensierung?
 	* nach aspekten, projekte -> module -> dateien -> methoden -> parameter/rückgaben
 	* wie findet der agent leichter was er sucht in einer datei oder projekt, mit code oder referenzen?
 	* Suchtool für dateiinhalt, analog grep mit kontext

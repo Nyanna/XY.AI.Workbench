@@ -117,7 +117,7 @@ public class AIRuleScanner implements ITokenScanner {
 		}
 
 		// ---- section: page separator ----
-		register(Elements.Page.PAGE, new PrefixLineRule("---", spacerToken));
+		register(Elements.Page.PAGE, new PrefixLineRule("***", spacerToken));
 
 		// ---- section: chat line markers, each only valid for its own element ----
 		register(Elements.Chat.USER, new LineMatchRule(EditorInterface.USER, userToken));
@@ -154,6 +154,7 @@ public class AIRuleScanner implements ITokenScanner {
 				new EmphasisRule("'", greyToken), // literally
 				new EmphasisRule("»", "«", greyToken), // literally
 				new EmphasisRule("›", "‹", greyToken), // literally
+				new PrefixLineRule("---", spacerToken),
 				new LinkRule(underline));
 
 		// ---- fallback (used while no AST is available, e.g. huge documents) ----
