@@ -1,6 +1,4 @@
 # TODO
-* sync button in AI explorer, nur elemente aus aktuellem projekt anzeigen, button schon da aber macht nix
-	* reveal current file
 * debounce für ast parse, AST lösst spellcheck und syntax higlighting aUS
 
 * MCPC in eclipe integrieren und mitstarten
