@@ -29,7 +29,7 @@ import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.Model.KeyPattern;
-import xy.ai.workbench.connectors.AdaptingConnector;
+import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;

@@ -6,7 +6,7 @@ import org.eclipse.core.commands.ExecutionException;
 
 import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.views.AISessionView;
+import xy.ai.workbench.view.AISessionView;
 
 public class SessionExecuteHandler extends AbstractHandler {
 

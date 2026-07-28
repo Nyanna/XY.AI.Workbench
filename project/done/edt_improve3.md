@@ -101,12 +101,12 @@ toolName: replace-block
 arguments:
   path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editors/spellcheck/SpellCheckReconciler.java
   old_text: |-
-    import xy.ai.workbench.editors.AITextEditor;
-    import xy.ai.workbench.mdast.TextRegion;
+    import xy.ai.workbench.editor.AITextEditor;
+    import xy.ai.workbench.editor.mdast.TextRegion;
   new_text: |-
-    import xy.ai.workbench.editors.AITextEditor;
-    import xy.ai.workbench.mdast.TextRegion;
-    import xy.ai.workbench.mdast.nodes.Node;
+    import xy.ai.workbench.editor.AITextEditor;
+    import xy.ai.workbench.editor.mdast.TextRegion;
+    import xy.ai.workbench.editor.mdast.nodes.Node;
   reason: Add import for AST Node used in leaf traversal
 ```
 /answer 9ffc8658-ada7-4911-b04a-dac9485bd6e6 allow

@@ -195,9 +195,9 @@ toolName: replace-block
 arguments:
   path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/mdast/MarkdownDocument.java
   old_text: |-
-    import xy.ai.workbench.mdast.nodes.AbstractNode;
-    import xy.ai.workbench.mdast.nodes.Node;
-  new_text: import xy.ai.workbench.mdast.nodes.Node;
+    import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
+    import xy.ai.workbench.editor.mdast.nodes.Node;
+  new_text: import xy.ai.workbench.editor.mdast.nodes.Node;
   reason: Remove now-unused import
 ```
 /answer ef4dadc6-7c7e-4315-b470-a2aca02fb793 allow

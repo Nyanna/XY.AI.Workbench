@@ -40,8 +40,8 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.batch.AIBatchManager;
-import xy.ai.workbench.connectors.AdaptingConnector;
-import xy.ai.workbench.editors.md.AbstractRule;
+import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;

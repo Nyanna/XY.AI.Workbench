@@ -4,11 +4,11 @@
 	<extension
 		point="org.eclipse.ui.editors">
 		<editor
-			class="xy.ai.workbench.editors.AISessionEditor"
-			contributorClass="xy.ai.workbench.editors.AISessionEditorContributor"
+			class="xy.ai.workbench.editor.AISessionEditor"
+			contributorClass="xy.ai.workbench.editor.AISessionEditorContributor"
 			extensions="md"
 			icon="icons/sample.png"
-			id="xy.ai.workbench.editors.AISessionEditor"
+			id="xy.ai.workbench.editor.AISessionEditor"
 			name="XY.AI Editor"
 			symbolicFontName="org.eclipse.jface.bannerfont">
 		</editor>
@@ -28,18 +28,18 @@
 		<view
 			allowMultiple="false"
 			category="XY.AI.Workbench"
-			class="xy.ai.workbench.views.AISessionView"
+			class="xy.ai.workbench.view.AISessionView"
 			icon="icons/sample.png"
-			id="xy.ai.workbench.views.AISessionView"
+			id="xy.ai.workbench.view.AISessionView"
 			inject="true"
 			name="XY.Ai Session Settings">
 		</view>
 		<view
 			allowMultiple="false"
 			category="XY.AI.Workbench"
-			class="xy.ai.workbench.views.AIBatchView"
+			class="xy.ai.workbench.view.AIBatchView"
 			icon="icons/sample.png"
-			id="xy.ai.workbench.views.AIBatchView"
+			id="xy.ai.workbench.view.AIBatchView"
 			inject="true"
 			name="XY.AI Batch List">
 		</view>
@@ -47,15 +47,15 @@
 			name="AI Explorer"
 			icon="icons/sample.png"
 			category="XY.AI.Workbench"
-			class="xy.ai.workbench.views.explorer.MarkdownExplorerView"
+			class="xy.ai.workbench.view.explorer.MarkdownExplorerView"
 			id="xy.ai.workbench.views.AIExplorer">
 		</view>
 		<view
 			allowMultiple="false"
 			category="XY.AI.Workbench"
-			class="xy.ai.workbench.views.ClaudeCodeSessionView"
+			class="xy.ai.workbench.view.ClaudeCodeSessionView"
 			icon="icons/sample.png"
-			id="xy.ai.workbench.views.ClaudeCodeSessionView"
+			id="xy.ai.workbench.view.ClaudeCodeSessionView"
 			inject="true"
 			name="Claude Code Sessions">
 		</view>
@@ -63,8 +63,8 @@
 	<extension point="org.eclipse.ui.navigator.navigatorContent">
 		<navigatorContent
 			name="AI Content"
-            contentProvider="xy.ai.workbench.views.explorer.MarkdownContentProvider"
-			labelProvider="xy.ai.workbench.views.explorer.MarkdownLabelProvider"
+            contentProvider="xy.ai.workbench.view.explorer.MarkdownContentProvider"
+			labelProvider="xy.ai.workbench.view.explorer.MarkdownLabelProvider"
 			id="xy.ai.workbench.views.content.AIContent"
 			priority="normal">
 			<triggerPoints>
@@ -145,18 +145,18 @@
 			commandId="XY.AI.Workbench.commands.submitPromptCommand">
 		</handler>
 		<handler
-			class="xy.ai.workbench.editors.CommentHandler"
+			class="xy.ai.workbench.editor.CommentHandler"
 			commandId="XY.AI.Workbench.commands.editor.comment">
 			<activeWhen>
 				<and>
 					<with variable="activeEditorId">
 						<equals
-							value="xy.ai.workbench.editors.AISessionEditor">
+							value="xy.ai.workbench.editor.AISessionEditor">
 						</equals>
 					</with>
 					<with variable="activeEditor">
 						<instanceof
-							value="xy.ai.workbench.editors.AISessionEditor" />
+							value="xy.ai.workbench.editor.AISessionEditor" />
 					</with>
 				</and>
 			</activeWhen>
@@ -246,7 +246,7 @@
 		<perspectiveExtension
 			targetID="org.eclipse.jdt.ui.JavaPerspective">
 			<view
-				id="xy.ai.workbench.views.AIBatchView"
+				id="xy.ai.workbench.view.AIBatchView"
 				ratio="0.5"
 				relationship="bottom"
 				relative="org.eclipse.ui.views.ProblemView">

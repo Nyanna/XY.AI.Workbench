@@ -7,7 +7,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import xy.ai.workbench.connectors.IAIBatch;
+import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 

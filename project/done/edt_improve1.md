@@ -310,8 +310,8 @@ id: 40d195a0-0efd-41c8-bfed-14898e16bfb2
 toolName: replace-block
 arguments:
   path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editors/AISourceViewerConfiguration.java
-  old_text: "import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;\nimport xy.ai.workbench.editors.spellcheck.SpellingQuickAssistProcessor;\n\npublic class AISourceViewerConfiguration extends SourceViewerConfiguration {\n\tprivate static final int LIMIT = 512 * 1024;\n\n\t@Override"
-  new_text: "import xy.ai.workbench.editors.spellcheck.SpellCheckInstaller;\nimport xy.ai.workbench.editors.spellcheck.SpellingQuickAssistProcessor;\nimport xy.ai.workbench.mdast.MarkdownDocument;\n\npublic class AISourceViewerConfiguration extends SourceViewerConfiguration {\n\tprivate static final int LIMIT = 512 * 1024;\n\n\tprivate final AITextEditor editor;\n\n\tpublic AISourceViewerConfiguration(AITextEditor editor) {\n\t\tthis.editor = editor;\n\t}\n\n\t@Override"
+  old_text: "import xy.ai.workbench.editor.spellcheck.SpellCheckInstaller;\nimport xy.ai.workbench.editor.spellcheck.SpellingQuickAssistProcessor;\n\npublic class AISourceViewerConfiguration extends SourceViewerConfiguration {\n\tprivate static final int LIMIT = 512 * 1024;\n\n\t@Override"
+  new_text: "import xy.ai.workbench.editor.spellcheck.SpellCheckInstaller;\nimport xy.ai.workbench.editor.spellcheck.SpellingQuickAssistProcessor;\nimport xy.ai.workbench.editor.mdast.MarkdownDocument;\n\npublic class AISourceViewerConfiguration extends SourceViewerConfiguration {\n\tprivate static final int LIMIT = 512 * 1024;\n\n\tprivate final AITextEditor editor;\n\n\tpublic AISourceViewerConfiguration(AITextEditor editor) {\n\t\tthis.editor = editor;\n\t}\n\n\t@Override"
   reason: Add editor reference to access AST change region
 ```
 /answer 40d195a0-0efd-41c8-bfed-14898e16bfb2 allow
@@ -363,7 +363,7 @@ arguments:
   new_text: |-
     import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
-    import xy.ai.workbench.editors.AITextEditor;
+    import xy.ai.workbench.editor.AITextEditor;
 
     public class SpellCheckInstaller {
 
@@ -391,8 +391,8 @@ arguments:
     import org.eclipse.jface.text.reconciler.IReconciler;
     import org.eclipse.jface.text.reconciler.IReconcilingStrategy;
 
-    import xy.ai.workbench.editors.AITextEditor;
-    import xy.ai.workbench.mdast.MarkdownDocument;
+    import xy.ai.workbench.editor.AITextEditor;
+    import xy.ai.workbench.editor.mdast.MarkdownDocument;
 
     /**
   reason: Import AITextEditor and MarkdownDocument for AST-based dirty region

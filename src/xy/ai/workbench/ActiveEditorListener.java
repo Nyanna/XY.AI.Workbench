@@ -24,7 +24,7 @@ import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.editors.AISessionEditor;
+import xy.ai.workbench.editor.AISessionEditor;
 
 public class ActiveEditorListener implements IPartListener2 {
 	private EditorChangeListener editorListener = new EditorChangeListener();

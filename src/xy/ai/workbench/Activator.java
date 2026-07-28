@@ -6,8 +6,8 @@ import org.osgi.framework.BundleContext;
 
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchResponseManager;
-import xy.ai.workbench.connectors.AdaptingConnector;
-import xy.ai.workbench.connectors.claudecode.CCSessionManager;
+import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.connector.claudecode.CCSessionManager;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 
 /**

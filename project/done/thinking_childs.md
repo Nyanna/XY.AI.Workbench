@@ -1,6 +1,6 @@
 Ich brauche Hilfe beim Denken.
 Im Beispielblock wird "/answer" als "Paragraph" ausgezeichnet. Dies liegt daran, dass "Paragraph" ein gültiges Ende für die "CONTROL_REQUEST" `LineSection` ist. Ein Sektionsende geht also einem möglichen Kind voraus. Was wäre, wenn wir die Präferenz umkehren und sagen: Lies, solange es an gültigen Kindern zu interpretieren gibt und beende dann die Sektion.
-Mann könnte die Logik ändern auf: Ist gültiges Kind oder Ende in `xy.ai.workbench.mdast.nodes.AbstractNode.scan(Scanner, Node)`
+Mann könnte die Logik ändern auf: Ist gültiges Kind oder Ende in `xy.ai.workbench.editor.mdast.nodes.AbstractNode.scan(Scanner, Node)`
 
 * AbstractNode: `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/mdast/nodes/AbstractNode.java`
 

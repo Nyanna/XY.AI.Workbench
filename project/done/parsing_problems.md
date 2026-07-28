@@ -18,7 +18,7 @@ Exception:
 	at xy.ai.workbench.connectors.claudecode.ClaudeCodeSession.readLine(ClaudeCodeSession.java:145)
 	at xy.ai.workbench.connectors.claudecode.ClaudeCodeConnector.readUntilResult(ClaudeCodeConnector.java:159)
 	at xy.ai.workbench.connectors.claudecode.ClaudeCodeConnector.executeRequest(ClaudeCodeConnector.java:128)
-	at xy.ai.workbench.connectors.AdaptingConnector.executeRequest(AdaptingConnector.java:167)
+	at xy.ai.workbench.connector.AdaptingConnector.executeRequest(AdaptingConnector.java:167)
 	at xy.ai.workbench.AISessionManager.executeInner(AISessionManager.java:410)
 	at xy.ai.workbench.AISessionManager.lambda$11(AISessionManager.java:295)
 	at org.eclipse.core.runtime.jobs.Job$1.run(Job.java:166)

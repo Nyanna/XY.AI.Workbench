@@ -10,8 +10,8 @@ import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.connectors.IAIBatch;
-import xy.ai.workbench.connectors.IAIBatchConnector;
+import xy.ai.workbench.connector.IAIBatch;
+import xy.ai.workbench.connector.IAIBatchConnector;
 import xy.ai.workbench.models.IModelRequest;
 
 public class AIBatchManager implements IStructuredContentProvider{

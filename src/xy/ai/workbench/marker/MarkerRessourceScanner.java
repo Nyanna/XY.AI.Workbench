@@ -40,7 +40,7 @@ import org.osgi.framework.BundleContext;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.OutputMode;
-import xy.ai.workbench.editors.AISessionEditor;
+import xy.ai.workbench.editor.AISessionEditor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
