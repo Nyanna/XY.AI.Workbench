@@ -1,5 +1,5 @@
 # TODO
-* debounce für ast parse, AST lösst spellcheck und syntax higlighting aUS
+* debounce für ast parse, AST lösst spellcheck und syntax higlighting aus
 
 * MCPC in eclipe integrieren und mitstarten
 
