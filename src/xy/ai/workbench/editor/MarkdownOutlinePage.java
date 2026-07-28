@@ -39,7 +39,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		TreeViewer viewer = getTreeViewer();
 		viewer.setContentProvider(new OutlineContentProvider());
 		viewer.setLabelProvider(new OutlineLabelProvider());
-		viewer.setInput(editor.getMarkdownAst());
+		viewer.setInput(editor.getUpdateManager().getAst());
 		viewer.addSelectionChangedListener(this::onOutlineSelection);
 	}
 
@@ -55,8 +55,8 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		TreeViewer viewer = getTreeViewer();
 		if (!isAlive(viewer))
 			return;
-		if (viewer.getInput() != editor.getMarkdownAst())
-			viewer.setInput(editor.getMarkdownAst());
+		if (viewer.getInput() != editor.getUpdateManager().getAst())
+			viewer.setInput(editor.getUpdateManager().getAst());
 		else
 			viewer.refresh();
 	}
@@ -66,7 +66,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		TreeViewer viewer = getTreeViewer();
 		if (!isAlive(viewer))
 			return;
-		MarkdownDocument ast = editor.getMarkdownAst();
+		MarkdownDocument ast = editor.getUpdateManager().getAst();
 		if (ast == null || ast.getRoot() == null)
 			return;
 
@@ -97,7 +97,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 	}
 
 	private String snippet(Node node) {
-		IDocument doc = editor.getMarkdownDocument();
+		IDocument doc = editor.getUpdateManager().getDocument();
 		if (doc == null)
 			return "";
 		int offset = node.getOffset();

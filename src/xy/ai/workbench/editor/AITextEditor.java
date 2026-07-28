@@ -4,10 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IDocumentListener;
-import org.eclipse.jface.text.ITextInputListener;
 import org.eclipse.jface.text.source.CompositeRuler;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.IVerticalRuler;
@@ -18,11 +15,15 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.editors.text.TextEditor;
 import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
+import org.eclipse.jface.text.ITextViewerExtension2;
+import org.eclipse.jface.text.source.AnnotationPainter;
+import org.eclipse.swt.SWT;
+import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
-import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.TextRegion;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.editor.spellcheck.SpellCheckInstaller;
+import xy.ai.workbench.editor.spellcheck.SpellingAnnotation;
+import xy.ai.workbench.editor.update.EditorManager;
 
 public class AITextEditor extends TextEditor {
 	private static final int LIMIT = 512 * 1024;
@@ -30,31 +31,13 @@ public class AITextEditor extends TextEditor {
 	private CompositeRuler ruler;
 	private List<IVerticalRulerColumn> decorators = new ArrayList<>();
 
-	private MarkdownDocument ast;
-	private DocumentBuffer astBuffer;
-	private int pendingRemoved;
-	private TextRegion lastAstChangeRegion;
+	private final EditorManager manager = new EditorManager();
 
 	private MarkdownOutlinePage outlinePage;
 
-	private final IDocumentListener docListener = new IDocumentListener() {
-		@Override
-		public void documentChanged(DocumentEvent evt) {
-			updateRulerVisibility(evt.getDocument());
-			updateLineNumbers(evt.getDocument());
-			updateAst(evt);
-			refreshOutline();
-		}
-
-		@Override
-		public void documentAboutToBeChanged(DocumentEvent evt) {
-			pendingRemoved = evt.getLength();
-		}
-	};
-
 	public AITextEditor() {
 		super();
-		setSourceViewerConfiguration(new AISourceViewerConfiguration(this));
+		setSourceViewerConfiguration(new AISourceViewerConfiguration(manager));
 	}
 
 	@Override
@@ -64,28 +47,8 @@ public class AITextEditor extends TextEditor {
 		if (ruler instanceof CompositeRuler)
 			this.ruler = (CompositeRuler) ruler;
 
-		sourceViewer.addTextInputListener(new ITextInputListener() {
-			@Override
-			public void inputDocumentAboutToBeChanged(IDocument oldInput, IDocument newInput) {
-				if (oldInput != null)
-					oldInput.removeDocumentListener(docListener);
-			}
-
-			@Override
-			public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
-				if (newInput != null) {
-					newInput.addDocumentListener(docListener);
-					updateRulerVisibility(newInput); // initialer Check
-					updateLineNumbers(newInput);
-					buildAst(newInput);
-					refreshOutline();
-				} else {
-					ast = null;
-					astBuffer = null;
-					refreshOutline();
-				}
-			}
-		});
+		manager.addListener(new ManagerListener());
+		manager.install(sourceViewer);
 
 		return sourceViewer;
 	}
@@ -93,10 +56,35 @@ public class AITextEditor extends TextEditor {
 	@Override
 	public void createPartControl(Composite parent) {
 		super.createPartControl(parent);
-		SpellCheckInstaller.installPainter(getSourceViewer());
+		installPainter(getSourceViewer());
 
 		if (getSourceViewer() != null && getSourceViewer().getTextWidget() instanceof StyledText widget)
 			widget.addCaretListener(evt -> handleCaretMoved(evt.caretOffset));
+	}
+
+	private void installPainter(ISourceViewer sourceViewer) {
+		Display display = sourceViewer.getTextWidget().getDisplay();
+
+		AnnotationPainter painter = new AnnotationPainter(sourceViewer, new DefaultMarkerAnnotationAccess());
+		painter.addTextStyleStrategy(SpellingAnnotation.TYPE,
+				new AnnotationPainter.UnderlineStrategy(SWT.UNDERLINE_SQUIGGLE));
+		painter.addAnnotationType(SpellingAnnotation.TYPE, SpellingAnnotation.TYPE);
+		painter.setAnnotationTypeColor(SpellingAnnotation.TYPE, display.getSystemColor(SWT.COLOR_RED));
+
+		// addTextStyleStrategy works through ITextPresentationListener – register
+		// explicitly,
+		// because addPainter() alone does NOT do this registration.
+		// addTextPresentationListener is only on the concrete SourceViewer class, not
+		// on ISourceViewer.
+		if (sourceViewer instanceof SourceViewer)
+			((SourceViewer) sourceViewer).addTextPresentationListener(painter);
+		((ITextViewerExtension2) sourceViewer).addPainter(painter);
+	}
+
+	@Override
+	public void dispose() {
+		manager.uninstall();
+		super.dispose();
 	}
 
 	private void handleCaretMoved(int offset) {
@@ -128,35 +116,31 @@ public class AITextEditor extends TextEditor {
 		selectAndReveal(node.getOffset(), node.length());
 	}
 
-	public IDocument getMarkdownDocument() {
-		return astBuffer != null ? astBuffer.document() : null;
-	}
-
 	@Override
 	protected boolean getInitialWordWrapStatus() {
 		return true;
 	}
 
-	private void buildAst(IDocument document) {
-		astBuffer = new DocumentBuffer(document);
-		ast = new MarkdownDocument(astBuffer);
-		lastAstChangeRegion = ast.update(0, 0, astBuffer.length());
+	public EditorManager getUpdateManager() {
+		return manager;
 	}
 
-	private void updateAst(DocumentEvent evt) {
-		if (ast == null || astBuffer == null || astBuffer.document() != evt.getDocument())
-			return;
-		String text = evt.getText();
-		int inserted = text == null ? 0 : text.length();
-		lastAstChangeRegion = ast.update(evt.getOffset(), pendingRemoved, inserted);
-	}
+	private class ManagerListener implements EditorManager.Listener {
+		@Override
+		public void onDocumentChanged(IDocument oldDocument, IDocument newDocument) {
+			if (newDocument == null)
+				refreshOutline(); // clears the outline; onAstUpdated covers the non-null case
+		}
 
-	public MarkdownDocument getMarkdownAst() {
-		return ast;
-	}
-
-	public TextRegion getLastAstChangeRegion() {
-		return lastAstChangeRegion;
+		@Override
+		public void onAstUpdated(TextRegion region) {
+			IDocument doc = manager.getDocument();
+			if (doc == null)
+				return;
+			updateRulerVisibility(doc);
+			updateLineNumbers(doc);
+			refreshOutline();
+		}
 	}
 
 	private void updateRulerVisibility(IDocument document) {

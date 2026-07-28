@@ -16,22 +16,23 @@ import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.eclipse.swt.graphics.Font;
 
-import xy.ai.workbench.editor.mdast.TextRegion;
-import xy.ai.workbench.editor.spellcheck.SpellCheckInstaller;
+import xy.ai.workbench.editor.spellcheck.SpellCheckReconciler;
 import xy.ai.workbench.editor.spellcheck.SpellingQuickAssistProcessor;
+import xy.ai.workbench.editor.update.EditorManager;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 	private static final int LIMIT = 2 * 512 * 1024;
 
-	private final AITextEditor editor;
+	private final EditorManager updateManager;
 
-	public AISourceViewerConfiguration(AITextEditor editor) {
-		this.editor = editor;
+
+	public AISourceViewerConfiguration(EditorManager updateManager) {
+		this.updateManager = updateManager;
 	}
 
 	@Override
 	public IReconciler getReconciler(ISourceViewer sourceViewer) {
-		return SpellCheckInstaller.createReconciler(sourceViewer, editor);
+		return new SpellCheckReconciler(sourceViewer, updateManager);
 	}
 
 	@Override
@@ -46,7 +47,7 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 		PresentationReconciler reconciler = new PresentationReconciler();
 		Font font = sourceViewer.getTextWidget().getFont();
 
-		DefaultDamagerRepairer dr = new DefaultDamagerRepairer(new AIRuleScanner(font, editor)) {
+		DefaultDamagerRepairer dr = new DefaultDamagerRepairer(new AIRuleScanner(font, updateManager)) {
 			@Override
 			public void createPresentation(TextPresentation presentation, ITypedRegion region) {
 				if (fDocument != null && fDocument.getLength() > LIMIT) {
@@ -65,14 +66,12 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 				if (document.getLength() > LIMIT)
 					return new Region(0, 1);
 
-				TextRegion astRegion = editor != null ? editor.getLastAstChangeRegion() : null;
-				if (astRegion != null) {
-					int offset = Math.max(0, Math.min(astRegion.offset(), document.getLength()));
-					int end = Math.max(offset, Math.min(astRegion.offset() + astRegion.length(),
-							document.getLength()));
-					return new Region(offset, end - offset);
-				}
-
+				// No AST-based damage region here anymore: the AST reparse (and thus the
+				// precise, authoritative changed region) is debounced centrally in
+				// EditorManager, which actively pushes a repaint for that region via
+				// invalidateTextPresentation() once it is available. This default,
+				// per-edit damage computation only provides transient, best-effort
+				// highlighting in between - falling behind briefly is acceptable.
 				return super.getDamageRegion(partition, e, documentPartitioningChanged);
 			}
 		};

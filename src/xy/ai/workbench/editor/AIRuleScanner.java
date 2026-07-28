@@ -34,6 +34,8 @@ import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
+import xy.ai.workbench.editor.update.EditorManager;
+import xy.ai.workbench.tools.PieceList;
 
 /**
  * AST optimized token scanner: instead of trying every markdown rule at every
@@ -71,7 +73,7 @@ public class AIRuleScanner implements ITokenScanner {
 	/** Token used to reset styling of regions for which no rule is configured. */
 	private static final IToken RESET_TOKEN = new Token(null);
 
-	private final AITextEditor editor;
+	private final EditorManager updateManager;
 
 	/** One dedicated (stateless) rule based sub-scanner per AST node type. */
 	private final Map<AbstractNode, RuleBasedScanner> scannerByNode = new IdentityHashMap<>();
@@ -80,13 +82,12 @@ public class AIRuleScanner implements ITokenScanner {
 	/** Fallback scanner (all rules) used while no AST is available yet. */
 	private final RuleBasedScanner fallbackScanner = new RuleBasedScanner();
 
-	private final List<Piece> pieces = new ArrayList<>();
-	private int pieceIndex;
+	private final PieceList<IToken> pieces = new PieceList<>();
 	private int tokenOffset;
 	private int tokenLength;
 
-	public AIRuleScanner(Font basefont, AITextEditor editor) {
-		this.editor = editor;
+	public AIRuleScanner(Font basefont, EditorManager updateManager) {
+		this.updateManager = updateManager;
 
 		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
 		IToken userToken = new Token(USER_ATTR);
@@ -154,7 +155,7 @@ public class AIRuleScanner implements ITokenScanner {
 				new EmphasisRule("'", greyToken), // literally
 				new EmphasisRule("»", "«", greyToken), // literally
 				new EmphasisRule("›", "‹", greyToken), // literally
-				new PrefixLineRule("---", spacerToken),
+				new PrefixLineRule("---", spacerToken), //
 				new LinkRule(underline));
 
 		// ---- fallback (used while no AST is available, e.g. huge documents) ----
@@ -189,14 +190,13 @@ public class AIRuleScanner implements ITokenScanner {
 	@Override
 	public void setRange(IDocument document, int offset, int length) {
 		pieces.clear();
-		pieceIndex = 0;
 		tokenOffset = offset;
 		tokenLength = 0;
 
 		if (length <= 0)
 			return;
 
-		MarkdownDocument ast = editor != null ? editor.getMarkdownAst() : null;
+		MarkdownDocument ast = updateManager.getAst();
 		if (ast == null) {
 			scanFlat(fallbackScanner, document, offset, offset + length);
 			return;
@@ -247,7 +247,7 @@ public class AIRuleScanner implements ITokenScanner {
 
 		RuleBasedScanner scanner = scannerByNode.get(type);
 		if (scanner == null) {
-			pieces.add(new Piece(start, end - start, RESET_TOKEN));
+			pieces.add(start, end - start, RESET_TOKEN);
 			return;
 		}
 
@@ -270,7 +270,7 @@ public class AIRuleScanner implements ITokenScanner {
 			if (len <= 0)
 				continue;
 
-			pieces.add(new Piece(off, len, token));
+			pieces.add(off, len, token);
 		}
 	}
 
@@ -281,19 +281,19 @@ public class AIRuleScanner implements ITokenScanner {
 			IToken token = scanner.nextToken();
 			if (token.isEOF())
 				break;
-			pieces.add(new Piece(scanner.getTokenOffset(), scanner.getTokenLength(), token));
+			pieces.add(scanner.getTokenOffset(), scanner.getTokenLength(), token);
 		}
 	}
 
 	@Override
 	public IToken nextToken() {
-		if (pieceIndex >= pieces.size())
+		if (!pieces.hasNext())
 			return Token.EOF;
 
-		Piece p = pieces.get(pieceIndex++);
-		tokenOffset = p.offset;
-		tokenLength = p.length;
-		return p.token;
+		PieceList.Piece<IToken> p = pieces.next();
+		tokenOffset = p.offset();
+		tokenLength = p.length();
+		return p.value();
 	}
 
 	@Override
@@ -304,9 +304,6 @@ public class AIRuleScanner implements ITokenScanner {
 	@Override
 	public int getTokenLength() {
 		return tokenLength;
-	}
-
-	record Piece(int offset, int length, IToken token) {
 	}
 
 	private static Font[] cachedFonts;
