@@ -48,7 +48,7 @@
 			icon="icons/sample.png"
 			category="XY.AI.Workbench"
 			class="xy.ai.workbench.view.explorer.MarkdownExplorerView"
-			id="xy.ai.workbench.views.AIExplorer">
+			id="xy.ai.workbench.view.AIExplorer">
 		</view>
 		<view
 			allowMultiple="false"
@@ -65,7 +65,7 @@
 			name="AI Content"
             contentProvider="xy.ai.workbench.view.explorer.MarkdownContentProvider"
 			labelProvider="xy.ai.workbench.view.explorer.MarkdownLabelProvider"
-			id="xy.ai.workbench.views.content.AIContent"
+			id="xy.ai.workbench.view.content.AIContent"
 			priority="normal">
 			<triggerPoints>
 				<instanceof value="org.eclipse.core.resources.IResource" />
@@ -103,11 +103,11 @@
 		<viewer
         inheritBindingsFromViewer="org.eclipse.ui.navigator.ProjectExplorer"
         popupMenuId="org.eclipse.ui.navigator.ProjectExplorer#PopupMenu"
-        viewerId="xy.ai.workbench.views.AIExplorer">
+        viewerId="xy.ai.workbench.view.AIExplorer">
   		</viewer>
-	   <viewerContentBinding viewerId="xy.ai.workbench.views.AIExplorer">
+	   <viewerContentBinding viewerId="xy.ai.workbench.view.AIExplorer">
 	      <includes>
-	         <contentExtension pattern="xy.ai.workbench.views.content.AIContent"/>
+	         <contentExtension pattern="xy.ai.workbench.view.content.AIContent"/>
 	      </includes>
 	      <excludes>
 		      <contentExtension 
@@ -311,7 +311,7 @@
 	</extension>
 
 	<extension point="org.eclipse.ui.editors.annotationTypes">
-		<type name="xy.ai.workbench.editors.spellcheck.spelling"/>
+		<type name="xy.ai.workbench.editor.spellcheck.spelling"/>
 	</extension>
 
 </plugin>
