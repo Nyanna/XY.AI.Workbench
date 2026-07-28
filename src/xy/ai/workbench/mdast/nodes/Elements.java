@@ -15,7 +15,7 @@ public class Elements {
 
 	public static class Basics {
 		public static final ScriptBlock SCRIPTBLOCK = new ScriptBlock();
-		public static final PrefixBlock LINE_COMMENT = new PrefixBlock(AbstractRule.LINE_COMMENT);
+		public static final LineCommentBlock LINE_COMMENT = new LineCommentBlock(AbstractRule.LINE_COMMENT);
 		public static final Paragraph PARAGRAPH = new Paragraph(NONE); // replaced later
 		public static final AbstractNode[] ALL = of(SCRIPTBLOCK, LINE_COMMENT, PARAGRAPH);
 	}

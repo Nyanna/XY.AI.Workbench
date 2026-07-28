@@ -1452,5 +1452,3 @@ Soll ich dir ein konkretes Beispiel zeigen, wie man flexmark-java mit SWT `Style
 User:
 Hm, klingt beides ungeeignet. Ich denke ich schreibe eine eigene bIbliothek.
 Agent:
-[xy.ai.req:ClaudeCode:acbec191-94bf-4821-8897-6d922422d54e]
-User:

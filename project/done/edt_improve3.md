@@ -177,8 +177,6 @@ arguments:
   reason: Review current implementation to fix dirty region merging
 ```
 /answer 270f5409-b124-45e5-893e-9c093d35eb23 allow
-[xy.ai.req:ClaudeCode:a9fc4e30-e1c5-4559-90b6-695f651d8137]
-[xy.ai.req:ClaudeCode:85eff132-34e3-4354-b576-65349df1cc57]
 Control Request:
 ```yaml
 id: 38733678-e00e-433d-8d54-8d5386246ef4

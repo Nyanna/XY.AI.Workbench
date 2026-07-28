@@ -212,7 +212,7 @@ public class CCSession {
 			Files.createDirectories(di);
 			filePath = di.resolve(uuid + ".json").toFile();
 			mirror = JsonUtil.newWriter(new FileOutputStream(filePath, true), false);
-			LOG.info("Created mirror file: " + filePath);
+			// LOG.info("Created mirror file: " + filePath);
 		} catch (IOException e) {
 			LOG.error("Cannot open mirror file: " + filePath, e);
 			throw new IllegalStateException("Cannot open mirror file: " + filePath, e);
