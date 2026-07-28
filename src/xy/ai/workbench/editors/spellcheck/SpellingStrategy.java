@@ -131,10 +131,12 @@ public class SpellingStrategy implements IReconcilingStrategy {
 			((IAnnotationModelExtension) model).replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
 		}
 
-		// Explicitly invalidate only the checked region so the AnnotationPainter
-		// redraws it, instead of the whole viewer's text presentation.
 		if (fViewer instanceof ITextViewerExtension2) {
-			((ITextViewerExtension2) fViewer).invalidateTextPresentation(region.getOffset(), region.getLength());
+			try {
+				((ITextViewerExtension2) fViewer).invalidateTextPresentation(region.getOffset(), region.getLength());
+			} catch (IllegalArgumentException ex) {
+				// ignore out of bound errors
+			}
 		} else {
 			fViewer.invalidateTextPresentation();
 		}
