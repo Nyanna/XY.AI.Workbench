@@ -34,7 +34,7 @@ import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.tools.PieceList;
+import xy.ai.workbench.tools.RegionList;
 
 /**
  * AST optimized token scanner: instead of trying every markdown rule at every
@@ -77,7 +77,7 @@ public class AIRuleScanner implements ITokenScanner {
 
 	private final RuleBasedScanner fallbackScanner = new RuleBasedScanner();
 
-	private final PieceList<IToken> pieces = new PieceList<>();
+	private final RegionList<IToken> pieces = new RegionList<>();
 	private EditorManager updateManager;
 	private int tokenOffset;
 	private int tokenLength;
@@ -287,7 +287,7 @@ public class AIRuleScanner implements ITokenScanner {
 		if (!pieces.hasNext())
 			return Token.EOF;
 
-		PieceList.Piece<IToken> p = pieces.next();
+		RegionList.Region<IToken> p = pieces.next();
 		tokenOffset = p.offset();
 		tokenLength = p.length();
 		return p.value();
