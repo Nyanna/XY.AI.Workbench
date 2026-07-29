@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xy.ai.workbench.LOG;
+
 /**
  * Sends text to a local LanguageTool server and returns spelling/grammar
  * problems.
@@ -164,8 +166,14 @@ public class LanguageToolClient {
 
 			if (response.statusCode() == 200)
 				return response.body();
+			else if (response.statusCode() == 500)
+				throw new IllegalStateException(response.body());
 
 		} catch (Exception e) {
+			if (e instanceof IllegalStateException) {
+				LOG.error("LanguageTool 500 error", e);
+				throw ((IllegalStateException) e);
+			}
 			// LT not reachable – fail silently
 		}
 		return null;
