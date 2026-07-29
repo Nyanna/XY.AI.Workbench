@@ -20,10 +20,9 @@ import org.eclipse.jface.text.source.AnnotationPainter;
 import org.eclipse.swt.SWT;
 import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
-import xy.ai.workbench.editor.mdast.TextRegion;
 import xy.ai.workbench.editor.mdast.nodes.Node;
+import xy.ai.workbench.editor.spellcheck.SpellCheckReconciler;
 import xy.ai.workbench.editor.spellcheck.SpellingAnnotation;
-import xy.ai.workbench.editor.update.EditorManager;
 
 public class AITextEditor extends TextEditor {
 	private static final int LIMIT = 512 * 1024;
@@ -49,6 +48,7 @@ public class AITextEditor extends TextEditor {
 
 		manager.addListener(new ManagerListener());
 		manager.install(sourceViewer);
+		new SpellCheckReconciler(sourceViewer, manager);
 
 		return sourceViewer;
 	}
@@ -125,7 +125,7 @@ public class AITextEditor extends TextEditor {
 		return manager;
 	}
 
-	private class ManagerListener implements EditorManager.Listener {
+	private class ManagerListener implements IManagerListener {
 		@Override
 		public void onDocumentChanged(IDocument oldDocument, IDocument newDocument) {
 			if (newDocument == null)
@@ -133,7 +133,7 @@ public class AITextEditor extends TextEditor {
 		}
 
 		@Override
-		public void onAstUpdated(TextRegion region) {
+		public void onAstUpdated(Node node) {
 			IDocument doc = manager.getDocument();
 			if (doc == null)
 				return;

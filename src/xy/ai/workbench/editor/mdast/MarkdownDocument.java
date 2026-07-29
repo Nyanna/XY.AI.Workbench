@@ -15,9 +15,10 @@ public class MarkdownDocument {
 
 	public MarkdownDocument(IDocumentBuffer buffer) {
 		this.buffer = buffer;
+		root.enableSpellcheck = true;
 	}
 
-	public TextRegion update(int offset, int removed, int inserted) {
+	public Node update(int offset, int removed, int inserted) {
 		int lo = offset;
 		int hi = offset + removed;
 		int delta = inserted - removed;
@@ -32,7 +33,7 @@ public class MarkdownDocument {
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
 				replace(sec, rn.children, delta);
-				return new TextRegion(absStart, newLen, rn);
+				return sec;
 			}
 			sec = parent;
 		}

@@ -6,55 +6,47 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IRegion;
-import org.eclipse.jface.text.Position;
-import org.eclipse.jface.text.Region;
-import org.eclipse.jface.text.reconciler.DirtyRegion;
-import org.eclipse.jface.text.reconciler.IReconcilingStrategy;
+import org.eclipse.jface.text.ISynchronizable;
 import org.eclipse.jface.text.ITextViewerExtension2;
+import org.eclipse.jface.text.Position;
 import org.eclipse.jface.text.source.Annotation;
 import org.eclipse.jface.text.source.IAnnotationModel;
 import org.eclipse.jface.text.source.IAnnotationModelExtension;
 import org.eclipse.jface.text.source.ISourceViewer;
 
-/**
- * Reconciling strategy that runs spell-checking via LanguageTool on a
- * background thread and posts resulting annotations back to the UI thread.
- * <p>
- * The region passed to {@link #reconcile(IRegion)} is expanded to full line
- * boundaries before being sent to LanguageTool, so only the affected lines are
- * ever checked.
- */
-public class SpellingStrategy implements IReconcilingStrategy {
+import xy.ai.workbench.editor.mdast.nodes.Node;
 
-	private final ISourceViewer fViewer;
-	private final LanguageToolClient fClient = new LanguageToolClient();
+public class SpellingStrategy {
+
+	private final ISourceViewer viewer;
+	private final LanguageToolClient client = new LanguageToolClient();
 	private static final int LIMIT = 512 * 1024;
 
-	private IDocument fDocument;
+	private IDocument doc;
 
 	public SpellingStrategy(ISourceViewer viewer) {
-		fViewer = viewer;
+		this.viewer = viewer;
 	}
 
-	@Override
-	public void setDocument(IDocument document) {
-		fDocument = document;
+	public void setDocument(IDocument doc) {
+		this.doc = doc;
 	}
 
-	@Override
-	public void reconcile(IRegion partition) {
-		if (fDocument == null) {
+	public void reconcile(Node node) {
+		if (doc == null)
 			return;
-		}
 
-		final String text = fDocument.get();
+		final String text = doc.get();
 		final int docLength = text.length();
 
-		// Expand the dirty region to full line boundaries.
-		int start = Math.min(partition.getOffset(), docLength);
-		int end = Math.min(start + partition.getLength(), docLength);
+		int offset = node.getOffset();
+		int length = Math.max(node.length(), 1);
+
+		// Expand the dirty range to full line boundaries.
+		int start = Math.min(offset, docLength);
+		int end = Math.min(start + length, docLength);
 		if (end - start > LIMIT)
 			return;
 
@@ -66,79 +58,128 @@ public class SpellingStrategy implements IReconcilingStrategy {
 		final int regionOffset = start;
 		final String regionText = text.substring(start, end);
 
-		List<SpellingProblem> problems = fClient.check(regionText);
+		List<SpellingProblem> problems = client.check(regionText);
 
 		// LT offsets are relative to regionText – shift them to document offsets.
 		List<SpellingProblem> valid = new ArrayList<>();
 		for (SpellingProblem p : problems) {
 			int absOffset = p.getOffset() + regionOffset;
-			if (absOffset >= 0 && absOffset + p.getLength() <= docLength) {
+			if (absOffset >= 0 && absOffset + p.getLength() <= docLength)
 				valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage(), p.getSuggestions()));
-			}
 		}
 
-		final IRegion checkedRegion = new Region(regionOffset, end - start);
-		fViewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(valid, checkedRegion));
+		final int checkedOffset = regionOffset;
+		final int checkedLength = end - start;
+		viewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(valid, checkedOffset, checkedLength));
 	}
 
-	@Override
-	public void reconcile(DirtyRegion dirtyRegion, IRegion subRegion) {
-		reconcile(subRegion);
-	}
-
-	public void clear(IRegion region) {
-		if (fDocument == null)
+	public void clear(Node node) {
+		if (doc == null)
 			return;
-		int docLength = fDocument.getLength();
-		int start = Math.max(0, Math.min(region.getOffset(), docLength));
-		int end = Math.max(start, Math.min(start + region.getLength(), docLength));
-		final IRegion clearedRegion = new Region(start, end - start);
-		fViewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(new ArrayList<>(), clearedRegion));
+		int docLength = doc.getLength();
+		int offset = node.getOffset();
+		int length = Math.max(node.length(), 1);
+		int start = Math.max(0, Math.min(offset, docLength));
+		int end = Math.max(start, Math.min(start + length, docLength));
+		final int clearedOffset = start;
+		final int clearedLength = end - start;
+		viewer.getTextWidget().getDisplay()
+				.asyncExec(() -> applyAnnotations(new ArrayList<>(), clearedOffset, clearedLength));
 	}
 
-	// ── UI thread ──────────────────────────────────────────────────────────────
-
-	private void applyAnnotations(List<SpellingProblem> problems, IRegion region) {
-		IAnnotationModel model = fViewer.getAnnotationModel();
-		if (!(model instanceof IAnnotationModelExtension)) {
+	// in UI thread
+	private void applyAnnotations(List<SpellingProblem> problems, int offset, int length) {
+		IAnnotationModel model = viewer.getAnnotationModel();
+		if (!(model instanceof IAnnotationModelExtension))
 			return;
+
+		int docLength = doc != null ? doc.getLength() : Integer.MAX_VALUE;
+		Map<String, SpellingProblem> desired = new HashMap<>();
+		for (SpellingProblem p : problems) {
+			if (p.getOffset() < 0 || p.getLength() < 0 || p.getOffset() + p.getLength() > docLength)
+				continue;
+			String text = textAt(p.getOffset(), p.getLength());
+			if (text != null)
+				desired.put(contentKey(text, p.getMessage()), p);
 		}
 
-		// Collect all existing spelling annotations in the checked region.
-		List<Annotation> toRemove = new ArrayList<>();
-		synchronized (model) {
+		Object lock = lockObject(model);
+		synchronized (lock) {
+			// Every SpellingAnnotation that lies inside the just scanned
+			// region is either re-confirmed by a matching problem (same text
+			// + message) or is stale and must be removed – nothing from that
+			// region is allowed to survive unaccounted for.
+			Map<String, Annotation> existing = new HashMap<>();
+			List<Annotation> toRemove = new ArrayList<>();
 			Iterator<Annotation> it = model.getAnnotationIterator();
 			while (it.hasNext()) {
 				Annotation a = it.next();
-				if (SpellingAnnotation.TYPE.equals(a.getType())) {
-					Position pos = model.getPosition(a);
-					if (pos != null && pos.offset >= region.getOffset()
-							&& pos.offset < region.getOffset() + region.getLength()) {
-						toRemove.add(a);
-					}
-				}
+				if (!(a instanceof SpellingAnnotation) || !SpellingAnnotation.TYPE.equals(a.getType()))
+					continue;
+				Position pos = model.getPosition(a);
+				if (pos == null || pos.isDeleted() || pos.getOffset() < offset || pos.getOffset() >= offset + length)
+					continue;
+				String text = textAt(pos.getOffset(), pos.getLength());
+				String key = text == null ? null : contentKey(text, ((SpellingAnnotation) a).getProblem().getMessage());
+				if (key != null && desired.containsKey(key))
+					existing.put(key, a);
+				else
+					toRemove.add(a);
+			}
+
+			// Add: problems not represented by any still-valid annotation.
+			Map<Annotation, Position> toAdd = new HashMap<>();
+			for (Map.Entry<String, SpellingProblem> e : desired.entrySet()) {
+				if (existing.containsKey(e.getKey()))
+					continue;
+				SpellingProblem p = e.getValue();
+				toAdd.put(new SpellingAnnotation(p), new Position(p.getOffset(), p.getLength()));
+			}
+
+			if (!toRemove.isEmpty() || !toAdd.isEmpty())
+				((IAnnotationModelExtension) model).replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
+
+			// Change: matched annotations are kept as-is
+			for (Map.Entry<String, Annotation> e : existing.entrySet()) {
+				SpellingProblem p = desired.get(e.getKey());
+				Annotation a = e.getValue();
+				Position current = model.getPosition(a);
+				if (current != null && (current.getOffset() != p.getOffset() || current.getLength() != p.getLength()))
+					((IAnnotationModelExtension) model).modifyAnnotationPosition(a,
+							new Position(p.getOffset(), p.getLength()));
 			}
 		}
 
-		// Build new annotations.
-		Map<Annotation, Position> toAdd = new HashMap<>();
-		for (SpellingProblem p : problems) {
-			toAdd.put(new SpellingAnnotation(p), new Position(p.getOffset(), p.getLength()));
-		}
-
-		// Atomic swap – removes old, adds new in one operation.
-		synchronized (model) {
-			((IAnnotationModelExtension) model).replaceAnnotations(toRemove.toArray(new Annotation[0]), toAdd);
-		}
-
-		if (fViewer instanceof ITextViewerExtension2) {
+		if (viewer instanceof ITextViewerExtension2)
 			try {
-				((ITextViewerExtension2) fViewer).invalidateTextPresentation(region.getOffset(), region.getLength());
+				((ITextViewerExtension2) viewer).invalidateTextPresentation(offset, length);
 			} catch (IllegalArgumentException ex) {
 				// ignore out of bound errors
 			}
-		} else {
-			fViewer.invalidateTextPresentation();
+		else
+			viewer.invalidateTextPresentation();
+	}
+
+	private String textAt(int offset, int length) {
+		if (doc == null)
+			return null;
+		try {
+			return doc.get(offset, length);
+		} catch (BadLocationException e) {
+			return null;
 		}
+	}
+
+	private static String contentKey(String text, String message) {
+		return Integer.toHexString(text.hashCode()) + ":" + text.length() + ":" + message;
+	}
+
+	private static Object lockObject(IAnnotationModel model) {
+		if (model instanceof ISynchronizable) {
+			Object lock = ((ISynchronizable) model).getLockObject();
+			if (lock != null)
+				return lock;
+		}
+		return model;
 	}
 }

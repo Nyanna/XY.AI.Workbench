@@ -1,4 +1,4 @@
-package xy.ai.workbench.editor.update;
+package xy.ai.workbench.editor;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -10,18 +10,16 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
 import org.eclipse.jface.text.ITextInputListener;
 import org.eclipse.jface.text.ITextViewer;
-import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.editor.DocumentBuffer;
 import xy.ai.workbench.editor.mdast.MarkdownDocument;
-import xy.ai.workbench.editor.mdast.TextRegion;
+import xy.ai.workbench.editor.mdast.nodes.Node;
 
 public final class EditorManager {
 
-	public static final int DEBOUNCE_DELAY_MS = 200;
+	public static final int DEBOUNCE_DELAY_MS = 100;
 
-	private final List<Listener> listeners = new CopyOnWriteArrayList<>();
+	private final List<IManagerListener> listeners = new CopyOnWriteArrayList<>();
 
 	private final ExecutorService background = Executors.newSingleThreadExecutor(r -> {
 		Thread t = new Thread(r, "EditorManager-Background");
@@ -31,9 +29,10 @@ public final class EditorManager {
 
 	private ITextViewer viewer;
 	private Display display;
-	private IDocument document;
-	private DocumentBuffer astBuffer;
+	private IDocument doc;
+	private DocumentBuffer buffer;
 	private MarkdownDocument ast;
+	private ISpellChecker spell;
 
 	// ── pending, composed (not yet reparsed) edit ────────────────────────────────
 	private boolean pendingActive;
@@ -42,8 +41,8 @@ public final class EditorManager {
 	private int pendingNewLen;
 
 	private final Runnable flush = new Flush();
-	private final IDocumentListener documentListener = new DocumentListener();
-	private final ITextInputListener textInputListener = new TextInputListener();
+	private final IDocumentListener documentLst = new Document();
+	private final ITextInputListener textInputListener = new TextInput();
 
 	public void install(ITextViewer viewer) {
 		this.viewer = viewer;
@@ -58,18 +57,19 @@ public final class EditorManager {
 	public void uninstall() {
 		cancelPending();
 		background.shutdownNow();
-		if (document != null)
-			document.removeDocumentListener(documentListener);
+		if (doc != null)
+			doc.removeDocumentListener(documentLst);
 		if (viewer != null)
 			viewer.removeTextInputListener(textInputListener);
 		listeners.clear();
+		spell = null;
 	}
 
-	public void addListener(Listener listener) {
+	public void addListener(IManagerListener listener) {
 		listeners.add(listener);
 	}
 
-	public boolean removeListener(Listener listener) {
+	public boolean removeListener(IManagerListener listener) {
 		return listeners.remove(listener);
 	}
 
@@ -78,21 +78,23 @@ public final class EditorManager {
 	}
 
 	public IDocument getDocument() {
-		return document;
+		return doc;
 	}
 
-	public void runAsync(Runnable task) {
-		if (!background.isShutdown())
-			background.execute(task);
+	public void setSpellChecker(ISpellChecker spellChecker) {
+		this.spell = spellChecker;
+		if (spellChecker != null && doc != null && ast != null) {
+			spellChecker.onDocumentChanged(doc);
+			runSpellCheck(ast.getRoot());
+		}
 	}
 
-	/**
-	 * Losslessly folds a new raw edit (given in current/live document coordinates)
-	 * into the still-pending, not yet reparsed edit, so that a whole burst of edits
-	 * can be represented - and later applied to the AST - as if it was a single
-	 * edit.
-	 */
-	private void composeEdit(int offset, int removedLen, int insertedLen) {
+	private void runSpellCheck(Node node) {
+		if (spell != null && !background.isShutdown())
+			background.execute(() -> spell.reconcile(node));
+	}
+
+	private void changed(int offset, int removedLen, int insertedLen) {
 		if (!pendingActive) {
 			pendingActive = true;
 			pendingStart = offset;
@@ -117,6 +119,13 @@ public final class EditorManager {
 		}
 
 		pendingNewLen += insertedLen - removedLen;
+		scheduleFlush();
+	}
+
+	private void update(Node node) {
+		runSpellCheck(node);
+		for (IManagerListener l : listeners)
+			l.onAstUpdated(node);
 	}
 
 	private void scheduleFlush() {
@@ -134,62 +143,18 @@ public final class EditorManager {
 	private class Flush implements Runnable {
 		@Override
 		public void run() {
-			if (!pendingActive || ast == null || astBuffer == null)
+			if (!pendingActive || ast == null || buffer == null)
 				return;
 			int offset = pendingStart;
 			int removed = pendingOldLen;
 			int inserted = pendingNewLen;
 			pendingActive = false;
 
-			TextRegion region = ast.update(offset, removed, inserted);
-			pushAstUpdated(region);
+			update(ast.update(offset, removed, inserted));
 		}
 	}
 
-	/**
-	 * Directly drives syntax highlighting from the reparse result, then notifies
-	 * listeners.
-	 */
-	private void pushAstUpdated(TextRegion region) {
-		if (viewer instanceof ITextViewerExtension2 ext2)
-			try {
-				ext2.invalidateTextPresentation(region.offset(), Math.max(1, region.length()));
-			} catch (IllegalArgumentException e) {
-				// region outside the (possibly just replaced) document - ignore.
-			}
-		for (Listener l : listeners)
-			l.onAstUpdated(region);
-	}
-
-	private final class TextInputListener implements ITextInputListener {
-		@Override
-		public void inputDocumentAboutToBeChanged(IDocument oldInput, IDocument newInput) {
-			cancelPending();
-			if (oldInput != null)
-				oldInput.removeDocumentListener(documentListener);
-		}
-
-		@Override
-		public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
-			document = newInput;
-			TextRegion initial = null;
-			if (newInput != null) {
-				astBuffer = new DocumentBuffer(newInput);
-				ast = new MarkdownDocument(astBuffer);
-				initial = ast.update(0, 0, astBuffer.length());
-				newInput.addDocumentListener(documentListener);
-			} else {
-				astBuffer = null;
-				ast = null;
-			}
-			for (Listener l : listeners)
-				l.onDocumentChanged(oldInput, newInput);
-			if (initial != null)
-				pushAstUpdated(initial);
-		}
-	}
-
-	private final class DocumentListener implements IDocumentListener {
+	private class Document implements IDocumentListener {
 		private int removedLen;
 
 		@Override
@@ -200,24 +165,37 @@ public final class EditorManager {
 		@Override
 		public void documentChanged(DocumentEvent event) {
 			String text = event.getText();
-			int insertedLen = text == null ? 0 : text.length();
-			composeEdit(event.getOffset(), removedLen, insertedLen);
-			scheduleFlush();
+			changed(event.getOffset(), removedLen, text == null ? 0 : text.length());
 		}
 	}
 
-	public interface Listener {
-
-		default void onDocumentChanged(IDocument oldDocument, IDocument newDocument) {
+	private class TextInput implements ITextInputListener {
+		@Override
+		public void inputDocumentAboutToBeChanged(IDocument oldInput, IDocument newInput) {
+			cancelPending();
+			if (oldInput != null)
+				oldInput.removeDocumentListener(documentLst);
 		}
 
-		/**
-		 * Fired once, on the UI thread, after the debounced AST reparse for a batch of
-		 * edits has completed, with the resulting changed region. Listeners that need
-		 * to perform expensive/blocking work (e.g. spell checking) should hand it off
-		 * via {@link EditorManager#runAsync(Runnable)} instead of blocking this call.
-		 */
-		default void onAstUpdated(TextRegion region) {
+		@Override
+		public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
+			doc = newInput;
+			Node initial = null;
+			if (newInput != null) {
+				buffer = new DocumentBuffer(newInput);
+				ast = new MarkdownDocument(buffer);
+				initial = ast.update(0, 0, buffer.length());
+				newInput.addDocumentListener(documentLst);
+			} else {
+				buffer = null;
+				ast = null;
+			}
+			if (spell != null)
+				spell.onDocumentChanged(newInput);
+			for (IManagerListener l : listeners)
+				l.onDocumentChanged(oldInput, newInput);
+			if (initial != null)
+				update(initial);
 		}
 	}
 }

@@ -10,29 +10,23 @@ import org.eclipse.jface.text.presentation.IPresentationReconciler;
 import org.eclipse.jface.text.presentation.PresentationReconciler;
 import org.eclipse.jface.text.quickassist.IQuickAssistAssistant;
 import org.eclipse.jface.text.quickassist.QuickAssistAssistant;
-import org.eclipse.jface.text.reconciler.IReconciler;
 import org.eclipse.jface.text.rules.DefaultDamagerRepairer;
+import org.eclipse.jface.text.rules.ITokenScanner;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
-import org.eclipse.swt.graphics.Font;
 
-import xy.ai.workbench.editor.spellcheck.SpellCheckReconciler;
 import xy.ai.workbench.editor.spellcheck.SpellingQuickAssistProcessor;
-import xy.ai.workbench.editor.update.EditorManager;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
+
 	private static final int LIMIT = 2 * 512 * 1024;
 
-	private final EditorManager updateManager;
-
+	private AIRuleScanner rules = new AIRuleScanner();
+	private DefaultDamagerRepairer dmg;
 
 	public AISourceViewerConfiguration(EditorManager updateManager) {
-		this.updateManager = updateManager;
-	}
-
-	@Override
-	public IReconciler getReconciler(ISourceViewer sourceViewer) {
-		return new SpellCheckReconciler(sourceViewer, updateManager);
+		rules.setUpdateManager(updateManager);
+		dmg = new DamagerRepairer(rules, updateManager);
 	}
 
 	@Override
@@ -45,39 +39,40 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 	@Override
 	public IPresentationReconciler getPresentationReconciler(ISourceViewer sourceViewer) {
 		PresentationReconciler reconciler = new PresentationReconciler();
-		Font font = sourceViewer.getTextWidget().getFont();
 
-		DefaultDamagerRepairer dr = new DefaultDamagerRepairer(new AIRuleScanner(font, updateManager)) {
-			@Override
-			public void createPresentation(TextPresentation presentation, ITypedRegion region) {
-				if (fDocument != null && fDocument.getLength() > LIMIT) {
-					addRange(presentation, region.getOffset(), region.getLength(), AIRuleScanner.DEFAULT_ATTR);
-					return;
-				}
-				super.createPresentation(presentation, region);
-			}
-
-			@Override
-			public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e,
-					boolean documentPartitioningChanged) {
-				IDocument document = sourceViewer.getDocument();
-				if (document == null)
-					return partition;
-				if (document.getLength() > LIMIT)
-					return new Region(0, 1);
-
-				// No AST-based damage region here anymore: the AST reparse (and thus the
-				// precise, authoritative changed region) is debounced centrally in
-				// EditorManager, which actively pushes a repaint for that region via
-				// invalidateTextPresentation() once it is available. This default,
-				// per-edit damage computation only provides transient, best-effort
-				// highlighting in between - falling behind briefly is acceptable.
-				return super.getDamageRegion(partition, e, documentPartitioningChanged);
-			}
-		};
-		reconciler.setDamager(dr, IDocument.DEFAULT_CONTENT_TYPE);
-		reconciler.setRepairer(dr, IDocument.DEFAULT_CONTENT_TYPE);
+		rules.init(sourceViewer.getTextWidget().getFont());
+		reconciler.setDamager(dmg, IDocument.DEFAULT_CONTENT_TYPE);
+		reconciler.setRepairer(dmg, IDocument.DEFAULT_CONTENT_TYPE);
 
 		return reconciler;
+	}
+
+	public DefaultDamagerRepairer getDamager() {
+		return dmg;
+	}
+
+	private static class DamagerRepairer extends DefaultDamagerRepairer {
+		private EditorManager updateManager;
+
+		private DamagerRepairer(ITokenScanner scanner, EditorManager updateManager) {
+			super(scanner);
+			this.updateManager = updateManager;
+		}
+
+		@Override
+		public void createPresentation(TextPresentation presentation, ITypedRegion region) {
+			if (fDocument != null && fDocument.getLength() > LIMIT)
+				addRange(presentation, region.getOffset(), region.getLength(), AIRuleScanner.DEFAULT_ATTR);
+			else
+				super.createPresentation(presentation, region);
+		}
+
+		@Override
+		public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e, boolean documentPartitioningChanged) {
+			var node = updateManager.getAst().find(e.getOffset(), e.getLength());
+			if (node != null)
+				return new Region(node.getOffset(), node.length());
+			return new Region(e.getOffset(), e.getLength());
+		}
 	}
 }

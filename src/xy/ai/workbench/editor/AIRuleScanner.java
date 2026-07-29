@@ -34,7 +34,6 @@ import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.editor.update.EditorManager;
 import xy.ai.workbench.tools.PieceList;
 
 /**
@@ -73,22 +72,21 @@ public class AIRuleScanner implements ITokenScanner {
 	/** Token used to reset styling of regions for which no rule is configured. */
 	private static final IToken RESET_TOKEN = new Token(null);
 
-	private final EditorManager updateManager;
-
-	/** One dedicated (stateless) rule based sub-scanner per AST node type. */
 	private final Map<AbstractNode, RuleBasedScanner> scannerByNode = new IdentityHashMap<>();
 	private final Map<RuleBasedScanner, IRule[]> ruleCache = new IdentityHashMap<>();
 
-	/** Fallback scanner (all rules) used while no AST is available yet. */
 	private final RuleBasedScanner fallbackScanner = new RuleBasedScanner();
 
 	private final PieceList<IToken> pieces = new PieceList<>();
+	private EditorManager updateManager;
 	private int tokenOffset;
 	private int tokenLength;
 
-	public AIRuleScanner(Font basefont, EditorManager updateManager) {
+	public void setUpdateManager(EditorManager updateManager) {
 		this.updateManager = updateManager;
+	}
 
+	public void init(Font basefont) {
 		Color c = Display.getCurrent().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
 		IToken userToken = new Token(USER_ATTR);
 		IToken agentToken = new Token(AGENT_ATTR);
@@ -105,10 +103,10 @@ public class AIRuleScanner implements ITokenScanner {
 
 		IRule commentRule = new BlockRule("<!--", "-->", normal);
 
-		// ---- section: Root - only html comments may appear directly at the root ----
+		// section: Root - only html comments may appear directly at the root
 		register(Elements.ROOT, commentRule);
 
-		// ---- section: headings - the marker/title line and setext-style headers ----
+		// section: headings - the marker/title line and setext-style headers
 		Font[] headingFonts = getOrCreateFonts(basefont.getFontData()[0]);
 		String[] headingPrefixes = { "###### ", "##### ", "#### ", "### ", "## ", "# " };
 		HeaderRule headerRule = new HeaderRule(new Token(new TextAttribute(c, null, SWT.BOLD)));
@@ -117,15 +115,15 @@ public class AIRuleScanner implements ITokenScanner {
 			register(Elements.Headings.HEADINGS[i], new PrefixLineRule(headingPrefixes[i], headingToken), headerRule);
 		}
 
-		// ---- section: page separator ----
+		// section: page separator
 		register(Elements.Page.PAGE, new PrefixLineRule("***", spacerToken));
 
-		// ---- section: chat line markers, each only valid for its own element ----
+		// section: chat line markers, each only valid for its own element
 		register(Elements.Chat.USER, new LineMatchRule(EditorInterface.USER, userToken));
 		register(Elements.Chat.AGENT, new LineMatchRule(EditorInterface.AGENT, agentToken));
 		register(Elements.Tools.CONTROL_REQUEST, new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
 
-		// ---- block: protocol prefix lines, each tied 1:1 to its own AST element ----
+		// block: protocol prefix lines, each tied 1:1 to its own AST element
 		register(Elements.Agent.THINKING, new PrefixLineRule(ProtocolParser.THINKING, agentToken));
 		register(Elements.Agent.TEXT, new PrefixLineRule(ProtocolParser.TEXT, agentToken));
 		register(Elements.Agent.TOOLUSE, new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
@@ -135,11 +133,10 @@ public class AIRuleScanner implements ITokenScanner {
 		register(Elements.Agent.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
 		register(Elements.Basics.LINE_COMMENT, new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
 
-		// ---- block: fenced code, only valid inside a ScriptBlock ----
+		// block: fenced code, only valid inside a ScriptBlock
 		register(Elements.Basics.SCRIPTBLOCK, new BlockRule("```", "```", blueToken));
 
-		// ---- section: paragraph - lists, emphasis, links and quote/glossary prefixes
-		// ----
+		// section: paragraph - lists, emphasis, links and quote/glossary prefixes
 		register(Elements.Basics.PARAGRAPH, //
 				commentRule, //
 				new PrefixLineRule(": ", italic), // glossary syntax
@@ -158,7 +155,7 @@ public class AIRuleScanner implements ITokenScanner {
 				new PrefixLineRule("---", spacerToken), //
 				new LinkRule(underline));
 
-		// ---- fallback (used while no AST is available, e.g. huge documents) ----
+		// fallback (used while no AST is available
 		List<IRule> all = new ArrayList<>();
 		for (RuleBasedScanner s : scannerByNode.values())
 			for (IRule r : ruleCache.getOrDefault(s, new IRule[0]))
