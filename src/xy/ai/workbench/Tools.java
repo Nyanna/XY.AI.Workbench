@@ -3,8 +3,9 @@ package xy.ai.workbench;
 public class Tools {
 	private static String toolList = //
 			"ask-user," // top
-					+ "file-stats,read-file,list,change,insert,write,replace-block,replace-chars,replace-lines," // Read and Edit tools
+					+ "file-stats,read-file,list,write,replace-block," // Read and Edit tools
 					+ "bash,python,markdown,markdown-format," // Dynamic code tools
+					+ "change,insert,replace-chars,replace-lines," // seldom used
 					+ "web-search-exa,web-fetch-exa," // research cpabilities
 					+ "context7-libraries,context7-documentation," // specialised research
 					+ "openalex-search,openalex-semantic-search,openalex-work," 

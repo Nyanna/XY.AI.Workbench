@@ -1,5 +1,8 @@
 package xy.ai.workbench.editor;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -10,12 +13,15 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
 import org.eclipse.jface.text.ITextInputListener;
 import org.eclipse.jface.text.ITextViewer;
+import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.swt.widgets.Display;
 
+import xy.ai.workbench.LOG;
 import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.Node;
+import xy.ai.workbench.tools.RegionList;
 
-public final class EditorManager {
+public class EditorManager {
 
 	public static final int DEBOUNCE_DELAY_MS = 100;
 
@@ -34,11 +40,7 @@ public final class EditorManager {
 	private MarkdownDocument ast;
 	private ISpellChecker spell;
 
-	// ── pending, composed (not yet reparsed) edit ────────────────────────────────
-	private boolean pendingActive;
-	private int pendingStart;
-	private int pendingOldLen;
-	private int pendingNewLen;
+	private final RegionList<Integer> pending = new RegionList<>();
 
 	private final Runnable flush = new Flush();
 	private final IDocumentListener documentLst = new Document();
@@ -95,34 +97,56 @@ public final class EditorManager {
 	}
 
 	private void changed(int offset, int removedLen, int insertedLen) {
-		if (!pendingActive) {
-			pendingActive = true;
-			pendingStart = offset;
-			pendingOldLen = removedLen;
-			pendingNewLen = insertedLen;
-			return;
-		}
+		int accStart = offset;
+		int accOldLen = removedLen;
+		int accSpan = removedLen;
 
-		if (offset < pendingStart) {
-			int leftExtra = pendingStart - offset;
-			pendingStart = offset;
-			pendingOldLen += leftExtra;
-			pendingNewLen += leftExtra;
-		}
+		List<RegionList.Region<Integer>> rest = new ArrayList<>(pending.asList());
+		pending.clear();
 
-		int pendingNewEnd = pendingStart + pendingNewLen;
-		int editEnd = offset + removedLen;
-		if (editEnd > pendingNewEnd) {
-			int rightExtra = editEnd - pendingNewEnd;
-			pendingOldLen += rightExtra;
-			pendingNewLen += rightExtra;
-		}
+		boolean mergedAny;
+		do {
+			mergedAny = false;
+			for (Iterator<RegionList.Region<Integer>> it = rest.iterator(); it.hasNext();) {
+				RegionList.Region<Integer> r = it.next();
+				int rEnd = r.end();
+				int accEnd = accStart + accSpan;
+				if (rEnd < accStart || r.offset() > accEnd)
+					continue; // no overlap and not touching -> stays separate
 
-		pendingNewLen += insertedLen - removedLen;
+				int newStart = Math.min(accStart, r.offset());
+				int newEnd = Math.max(accEnd, rEnd);
+				int priorDelta = (accSpan - accOldLen) + (r.length() - r.value());
+				accStart = newStart;
+				accSpan = newEnd - newStart;
+				accOldLen = accSpan - priorDelta;
+				it.remove();
+				mergedAny = true;
+			}
+		} while (mergedAny);
+
+		int preDeltaEnd = accStart + accSpan;
+		int mergedNewLen = accSpan + (insertedLen - removedLen);
+		int mergedOldLen = accOldLen;
+		int totalDelta = mergedNewLen - mergedOldLen;
+
+		for (RegionList.Region<Integer> r : rest)
+			if (r.offset() >= preDeltaEnd)
+				pending.add(r.offset() + totalDelta, r.length(), r.value());
+			else
+				pending.add(r.offset(), r.length(), r.value());
+		pending.add(accStart, mergedNewLen, mergedOldLen);
+
 		scheduleFlush();
 	}
 
 	private void update(Node node) {
+		if (viewer instanceof ITextViewerExtension2 ext2)
+			try {
+				ext2.invalidateTextPresentation(node.getOffset(), node.length());
+			} catch (IllegalArgumentException e) {
+				// region outside the (possibly just replaced) document - ignore.
+			}
 		runSpellCheck(node);
 		for (IManagerListener l : listeners)
 			l.onAstUpdated(node);
@@ -135,7 +159,7 @@ public final class EditorManager {
 	}
 
 	private void cancelPending() {
-		pendingActive = false;
+		pending.clear();
 		if (display != null && !display.isDisposed())
 			display.timerExec(-1, flush);
 	}
@@ -143,14 +167,21 @@ public final class EditorManager {
 	private class Flush implements Runnable {
 		@Override
 		public void run() {
-			if (!pendingActive || ast == null || buffer == null)
+			if (pending.isEmpty() || ast == null || buffer == null)
 				return;
-			int offset = pendingStart;
-			int removed = pendingOldLen;
-			int inserted = pendingNewLen;
-			pendingActive = false;
 
-			update(ast.update(offset, removed, inserted));
+			if (pending.millisSinceLastInsert() < DEBOUNCE_DELAY_MS) {
+				scheduleFlush();
+				return;
+			}
+			LOG.info("AST Flushed");
+
+			List<RegionList.Region<Integer>> regions = new ArrayList<>(pending.asList());
+			pending.clear();
+			regions.sort(Comparator.comparingInt(RegionList.Region::offset));
+
+			for (RegionList.Region<Integer> r : regions)
+				update(ast.update(r.offset(), r.value(), r.length()));
 		}
 	}
 

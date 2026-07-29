@@ -1,9 +1,9 @@
 # TODO
-* debounce für ast parse, AST lösst spellcheck und syntax higlighting aus
 
-* MCPC in eclipe integrieren und mitstarten
+* MCPC, ausstehende anfragen bei disconnect entfernen
+* build setup spart checks
 
-## Workbench
+##  Workbench  
 
 * Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
@@ -20,11 +20,11 @@
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
 
 
-## Agents
+### Agents
 
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
-	* Project AST: project > dir > file > imports/class > global > nodes, code ist immer ein baum 
+	* Project AST: project > dir > file > imports/class > global > node s, code ist immer ein baum 
 	* AST/LanguageServer python/typescript(remark) geben/LSP/syntax parser/lint/prettier/block diff
 	* MCPC proxy zu eclipse proxy für java project?
 	* python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?

@@ -1,9 +1,11 @@
 package xy.ai.workbench.tools;
 
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class RegionList<T> implements Iterable<RegionList.Region<T>> {
 
@@ -16,7 +18,10 @@ public class RegionList<T> implements Iterable<RegionList.Region<T>> {
 	private final List<Region<T>> pieces = new ArrayList<>();
 	private int cursor;
 
+	private final Deque<Long> insertTimes = new ConcurrentLinkedDeque<>();
+
 	public void add(int offset, int length, T value) {
+		insertTimes.addLast(System.currentTimeMillis());
 		int start = offset;
 		int end = offset + length;
 		for (Iterator<Region<T>> it = pieces.iterator(); it.hasNext();) {
@@ -45,6 +50,7 @@ public class RegionList<T> implements Iterable<RegionList.Region<T>> {
 	public void clear() {
 		pieces.clear();
 		cursor = 0;
+		insertTimes.clear();
 	}
 
 	public void resetCursor() {
@@ -57,6 +63,16 @@ public class RegionList<T> implements Iterable<RegionList.Region<T>> {
 
 	public Region<T> next() {
 		return pieces.get(cursor++);
+	}
+
+	public long lastInsertTime() {
+		Long last = insertTimes.peekLast();
+		return last == null ? -1L : last;
+	}
+
+	public long millisSinceLastInsert() {
+		long last = lastInsertTime();
+		return last < 0 ? Long.MAX_VALUE : System.currentTimeMillis() - last;
 	}
 
 	@Override

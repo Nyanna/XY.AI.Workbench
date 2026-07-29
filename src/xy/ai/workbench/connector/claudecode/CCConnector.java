@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.CRC32;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -158,6 +159,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				// wait 300 ms
 				if ((line = session.readLine()) != null) {
 					session.setLastRawLine(line);
+					sub.setTaskName(abbreviateForStatus(line));
 					jsonParser.parseLine(resp, session, sub, line);
 
 				}
@@ -182,6 +184,14 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 			}
 			sessionManager.onSessionChanged(session);
 		}
+	}
+
+	private static String abbreviateForStatus(String s) {
+		if (s == null)
+			return "null";
+		CRC32 crc = new CRC32();
+		crc.update(s.getBytes());
+		return String.format("Prompting... (%d/%d)", s.length(), crc.getValue());
 	}
 
 	private List<Command> preprocessInput(List<String> inputs) {
