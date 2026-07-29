@@ -214,6 +214,9 @@ class WebSocketMcpServer:
             logger.exception("WS: unhandled error on connection for session %s", session_id)
         finally:
             self.comm_log.log(session_id, EVENT, {"event": "session.ws_disconnected"})
+            control_manager = getattr(self.services, "control_manager", None) if self.services else None
+            if control_manager is not None:
+                control_manager.cancel_session(session_id, reason="WebSocket connection closed")
 
     async def _handle_message(
         self,
@@ -276,7 +279,31 @@ class WebSocketMcpServer:
 
         # Runs on a worker thread: `handle_request` blocks (session lock,
         # human-in-the-loop approval) and must not stall the event loop.
-        response = await loop.run_in_executor(None, _run)
+        request_future = loop.run_in_executor(None, _run)
+
+        control_manager = getattr(self.services, "control_manager", None) if self.services else None
+        if control_manager is not None:
+            # Race the (possibly hours-long) request against the connection
+            # closing so a pending approval is cancelled the moment the
+            # client disconnects, instead of only when it times out.
+            closed_future = asyncio.ensure_future(connection.wait_closed())
+            try:
+                done, _pending = await asyncio.wait(
+                    {request_future, closed_future}, return_when=asyncio.FIRST_COMPLETED
+                )
+                if closed_future in done and request_future not in done:
+                    control_manager.cancel_session(
+                        session_id, reason="WebSocket connection closed"
+                    )
+            finally:
+                if not closed_future.done():
+                    closed_future.cancel()
+            # The interceptor thread unblocks promptly once cancelled above;
+            # await it regardless so we always send/skip the final response.
+            response = await request_future
+        else:
+            response = await request_future
+
         await self._send(connection, session_id, response)
 
     async def _send(

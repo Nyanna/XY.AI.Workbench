@@ -179,9 +179,14 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			});
 
 			if (replaced[0]) {
-				tb.commit(null, false);
-				marker.delete();
-				return true;
+				try {
+					tb.commit(null, false);
+					marker.delete();
+					return true;
+				} catch (IllegalStateException e) {
+					// ignore when not found and fall back
+					return false;
+				}
 			}
 
 		} catch (CoreException e) {

@@ -16,6 +16,9 @@ the client must send on every request.
 from __future__ import annotations
 
 import logging
+import select
+import socket
+import threading
 
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -29,9 +32,12 @@ from .hooks import HookHandler, PermissionHookHandler
 from .jsonrpc import MessageKind
 from .logging_utils import EVENT, IN, OUT
 from .session import is_valid_uuid
-from aptdaemon import logger
 
 logger = logging.getLogger("xy.ai.mcpc.transport")
+
+#: Polling interval (seconds) for the connection watchdog used while a
+#: request is blocked awaiting a human-in-the-loop control decision.
+_CONNECTION_WATCH_INTERVAL = 10.0
 
 
 def _origin_host(origin: str) -> str:
@@ -243,6 +249,23 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:
         skip_control = self.headers.get(self.config.control_header, "").lower() == "off"
+
+        control_manager = getattr(self.server.services, "control_manager", None)  # type: ignore[attr-defined]
+        stop_watch = threading.Event()
+        watcher: threading.Thread | None = None
+        if control_manager is not None:
+            # `handle_request` may block for hours awaiting a human-in-the-loop
+            # decision while holding no socket I/O of its own; without this
+            # watchdog an aborted client connection would go unnoticed until
+            # the (up to 24h) control timeout elapses.
+            watcher = threading.Thread(
+                target=self._watch_connection,
+                args=(session_id, control_manager, stop_watch),
+                name="mcpc-http-connwatch",
+                daemon=True,
+            )
+            watcher.start()
+
         try:
             with session.lock:
                 result = self.protocol.handle_request(session, request, skip_control=skip_control)
@@ -254,9 +277,41 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             response = jsonrpc.error_response(
                 request.id, errors.internal_error(str(exc))
             )
+        finally:
+            stop_watch.set()
+            if watcher is not None:
+                watcher.join(timeout=_CONNECTION_WATCH_INTERVAL + 1.0)
 
         self.comm_log.log(session_id, OUT, response, http="POST")
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id)
+
+    def _watch_connection(self, session_id: str, control_manager, stop_event: threading.Event) -> None:
+        """Poll the client socket while a request is in flight and cancel
+        this session's pending control items the moment the connection is
+        found to be closed (client disconnected without waiting for the
+        approval decision).
+        """
+        sock = self.connection
+        while not stop_event.wait(_CONNECTION_WATCH_INTERVAL):
+            try:
+                ready, _, _ = select.select([sock], [], [], 0)
+            except (OSError, ValueError):
+                return
+            if not ready:
+                continue
+            try:
+                data = sock.recv(1, socket.MSG_PEEK)
+            except BlockingIOError:
+                continue
+            except OSError:
+                data = b""
+            if data == b"":
+                logger.info(
+                    "HTTP connection for session %s closed while awaiting control decision",
+                    session_id,
+                )
+                control_manager.cancel_session(session_id, reason="HTTP connection closed")
+                return
 
     # -- validation helpers -------------------------------------------------
     def _path_matches(self) -> bool:

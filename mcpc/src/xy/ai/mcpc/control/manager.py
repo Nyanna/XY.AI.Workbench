@@ -57,6 +57,7 @@ class _PendingItem:
     id: str
     phase: str          # "request" | "result"
     tool_name: str
+    session_id: str
     arguments: dict[str, Any] | None       # populated in request phase
     result: dict[str, Any] | None          # populated in result phase
     _event: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -207,6 +208,31 @@ class ToolControlManager:
             )
             item._event.set()
 
+    def cancel_session(self, session_id: str, reason: str = "Connection closed") -> None:
+        """Reject every pending item belonging to *session_id*.
+
+        Called by a transport (HTTP or WebSocket) as soon as it notices that
+        the underlying client connection for a session has been aborted, so
+        the interceptor thread blocked in :meth:`submit_request` /
+        :meth:`submit_result` doesn't hang around until the (up to 24h)
+        timeout elapses for a decision that can never be delivered anymore.
+        """
+        with self._lock:
+            items = [item for item in self._pending.values() if item.session_id == session_id]
+
+        for item in items:
+            with self._lock:
+                still_pending = self._pending.pop(item.id, None) is not None
+            if not still_pending:
+                continue  # already resolved by a concurrent approval/timeout
+
+            item._decision = ControlDecision(approved=False, rejection_reason=reason)
+            logger.info(
+                "Cancelling control item %s [%s/%s] for session %s: %s",
+                item.tool_name, item.phase, item.id, session_id, reason,
+            )
+            item._event.set()
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -224,6 +250,7 @@ class ToolControlManager:
             id=item_id,
             phase=phase,
             tool_name=tool_name,
+            session_id=session.id,
             arguments=arguments,
             result=result,
         )

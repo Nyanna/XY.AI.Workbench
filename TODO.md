@@ -1,6 +1,5 @@
 # TODO
 
-* MCPC, ausstehende anfragen bei disconnect entfernen
 * build setup spart checks
 
 ##  Workbench  
