@@ -20,7 +20,7 @@
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
 
 
-### Agents
+## Agents
 
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove

@@ -33,7 +33,7 @@ public class MarkdownDocument {
 
 			if (parent == null || isCompatible(rn.children, sec, parent)) {
 				replace(sec, rn.children, delta);
-				return sec;
+				return parent;
 			}
 			sec = parent;
 		}
@@ -129,7 +129,7 @@ public class MarkdownDocument {
 	private Node find(Node node, int lo, int hi) {
 		for (Node child : node.children) {
 			int cs = child.getOffset();
-			if (cs < lo && hi < cs + child.length())
+			if (cs <= lo && hi <= cs + child.length())
 				return find(child, lo, hi);
 		}
 		return node;

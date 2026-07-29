@@ -69,10 +69,11 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
 
 		@Override
 		public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e, boolean documentPartitioningChanged) {
-			var node = updateManager.getAst().find(e.getOffset(), e.getLength());
-			if (node != null)
+			var node = updateManager.getAst().find(e.getOffset(), e.getOffset() + e.getLength());
+			// gate fo only update manager changes
+			if (node != null && e.getOffset() == node.getOffset() && e.getLength() == node.length())
 				return new Region(node.getOffset(), node.length());
-			return new Region(e.getOffset(), e.getLength());
+			return new Region(0, 0);
 		}
 	}
 }

@@ -70,7 +70,7 @@ public class SpellingStrategy {
 
 		final int checkedOffset = regionOffset;
 		final int checkedLength = end - start;
-		viewer.getTextWidget().getDisplay().asyncExec(() -> applyAnnotations(valid, checkedOffset, checkedLength));
+		viewer.getTextWidget().getDisplay().syncExec(() -> applyAnnotations(valid, checkedOffset, checkedLength));
 	}
 
 	public void clear(Node node) {
@@ -84,7 +84,7 @@ public class SpellingStrategy {
 		final int clearedOffset = start;
 		final int clearedLength = end - start;
 		viewer.getTextWidget().getDisplay()
-				.asyncExec(() -> applyAnnotations(new ArrayList<>(), clearedOffset, clearedLength));
+				.syncExec(() -> applyAnnotations(new ArrayList<>(), clearedOffset, clearedLength));
 	}
 
 	// in UI thread
@@ -152,7 +152,7 @@ public class SpellingStrategy {
 
 		if (viewer instanceof ITextViewerExtension2)
 			try {
-				((ITextViewerExtension2) viewer).invalidateTextPresentation(offset, length);
+				//((ITextViewerExtension2) viewer).invalidateTextPresentation(offset, length);
 			} catch (IllegalArgumentException ex) {
 				// ignore out of bound errors
 			}

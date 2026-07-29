@@ -16,14 +16,13 @@ import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.LOG;
 import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.Node;
 import xy.ai.workbench.tools.RegionList;
 
 public class EditorManager {
 
-	public static final int DEBOUNCE_DELAY_MS = 100;
+	public static final int DEBOUNCE_DELAY_MS = 500;
 
 	private final List<IManagerListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -87,13 +86,8 @@ public class EditorManager {
 		this.spell = spellChecker;
 		if (spellChecker != null && doc != null && ast != null) {
 			spellChecker.onDocumentChanged(doc);
-			runSpellCheck(ast.getRoot());
+			update(ast.getRoot());
 		}
-	}
-
-	private void runSpellCheck(Node node) {
-		if (spell != null && !background.isShutdown())
-			background.execute(() -> spell.reconcile(node));
 	}
 
 	private void changed(int offset, int removedLen, int insertedLen) {
@@ -141,15 +135,22 @@ public class EditorManager {
 	}
 
 	private void update(Node node) {
-		if (viewer instanceof ITextViewerExtension2 ext2)
-			try {
-				ext2.invalidateTextPresentation(node.getOffset(), node.length());
-			} catch (IllegalArgumentException e) {
-				// region outside the (possibly just replaced) document - ignore.
-			}
-		runSpellCheck(node);
-		for (IManagerListener l : listeners)
-			l.onAstUpdated(node);
+		if (!background.isShutdown())
+			background.execute(() -> {
+				if (spell != null)
+					spell.reconcile(node);
+
+				viewer.getTextWidget().getDisplay().asyncExec(() -> {
+					if (viewer instanceof ITextViewerExtension2 ext2)
+						try {
+							ext2.invalidateTextPresentation(node.getOffset(), node.length());
+						} catch (IllegalArgumentException e) {
+							// region outside the (possibly just replaced) document - ignore.
+						}
+					for (IManagerListener l : listeners)
+						l.onAstUpdated(node);
+				});
+			});
 	}
 
 	private void scheduleFlush() {
@@ -174,7 +175,7 @@ public class EditorManager {
 				scheduleFlush();
 				return;
 			}
-			LOG.info("AST Flushed");
+			// LOG.info("AST Flushed");
 
 			List<RegionList.Region<Integer>> regions = new ArrayList<>(pending.asList());
 			pending.clear();
