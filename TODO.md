@@ -1,5 +1,8 @@
 # TODO
 
+* token stat tabelle durch log ersetzen
+* lt kann auf zeilenebene arbeiten, im Satz, und braucht nur ein invalidate der zeile ohne hightlighting neu berechnen
+	* wenn innerhalb kindknoten, nur zeile für spellcheck, extra Region objekt zur eingrenzung
 * build setup spart checks
 
 ##  Workbench  
@@ -14,6 +17,7 @@
 * in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
 	* ein preset unterstützt prompts, settings und tools, load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
+
 * subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
 	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support

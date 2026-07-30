@@ -135,11 +135,18 @@ public class EditorManager {
 	}
 
 	private void update(Node node) {
-		if (!background.isShutdown())
-			background.execute(() -> {
-				if (spell != null)
-					spell.reconcile(node);
+		for (IManagerListener l : listeners)
+			l.onAstUpdated(node);
+		if (viewer instanceof ITextViewerExtension2 ext2)
+			try {
+				ext2.invalidateTextPresentation(node.getOffset(), node.length());
+			} catch (IllegalArgumentException e) {
+				// region outside the (possibly just replaced) document - ignore.
+			}
 
+		if (spell != null && !background.isShutdown())
+			background.execute(() -> {
+				spell.reconcile(node);
 				viewer.getTextWidget().getDisplay().asyncExec(() -> {
 					if (viewer instanceof ITextViewerExtension2 ext2)
 						try {
@@ -147,8 +154,6 @@ public class EditorManager {
 						} catch (IllegalArgumentException e) {
 							// region outside the (possibly just replaced) document - ignore.
 						}
-					for (IManagerListener l : listeners)
-						l.onAstUpdated(node);
 				});
 			});
 	}
