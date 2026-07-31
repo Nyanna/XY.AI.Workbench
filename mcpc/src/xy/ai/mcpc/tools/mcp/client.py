@@ -19,6 +19,10 @@ from ...codec import JsonCodec
 
 #: Protocol revision advertised on ``initialize`` (server may negotiate down).
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
 
 class McpClientError(RuntimeError):
@@ -111,6 +115,8 @@ class McpClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": DEFAULT_USER_AGENT,
         }
         headers.update(self._static_headers)
         if self._negotiated_version:
