@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>xy.ai</groupId>
+	<artifactId>xy.ai.workbench</artifactId>
+	<version>260713.1.0</version>
+	<packaging>jar</packaging>
+
+	<name>XY.AI.Workbench</name>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.release>21</maven.compiler.release>
+
+		<eclipse.install.dir>/home/user/Downloads/eclipse-committers-2025-06-R-linux-gtk-x86_64/eclipse</eclipse.install.dir>
+		<eclipse.plugins.dir>${eclipse.install.dir}/plugins</eclipse.plugins.dir>
+
+		<libs.dir>${project.basedir}/libs</libs.dir>
+		<compile.classpath>${eclipse.plugins.dir}/*:${libs.dir}/*:${libs.dir}/openai/*:${libs.dir}/google/*:${libs.dir}/anthropic/*</compile.classpath>
+	</properties>
+
+	<build>
+		<directory>${project.basedir}/bin</directory>
+		<outputDirectory>${project.basedir}/bin</outputDirectory>
+		<sourceDirectory>src</sourceDirectory>
+		<finalName>${project.artifactId}</finalName>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
+				<configuration>
+					<fork>true</fork>
+					<compilerArgs>
+						<arg>-classpath</arg>
+						<arg>${compile.classpath}</arg>
+					</compilerArgs>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.4.1</version>
+				<configuration>
+					<archive>
+						<manifestFile>META-INF/MANIFEST.MF</manifestFile>
+					</archive>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.3.1</version>
+				<executions>
+					<execution>
+						<id>assemble-plugin</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/${project.artifactId}</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.basedir}</directory>
+									<includes>
+										<include>META-INF/**</include>
+										<include>plugin.xml</include>
+										<include>icons/**</include>
+										<include>libs/**</include>
+									</includes>
+								</resource>
+								<!-- compiled classes go to the bundle root ("." in Bundle-ClassPath) -->
+								<resource>
+									<directory>${project.build.outputDirectory}</directory>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

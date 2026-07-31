@@ -2,14 +2,10 @@
 * lt kann auf zeilenebene arbeiten, im Satz, und braucht nur ein invalidate der zeile ohne hightlighting neu berechnen
 	* wenn innerhalb kindknoten, nur zeile für spellcheck, extra Region objekt zur eingrenzung
 	* Spell multithreading
-* bug in TODO zweties # und #: comment
-* build setup spart checks
 
 ##  Workbench  
 
-#: * Diff support für edit commands
-#: dsfsdf
-#: dfsf
+* Diff support für edit commands
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
 	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analog
 * Table renderer support
