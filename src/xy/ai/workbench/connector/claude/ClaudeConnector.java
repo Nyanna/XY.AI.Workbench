@@ -5,6 +5,7 @@ import java.util.Random;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -71,7 +72,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 	}
 
 	@Override
-	public ClaudeResponse executeRequest(ClaudeRequest req, IProgressMonitor mon) {
+	public ClaudeResponse executeRequest(ClaudeRequest req, IProgressMonitor mon, Job job) {
 		Message message = client.messages().create(req.params);
 		return new ClaudeResponse(message, req.getID());
 	}

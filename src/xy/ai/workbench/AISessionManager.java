@@ -13,6 +13,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
@@ -251,7 +252,19 @@ public class AISessionManager {
 	}
 
 	public void execute(Display display) {
-		Job.create("Starting Prompt", (mon) -> {
+		new PromptJob("Starting Prompt", display).schedule();
+	}
+
+	private class PromptJob extends Job {
+		private final Display display;
+
+		private PromptJob(String name, Display display) {
+			super(name);
+			this.display = display;
+		}
+
+		@Override
+		protected IStatus run(IProgressMonitor mon) {
 			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 4);
 			try {
 				sub.subTask("Prepare inputs");
@@ -261,7 +274,7 @@ public class AISessionManager {
 				editIfc.insertTag(display, req, sub);
 				mon.worked(1);
 				sub.subTask("Execute prompt");
-				var ans = executeInner(display, req, sub);
+				var ans = executeInner(display, req, sub, this);
 				mon.worked(1);
 				sub.subTask("Process Answer");
 				editIfc.replaceTag(display, ans, sub);
@@ -273,7 +286,7 @@ public class AISessionManager {
 				mon.done();
 			}
 			return Status.OK_STATUS;
-		}).schedule();
+		}
 	}
 
 	public void queueAsync(Display display, AIBatchManager batch) {
@@ -383,9 +396,9 @@ public class AISessionManager {
 		return req;
 	}
 
-	private AIAnswer executeInner(Display display, IModelRequest req, IProgressMonitor mon) {
+	private AIAnswer executeInner(Display display, IModelRequest req, IProgressMonitor mon, PromptJob job) {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		IModelResponse resp = connector.executeRequest(req, mon);
+		IModelResponse resp = connector.executeRequest(req, mon, job);
 		AIAnswer res = connector.convertResponse(resp, mon);
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;

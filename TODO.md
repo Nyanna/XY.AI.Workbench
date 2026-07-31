@@ -1,13 +1,15 @@
 # TODO
-
-* token stat tabelle durch log ersetzen
 * lt kann auf zeilenebene arbeiten, im Satz, und braucht nur ein invalidate der zeile ohne hightlighting neu berechnen
 	* wenn innerhalb kindknoten, nur zeile für spellcheck, extra Region objekt zur eingrenzung
+	* Spell multithreading
+* bug in TODO zweties # und #: comment
 * build setup spart checks
 
 ##  Workbench  
 
-* Diff support für edit commands
+#: * Diff support für edit commands
+#: dsfsdf
+#: dfsf
 	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
 	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analog
 * Table renderer support
@@ -34,6 +36,7 @@
 	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
 	* sed sogar zur editierung von python in batch edit
 	* bash ist kürzer und effizienter daher kein python
+	* python hat "ast" für sich selbst eingebaut import ast; ast.parse(open('src/xy/ai/mcpc/tools/mcp/client.py').read())
 * RAG tool zur indizierung von projekten
 	* suchergebniss semantisch komprimieren in mcpc
 	* eignet sich RAG zur kondensierung?

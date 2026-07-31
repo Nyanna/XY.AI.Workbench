@@ -31,10 +31,8 @@ public class MarkdownDocument {
 			int newLen = Math.max(hi - absStart, sec.length()) + delta;
 			Node rn = parse(absStart, absStart + newLen);
 
-			if (parent == null || isCompatible(rn.children, sec, parent)) {
-				replace(sec, rn.children, delta);
-				return parent;
-			}
+			if (parent == null || isCompatible(rn.children, sec, parent))
+				return replace(sec, rn.children, delta);
 			sec = parent;
 		}
 	}
@@ -60,14 +58,14 @@ public class MarkdownDocument {
 		return true;
 	}
 
-	private void replace(Node sec, List<Node> nchilds, int delta) {
+	private Node replace(Node sec, List<Node> nchilds, int delta) {
 		Node parent = sec.parent;
 		if (parent == null) {
 			root.children.clear();
 			for (Node c : nchilds)
 				root.children.add(reparent(c, root));
 			root.end += delta;
-			return;
+			return sec;
 		}
 
 		List<Node> siblings = parent.children;
@@ -93,6 +91,7 @@ public class MarkdownDocument {
 			for (int i = ai + 1; i < as.size(); i++)
 				shift(as.get(i), delta);
 		}
+		return parent;
 	}
 
 	private Node reparent(Node src, Node newParent) {

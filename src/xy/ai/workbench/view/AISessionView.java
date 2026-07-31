@@ -66,7 +66,7 @@ public class AISessionView extends ViewPart {
 	private FormToolkit toolkit;
 	private ScrolledForm form;
 
-	private Table usageLog;
+	private Text usageLog;
 	private List instructionList;
 	private List toolsList;
 	private Text instructionEdit, instructionFree;
@@ -416,7 +416,7 @@ public class AISessionView extends ViewPart {
 
 				TableColumn column1 = new TableColumn(table, SWT.NONE);
 				column1.setText("On");
-				column1.setWidth(50);
+				column1.setWidth(30);
 
 				TableColumn column2 = new TableColumn(table, SWT.NONE);
 				column2.setText("Input");
@@ -424,7 +424,7 @@ public class AISessionView extends ViewPart {
 
 				TableColumn column3 = new TableColumn(table, SWT.NONE);
 				column3.setText("Chars");
-				column3.setWidth(50);
+				column3.setWidth(45);
 
 				table.addListener(SWT.Selection, e -> {
 					if (e.detail == SWT.CHECK) {
@@ -486,50 +486,64 @@ public class AISessionView extends ViewPart {
 				body.layout();
 			}, true);
 		}
-		{ // status display
+		/*
+		 * { // status display Composite footer = new Composite(body, SWT.NONE);
+		 * footer.setLayout(new GridLayout(1, false));
+		 * 
+		 * Table usageLog = new Table(footer, SWT.BORDER | SWT.V_SCROLL);
+		 * usageLog.setHeaderVisible(true); usageLog.setLinesVisible(true); GridData
+		 * gridData = new GridData(); gridData.heightHint = 50;
+		 * usageLog.setLayoutData(gridData);
+		 * 
+		 * TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
+		 * column1.setText("Total In"); column1.setWidth(60);
+		 * 
+		 * TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
+		 * column3.setText("Out"); column3.setWidth(60);
+		 * 
+		 * TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
+		 * column4.setText("Reason"); column4.setWidth(40);
+		 * 
+		 * TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
+		 * column5.setText("Cached"); column5.setWidth(70);
+		 * 
+		 * TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
+		 * column6.setText("Created"); column6.setWidth(60);
+		 * 
+		 * TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
+		 * column2.setText("In"); column2.setWidth(50); }
+		 */
+		{ // Free text status display
 			Composite footer = new Composite(body, SWT.NONE);
 			footer.setLayout(new GridLayout(1, false));
+			footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-			usageLog = new Table(footer, SWT.BORDER | SWT.V_SCROLL);
-			usageLog.setHeaderVisible(true);
-			usageLog.setLinesVisible(true);
-			GridData gridData = new GridData();
+			usageLog = toolkit.createText(footer, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+			usageLog.setText("Total In, Out, Reason, Cached, Created, In\n");
+			GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 			gridData.heightHint = 50;
 			usageLog.setLayoutData(gridData);
-
-			TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
-			column1.setText("Total In");
-			column1.setWidth(60);
-
-			TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
-			column3.setText("Out");
-			column3.setWidth(60);
-
-			TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
-			column4.setText("Reason");
-			column4.setWidth(40);
-
-			TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
-			column5.setText("Cached");
-			column5.setWidth(70);
-
-			TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
-			column6.setText("Created");
-			column6.setWidth(60);
-
-			TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
-			column2.setText("In");
-			column2.setWidth(50);
 		}
 
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
 				if (a != null && a.stats.inputToken > 0) {
-					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
-					item.setText(new String[] { a.stats.totalinToken + "", a.stats.outputToken + "",
-							a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "",
-							a.stats.inputToken + "" });
-					usageLog.setTopIndex(0);
+//					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
+//					item.setText(new String[] { a.stats.totalinToken + "", a.stats.outputToken + "",
+//							a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "",
+//							a.stats.inputToken + "" });
+//					usageLog.setTopIndex(0);
+					String text = usageLog.getText();
+					if (text == null || text.isEmpty())
+						text = "Total In, Out, Reason, Cached, Created, In\n";
+
+					String newtext = String.format("%6d,%6d,%5d,%6d,%6d,%6d\n", a.stats.totalinToken,
+							a.stats.outputToken, a.stats.reasoningToken, a.stats.cacheRead, a.stats.cacheCreate,
+							a.stats.inputToken);
+					int idx = text.indexOf('\n');
+					text = text.substring(0, idx + 1) + newtext + text.substring(idx + 1);
+
+					usageLog.setText(text);
 				}
 			});
 		});

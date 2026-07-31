@@ -8,6 +8,7 @@ import java.util.Random;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 
 import com.google.genai.Client;
 import com.google.genai.types.Content;
@@ -115,7 +116,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	}
 
 	@Override
-	public GeminiResponse executeRequest(GeminiRequest req, IProgressMonitor mon) {
+	public GeminiResponse executeRequest(GeminiRequest req, IProgressMonitor mon, Job job) {
 		GenerateContentResponse res = client.models.generateContent( //
 				req.model.apiName, //
 				req.prompt, //

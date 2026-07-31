@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
@@ -167,8 +168,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon) {
-		return getConnector(request).executeRequest(request, mon);
+	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon, Job job) {
+		return getConnector(request).executeRequest(request, mon, job);
 	}
 
 	@Override

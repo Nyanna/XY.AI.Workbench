@@ -11,6 +11,7 @@ import java.util.zip.CRC32;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -86,7 +87,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	}
 
 	@Override
-	public CCResponse executeRequest(CCRequest req, IProgressMonitor mon) {
+	public CCResponse executeRequest(CCRequest req, IProgressMonitor mon, Job job) {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		CCSession session = null;
 
@@ -139,7 +140,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 			}
 
 			sub.subTask("Waiting for answer");
-			return readUntilResult(req, session, sub.split(1));
+			return readUntilResult(req, session, sub.split(1), job);
 
 		} catch (IOException e) {
 			throw new IllegalStateException("Claude Code CLI error", e);
@@ -148,7 +149,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		}
 	}
 
-	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon) throws IOException {
+	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job) throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
 		CCResponse resp = new CCResponse(req.id);
 
@@ -159,7 +160,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				// wait 300 ms
 				if ((line = session.readLine()) != null) {
 					session.setLastRawLine(line);
-					sub.setTaskName(abbreviateForStatus(line));
+					job.setName(abbreviateForStatus(line));
 					jsonParser.parseLine(resp, session, sub, line);
 
 				}

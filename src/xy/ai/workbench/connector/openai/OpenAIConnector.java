@@ -6,6 +6,7 @@ import java.util.Random;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -95,7 +96,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 	}
 
 	@Override
-	public OpenAIResponse executeRequest(OpenAIRequest req, IProgressMonitor mon) {
+	public OpenAIResponse executeRequest(OpenAIRequest req, IProgressMonitor mon, Job job) {
 		ResponseCreateParams params = ((OpenAIRequest) req).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
