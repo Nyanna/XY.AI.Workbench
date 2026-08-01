@@ -5,8 +5,11 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
@@ -17,6 +20,7 @@ import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.editor.mdast.MarkdownDocument;
+import xy.ai.workbench.editor.mdast.ModificationRange;
 import xy.ai.workbench.editor.mdast.nodes.Node;
 import xy.ai.workbench.tools.RegionList;
 
@@ -24,13 +28,29 @@ public class EditorManager {
 
 	public static final int DEBOUNCE_DELAY_MS = 500;
 
+	private static final long IDLE_KEEP_ALIVE_MS = 30_000L;
+
 	private final List<IManagerListener> listeners = new CopyOnWriteArrayList<>();
 
-	private final ExecutorService background = Executors.newSingleThreadExecutor(r -> {
-		Thread t = new Thread(r, "EditorManager-Background");
-		t.setDaemon(true);
-		return t;
-	});
+	private final ThreadPoolExecutor background = createBackgroundPool();
+
+	private static ThreadPoolExecutor createBackgroundPool() {
+		int maxThreads = Math.max(1, Math.min(16, Runtime.getRuntime().availableProcessors()));
+		ThreadFactory factory = new ThreadFactory() {
+			private final AtomicInteger counter = new AtomicInteger();
+
+			@Override
+			public Thread newThread(Runnable r) {
+				Thread t = new Thread(r, "EditorManager-Background-" + counter.incrementAndGet());
+				t.setDaemon(true);
+				return t;
+			}
+		};
+		ThreadPoolExecutor executor = new ThreadPoolExecutor(1, maxThreads, IDLE_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS,
+				new SynchronousQueue<>(), factory, new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.allowCoreThreadTimeOut(false);
+		return executor;
+	}
 
 	private ITextViewer viewer;
 	private Display display;
@@ -86,7 +106,7 @@ public class EditorManager {
 		this.spell = spellChecker;
 		if (spellChecker != null && doc != null && ast != null) {
 			spellChecker.onDocumentChanged(doc);
-			update(ast.getRoot());
+			update(new ModificationRange(ast.getRoot(), 0, doc.getLength()));
 		}
 	}
 
@@ -134,7 +154,8 @@ public class EditorManager {
 		scheduleFlush();
 	}
 
-	private void update(Node node) {
+	private void update(ModificationRange range) {
+		Node node = range.getNode();
 		for (IManagerListener l : listeners)
 			l.onAstUpdated(node);
 		if (viewer instanceof ITextViewerExtension2 ext2)
@@ -146,7 +167,7 @@ public class EditorManager {
 
 		if (spell != null && !background.isShutdown())
 			background.execute(() -> {
-				spell.reconcile(node);
+				spell.reconcile(range);
 				viewer.getTextWidget().getDisplay().asyncExec(() -> {
 					if (viewer instanceof ITextViewerExtension2 ext2)
 						try {
@@ -217,7 +238,7 @@ public class EditorManager {
 		@Override
 		public void inputDocumentChanged(IDocument oldInput, IDocument newInput) {
 			doc = newInput;
-			Node initial = null;
+			ModificationRange initial = null;
 			if (newInput != null) {
 				buffer = new DocumentBuffer(newInput);
 				ast = new MarkdownDocument(buffer);

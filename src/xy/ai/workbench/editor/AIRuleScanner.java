@@ -199,7 +199,7 @@ public class AIRuleScanner implements ITokenScanner {
 			return;
 		}
 
-		Node governing = ast.find(offset, offset + length);
+		Node governing = ast.find(offset, offset + length).getNode();
 		collect(document, governing, offset, offset + length);
 	}
 

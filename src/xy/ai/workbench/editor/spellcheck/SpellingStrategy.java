@@ -34,29 +34,22 @@ public class SpellingStrategy {
 		this.doc = doc;
 	}
 
-	public void reconcile(Node node) {
+	public void reconcile(Node node, int rangeStart, int rangeEnd) {
 		if (doc == null)
 			return;
 
-		final String text = doc.get();
-		final int docLength = text.length();
-
-		int offset = node.getOffset();
-		int length = Math.max(node.length(), 1);
-
-		// Expand the dirty range to full line boundaries.
-		int start = Math.min(offset, docLength);
-		int end = Math.min(start + length, docLength);
+		final int docLength = doc.getLength();
+		int start = clamp(rangeStart, docLength);
+		int end = clamp(rangeEnd, docLength);
+		if (end <= start)
+			return;
 		if (end - start > LIMIT)
 			return;
 
-		while (start > 0 && text.charAt(start - 1) != '\n')
-			start--;
-		while (end < docLength && text.charAt(end) != '\n')
-			end++;
-
 		final int regionOffset = start;
-		final String regionText = text.substring(start, end);
+		final String regionText = textAt(start, end - start);
+		if (regionText == null)
+			return;
 
 		List<SpellingProblem> problems = client.check(regionText);
 
@@ -68,23 +61,27 @@ public class SpellingStrategy {
 				valid.add(new SpellingProblem(absOffset, p.getLength(), p.getMessage(), p.getSuggestions()));
 		}
 
-		final int checkedOffset = regionOffset;
+		final int checkedOffset = start;
 		final int checkedLength = end - start;
 		viewer.getTextWidget().getDisplay().syncExec(() -> applyAnnotations(valid, checkedOffset, checkedLength));
 	}
 
-	public void clear(Node node) {
+	public void clear(Node node, int rangeStart, int rangeEnd) {
 		if (doc == null)
 			return;
 		int docLength = doc.getLength();
-		int offset = node.getOffset();
-		int length = Math.max(node.length(), 1);
-		int start = Math.max(0, Math.min(offset, docLength));
-		int end = Math.max(start, Math.min(start + length, docLength));
+		int start = clamp(rangeStart, docLength);
+		int end = clamp(rangeEnd, docLength);
+		if (end <= start)
+			return;
 		final int clearedOffset = start;
 		final int clearedLength = end - start;
 		viewer.getTextWidget().getDisplay()
 				.syncExec(() -> applyAnnotations(new ArrayList<>(), clearedOffset, clearedLength));
+	}
+
+	private static int clamp(int value, int max) {
+		return Math.max(0, Math.min(value, max));
 	}
 
 	// in UI thread

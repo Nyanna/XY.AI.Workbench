@@ -18,7 +18,7 @@ public class MarkdownDocument {
 		root.enableSpellcheck = true;
 	}
 
-	public Node update(int offset, int removed, int inserted) {
+	public ModificationRange update(int offset, int removed, int inserted) {
 		int lo = offset;
 		int hi = offset + removed;
 		int delta = inserted - removed;
@@ -31,8 +31,10 @@ public class MarkdownDocument {
 			int newLen = Math.max(hi - absStart, sec.length()) + delta;
 			Node rn = parse(absStart, absStart + newLen);
 
-			if (parent == null || isCompatible(rn.children, sec, parent))
-				return replace(sec, rn.children, delta);
+			if (parent == null || isCompatible(rn.children, sec, parent)) {
+				Node changed = replace(sec, rn.children, delta);
+				return expand(changed, offset, offset + inserted);
+			}
 			sec = parent;
 		}
 	}
@@ -108,15 +110,33 @@ public class MarkdownDocument {
 		return root;
 	}
 
-	public Node find(int lo, int hi) {
-		return find(root, lo, hi);
+	public ModificationRange find(int lo, int hi) {
+		return expand(find(root, lo, hi), lo, hi);
+	}
+
+	private ModificationRange expand(Node node, int lo, int hi) {
+		int docLen = lines.bufferLength();
+		lo = clamp(lo, docLen);
+		hi = clamp(hi, docLen);
+		if (hi < lo)
+			hi = lo;
+
+		int startLine = lines.lineOfOffset(lo);
+		int endLine = hi > lo ? lines.lineOfOffset(hi - 1) : startLine;
+		int start = lines.lineStartOffset(startLine);
+		int end = lines.lineEndOffset(endLine);
+		return new ModificationRange(node, start, end);
+	}
+
+	private static int clamp(int value, int max) {
+		return Math.max(0, Math.min(value, max));
 	}
 
 	private Node findForUpdate(int lo, int hi) {
 		Node tail = lastLeaf(root);
 		if (tail != root && tail.getEndOffset() <= lo)
 			return tail;
-		return find(lo, hi);
+		return find(root, lo, hi);
 	}
 
 	private Node lastLeaf(Node node) {

@@ -65,7 +65,7 @@ if [ "${#GOALS[@]}" -eq 0 ]; then
 	GOALS=(clean package)
 fi
 
-exec "${MAVEN_HOME}/bin/mvn" -B \
+"${MAVEN_HOME}/bin/mvn" -q -ntp -B \
 	-Declipse.install.dir="${ECLIPSE_INSTALL_DIR}" \
 	-Dcompile.classpath="${COMPILE_CLASSPATH}" \
-	"${GOALS[@]}"
+	"${GOALS[@]}" && echo "Successfull"

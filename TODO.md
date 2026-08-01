@@ -1,22 +1,19 @@
 # TODO
-* lt kann auf zeilenebene arbeiten, im Satz, und braucht nur ein invalidate der zeile ohne hightlighting neu berechnen
-	* wenn innerhalb kindknoten, nur zeile für spellcheck, extra Region objekt zur eingrenzung
-	* Spell multithreading
 
 ##  Workbench  
 
 * Diff support für edit commands
-	* diff editor in eclipse in memory aufrufen und toolausgabe mit action oder annotation versehen, "view as diff"
-	* block selektieren und mit parametern diff tool starten, es gibt ein compare with clipboad analog
+	* diff editor in Eclipse in memory aufrufen und Toolausgabe mit Action oder annotation versehen, "view as diff"
+	* block selektieren und mit Parametern diff tool starten, es gibt ein compare with clipboad analog
 * Table renderer support
-	* Zeile beginnt mit |, gleiche Anzahl | pro block pro zeile
-	* Zeichen | mit offset an maxlength pro spalte ändern
+	* Zeile beginnt mit |, gleiche Anzahl | pro block pro Zeile
+	* Zeichen | mit offset an maxlength pro Spalte ändern
 	* exten "---" grey the whole line?
-* in preset tab presets aus unterverzeichnis anzeigen und on click laden, inklusive tools
+* in preset tab presets aus Unterverzeichnis anzeigen und on click laden, inklusive tools
 	* ein preset unterstützt prompts, settings und tools, load, save, select
 	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
 
-* subagenten mit hauptsession verknüpfen, control filter per filter parameter nach einem sessionbaum
+* subagenten mit Hauptsession verknüpfen, control filter per filter Parameter nach einem sessionbaum
 	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
 * update alte api key model and model parameters -> fetch from models API and only report missing feature support
 
@@ -47,7 +44,7 @@
 	* AI Planstrukturierung self has the ability to decide abouts it's capacilities.
 	* It can match effort, modell structure and coordination of a federated mind
 	1. Ein agent erstellt die notwendigen inputs für einen prompt, dateien, specs, schemas, studien, apis
-	2. Löst dann problem und delegiert umsetzung
+	2. Löst dann problem und delegiert Umsetzung
 	3. Umsetzngsagents
 
 ## Ideas

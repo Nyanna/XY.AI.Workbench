@@ -70,7 +70,7 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		if (ast == null || ast.getRoot() == null)
 			return;
 
-		Node node = ast.find(offset, offset);
+		Node node = ast.find(offset, offset).getNode();
 		if (node == null || node.instance == Elements.ROOT)
 			return;
 

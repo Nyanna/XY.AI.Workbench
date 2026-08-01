@@ -5,6 +5,7 @@ import org.eclipse.jface.text.source.ISourceViewer;
 
 import xy.ai.workbench.editor.EditorManager;
 import xy.ai.workbench.editor.ISpellChecker;
+import xy.ai.workbench.editor.mdast.ModificationRange;
 import xy.ai.workbench.editor.mdast.nodes.Node;
 
 public class SpellCheckReconciler implements ISpellChecker {
@@ -22,17 +23,25 @@ public class SpellCheckReconciler implements ISpellChecker {
 	}
 
 	@Override
-	public void reconcile(Node node) {
-		reconcileLeaves(node);
+	public void reconcile(ModificationRange range) {
+		reconcileLeaves(range.getNode(), range.getStart(), range.getEnd());
 	}
 
-	private void reconcileLeaves(Node node) {
+	private void reconcileLeaves(Node node, int rangeStart, int rangeEnd) {
+		int nodeStart = node.getOffset();
+		int nodeEnd = node.getEndOffset();
+		if (nodeEnd <= rangeStart || nodeStart >= rangeEnd)
+			return;
+
+		int start = Math.max(nodeStart, rangeStart);
+		int end = Math.min(nodeEnd, rangeEnd);
+
 		if (!node.enableSpellcheck)
-			strategy.clear(node);
+			strategy.clear(node, start, end);
 		else if (node.children.isEmpty())
-			strategy.reconcile(node);
+			strategy.reconcile(node, start, end);
 		else
 			for (Node child : node.children)
-				reconcileLeaves(child);
+				reconcileLeaves(child, rangeStart, rangeEnd);
 	}
 }
