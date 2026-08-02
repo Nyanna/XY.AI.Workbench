@@ -37,10 +37,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <em>without</em> JSON quoting/escaping (the correct thing to show in the UI
  * or embed into a text container).</li>
  * <li>{@link #compact(JsonNode)} / {@link #pretty(JsonNode)} — a valid JSON
- * document when the structure itself must be preserved.</li>
+ * doc when the structure itself must be preserved.</li>
  * <li>{@link #escape(String)} / {@link #unescape(String)} — round-trippable
  * JSON string escaping when raw text is embedded into a hand-built JSON
- * document.</li>
+ * doc.</li>
  * <li>{@link #newReader(InputStream)} / {@link #newWriter(OutputStream)} —
  * UTF-8 stream wrappers so bytes on the wire and characters in memory never
  * disagree.</li>
@@ -121,7 +121,7 @@ public final class JsonUtil {
 		}
 	}
 
-	/** Serialises any value to a compact JSON document. */
+	/** Serialises any value to a compact JSON doc. */
 	public static String write(Object value) {
 		try {
 			return MAPPER.writeValueAsString(value);
@@ -133,7 +133,7 @@ public final class JsonUtil {
 	/**
 	 * Escapes {@code raw} for safe embedding as the <em>content</em> of a JSON
 	 * string literal (no surrounding quotes). Use this whenever raw text is placed
-	 * into a hand-built JSON document; it guarantees exactly one level of escaping.
+	 * into a hand-built JSON doc; it guarantees exactly one level of escaping.
 	 */
 	public static String escape(String raw) {
 		if (raw == null)

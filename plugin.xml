@@ -124,11 +124,11 @@
 			<triggerPoints>
 				<or>
 					<instanceof value="xy.ai.workbench.editor.mdast.MarkdownDocument" />
-					<instanceof value="xy.ai.workbench.editor.mdast.nodes.Node" />
+					<instanceof value="xy.ai.workbench.editor.outline.NodeElement" />
 				</or>
 			</triggerPoints>
 			<possibleChildren>
-				<instanceof value="xy.ai.workbench.editor.mdast.nodes.Node" />
+				<instanceof value="xy.ai.workbench.editor.outline.NodeElement" />
 			</possibleChildren>
 		</navigatorContent>
 		<commonFilter

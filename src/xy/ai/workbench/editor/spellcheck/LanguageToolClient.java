@@ -25,7 +25,7 @@ import xy.ai.workbench.LOG;
  * Markup regions (fenced code blocks, lines starting with '@', Markdown comment
  * lines, inline code, URLs, file paths, @mentions) are masked with spaces
  * before checking, line by line, so their character offsets remain identical to
- * the document offsets returned by LT.
+ * the doc offsets returned by LT.
  */
 public class LanguageToolClient {
 
@@ -49,7 +49,7 @@ public class LanguageToolClient {
 	 * Checks the given text and returns a list of problems. Returns an empty list
 	 * if LT is unreachable or returns no matches.
 	 *
-	 * @param text the full document text to check
+	 * @param text the full doc text to check
 	 */
 	public List<SpellingProblem> check(String text) {
 		List<SpellingProblem> problems = new ArrayList<>();
@@ -82,7 +82,7 @@ public class LanguageToolClient {
 
 	/**
 	 * Replaces all markup regions with space characters of the same length so that
-	 * offsets in the returned text match 1-to-1 with the original document.
+	 * offsets in the returned text match 1-to-1 with the original doc.
 	 */
 	private static final int MAX_SUGGESTIONS = 3;
 
@@ -100,7 +100,7 @@ public class LanguageToolClient {
 
 	/**
 	 * Masks markup regions with space characters of the same length so that offsets
-	 * in the masked text match 1-to-1 with the original document.
+	 * in the masked text match 1-to-1 with the original doc.
 	 * <p>
 	 * The whole text is walked exactly once, line by line, tracking a single "am I
 	 * inside a fenced code block" flag. For each line, block level rules (fence /

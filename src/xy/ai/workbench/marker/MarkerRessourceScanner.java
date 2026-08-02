@@ -161,7 +161,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 
 					int[] range = resolveTagRange(doc, ans.id, off, len);
 					if (range == null)
-						return; // stored position no longer matches the live document
+						return; // stored position no longer matches the live doc
 
 					ITextEditor editor = null;
 					if (isAutoFollowModeEnabled())
@@ -203,12 +203,12 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 
 	/**
 	 * Verifies that the given offset/length still points at the tag belonging to
-	 * the given request id. If it does not (e.g. because the document was edited in
-	 * the meantime and the marker position is stale) the whole document is searched
+	 * the given request id. If it does not (e.g. because the doc was edited in
+	 * the meantime and the marker position is stale) the whole doc is searched
 	 * for the tag instead.
 	 *
 	 * @return an {offset, length} pair pointing at the current location of the tag
-	 *         in the document, or {@code null} if the tag can no longer be found.
+	 *         in the doc, or {@code null} if the tag can no longer be found.
 	 */
 	private int[] resolveTagRange(IDocument doc, String requestId, int off, int len) {
 		if (off >= 0 && len >= 0 && off + len <= doc.getLength()) {
@@ -218,14 +218,14 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 				if (m.matches() && requestId.equals(m.group(2)))
 					return new int[] { off, len };
 			} catch (BadLocationException e) {
-				// fall through to full-document search
+				// fall through to full-doc search
 			}
 		}
 		return findTagInDocument(doc, requestId);
 	}
 
 	/**
-	 * Scans the full document content for the tag belonging to the given request
+	 * Scans the full doc content for the tag belonging to the given request
 	 * id.
 	 *
 	 * @return an {offset, length} pair, or {@code null} if not found.
@@ -244,7 +244,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	 * marker's stored offset is no longer in sync with the (still dirty) editor
 	 * content, or no marker exists at all yet. Searches all currently open text
 	 * editors for the tag belonging to the given request id and replaces it
-	 * directly in the editor's document. The editor is intentionally not saved so
+	 * directly in the editor's doc. The editor is intentionally not saved so
 	 * that a parallel edit by the user is not disturbed.
 	 */
 	private boolean findAndReplaceInOpenEditors(AIAnswer ans) {

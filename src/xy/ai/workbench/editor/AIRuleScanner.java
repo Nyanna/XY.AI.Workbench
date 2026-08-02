@@ -38,7 +38,7 @@ import xy.ai.workbench.tools.RegionList;
 
 /**
  * AST optimized token scanner: instead of trying every markdown rule at every
- * document position, the scanner walks the region of the markdown AST
+ * doc position, the scanner walks the region of the markdown AST
  * ({@link MarkdownDocument}) that overlaps the requested range and, for every
  * node, only applies the (small) subset of rules that is configured for that
  * node's own text. Text that belongs to a child node is only scanned once,

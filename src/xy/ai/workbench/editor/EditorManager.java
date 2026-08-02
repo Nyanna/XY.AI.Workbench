@@ -162,7 +162,7 @@ public class EditorManager {
 			try {
 				ext2.invalidateTextPresentation(node.getOffset(), node.length());
 			} catch (IllegalArgumentException e) {
-				// region outside the (possibly just replaced) document - ignore.
+				// region outside the (possibly just replaced) doc - ignore.
 			}
 
 		if (spell != null && !background.isShutdown())
@@ -173,7 +173,7 @@ public class EditorManager {
 						try {
 							ext2.invalidateTextPresentation(node.getOffset(), node.length());
 						} catch (IllegalArgumentException e) {
-							// region outside the (possibly just replaced) document - ignore.
+							// region outside the (possibly just replaced) doc - ignore.
 						}
 				});
 			});

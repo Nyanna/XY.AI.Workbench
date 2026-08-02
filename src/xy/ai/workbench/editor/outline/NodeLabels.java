@@ -5,25 +5,14 @@ import org.eclipse.jface.text.IDocument;
 
 import xy.ai.workbench.editor.mdast.nodes.Node;
 
-public final class NodeLabels {
-
+public class NodeLabels {
 	private static final int LABEL_LIMIT = 40;
 
-	private static volatile IDocument activeDocument;
-
-	private NodeLabels() {
+	public static String getText(Node node, IDocument doc) {
+		return node.instance.toString() + ": " + String.format("%s (%d)", snippet(node, doc), node.end - node.start);
 	}
 
-	public static void setActiveDocument(IDocument document) {
-		activeDocument = document;
-	}
-
-	public static String getText(Node node) {
-		return node.instance.toString() + ": " + String.format("%s (%d)", snippet(node), node.end - node.start);
-	}
-
-	private static String snippet(Node node) {
-		IDocument doc = activeDocument;
+	private static String snippet(Node node, IDocument doc) {
 		if (doc == null)
 			return "";
 		int offset = node.getOffset();

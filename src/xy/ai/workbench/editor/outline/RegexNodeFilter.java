@@ -3,6 +3,7 @@ package xy.ai.workbench.editor.outline;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 
@@ -31,16 +32,16 @@ public class RegexNodeFilter extends ViewerFilter {
 	@Override
 	public boolean select(Viewer viewer, Object parentElement, Object element) {
 		Pattern p = pattern;
-		if (p == null || !(element instanceof Node node))
+		if (p == null || !(element instanceof NodeElement ne))
 			return true;
-		return matches(p, node);
+		return matches(p, ne.node(), ne.doc());
 	}
 
-	private boolean matches(Pattern p, Node node) {
-		if (p.matcher(NodeLabels.getText(node)).find())
+	private boolean matches(Pattern p, Node node, IDocument doc) {
+		if (p.matcher(NodeLabels.getText(node, doc)).find())
 			return true;
 		for (Node child : node.children)
-			if (matches(p, child))
+			if (matches(p, child, doc))
 				return true;
 		return false;
 	}

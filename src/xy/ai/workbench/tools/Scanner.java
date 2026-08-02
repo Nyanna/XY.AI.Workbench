@@ -104,7 +104,7 @@ public class Scanner {
 		if (sr == seq.length)
 			return true;
 		// ran out of real input before completing the match; tolerate a
-		// missing trailing '\n' exactly at the true document end
+		// missing trailing '\n' exactly at the true doc end
 		if (sr == seq.length - 1 && seq[sr] == '\n' && isDocEnd())
 			return true;
 		return sub.reset();

@@ -2,9 +2,6 @@ package xy.ai.workbench.editor.outline;
 
 import org.eclipse.jface.viewers.ITreeContentProvider;
 
-import xy.ai.workbench.editor.mdast.MarkdownDocument;
-import xy.ai.workbench.editor.mdast.nodes.Node;
-
 public class MarkdownNavigatorContentProvider implements ITreeContentProvider {
 
 	private static final Object[] EMPTY = new Object[0];
@@ -16,20 +13,22 @@ public class MarkdownNavigatorContentProvider implements ITreeContentProvider {
 
 	@Override
 	public Object[] getChildren(Object element) {
-		if (element instanceof MarkdownDocument doc)
-			return doc.getRoot() != null ? doc.getRoot().children.toArray() : EMPTY;
-		if (element instanceof Node node)
-			return node.children.toArray();
+		if (element instanceof NodeElement ne)
+			return ne.children();
 		return EMPTY;
 	}
 
 	@Override
 	public Object getParent(Object element) {
-		return element instanceof Node node ? node.parent : null;
+		if (element instanceof NodeElement ne)
+			return ne.parent();
+		return null;
 	}
 
 	@Override
 	public boolean hasChildren(Object element) {
-		return getChildren(element).length > 0;
+		if (element instanceof NodeElement ne)
+			return ne.node().children.size() > 0;
+		return false;
 	}
 }

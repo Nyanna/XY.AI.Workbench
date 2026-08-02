@@ -196,6 +196,7 @@ public class MarkdownDocument {
 		for (int i = idx + 1; i < siblings.size(); i++)
 			shift(siblings.get(i), delta);
 
+		// TODO optimized when changing the exact same Node
 		siblings.remove(idx);
 		int at = idx;
 		for (Node c : nchilds) {

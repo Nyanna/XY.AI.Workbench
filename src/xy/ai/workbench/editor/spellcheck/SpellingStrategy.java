@@ -53,7 +53,7 @@ public class SpellingStrategy {
 
 		List<SpellingProblem> problems = client.check(regionText);
 
-		// LT offsets are relative to regionText – shift them to document offsets.
+		// LT offsets are relative to regionText – shift them to doc offsets.
 		List<SpellingProblem> valid = new ArrayList<>();
 		for (SpellingProblem p : problems) {
 			int absOffset = p.getOffset() + regionOffset;

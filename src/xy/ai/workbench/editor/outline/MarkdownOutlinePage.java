@@ -69,8 +69,9 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 
 		viewer = new CommonViewer(VIEWER_ID, container, getTreeStyle());
 		viewer.getControl().setLayoutData(GridDataFactory.fillDefaults().grab(true, true).create());
-		NodeLabels.setActiveDocument(editor.getUpdateManager().getDocument());
-		viewer.setInput(editor.getUpdateManager().getAst());
+		MarkdownDocument ast = editor.getUpdateManager().getAst();
+		if (ast != null && ast.getRoot() != null)
+			viewer.setInput(new NodeElement(ast.getRoot(), editor.getUpdateManager().getDocument(), null));
 		viewer.addSelectionChangedListener(this::onOutlineSelection);
 		applyFilters();
 
@@ -160,16 +161,19 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 	private void onOutlineSelection(SelectionChangedEvent event) {
 		if (syncingFromEditor)
 			return;
-		if (event.getSelection() instanceof StructuredSelection sel && sel.getFirstElement() instanceof Node node)
-			editor.selectAndRevealNode(node);
+		if (event.getSelection() instanceof StructuredSelection sel && sel.getFirstElement() instanceof NodeElement ne)
+			editor.selectAndRevealNode(ne.node());
 	}
 
 	public void refresh() {
 		if (!isAlive(viewer))
 			return;
-		NodeLabels.setActiveDocument(editor.getUpdateManager().getDocument());
-		if (viewer.getInput() != editor.getUpdateManager().getAst())
-			viewer.setInput(editor.getUpdateManager().getAst());
+		MarkdownDocument ast = editor.getUpdateManager().getAst();
+		if (ast == null || ast.getRoot() == null)
+			return;
+		NodeElement current = (NodeElement) viewer.getInput();
+		if (current.node() != ast.getRoot() || current.doc() != editor.getUpdateManager().getDocument())
+			viewer.setInput(new NodeElement(ast.getRoot(), editor.getUpdateManager().getDocument(), null));
 		else
 			viewer.refresh();
 	}
@@ -185,13 +189,14 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		if (node == null || node.instance == Elements.ROOT)
 			return;
 
+		NodeElement child = ((NodeElement) viewer.getInput()).find(node);
 		var sel = viewer.getSelection();
-		if (sel instanceof StructuredSelection ssel && ssel.getFirstElement() == node)
+		if (sel instanceof StructuredSelection ssel && child.equals(ssel.getFirstElement()))
 			return;
 		Display.getDefault().asyncExec(() -> {
 			syncingFromEditor = true;
 			try {
-				viewer.setSelection(new StructuredSelection(node), true);
+				viewer.setSelection(new StructuredSelection(child), true);
 			} finally {
 				syncingFromEditor = false;
 			}
@@ -227,11 +232,5 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 	public void setSelection(ISelection selection) {
 		if (isAlive(viewer))
 			viewer.setSelection(selection);
-	}
-
-	@Override
-	public void dispose() {
-		NodeLabels.setActiveDocument(null);
-		super.dispose();
 	}
 }
