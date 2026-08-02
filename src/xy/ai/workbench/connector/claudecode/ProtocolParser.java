@@ -270,7 +270,7 @@ public class ProtocolParser {
 				}
 			}
 
-			String metadata = String.format("%s id=%s, model=%s, cwd=%s", SYSTEM_INIT, 					sessionId, cwd, model);
+			String metadata = String.format("%s id=%s, cwd=%s, model=%s", SYSTEM_INIT, 					sessionId, cwd, model);
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {
 			LOG.error("Failed to parse system init event", e);
