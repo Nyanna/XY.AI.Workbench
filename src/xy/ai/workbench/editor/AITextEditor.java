@@ -21,6 +21,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
 
 import xy.ai.workbench.editor.mdast.nodes.Node;
+import xy.ai.workbench.editor.outline.MarkdownOutlinePage;
 import xy.ai.workbench.editor.spellcheck.SpellCheckReconciler;
 import xy.ai.workbench.editor.spellcheck.SpellingAnnotation;
 

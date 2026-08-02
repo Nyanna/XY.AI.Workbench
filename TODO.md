@@ -1,7 +1,5 @@
 # TODO
 
-* outline, element selektor und regexp filter, zudem neuer outline input
-
 ##  Workbench  
 
 * Diff support für edit commands

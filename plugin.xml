@@ -114,6 +114,127 @@
 			visibleInUI="true">
 		</commonFilter>
 	</extension>
+	<extension point="org.eclipse.ui.navigator.navigatorContent">
+		<navigatorContent
+			name="Markdown Outline Content"
+			contentProvider="xy.ai.workbench.editor.outline.MarkdownNavigatorContentProvider"
+			labelProvider="xy.ai.workbench.editor.outline.MarkdownNavigatorLabelProvider"
+			id="xy.ai.workbench.editor.outline.content.MarkdownOutline"
+			priority="normal">
+			<triggerPoints>
+				<or>
+					<instanceof value="xy.ai.workbench.editor.mdast.MarkdownDocument" />
+					<instanceof value="xy.ai.workbench.editor.mdast.nodes.Node" />
+				</or>
+			</triggerPoints>
+			<possibleChildren>
+				<instanceof value="xy.ai.workbench.editor.mdast.nodes.Node" />
+			</possibleChildren>
+		</navigatorContent>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.ScriptBlock"
+			name="Script Blocks"
+			description="Hides fenced script block nodes."
+			class="xy.ai.workbench.editor.outline.filter.ScriptBlockFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.LineComment"
+			name="Line Comments"
+			description="Hides line comment nodes."
+			class="xy.ai.workbench.editor.outline.filter.LineCommentFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Paragraph"
+			name="Paragraphs"
+			description="Hides plain paragraph nodes."
+			class="xy.ai.workbench.editor.outline.filter.ParagraphFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Headings"
+			name="Headings"
+			description="Hides heading section nodes of all levels (and their substructure)."
+			class="xy.ai.workbench.editor.outline.filter.HeadingFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Thinking"
+			name="Agent Thinking"
+			description="Hides agent 'thinking' block nodes."
+			class="xy.ai.workbench.editor.outline.filter.ThinkingFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Text"
+			name="Agent Text"
+			description="Hides agent 'text' block nodes."
+			class="xy.ai.workbench.editor.outline.filter.TextBlockFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.ToolUse"
+			name="Agent Tool Use"
+			description="Hides agent 'tool use' block nodes."
+			class="xy.ai.workbench.editor.outline.filter.ToolUseFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.ReasoningToken"
+			name="Agent Reasoning Tokens"
+			description="Hides agent reasoning token block nodes."
+			class="xy.ai.workbench.editor.outline.filter.ReasoningTokenFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.TokenStats"
+			name="Agent Token Stats"
+			description="Hides agent token statistics block nodes."
+			class="xy.ai.workbench.editor.outline.filter.TokenStatsFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.SystemInit"
+			name="Agent System Init"
+			description="Hides agent system-init block nodes."
+			class="xy.ai.workbench.editor.outline.filter.SystemInitFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Answer"
+			name="Tool Answers"
+			description="Hides tool answer block nodes."
+			class="xy.ai.workbench.editor.outline.filter.AnswerFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.ControlRequest"
+			name="Control Requests"
+			description="Hides control request section nodes."
+			class="xy.ai.workbench.editor.outline.filter.ControlRequestFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.Page"
+			name="Page"
+			description="Hides the page section node."
+			class="xy.ai.workbench.editor.outline.filter.PageFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.UserSection"
+			name="User Sections"
+			description="Hides chat 'user' section nodes."
+			class="xy.ai.workbench.editor.outline.filter.UserSectionFilter">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.editor.outline.filter.AgentSection"
+			name="Agent Sections"
+			description="Hides chat 'agent' section nodes."
+			class="xy.ai.workbench.editor.outline.filter.AgentSectionFilter">
+		</commonFilter>
+	</extension>
+	<extension point="org.eclipse.ui.navigator.viewer">
+		<viewer
+			viewerId="xy.ai.workbench.editor.outline">
+		</viewer>
+		<viewerContentBinding viewerId="xy.ai.workbench.editor.outline">
+			<includes>
+				<contentExtension pattern="xy\.ai\.workbench\.editor\.outline\..*" />
+			</includes>
+			<excludes>
+				<contentExtension pattern="^(?!xy\.ai\.workbench\.editor\.outline\.).*" />
+			</excludes>
+		</viewerContentBinding>
+	</extension>
 	<extension point="org.eclipse.ui.navigator.viewer">
 		<viewer
         inheritBindingsFromViewer="org.eclipse.ui.navigator.ProjectExplorer"
