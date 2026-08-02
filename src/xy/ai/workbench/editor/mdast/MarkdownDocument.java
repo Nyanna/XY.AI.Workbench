@@ -35,8 +35,129 @@ public class MarkdownDocument {
 				Node changed = replace(sec, rn.children, delta);
 				return expand(changed, offset, offset + inserted);
 			}
+
+			// Fast path: only new siblings were appended at the tail that do not
+			// fit into `parent` but belong to an ancestor. Splice them in instead
+			// of re-parsing the whole parent section on the next loop iteration.
+			Node appended = appendSiblings(sec, parent, rn.children, delta);
+			if (appended != null)
+				return expand(appended, offset, offset + inserted);
+
 			sec = parent;
 		}
+	}
+
+	/**
+	 * Handles the common "append within a section" case without re-parsing the
+	 * whole parent. The re-parse (anchored at {@code sec}) is split into a
+	 * {@code head} that stays inside {@code parent} (starting with the re-parsed
+	 * {@code sec}) and a {@code tail} of newly appended nodes that overflow into
+	 * the nearest ancestor able to contain them.
+	 *
+	 * <p>
+	 * Only applied when the edit is provably a clean tail append (spine of
+	 * last-children, every touched ancestor ending exactly at {@code sec}).
+	 * Returns the highest changed node, or {@code null} to fall back to the
+	 * generic re-parse/climb behavior.
+	 */
+	private Node appendSiblings(Node sec, Node parent, List<Node> rchilds, int delta) {
+		if (rchilds.isEmpty() || rchilds.get(0).instance != sec.instance)
+			return null;
+		if (!isSpineTail(sec, parent))
+			return null;
+
+		int absStart = sec.getOffset();
+		int oldSecEnd = absStart + sec.length();
+
+		// Split re-parsed nodes: leading nodes that fit into parent vs. overflow.
+		int split = 1; // rchilds[0] mirrors sec and therefore fits into parent
+		while (split < rchilds.size() && parent.instance.containChild(rchilds.get(split).instance))
+			split++;
+		if (split == rchilds.size())
+			return null; // nothing overflows -> handled by isCompatible
+
+		List<Node> head = rchilds.subList(0, split);
+		List<Node> tail = rchilds.subList(split, rchilds.size());
+
+		// Find the nearest ancestor able to host the whole overflow while every
+		// intermediate ancestor cleanly ends at sec (last-child, no trailing).
+		Node host = null;
+		for (Node anc = parent.parent; anc != null; anc = anc.parent) {
+			if (anc.getEndOffset() != oldSecEnd)
+				return null;
+			if (canContainAll(anc, tail)) {
+				host = anc;
+				break;
+			}
+			if (!isLastChild(anc))
+				return null;
+		}
+		if (host == null)
+			return null;
+
+		int headEndAbs = absStart + head.get(head.size() - 1).end;
+		int tailEndAbs = absStart + tail.get(tail.size() - 1).end;
+
+		// 1) replace sec with head inside parent
+		List<Node> siblings = parent.children;
+		siblings.remove(siblings.size() - 1); // sec is the last child
+		for (Node c : head) {
+			c.start += sec.start;
+			c.end += sec.start;
+			siblings.add(reparent(c, parent));
+		}
+
+		// 2) parent and every ancestor up to host now end after the head content
+		for (Node anc = parent; anc != host; anc = anc.parent)
+			setEndOffset(anc, headEndAbs);
+
+		// 3) attach the overflow as new trailing children of host
+		int hostOffset = host.getOffset();
+		for (Node c : tail) {
+			c.start = absStart + c.start - hostOffset;
+			c.end = absStart + c.end - hostOffset;
+			host.children.add(reparent(c, host));
+		}
+		setEndOffset(host, tailEndAbs);
+
+		// 4) propagate the growth to the ancestors above host
+		for (Node anc = host.parent; anc != null; anc = anc.parent) {
+			anc.end += delta;
+			Node ap = anc.parent;
+			if (ap == null)
+				continue;
+			List<Node> as = ap.children;
+			int ai = as.indexOf(anc);
+			for (int i = ai + 1; i < as.size(); i++)
+				shift(as.get(i), delta);
+		}
+		return host;
+	}
+
+	private boolean isSpineTail(Node sec, Node parent) {
+		List<Node> siblings = parent.children;
+		if (siblings.isEmpty() || siblings.get(siblings.size() - 1) != sec)
+			return false;
+		return parent.getEndOffset() == sec.getEndOffset();
+	}
+
+	private boolean isLastChild(Node node) {
+		Node parent = node.parent;
+		if (parent == null)
+			return false;
+		List<Node> siblings = parent.children;
+		return !siblings.isEmpty() && siblings.get(siblings.size() - 1) == node;
+	}
+
+	private boolean canContainAll(Node parent, List<Node> nodes) {
+		for (Node n : nodes)
+			if (!parent.instance.containChild(n.instance))
+				return false;
+		return true;
+	}
+
+	private void setEndOffset(Node node, int absEnd) {
+		node.end = absEnd - (node.parent != null ? node.parent.getOffset() : 0);
 	}
 
 	private Node parse(int absStart, int absEnd) {
