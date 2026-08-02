@@ -150,7 +150,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	}
 
 	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job) throws IOException {
-		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", IProgressMonitor.UNKNOWN);
+		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
 		CCResponse resp = new CCResponse(req.id);
 
 		String line;
@@ -161,6 +161,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				if ((line = session.readLine()) != null) {
 					session.setLastRawLine(line);
 					job.setName(abbreviateForStatus(line));
+					mon.worked(1);
 					jsonParser.parseLine(resp, session, sub, line);
 
 				}

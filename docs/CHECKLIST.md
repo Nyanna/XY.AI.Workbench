@@ -9,3 +9,4 @@
 * When extending or referencing tickets, a patch/diff delta as a small, focused input context is better than having the agent re-understand the requirements.
 * Better to incur some extra thinking through iteration and tool interruptions than to load too much into the context; the equation is salience versus tokens.
 * Separate understanding => separate contexts.
+* Always use build-scripts to save analyzation costs
