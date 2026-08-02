@@ -98,6 +98,21 @@
             </enablement>
 	       </commonWizard>
 		</navigatorContent>
+		<commonFilter
+			id="xy.ai.workbench.view.filter.GitIgnore"
+			name="Git Ignored Resources"
+			description="Hides resources excluded by a &quot;.gitignore&quot; file."
+			class="xy.ai.workbench.view.explorer.GitIgnoreViewerFilter"
+			activeByDefault="true">
+		</commonFilter>
+		<commonFilter
+			id="xy.ai.workbench.view.filter.Project"
+			name="Filter to Focused Project"
+			description="Limits the content to the project of the focused editor."
+			class="xy.ai.workbench.view.explorer.ProjectFilter"
+			activeByDefault="true"
+			visibleInUI="true">
+		</commonFilter>
 	</extension>
 	<extension point="org.eclipse.ui.navigator.viewer">
 		<viewer
@@ -108,10 +123,12 @@
 	   <viewerContentBinding viewerId="xy.ai.workbench.view.AIExplorer">
 	      <includes>
 	         <contentExtension pattern="xy.ai.workbench.view.content.AIContent"/>
+	         <contentExtension pattern="xy.ai.workbench.view.filter.GitIgnore"/>
+	         <contentExtension pattern="xy.ai.workbench.view.filter.Project"/>
 	      </includes>
 	      <excludes>
 		      <contentExtension 
-		          pattern="^(?!xy\.ai\.workbench\.view\.content\.AIContent$).*">
+		          pattern="^(?!xy\.ai\.workbench\.view\.(content\.AIContent|filter\.(GitIgnore|Project))$).*">
 		      </contentExtension>
 	      </excludes>
 	   </viewerContentBinding>
