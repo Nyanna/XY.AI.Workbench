@@ -44,7 +44,8 @@ public class Elements {
 
 	public static class Agent {
 		public static final PrefixBlock THINKING = new PrefixBlock(ProtocolParser.THINKING);
-		public static final PrefixBlock TEXT = new PrefixBlock(ProtocolParser.TEXT);
+		public static final LineSection TEXT = new LineSection(ProtocolParser.TEXT, false, of(Basics.PARAGRAPH),
+				of(NONE)); // replaced
 		public static final PrefixBlock TOOLUSE = new PrefixBlock(ProtocolParser.TOOLUSE);
 		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
@@ -91,16 +92,17 @@ public class Elements {
 		public static final LineSection USER = new LineSection(EditorInterface.USER, true, USER_ELEMENTS, //
 				NONE); // later replaced
 
+		private static final AbstractNode[] AGENT_ONLY = of( //
+				Tools.CONTROL_REQUEST, //
+				Agent.THINKING, //
+				Agent.TEXT, //
+				Agent.TOOLUSE, //
+				Agent.REASONING_TOKEN, //
+				Agent.TOKEN_STATS, //
+				Agent.SYSTEM_INIT //
+		);
 		private static final AbstractNode[] AGENT_ELEMENTS = concat( //
-				of( //
-						Tools.CONTROL_REQUEST, //
-						Agent.THINKING, //
-						Agent.TEXT, //
-						Agent.TOOLUSE, //
-						Agent.REASONING_TOKEN, //
-						Agent.TOKEN_STATS, //
-						Agent.SYSTEM_INIT //
-				), //
+				AGENT_ONLY, //
 				USER_ELEMENTS //
 		);
 		public static final LineSection AGENT = new LineSection(EditorInterface.AGENT, false, AGENT_ELEMENTS, of(USER));
@@ -108,6 +110,7 @@ public class Elements {
 
 		static {
 			USER.terminalNodes = of(AGENT);
+			Agent.TEXT.terminalNodes = AGENT_ONLY;
 			Tools.CONTROL_REQUEST.terminalNodes = concat(//
 					of(USER, AGENT, //
 							Tools.CONTROL_REQUEST //

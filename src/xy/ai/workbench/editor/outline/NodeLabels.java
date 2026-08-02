@@ -3,6 +3,7 @@ package xy.ai.workbench.editor.outline;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 
+import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
 
 public class NodeLabels {
@@ -15,6 +16,10 @@ public class NodeLabels {
 	private static String snippet(Node node, IDocument doc) {
 		if (doc == null)
 			return "";
+		
+		if(Elements.Agent.TEXT.equals(node.instance) && node.children.size() > 0)
+			node = node.children.get(0);
+		
 		int offset = node.getOffset();
 		int length = node.length();
 		if (offset < 0 || length <= 0)

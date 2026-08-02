@@ -1,5 +1,8 @@
 package xy.ai.workbench.editor.outline;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.eclipse.jface.text.IDocument;
 import xy.ai.workbench.editor.mdast.nodes.Node;
 
@@ -41,7 +44,12 @@ public class NodeElement {
 	public NodeElement[] children() {
 		int newHash;
 		if (nodeHash != (newHash = node.children.hashCode())) {
-			this.children = node.children.stream().map(child -> new NodeElement(child, doc, this))
+			Map<Node, NodeElement> previous = new HashMap<>();
+			if (children != null)
+				for (NodeElement c : children)
+					previous.put(c.node(), c);
+			this.children = node.children.stream()
+					.map(child -> previous.getOrDefault(child, new NodeElement(child, doc, this)))
 					.toArray(NodeElement[]::new);
 			nodeHash = newHash;
 		}

@@ -177,3 +177,62 @@ Es scheint, es gibt kein direkt zugängliches Standalone-Build (Eclipse-Plugin-P
 - Neue Hilfsmethode `findNearestPresentAncestor(NodeElement root, Node node)`: läuft die `parent`-Kette des AST-`Node` nach oben (`node.parent`, `node.parent.parent`, …) bis zum `ROOT`-Element und versucht für jeden Vorfahren `root.find(...)`. Der erste im aktuellen Baum noch vorhandene Vorfahre wird zurückgegeben.
 - Existiert überhaupt kein gemeinsamer Knoten mehr (kompletter Baumwechsel, kein gemeinsamer Root), liefert die Methode `null`, und `selectNodeForOffset` bricht sauber ab, ohne etwas zu selektieren bzw. einen NPE zu werfen.
 - Dadurch wird bei Strukturänderungen automatisch der nächsthöhere noch vorhandene Parent-Knoten selektiert, sofern ein gemeinsamer Vorfahre im Baum existiert – wie gewünscht.
+Ich möchte erreichen das die expandierten Elemente beibehalten werden aber scheinbar wird der interne zustand der outline zurückgesetzt.
+SystemInit:  id=a9d27e88-a749-4fdb-b2ac-1ef057f5ee81, cwd=/home/user/xyan/xy.ai.workbench, model=claude-sonnet-5
+Control Request:
+```yaml
+id: 573f92cd-5772-4779-a780-92721e6aef27
+toolName: list
+arguments:
+  path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editor/mdast
+  reason: Find AST update manager and document classes to understand node identity stability across reparses
+```
+/answer 573f92cd-5772-4779-a780-92721e6aef27 deny Ich denke ich kenne das Problem. In `xy.ai.workbench.editor.outline.NodeElement.children()` werden bei Abweichender Hash neue Kindinstanzen gebildet. Ändere die Implementierung dahingehend, das die alte Liste mit der neuen abgeglichen wird. Stimmt ein child noch überein wird es übernommen.
+ReasoningToken: 2148
+ReasoningToken: 773
+Control Request:
+```yaml
+id: 18dd8b03-4ff8-4814-9fa8-61a27165b561
+toolName: replace-block
+arguments:
+  path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editor/outline/NodeElement.java
+  old_text: |-
+    import org.eclipse.jface.text.IDocument;
+    import xy.ai.workbench.editor.mdast.nodes.Node;
+  new_text: |-
+    import java.util.HashMap;
+    import java.util.Map;
+
+    import org.eclipse.jface.text.IDocument;
+    import xy.ai.workbench.editor.mdast.nodes.Node;
+  reason: Add imports needed for diffing old/new children
+```
+/answer 18dd8b03-4ff8-4814-9fa8-61a27165b561 allow
+Control Request:
+```yaml
+id: 4623d553-7c9c-448e-aaff-0046ae872d52
+toolName: replace-block
+arguments:
+  path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editor/outline/NodeElement.java
+  old_text: "\tpublic NodeElement[] children() {\n\t\tint newHash;\n\t\tif (nodeHash != (newHash = node.children.hashCode())) {\n\t\t\tthis.children = node.children.stream().map(child -> new NodeElement(child, doc, this))\n\t\t\t\t\t.toArray(NodeElement[]::new);\n\t\t\tnodeHash = newHash;\n\t\t}\n\t\treturn children;\n\t}"
+  new_text: "\tpublic NodeElement[] children() {\n\t\tint newHash;\n\t\tif (nodeHash != (newHash = node.children.hashCode())) {\n\t\t\t// Reconcile against the previous children instead of recreating all of\n\t\t\t// them: nodes that are still present (by identity) keep their existing\n\t\t\t// NodeElement wrapper (and thus their own cached children), so that the\n\t\t\t// viewer's expanded/selected state - which is tracked by element\n\t\t\t// identity/equality - survives incremental AST updates.\n\t\t\tMap<Node, NodeElement> previous = new HashMap<>();\n\t\t\tif (children != null)\n\t\t\t\tfor (NodeElement c : children)\n\t\t\t\t\tprevious.put(c.node(), c);\n\t\t\tthis.children = node.children.stream()\n\t\t\t\t\t.map(child -> previous.getOrDefault(child, new NodeElement(child, doc, this)))\n\t\t\t\t\t.toArray(NodeElement[]::new);\n\t\t\tnodeHash = newHash;\n\t\t}\n\t\treturn children;\n\t}"
+  reason: "Diff old and new children by node identity, reusing existing NodeElement wrappers to preserve viewer expansion/selection state"
+```
+/answer 4623d553-7c9c-448e-aaff-0046ae872d52 allow
+Control Request:
+```yaml
+id: c0161a2e-ec46-4f95-9311-a53953003fdc
+toolName: read-file
+arguments:
+  path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/editor/outline/NodeElement.java
+  reason: Verify final NodeElement.java content
+```
+/answer c0161a2e-ec46-4f95-9311-a53953003fdc allow
+ReasoningToken: 11
+Das ist umgesetzt. Zusammenfassung:
+
+**Ursache:** In `NodeElement.children()` wurden bei jeder Änderung des `hashCode()` der zugrunde liegenden `node.children`-Liste **alle** Kind-`NodeElement`-Instanzen neu erzeugt – auch für Knoten, die sich strukturell gar nicht verändert hatten. Da der `TreeViewer` (bzw. `CommonViewer`) den expandierten/selektierten Zustand über die Objektidentität/`equals()` der Elemente verfolgt und `NodeElement` `equals()`/`hashCode()` nicht überschreibt, wurden nach jedem Rebuild sämtliche Alt-Instanzen als "unbekannt" betrachtet → Expansion ging verloren.
+
+**Fix:** `children()` gleicht jetzt die neue Kindliste des `Node` gegen die zuvor erzeugten `NodeElement`-Wrapper ab (Map `Node → NodeElement` aus dem alten Array). Für jedes `Node`-Kind, das (per Objektidentität) bereits vorher gewrappt war, wird die **bestehende** `NodeElement`-Instanz wiederverwendet – inklusive ihres eigenen, rekursiv gecachten `children`-Arrays. Nur für tatsächlich neue Knoten wird eine neue `NodeElement`-Instanz erstellt.
+
+Damit bleiben Elemente, die zwischen zwei AST-Updates unverändert im Baum vorhanden sind, als identische Objekte erhalten, wodurch der `TreeViewer` deren Expand-/Select-Status korrekt beibehält. Nur tatsächlich strukturell neue/entfernte Teile lösen ein Neu-Erzeugen bzw. Verwerfen der Expansion aus – was auch inhaltlich korrekt ist, da für komplett neue Knoten kein sinnvoller alter Zustand existiert.
