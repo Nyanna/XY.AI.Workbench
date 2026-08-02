@@ -196,13 +196,22 @@ public class MarkdownDocument {
 		for (int i = idx + 1; i < siblings.size(); i++)
 			shift(siblings.get(i), delta);
 
-		// TODO optimized when changing the exact same Node
-		siblings.remove(idx);
-		int at = idx;
-		for (Node c : nchilds) {
-			c.start += sec.start;
-			c.end += sec.start;
-			siblings.add(at++, reparent(c, parent));
+		Node changed;
+		if (isLeafUpdate(sec, nchilds)) {
+			Node nc = nchilds.get(0);
+			int oldStart = sec.start;
+			sec.start = oldStart + nc.start;
+			sec.end = oldStart + nc.end;
+			changed = sec;
+		} else {
+			siblings.remove(idx);
+			int at = idx;
+			for (Node c : nchilds) {
+				c.start += sec.start;
+				c.end += sec.start;
+				siblings.add(at++, reparent(c, parent));
+			}
+			changed = parent;
 		}
 
 		for (Node anc = parent; anc != null; anc = anc.parent) {
@@ -215,7 +224,14 @@ public class MarkdownDocument {
 			for (int i = ai + 1; i < as.size(); i++)
 				shift(as.get(i), delta);
 		}
-		return parent;
+		return changed;
+	}
+
+	private boolean isLeafUpdate(Node sec, List<Node> nchilds) {
+		if (nchilds.size() != 1 || !sec.children.isEmpty())
+			return false;
+		Node nc = nchilds.get(0);
+		return nc.children.isEmpty() && nc.instance == sec.instance;
 	}
 
 	private Node reparent(Node src, Node newParent) {

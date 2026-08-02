@@ -189,7 +189,10 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		if (node == null || node.instance == Elements.ROOT)
 			return;
 
-		NodeElement child = ((NodeElement) viewer.getInput()).find(node);
+		NodeElement root = (NodeElement) viewer.getInput();
+		NodeElement child = findNearestPresentAncestor(root, node);
+		if (child == null)
+			return;
 		var sel = viewer.getSelection();
 		if (sel instanceof StructuredSelection ssel && child.equals(ssel.getFirstElement()))
 			return;
@@ -201,6 +204,15 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 				syncingFromEditor = false;
 			}
 		});
+	}
+
+	private NodeElement findNearestPresentAncestor(NodeElement root, Node node) {
+		for (Node n = node; n != null && n.instance != Elements.ROOT; n = n.parent) {
+			NodeElement match = root.find(n);
+			if (match != null)
+				return match;
+		}
+		return null;
 	}
 
 	private boolean isAlive(TreeViewer v) {
