@@ -226,7 +226,7 @@ public class SessionParameters {
 	}
 
 	private String computeHash() {
-		String input = systemPrompt.toString() + "|" + String.join(",", tools) + "|" + cwd.toString() + "|"
+		String input = String.join(",", tools) + "|" + cwd.toString() + "|"
 				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "") + "|"
 				+ cliProfile + "|" + (filePath != null ? filePath : "");
 		try {
