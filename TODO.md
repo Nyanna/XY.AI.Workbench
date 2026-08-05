@@ -1,5 +1,7 @@
 # TODO
 
+- outline export selected
+
 ##  Workbench  
 
 * Diff support für edit commands
@@ -9,9 +11,6 @@
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro Zeile
 	* Zeichen | mit offset an maxlength pro Spalte ändern
 	* exten "---" grey the whole line?
-* in preset tab presets aus Unterverzeichnis anzeigen und on click laden, inklusive tools
-	* ein preset unterstützt prompts, settings und tools, load, save, select
-	* selectionliste folgt aktivem editor projekt -> .presets mit auflistung absoluter oder relativer pfade?
 
 * subagenten mit Hauptsession verknüpfen, control filter per filter Parameter nach einem sessionbaum
 	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all

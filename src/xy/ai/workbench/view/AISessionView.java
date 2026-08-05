@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
@@ -69,8 +70,11 @@ public class AISessionView extends ViewPart {
 	private Text usageLog;
 	private List instructionList;
 	private List toolsList;
+	private List presetList;
 	private Text instructionEdit, instructionFree;
 	private boolean isUpdating = false;
+	private MultiSelectListener toolsMultiSelect;
+	private final java.util.List<IFile> presetFiles = new ArrayList<>();
 
 	public Display display;
 
@@ -358,35 +362,71 @@ public class AISessionView extends ViewPart {
 					if (m != null)
 						toolsList.setItems(m.cap.getTools());
 				}, true);
-				new MultiSelectListener(toolsList);
+				toolsMultiSelect = new MultiSelectListener(toolsList);
 			}
 
 			TabItem presEdit = new TabItem(instr, SWT.NONE);
 			presEdit.setText("Presets");
 			{ // instruction presets
 				Composite comp = new Composite(instr, SWT.NONE);
-				comp.setLayout(new GridLayout());
+				GridLayout compLay = new GridLayout(1, false);
+				comp.setLayout(compLay);
+				GridData compDat = new GridData(SWT.FILL, SWT.FILL, true, true);
+				comp.setLayoutData(compDat);
 				presEdit.setControl(comp);
 
-				Button readButton = new Button(comp, SWT.PUSH);
-				readButton.setText("Load");
-				readButton.addSelectionListener(new SelectionAdapter() {
-					@Override
-					public void widgetSelected(SelectionEvent e) {
-						String fileContent = PresetHandler.readStringFromFile(getSite().getShell());
-						if (fileContent != null)
-							cfg.setSystemPrompt(fileContent.split("\n"));
-					}
-				});
+				Composite buttons = new Composite(comp, SWT.NONE);
+				buttons.setLayout(new GridLayout(2, false));
 
-				Button writeButton = new Button(comp, SWT.PUSH);
+				Button writeButton = new Button(buttons, SWT.PUSH);
 				writeButton.setText("Save");
 				writeButton.addSelectionListener(new SelectionAdapter() {
 					@Override
 					public void widgetSelected(SelectionEvent e) {
-						PresetHandler.writeStringToFile(String.join("\n", cfg.getSystemPrompt()), getSite().getShell());
+						PresetHandler.writePreset(cfg.getSystemPrompt(), toolsList.getSelection(), cfg.getOuputMode(),
+								getSite().getShell());
+						refreshPresetList();
 					}
 				});
+
+				Button resetButton = new Button(buttons, SWT.PUSH);
+				resetButton.setText("Reset");
+				resetButton.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						String[] cur = cfg.getSystemPrompt();
+						String[] upd = new String[cur.length];
+						for (int i = 0; i < cur.length; i++) {
+							String line = cur[i];
+							upd[i] = line.startsWith("#") ? line : "#" + line;
+						}
+						instructionSelection.clear();
+						cfg.setSystemPrompt(upd);
+
+						toolsMultiSelect.clear();
+						cfg.setEnabledTools(new String[0]);
+					}
+				});
+
+				presetList = new List(comp, SWT.SINGLE | SWT.V_SCROLL | SWT.BORDER);
+				GridData presetListDat = new GridData(SWT.FILL, SWT.FILL, true, true);
+				presetListDat.heightHint = 60;
+				presetList.setLayoutData(presetListDat);
+				presetList.addMouseListener(MouseListener.mouseDownAdapter(m -> presetList.setFocus()));
+				presetList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+					int idx = presetList.getSelectionIndex();
+					if (idx < 0 || idx >= presetFiles.size())
+						return;
+					PresetHandler.Preset preset = PresetHandler.loadPreset(presetFiles.get(idx));
+					cfg.setSystemPrompt(preset.body);
+					if (preset.tools != null) {
+						toolsMultiSelect.setSelection(preset.tools);
+						cfg.setEnabledTools(preset.tools);
+					}
+					if (preset.outputMode != null)
+						cfg.setOuputMode(preset.outputMode);
+				}));
+				refreshPresetList();
 			}
 
 			{ // Free text
@@ -457,9 +497,9 @@ public class AISessionView extends ViewPart {
 			String[] outputOptions = Arrays.stream(OutputMode.values()).map(e -> e.name()).collect(Collectors.toList())
 					.toArray(new String[0]);
 			outputMode.setItems(outputOptions);
-			outputMode.select(cfg.getOuputMode().ordinal());
 			outputMode.addSelectionListener(SelectionListener
 					.widgetSelectedAdapter(e -> cfg.setOuputMode(OutputMode.valueOf(outputMode.getText()))));
+			cfg.addOutputModeObs(m -> outputMode.setText(m.name()), true);
 
 		}
 		{ // buttons
@@ -552,6 +592,12 @@ public class AISessionView extends ViewPart {
 		form.reflow(true);
 	}
 
+	private void refreshPresetList() {
+		presetFiles.clear();
+		presetFiles.addAll(Arrays.asList(PresetHandler.listPresetFiles()));
+		presetList.setItems(presetFiles.stream().map(f -> f.getFullPath().toString()).toArray(String[]::new));
+	}
+
 	private String[] updatePromptLines(String[] cur) {
 		String[] upd = new String[cur.length];
 		for (int i = 0; i < cur.length; i++) {
@@ -615,8 +661,10 @@ public class AISessionView extends ViewPart {
 
 	private static class MultiSelectListener {
 		private ArrayList<Integer> selectedIndices = new ArrayList<>();
+		private final List component;
 
 		MultiSelectListener(List component) {
+			this.component = component;
 			component.addListener(SWT.MouseDown, event -> {
 				int clickedIndex = component.getSelectionIndex();
 
@@ -628,6 +676,24 @@ public class AISessionView extends ViewPart {
 				int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
 				component.setSelection(selection);
 			});
+		}
+
+		void setSelection(String[] items) {
+			java.util.List<String> all = Arrays.asList(component.getItems());
+			selectedIndices.clear();
+			if (items != null)
+				for (String item : items) {
+					int idx = all.indexOf(item);
+					if (idx >= 0)
+						selectedIndices.add(idx);
+				}
+			int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
+			component.setSelection(selection);
+		}
+
+		void clear() {
+			selectedIndices.clear();
+			component.deselectAll();
 		}
 	}
 }

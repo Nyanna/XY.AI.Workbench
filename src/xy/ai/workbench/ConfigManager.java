@@ -31,6 +31,8 @@ public class ConfigManager {
 	private List<Consumer<AgentProfile[]>> enabledProfilesObs = new ArrayList<>();
 	private List<Consumer<Double>> temperatureObs = new ArrayList<>();
 	private List<Consumer<Double>> topPObs = new ArrayList<>();
+	private List<Consumer<OutputMode>> outputModeObs = new ArrayList<>();
+	private List<Consumer<String[]>> enabledToolsObs = new ArrayList<>();
 
 	public void clearObserver() {
 		systemPromptObs.clear();
@@ -48,6 +50,8 @@ public class ConfigManager {
 		enabledProfilesObs.clear();
 		temperatureObs.clear();
 		topPObs.clear();
+		outputModeObs.clear();
+		enabledToolsObs.clear();
 	}
 
 	public void setKey(String keys) {
@@ -130,6 +134,13 @@ public class ConfigManager {
 
 	public void setEnabledTools(String[] enabledTools) {
 		this.enabledTools = enabledTools;
+		enabledToolsObs.forEach(c -> c.accept(enabledTools));
+	}
+
+	public void addEnabledToolsObs(Consumer<String[]> obs, boolean initialize) {
+		enabledToolsObs.add(obs);
+		if (initialize)
+			obs.accept(enabledTools);
 	}
 
 	public String getKeys() {
@@ -266,6 +277,13 @@ public class ConfigManager {
 
 	public void setOuputMode(OutputMode ouputMode) {
 		cfg.ouputMode = ouputMode;
+		outputModeObs.forEach(c -> c.accept(cfg.ouputMode));
+	}
+
+	public void addOutputModeObs(Consumer<OutputMode> obs, boolean initialize) {
+		outputModeObs.add(obs);
+		if (initialize)
+			obs.accept(cfg.ouputMode);
 	}
 
 	public boolean isInputEnabled(InputMode mode) {
