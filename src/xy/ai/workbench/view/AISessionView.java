@@ -526,33 +526,6 @@ public class AISessionView extends ViewPart {
 				body.layout();
 			}, true);
 		}
-		/*
-		 * { // status display Composite footer = new Composite(body, SWT.NONE);
-		 * footer.setLayout(new GridLayout(1, false));
-		 * 
-		 * Table usageLog = new Table(footer, SWT.BORDER | SWT.V_SCROLL);
-		 * usageLog.setHeaderVisible(true); usageLog.setLinesVisible(true); GridData
-		 * gridData = new GridData(); gridData.heightHint = 50;
-		 * usageLog.setLayoutData(gridData);
-		 * 
-		 * TableColumn column1 = new TableColumn(usageLog, SWT.NONE);
-		 * column1.setText("Total In"); column1.setWidth(60);
-		 * 
-		 * TableColumn column3 = new TableColumn(usageLog, SWT.NONE);
-		 * column3.setText("Out"); column3.setWidth(60);
-		 * 
-		 * TableColumn column4 = new TableColumn(usageLog, SWT.NONE);
-		 * column4.setText("Reason"); column4.setWidth(40);
-		 * 
-		 * TableColumn column5 = new TableColumn(usageLog, SWT.NONE);
-		 * column5.setText("Cached"); column5.setWidth(70);
-		 * 
-		 * TableColumn column6 = new TableColumn(usageLog, SWT.NONE);
-		 * column6.setText("Created"); column6.setWidth(60);
-		 * 
-		 * TableColumn column2 = new TableColumn(usageLog, SWT.NONE);
-		 * column2.setText("In"); column2.setWidth(50); }
-		 */
 		{ // Free text status display
 			Composite footer = new Composite(body, SWT.NONE);
 			footer.setLayout(new GridLayout(1, false));
@@ -568,11 +541,6 @@ public class AISessionView extends ViewPart {
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
 				if (a != null && a.stats.inputToken > 0) {
-//					TableItem item = new TableItem(usageLog, SWT.NONE, 0);
-//					item.setText(new String[] { a.stats.totalinToken + "", a.stats.outputToken + "",
-//							a.stats.reasoningToken + "", a.stats.cacheRead + "", a.stats.cacheCreate + "",
-//							a.stats.inputToken + "" });
-//					usageLog.setTopIndex(0);
 					String text = usageLog.getText();
 					if (text == null || text.isEmpty())
 						text = "Total In, Out, Reason, Cached, Created, In\n";

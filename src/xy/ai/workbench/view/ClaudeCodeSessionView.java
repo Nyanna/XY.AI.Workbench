@@ -148,13 +148,13 @@ public class ClaudeCodeSessionView extends ViewPart {
 		table.setLinesVisible(true);
 
 		{
-			createColumn("ID", 20)
+			createColumn("ID", 10)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((CCSession) e)));
 
-			createColumn("State", 15)
+			createColumn("State", 35)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> stateLabel((CCSession) e)));
 
-			createColumn("Detail", 65)
+			createColumn("Detail", 55)
 					.setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((CCSession) e)));
 		}
 
