@@ -1,7 +1,10 @@
 package xy.ai.workbench.editor.outline;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jface.action.Action;
@@ -9,12 +12,17 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuCreator;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -75,7 +83,119 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		viewer.addSelectionChangedListener(this::onOutlineSelection);
 		applyFilters();
 
+		createCopyAction();
 		createFilterAction();
+	}
+
+	private void createCopyAction() {
+		IActionBars bars = getSite().getActionBars();
+		if (bars == null)
+			return;
+
+		Action action = new Action("Copy", IAction.AS_PUSH_BUTTON) {
+			@Override
+			public void run() {
+				copySelectionToClipboard();
+			}
+		};
+		action.setToolTipText("Copy the text of the selected nodes to the clipboard");
+		bars.getToolBarManager().add(action);
+		bars.updateActionBars();
+	}
+
+	private void copySelectionToClipboard() {
+		if (!isAlive(viewer))
+			return;
+		NodeElement root = (NodeElement) viewer.getInput();
+		if (root == null)
+			return;
+
+		List<NodeElement> tops;
+		ISelection selection = viewer.getSelection();
+		if (selection instanceof StructuredSelection ssel && !ssel.isEmpty()) {
+			List<NodeElement> selected = new ArrayList<>();
+			for (Object o : ssel.toList())
+				if (o instanceof NodeElement ne)
+					selected.add(ne);
+			tops = topLevel(selected);
+			tops.sort(Comparator.comparingInt(ne -> ne.node().getOffset()));
+		} else
+			tops = List.of(root);
+
+		StringBuilder sb = new StringBuilder();
+		for (NodeElement ne : tops) {
+			String text = extractText(ne);
+			if (text.isEmpty())
+				continue;
+			if (sb.length() > 0)
+				sb.append('\n');
+			sb.append(text);
+		}
+		if (sb.length() == 0)
+			return;
+
+		Clipboard clipboard = new Clipboard(Display.getDefault());
+		try {
+			clipboard.setContents(new Object[] { sb.toString() }, new Transfer[] { TextTransfer.getInstance() });
+		} finally {
+			clipboard.dispose();
+		}
+	}
+
+	private List<NodeElement> topLevel(List<NodeElement> selected) {
+		Set<Node> selectedNodes = new LinkedHashSet<>();
+		for (NodeElement ne : selected)
+			selectedNodes.add(ne.node());
+		List<NodeElement> result = new ArrayList<>();
+		for (NodeElement ne : selected) {
+			boolean ancestorSelected = false;
+			for (Node p = ne.node().parent; p != null; p = p.parent)
+				if (selectedNodes.contains(p)) {
+					ancestorSelected = true;
+					break;
+				}
+			if (!ancestorSelected)
+				result.add(ne);
+		}
+		return result;
+	}
+
+	private String extractText(NodeElement ne) {
+		IDocument doc = ne.doc();
+		Node node = ne.node();
+		int offset = node.getOffset();
+		int end = node.getEndOffset();
+		if (doc == null || end <= offset)
+			return "";
+		try {
+			StringBuilder sb = new StringBuilder();
+			int cursor = offset;
+			for (NodeElement child : ne.children()) {
+				Node cn = child.node();
+				int cStart = cn.getOffset();
+				int cEnd = cn.getEndOffset();
+				if (cStart > cursor)
+					sb.append(doc.get(cursor, cStart - cursor));
+				if (!isFiltered(child))
+					sb.append(extractText(child));
+				cursor = Math.max(cursor, cEnd);
+			}
+			if (end > cursor)
+				sb.append(doc.get(cursor, end - cursor));
+			return sb.toString();
+		} catch (BadLocationException e) {
+			return "";
+		}
+	}
+
+	/** Whether {@code ne} is currently hidden by one of the active viewer filters. */
+	private boolean isFiltered(NodeElement ne) {
+		if (!isAlive(viewer))
+			return false;
+		for (ViewerFilter filter : viewer.getFilters())
+			if (!filter.select(viewer, ne.parent(), ne))
+				return true;
+		return false;
 	}
 
 	private void createFilterAction() {

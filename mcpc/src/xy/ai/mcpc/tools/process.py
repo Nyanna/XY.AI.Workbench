@@ -132,7 +132,7 @@ def run_capture(
         content.append(
             text_content(
                 f"Full output written to file {len(stdout)} characters). "
-                f"Reduce to relevant excerpts (e.g. via grep/head/tail)."
+                f"Reduce to relevant excerpts (e.g. via grep/head/tail, don't use cat)."
             )
         )
         structured["stdout_file"] = stdout_file
@@ -145,7 +145,7 @@ def run_capture(
             content.append(
                 text_content(
                     f"Full output written to file {len(stderr)} characters). "
-                    f"Reduce to relevant excerpts (e.g. via grep/head/tail)."
+                    f"Reduce to relevant excerpts (e.g. via grep/head/tail, don't use cat)."
                 )
             )
             structured["stderr_file"] = stderr_file

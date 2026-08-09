@@ -1,6 +1,6 @@
 # TODO
-
-- outline export selected
+*session fehlerausgaben in datei schreiben statt nur error log
+HRV berechnung auf ec2 machen
 
 ##  Workbench  
 
