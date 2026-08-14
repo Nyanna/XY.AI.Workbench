@@ -2,4 +2,3 @@
 **/__pycache__
 /logs
 /.env.sh
-/.pytest_cache/

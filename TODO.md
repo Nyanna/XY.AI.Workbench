@@ -1,6 +1,8 @@
 # TODO
 *session fehlerausgaben in datei schreiben statt nur error log
 HRV berechnung auf ec2 machen
+mqtt2prometheus change to victoria push not scrape -> saves one process
+plain script: cat /tmp/mcpc-stdout-rxl2j6m6.log verhindern und auf die limits hinweisen
 
 ##  Workbench  
 
