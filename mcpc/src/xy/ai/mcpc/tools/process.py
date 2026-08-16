@@ -131,8 +131,10 @@ def run_capture(
         stdout_file = _spill_to_file(stdout, "stdout")
         content.append(
             text_content(
-                f"Full output written to file {len(stdout)} characters). "
-                f"Reduce to relevant excerpts (e.g. via grep/head/tail, don't use cat)."
+                f"Full output written to file ({len(stdout)} characters). "
+                f"Before loading the file, reduce the content to what is strictly needed: "
+                f"use targeted commands (grep, head, tail, awk) to extract only the relevant parts."
+                f"Only load the file with `file-read` once the output is already narrowed down to the essential information."
             )
         )
         structured["stdout_file"] = stdout_file
@@ -144,8 +146,10 @@ def run_capture(
             stderr_file = _spill_to_file(stderr, "stderr")
             content.append(
                 text_content(
-                    f"Full output written to file {len(stderr)} characters). "
-                    f"Reduce to relevant excerpts (e.g. via grep/head/tail, don't use cat)."
+                    f"Full output written to file ({len(stdout)} characters). "
+                    f"Before loading the file, reduce the content to what is strictly needed: "
+                    f"use targeted commands (grep, head, tail, awk) to extract only the relevant parts."
+                    f"Only load the file with `file-read` once the output is already narrowed down to the essential information."
                 )
             )
             structured["stderr_file"] = stderr_file
