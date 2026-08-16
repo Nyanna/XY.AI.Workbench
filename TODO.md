@@ -1,6 +1,9 @@
 # TODO
-HRV berechnung auf ec2 machen
+HRV berechnung auf ec2 machen, direkt auf proxy machen, da gibt es repo schon
 countdown timer für session
+mcpc zusätzliches flag für phasenmodell einführen um besser zu evrstehen wann etwas allgemeine exploration ist oder eine gezielte fragestellung beantwortet
+schlauer proxy, aus deny einen ask-user redirect machen. Indem man sagt nutze ask user und formuliere das Problem du erhälst eine Lösung und vorgehensweise
+
 
 ##  Workbench  
 

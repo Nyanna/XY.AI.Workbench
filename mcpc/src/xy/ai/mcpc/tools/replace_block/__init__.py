@@ -14,9 +14,8 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
         title="Replace text block in file",
         description=(
             "Replace a complete block of text inside an existing file. "
-            "'old_text' must occur exactly once in the file and is replaced "
-            "in full by 'new_text'. Use this when you know the exact text to "
-            "be replaced rather than an offset/length or start/end markers."
+            "'old_text' must occur exactly once with exact whitespace matching "
+            "(tabs, spaces, newlines)."
         ),
         input_schema={
             "type": "object",
@@ -28,8 +27,8 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
                 "old_text": {
                     "type": "string",
                     "description": (
-                        "Exact text to find and replace. Must occur exactly once "
-                        "in the file."
+                        "Exact text to find and replace (whitespace-sensitive). "
+                        "Must occur exactly once."
                     ),
                 },
                 "new_text": {
