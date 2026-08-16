@@ -266,13 +266,16 @@ public class AISessionManager {
 		@Override
 		protected IStatus run(IProgressMonitor mon) {
 			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 4);
+			String reqId = null;
 			try {
 				sub.subTask("Prepare inputs");
 				var req = prepareInner(display, false, sub);
 				sub.worked(1);
 				sub.subTask("Insert Tag");
 				editIfc.insertTag(display, req, sub);
+				reqId = req.getID();
 				mon.worked(1);
+
 				sub.subTask("Execute prompt");
 				var ans = executeInner(display, req, sub, this);
 				mon.worked(1);
@@ -281,6 +284,12 @@ public class AISessionManager {
 				mon.worked(1);
 			} catch (Exception e) {
 				LOG.error(e.getMessage(), e);
+				// uncatched error case
+				if (reqId != null) {
+					AIAnswer error = new AIAnswer(reqId);
+					error.answer = e.getMessage();
+					editIfc.replaceTag(display, error, sub);
+				}
 				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
