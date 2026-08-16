@@ -11,7 +11,7 @@ from ..process import run_capture
 #: Safety limit on inline STDOUT/STDERR size. Streams larger than this are
 #: written to a temp file instead, and the absolute path is returned so the
 #: caller can keep operating on the output (e.g. via the ``read`` tool).
-_MAX_STREAM_CHARS = 2000
+_MAX_STREAM_CHARS = 3000
 
 
 def register_bash_tool(registry: ToolRegistry) -> None:
