@@ -27,7 +27,7 @@ public class CCSessionManager {
 		CCSession session = null;
 		if (CREATE_NEW_MARKER.equals(selectedUuid)) {
 			session = addSession(new CCSession(this, params));
-			LOG.info("New session created, hash=" + params.getHash());
+//			LOG.info("New session created, hash=" + params.getHash());
 		} else if (selectedUuid != null) {
 			if ((session = findByUuid(selectedUuid)) == null)
 				throw new IllegalStateException("Selected session not found: " + selectedUuid);
@@ -37,12 +37,12 @@ public class CCSessionManager {
 			if (session.isExpired())
 				throw new IllegalStateException("Session has expired");
 		} else if ((session = findByHash(params.getHash())) != null) {
-			LOG.info("Use param hash session, hash=" + params.getHash());
+//			LOG.info("Use param hash session, hash=" + params.getHash());
 			if (session.isExpired())
 				throw new IllegalStateException("Session has expired");
 		} else {
 			session = addSession(new CCSession(this, params));
-			LOG.info("New session created, hash=" + params.getHash());
+//			LOG.info("New session created, hash=" + params.getHash());
 		}
 
 		return session;
