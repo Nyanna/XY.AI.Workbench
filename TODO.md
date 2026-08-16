@@ -1,5 +1,6 @@
 # TODO
 HRV berechnung auf ec2 machen
+countdown timer für session
 
 ##  Workbench  
 
