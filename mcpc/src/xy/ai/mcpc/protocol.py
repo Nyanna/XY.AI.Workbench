@@ -181,6 +181,8 @@ class McpProtocol:
             if not decision.approved:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool call rejected by controller"
+                if name == "ask-user":
+                    return ToolResult(structured_content={"answer": reason}).to_dict()
                 return ToolResult(
                     content=[text_content(f"DENIED: {reason}")],
                     is_error=True,
@@ -214,6 +216,8 @@ class McpProtocol:
             if not decision.approved:
                 from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool result rejected by controller"
+                if name == "ask-user":
+                    return ToolResult(structured_content={"answer": reason}).to_dict()
                 return ToolResult(
                     content=[text_content(f"DENIED: {reason}")],
                     is_error=True,
