@@ -139,8 +139,8 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
     properties[REASON_PROPERTY] = {
         "type": "string",
         "reason": (
-            "Extremely short reason/goal for this specific tool call, "
-            "shown to the authorizing user for review."
+            "Precise, specific reason for this tool call (what exactly is being retrieved" 
+            "and why it is needed now), shown to the authorizing user."
         ),
     }
     schema["properties"] = properties

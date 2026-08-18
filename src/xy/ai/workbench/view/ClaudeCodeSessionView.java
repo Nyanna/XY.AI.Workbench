@@ -78,7 +78,10 @@ import xy.ai.workbench.view.ActionManager.ActionDescription;
  * <p>
  * The view registers a change listener with the {@link CCSessionManager} and
  * refreshes the table on any session state change. A periodic timer refreshes
- * the TTL column every 30 seconds even when no prompt is active.
+ * the table every second so that the mm:ss countdown shown for
+ * {@link SessionState#Open} sessions stays accurate, and so that the
+ * selection can automatically fall back to "Create new session" once a
+ * synced session expires.
  * </p>
  */
 public class ClaudeCodeSessionView extends ViewPart {
@@ -87,7 +90,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	public static final String ID = "xy.ai.workbench.views.ClaudeCodeSessionView";
 
 	/** Periodic TTL refresh interval in milliseconds. */
-	private static final int TTL_REFRESH_INTERVAL_MS = 30_000;
+	private static final int TTL_REFRESH_INTERVAL_MS = 1_000;
 	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null,
 			new SessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
 					CacheMode.Default) {
@@ -265,6 +268,8 @@ public class ClaudeCodeSessionView extends ViewPart {
 		if (currentProjectPath == null)
 			return null;
 		for (CCSession s : sessions) {
+			if (!s.isValid())
+				continue;
 			SessionParameters p = s.getParameters();
 			if (p != null && currentProjectPath.equals(p.cwd) && Objects.equals(currentRelativeFilePath, p.filePath))
 				return s;
@@ -296,7 +301,17 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private String stateLabel(CCSession s) {
 		if (SessionState.Prompting.equals(s.getState()) && s.getLastSentAt() != null)
 			return s.getState().name() + " (" + (Instant.now().toEpochMilli() - s.getLastSentAt().toEpochMilli()) + ")";
+		if (SessionState.Open.equals(s.getState()))
+			return formatMMSS(s.getRemainingTtlSeconds());
 		return s.getState().name();
+	}
+
+	private static String formatMMSS(long totalSeconds) {
+		if (totalSeconds < 0)
+			return "--:--";
+		long minutes = totalSeconds / 60;
+		long seconds = totalSeconds % 60;
+		return String.format("%02d:%02d", minutes, seconds);
 	}
 
 	private String detailLabel(CCSession s) {
@@ -359,10 +374,18 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 		knownSessionIds = newIds;
 
-		if (syncAction.isChecked() && allowSyncOnNewSession && !added.isEmpty()) {
-			CCSession match = findAssociatedSession(sessions);
-			if (match != null && added.contains(match))
-				selectSession(match);
+		if (syncAction.isChecked()) {
+			IStructuredSelection currentSel = viewer.getStructuredSelection();
+			Object selected = currentSel.getFirstElement();
+			if (selected instanceof CCSession && selected != CNEW_LAUDE_CODE_SESSION
+					&& !((CCSession) selected).isValid()) {
+				// the synced session has expired in the meantime: fall back to "Create new session"
+				selectSession(null);
+			} else if (allowSyncOnNewSession && !added.isEmpty()) {
+				CCSession match = findAssociatedSession(sessions);
+				if (match != null && added.contains(match))
+					selectSession(match);
+			}
 		}
 	}
 

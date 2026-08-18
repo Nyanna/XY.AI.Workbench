@@ -91,6 +91,38 @@ public class CCSession {
 		return SessionState.Created;
 	}
 
+	/**
+	 * @return the number of whole seconds until this session's TTL runs out, or
+	 *         {@code -1} if no prompt has been sent yet (TTL not started).
+	 */
+	public long getRemainingTtlSeconds() {
+		if (lastSentAt == null)
+			return -1;
+		long elapsed = ChronoUnit.SECONDS.between(lastSentAt, Instant.now());
+
+		long totalSeconds = 60 * 60;
+		if (parameters.cacheMode != null)
+			switch (parameters.cacheMode) {
+			case Disabled:
+				return 0L;
+			case Minutes_5:
+				totalSeconds = 5 * 60;
+				break;
+			case Default:
+			case Hours_1:
+			}
+		return Math.max(0, totalSeconds - elapsed);
+	}
+
+	/**
+	 * @return {@code true} unless the session is {@link SessionState#Expired}.
+	 *         Used to filter out no-longer-usable sessions from automatic
+	 *         selection logic.
+	 */
+	public boolean isValid() {
+		return getState() != SessionState.Expired;
+	}
+
 	private synchronized void start() throws IOException {
 		if (process != null) {
 			if (process.isAlive())
