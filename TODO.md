@@ -1,8 +1,6 @@
 # TODO
 HRV berechnung auf ec2 machen, direkt auf proxy machen, da gibt es repo schon
-countdown timer für session
-mcpc zusätzliches flag für phasenmodell einführen um besser zu evrstehen wann etwas allgemeine exploration ist oder eine gezielte fragestellung beantwortet
-schlauer proxy, aus deny einen ask-user redirect machen. Indem man sagt nutze ask user und formuliere das Problem du erhälst eine Lösung und vorgehensweise
+schlauer proxy, aus deny einen ask-user redirect machen. Indem man sagt nutze ask user und formuliere das Problem du erhälst eine Lösung und vorgehensweise, statt deny eine "ask" oder "stop" als stop signal -> user prompt mehr vertrauen und besser Formatierbar statt reject ein relay
 
 
 ##  Workbench  
@@ -10,6 +8,7 @@ schlauer proxy, aus deny einen ask-user redirect machen. Indem man sagt nutze as
 * Diff support für edit commands
 	* diff editor in Eclipse in memory aufrufen und Toolausgabe mit Action oder annotation versehen, "view as diff"
 	* block selektieren und mit Parametern diff tool starten, es gibt ein compare with clipboad analog
+	* sollte eine synchrone separate ansicht sein die live im chat aktualisiert
 * Table renderer support
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro Zeile
 	* Zeichen | mit offset an maxlength pro Spalte ändern

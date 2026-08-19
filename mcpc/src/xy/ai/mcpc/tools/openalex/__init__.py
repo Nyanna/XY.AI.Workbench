@@ -22,6 +22,7 @@ Shared conventions
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from ...config import ServerConfig
@@ -48,6 +49,8 @@ _DEFAULT_SEMANTIC_LIMIT = 10
 _ENTITY_NAMES = sorted(ENTITIES)
 _WORK_PRESETS = list(WORK_PRESET_NAMES)
 
+logger = logging.getLogger("xy.ai.mcpc.tools.openalex")
+
 
 # --------------------------------------------------------------------- helpers
 def _client(ctx: ToolContext) -> OpenAlexClient:
@@ -71,6 +74,7 @@ def _error_result(exc: Exception) -> ToolResult:
     message = str(exc)
     if isinstance(exc, OpenAlexAPIError) and exc.status is not None:
         message = f"{message} (status {exc.status})"
+    logger.error("OpenAlex request failed: %s", message, exc_info=exc)
     return ToolResult(content=[text_content(message)], is_error=True)
 
 
