@@ -96,6 +96,8 @@ class ToolControlManager:
         self._timeout = timeout
         self._pending: dict[str, _PendingItem] = {}
         self._lock = threading.Lock()
+        self._id_prefix = uuid.uuid4().hex[:4]
+        self._id_counter = 0
 
     # ------------------------------------------------------------------
     # Interceptor-facing API (blocking)
@@ -245,7 +247,9 @@ class ToolControlManager:
         arguments: dict[str, Any] | None,
         result: dict[str, Any] | None,
     ) -> _PendingItem:
-        item_id = str(uuid.uuid4())
+        with self._lock:
+            self._id_counter += 1
+            item_id = f"{self._id_prefix}-{self._id_counter:x}"
         item = _PendingItem(
             id=item_id,
             phase=phase,
