@@ -1,6 +1,4 @@
 # TODO
-- check cache don't dislay properly bug
-HRV berechnung auf ec2 machen, direkt auf proxy machen, da gibt es repo schon
 - claude at im tool loop einen textblock zum kommunizieren genutzt
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout
 
