@@ -302,7 +302,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	/** Initial retry delay in ms, doubled after every failed attempt. */
-	private static final int CURSOR_MOVE_INITIAL_DELAY_MS = 100;
+	private static final int CURSOR_MOVE_INITIAL_DELAY_MS = 800;
 	/** Upper bound for the (doubling) retry delay. */
 	private static final int CURSOR_MOVE_MAX_DELAY_MS = 800;
 	/** Overall time budget after which retries are given up. */
