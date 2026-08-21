@@ -3,6 +3,8 @@ package xy.ai.workbench.marker;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,7 +25,9 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.IDocumentListener;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.widgets.Display;
@@ -31,7 +35,11 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IPartListener2;
+import org.eclipse.ui.IWindowListener;
 import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
@@ -301,38 +309,125 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		return tsel.getStartLine() >= lastLine;
 	}
 
-	/** Initial retry delay in ms, doubled after every failed attempt. */
-	private static final int CURSOR_MOVE_INITIAL_DELAY_MS = 800;
-	/** Upper bound for the (doubling) retry delay. */
-	private static final int CURSOR_MOVE_MAX_DELAY_MS = 800;
-	/** Overall time budget after which retries are given up. */
-	private static final long CURSOR_MOVE_TIMEOUT_MS = 4000;
+	/**
+	 * Holds, per doc, the auto-follow {@link IDocumentListener} together with
+	 * the editor it was registered for, so it can be located/removed again
+	 * when the editor closes.
+	 */
+	private static final class AutoFollowState {
+		final ITextEditor editor;
+		final IDocumentListener listener;
+
+		AutoFollowState(ITextEditor editor, IDocumentListener listener) {
+			this.editor = editor;
+			this.listener = listener;
+		}
+	}
+
+	/** Auto-follow listeners currently registered, keyed by doc. Only ever accessed on the UI thread. */
+	private final Map<IDocument, AutoFollowState> autoFollowListeners = new HashMap<>();
+	private boolean partCloseCleanupRegistered = false;
 
 	/**
 	 * Moves the cursor to the end of the doc (start of the last line, i.e. an
-	 * empty selection at the doc's end). {@link ITextEditor#selectAndReveal}
-	 * is unreliable right after a doc replace (e.g. because the widget/editor
-	 * is not yet fully laid out), so the move is retried with an increasing
-	 * delay between attempts until it can be verified to have succeeded or a
-	 * timeout is hit.
+	 * empty selection at the doc's end) and, as long as auto-follow stays
+	 * applicable, keeps it there for every future change of the doc. A
+	 * one-shot retry with a fixed delay cannot work reliably here: further,
+	 * independent edits (e.g. from other pending AI answers) can arrive at
+	 * any time after a move has already been verified as successful, moving
+	 * the "end of doc" target again. Reacting to every {@link DocumentEvent}
+	 * instead removes the race entirely, since each change immediately
+	 * re-evaluates and re-applies the cursor position.
 	 */
 	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
-		scheduleMoveCursorAttempt(editor, doc, System.currentTimeMillis(), CURSOR_MOVE_INITIAL_DELAY_MS);
+		tryMoveCursorToLastLineStart(editor, doc);
+		ensureAutoFollowListener(editor, doc);
 	}
 
-	private void scheduleMoveCursorAttempt(ITextEditor editor, IDocument doc, long startTime, int delayMs) {
-		Display.getDefault().timerExec(delayMs, () -> {
-			if (tryMoveCursorToLastLineStart(editor, doc))
-				return;
+	private void ensureAutoFollowListener(ITextEditor editor, IDocument doc) {
+		if (autoFollowListeners.containsKey(doc))
+			return;
 
-			long elapsed = System.currentTimeMillis() - startTime;
-			if (elapsed >= CURSOR_MOVE_TIMEOUT_MS) {
-				LOG.error("moveCursorToLastLineStart: giving up after " + elapsed + "ms", null);
-				return;
+		IDocumentListener listener = new IDocumentListener() {
+			@Override
+			public void documentAboutToBeChanged(DocumentEvent event) {
+				// nothing to do
 			}
 
-			int nextDelay = Math.min(delayMs * 2, CURSOR_MOVE_MAX_DELAY_MS);
-			scheduleMoveCursorAttempt(editor, doc, startTime, nextDelay);
+			@Override
+			public void documentChanged(DocumentEvent event) {
+				// Self-gating: only follow while the condition still holds.
+				// If the user navigated away, this simply becomes a no-op
+				// until (if ever) the selection is at the end again.
+				if (isAutoFollowModeEnabled() && shouldAutoFollow(editor, doc))
+					tryMoveCursorToLastLineStart(editor, doc);
+			}
+		};
+		doc.addDocumentListener(listener);
+		autoFollowListeners.put(doc, new AutoFollowState(editor, listener));
+
+		ensurePartCloseCleanupRegistered();
+	}
+
+	/**
+	 * Registers, once, a listener that removes an editor's auto-follow
+	 * {@link IDocumentListener} when the editor is closed. This is purely
+	 * about avoiding a resource/memory leak (stale editor references, dead
+	 * doc listeners) - it is unrelated to and independent of the
+	 * "user scrolled away" case, which the listener itself already handles.
+	 */
+	private void ensurePartCloseCleanupRegistered() {
+		if (partCloseCleanupRegistered)
+			return;
+		partCloseCleanupRegistered = true;
+
+		IPartListener2 cleanupListener = new IPartListener2() {
+			@Override
+			public void partClosed(IWorkbenchPartReference partRef) {
+				ITextEditor editor = unwrapTextEditor(partRef.getPart(false));
+				if (editor != null)
+					removeAutoFollowListenerFor(editor);
+			}
+		};
+
+		for (IWorkbenchWindow window : PlatformUI.getWorkbench().getWorkbenchWindows())
+			window.getPartService().addPartListener(cleanupListener);
+
+		PlatformUI.getWorkbench().addWindowListener(new IWindowListener() {
+			@Override
+			public void windowOpened(IWorkbenchWindow window) {
+				window.getPartService().addPartListener(cleanupListener);
+			}
+
+			@Override
+			public void windowClosed(IWorkbenchWindow window) {
+				// nothing to do
+			}
+
+			@Override
+			public void windowActivated(IWorkbenchWindow window) {
+				// nothing to do
+			}
+
+			@Override
+			public void windowDeactivated(IWorkbenchWindow window) {
+				// nothing to do
+			}
+		});
+	}
+
+	private ITextEditor unwrapTextEditor(IWorkbenchPart part) {
+		if (part instanceof AISessionEditor)
+			part = ((AISessionEditor) part).getEditor();
+		return part instanceof ITextEditor ? (ITextEditor) part : null;
+	}
+
+	private void removeAutoFollowListenerFor(ITextEditor editor) {
+		autoFollowListeners.entrySet().removeIf(e -> {
+			if (e.getValue().editor != editor)
+				return false;
+			e.getKey().removeDocumentListener(e.getValue().listener);
+			return true;
 		});
 	}
 
