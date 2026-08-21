@@ -176,6 +176,7 @@ class McpProtocol:
 
         # --- request interception -------------------------------------------
         control = self.services.control_manager if self.services else None
+        request_hint: str | None = None
         if control is not None and not skip_control:
             decision = control.submit_request(session, name, arguments)
             if not decision.approved:
@@ -189,6 +190,16 @@ class McpProtocol:
                 ).to_dict()
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
+            if decision.approval_hint:
+                # For ask-user, an approval hint *is* the human's answer: the
+                # question is answered directly instead of merely annotating
+                # a result that would otherwise just be "not answered".
+                if name == "ask-user":
+                    from .registry import ToolResult
+                    return ToolResult(
+                        structured_content={"answer": decision.approval_hint}
+                    ).to_dict()
+                request_hint = decision.approval_hint
         # --------------------------------------------------------------------
 
         context = ToolContext(session=session, arguments=arguments, services=self.services)
@@ -222,8 +233,25 @@ class McpProtocol:
                     content=[text_content(f"DENIED: {reason}")],
                     is_error=True,
                 ).to_dict()
+            hint_parts = [h for h in (request_hint, decision.approval_hint) if h]
+            combined_hint = "\n".join(hint_parts) if hint_parts else None
+
             if decision.modified_result is not None:
-                return decision.modified_result
+                result_dict = decision.modified_result
+            else:
+                result.control_hint = combined_hint
+                result_dict = result.to_dict()
+
+            if combined_hint and name == "ask-user":
+                # Same exception as in the request phase: for ask-user the
+                # hint *is* the answer, not an independent side-channel field.
+                from .registry import ToolResult
+                return ToolResult(structured_content={"answer": combined_hint}).to_dict()
+            if combined_hint and decision.modified_result is not None:
+                from .registry import CONTROL_HINT_PROPERTY
+                result_dict[CONTROL_HINT_PROPERTY] = combined_hint
+
+            return result_dict
         # --------------------------------------------------------------------
 
         return result.to_dict()

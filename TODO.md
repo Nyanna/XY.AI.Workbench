@@ -1,10 +1,7 @@
 # TODO
-- bei allow eine answer mitgeben als generelles  result für agent, korrektur,
 - check cache don't dislay properly bug
-- cursor nicht immer unten
 HRV berechnung auf ec2 machen, direkt auf proxy machen, da gibt es repo schon
-schlauer proxy, aus deny einen ask-user redirect machen. Indem man sagt nutze ask user und formuliere das Problem du erhälst eine Lösung und vorgehensweise, statt deny eine "ask" oder "stop" als stop signal -> user prompt mehr vertrauen und besser Formatierbar statt reject ein relay
-laude at im tool loop einen textblock zum kommunizieren genutzt
+- claude at im tool loop einen textblock zum kommunizieren genutzt
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout
 
 ##  Workbench  

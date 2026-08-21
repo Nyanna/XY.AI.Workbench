@@ -41,6 +41,15 @@ class ControlDecision:
     rejection_reason: str | None = None
     """Human-readable hint for the agent when ``approved`` is False."""
 
+    approval_hint: str | None = None
+    """Optional human-written hint attached to an *approval* (``/allow <id> <hint>``).
+
+    Unlike :attr:`rejection_reason`, this never aborts the call — it enriches
+    the eventual result instead. The same field is used for both the
+    ``request`` and ``result`` phase; when a hint is supplied at both phases
+    for the same call, the two are combined (see ``protocol.py``).
+    """
+
     modified_arguments: dict[str, Any] | None = None
     """Replacement arguments for the ``request`` phase (``None`` → keep originals)."""
 
@@ -177,6 +186,9 @@ class ToolControlManager:
         * ``{"id": "…", "rejected": true, "reason": "…"}`` — rejection.
         * ``{"id": "…", "arguments": {…}}`` — approve with modified arguments.
         * ``{"id": "…", "result": {…}}`` — approve with replaced result.
+        * ``{"id": "…", "hint": "…"}`` — approve with a hint for the agent
+          (``/allow <id> <hint>``); does not reject the call, only enriches
+          the eventual result.
         """
         for approval in approvals:
             item_id = approval.get("id")
@@ -199,6 +211,7 @@ class ToolControlManager:
                     approved=True,
                     modified_arguments=approval.get("arguments"),
                     modified_result=approval.get("result"),
+                    approval_hint=approval.get("hint"),
                 )
 
             item._decision = decision

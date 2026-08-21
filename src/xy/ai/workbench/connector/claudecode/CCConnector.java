@@ -111,7 +111,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		case Modification:
 			switch (req.cmd.type) {
 			case Allow:
-				controlClient.approve(req.cmd.parameter);
+				controlClient.approve(req.cmd.parameters[0],
+						req.cmd.parameters.length > 1 ? req.cmd.parameters[1] : null);
 				break;
 			case Deny:
 				controlClient.deny(req.cmd.parameters[0], req.cmd.parameters[1]);
@@ -211,7 +212,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 					String action = parts[2].toLowerCase();
 					String reason = parts.length > 3 ? parts[3].strip() : "";
 					if ("allow".equals(action))
-						commands.add(new Command(CommandType.Allow, id));
+						commands.add(new Command(CommandType.Allow, id, reason));
 					else
 						commands.add(new Command(CommandType.Deny, id, reason));
 				} else if (controlClient.submitEdit(clean))

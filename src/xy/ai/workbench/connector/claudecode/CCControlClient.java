@@ -68,11 +68,15 @@ public class CCControlClient {
 	}
 
 	public ArrayNode approve(String id) {
-		return submit(approvalNode(id, null, null, null));
+		return approve(id, null);
+	}
+
+	public ArrayNode approve(String id, String hint) {
+		return submit(approvalNode(id, null, null, null, hint == null || hint.isBlank() ? null : hint));
 	}
 
 	public ArrayNode deny(String id, String reason) {
-		return submit(approvalNode(id, null, null, reason == null ? "" : reason));
+		return submit(approvalNode(id, null, null, reason == null ? "" : reason, null));
 	}
 
 	public boolean submitEdit(String rawText) {
@@ -105,7 +109,8 @@ public class CCControlClient {
 		return text.substring(contentStart, end).strip();
 	}
 
-	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason) {
+	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason,
+			String hint) {
 		ObjectNode approval = mapper.createObjectNode();
 		approval.put("id", id);
 		if (arguments != null)
@@ -116,6 +121,8 @@ public class CCControlClient {
 			approval.put("rejected", true);
 			approval.put("reason", rejectReason);
 		}
+		if (hint != null)
+			approval.put("hint", hint);
 		return approval;
 	}
 

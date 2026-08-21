@@ -43,6 +43,13 @@ class ToolResult:
     structured_content: dict[str, Any] | None = None
     is_error: bool = False
     auto_approve: bool = False
+    control_hint: str | None = None
+    """Optional hint attached by the controller on approval (``/allow <id> <hint>``).
+
+    Rendered as an independent top-level field (see :data:`CONTROL_HINT_PROPERTY`)
+    that never touches ``content``/``structuredContent``/``isError`` — the actual
+    tool result is left untouched, the hint merely rides along for the agent.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -52,6 +59,8 @@ class ToolResult:
             result["structuredContent"] = self.structured_content
         if self.is_error:
             result["isError"] = True
+        if self.control_hint:
+            result[CONTROL_HINT_PROPERTY] = self.control_hint
         return result
 
 
@@ -121,8 +130,41 @@ def normalize_result(value: "ToolResult | str | dict[str, Any] | None") -> ToolR
 
 
 #: Name of the mandatory reason property injected into every tool's input
-#: schema (see :func:`_with_mandatory_reason`).
+#: schema (see :func:`_inject_property`).
 REASON_PROPERTY = "reason"
+
+#: Name of the independent hint property injected into every tool's output
+#: schema (see :func:`_inject_property`). Populated at call time from an
+#: ``/allow <id> <hint>`` control decision (see ``ControlDecision.approval_hint``
+#: in ``control/manager.py``); never required and never part of the actual
+#: ``content``/``structuredContent`` payload, so it cannot interfere with it.
+CONTROL_HINT_PROPERTY = "controlHint"
+
+
+def _inject_property(
+    schema: dict[str, Any],
+    name: str,
+    description: str,
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    """Return *schema* with an additional property generically injected.
+
+    Used both for the mandatory ``reason`` property on every tool's input
+    schema and for the optional ``controlHint`` property on every tool's
+    output schema — the same generic mechanism, applied at registration time
+    so individual tool modules never need to declare either themselves.
+    """
+    schema = dict(schema)
+    properties = dict(schema.get("properties", {}))
+    properties[name] = {"type": "string", "description": description}
+    schema["properties"] = properties
+    if required:
+        required_list = list(schema.get("required", []))
+        if name not in required_list:
+            required_list.append(name)
+        schema["required"] = required_list
+    return schema
 
 
 def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
@@ -130,25 +172,34 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
 
     Every tool call must carry an extremely short reason/goal for the call so
     the authorizing user can review it (e.g. via the human-in-the-loop
-    control layer) before or while it executes. This is applied centrally at
-    registration time so individual tool modules never need to declare it
-    themselves.
+    control layer) before or while it executes.
     """
-    schema = dict(schema)
-    properties = dict(schema.get("properties", {}))
-    properties[REASON_PROPERTY] = {
-        "type": "string",
-        "reason": (
-            "Precise, specific reason for this tool call (what exactly is being retrieved" 
+    return _inject_property(
+        schema,
+        REASON_PROPERTY,
+        (
+            "Precise, specific reason for this tool call (what exactly is being retrieved"
             "and why it is needed now), shown to the authorizing user."
         ),
-    }
-    schema["properties"] = properties
-    required = list(schema.get("required", []))
-    if REASON_PROPERTY not in required:
-        required.append(REASON_PROPERTY)
-    schema["required"] = required
-    return schema
+        required=True,
+    )
+
+
+def _with_optional_control_hint(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return *schema* with the optional ``controlHint`` output property injected.
+
+    Documents the independent, optional field that may accompany a tool
+    result when the authorizing user attached a hint to an ``/allow``
+    decision. Does not affect ``content``/``structuredContent``.
+    """
+    return _inject_property(
+        schema,
+        CONTROL_HINT_PROPERTY,
+        (
+            "Optional hint or question from the authorizing user"
+        ),
+        required=False,
+    )
 
 
 class ToolRegistry:
@@ -161,6 +212,8 @@ class ToolRegistry:
         if tool.name in self._tools:
             raise ValueError(f"Tool already registered: {tool.name}")
         tool.input_schema = _with_mandatory_reason(tool.input_schema)
+        if tool.output_schema is not None:
+            tool.output_schema = _with_optional_control_hint(tool.output_schema)
         
         meta: dict[str, Any] = {
             "anthropic/maxResultSizeChars": ANTHROPIC_MAX_RESULT_SIZE_CHARS

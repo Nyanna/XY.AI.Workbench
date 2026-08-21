@@ -301,14 +301,62 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		return tsel.getStartLine() >= lastLine;
 	}
 
+	/** Initial retry delay in ms, doubled after every failed attempt. */
+	private static final int CURSOR_MOVE_INITIAL_DELAY_MS = 100;
+	/** Upper bound for the (doubling) retry delay. */
+	private static final int CURSOR_MOVE_MAX_DELAY_MS = 800;
+	/** Overall time budget after which retries are given up. */
+	private static final long CURSOR_MOVE_TIMEOUT_MS = 4000;
+
+	/**
+	 * Moves the cursor to the end of the doc (start of the last line, i.e. an
+	 * empty selection at the doc's end). {@link ITextEditor#selectAndReveal}
+	 * is unreliable right after a doc replace (e.g. because the widget/editor
+	 * is not yet fully laid out), so the move is retried with an increasing
+	 * delay between attempts until it can be verified to have succeeded or a
+	 * timeout is hit.
+	 */
 	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
-		Display.getDefault().timerExec(200, () -> {
-			editor.selectAndReveal(0, 0);
-			editor.selectAndReveal(doc.getLength(), 0);
+		scheduleMoveCursorAttempt(editor, doc, System.currentTimeMillis(), CURSOR_MOVE_INITIAL_DELAY_MS);
+	}
+
+	private void scheduleMoveCursorAttempt(ITextEditor editor, IDocument doc, long startTime, int delayMs) {
+		Display.getDefault().timerExec(delayMs, () -> {
+			if (tryMoveCursorToLastLineStart(editor, doc))
+				return;
+
+			long elapsed = System.currentTimeMillis() - startTime;
+			if (elapsed >= CURSOR_MOVE_TIMEOUT_MS) {
+				LOG.error("moveCursorToLastLineStart: giving up after " + elapsed + "ms", null);
+				return;
+			}
+
+			int nextDelay = Math.min(delayMs * 2, CURSOR_MOVE_MAX_DELAY_MS);
+			scheduleMoveCursorAttempt(editor, doc, startTime, nextDelay);
 		});
-		Display.getDefault().timerExec(500, () -> {
-			editor.selectAndReveal(doc.getLength(), 0);
-		});
+	}
+
+	/**
+	 * Attempts to place the cursor at the end of the doc and verifies that the
+	 * editor's selection actually reflects the requested position afterwards.
+	 *
+	 * @return {@code true} when the move could be verified to have succeeded.
+	 */
+	private boolean tryMoveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
+		try {
+			int targetOffset = doc.getLength();
+			editor.selectAndReveal(targetOffset, 0);
+
+			ISelection selection = editor.getSelectionProvider().getSelection();
+			if (!(selection instanceof ITextSelection))
+				return false;
+
+			ITextSelection tsel = (ITextSelection) selection;
+			return tsel.getOffset() == targetOffset && tsel.getLength() == 0;
+		} catch (Exception e) {
+			LOG.error(e.getMessage(), e);
+			return false;
+		}
 	}
 
 	private java.util.List<ITextEditor> getOpenTextEditors() {
