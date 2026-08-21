@@ -92,6 +92,11 @@ public class ConfigManager {
 
 		var profiles = getCapabilities().getAgentProfiles();
 		setProfile(profiles.length > 0 ? profiles[0] : null);
+
+		CacheMode[] cacheModes = getCapabilities().getCacheMode();
+		if (!Arrays.asList(cacheModes).contains(cfg.cacheMode))
+			setCacheMode(cacheModes.length > 0 ? cacheModes[0] : CacheMode.Default);
+
 		modelObs.forEach(c -> c.accept(model));
 	}
 

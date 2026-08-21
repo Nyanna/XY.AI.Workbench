@@ -241,7 +241,7 @@ public class AISessionView extends ViewPart {
 				cfg.addModelObs(m -> {
 					cacheSel.setItems(Arrays.stream(m.cap.getCacheMode()).map((c) -> c.name())
 							.collect(Collectors.toList()).toArray(new String[0]));
-					cacheSel.setText(m.cap.getCacheMode().length > 0 ? m.cap.getCacheMode()[0].name() : "");
+					cacheSel.setText(cfg.getCacheMode() != null ? cfg.getCacheMode().name() : "");
 					toogleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
 				}, true);
 				cfg.addCacheObs(c -> {

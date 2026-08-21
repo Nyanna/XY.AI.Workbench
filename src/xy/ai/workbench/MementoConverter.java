@@ -21,6 +21,8 @@ public class MementoConverter {
 			m.putString("model", cfg.model.name());
 		if (cfg.reasoning != null)
 			m.putString("reasoning", cfg.reasoning.name());
+		if (cfg.cacheMode != null)
+			m.putString("cacheMode", cfg.cacheMode.name());
 		if (cfg.profile != null)
 			m.putString("profile", cfg.profile.name());
 		if (cfg.reasoningBudget != null)
@@ -68,6 +70,8 @@ public class MementoConverter {
 		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
 		String rsn = m.getString("reasoning");
 		cfg.reasoning = rsn == null ? cfg.reasoning : Reasoning.valueOf(rsn);
+		String cm = m.getString("cacheMode");
+		cfg.cacheMode = cm == null ? cfg.cacheMode : CacheMode.valueOf(cm);
 		String profile = m.getString("profile");
 		cfg.profile = profile == null ? cfg.profile : AgentProfile.valueOf(profile);
 		Integer rsnb = m.getInteger("reasoningBudget");
