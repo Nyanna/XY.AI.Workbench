@@ -305,8 +305,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			return false;
 
 		ITextSelection tsel = (ITextSelection) selection;
-		int lastLine = doc.getNumberOfLines() - 1;
-		return tsel.getStartLine() >= lastLine;
+		return tsel.getOffset() >= doc.getLength() - 1;
 	}
 
 	/**
@@ -357,8 +356,6 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 			@Override
 			public void documentChanged(DocumentEvent event) {
 				// Self-gating: only follow while the condition still holds.
-				// If the user navigated away, this simply becomes a no-op
-				// until (if ever) the selection is at the end again.
 				if (isAutoFollowModeEnabled() && shouldAutoFollow(editor, doc))
 					tryMoveCursorToLastLineStart(editor, doc);
 			}
@@ -369,13 +366,6 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		ensurePartCloseCleanupRegistered();
 	}
 
-	/**
-	 * Registers, once, a listener that removes an editor's auto-follow
-	 * {@link IDocumentListener} when the editor is closed. This is purely
-	 * about avoiding a resource/memory leak (stale editor references, dead
-	 * doc listeners) - it is unrelated to and independent of the
-	 * "user scrolled away" case, which the listener itself already handles.
-	 */
 	private void ensurePartCloseCleanupRegistered() {
 		if (partCloseCleanupRegistered)
 			return;
@@ -440,6 +430,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	private boolean tryMoveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
 		try {
 			int targetOffset = doc.getLength();
+			editor.selectAndReveal(0, 0);
 			editor.selectAndReveal(targetOffset, 0);
 
 			ISelection selection = editor.getSelectionProvider().getSelection();
