@@ -7,7 +7,7 @@ public class Tools {
 					+ "bash,python,markdown,markdown-format," // Dynamic code tools
 					+ "change,insert,replace-chars,replace-lines," // seldom used
 					+ "python-ast," // python ast
-					+ "web-search-exa,web-fetch-exa," // research cpabilities
+					+ "colgrep,web-search-exa,web-fetch-exa," // research cpabilities
 					+ "context7-libraries,context7-documentation," // specialised research
 					+ "openalex-search,openalex-semantic-search,openalex-work," 
 					+ "agt-python,agt-markdown,agt-web-research,agt-github-research," // subagents

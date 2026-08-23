@@ -18,6 +18,7 @@ Available tools
   classes/functions, node-scoped replace-block, script, validate); jointly
   enabled via the ``python-ast`` tool-set alias
 * ``ask-user``      – ask the user a clarifying question (back-channel)
+* ``colgrep``       – search a pre-built colgrep index (search-only; never initializes an index)
 
 Skills (on-demand hint tools) are registered from the ``skills`` sub-package.
 Bridges to external MCP servers (e.g. Exa) live in the ``mcp`` sub-package.
@@ -35,6 +36,7 @@ from ..registry import ToolRegistry
 from .ast import register_ast_tools
 from .bash import register_bash_tool
 from .change import register_change_tool
+from .colgrep import register_colgrep_tool
 from .insert import register_insert_tool
 from .list import register_list_tool
 from .markdown import register_markdown_tool
@@ -76,6 +78,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_markdown_tool(registry)
     register_ast_tools(registry)
     register_ask_user_tool(registry)
+    register_colgrep_tool(registry)
     register_skills(registry)
     register_exa_tools(registry)
     register_github_tools(registry)
