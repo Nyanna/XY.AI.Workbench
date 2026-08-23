@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from .._text_match import find as find_text
 
 
 def register_change_tool(registry: ToolRegistry) -> None:
@@ -16,7 +17,8 @@ def register_change_tool(registry: ToolRegistry) -> None:
             "Replace the text between 'start' and 'end' (both included) with "
             "'content'. Each marker must occur exactly once in the file; "
             "'end' must come after 'start'. Repeat a marker inside 'content' "
-            "to keep it."
+            "to keep it. By default whitespace in 'start'/'end' is matched "
+            "tolerantly; set 'exact' to require exact whitespace matching."
         ),
         input_schema={
             "type": "object",
@@ -36,6 +38,14 @@ def register_change_tool(registry: ToolRegistry) -> None:
                 "content": {
                     "type": "string",
                     "description": "Text that replaces the block, including where 'start'/'end' were.",
+                },
+                "exact": {
+                    "type": "boolean",
+                    "description": (
+                        "If true, 'start'/'end' must match whitespace exactly. "
+                        "If false (default), whitespace runs match any amount/kind of whitespace."
+                    ),
+                    "default": False,
                 },
             },
             "required": ["path", "start", "end", "content"],
@@ -58,6 +68,7 @@ def register_change_tool(registry: ToolRegistry) -> None:
         start_marker: str = args["start"]
         end_marker: str = args["end"]
         new_content: str = args["content"]
+        exact: bool = args.get("exact", False)
 
         # --- path validation ---
         path = Path(path_str)
@@ -80,43 +91,40 @@ def register_change_tool(registry: ToolRegistry) -> None:
         text = path.read_text(encoding="utf-8")
 
         # --- locate and validate start marker ---
-        start_count = text.count(start_marker)
-        if start_count == 0:
+        start_match = find_text(text, start_marker, exact=exact)
+        if start_match.count == 0:
             return ToolResult(
                 content=[text_content("Start marker not found in file.")],
                 is_error=True,
             )
-        if start_count > 1:
+        if start_match.count > 1:
             return ToolResult(
-                content=[text_content(f"Start marker is ambiguous – found {start_count} occurrences in file.")],
+                content=[text_content(f"Start marker is ambiguous – found {start_match.count} occurrences in file.")],
                 is_error=True,
             )
 
         # --- locate and validate end marker ---
-        end_count = text.count(end_marker)
-        if end_count == 0:
+        end_match = find_text(text, end_marker, exact=exact)
+        if end_match.count == 0:
             return ToolResult(
                 content=[text_content("End marker not found in file.")],
                 is_error=True,
             )
-        if end_count > 1:
+        if end_match.count > 1:
             return ToolResult(
-                content=[text_content(f"End marker is ambiguous – found {end_count} occurrences in file.")],
+                content=[text_content(f"End marker is ambiguous – found {end_match.count} occurrences in file.")],
                 is_error=True,
             )
 
-        start_pos = text.index(start_marker)
-        end_pos = text.index(end_marker)
-
         # --- order validation ---
-        if end_pos <= start_pos:
+        if end_match.start <= start_match.start:
             return ToolResult(
                 content=[text_content("End marker must appear after start marker.")],
                 is_error=True,
             )
 
         # --- apply replacement: both markers included (full range) ---
-        result_text = text[:start_pos] + new_content + text[end_pos + len(end_marker):]
+        result_text = text[: start_match.start] + new_content + text[end_match.end :]
 
         # --- write back ---
         try:
