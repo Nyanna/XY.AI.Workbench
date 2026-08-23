@@ -29,7 +29,7 @@ def _find_index_root(start: Path) -> Path | None:
     """
     current = start
     while True:
-        candidate = current / 'colgrep' / 'indices'
+        candidate = current / '.colgrep' / 'colgrep' / 'indices'
         if candidate.is_dir() and any(candidate.iterdir()):
             return current
         if current.parent == current:

@@ -23,8 +23,8 @@ fi
 
 project_dir=$(cd "$1" && pwd)
 
-export XDG_DATA_HOME="$project_dir"
-export XDG_CONFIG_HOME="$project_dir"
+export XDG_DATA_HOME="$project_dir/.colgrep"
+export XDG_CONFIG_HOME="$project_dir/.colgrep"
 
 # -y: auto-confirm indexing of large codebases (non-interactive setup).
 colgrep init "$project_dir" -y

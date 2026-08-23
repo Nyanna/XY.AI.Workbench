@@ -2,3 +2,4 @@
 /target/
 /tools/
 /.claude/logs/*.json
+.colgrep/
