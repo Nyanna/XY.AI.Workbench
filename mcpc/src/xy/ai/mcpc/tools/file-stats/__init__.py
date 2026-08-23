@@ -41,6 +41,56 @@ def _calculate_complexity(text: str) -> float:
     return round(complexity, 3)
 
 
+def compute_file_stats(path: Path) -> dict[str, Any]:
+    """Compute the file-metrics block for *path* (reused by the outline tool).
+
+    Assumes *path* is an existing regular file.
+    """
+    raw_bytes = path.read_bytes()
+    text = raw_bytes.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+
+    size_bytes = len(raw_bytes)
+    num_lines = len(lines)
+    num_words = len(text.split())
+    complexity = _calculate_complexity(text)
+    checksum = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    line_lengths = [len(line) for line in lines] if lines else [0]
+    line_length_max = max(line_lengths) if line_lengths else 0
+    line_length_min = min(line_lengths) if line_lengths else 0
+    line_length_avg = round(sum(line_lengths) / len(line_lengths), 2) if line_lengths else 0.0
+
+    words_per_line = [len(line.split()) for line in lines]
+    words_per_line_avg = (
+        round(sum(words_per_line) / len(words_per_line), 2) if words_per_line else 0.0
+    )
+
+    stat = path.stat()
+    created = datetime.fromtimestamp(
+        stat.st_birthtime if hasattr(stat, "st_birthtime") else stat.st_mtime,
+        tz=timezone.utc,
+    ).isoformat()
+    modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+    accessed = datetime.fromtimestamp(stat.st_atime, tz=timezone.utc).isoformat()
+
+    return {
+        "path": str(path.resolve()),
+        "size_bytes": size_bytes,
+        "lines": num_lines,
+        "words": num_words,
+        "complexity": complexity,
+        "created": created,
+        "modified": modified,
+        "accessed": accessed,
+        "line_length_max": line_length_max,
+        "line_length_min": line_length_min,
+        "line_length_avg": line_length_avg,
+        "words_per_line_avg": words_per_line_avg,
+        "checksum": checksum,
+    }
+
+
 def register_file_stats_tool(registry: ToolRegistry) -> None:
     @registry.tool(
         "file-stats",
@@ -141,72 +191,10 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
             )
         if not path.is_file():
             return ToolResult(
-                content=[text_content("Not a regular file.")],
-                is_error=True,
+                content=[text_content("Not a regular file.")],                is_error=True,
             )
 
-        # --- Read file ---
-        raw_bytes = path.read_bytes()
-        text = raw_bytes.decode("utf-8", errors="replace")
-        lines = text.splitlines()
-
-        # --- Calculate metrics ---
-        size_bytes = len(raw_bytes)
-        num_lines = len(lines)
-        
-        # Word count
-        words = text.split()
-        num_words = len(words)
-        
-        # Complexity
-        complexity = _calculate_complexity(text)
-
-        # Checksum
-        checksum = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        
-        # Line length stats
-        line_lengths = [len(line) for line in lines] if lines else [0]
-        line_length_max = max(line_lengths) if line_lengths else 0
-        line_length_min = min(line_lengths) if line_lengths else 0
-        line_length_avg = sum(line_lengths) / len(line_lengths) if line_lengths else 0.0
-        line_length_avg = round(line_length_avg, 2)
-        
-        # Words per line
-        words_per_line = []
-        for line in lines:
-            line_words = len(line.split())
-            words_per_line.append(line_words)
-        words_per_line_avg = (sum(words_per_line) / len(words_per_line)) if words_per_line else 0.0
-        words_per_line_avg = round(words_per_line_avg, 2)
-        
-        # Timestamps
-        stat = path.stat()
-        created = datetime.fromtimestamp(
-            stat.st_birthtime if hasattr(stat, 'st_birthtime') else stat.st_mtime,
-            tz=timezone.utc
-        ).isoformat()
-        modified = datetime.fromtimestamp(
-            stat.st_mtime, tz=timezone.utc
-        ).isoformat()
-        accessed = datetime.fromtimestamp(
-            stat.st_atime, tz=timezone.utc
-        ).isoformat()
-
-        structured: dict[str, Any] = {
-            "path": str(path.resolve()),
-            "size_bytes": size_bytes,
-            "lines": num_lines,
-            "words": num_words,
-            "complexity": complexity,
-            "created": created,
-            "modified": modified,
-            "accessed": accessed,
-            "line_length_max": line_length_max,
-            "line_length_min": line_length_min,
-            "line_length_avg": line_length_avg,
-            "words_per_line_avg": words_per_line_avg,
-            "checksum": checksum,
-        }
+        structured = compute_file_stats(path)
 
         return ToolResult(
             content=[],

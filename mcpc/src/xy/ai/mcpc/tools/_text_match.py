@@ -14,13 +14,13 @@ class MatchResult:
 
 
 def _fuzzy_pattern(needle: str) -> re.Pattern[str]:
-    parts = re.split(r"(\s+)", needle)
-    pattern = "".join(
-        r"\s+" if part.isspace() else re.escape(part)
-        for part in parts
-        if part != ""
-    )
-    return re.compile(pattern)
+    parts = [p for p in re.split(r"(\s+)", needle) if p != ""]
+    last = len(parts) - 1
+    segments: list[str] = []
+    for i, part in enumerate(parts):
+        interior = part.isspace() and 0 < i < last
+        segments.append(r"\s+" if interior else re.escape(part))
+    return re.compile("".join(segments))
 
 
 def find(haystack: str, needle: str, *, exact: bool) -> MatchResult:

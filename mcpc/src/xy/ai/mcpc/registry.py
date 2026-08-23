@@ -8,7 +8,7 @@ per-session configuration (:attr:`Session.enabled_tools`).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from .codec import JsonCodec
 from .session import Session
@@ -207,6 +207,32 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
+        #: Generic tool-set aliases: an alias name expands to a set of tool
+        #: names. A session may enable an alias instead of listing every member.
+        self._aliases: dict[str, set[str]] = {}
+
+    def register_alias(self, alias: str, members: "Iterable[str]") -> None:
+        """Define (or extend) a tool-set alias expanding to *members*.
+
+        Generic mechanism: any group of tools can be activated together by
+        enabling a single alias name in a session's tool configuration.
+        """
+        self._aliases.setdefault(alias, set()).update(members)
+
+    def expand_aliases(self, names: "Iterable[str]") -> set[str]:
+        """Expand any alias names in *names* to their member tool names."""
+        expanded: set[str] = set()
+        for name in names:
+            members = self._aliases.get(name)
+            if members is None:
+                expanded.add(name)
+            else:
+                expanded.update(members)
+        return expanded
+
+    def is_enabled(self, session: Session, name: str) -> bool:
+        """Whether *name* is enabled for *session*, honouring tool-set aliases."""
+        return name in self.expand_aliases(session.enabled_tools)
 
     def register(self, tool: Tool) -> Tool:
         if tool.name in self._tools:
@@ -269,6 +295,7 @@ class ToolRegistry:
         Returns the tools the session is allowed to see, sorted by name for a
         stable pagination order.
         """
-        tools = [t for t in self._tools.values() if session.is_tool_enabled(t.name)]
+        enabled = self.expand_aliases(session.enabled_tools)
+        tools = [t for t in self._tools.values() if t.name in enabled]
         tools.sort(key=lambda t: t.name)
         return tools

@@ -14,6 +14,9 @@ Available tools
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
 * ``markdown``      – AST-based Markdown editing via a remark (Node.js) script
+* ``python-ast-*``  – ``ast``-based Python editing (outline, node CRUD, imports/
+  classes/functions, node-scoped replace-block, script, validate); jointly
+  enabled via the ``python-ast`` tool-set alias
 * ``ask-user``      – ask the user a clarifying question (back-channel)
 
 Skills (on-demand hint tools) are registered from the ``skills`` sub-package.
@@ -29,6 +32,7 @@ from __future__ import annotations
 import importlib
 
 from ..registry import ToolRegistry
+from .ast import register_ast_tools
 from .bash import register_bash_tool
 from .change import register_change_tool
 from .insert import register_insert_tool
@@ -70,6 +74,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_bash_tool(registry)
     register_python_tool(registry)
     register_markdown_tool(registry)
+    register_ast_tools(registry)
     register_ask_user_tool(registry)
     register_skills(registry)
     register_exa_tools(registry)

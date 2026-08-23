@@ -167,7 +167,7 @@ class McpProtocol:
 
         tool = self.registry.get(name)
         # "Errors in finding the tool" are protocol errors (spec, tools/call).
-        if tool is None or not session.is_tool_enabled(name):
+        if tool is None or not self.registry.is_enabled(session, name):
             raise errors.invalid_params(
                 f"Unknown or unavailable tool: {name}", {"name": name}
             )

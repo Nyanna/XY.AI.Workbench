@@ -1,7 +1,5 @@
 # TODO
-- Rag weiter,
-- code inspect python
-
+- Rag weiter
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout
 
 ##  Workbench  
@@ -24,14 +22,12 @@
 
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
-	* Project AST: project > dir > file > imports/class > global > node s, code ist immer ein baum 
-	* AST/LanguageServer python/typescript(remark) geben/LSP/syntax parser/lint/prettier/block diff
-	* MCPC proxy zu eclipse proxy für java project?
+	* Project AST: project > dir > file > imports/class > global > node s, code ist immer ein baum (für planing phase)
+	* AST/LanguageServer typescript(remark) geben/LSP/syntax parser/lint/prettier/block diff
 	* python benutzen für codearbeit/syntaktisches edit? Oder besser script ast?
 	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
 	* sed sogar zur editierung von python in batch edit
 	* bash ist kürzer und effizienter daher kein python
-	* python hat "ast" für sich selbst eingebaut import ast; ast.parse(open('src/xy/ai/mcpc/tools/mcp/client.py').read())
 * RAG tool zur indizierung von projekten
 	* suchergebniss semantisch komprimieren in mcpc
 	* eignet sich RAG zur kondensierung?
@@ -41,7 +37,7 @@
 	* Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
 	* research der kompletten baumstruktur mit allen aspekten eines projektes
 	* Callback tools zum Problem, Projektverzeichnis, Projektinfo, Kontexte
-	* RAG muss in MD auf absätzen basieren.
+	* RAG muss in MD auf absätzen basieren (AST).
 * Planing augmentation
 	* AI Planstrukturierung self has the ability to decide abouts it's capacilities.
 	* It can match effort, modell structure and coordination of a federated mind
