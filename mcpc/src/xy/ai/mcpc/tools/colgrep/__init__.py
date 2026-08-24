@@ -19,7 +19,7 @@ _CONTEXT_LINES = '2'
 _DEFAULT_RESULTS = 15
 _MAX_RESULTS = 50
 _MAX_CODE_LEN = 100
-_DROPPED_KEYS = frozenset({'language', 'signature', 'qualified_name', 'unit_type', 'complexity', 'has_loops', 'has_branches', 'variables', 'name', 'return_type', 'calls', 'imports', 'parameters'})
+_DROPPED_KEYS = frozenset({'language', 'signature', 'qualified_name', 'unit_type', 'complexity', 'has_loops', 'has_branches', 'has_error_handling', 'extends', 'parent_class', 'variables', 'name', 'return_type', 'calls', 'imports', 'parameters'})
 
 def _find_index_root(start: Path) -> Path | None:
     """Climb from *start* up to the filesystem root looking for a colgrep index.
