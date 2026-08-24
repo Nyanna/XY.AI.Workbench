@@ -77,4 +77,5 @@ done < <(find "$project_dir" -mindepth 2 \
 
 # -y: auto-confirm indexing of large codebases (non-interactive setup).
 colgrep settings "${ignore_args[@]}"
+colgrep settings --parallel 12
 colgrep init "$project_dir" -y
