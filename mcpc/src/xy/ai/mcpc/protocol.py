@@ -237,7 +237,7 @@ class McpProtocol:
             combined_hint = "\n".join(hint_parts) if hint_parts else None
 
             if decision.modified_result is not None:
-                result_dict = decision.modified_result
+                result_dict = dict(decision.modified_result)
             else:
                 result.control_hint = combined_hint
                 result_dict = result.to_dict()
@@ -248,8 +248,13 @@ class McpProtocol:
                 from .registry import ToolResult
                 return ToolResult(structured_content={"answer": combined_hint}).to_dict()
             if combined_hint and decision.modified_result is not None:
+                # Must land *inside* structuredContent, not as a sibling key:
+                # MCP clients only forward content/structuredContent/isError
+                # to the model, dropping unknown top-level fields silently.
                 from .registry import CONTROL_HINT_PROPERTY
-                result_dict[CONTROL_HINT_PROPERTY] = combined_hint
+                structured = dict(result_dict.get("structuredContent") or {})
+                structured[CONTROL_HINT_PROPERTY] = combined_hint
+                result_dict["structuredContent"] = structured
 
             return result_dict
         # --------------------------------------------------------------------

@@ -1,5 +1,10 @@
 # TODO
+- wie erstellt man am besten einen soft promt => forschungsergebnisse?
+- wie wird RAG am besten von einem agenten oder menschen verwendet, gibt es einen nicht KI kontext, was ist mit google?
+	- RAG ist von KI unabhängiger suchmechanismus, benutzt nur NN vektoren
+	- semantische kompression für nur wissen ohne ändern, kein code
 - Rag weiter
+	- eclipse suchprovider für caolgrep
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout
 
 ##  Workbench  

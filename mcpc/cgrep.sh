@@ -74,7 +74,9 @@ init() {
 
     # -y: auto-confirm indexing of large codebases (non-interactive setup).
     colgrep settings "${ignore_args[@]}"
-    colgrep settings --parallel 12
+    # maybe use lightonai/mLateOn for language
+    colgrep set-model lightonai/mLateOn
+    colgrep settings --parallel 1
     colgrep init "$project_dir" -y
 }
 

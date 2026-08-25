@@ -46,21 +46,24 @@ class ToolResult:
     control_hint: str | None = None
     """Optional hint attached by the controller on approval (``/allow <id> <hint>``).
 
-    Rendered as an independent top-level field (see :data:`CONTROL_HINT_PROPERTY`)
-    that never touches ``content``/``structuredContent``/``isError`` — the actual
-    tool result is left untouched, the hint merely rides along for the agent.
+    Embedded as :data:`CONTROL_HINT_PROPERTY` *inside* ``structuredContent``
+    (see :meth:`to_dict`) rather than as a top-level ``CallToolResult`` field:
+    MCP clients only surface ``content``/``structuredContent``/``isError`` to
+    the model, so a sibling top-level key would silently be dropped before
+    ever reaching the agent.
     """
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         if self.content:
             result["content"] = list(self.content)
-        if self.structured_content:
-            result["structuredContent"] = self.structured_content
+        structured = dict(self.structured_content) if self.structured_content else {}
+        if self.control_hint:
+            structured[CONTROL_HINT_PROPERTY] = self.control_hint
+        if structured:
+            result["structuredContent"] = structured
         if self.is_error:
             result["isError"] = True
-        if self.control_hint:
-            result[CONTROL_HINT_PROPERTY] = self.control_hint
         return result
 
 
@@ -133,11 +136,10 @@ def normalize_result(value: "ToolResult | str | dict[str, Any] | None") -> ToolR
 #: schema (see :func:`_inject_property`).
 REASON_PROPERTY = "reason"
 
-#: Name of the independent hint property injected into every tool's output
-#: schema (see :func:`_inject_property`). Populated at call time from an
-#: ``/allow <id> <hint>`` control decision (see ``ControlDecision.approval_hint``
-#: in ``control/manager.py``); never required and never part of the actual
-#: ``content``/``structuredContent`` payload, so it cannot interfere with it.
+#: Name of the optional hint property injected into every tool's output
+#: schema and, at call time, into the result's ``structuredContent`` (see
+#: :meth:`ToolResult.to_dict`) — must live there, not top-level, since MCP
+#: clients drop unknown top-level ``CallToolResult`` fields silently.
 CONTROL_HINT_PROPERTY = "controlHint"
 
 
@@ -188,9 +190,8 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
 def _with_optional_control_hint(schema: dict[str, Any]) -> dict[str, Any]:
     """Return *schema* with the optional ``controlHint`` output property injected.
 
-    Documents the independent, optional field that may accompany a tool
-    result when the authorizing user attached a hint to an ``/allow``
-    decision. Does not affect ``content``/``structuredContent``.
+    Documents the field that may appear inside ``structuredContent`` when the
+    authorizing user attached a hint to an ``/allow`` decision.
     """
     return _inject_property(
         schema,
@@ -238,8 +239,11 @@ class ToolRegistry:
         if tool.name in self._tools:
             raise ValueError(f"Tool already registered: {tool.name}")
         tool.input_schema = _with_mandatory_reason(tool.input_schema)
-        if tool.output_schema is not None:
-            tool.output_schema = _with_optional_control_hint(tool.output_schema)
+        # Applied unconditionally: ToolResult.to_dict() may attach controlHint
+        # to *any* result regardless of whether the tool declared an
+        # outputSchema, so the schema must always document it too.
+        base_output_schema = tool.output_schema or {"type": "object", "properties": {}}
+        tool.output_schema = _with_optional_control_hint(base_output_schema)
         
         meta: dict[str, Any] = {
             "anthropic/maxResultSizeChars": ANTHROPIC_MAX_RESULT_SIZE_CHARS
