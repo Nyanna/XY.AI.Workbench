@@ -10,6 +10,7 @@ import java.util.List;
 
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
+import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 
@@ -56,6 +57,12 @@ public class SessionParameters {
 		this.cliProfile = cliProfile;
 		this.filePath = filePath;
 		this.cacheMode = cacheMode;
+	}
+
+	public static SessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
+			List<String> tools) {
+		return new SessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(), cfg.getProfile(),
+				cfg.getKeys(), cfg.getCacheMode(), filePath);
 	}
 
 	public String getFilePath() {

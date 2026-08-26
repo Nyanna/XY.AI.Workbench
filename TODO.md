@@ -2,8 +2,21 @@
 
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 * vielleicht toolsearch implementieren und tool update machen? Oder tool nach anfrage aktivieren können. ask-tool und user aktiviert tool
+	* aktivierbar mit flag, `{"capabilities": {"tools": {"listChanged": true}}}`, `Server: {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"}
+		* keine Toolaktiiverung, tools umstellen auf virtuellen Dateisystem mit code schema auf python basis
+		* sampling inferenz syntax nur mit "strict": true
+		* tool registry auf PYI basis umbauen
+		* problem kleiner inkrments
+		* PY umgebung stellt console.out breit und das modell kriegt die rückgabe daraus, kann das laden gezielt steuern
+			* User kriegt ausgabe und kann sie kürzen oder deny machen
+			* sicherheitsgates für große ausgaben erzeugen warnungen in out, muss dann überschrieben werden (console.out(kontextPollutionProtection: false))
+			* begrenzte umgebung nur erlaube imports
+			* python kontext ist zu weit -> das wird echo /cat loops erzeugen, modell muss beschränkt werden
+			* tool registrierung muss abstrakte datei angeben die sie implementiert, schema kommt in abstrakte datei, nich mehr per decoration registrieren
+			* gesicherte umgebung extra dateisystem mit symlinks /tool/python/tools, quasi ein beschränktes system mit chrott simulieren, ressourcen werden nur freigegeben und eingehängt
+			* oder MCP tool geben nur infos zu den abstrakten python files un rufen zur verwendung von skript auf, also nur info tool- enweter tool-list -> tool-usage
 * (java ast bauen)
-* hash vergleich in session autoselect für wechsel von modellen in einer datei
+* hash vergleich in session autoselect für wechsel von modellen in einer datei (prompt compact)
 * rag auf basis von knoten retriever sind list, find, rag,
 	* verschiedene feld filter, vielleicht autoselect auf basis von filtern, dann ein field resolver, durch retriever jagen und
 	* verschiedene felder resolven, wie fqnd id, methoden imports usw.

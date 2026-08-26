@@ -4,12 +4,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 
 import org.eclipse.core.resources.IFile;
@@ -43,6 +40,7 @@ import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
+import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.claudecode.CCSession;
@@ -107,13 +105,12 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private ActionManager act = new ActionManager();
 	private ActionDescription syncAction;
 	private CCSessionManager sessionManager;
+	private ConfigManager cfg;
 
 	private final java.util.function.Consumer<List<CCSession>> changeListener = sessions -> refreshAsync();
 
 	private Runnable ttlRefreshRunnable;
 	private boolean disposed = false;
-
-	private Set<String> knownSessionIds = new HashSet<>();
 
 	private Path currentProjectPath;
 	private String currentRelativeFilePath;
@@ -138,6 +135,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	@Override
 	public void createPartControl(Composite parent) {
 		sessionManager = Activator.getDefault().cliSessionManager;
+		cfg = Activator.getDefault().cfg;
 
 		parent.setLayout(new FillLayout());
 
@@ -203,7 +201,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 			public void run() {
 				if (disposed)
 					return;
-				refreshTable(false);
+				refreshTable();
 				Display.getCurrent().timerExec(TTL_REFRESH_INTERVAL_MS, this);
 			}
 		};
@@ -264,14 +262,27 @@ public class ClaudeCodeSessionView extends ViewPart {
 			syncSelectionToCurrentFile();
 	}
 
-	private CCSession findAssociatedSession(List<CCSession> sessions) {
-		if (currentProjectPath == null)
+	private SessionParameters currentParameters() {
+		if (currentProjectPath == null || cfg == null)
 			return null;
+		try {
+			return SessionParameters.fromConfig(cfg, currentProjectPath, currentRelativeFilePath, "",
+					Arrays.asList(cfg.getTools()));
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	private CCSession findAssociatedSession(List<CCSession> sessions) {
+		SessionParameters current = currentParameters();
+		if (current == null)
+			return null;
+		String hash = current.getHash();
 		for (CCSession s : sessions) {
 			if (!s.isValid())
 				continue;
 			SessionParameters p = s.getParameters();
-			if (p != null && currentProjectPath.equals(p.cwd) && Objects.equals(currentRelativeFilePath, p.filePath))
+			if (p != null && hash.equals(p.getHash()))
 				return s;
 		}
 		return null;
@@ -349,21 +360,16 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private void refreshAsync() {
 		Display display = PlatformUI.getWorkbench().getDisplay();
 		if (display != null && !display.isDisposed())
-			display.asyncExec(() -> refreshTable(true));
+			display.asyncExec(this::refreshTable);
 	}
 
-	/** Must be called on the UI thread. */
-	private void refreshTable(boolean allowSyncOnNewSession) {
+	private void refreshTable() {
 		if (viewer.getControl().isDisposed())
 			return;
 
 		List<CCSession> sessions = new ArrayList<>(sessionManager.getSessions());
 		sessions.sort(
 				Comparator.comparing(CCSession::getLastReceivedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-
-		Set<String> newIds = sessions.stream().map(CCSession::getID).collect(Collectors.toSet());
-		List<CCSession> added = sessions.stream().filter(s -> !knownSessionIds.contains(s.getID()))
-				.collect(Collectors.toList());
 
 		List<CCSession> withDummy = new ArrayList<>();
 		withDummy.add(CNEW_LAUDE_CODE_SESSION);
@@ -372,20 +378,14 @@ public class ClaudeCodeSessionView extends ViewPart {
 		viewer.setInput(withDummy);
 		viewer.refresh();
 
-		knownSessionIds = newIds;
-
 		if (syncAction.isChecked()) {
 			IStructuredSelection currentSel = viewer.getStructuredSelection();
 			Object selected = currentSel.getFirstElement();
-			if (selected instanceof CCSession && selected != CNEW_LAUDE_CODE_SESSION
-					&& !((CCSession) selected).isValid()) {
-				// the synced session has expired in the meantime: fall back to "Create new session"
-				selectSession(null);
-			} else if (allowSyncOnNewSession && !added.isEmpty()) {
-				CCSession match = findAssociatedSession(sessions);
-				if (match != null && added.contains(match))
-					selectSession(match);
-			}
+			CCSession match = findAssociatedSession(sessions);
+			Object desired = match != null ? match : CNEW_LAUDE_CODE_SESSION;
+
+			if (selected != desired)
+				selectSession(match);
 		}
 	}
 
