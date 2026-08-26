@@ -2,8 +2,8 @@
 
 Verify for new tools.
 
-* Input-schema is present and complete
-* Output-schema is present and complete
+* Input-schema is present and complete and conform to MCP specification
+* Output-schema is present and complete and conform to MCP specification
 * Schema was checked for consistency because this will break clients
 * Result uses structuredContent, only error output uses content
 * AI Instructions and descriptions should be short, clear, and distinct
