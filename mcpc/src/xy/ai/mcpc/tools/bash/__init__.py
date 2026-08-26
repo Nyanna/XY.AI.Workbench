@@ -6,9 +6,29 @@ from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
-from ..process import run_capture
+from ..process import LaunchError, ProcessResult, pack_process_result, run_process
+
+__all__ = ["BashError", "bash", "BashTool", "register_bash_tool"]
 
 _MAX_STREAM_CHARS = 3000
+
+
+class BashError(Exception):
+    """Raised when a Bash script cannot be executed."""
+
+
+def bash(cwd: str, script: str) -> ProcessResult:
+    """Run ``script`` with ``bash -c`` inside the absolute directory ``cwd``."""
+    cwd_path = Path(cwd)
+    if not cwd_path.is_absolute():
+        raise BashError("cwd must be an absolute path.")
+    if not cwd_path.is_dir():
+        raise BashError("Working directory not found or not a directory.")
+
+    try:
+        return run_process(["bash", "-c", script], cwd=cwd_path)
+    except LaunchError as exc:
+        raise BashError(f"Failed to launch bash: {exc}") from exc
 
 
 class BashTool(ToolDefinition):
@@ -61,26 +81,15 @@ class BashTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`bash` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
-        cwd_str: str = args["cwd"]
-        script: str = args["script"]
+        try:
+            result = bash(cwd=args["cwd"], script=args["script"])
+        except BashError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        cwd = Path(cwd_str)
-        if not cwd.is_absolute():
-            return ToolResult(
-                content=[text_content(f"cwd must be an absolute path.")],
-                is_error=True,
-            )
-        if not cwd.is_dir():
-            return ToolResult(
-                content=[text_content(f"Working directory not found or not a directory.")],
-                is_error=True,
-            )
-
-        return run_capture(
-            ["bash", "-c", script],
-            cwd=cwd,
-            launch_error="Failed to launch bash",
+        return pack_process_result(
+            result,
             normalize_output=True,
             omit_zero_exit_code=True,
             max_stream_chars=_MAX_STREAM_CHARS,

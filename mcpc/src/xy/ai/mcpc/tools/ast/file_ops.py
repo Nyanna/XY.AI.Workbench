@@ -2,14 +2,47 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from . import core
 
+__all__ = [
+    "AstFileResult",
+    "create_python_file",
+    "delete_python_file",
+    "CreateFileTool",
+    "DeleteFileTool",
+    "register",
+]
 
-def _err(exc: core.AstError) -> ToolResult:
-    return ToolResult(content=[text_content(str(exc))], is_error=True)
+
+@dataclass(frozen=True)
+class AstFileResult:
+    result: str
+
+
+def create_python_file(path: str, code: str, overwrite: bool = False) -> AstFileResult:
+    """Create a new Python file at ``path`` from ``code`` (validated by parsing it)."""
+    file_path = core.require_path(path, must_exist=False)
+    if file_path.exists() and not overwrite:
+        raise core.AstError("File already exists.")
+    tree = core.parse_source(code)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    core.CACHE.save(file_path, tree)
+    return AstFileResult(result="success")
+
+
+def delete_python_file(path: str) -> AstFileResult:
+    """Delete the Python file at ``path`` and drop it from the AST cache."""
+    file_path = core.require_path(path)
+    try:
+        file_path.unlink()
+    except OSError as exc:
+        raise core.AstError("Delete failed.") from exc
+    core.CACHE.invalidate(file_path)
+    return AstFileResult(result="success")
 
 
 class CreateFileTool(ToolDefinition):
@@ -37,17 +70,15 @@ class CreateFileTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`create_python_file`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            path = core.require_path(args["path"], must_exist=False)
-            if path.exists() and not args.get("overwrite", False):
-                raise core.AstError("File already exists.")
-            tree = core.parse_source(args["code"])
-            path.parent.mkdir(parents=True, exist_ok=True)
-            core.CACHE.save(path, tree)
+            result = create_python_file(
+                path=args["path"], code=args["code"], overwrite=args.get("overwrite", False)
+            )
         except core.AstError as exc:
-            return _err(exc)
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
 class DeleteFileTool(ToolDefinition):
@@ -69,15 +100,12 @@ class DeleteFileTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`delete_python_file`, translating the MCP schema to/from the Python API."""
         try:
-            path = core.require_path(ctx.arguments["path"])
-            path.unlink()
-            core.CACHE.invalidate(path)
+            result = delete_python_file(ctx.arguments["path"])
         except core.AstError as exc:
-            return _err(exc)
-        except OSError:
-            return ToolResult(content=[text_content("Delete failed.")], is_error=True)
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
 def register(registry: ToolRegistry) -> None:

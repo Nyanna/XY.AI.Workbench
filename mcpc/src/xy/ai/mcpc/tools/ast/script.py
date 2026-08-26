@@ -9,10 +9,13 @@ and the standard-library ``ast`` module. Any change to ``tree`` is persisted.
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from . import core
+
+__all__ = ["ScriptError", "AstScriptResult", "run_ast_script", "ScriptTool", "register"]
 
 _SAFE_BUILTINS = {
     name: getattr(__builtins__, name, None) if not isinstance(__builtins__, dict)
@@ -24,6 +27,35 @@ _SAFE_BUILTINS = {
         "any", "all", "min", "max", "sum", "type", "repr",
     )
 }
+
+
+class ScriptError(Exception):
+    """Raised when an AST script cannot be run to completion."""
+
+
+@dataclass(frozen=True)
+class AstScriptResult:
+    result: str
+    value: str | None = None
+
+
+def run_ast_script(path: str, code: str) -> AstScriptResult:
+    """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``."""
+    file_path = core.require_path(path)
+    tree = core.CACHE.get_tree(file_path)
+    env: dict[str, Any] = {"tree": tree, "ast": ast}
+    sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
+    try:
+        exec(compile(code, "<ast-script>", "exec"), sandbox_globals, env)  # noqa: S102
+    except SyntaxError as exc:
+        raise ScriptError(f"Script syntax error: {exc.msg}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise ScriptError(f"Script failed: {type(exc).__name__}: {exc}") from exc
+    core.CACHE.save(file_path, tree)
+
+    if "result" in env:
+        return AstScriptResult(result="success", value=repr(env["result"]))
+    return AstScriptResult(result="success")
 
 
 class ScriptTool(ToolDefinition):
@@ -53,24 +85,16 @@ class ScriptTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`run_ast_script`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            path = core.require_path(args["path"])
-            tree = core.CACHE.get_tree(path)
-            env: dict[str, Any] = {"tree": tree, "ast": ast}
-            sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
-            exec(compile(args["code"], "<ast-script>", "exec"), sandbox_globals, env)  # noqa: S102
-            core.CACHE.save(path, tree)
-        except core.AstError as exc:
+            result = run_ast_script(args["path"], args["code"])
+        except (core.AstError, ScriptError) as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        except SyntaxError as exc:
-            return ToolResult(content=[text_content(f"Script syntax error: {exc.msg}")], is_error=True)
-        except Exception as exc:  # noqa: BLE001
-            return ToolResult(content=[text_content(f"Script failed: {type(exc).__name__}: {exc}")], is_error=True)
 
-        structured: dict[str, Any] = {"result": "success"}
-        if "result" in env:
-            structured["value"] = repr(env["result"])
+        structured: dict[str, Any] = {"result": result.result}
+        if result.value is not None:
+            structured["value"] = result.value
         return ToolResult(structured_content=structured)
 
 

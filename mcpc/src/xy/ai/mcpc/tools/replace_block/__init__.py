@@ -2,11 +2,59 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from .._text_match import find as find_text
+
+__all__ = [
+    "ReplaceBlockError",
+    "ReplaceBlockResult",
+    "replace_block",
+    "ReplaceBlockTool",
+    "register_replace_block_tool",
+]
+
+
+class ReplaceBlockError(Exception):
+    """Raised when a replace-block operation cannot be performed."""
+
+
+@dataclass(frozen=True)
+class ReplaceBlockResult:
+    result: str
+
+
+def replace_block(path: str, old_text: str, new_text: str, exact: bool = False) -> ReplaceBlockResult:
+    """Replace the unique occurrence of ``old_text`` in the file at ``path`` with ``new_text``."""
+    file_path = Path(path)
+    if not file_path.is_absolute():
+        raise ReplaceBlockError("Path must be absolute.")
+    if not file_path.exists():
+        raise ReplaceBlockError("File not found.")
+    if not file_path.is_file():
+        raise ReplaceBlockError("Not a regular file.")
+    if old_text == "":
+        raise ReplaceBlockError("'old_text' must not be empty.")
+
+    text = file_path.read_text(encoding="utf-8")
+
+    match = find_text(text, old_text, exact=exact)
+    if match.count == 0:
+        raise ReplaceBlockError("Text not found in file.")
+    if match.count > 1:
+        raise ReplaceBlockError(f"Text is ambiguous – found {match.count} occurrences in file.")
+
+    result_text = text[: match.start] + new_text + text[match.end :]
+
+    try:
+        file_path.write_text(result_text, encoding="utf-8")
+    except OSError as exc:
+        raise ReplaceBlockError(f"Write failed: {exc}") from exc
+
+    return ReplaceBlockResult(result="success")
 
 
 class ReplaceBlockTool(ToolDefinition):
@@ -56,59 +104,19 @@ class ReplaceBlockTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`replace_block`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        path_str: str = args["path"]
-        old_text: str = args["old_text"]
-        new_text: str = args["new_text"]
-        exact: bool = args.get("exact", False)
-
-        path = Path(path_str)
-        if not path.is_absolute():
-            return ToolResult(
-                content=[text_content("Path must be absolute.")],
-                is_error=True,
-            )
-        if not path.exists():
-            return ToolResult(
-                content=[text_content("File not found.")],
-                is_error=True,
-            )
-        if not path.is_file():
-            return ToolResult(
-                content=[text_content("Not a regular file.")],
-                is_error=True,
-            )
-        if old_text == "":
-            return ToolResult(
-                content=[text_content("'old_text' must not be empty.")],
-                is_error=True,
-            )
-
-        text = path.read_text(encoding="utf-8")
-
-        match = find_text(text, old_text, exact=exact)
-        if match.count == 0:
-            return ToolResult(
-                content=[text_content("Text not found in file.")],
-                is_error=True,
-            )
-        if match.count > 1:
-            return ToolResult(
-                content=[text_content(f"Text is ambiguous – found {match.count} occurrences in file.")],
-                is_error=True,
-            )
-
-        result_text = text[: match.start] + new_text + text[match.end :]
-
         try:
-            path.write_text(result_text, encoding="utf-8")
-        except OSError as exc:
-            return ToolResult(
-                content=[text_content(f"Write failed: {exc}")],
-                is_error=True,
+            result = replace_block(
+                path=args["path"],
+                old_text=args["old_text"],
+                new_text=args["new_text"],
+                exact=args.get("exact", False),
             )
+        except ReplaceBlockError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+        return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
 def register_replace_block_tool(registry: ToolRegistry) -> None:

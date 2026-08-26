@@ -14,7 +14,9 @@ from typing import Any
 
 from ...config import ServerConfig
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
-from ..process import run_capture
+from ..process import LaunchError, ProcessResult, pack_process_result, run_process
+
+__all__ = ["MarkdownError", "run_markdown", "MarkdownTool", "register_markdown_tool"]
 
 _EXAMPLE = """\
 import { read, write } from 'to-vfile';
@@ -62,6 +64,22 @@ _DESCRIPTION = (
 )
 
 
+class MarkdownError(Exception):
+    """Raised when a Markdown (remark) script cannot be executed."""
+
+
+def run_markdown(script: str, *, env_dir: str) -> ProcessResult:
+    """Run ``script`` against the remark environment rooted at ``env_dir``."""
+    cwd = Path(env_dir)
+    if not cwd.is_dir():
+        raise MarkdownError(f"Markdown environment not found: {cwd}")
+
+    try:
+        return run_process(["node", "--input-type=module"], cwd=cwd, stdin=script)
+    except LaunchError as exc:
+        raise MarkdownError(f"Failed to launch node: {exc}") from exc
+
+
 class MarkdownTool(ToolDefinition):
     name = "markdown"
     title = "Run Markdown (remark) script"
@@ -91,23 +109,15 @@ class MarkdownTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`run_markdown` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
-        script: str = args["script"]
-
         config = ctx.services.config if ctx.services is not None else ServerConfig()
-        cwd = Path(config.markdown_env_dir)
-        if not cwd.is_dir():
-            return ToolResult(
-                content=[text_content(f"Markdown environment not found: {cwd}")],
-                is_error=True,
-            )
+        try:
+            result = run_markdown(args["script"], env_dir=config.markdown_env_dir)
+        except MarkdownError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return run_capture(
-            ["node", "--input-type=module"],
-            cwd=cwd,
-            stdin=script,
-            launch_error="Failed to launch node",
-        )
+        return pack_process_result(result)
 
 
 def register_markdown_tool(registry: ToolRegistry) -> None:

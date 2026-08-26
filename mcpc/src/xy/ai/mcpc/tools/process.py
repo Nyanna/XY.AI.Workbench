@@ -1,9 +1,9 @@
 """Shared subprocess execution for the stream-capturing tools.
 
 ``bash``, ``python`` and ``markdown`` all do the same thing: run a child
-process, capture its STDOUT/STDERR and report ``exit_code`` + the two streams.
-Centralising it here guarantees they decode child output identically to every
-other stream in MCPC — **UTF-8 with ``errors="replace"``**.
+process and report ``exit_code`` + its two streams. Centralising it here
+guarantees they decode child output identically to every other stream in
+MCPC — **UTF-8 with ``errors="replace"``**.
 
 Why this matters
 ----------------
@@ -16,9 +16,15 @@ error instead of returning what the process produced.  Forcing
 ``encoding="utf-8", errors="replace"`` makes stream capture total: undecodable
 bytes become U+FFFD and the exit code / output are always returned.
 
-The captured text is placed verbatim into the structured result; JSON escaping
-happens exactly once, later, when the :class:`ToolResult` is serialised through
-:class:`~xy.ai.mcpc.codec.JsonCodec`.
+The module is split in two layers:
+
+* :func:`run_process` — schema-free execution, returns a plain
+  :class:`ProcessResult` or raises :class:`LaunchError`. This is the part a
+  tool module exposes for programmatic (non-MCP) use.
+* :func:`pack_process_result` — MCP-specific packing of a
+  :class:`ProcessResult` into a :class:`~xy.ai.mcpc.registry.ToolResult`
+  (stream normalisation, spill-to-file safety limit, ``exit_code`` omission).
+  This belongs to a tool's ``handle`` method, not its delegate function.
 """
 
 from __future__ import annotations
@@ -27,12 +33,49 @@ import os
 import re
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from typing import Any
 
 from ..registry import ToolResult, text_content
 
 _BLANK_RUN_RE = re.compile(r"[ \t]+$", re.MULTILINE)
 _MULTI_BLANK_RE = re.compile(r"\n{3,}")
+
+
+class LaunchError(Exception):
+    """Raised when the child process could not be started."""
+
+
+@dataclass(frozen=True)
+class ProcessResult:
+    exit_code: int
+    stdout: str
+    stderr: str
+
+
+def run_process(
+    cmd: list[str],
+    *,
+    cwd: str | os.PathLike[str] | None = None,
+    stdin: str | None = None,
+) -> ProcessResult:
+    """Run *cmd* to completion and return its captured result.
+
+    Raises :class:`LaunchError` if the executable cannot be started.
+    """
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=stdin,
+            cwd=os.fspath(cwd) if cwd is not None else None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as exc:
+        raise LaunchError(str(exc)) from exc
+
+    return ProcessResult(exit_code=proc.returncode, stdout=proc.stdout or "", stderr=proc.stderr or "")
 
 
 def _normalize_stream(text: str) -> str:
@@ -67,21 +110,15 @@ def _spill_to_file(text: str, label: str) -> str:
     return path
 
 
-def run_capture(
-    cmd: list[str],
+def pack_process_result(
+    result: ProcessResult,
     *,
-    cwd: str | os.PathLike[str] | None=None,
-    stdin: str | None=None,
-    launch_error: str="Failed to launch process",
-    normalize_output: bool=False,
-    omit_zero_exit_code: bool=False,
-    max_stream_chars: int | None=None,
+    normalize_output: bool = False,
+    omit_zero_exit_code: bool = False,
+    max_stream_chars: int | None = None,
 ) -> ToolResult:
-    """Run *cmd*, capture its streams, and return a normalised :class:`ToolResult`.
+    """Pack a :class:`ProcessResult` into the MCP output schema.
 
-    * ``cwd`` — working directory (already validated by the caller).
-    * ``stdin`` — text fed to the child's standard input, or ``None``.
-    * ``launch_error`` — message prefix used when the executable cannot start.
     * ``normalize_output`` — when ``True``, post-process STDOUT/STDERR to
       improve YAML block-scalar compatibility (see :func:`_normalize_stream`).
     * ``omit_zero_exit_code`` — when ``True``, ``exit_code`` is left out of the
@@ -95,37 +132,21 @@ def run_capture(
       through the result payload.  ``None`` (the default) disables the
       limit.
 
-    STDOUT/STDERR are decoded as UTF-8 with ``errors="replace"`` so decoding can
-    never raise.  ``stdout`` is always present; ``stderr`` is included whenever
-    it is non-empty.  The result carries no separate text content block —
+    ``stdout`` is always present; ``stderr`` is included whenever it is
+    non-empty. The result carries no separate text content block —
     ``structured_content`` alone conveys STDOUT/STDERR, avoiding duplication.
     ``is_error`` mirrors a non-zero exit code.
     """
-    try:
-        proc = subprocess.run(
-            cmd,
-            input=stdin,
-            cwd=os.fspath(cwd) if cwd is not None else None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except OSError as exc:
-        return ToolResult(
-            content=[text_content(f"{launch_error}: {exc}")],
-            is_error=True,
-        )
-
-    stdout = proc.stdout or ""
-    stderr = proc.stderr or ""
+    stdout = result.stdout
+    stderr = result.stderr
     if normalize_output:
         stdout = _normalize_stream(stdout)
         stderr = _normalize_stream(stderr)
 
     content: list[dict[str, Any]] = []
     structured: dict[str, Any] = {}
-    if not omit_zero_exit_code or proc.returncode != 0:
-        structured["exit_code"] = proc.returncode
+    if not omit_zero_exit_code or result.exit_code != 0:
+        structured["exit_code"] = result.exit_code
 
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
         stdout_file = _spill_to_file(stdout, "stdout")
@@ -157,11 +178,11 @@ def run_capture(
             structured["stderr"] = stderr
 
     # Simple success with auto_approve when exit code is 0 and both streams are empty
-    if proc.returncode == 0 and not stdout and not stderr:
+    if result.exit_code == 0 and not stdout and not stderr:
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
 
     return ToolResult(
         content=content,
         structured_content=structured,
-        is_error=proc.returncode != 0 and stderr,
+        is_error=result.exit_code != 0 and bool(stderr),
     )

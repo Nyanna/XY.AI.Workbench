@@ -8,41 +8,70 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
+__all__ = [
+    "FileStatsError",
+    "FileStatsResult",
+    "compute_file_stats",
+    "file_stats",
+    "FileStatsTool",
+    "register_file_stats_tool",
+]
+
+
+class FileStatsError(Exception):
+    """Raised when file metrics cannot be computed."""
+
+
+@dataclass(frozen=True)
+class FileStatsResult:
+    path: str
+    size_bytes: int
+    lines: int
+    words: int
+    complexity: float
+    created: str
+    modified: str
+    accessed: str
+    line_length_max: int
+    line_length_min: int
+    line_length_avg: float
+    words_per_line_avg: float
+    checksum: str
+
 
 def _calculate_complexity(text: str) -> float:
     """Calculate data structure complexity (0.0 to 1.0).
-    
+
     Based on character set diversity and pattern variation.
     """
     if not text:
         return 0.0
-    
-    # Count unique character types
+
     has_alpha = bool(re.search(r'[a-zA-Z]', text))
     has_digit = bool(re.search(r'\d', text))
     has_punct = bool(re.search(r'[^\w\s]', text))
     has_space = bool(re.search(r'\s', text))
     has_upper = bool(re.search(r'[A-Z]', text))
     has_lower = bool(re.search(r'[a-z]', text))
-    
+
     char_type_score = sum([has_alpha, has_digit, has_punct, has_space, has_upper, has_lower]) / 6.0
-    
-    # Entropy-like measure based on unique characters
+
     unique_chars = len(set(text))
     entropy_score = min(1.0, unique_chars / 256.0)
-    
+
     complexity = (char_type_score * 0.4) + (entropy_score * 0.6)
     return round(complexity, 3)
 
 
 def compute_file_stats(path: Path) -> dict[str, Any]:
-    """Compute the file-metrics block for *path* (reused by the outline tool).
+    """Compute the file-metrics block for *path* (also reused by the outline tool).
 
     Assumes *path* is an existing regular file.
     """
@@ -89,6 +118,19 @@ def compute_file_stats(path: Path) -> dict[str, Any]:
         "words_per_line_avg": words_per_line_avg,
         "checksum": checksum,
     }
+
+
+def file_stats(path: str) -> FileStatsResult:
+    """Compute file metrics for the absolute path ``path``."""
+    file_path = Path(path)
+    if not file_path.is_absolute():
+        raise FileStatsError("Path must be absolute.")
+    if not file_path.exists():
+        raise FileStatsError("File not found.")
+    if not file_path.is_file():
+        raise FileStatsError("Not a regular file.")
+
+    return FileStatsResult(**compute_file_stats(file_path))
 
 
 class FileStatsTool(ToolDefinition):
@@ -174,31 +216,16 @@ class FileStatsTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        path_str: str = args["path"]
-
-        path = Path(path_str)
-        if not path.is_absolute():
-            return ToolResult(
-                content=[text_content("Path must be absolute.")],
-                is_error=True,
-            )
-        if not path.exists():
-            return ToolResult(
-                content=[text_content("File not found.")],
-                is_error=True,
-            )
-        if not path.is_file():
-            return ToolResult(
-                content=[text_content("Not a regular file.")],
-                is_error=True,
-            )
-
-        structured = compute_file_stats(path)
+        try:
+            result = file_stats(args["path"])
+        except FileStatsError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
         return ToolResult(
             content=[],
-            structured_content=structured,
+            structured_content=result.__dict__,
             auto_approve=True,
         )
 

@@ -4,14 +4,45 @@ from __future__ import annotations
 
 import ast
 import importlib
+from dataclasses import dataclass, field
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from . import core
 
+__all__ = [
+    "OutlineError",
+    "FileOutline",
+    "OutlineResult",
+    "outline_python_files",
+    "OutlineTool",
+    "register",
+]
+
 compute_file_stats = importlib.import_module(
     "xy.ai.mcpc.tools.file-stats"
 ).compute_file_stats
+
+
+class OutlineError(Exception):
+    """Raised when the outline operation cannot be performed at all."""
+
+
+@dataclass(frozen=True)
+class FileOutline:
+    path: str
+    ok: bool
+    error: str | None
+    stats: dict[str, Any] | None = None
+    imports: list[dict[str, Any]] = field(default_factory=list)
+    classes: list[dict[str, Any]] = field(default_factory=list)
+    functions: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class OutlineResult:
+    all_ok: bool
+    files: list[FileOutline] = field(default_factory=list)
 
 
 def _method_entry(loc: core.Located) -> dict[str, Any]:
@@ -62,13 +93,27 @@ def _build_outline(tree: ast.Module) -> dict[str, Any]:
     return {"imports": imports, "classes": classes, "functions": functions}
 
 
-def _outline_one(path_str: str) -> dict[str, Any]:
+def _outline_one(path_str: str) -> FileOutline:
     try:
         path, tree = core.load(path_str)
     except core.AstError as exc:
-        return {"path": path_str, "ok": False, "error": str(exc)}
-    outline = {"stats": compute_file_stats(path), **_build_outline(tree)}
-    return {"path": path_str, "ok": True, "error": None, **outline}
+        return FileOutline(path=path_str, ok=False, error=str(exc))
+    outline = _build_outline(tree)
+    return FileOutline(
+        path=path_str,
+        ok=True,
+        error=None,
+        stats=compute_file_stats(path),
+        **outline,
+    )
+
+
+def outline_python_files(paths: list[str]) -> OutlineResult:
+    """Build a structural outline (imports, classes, functions, stats) for each of ``paths``."""
+    if not paths:
+        raise OutlineError("'paths' must be a non-empty list.")
+    files = [_outline_one(p) for p in paths]
+    return OutlineResult(all_ok=all(f.ok for f in files), files=files)
 
 
 _OUTLINE_ITEM_SCHEMA = {
@@ -135,12 +180,20 @@ class OutlineTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`outline_python_files`, translating the MCP schema to/from the Python API."""
         paths = ctx.arguments["paths"]
-        if not isinstance(paths, list) or not paths:
+        if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
-        files = [_outline_one(p) for p in paths]
+        try:
+            result = outline_python_files(paths)
+        except OutlineError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+
         return ToolResult(
-            structured_content={"all_ok": all(f["ok"] for f in files), "files": files},
+            structured_content={
+                "all_ok": result.all_ok,
+                "files": [f.__dict__ for f in result.files],
+            },
         )
 
 

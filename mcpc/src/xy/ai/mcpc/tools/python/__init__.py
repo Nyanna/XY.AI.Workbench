@@ -5,8 +5,22 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult
-from ..process import run_capture
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from ..process import LaunchError, ProcessResult, pack_process_result, run_process
+
+__all__ = ["PythonError", "run_python", "PythonTool", "register_python_tool"]
+
+
+class PythonError(Exception):
+    """Raised when a Python script cannot be executed."""
+
+
+def run_python(script: str) -> ProcessResult:
+    """Feed ``script`` to a fresh Python interpreter on standard input."""
+    try:
+        return run_process([sys.executable, "-"], stdin=script)
+    except LaunchError as exc:
+        raise PythonError(f"Failed to launch Python: {exc}") from exc
 
 
 class PythonTool(ToolDefinition):
@@ -39,14 +53,14 @@ class PythonTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`run_python` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
-        script: str = args["script"]
+        try:
+            result = run_python(args["script"])
+        except PythonError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return run_capture(
-            [sys.executable, "-"],
-            stdin=script,
-            launch_error="Failed to launch Python",
-        )
+        return pack_process_result(result)
 
 
 def register_python_tool(registry: ToolRegistry) -> None:

@@ -2,10 +2,50 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+
+__all__ = [
+    "InsertError",
+    "InsertResult",
+    "insert",
+    "InsertTool",
+    "register_insert_tool",
+]
+
+
+class InsertError(Exception):
+    """Raised when an insert operation cannot be performed."""
+
+
+@dataclass(frozen=True)
+class InsertResult:
+    result: str
+
+
+def insert(path: str, offset: int, content: str) -> InsertResult:
+    """Insert ``content`` at the zero-based character ``offset`` of the file at ``path``."""
+    file_path = Path(path)
+    if not file_path.is_absolute():
+        raise InsertError("Path must be absolute.")
+    if not file_path.exists():
+        raise InsertError("File not found.")
+    if not file_path.is_file():
+        raise InsertError("Not a regular file.")
+
+    try:
+        text = file_path.read_text(encoding="utf-8")
+        if offset > len(text):
+            raise InsertError("Offset is beyond end of file.")
+        new_text = text[:offset] + content + text[offset:]
+        file_path.write_text(new_text, encoding="utf-8")
+    except OSError as exc:
+        raise InsertError(f"Insert failed: {exc}") from exc
+
+    return InsertResult(result="success")
 
 
 class InsertTool(ToolDefinition):
@@ -48,44 +88,21 @@ class InsertTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`insert`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        path_str: str = args["path"]
-        offset: int = args["offset"]
-        new_content: str = args["content"]
-
-        path = Path(path_str)
-        if not path.is_absolute():
-            return ToolResult(
-                content=[text_content("Path must be absolute.")],
-                is_error=True,
-            )
-        if not path.exists():
-            return ToolResult(
-                content=[text_content("File not found.")],
-                is_error=True,
-            )
-        if not path.is_file():
-            return ToolResult(
-                content=[text_content("Not a regular file.")],
-                is_error=True,
-            )
-
         try:
-            text = path.read_text(encoding="utf-8")
-            if offset > len(text):
-                return ToolResult(
-                    content=[text_content("Offset is beyond end of file.")],
-                    is_error=True,
-                )
-            result = text[:offset] + new_content + text[offset:]
-            path.write_text(result, encoding="utf-8")
-        except OSError as exc:
-            return ToolResult(
-                content=[text_content(f"Insert failed: {exc}")],
-                is_error=True,
+            result = insert(
+                path=args["path"],
+                offset=args["offset"],
+                content=args["content"],
             )
+        except InsertError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+        return ToolResult(
+            structured_content={"result": result.result},
+            auto_approve=True,
+        )
 
 
 def register_insert_tool(registry: ToolRegistry) -> None:

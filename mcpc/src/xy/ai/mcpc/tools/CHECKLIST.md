@@ -1,6 +1,6 @@
 # Tools Checkliste
 
-Verify for new tools.
+Verify for new tools MCP part.
 
 * Input-schema is present and complete and conform to MCP specification
 * Output-schema is present and complete and conform to MCP specification
@@ -10,3 +10,9 @@ Verify for new tools.
 * Check input and output for technical limits; reduce input and output as much as semantically meaningfull
 * Never reflect input paramaeters, not even in error output
 * On MCP passthrough always reduce limits like results on pages
+
+For Python module direct call:
+
+* Implementation conforms to the other tools
+* Docstrings should match the MCP scheme
+* Parameter validation like min/max should be implemented in code not just by scheme

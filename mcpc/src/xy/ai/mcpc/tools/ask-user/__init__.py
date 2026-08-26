@@ -15,11 +15,31 @@ an actual answering mechanism.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
+__all__ = ["AskUserError", "AskUserResult", "ask_user", "AskUserTool", "register_ask_user_tool"]
+
 _NOT_ANSWERED = "The user did not answer. Proceed on your own."
+
+
+class AskUserError(Exception):
+    """Raised when a question cannot be asked."""
+
+
+@dataclass(frozen=True)
+class AskUserResult:
+    answer: str
+
+
+def ask_user(question: str) -> AskUserResult:
+    """Ask the user ``question``; always returns the "not answered" placeholder."""
+    if not question or not question.strip():
+        raise AskUserError("``question`` must not be empty.")
+
+    return AskUserResult(answer=_NOT_ANSWERED)
 
 
 class AskUserTool(ToolDefinition):
@@ -50,15 +70,14 @@ class AskUserTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`ask_user`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        question: str = args["question"]
-        if not question or not question.strip():
-            return ToolResult(
-                content=[text_content("``question`` must not be empty.")],
-                is_error=True,
-            )
+        try:
+            result = ask_user(args["question"])
+        except AskUserError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return ToolResult(structured_content={"answer": _NOT_ANSWERED})
+        return ToolResult(structured_content={"answer": result.answer})
 
 
 def register_ask_user_tool(registry: ToolRegistry) -> None:

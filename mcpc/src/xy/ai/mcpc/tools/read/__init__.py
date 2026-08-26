@@ -1,7 +1,7 @@
 """Read tool – returns file contents, optionally sliced by line, character offset, or marker.
 
-Range: start = min_line | min_char | start-marker | file start; 
-end = max_line | max_char | end-marker | file end (all inclusive). 
+Range: start = min_line | min_char | start-marker | file start;
+end = max_line | max_char | end-marker | file end (all inclusive).
 Markers must be unique substrings. Line and char ranges are mutually exclusive.
 
 Per-session cache (key ``_read_cache`` in ``Session.state``, keyed by the call
@@ -16,17 +16,121 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
+__all__ = ["ReadError", "ReadResult", "read_file", "ReadTool", "register_read_tool"]
+
 _CACHE_STATE_KEY = "_read_cache"
+
+
+class ReadError(Exception):
+    """Raised when a file cannot be read or the requested range is invalid."""
+
+
+@dataclass(frozen=True)
+class ReadResult:
+    content: str
+    checksum: str
+    is_full_file: bool
 
 
 def _cache_key(session_id: str, arguments: dict[str, Any]) -> str:
     payload = json.dumps({"session": session_id, "arguments": arguments}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def read_file(
+    path: str,
+    min_line: int | None = None,
+    max_line: int | None = None,
+    min_char: int | None = None,
+    max_char: int | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> ReadResult:
+    """Read the file at ``path``, optionally sliced to the given range."""
+    if min_line is not None and min_char is not None:
+        raise ReadError("``min_line`` and ``min_char`` are mutually exclusive.")
+    if max_line is not None and max_char is not None:
+        raise ReadError("``max_line`` and ``max_char`` are mutually exclusive.")
+    if min_line is not None and start is not None:
+        raise ReadError("``min_line`` and ``start`` are mutually exclusive.")
+    if min_char is not None and start is not None:
+        raise ReadError("``min_char`` and ``start`` are mutually exclusive.")
+    if max_line is not None and end is not None:
+        raise ReadError("``max_line`` and ``end`` are mutually exclusive.")
+    if max_char is not None and end is not None:
+        raise ReadError("``max_char`` and ``end`` are mutually exclusive.")
+
+    file_path = Path(path)
+    if not file_path.is_absolute():
+        raise ReadError("Path must be absolute.")
+    if not file_path.exists():
+        raise ReadError("File not found.")
+    if not file_path.is_file():
+        raise ReadError("Not a regular file. Don't read directories with this tool!")
+
+    raw_bytes = file_path.read_bytes()
+    text = raw_bytes.decode("utf-8", errors="replace")
+    lines = text.splitlines(keepends=True)
+    total_lines = len(lines)
+
+    def line_start_offset(line_num: int) -> int:
+        n = max(0, min(line_num - 1, total_lines))
+        return sum(len(l) for l in lines[:n])
+
+    def line_end_offset(line_num: int) -> int:
+        n = max(0, min(line_num, total_lines))
+        return sum(len(l) for l in lines[:n])
+
+    if start is not None:
+        start_count = text.count(start)
+        if start_count == 0:
+            raise ReadError("Start marker not found in file.")
+        if start_count > 1:
+            raise ReadError(f"Start marker is ambiguous – found {start_count} occurrences in file.")
+        region_start = text.index(start)
+    elif min_line is not None:
+        region_start = line_start_offset(min_line)
+    elif min_char is not None:
+        region_start = min_char
+    else:
+        region_start = 0
+
+    if end is not None:
+        end_count = text.count(end)
+        if end_count == 0:
+            raise ReadError("End marker not found in file.")
+        if end_count > 1:
+            raise ReadError(f"End marker is ambiguous – found {end_count} occurrences in file.")
+        region_end = text.index(end) + len(end)
+    elif max_line is not None:
+        region_end = line_end_offset(max_line)
+    elif max_char is not None:
+        region_end = max_char
+    else:
+        region_end = len(text)
+
+    if region_end < region_start:
+        raise ReadError("Resolved end position must not lie before the resolved start position.")
+
+    sliced = text[region_start:region_end]
+    checksum = hashlib.sha256(sliced.encode("utf-8")).hexdigest()
+
+    is_full_file = (
+        min_line is None
+        and max_line is None
+        and min_char is None
+        and max_char is None
+        and start is None
+        and end is None
+    )
+
+    return ReadResult(content=sliced, checksum=checksum, is_full_file=is_full_file)
 
 
 class ReadTool(ToolDefinition):
@@ -94,151 +198,35 @@ class ReadTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`read_file`, then apply session-level change detection and MCP packing."""
         args: dict[str, Any] = ctx.arguments
-        path_str: str = args["path"]
-        min_line: int | None = args.get("min_line")
-        max_line: int | None = args.get("max_line")
-        min_char: int | None = args.get("min_char")
-        max_char: int | None = args.get("max_char")
-        start_marker: str | None = args.get("start")
-        end_marker: str | None = args.get("end")
-
-        if min_line is not None and min_char is not None:
-            return ToolResult(
-                content=[text_content("``min_line`` and ``min_char`` are mutually exclusive.")],
-                is_error=True,
+        try:
+            result = read_file(
+                path=args["path"],
+                min_line=args.get("min_line"),
+                max_line=args.get("max_line"),
+                min_char=args.get("min_char"),
+                max_char=args.get("max_char"),
+                start=args.get("start"),
+                end=args.get("end"),
             )
-        if max_line is not None and max_char is not None:
-            return ToolResult(
-                content=[text_content("``max_line`` and ``max_char`` are mutually exclusive.")],
-                is_error=True,
-            )
-        if min_line is not None and start_marker is not None:
-            return ToolResult(
-                content=[text_content("``min_line`` and ``start`` are mutually exclusive.")],
-                is_error=True,
-            )
-        if min_char is not None and start_marker is not None:
-            return ToolResult(
-                content=[text_content("``min_char`` and ``start`` are mutually exclusive.")],
-                is_error=True,
-            )
-        if max_line is not None and end_marker is not None:
-            return ToolResult(
-                content=[text_content("``max_line`` and ``end`` are mutually exclusive.")],
-                is_error=True,
-            )
-        if max_char is not None and end_marker is not None:
-            return ToolResult(
-                content=[text_content("``max_char`` and ``end`` are mutually exclusive.")],
-                is_error=True,
-            )
-
-        path = Path(path_str)
-        if not path.is_absolute():
-            return ToolResult(
-                content=[text_content("Path must be absolute.")],
-                is_error=True,
-            )
-        if not path.exists():
-            return ToolResult(
-                content=[text_content("File not found.")],
-                is_error=True,
-            )
-        if not path.is_file():
-            return ToolResult(
-                content=[text_content("Not a regular file. Don't read directories with this tool!")],
-                is_error=True,
-            )
-
-        raw_bytes = path.read_bytes()
-        text = raw_bytes.decode("utf-8", errors="replace")
-        lines = text.splitlines(keepends=True)
-        total_lines = len(lines)
-
-        def line_start_offset(line_num: int) -> int:
-            n = max(0, min(line_num - 1, total_lines))
-            return sum(len(l) for l in lines[:n])
-
-        def line_end_offset(line_num: int) -> int:
-            n = max(0, min(line_num, total_lines))
-            return sum(len(l) for l in lines[:n])
-
-        if start_marker is not None:
-            start_count = text.count(start_marker)
-            if start_count == 0:
-                return ToolResult(
-                    content=[text_content("Start marker not found in file.")],
-                    is_error=True,
-                )
-            if start_count > 1:
-                return ToolResult(
-                    content=[text_content(f"Start marker is ambiguous – found {start_count} occurrences in file.")],
-                    is_error=True,
-                )
-            region_start = text.index(start_marker)
-        elif min_line is not None:
-            region_start = line_start_offset(min_line)
-        elif min_char is not None:
-            region_start = min_char
-        else:
-            region_start = 0
-
-        if end_marker is not None:
-            end_count = text.count(end_marker)
-            if end_count == 0:
-                return ToolResult(
-                    content=[text_content("End marker not found in file.")],
-                    is_error=True,
-                )
-            if end_count > 1:
-                return ToolResult(
-                    content=[text_content(f"End marker is ambiguous – found {end_count} occurrences in file.")],
-                    is_error=True,
-                )
-            region_end = text.index(end_marker) + len(end_marker)
-        elif max_line is not None:
-            region_end = line_end_offset(max_line)
-        elif max_char is not None:
-            region_end = max_char
-        else:
-            region_end = len(text)
-
-        if region_end < region_start:
-            return ToolResult(
-                content=[text_content(
-                    "Resolved end position must not lie before "
-                    "the resolved start position."
-                )],
-                is_error=True,
-            )
-
-        sliced = text[region_start:region_end]
-        checksum = hashlib.sha256(sliced.encode("utf-8")).hexdigest()
+        except ReadError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
         session = ctx.session
         key = _cache_key(session.id, args)
         with session.lock:
             cache: dict[str, str] = session.state.setdefault(_CACHE_STATE_KEY, {})
             previous_checksum = cache.get(key)
-            cache[key] = checksum
+            cache[key] = result.checksum
 
-        unchanged = previous_checksum == checksum
+        unchanged = previous_checksum == result.checksum
 
-        structured: dict[str, Any] = {"checksum": checksum}
+        structured: dict[str, Any] = {"checksum": result.checksum}
         if unchanged:
             structured["unchanged"] = True
         else:
-            structured["content"] = sliced
-
-        is_full_file = (
-            min_line is None
-            and max_line is None
-            and min_char is None
-            and max_char is None
-            and start_marker is None
-            and end_marker is None
-        )
+            structured["content"] = result.content
 
         content: list[dict[str, Any]] = []
         if unchanged:
@@ -251,7 +239,7 @@ class ReadTool(ToolDefinition):
         return ToolResult(
             content=content,
             structured_content=structured,
-            auto_approve=is_full_file,
+            auto_approve=result.is_full_file,
         )
 
 

@@ -2,10 +2,54 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+
+__all__ = [
+    "ReplaceCharsError",
+    "ReplaceCharsResult",
+    "replace_chars",
+    "ReplaceCharsTool",
+    "register_replace_chars_tool",
+]
+
+
+class ReplaceCharsError(Exception):
+    """Raised when a replace-chars operation cannot be performed."""
+
+
+@dataclass(frozen=True)
+class ReplaceCharsResult:
+    result: str
+
+
+def replace_chars(path: str, offset: int, length: int, content: str) -> ReplaceCharsResult:
+    """Replace ``length`` characters starting at ``offset`` in the file at ``path`` with ``content``."""
+    file_path = Path(path)
+    if not file_path.is_absolute():
+        raise ReplaceCharsError("Path must be absolute.")
+    if not file_path.exists():
+        raise ReplaceCharsError("File not found.")
+    if not file_path.is_file():
+        raise ReplaceCharsError("Not a regular file.")
+
+    try:
+        text = file_path.read_text(encoding="utf-8")
+        file_len = len(text)
+        if offset > file_len:
+            raise ReplaceCharsError(
+                f"Offset {offset} is beyond end of file (file length: {file_len} characters)."
+            )
+        end = min(offset + length, file_len)
+        result_text = text[:offset] + content + text[end:]
+        file_path.write_text(result_text, encoding="utf-8")
+    except OSError as exc:
+        raise ReplaceCharsError(f"Replace failed: {exc}") from exc
+
+    return ReplaceCharsResult(result="success")
 
 
 class ReplaceCharsTool(ToolDefinition):
@@ -55,50 +99,19 @@ class ReplaceCharsTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`replace_chars`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        path_str: str = args["path"]
-        offset: int = args["offset"]
-        length: int = args["length"]
-        new_content: str = args["content"]
-
-        path = Path(path_str)
-        if not path.is_absolute():
-            return ToolResult(
-                content=[text_content("Path must be absolute.")],
-                is_error=True,
-            )
-        if not path.exists():
-            return ToolResult(
-                content=[text_content("File not found.")],
-                is_error=True,
-            )
-        if not path.is_file():
-            return ToolResult(
-                content=[text_content("Not a regular file.")],
-                is_error=True,
-            )
-
         try:
-            text = path.read_text(encoding="utf-8")
-            file_len = len(text)
-            if offset > file_len:
-                return ToolResult(
-                    content=[text_content(
-                        f"Offset {offset} is beyond end of file "
-                        f"(file length: {file_len} characters)."
-                    )],
-                    is_error=True,
-                )
-            end = min(offset + length, file_len)
-            result = text[:offset] + new_content + text[end:]
-            path.write_text(result, encoding="utf-8")
-        except OSError as exc:
-            return ToolResult(
-                content=[text_content(f"Replace failed: {exc}")],
-                is_error=True,
+            result = replace_chars(
+                path=args["path"],
+                offset=args["offset"],
+                length=args["length"],
+                content=args["content"],
             )
+        except ReplaceCharsError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+        return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
 def register_replace_chars_tool(registry: ToolRegistry) -> None:

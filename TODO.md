@@ -1,5 +1,5 @@
 # TODO
-
+* was ist mit spill to file in bash?
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 * vielleicht toolsearch implementieren und tool update machen? Oder tool nach anfrage aktivieren können. ask-tool und user aktiviert tool
 	* aktivierbar mit flag, `{"capabilities": {"tools": {"listChanged": true}}}`, `Server: {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"}

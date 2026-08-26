@@ -2,25 +2,60 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
+__all__ = [
+    "ValidateError",
+    "FileCheck",
+    "ValidateResult",
+    "validate_python_files",
+    "ValidateTool",
+    "register",
+]
 
-def _check(path_str: str) -> dict[str, Any]:
+
+class ValidateError(Exception):
+    """Raised when the validate operation cannot be performed at all."""
+
+
+@dataclass(frozen=True)
+class FileCheck:
+    path: str
+    ok: bool
+    error: str | None
+
+
+@dataclass(frozen=True)
+class ValidateResult:
+    all_ok: bool
+    files: list[FileCheck] = field(default_factory=list)
+
+
+def _check(path_str: str) -> FileCheck:
     path = Path(path_str)
     if not path.is_absolute():
-        return {"path": path_str, "ok": False, "error": "Path must be absolute."}
+        return FileCheck(path=path_str, ok=False, error="Path must be absolute.")
     try:
         source = path.read_text(encoding="utf-8")
     except OSError:
-        return {"path": path_str, "ok": False, "error": "File not readable."}
+        return FileCheck(path=path_str, ok=False, error="File not readable.")
     try:
         compile(source, str(path), "exec")
     except SyntaxError as exc:
-        return {"path": path_str, "ok": False, "error": f"{exc.msg} (line {exc.lineno})"}
-    return {"path": path_str, "ok": True, "error": None}
+        return FileCheck(path=path_str, ok=False, error=f"{exc.msg} (line {exc.lineno})")
+    return FileCheck(path=path_str, ok=True, error=None)
+
+
+def validate_python_files(paths: list[str]) -> ValidateResult:
+    """Compile each of ``paths`` and report success/error per file."""
+    if not paths:
+        raise ValidateError("'paths' must be a non-empty list.")
+    files = [_check(p) for p in paths]
+    return ValidateResult(all_ok=all(f.ok for f in files), files=files)
 
 
 class ValidateTool(ToolDefinition):
@@ -60,14 +95,21 @@ class ValidateTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`validate_python_files`, translating the MCP schema to/from the Python API."""
         paths = ctx.arguments["paths"]
-        if not isinstance(paths, list) or not paths:
+        if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
-        files = [_check(p) for p in paths]
-        allOk = all(f["ok"] for f in files)
+        try:
+            result = validate_python_files(paths)
+        except ValidateError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+
         return ToolResult(
-            structured_content={"all_ok": allOk, "files": files},
-            auto_approve=allOk,
+            structured_content={
+                "all_ok": result.all_ok,
+                "files": [f.__dict__ for f in result.files],
+            },
+            auto_approve=result.all_ok,
         )
 
 
