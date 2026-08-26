@@ -30,6 +30,18 @@ class OutlineError(Exception):
 
 @dataclass(frozen=True)
 class FileOutline:
+    """Structural outline of a single file, as returned by :func:`outline_python_files`.
+
+    Attributes:
+        path: The path exactly as given in the input.
+        ok: Whether the file could be read and parsed.
+        error: Error message if ``ok`` is ``False``, else ``None``.
+        stats: File-metrics block (see the ``file-stats`` tool), only if ``ok``.
+        imports: Top-level imports with ``names``/``lineno``, only if ``ok``.
+        classes: Top-level classes with nested ``methods``, only if ``ok``.
+        functions: Top-level functions, only if ``ok``.
+    """
+
     path: str
     ok: bool
     error: str | None
@@ -41,6 +53,13 @@ class FileOutline:
 
 @dataclass(frozen=True)
 class OutlineResult:
+    """Result of :func:`outline_python_files`.
+
+    Attributes:
+        all_ok: Whether every file in ``files`` outlined successfully.
+        files: One :class:`FileOutline` per input path, in the given order.
+    """
+
     all_ok: bool
     files: list[FileOutline] = field(default_factory=list)
 
@@ -109,7 +128,22 @@ def _outline_one(path_str: str) -> FileOutline:
 
 
 def outline_python_files(paths: list[str]) -> OutlineResult:
-    """Build a structural outline (imports, classes, functions, stats) for each of ``paths``."""
+    """Build a structural outline (imports, classes, functions, stats) for each of ``paths``.
+
+    Per-file failures (e.g. a non-existent or unparsable file) are reported inside
+    the corresponding :class:`FileOutline` rather than raised; only a malformed
+    call (empty ``paths``) raises.
+
+    Args:
+        paths: Absolute paths of Python files to outline. Must be non-empty.
+
+    Returns:
+        OutlineResult: One :class:`FileOutline` per path, in order, plus an overall
+        ``all_ok`` flag.
+
+    Raises:
+        OutlineError: If ``paths`` is empty.
+    """
     if not paths:
         raise OutlineError("'paths' must be a non-empty list.")
     files = [_outline_one(p) for p in paths]

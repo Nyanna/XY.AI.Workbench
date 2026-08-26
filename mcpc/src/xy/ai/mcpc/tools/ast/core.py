@@ -20,6 +20,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import io
+import re
 import threading
 import tokenize
 from dataclasses import dataclass
@@ -41,6 +42,46 @@ def _annotation_literal(comment: str) -> str:
     return repr(comment.rstrip())
 
 
+#: Matches the header line of a clause that must directly follow its sibling
+#: clause (``elif``/``else``/``except``/``finally``) or, heuristically, a
+#: ``match`` statement's ``case`` (a soft keyword, so it additionally requires
+#: the line to end in a colon to avoid matching a plain ``case = ...``
+#: assignment). No statement, including an injected annotation literal, may be
+#: placed *between* such a header and the suite it continues.
+_CONTINUATION_HEADER_RE = re.compile(r"^\s*(elif|else|except|finally)\b")
+_CASE_HEADER_RE = re.compile(r"^\s*case\b.*:\s*(#.*)?$")
+
+
+def _is_continuation_header(line: str) -> bool:
+    """Whether *line* opens a clause that must immediately follow its sibling clause."""
+    return bool(_CONTINUATION_HEADER_RE.match(line) or _CASE_HEADER_RE.match(line))
+
+
+def _next_code_line_index(lines: list[str], start: int) -> int | None:
+    """Return the 0-based index of the first non-blank, non-comment-only line at/after *start*."""
+    for i in range(start, len(lines)):
+        stripped = lines[i].strip()
+        if stripped == "" or stripped.startswith("#"):
+            continue
+        return i
+    return None
+
+
+def _suite_indent(lines: list[str], header_lineno: int) -> str:
+    """Return the indentation of the suite opened by the 1-based *header_lineno* line.
+
+    Falls back to the header's own indentation plus four spaces if the suite's
+    first line cannot be found (e.g. the header is the last line of the file).
+    """
+    header_line = lines[header_lineno - 1]
+    header_indent = header_line[: len(header_line) - len(header_line.lstrip())]
+    for line in lines[header_lineno:]:
+        if line.strip() == "":
+            continue
+        return line[: len(line) - len(line.lstrip())]
+    return header_indent + "    "
+
+
 def comments_to_annotations(source: str) -> str:
     """Rewrite ``#`` comments into standalone string-literal statements.
 
@@ -50,6 +91,12 @@ def comments_to_annotations(source: str) -> str:
     represented as standalone literals without breaking syntax and are dropped.
     Style and exact placement are explicitly *not* preserved – only semantics
     plus the recovered annotation text.
+
+    A comment immediately preceding, or trailing on, an ``elif``/``else``/
+    ``except``/``finally``/``case`` header is special-cased: such a header must
+    directly follow its sibling clause, so no literal may precede it. The
+    literal is instead placed as the first statement inside the suite the
+    header opens (see :func:`_is_continuation_header`).
     """
     if "#" not in source:
         return source
@@ -81,11 +128,22 @@ def comments_to_annotations(source: str) -> str:
                 standalone = prefix.strip() == ""
                 literal = _annotation_literal(tok.string)
                 if depth == 0 and standalone and logical_start is None:
-                    replaces[lineno] = f"{prefix}{literal}\n"
+                    next_idx = _next_code_line_index(lines, lineno)
+                    if next_idx is not None and _is_continuation_header(lines[next_idx]):
+                        header_lineno = next_idx + 1
+                        target_indent = _suite_indent(lines, header_lineno)
+                        inserts.setdefault(header_lineno + 1, []).append(f"{target_indent}{literal}\n")
+                        replaces[lineno] = "\n"
+                    else:
+                        replaces[lineno] = f"{prefix}{literal}\n"
                 elif depth == 0 and not standalone and logical_start is not None:
                     stmt_line = lines[logical_start - 1]
-                    indent = stmt_line[: len(stmt_line) - len(stmt_line.lstrip())]
-                    inserts.setdefault(logical_start, []).append(f"{indent}{literal}\n")
+                    if _is_continuation_header(stmt_line):
+                        target_indent = _suite_indent(lines, lineno)
+                        inserts.setdefault(lineno + 1, []).append(f"{target_indent}{literal}\n")
+                    else:
+                        indent = stmt_line[: len(stmt_line) - len(stmt_line.lstrip())]
+                        inserts.setdefault(logical_start, []).append(f"{indent}{literal}\n")
                     strips[lineno] = col
                 elif standalone:
                     replaces[lineno] = "\n"

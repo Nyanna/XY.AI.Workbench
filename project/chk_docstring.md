@@ -1,1 +1,0 @@
-Prüfe in allen Tool Klassen in `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools` das der Docstring der Public Kernmethode die Argumente ebenso wie das MCP Schema beschreibt. Das Gilt auch für die Result und Exception Objekte und Tuple. Die öffentlichen Methoden müssen von externen Modulen aus leicht verwendbar sein.

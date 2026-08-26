@@ -2,16 +2,20 @@
 
 All three tools share the same shape: an ``operation`` plus a list of ``items``.
 They are thin wrappers that manipulate the typed AST through :mod:`core`, so a
-single generic builder here keeps them consistent and DRY.
+single generic :class:`BulkCrudTool` here keeps them consistent and DRY (see
+:mod:`layers` for the three concrete instantiations).
 """
 
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from typing import Any, Callable, Sequence
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolResult, text_content
 from . import core
+
+__all__ = ["BulkCrudResult", "run_bulk_operation", "BulkCrudTool"]
 
 #: Item selector fields (a subset of the node-level selectors) plus ``code``.
 _ITEM_PROPS = {
@@ -28,10 +32,6 @@ _SELECTOR_KEYS = ("qualified_name", "name", "node_type", "lineno", "parent_type"
 
 def _selectors(item: dict[str, Any]) -> dict[str, Any]:
     return {k: item.get(k) for k in _SELECTOR_KEYS}
-
-
-def _err(exc: core.AstError) -> ToolResult:
-    return ToolResult(content=[text_content(str(exc))], is_error=True)
 
 
 def _default_insert_index(tree: ast.Module) -> int:
@@ -53,25 +53,65 @@ def _import_insert_index(tree: ast.Module) -> int:
     return index
 
 
-def build_bulk_tool(
-    registry: ToolRegistry,
+@dataclass(frozen=True)
+class BulkCrudResult:
+    """Result of :func:`run_bulk_operation`.
+
+    Attributes:
+        result: Always ``"success"``.
+        nodes: Node summaries; set only when ``operation`` is ``"list"``.
+        changed: Number of items added/removed/replaced; set for every operation
+            except ``"list"``.
+    """
+
+    result: str
+    nodes: list[dict[str, Any]] | None = None
+    changed: int | None = None
+
+
+def run_bulk_operation(
+    path: str,
+    operation: str,
+    items: Sequence[dict[str, Any]] | None = None,
     *,
-    name: str,
-    title: str,
-    description: str,
     node_types: tuple[type, ...],
     kind_label: str,
     insert_index: Callable[[ast.Module], int] = _default_insert_index,
-) -> None:
+) -> BulkCrudResult:
+    """Apply a bulk ``list``/``add``/``remove``/``replace`` operation restricted to ``node_types``.
+
+    Args:
+        path: Absolute path to the Python file.
+        operation: One of ``"list"``, ``"add"``, ``"remove"``, ``"replace"``.
+        items: Items to add/remove/replace (ignored for ``"list"``); each item is a
+            mapping that may carry ``code`` (required for ``"add"``/``"replace"``) plus
+            any of the node selectors ``qualified_name``, ``name``, ``node_type``,
+            ``lineno``, ``parent_type`` (required to uniquely identify the target for
+            ``"remove"``/``"replace"``).
+        node_types: AST node classes this operation is restricted to, e.g.
+            ``(ast.ClassDef,)``.
+        kind_label: Human-readable label used in error messages, e.g. ``"class"``.
+        insert_index: Computes the insertion index used by ``"add"``; defaults to
+            appending at the end of the module body.
+
+    Returns:
+        BulkCrudResult: ``nodes`` is populated for ``"list"``; ``changed`` for the
+        other three operations.
+
+    Raises:
+        core.AstError: If ``path`` is invalid, an item is missing ``code`` (for
+            ``"add"``/``"replace"``), an item's ``code`` does not parse to a node of
+            ``node_types``, a selector matches zero or more than one node (for
+            ``"remove"``/``"replace"``), or ``operation`` is not one of the four
+            supported values.
+    """
+    items = list(items or [])
+
     def _is_kind(node: ast.AST) -> bool:
         return isinstance(node, node_types)
 
     def _list(tree: ast.Module) -> list[dict[str, Any]]:
-        return [
-            core.node_summary(loc)
-            for loc in core.locate_all(tree)
-            if _is_kind(loc.node)
-        ]
+        return [core.node_summary(loc) for loc in core.locate_all(tree) if _is_kind(loc.node)]
 
     def _resolve(tree: ast.Module, item: dict[str, Any]) -> core.Located:
         hits = [h for h in core.find(tree, **_selectors(item)) if _is_kind(h.node)]
@@ -81,9 +121,9 @@ def build_bulk_tool(
             raise core.AstError(f"A {kind_label} selector is ambiguous.")
         return hits[0]
 
-    def _parse_items(items: Sequence[dict[str, Any]]) -> list[ast.stmt]:
+    def _parse_items(subset: Sequence[dict[str, Any]]) -> list[ast.stmt]:
         nodes: list[ast.stmt] = []
-        for item in items:
+        for item in subset:
             code = item.get("code")
             if not code:
                 raise core.AstError("Item is missing 'code'.")
@@ -94,11 +134,59 @@ def build_bulk_tool(
             nodes.extend(parsed)
         return nodes
 
-    @registry.tool(
-        name,
-        title=title,
-        description=description,
-        input_schema={
+    file_path = core.require_path(path)
+    tree = core.CACHE.get_tree(file_path)
+
+    if operation == "list":
+        return BulkCrudResult(result="success", nodes=_list(tree))
+
+    changed = 0
+    if operation == "add":
+        nodes = _parse_items(items)
+        idx = insert_index(tree)
+        tree.body[idx:idx] = nodes
+        changed = len(nodes)
+    elif operation == "remove":
+        for item in items:
+            core.delete_from_body(_resolve(tree, item))
+            changed += 1
+    elif operation == "replace":
+        for item in items:
+            target = _resolve(tree, item)
+            core.replace_in_body(target, _parse_items([item]))
+            changed += 1
+    else:
+        raise core.AstError("Unknown operation.")
+
+    core.CACHE.save(file_path, tree)
+    return BulkCrudResult(result="success", changed=changed)
+
+
+class BulkCrudTool(ToolDefinition):
+    """Generic ``list``/``add``/``remove``/``replace`` tool restricted to a node kind.
+
+    One instance is created per node kind (see :mod:`layers`); every instance
+    delegates to :func:`run_bulk_operation` with its own ``node_types``,
+    ``kind_label`` and ``insert_index``.
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        title: str,
+        description: str,
+        node_types: tuple[type, ...],
+        kind_label: str,
+        insert_index: Callable[[ast.Module], int] = _default_insert_index,
+    ) -> None:
+        self.name = name
+        self.title = title
+        self.description = description
+        self._node_types = node_types
+        self._kind_label = kind_label
+        self._insert_index = insert_index
+        self.input_schema = {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute path to the Python file."},
@@ -114,8 +202,8 @@ def build_bulk_tool(
                 },
             },
             "required": ["path", "operation"],
-        },
-        output_schema={
+        }
+        self.output_schema = {
             "type": "object",
             "properties": {
                 "result": {"type": "string"},
@@ -123,45 +211,27 @@ def build_bulk_tool(
                 "changed": {"type": "integer"},
             },
             "required": ["result"],
-        },
-        annotations={"readOnlyHint": False, "openWorldHint": False},
-    )
-    def handler(ctx: ToolContext) -> ToolResult:
-        args = ctx.arguments
-        operation = args["operation"]
-        items: list[dict[str, Any]] = args.get("items") or []
+        }
+        self.annotations = {"readOnlyHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`run_bulk_operation`, translating the MCP schema to/from the Python API."""
+        args: dict[str, Any] = ctx.arguments
         try:
-            path = core.require_path(args["path"])
-            tree = core.CACHE.get_tree(path)
-
-            if operation == "list":
-                return ToolResult(
-                    structured_content={"result": "success", "nodes": _list(tree)},
-                )
-
-            changed = 0
-            if operation == "add":
-                nodes = _parse_items(items)
-                idx = insert_index(tree)
-                tree.body[idx:idx] = nodes
-                changed = len(nodes)
-            elif operation == "remove":
-                for item in items:
-                    core.delete_from_body(_resolve(tree, item))
-                    changed += 1
-            elif operation == "replace":
-                for item in items:
-                    target = _resolve(tree, item)
-                    core.replace_in_body(target, _parse_items([item]))
-                    changed += 1
-            else:  # pragma: no cover - guarded by enum
-                raise core.AstError("Unknown operation.")
-
-            core.CACHE.save(path, tree)
+            result = run_bulk_operation(
+                args["path"],
+                args["operation"],
+                args.get("items"),
+                node_types=self._node_types,
+                kind_label=self._kind_label,
+                insert_index=self._insert_index,
+            )
         except core.AstError as exc:
-            return _err(exc)
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
 
-        return ToolResult(
-            structured_content={"result": "success", "changed": changed},
-            auto_approve=True,
-        )
+        structured: dict[str, Any] = {"result": result.result}
+        if result.nodes is not None:
+            structured["nodes"] = result.nodes
+        if result.changed is not None:
+            structured["changed"] = result.changed
+        return ToolResult(structured_content=structured, auto_approve=result.nodes is None)

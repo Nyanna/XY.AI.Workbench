@@ -35,12 +35,40 @@ class ScriptError(Exception):
 
 @dataclass(frozen=True)
 class AstScriptResult:
+    """Result of :func:`run_ast_script`.
+
+    Attributes:
+        result: Always ``"success"``.
+        value: ``repr()`` of the script's ``result`` variable, if the script set one;
+            otherwise ``None``.
+    """
+
     result: str
     value: str | None = None
 
 
 def run_ast_script(path: str, code: str) -> AstScriptResult:
-    """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``."""
+    """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``.
+
+    ``code`` runs with an empty ``__builtins__`` plus a small, curated set of safe
+    names (see ``_SAFE_BUILTINS``); the only capabilities handed in are the parsed
+    tree (``tree``, an ``ast.Module``) and the standard-library ``ast`` module
+    itself. Any mutation of ``tree`` is unparsed and persisted to ``path`` on
+    success.
+
+    Args:
+        path: Absolute path to the Python file whose AST is exposed as ``tree``.
+        code: Python script to execute against ``tree``. May assign a module-level
+            name ``result`` to return an arbitrary value (reported as its ``repr()``).
+
+    Returns:
+        AstScriptResult: Success status and, if the script set one, the ``repr()``
+        of its ``result`` variable.
+
+    Raises:
+        core.AstError: If ``path`` is invalid.
+        ScriptError: If ``code`` has a syntax error, or raises during execution.
+    """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
     env: dict[str, Any] = {"tree": tree, "ast": ast}

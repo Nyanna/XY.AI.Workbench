@@ -24,6 +24,14 @@ class ValidateError(Exception):
 
 @dataclass(frozen=True)
 class FileCheck:
+    """Compile-check result for a single file, as returned by :func:`validate_python_files`.
+
+    Attributes:
+        path: The path exactly as given in the input.
+        ok: Whether the file compiled successfully.
+        error: Error message (with line number) if ``ok`` is ``False``, else ``None``.
+    """
+
     path: str
     ok: bool
     error: str | None
@@ -31,6 +39,13 @@ class FileCheck:
 
 @dataclass(frozen=True)
 class ValidateResult:
+    """Result of :func:`validate_python_files`.
+
+    Attributes:
+        all_ok: Whether every file in ``files`` compiled successfully.
+        files: One :class:`FileCheck` per input path, in the given order.
+    """
+
     all_ok: bool
     files: list[FileCheck] = field(default_factory=list)
 
@@ -51,7 +66,22 @@ def _check(path_str: str) -> FileCheck:
 
 
 def validate_python_files(paths: list[str]) -> ValidateResult:
-    """Compile each of ``paths`` and report success/error per file."""
+    """Compile each of ``paths`` and report success/error per file.
+
+    Per-file failures (non-absolute path, unreadable file, syntax error) are
+    reported inside the corresponding :class:`FileCheck` rather than raised; only
+    a malformed call (empty ``paths``) raises.
+
+    Args:
+        paths: Absolute paths of Python files to validate. Must be non-empty.
+
+    Returns:
+        ValidateResult: One :class:`FileCheck` per path, in order, plus an overall
+        ``all_ok`` flag.
+
+    Raises:
+        ValidateError: If ``paths`` is empty.
+    """
     if not paths:
         raise ValidateError("'paths' must be a non-empty list.")
     files = [_check(p) for p in paths]
