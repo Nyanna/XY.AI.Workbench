@@ -152,10 +152,7 @@ class ToolControlManager:
 
         ``auto_approve`` is a hint set by the *tool itself* (via
         ``ToolResult.auto_approve``), not derived from the shape of the
-        result. A tool sets it when it judges its own result carries
-        nothing meaningful for a human to review (e.g. a plain success
-        acknowledgement, or an unrestricted full-file read). When set, the
-        result is approved without involving the controller.
+        result.
         """
         if auto_approve:
             logger.info(

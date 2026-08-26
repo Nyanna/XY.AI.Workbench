@@ -39,8 +39,8 @@ def _err(exc: core.AstError) -> ToolResult:
     return ToolResult(content=[text_content(str(exc))], is_error=True)
 
 
-def _ok(structured: dict[str, Any]) -> ToolResult:
-    return ToolResult(structured_content=structured, auto_approve=True)
+def _ok(structured: dict[str, Any], auto_approve: bool = True) -> ToolResult:
+    return ToolResult(structured_content=structured, auto_approve=auto_approve)
 
 
 def _list_output() -> dict[str, Any]:
@@ -93,7 +93,7 @@ def _register_list(registry: ToolRegistry) -> None:
             for loc in located
             if node_type is None or type(loc.node).__name__.lower() == node_type.lower()
         ]
-        return _ok({"nodes": summaries, "count": len(summaries)})
+        return _ok({"nodes": summaries, "count": len(summaries)}, auto_approve = False)
 
 
 def _register_find(registry: ToolRegistry) -> None:
@@ -120,7 +120,7 @@ def _register_find(registry: ToolRegistry) -> None:
         except core.AstError as exc:
             return _err(exc)
         hits = core.find(tree, **_selectors(args))
-        return _ok({"nodes": [core.node_summary(h) for h in hits], "count": len(hits)})
+        return _ok({"nodes": [core.node_summary(h) for h in hits], "count": len(hits)}, auto_approve = False)
 
 
 def _register_insert(registry: ToolRegistry) -> None:

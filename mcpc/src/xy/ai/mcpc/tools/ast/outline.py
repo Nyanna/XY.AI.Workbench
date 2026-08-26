@@ -143,5 +143,4 @@ def register(registry: ToolRegistry) -> None:
         files = [_outline_one(p) for p in paths]
         return ToolResult(
             structured_content={"all_ok": all(f["ok"] for f in files), "files": files},
-            auto_approve=True,
         )

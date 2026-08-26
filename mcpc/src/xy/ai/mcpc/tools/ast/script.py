@@ -73,4 +73,4 @@ def register(registry: ToolRegistry) -> None:
         structured: dict[str, Any] = {"result": "success"}
         if "result" in env:
             structured["value"] = repr(env["result"])
-        return ToolResult(structured_content=structured, auto_approve=True)
+        return ToolResult(structured_content=structured)

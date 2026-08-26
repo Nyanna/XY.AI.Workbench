@@ -137,7 +137,6 @@ def build_bulk_tool(
             if operation == "list":
                 return ToolResult(
                     structured_content={"result": "success", "nodes": _list(tree)},
-                    auto_approve=True,
                 )
 
             changed = 0

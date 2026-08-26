@@ -1,11 +1,27 @@
 # TODO
+
+* mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
+* vielleicht toolsearch implementieren und tool update machen? Oder tool nach anfrage aktivieren können. ask-tool und user aktiviert tool
+* (java ast bauen)
+* hash vergleich in session autoselect für wechsel von modellen in einer datei
+* rag auf basis von knoten retriever sind list, find, rag,
+	* verschiedene feld filter, vielleicht autoselect auf basis von filtern, dann ein field resolver, durch retriever jagen und
+	* verschiedene felder resolven, wie fqnd id, methoden imports usw.
+	* knotenbaum editor in eclipse zur sichtkontrolle und entfewrrnen vom result und bäumen
+	* heiku davorschalten für üromptkompression und kontext retreival, qualis exploration phase im phase konzept
+	* resolver muss eine liste sein, ast-python resolver wird pro knoten vom parent resolver aufgerufen
+		* detected python datei so wird python ast drunter gehänt,
+	* tool liefert crud operationen auf allen ebenen auch mit block replace
+
 - wie erstellt man am besten einen soft promt => forschungsergebnisse?
+	- LLMLingua und LLM selbstkompression
+	- Kompression für RAG?
 - wie wird RAG am besten von einem agenten oder menschen verwendet, gibt es einen nicht KI kontext, was ist mit google?
 	- RAG ist von KI unabhängiger suchmechanismus, benutzt nur NN vektoren
 	- semantische kompression für nur wissen ohne ändern, kein code
 - Rag weiter
-	- eclipse suchprovider für caolgrep
-* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout
+	- eclipse suchprovider für caolgrep -> oder generellen RAG tool panel um kontext auszuwählen
+* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten?
 
 ##  Workbench  
 

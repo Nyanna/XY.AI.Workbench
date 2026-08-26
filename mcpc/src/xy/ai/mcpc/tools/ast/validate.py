@@ -65,7 +65,8 @@ def register(registry: ToolRegistry) -> None:
         if not isinstance(paths, list) or not paths:
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
         files = [_check(p) for p in paths]
+        allOk = all(f["ok"] for f in files)
         return ToolResult(
-            structured_content={"all_ok": all(f["ok"] for f in files), "files": files},
-            auto_approve=True,
+            structured_content={"all_ok": allOk, "files": files},
+            auto_approve=allOk,
         )
