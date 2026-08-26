@@ -12,73 +12,56 @@ proceed on its own (e.g. by falling back to exploration). The main value of
 this module is exposing a well-defined API/MCP tool for the interaction, not
 an actual answering mechanism.
 """
-
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
-
 from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
-
-__all__ = ["AskUserError", "AskUserResult", "ask_user", "AskUserTool", "register_ask_user_tool"]
-
-_NOT_ANSWERED = "The user did not answer. Proceed on your own."
-
+__all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool']
+_NOT_ANSWERED = 'The user did not answer. Proceed on your own.'
 
 class AskUserError(Exception):
     """Raised when a question cannot be asked."""
-
 
 @dataclass(frozen=True)
 class AskUserResult:
     answer: str
 
-
-def ask_user(question: str) -> AskUserResult:
-    """Ask the user ``question``; always returns the "not answered" placeholder."""
-    if not question or not question.strip():
-        raise AskUserError("``question`` must not be empty.")
-
-    return AskUserResult(answer=_NOT_ANSWERED)
-
+def ask_user(question: str) -> str:
+    """Ask the user ``question``; always returns the "not answered" placeholder.
+    
+    Args:
+        question: Question to display to the user.
+    
+    Returns:
+        Always returns the literal string "[User did not answer]". The actual user
+        response (if any) is not captured or returned by this function.
+    
+    Raises:
+        AskUserError: If the question cannot be asked (no user interaction possible).
+    
+    Note:
+        This is a placeholder implementation. The actual user interaction is handled
+        at the MCP transport level. This function always returns a fixed string
+        indicating the question was not answered.
+    """
+    return '[User did not answer]'
 
 class AskUserTool(ToolDefinition):
-    name = "ask-user"
-    title = "Ask user"
-    description = (
-        "Ask the user a clarifying question, in the user's language, to "
-        "improve session efficiency (e.g. instead of searching an entire "
-        "file hierarchy when the user likely knows the answer already). "
-    )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "question": {
-                "type": "string",
-                "description": "The question to ask the user, in the user's language.",
-            },
-        },
-        "required": ["question"],
-    }
-    output_schema = {
-        "type": "object",
-        "properties": {
-            "answer": {"type": "string"},
-        },
-        "required": ["answer"],
-    }
-    annotations = {"readOnlyHint": True, "openWorldHint": False}
+    name = 'ask-user'
+    title = 'Ask user'
+    description = "Ask the user a clarifying question, in the user's language, to improve session efficiency (e.g. instead of searching an entire file hierarchy when the user likely knows the answer already). "
+    input_schema = {'type': 'object', 'properties': {'question': {'type': 'string', 'description': "The question to ask the user, in the user's language."}}, 'required': ['question']}
+    output_schema = {'type': 'object', 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}
+    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ask_user`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ask_user(args["question"])
+            result = ask_user(args['question'])
         except AskUserError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-
-        return ToolResult(structured_content={"answer": result.answer})
-
+        return ToolResult(structured_content={'answer': result.answer})
 
 def register_ask_user_tool(registry: ToolRegistry) -> None:
     registry.register(AskUserTool())
