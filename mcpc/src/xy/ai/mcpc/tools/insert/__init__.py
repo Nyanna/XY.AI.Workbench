@@ -5,50 +5,49 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 
-def register_insert_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "insert",
-        title="Insert into file",
-        description=(
-            "Insert text at a specific character offset inside an existing file. "
-            "The offset is zero-based and refers to the UTF-8 decoded content of the file. "
-            "All existing content at and after the offset is shifted right."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to modify.",
-                },
-                "offset": {
-                    "type": "integer",
-                    "description": "Zero-based character offset at which to insert the new content.",
-                    "minimum": 0,
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Text to insert at the given offset.",
-                },
-            },
-            "required": ["path", "offset", "content"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "result": {
-                    "type": "string",
-                    "description": "``success`` on success.",
-                },
-            },
-            "required": ["result"],
-        },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
+class InsertTool(ToolDefinition):
+    name = "insert"
+    title = "Insert into file"
+    description = (
+        "Insert text at a specific character offset inside an existing file. "
+        "The offset is zero-based and refers to the UTF-8 decoded content of the file. "
+        "All existing content at and after the offset is shifted right."
     )
-    def insert(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute path to the file to modify.",
+            },
+            "offset": {
+                "type": "integer",
+                "description": "Zero-based character offset at which to insert the new content.",
+                "minimum": 0,
+            },
+            "content": {
+                "type": "string",
+                "description": "Text to insert at the given offset.",
+            },
+        },
+        "required": ["path", "offset", "content"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "result": {
+                "type": "string",
+                "description": "``success`` on success.",
+            },
+        },
+        "required": ["result"],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         offset: int = args["offset"]
@@ -87,3 +86,7 @@ def register_insert_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
+
+def register_insert_tool(registry: ToolRegistry) -> None:
+    registry.register(InsertTool())

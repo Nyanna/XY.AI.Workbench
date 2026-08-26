@@ -16,7 +16,6 @@
 			* gesicherte umgebung extra dateisystem mit symlinks /tool/python/tools, quasi ein beschränktes system mit chrott simulieren, ressourcen werden nur freigegeben und eingehängt
 			* oder MCP tool geben nur infos zu den abstrakten python files un rufen zur verwendung von skript auf, also nur info tool- enweter tool-list -> tool-usage
 * (java ast bauen)
-* hash vergleich in session autoselect für wechsel von modellen in einer datei (prompt compact)
 * rag auf basis von knoten retriever sind list, find, rag,
 	* verschiedene feld filter, vielleicht autoselect auf basis von filtern, dann ein field resolver, durch retriever jagen und
 	* verschiedene felder resolven, wie fqnd id, methoden imports usw.
