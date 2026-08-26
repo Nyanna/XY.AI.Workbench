@@ -5,65 +5,63 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from .._text_match import find as find_text
 
 
-def register_replace_block_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "replace-block",
-        title="Replace text block in file",
-        description=(
-            "Replace a complete block of text inside an existing file. "
-            "'old_text' must occur exactly once. By default whitespace "
-            "(spaces, tabs, newlines) is matched tolerantly; set 'exact' to "
-            "require exact whitespace matching."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the target file.",
-                },
-                "old_text": {
-                    "type": "string",
-                    "description": "Text to find and replace. Must occur exactly once.",
-                },
-                "new_text": {
-                    "type": "string",
-                    "description": "Text that replaces 'old_text'.",
-                },
-                "exact": {
-                    "type": "boolean",
-                    "description": (
-                        "If true, 'old_text' must match whitespace exactly. "
-                        "If false (default), whitespace runs match any amount/kind of whitespace."
-                    ),
-                    "default": False,
-                },
-            },
-            "required": ["path", "old_text", "new_text"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "result": {
-                    "type": "string",
-                },
-            },
-            "required": [],
-        },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
+class ReplaceBlockTool(ToolDefinition):
+    name = "replace-block"
+    title = "Replace text block in file"
+    description = (
+        "Replace a complete block of text inside an existing file. "
+        "'old_text' must occur exactly once. By default whitespace "
+        "(spaces, tabs, newlines) is matched tolerantly; set 'exact' to "
+        "require exact whitespace matching."
     )
-    def replace_block(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute path to the target file.",
+            },
+            "old_text": {
+                "type": "string",
+                "description": "Text to find and replace. Must occur exactly once.",
+            },
+            "new_text": {
+                "type": "string",
+                "description": "Text that replaces 'old_text'.",
+            },
+            "exact": {
+                "type": "boolean",
+                "description": (
+                    "If true, 'old_text' must match whitespace exactly. "
+                    "If false (default), whitespace runs match any amount/kind of whitespace."
+                ),
+                "default": False,
+            },
+        },
+        "required": ["path", "old_text", "new_text"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "result": {
+                "type": "string",
+            },
+        },
+        "required": [],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         old_text: str = args["old_text"]
         new_text: str = args["new_text"]
         exact: bool = args.get("exact", False)
 
-        # --- path validation ---
         path = Path(path_str)
         if not path.is_absolute():
             return ToolResult(
@@ -88,7 +86,6 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
 
         text = path.read_text(encoding="utf-8")
 
-        # --- locate and validate old_text ---
         match = find_text(text, old_text, exact=exact)
         if match.count == 0:
             return ToolResult(
@@ -103,7 +100,6 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
 
         result_text = text[: match.start] + new_text + text[match.end :]
 
-        # --- write back ---
         try:
             path.write_text(result_text, encoding="utf-8")
         except OSError as exc:
@@ -113,3 +109,7 @@ def register_replace_block_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
+
+def register_replace_block_tool(registry: ToolRegistry) -> None:
+    registry.register(ReplaceBlockTool())

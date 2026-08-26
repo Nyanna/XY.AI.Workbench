@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 _MAX_ENTRIES = 50
 
@@ -40,44 +40,43 @@ _EXCLUDED_DIRS = {
 }
 
 
-def register_list_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "list",
-        title="List directory",
-        description=(
-            "List all files below an absolute directory path, recursively, "
-            "as a flat list. "
-            "Optionally filter the result with a regular expression."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute directory path.",
-                },
-                "pattern": {
-                    "type": "string",
-                    "description": (
-                        "Optional regular expression used to filter the result."
-                    ),
-                },
-            },
-            "required": ["path"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "entries": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-            },
-            "required": ["entries"],
-        },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+class ListTool(ToolDefinition):
+    name = "list"
+    title = "List directory"
+    description = (
+        "List all files below an absolute directory path, recursively, "
+        "as a flat list. "
+        "Optionally filter the result with a regular expression."
     )
-    def list_dir(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute directory path.",
+            },
+            "pattern": {
+                "type": "string",
+                "description": (
+                    "Optional regular expression used to filter the result."
+                ),
+            },
+        },
+        "required": ["path"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "entries": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["entries"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         pattern: str | None = args.get("pattern")
@@ -133,3 +132,7 @@ def register_list_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"entries": entries})
+
+
+def register_list_tool(registry: ToolRegistry) -> None:
+    registry.register(ListTool())

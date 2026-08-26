@@ -5,57 +5,56 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 
-def register_replace_chars_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "replace-chars",
-        title="Replace characters in file",
-        description=(
-            "Replace a range of characters inside an existing file with new content. "
-            "The range is defined by a zero-based character ``offset`` and a ``length`` "
-            "(number of characters to remove starting at the offset). "
-            "The supplied ``content`` is written in place of the removed range. "
-            "To replace whole lines instead, use ``replace-lines``."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to modify.",
-                },
-                "offset": {
-                    "type": "integer",
-                    "description": "Zero-based character offset of the first character to replace.",
-                    "minimum": 0,
-                },
-                "length": {
-                    "type": "integer",
-                    "description": "Number of characters to remove starting at ``offset``.",
-                    "minimum": 0,
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Replacement text (may be empty to perform a pure deletion).",
-                },
-            },
-            "required": ["path", "offset", "length", "content"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "result": {
-                    "type": "string",
-                    "description": "``success`` on success.",
-                },
-            },
-            "required": ["result"],
-        },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
+class ReplaceCharsTool(ToolDefinition):
+    name = "replace-chars"
+    title = "Replace characters in file"
+    description = (
+        "Replace a range of characters inside an existing file with new content. "
+        "The range is defined by a zero-based character ``offset`` and a ``length`` "
+        "(number of characters to remove starting at the offset). "
+        "The supplied ``content`` is written in place of the removed range. "
+        "To replace whole lines instead, use ``replace-lines``."
     )
-    def replace_chars(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute path to the file to modify.",
+            },
+            "offset": {
+                "type": "integer",
+                "description": "Zero-based character offset of the first character to replace.",
+                "minimum": 0,
+            },
+            "length": {
+                "type": "integer",
+                "description": "Number of characters to remove starting at ``offset``.",
+                "minimum": 0,
+            },
+            "content": {
+                "type": "string",
+                "description": "Replacement text (may be empty to perform a pure deletion).",
+            },
+        },
+        "required": ["path", "offset", "length", "content"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "result": {
+                "type": "string",
+                "description": "``success`` on success.",
+            },
+        },
+        "required": ["result"],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         offset: int = args["offset"]
@@ -100,3 +99,7 @@ def register_replace_chars_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
+
+def register_replace_chars_tool(registry: ToolRegistry) -> None:
+    registry.register(ReplaceCharsTool())

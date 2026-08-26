@@ -16,89 +16,84 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
-#: Key under which the per-session read cache is kept in ``Session.state``.
 _CACHE_STATE_KEY = "_read_cache"
 
 
 def _cache_key(session_id: str, arguments: dict[str, Any]) -> str:
-    """Derive a stable cache key from the session id and the call arguments."""
     payload = json.dumps({"session": session_id, "arguments": arguments}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-def register_read_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "read-file",
-        title="Read file",
-        description=(
-            "Read a file as text, optionally sliced to a range. Don't use to read directories."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute file path.",
-                },
-                "min_line": {
-                    "type": "integer",
-                    "description": "Range start: line number, inclusive, 1-based. Excludes start and min_char.",
-                    "minimum": 1,
-                },
-                "max_line": {
-                    "type": "integer",
-                    "description": "Range end: line number, inclusive, 1-based. Excludes end and max_char.",
-                    "minimum": 1,
-                },
-                "min_char": {
-                    "type": "integer",
-                    "description": "Range start: character offset, inclusive, 0-based. Excludes min_line.",
-                    "minimum": 0,
-                },
-                "max_char": {
-                    "type": "integer",
-                    "description": "Range end: character offset, exclusive, 0-based. Excludes max_line.",
-                    "minimum": 0,
-                },
-                "start": {
-                    "type": "string",
-                    "description": "Range start: unique marker substring, inclusive. Excludes min_line and min_char.",
-                },
-                "end": {
-                    "type": "string",
-                    "description": "Range end: unique marker substring, inclusive. Excludes max_line and max_char.",
-                },
-            },
-            "required": ["path"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "content": {"type": "string"},
-                "checksum": {
-                    "type": "string",
-                    "description": (
-                        "sha256 checksum of the read content."
-                    ),
-                },
-                "unchanged": {
-                    "type": "boolean",
-                    "description": (
-                        "True if the content is identical to a previous read with the "
-                        "same parameters"
-                    ),
-                },
-            },
-            "required": ["checksum"],
-        },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+
+class ReadTool(ToolDefinition):
+    name = "read-file"
+    title = "Read file"
+    description = (
+        "Read a file as text, optionally sliced to a range. Don't use to read directories."
     )
-    def read(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute file path.",
+            },
+            "min_line": {
+                "type": "integer",
+                "description": "Range start: line number, inclusive, 1-based. Excludes start and min_char.",
+                "minimum": 1,
+            },
+            "max_line": {
+                "type": "integer",
+                "description": "Range end: line number, inclusive, 1-based. Excludes end and max_char.",
+                "minimum": 1,
+            },
+            "min_char": {
+                "type": "integer",
+                "description": "Range start: character offset, inclusive, 0-based. Excludes min_line.",
+                "minimum": 0,
+            },
+            "max_char": {
+                "type": "integer",
+                "description": "Range end: character offset, exclusive, 0-based. Excludes max_line.",
+                "minimum": 0,
+            },
+            "start": {
+                "type": "string",
+                "description": "Range start: unique marker substring, inclusive. Excludes min_line and min_char.",
+            },
+            "end": {
+                "type": "string",
+                "description": "Range end: unique marker substring, inclusive. Excludes max_line and max_char.",
+            },
+        },
+        "required": ["path"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "content": {"type": "string"},
+            "checksum": {
+                "type": "string",
+                "description": "sha256 checksum of the read content.",
+            },
+            "unchanged": {
+                "type": "boolean",
+                "description": (
+                    "True if the content is identical to a previous read with the "
+                    "same parameters"
+                ),
+            },
+        },
+        "required": ["checksum"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         min_line: int | None = args.get("min_line")
@@ -108,7 +103,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
         start_marker: str | None = args.get("start")
         end_marker: str | None = args.get("end")
 
-        # --- mutual exclusivity validation ---
         if min_line is not None and min_char is not None:
             return ToolResult(
                 content=[text_content("``min_line`` and ``min_char`` are mutually exclusive.")],
@@ -158,8 +152,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
             )
 
         raw_bytes = path.read_bytes()
-
-        # --- decode ---
         text = raw_bytes.decode("utf-8", errors="replace")
         lines = text.splitlines(keepends=True)
         total_lines = len(lines)
@@ -212,7 +204,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
         else:
             region_end = len(text)
 
-        # --- order validation ---
         if region_end < region_start:
             return ToolResult(
                 content=[text_content(
@@ -225,7 +216,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
         sliced = text[region_start:region_end]
         checksum = hashlib.sha256(sliced.encode("utf-8")).hexdigest()
 
-        # --- per-session cache lookup ---
         session = ctx.session
         key = _cache_key(session.id, args)
         with session.lock:
@@ -241,10 +231,6 @@ def register_read_tool(registry: ToolRegistry) -> None:
         else:
             structured["content"] = sliced
 
-        # An unrestricted read (no line/char/marker range given) returns the
-        # entire file verbatim; there is nothing a human reviewer could
-        # meaningfully approve or reject beyond what a plain file read
-        # already exposes, so the tool flags it for auto-approval.
         is_full_file = (
             min_line is None
             and max_line is None
@@ -267,3 +253,7 @@ def register_read_tool(registry: ToolRegistry) -> None:
             structured_content=structured,
             auto_approve=is_full_file,
         )
+
+
+def register_read_tool(registry: ToolRegistry) -> None:
+    registry.register(ReadTool())

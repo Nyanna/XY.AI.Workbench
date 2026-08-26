@@ -6,10 +6,9 @@ import ast
 import importlib
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from . import core
 
-# ``file-stats`` uses a hyphenated (non-identifier) package name.
 compute_file_stats = importlib.import_module(
     "xy.ai.mcpc.tools.file-stats"
 ).compute_file_stats
@@ -106,37 +105,36 @@ _OUTLINE_ITEM_SCHEMA = {
 }
 
 
-def register(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "python-ast-outline",
-        title="Python outline",
-        description=(
-            "Token-efficient structural overview of Python files: file metrics, "
-            "imports, and a class/function hierarchy with line ranges and short "
-            "docstrings. Accepts one or several files at once."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Absolute paths of Python files to outline.",
-                }
-            },
-            "required": ["paths"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "all_ok": {"type": "boolean"},
-                "files": {"type": "array", "items": _OUTLINE_ITEM_SCHEMA},
-            },
-            "required": ["all_ok", "files"],
-        },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+class OutlineTool(ToolDefinition):
+    name = "python-ast-outline"
+    title = "Python outline"
+    description = (
+        "Token-efficient structural overview of Python files: file metrics, "
+        "imports, and a class/function hierarchy with line ranges and short "
+        "docstrings. Accepts one or several files at once."
     )
-    def outline(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Absolute paths of Python files to outline.",
+            }
+        },
+        "required": ["paths"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "all_ok": {"type": "boolean"},
+            "files": {"type": "array", "items": _OUTLINE_ITEM_SCHEMA},
+        },
+        "required": ["all_ok", "files"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list) or not paths:
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
@@ -144,3 +142,7 @@ def register(registry: ToolRegistry) -> None:
         return ToolResult(
             structured_content={"all_ok": all(f["ok"] for f in files), "files": files},
         )
+
+
+def register(registry: ToolRegistry) -> None:
+    registry.register(OutlineTool())

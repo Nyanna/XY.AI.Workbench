@@ -13,10 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 from ..process import run_capture
 
-#: Example script surfaced in the tool description.
 _EXAMPLE = """\
 import { read, write } from 'to-vfile';
 import { createRemark } from './remark.js';
@@ -63,36 +62,35 @@ _DESCRIPTION = (
 )
 
 
-def register_markdown_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "markdown",
-        title="Run Markdown (remark) script",
-        description=_DESCRIPTION,
-        input_schema={
-            "type": "object",
-            "properties": {
-                "script": {
-                    "type": "string",
-                    "description": (
-                        "TypeScript (ESM) script content to execute against the "
-                        "remark environment."
-                    ),
-                },
+class MarkdownTool(ToolDefinition):
+    name = "markdown"
+    title = "Run Markdown (remark) script"
+    description = _DESCRIPTION
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "script": {
+                "type": "string",
+                "description": (
+                    "TypeScript (ESM) script content to execute against the "
+                    "remark environment."
+                ),
             },
-            "required": ["script"],
         },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "exit_code": {"type": "integer"},
-                "stdout": {"type": "string"},
-                "stderr": {"type": "string"},
-            },
-            "required": ["exit_code", "stdout"],
+        "required": ["script"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "exit_code": {"type": "integer"},
+            "stdout": {"type": "string"},
+            "stderr": {"type": "string"},
         },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True},
-    )
-    def markdown(ctx: ToolContext) -> ToolResult:
+        "required": ["exit_code", "stdout"],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": True}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         script: str = args["script"]
 
@@ -110,3 +108,7 @@ def register_markdown_tool(registry: ToolRegistry) -> None:
             stdin=script,
             launch_error="Failed to launch node",
         )
+
+
+def register_markdown_tool(registry: ToolRegistry) -> None:
+    registry.register(MarkdownTool())

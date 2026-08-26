@@ -5,54 +5,53 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 
-def register_write_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "write",
-        title="Write file",
-        description=(
-            "Write content to a file. "
-            "In ``replace`` mode the file is overwritten with the supplied content. "
-            "In ``append`` mode the content is added at the end of the existing file "
-            "(the file is created if it does not yet exist)."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to write.",
-                },
-                "mode": {
-                    "type": "string",
-                    "enum": ["replace", "append"],
-                    "description": (
-                        "``replace`` – overwrite the file with the new content. "
-                        "``append`` – add the new content after the existing content."
-                    ),
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Text to write to the file.",
-                },
-            },
-            "required": ["path", "mode", "content"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "result": {
-                    "type": "string",
-                    "description": "``success`` on success.",
-                },
-            },
-            "required": ["result"],
-        },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
+class WriteTool(ToolDefinition):
+    name = "write"
+    title = "Write file"
+    description = (
+        "Write content to a file. "
+        "In ``replace`` mode the file is overwritten with the supplied content. "
+        "In ``append`` mode the content is added at the end of the existing file "
+        "(the file is created if it does not yet exist)."
     )
-    def write(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute path to the file to write.",
+            },
+            "mode": {
+                "type": "string",
+                "enum": ["replace", "append"],
+                "description": (
+                    "``replace`` – overwrite the file with the new content. "
+                    "``append`` – add the new content after the existing content."
+                ),
+            },
+            "content": {
+                "type": "string",
+                "description": "Text to write to the file.",
+            },
+        },
+        "required": ["path", "mode", "content"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "result": {
+                "type": "string",
+                "description": "``success`` on success.",
+            },
+        },
+        "required": ["result"],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         mode: str = args["mode"]
@@ -77,3 +76,7 @@ def register_write_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
+
+def register_write_tool(registry: ToolRegistry) -> None:
+    registry.register(WriteTool())

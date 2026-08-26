@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 
 def _calculate_complexity(text: str) -> float:
@@ -91,90 +91,89 @@ def compute_file_stats(path: Path) -> dict[str, Any]:
     }
 
 
-def register_file_stats_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "file-stats",
-        title="File stats",
-        description=(
-            "Get file metrics for access and processing planning: complexity, timestamps, "
-            "size, line/word counts, and line length statistics."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute file path.",
-                },
-            },
-            "required": ["path"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute file path.",
-                },
-                "size_bytes": {
-                    "type": "integer",
-                    "description": "File size in bytes.",
-                },
-                "lines": {
-                    "type": "integer",
-                    "description": "Total number of lines.",
-                },
-                "words": {
-                    "type": "integer",
-                    "description": "Total number of words.",
-                },
-                "complexity": {
-                    "type": "number",
-                    "description": "Data structure complexity (0.0 to 1.0).",
-                },
-                "created": {
-                    "type": "string",
-                    "description": "Creation timestamp (ISO 8601).",
-                },
-                "modified": {
-                    "type": "string",
-                    "description": "Last modification timestamp (ISO 8601).",
-                },
-                "accessed": {
-                    "type": "string",
-                    "description": "Last access timestamp (ISO 8601).",
-                },
-                "line_length_max": {
-                    "type": "integer",
-                    "description": "Maximum line length in characters.",
-                },
-                "line_length_min": {
-                    "type": "integer",
-                    "description": "Minimum line length in characters.",
-                },
-                "line_length_avg": {
-                    "type": "number",
-                    "description": "Average line length in characters.",
-                },
-                "words_per_line_avg": {
-                    "type": "number",
-                    "description": "Average number of words per line.",
-                },
-                "checksum": {
-                    "type": "string",
-                    "description": "sha256 checksum of the file content.",
-                },
-            },
-            "required": [
-                "path", "size_bytes", "lines", "words", "complexity",
-                "created", "modified", "accessed",
-                "line_length_max", "line_length_min", "line_length_avg",
-                "words_per_line_avg", "checksum"
-            ],
-        },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+class FileStatsTool(ToolDefinition):
+    name = "file-stats"
+    title = "File stats"
+    description = (
+        "Get file metrics for access and processing planning: complexity, timestamps, "
+        "size, line/word counts, and line length statistics."
     )
-    def file_stats(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute file path.",
+            },
+        },
+        "required": ["path"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute file path.",
+            },
+            "size_bytes": {
+                "type": "integer",
+                "description": "File size in bytes.",
+            },
+            "lines": {
+                "type": "integer",
+                "description": "Total number of lines.",
+            },
+            "words": {
+                "type": "integer",
+                "description": "Total number of words.",
+            },
+            "complexity": {
+                "type": "number",
+                "description": "Data structure complexity (0.0 to 1.0).",
+            },
+            "created": {
+                "type": "string",
+                "description": "Creation timestamp (ISO 8601).",
+            },
+            "modified": {
+                "type": "string",
+                "description": "Last modification timestamp (ISO 8601).",
+            },
+            "accessed": {
+                "type": "string",
+                "description": "Last access timestamp (ISO 8601).",
+            },
+            "line_length_max": {
+                "type": "integer",
+                "description": "Maximum line length in characters.",
+            },
+            "line_length_min": {
+                "type": "integer",
+                "description": "Minimum line length in characters.",
+            },
+            "line_length_avg": {
+                "type": "number",
+                "description": "Average line length in characters.",
+            },
+            "words_per_line_avg": {
+                "type": "number",
+                "description": "Average number of words per line.",
+            },
+            "checksum": {
+                "type": "string",
+                "description": "sha256 checksum of the file content.",
+            },
+        },
+        "required": [
+            "path", "size_bytes", "lines", "words", "complexity",
+            "created", "modified", "accessed",
+            "line_length_max", "line_length_min", "line_length_avg",
+            "words_per_line_avg", "checksum"
+        ],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
 
@@ -191,7 +190,8 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
             )
         if not path.is_file():
             return ToolResult(
-                content=[text_content("Not a regular file.")],                is_error=True,
+                content=[text_content("Not a regular file.")],
+                is_error=True,
             )
 
         structured = compute_file_stats(path)
@@ -201,3 +201,7 @@ def register_file_stats_tool(registry: ToolRegistry) -> None:
             structured_content=structured,
             auto_approve=True,
         )
+
+
+def register_file_stats_tool(registry: ToolRegistry) -> None:
+    registry.register(FileStatsTool())

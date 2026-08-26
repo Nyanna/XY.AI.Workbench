@@ -9,58 +9,57 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
 
-def register_replace_lines_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "replace-lines",
-        title="Replace lines in file",
-        description=(
-            "Replace a range of lines inside an existing file with new content. "
-            "The range is defined by a zero-based line ``offset`` and a ``length`` "
-            "(number of lines to remove starting at the offset). "
-            "The supplied ``content`` is written in place of the removed lines; "
-            "it should include its own trailing newline if a line break is wanted. "
-            "To replace an arbitrary character range instead, use ``replace-chars``."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Absolute path to the file to modify.",
-                },
-                "offset": {
-                    "type": "integer",
-                    "description": "Zero-based line offset of the first line to replace.",
-                    "minimum": 0,
-                },
-                "length": {
-                    "type": "integer",
-                    "description": "Number of lines to remove starting at ``offset``.",
-                    "minimum": 0,
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Replacement text (may be empty to perform a pure deletion).",
-                },
-            },
-            "required": ["path", "offset", "length", "content"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "result": {
-                    "type": "string",
-                    "description": "``success`` on success.",
-                },
-            },
-            "required": ["result"],
-        },
-        annotations={"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False},
+class ReplaceLinesTool(ToolDefinition):
+    name = "replace-lines"
+    title = "Replace lines in file"
+    description = (
+        "Replace a range of lines inside an existing file with new content. "
+        "The range is defined by a zero-based line ``offset`` and a ``length`` "
+        "(number of lines to remove starting at the offset). "
+        "The supplied ``content`` is written in place of the removed lines; "
+        "it should include its own trailing newline if a line break is wanted. "
+        "To replace an arbitrary character range instead, use ``replace-chars``."
     )
-    def replace_lines(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Absolute path to the file to modify.",
+            },
+            "offset": {
+                "type": "integer",
+                "description": "Zero-based line offset of the first line to replace.",
+                "minimum": 0,
+            },
+            "length": {
+                "type": "integer",
+                "description": "Number of lines to remove starting at ``offset``.",
+                "minimum": 0,
+            },
+            "content": {
+                "type": "string",
+                "description": "Replacement text (may be empty to perform a pure deletion).",
+            },
+        },
+        "required": ["path", "offset", "length", "content"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "result": {
+                "type": "string",
+                "description": "``success`` on success.",
+            },
+        },
+        "required": ["result"],
+    }
+    annotations = {"readOnlyHint": False, "idempotentHint": False, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args["path"]
         offset: int = args["offset"]
@@ -106,3 +105,7 @@ def register_replace_lines_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"result": "success"}, auto_approve=True)
+
+
+def register_replace_lines_tool(registry: ToolRegistry) -> None:
+    registry.register(ReplaceLinesTool())

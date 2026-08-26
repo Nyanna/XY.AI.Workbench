@@ -17,41 +17,39 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
 
-#: Answer returned whenever the user has not (yet) responded.
 _NOT_ANSWERED = "The user did not answer. Proceed on your own."
 
 
-def register_ask_user_tool(registry: ToolRegistry) -> None:
-    @registry.tool(
-        "ask-user",
-        title="Ask user",
-        description=(
-            "Ask the user a clarifying question, in the user's language, to "
-            "improve session efficiency (e.g. instead of searching an entire "
-            "file hierarchy when the user likely knows the answer already). "
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "The question to ask the user, in the user's language.",
-                },
-            },
-            "required": ["question"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "answer": {"type": "string"},
-            },
-            "required": ["answer"],
-        },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
+class AskUserTool(ToolDefinition):
+    name = "ask-user"
+    title = "Ask user"
+    description = (
+        "Ask the user a clarifying question, in the user's language, to "
+        "improve session efficiency (e.g. instead of searching an entire "
+        "file hierarchy when the user likely knows the answer already). "
     )
-    def ask_user(ctx: ToolContext) -> ToolResult:
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": "The question to ask the user, in the user's language.",
+            },
+        },
+        "required": ["question"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+        },
+        "required": ["answer"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         question: str = args["question"]
         if not question or not question.strip():
@@ -61,3 +59,7 @@ def register_ask_user_tool(registry: ToolRegistry) -> None:
             )
 
         return ToolResult(structured_content={"answer": _NOT_ANSWERED})
+
+
+def register_ask_user_tool(registry: ToolRegistry) -> None:
+    registry.register(AskUserTool())

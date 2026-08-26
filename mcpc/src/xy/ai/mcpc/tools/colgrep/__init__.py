@@ -13,13 +13,15 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+
 _COLGREP_BIN = '/home/user/.cargo/bin/colgrep'
 _CONTEXT_LINES = '2'
 _DEFAULT_RESULTS = 15
 _MAX_RESULTS = 50
 _MAX_CODE_LEN = 100
 _DROPPED_KEYS = frozenset({'language', 'signature', 'qualified_name', 'unit_type', 'complexity', 'has_loops', 'has_branches', 'has_error_handling', 'extends', 'parent_class', 'variables', 'name', 'return_type', 'calls', 'imports', 'parameters'})
+
 
 def _find_index_root(start: Path) -> Path | None:
     """Climb from *start* up to the filesystem root looking for a colgrep index.
@@ -36,6 +38,7 @@ def _find_index_root(start: Path) -> Path | None:
         if current.parent == current:
             return None
         current = current.parent
+
 
 def _clean_result(value: Any) -> Any:
     """Recursively drop empty components (``False``, ``""``, ``None``, ``[]``) and
@@ -59,10 +62,38 @@ def _clean_result(value: Any) -> Any:
         return [_clean_result(item) for item in value]
     return value
 
-def register_colgrep_tool(registry: ToolRegistry) -> None:
 
-    @registry.tool('colgrep', title='Search code with colgrep', description="Search a project's codebase with colgrep.", input_schema={'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute directory to search in.'}, 'query': {'type': 'string', 'description': 'Search query: natural language and/or identifiers/keywords.'}, 'results': {'type': 'integer', 'minimum': 1, 'maximum': _MAX_RESULTS, 'default': _DEFAULT_RESULTS, 'description': 'Maximum number of results to return.'}, 'semantic_only': {'type': 'boolean', 'default': False, 'description': 'Disable keyword fusion; pure semantic ranking only.'}, 'code_only': {'type': 'boolean', 'default': False, 'description': 'Skip documentation/config files; search source code only.'}, 'files_only': {'type': 'boolean', 'default': False, 'description': 'Return matching file paths only, without snippets.'}, 'full_content': {'type': 'boolean', 'default': False, 'description': 'Return the full matched function/class body instead of a short snippet.'}, 'include': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'}, 'exclude': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'}, 'exclude_dir': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}}, 'required': ['path', 'query']}, output_schema={'type': 'object', 'properties': {'results': {'type': 'array', 'items': {'type': 'object'}, 'description': 'Result objects as produced by `colgrep'}, 'count': {'type': 'integer'}}, 'required': ['results']}, annotations={'readOnlyHint': True, 'openWorldHint': False})
-    def colgrep(ctx: ToolContext) -> ToolResult:
+class ColgrepTool(ToolDefinition):
+    name = 'colgrep'
+    title = 'Search code with colgrep'
+    description = "Search a project's codebase with colgrep."
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {'type': 'string', 'description': 'Absolute directory to search in.'},
+            'query': {'type': 'string', 'description': 'Search query: natural language and/or identifiers/keywords.'},
+            'results': {'type': 'integer', 'minimum': 1, 'maximum': _MAX_RESULTS, 'default': _DEFAULT_RESULTS, 'description': 'Maximum number of results to return.'},
+            'semantic_only': {'type': 'boolean', 'default': False, 'description': 'Disable keyword fusion; pure semantic ranking only.'},
+            'code_only': {'type': 'boolean', 'default': False, 'description': 'Skip documentation/config files; search source code only.'},
+            'files_only': {'type': 'boolean', 'default': False, 'description': 'Return matching file paths only, without snippets.'},
+            'full_content': {'type': 'boolean', 'default': False, 'description': 'Return the full matched function/class body instead of a short snippet.'},
+            'include': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'},
+            'exclude': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'},
+            'exclude_dir': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'},
+        },
+        'required': ['path', 'query']
+    }
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'results': {'type': 'array', 'items': {'type': 'object'}, 'description': 'Result objects as produced by `colgrep'},
+            'count': {'type': 'integer'}
+        },
+        'required': ['results']
+    }
+    annotations = {'readOnlyHint': True, 'openWorldHint': False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
         path_str: str = args['path']
         query: str = args['query']
@@ -104,7 +135,6 @@ def register_colgrep_tool(registry: ToolRegistry) -> None:
             cmd.append(f'--exclude={pattern}')
         for name in exclude_dir:
             cmd.append(f'--exclude-dir={name}')
-        '# Same convention as colgrep-init.sh: config/data live inside the project.'
         env = dict(os.environ)
         env['XDG_DATA_HOME'] = str(index_root)
         env['XDG_CONFIG_HOME'] = str(index_root)
@@ -122,3 +152,7 @@ def register_colgrep_tool(registry: ToolRegistry) -> None:
         parsed = _clean_result(parsed)
         payload = {'results': parsed, 'count': len(parsed)} if isinstance(parsed, list) else {'results': [parsed], 'count': 1}
         return ToolResult(structured_content=payload)
+
+
+def register_colgrep_tool(registry: ToolRegistry) -> None:
+    registry.register(ColgrepTool())
