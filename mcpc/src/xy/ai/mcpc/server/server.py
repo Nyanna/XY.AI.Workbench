@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.tool_context import AppServices
 from xy.ai.mcpc.control import ToolControlManager
 from xy.ai.mcpc.utils.logging_utils import CommunicationLog
 from xy.ai.mcpc.server.mcp_protocol import McpProtocol
+from xy.ai.mcpc.tools import register_tools
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.server.session import SessionStore
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
@@ -87,6 +88,7 @@ def build_server(
     logger.debug("Initialising Tool-Registry")
     if registry is None:
         registry = ToolRegistry()
+        register_tools(registry)
 
     logger.debug("Initialising Session-Store")
     sessions = SessionStore()
