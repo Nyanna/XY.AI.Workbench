@@ -16,7 +16,7 @@ from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
 from xy.ai.mcpc.server.session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
@@ -189,7 +189,6 @@ class McpProtocol:
                         structured_content={"answer": decision.approval_hint}
                     ).to_dict()
                 request_hint = decision.approval_hint
-        # --------------------------------------------------------------------
 
         context = ToolContext(session=session, arguments=arguments, services=self.services)
         # Tool execution errors are reported *inside* the result (isError=true)
@@ -235,7 +234,6 @@ class McpProtocol:
                 # Must land *inside* structuredContent, not as a sibling key:
                 # MCP clients only forward content/structuredContent/isError
                 # to the model, dropping unknown top-level fields silently.
-                from .registry import CONTROL_HINT_PROPERTY
                 structured = dict(result_dict.get("structuredContent") or {})
                 structured[CONTROL_HINT_PROPERTY] = combined_hint
                 result_dict["structuredContent"] = structured
