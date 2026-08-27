@@ -93,7 +93,7 @@ class ScriptTool(ToolDefinition):
     description = (
         "Run restricted Python against a file's AST for complex/incremental "
         "transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign "
-        "'result' to return data. Changes to 'tree' are saved."
+        "'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
     )
     input_schema = {
         "type": "object",

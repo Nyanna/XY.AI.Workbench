@@ -65,7 +65,7 @@ def _list_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "nodes": {"type": "array", "items": {"type": "object"}},
+            "nodes": {"type": "array", "items": {"type": "object"}, "description": "Only structural information"},
             "count": {"type": "integer"},
         },
         "required": ["nodes", "count"],

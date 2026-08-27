@@ -26,25 +26,19 @@ The module is split in two layers:
   (stream normalisation, spill-to-file safety limit, ``exit_code`` omission).
   This belongs to a tool's ``handle`` method, not its delegate function.
 """
-
 from __future__ import annotations
-
 import os
 import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from typing import Any
-
 from xy.ai.mcpc.tools.registry import ToolResult, text_content
-
-_BLANK_RUN_RE = re.compile(r"[ \t]+$", re.MULTILINE)
-_MULTI_BLANK_RE = re.compile(r"\n{3,}")
-
+_BLANK_RUN_RE = re.compile('[ \\t]+$', re.MULTILINE)
+_MULTI_BLANK_RE = re.compile('\\n{3,}')
 
 class LaunchError(Exception):
     """Raised when the child process could not be started."""
-
 
 @dataclass(frozen=True)
 class ProcessResult:
@@ -52,31 +46,16 @@ class ProcessResult:
     stdout: str
     stderr: str
 
-
-def run_process(
-    cmd: list[str],
-    *,
-    cwd: str | os.PathLike[str] | None = None,
-    stdin: str | None = None,
-) -> ProcessResult:
+def run_process(cmd: list[str], *, cwd: str | os.PathLike[str] | None=None, stdin: str | None=None) -> ProcessResult:
     """Run *cmd* to completion and return its captured result.
 
     Raises :class:`LaunchError` if the executable cannot be started.
     """
     try:
-        proc = subprocess.run(
-            cmd,
-            input=stdin,
-            cwd=os.fspath(cwd) if cwd is not None else None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        proc = subprocess.run(cmd, input=stdin, cwd=os.fspath(cwd) if cwd is not None else None, capture_output=True, encoding='utf-8', errors='replace')
     except OSError as exc:
         raise LaunchError(str(exc)) from exc
-
-    return ProcessResult(exit_code=proc.returncode, stdout=proc.stdout or "", stderr=proc.stderr or "")
-
+    return ProcessResult(exit_code=proc.returncode, stdout=proc.stdout or '', stderr=proc.stderr or '')
 
 def _normalize_stream(text: str) -> str:
     """Improve compatibility with YAML block scalars.
@@ -87,10 +66,9 @@ def _normalize_stream(text: str) -> str:
     """
     if not text:
         return text
-    normalized = _BLANK_RUN_RE.sub("", text)
-    normalized = _MULTI_BLANK_RE.sub("\n\n", normalized)
+    normalized = _BLANK_RUN_RE.sub('', text)
+    normalized = _MULTI_BLANK_RE.sub('\n\n', normalized)
     return normalized
-
 
 def _spill_to_file(text: str, label: str) -> str:
     """Write *text* to a fresh temp file and return its absolute path.
@@ -100,23 +78,16 @@ def _spill_to_file(text: str, label: str) -> str:
     continue operating on it (e.g. via the ``read``/``bash`` tools) without
     the full content ever passing through the structured result.
     """
-    fd, path = tempfile.mkstemp(prefix=f"mcpc-{label}-", suffix=".log")
+    fd, path = tempfile.mkstemp(prefix=f'mcpc-{label}-', suffix='.log')
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        with os.fdopen(fd, 'w', encoding='utf-8') as fh:
             fh.write(text)
     except BaseException:
         os.close(fd)
         raise
     return path
 
-
-def pack_process_result(
-    result: ProcessResult,
-    *,
-    normalize_output: bool = False,
-    omit_zero_exit_code: bool = False,
-    max_stream_chars: int | None = None,
-) -> ToolResult:
+def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, omit_zero_exit_code: bool=False, max_stream_chars: int | None=None) -> ToolResult:
     """Pack a :class:`ProcessResult` into the MCP output schema.
 
     * ``normalize_output`` — when ``True``, post-process STDOUT/STDERR to
@@ -142,47 +113,24 @@ def pack_process_result(
     if normalize_output:
         stdout = _normalize_stream(stdout)
         stderr = _normalize_stream(stderr)
-
     content: list[dict[str, Any]] = []
     structured: dict[str, Any] = {}
     if not omit_zero_exit_code or result.exit_code != 0:
-        structured["exit_code"] = result.exit_code
-
+        structured['exit_code'] = result.exit_code
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
-        stdout_file = _spill_to_file(stdout, "stdout")
-        content.append(
-            text_content(
-                f"Full output written to file ({len(stdout)} characters). "
-                f"Before loading the file, reduce the content to what is strictly needed: "
-                f"use targeted commands (grep, head, tail, awk) to extract only the relevant parts."
-                f"Only load the file with `file-read` once the output is already narrowed down to the essential information."
-            )
-        )
-        structured["stdout_file"] = stdout_file
+        stdout_file = _spill_to_file(stdout, 'stdout')
+        content.append(text_content(f'Full output written to file ({len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
+        structured['stdout_file'] = stdout_file
     else:
-        structured["stdout"] = stdout
-
+        structured['stdout'] = stdout
     if stderr:
         if max_stream_chars is not None and len(stderr) > max_stream_chars:
-            stderr_file = _spill_to_file(stderr, "stderr")
-            content.append(
-                text_content(
-                    f"Full output written to file ({len(stdout)} characters). "
-                    f"Before loading the file, reduce the content to what is strictly needed: "
-                    f"use targeted commands (grep, head, tail, awk) to extract only the relevant parts."
-                    f"Only load the file with `file-read` once the output is already narrowed down to the essential information."
-                )
-            )
-            structured["stderr_file"] = stderr_file
+            stderr_file = _spill_to_file(stderr, 'stderr')
+            content.append(text_content(f'Full output written to file ({len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
+            structured['stderr_file'] = stderr_file
         else:
-            structured["stderr"] = stderr
-
-    # Simple success with auto_approve when exit code is 0 and both streams are empty
-    if result.exit_code == 0 and not stdout and not stderr:
-        return ToolResult(structured_content={"result": "success"}, auto_approve=True)
-
-    return ToolResult(
-        content=content,
-        structured_content=structured,
-        is_error=result.exit_code != 0 and bool(stderr),
-    )
+            structured['stderr'] = stderr
+    '# Simple success with auto_approve when exit code is 0 and both streams are empty'
+    if result.exit_code == 0 and (not stdout) and (not stderr):
+        return ToolResult(structured_content={'result': 'success'}, auto_approve=True)
+    return ToolResult(content=content, structured_content=structured, is_error=result.exit_code != 0 and bool(stderr))
