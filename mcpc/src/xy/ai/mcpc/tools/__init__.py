@@ -50,6 +50,7 @@ from xy.ai.mcpc.tools.replace_block import register_replace_block_tool
 from xy.ai.mcpc.tools.skills import register_skills
 from xy.ai.mcpc.tools.write import register_write_tool
 from xy.ai.mcpc.tools.agent import register_agent_tools
+from xy.ai.mcpc.tools.grep import register_grep_tool
 
 # ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
 # Python identifiers, so they cannot be imported with a regular ``from`` statement.
@@ -86,6 +87,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_context7_tools(registry)
     register_openalex_tools(registry)
     register_agent_tools(registry)
+    register_grep_tool(registry)
 
 
 # Keep the old name available so existing call sites don't break.
