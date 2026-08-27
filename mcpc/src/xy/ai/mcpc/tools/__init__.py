@@ -35,7 +35,7 @@ import importlib
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.ast import register_ast_tools
 from xy.ai.mcpc.tools.bash import register_bash_tool
-from xy.ai.mcpc.tools.change import register_change_tool
+from xy.ai.mcpc.tools.replace import register_replace_tool
 from xy.ai.mcpc.tools.colgrep import register_colgrep_tool
 from xy.ai.mcpc.tools.insert import register_insert_tool
 from xy.ai.mcpc.tools.list import register_list_tool
@@ -70,7 +70,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_list_tool(registry)
     register_write_tool(registry)
     register_insert_tool(registry)
-    register_change_tool(registry)
+    register_replace_tool(registry)
     register_replace_chars_tool(registry)
     register_replace_lines_tool(registry)
     register_replace_block_tool(registry)

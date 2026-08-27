@@ -99,7 +99,8 @@ class ScriptTool(ToolDefinition):
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python script operating on 'tree'."},
+            "code": {"type": "string", "description": "Python script operating on 'tree';"
+                     "Environment is restricted; Don't use imports;"},
         },
         "required": ["path", "code"],
     }

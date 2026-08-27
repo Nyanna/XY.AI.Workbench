@@ -1,12 +1,9 @@
 """Assembling and running the MCP Controller HTTP server."""
-
 from __future__ import annotations
-
 import logging
 import socket
 from http.server import ThreadingHTTPServer
 from typing import Any
-
 from xy.ai.mcpc.cli import CliSessionManager
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.tool_context import AppServices
@@ -19,24 +16,14 @@ from xy.ai.mcpc.server.session import SessionStore
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
 from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
 from xy.ai.mcpc.server.ws_transport import WebSocketMcpServer
-
-logger = logging.getLogger("xy.ai.mcpc")
-
+logger = logging.getLogger('xy.ai.mcpc')
 
 class McpHTTPServer(ThreadingHTTPServer):
     """Threaded HTTP server carrying the shared MCP component graph."""
-
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(
-        self,
-        config: ServerConfig,
-        protocol: McpProtocol,
-        sessions: SessionStore,
-        comm_log: CommunicationLog,
-        services: AppServices,
-    ) -> None:
+    def __init__(self, config: ServerConfig, protocol: McpProtocol, sessions: SessionStore, comm_log: CommunicationLog, services: AppServices) -> None:
         self.config = config
         self.protocol = protocol
         self.sessions = sessions
@@ -54,69 +41,45 @@ class McpHTTPServer(ThreadingHTTPServer):
         """
         conn, addr = super().get_request()
         conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        # Start probing after 60 s of inactivity, retry every 10 s, drop
-        # after 6 consecutive failures (= ~1 minute of unresponsiveness).
-        if hasattr(socket, "TCP_KEEPIDLE"):
+        '# Start probing after 60 s of inactivity, retry every 10 s, drop'
+        '# after 6 consecutive failures (= ~1 minute of unresponsiveness).'
+        if hasattr(socket, 'TCP_KEEPIDLE'):
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
-        if hasattr(socket, "TCP_KEEPINTVL"):
+        if hasattr(socket, 'TCP_KEEPINTVL'):
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
-        if hasattr(socket, "TCP_KEEPCNT"):
+        if hasattr(socket, 'TCP_KEEPCNT'):
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 6)
-        return conn, addr
+        return (conn, addr)
 
     @property
     def endpoint_url(self) -> str:
-        host, port = self.server_address[0], self.server_address[1]
-        return f"http://{host}:{port}/{self.config.path}"
+        host, port = (self.server_address[0], self.server_address[1])
+        return f'http://{host}:{port}/{self.config.path}'
 
-
-def build_server(
-    config: ServerConfig | None = None,
-    registry: ToolRegistry | None = None,
-    *,
-    enable_control: bool = True,
-) -> McpHTTPServer:
+def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None=None, *, enable_control: bool=True) -> McpHTTPServer:
     """Construct (but do not start) an :class:`McpHTTPServer`.
     """
-    logger.debug("Aquiring config")
+    logger.debug('Aquiring config')
     config = config or ServerConfig()
-
-    logger.debug("Reading profiles")
+    logger.debug('Reading profiles')
     profiles = ProfileRegistry(list(DEFAULT_PROFILES))
-
-
-    logger.debug("Initialising Tool-Registry")
+    logger.debug('Initialising Tool-Registry')
     if registry is None:
         registry = ToolRegistry()
         register_tools(registry)
-
-    logger.debug("Initialising Session-Store")
+    logger.debug('Initialising Session-Store')
     sessions = SessionStore()
-    logger.debug("Initialising CLI-Manager")
-    cli_manager = CliSessionManager(
-        log_dir=config.cli_log_dir,
-        ttl_seconds=config.agent_session_ttl_seconds,
-        response_timeout=config.agent_response_timeout_seconds,
-    )
+    logger.debug('Initialising CLI-Manager')
+    cli_manager = CliSessionManager(log_dir=config.cli_log_dir, ttl_seconds=config.agent_session_ttl_seconds, response_timeout=config.agent_response_timeout_seconds)
     control_manager: ToolControlManager | None = None
     if enable_control:
-        logger.debug("Initialising Tool-Control-Manager")
-        control_manager = ToolControlManager(
-            timeout=config.agent_response_timeout_seconds,
-        )
-    services = AppServices(
-        config=config,
-        registry=registry,
-        sessions=sessions,
-        cli_manager=cli_manager,
-        profiles=profiles,
-        control_manager=control_manager,
-    )
+        logger.debug('Initialising Tool-Control-Manager')
+        control_manager = ToolControlManager(timeout=config.agent_response_timeout_seconds)
+    services = AppServices(config=config, registry=registry, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
     protocol = McpProtocol(config, registry, services)
-    logger.debug("Initialising Communication-Log")
+    logger.debug('Initialising Communication-Log')
     comm_log = CommunicationLog(config.log_dir)
     return McpHTTPServer(config, protocol, sessions, comm_log, services)
-
 
 def build_ws_server(server: McpHTTPServer) -> WebSocketMcpServer | None:
     """Build the WebSocket transport sharing *server*'s component graph.
@@ -126,33 +89,28 @@ def build_ws_server(server: McpHTTPServer) -> WebSocketMcpServer | None:
     installed — the HTTP transport keeps working either way.
     """
     if not server.config.ws_enabled:
-        logger.info("WebSocket transport disabled (ws_enabled=False)")
+        logger.info('WebSocket transport disabled (ws_enabled=False)')
         return None
     try:
-        return WebSocketMcpServer(
-            server.config, server.protocol, server.sessions, server.comm_log, server.services
-        )
+        return WebSocketMcpServer(server.config, server.protocol, server.sessions, server.comm_log, server.services)
     except RuntimeError as exc:
-        logger.warning("WebSocket transport unavailable: %s", exc)
+        logger.warning('WebSocket transport unavailable: %s', exc)
         return None
 
-
-def run(config: ServerConfig | None = None, **build_kwargs: Any) -> None:
+def run(config: ServerConfig | None=None, **build_kwargs: Any) -> None:
     """Build a server from *config* and serve until interrupted."""
     server = build_server(config, **build_kwargs)
-    logger.info("MCP Controller listening on %s", server.endpoint_url)
-    logger.info("Session header: %s | log dir: %s",
-                server.config.session_header, server.comm_log.directory)
-
+    logger.info('MCP Controller listening on %s', server.endpoint_url)
+    logger.info('Session header: %s | log dir: %s', server.config.session_header, server.comm_log.directory)
     ws_server = build_ws_server(server)
     if ws_server is not None:
         ws_server.start()
-        logger.info("MCP Controller (WebSocket) listening on %s", ws_server.endpoint_url)
-
+        logger.info('MCP Controller (WebSocket) listening on %s', ws_server.endpoint_url)
     try:
         server.serve_forever()
-    except KeyboardInterrupt:  # pragma: no cover - interactive
-        logger.info("Shutting down")
+    except KeyboardInterrupt:
+        '# pragma: no cover - interactive'
+        logger.info('Shutting down')
     finally:
         if ws_server is not None:
             ws_server.stop()
