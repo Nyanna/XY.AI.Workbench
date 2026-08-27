@@ -13,35 +13,53 @@ from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
-__all__ = ['MarkdownError', 'run_markdown', 'MarkdownTool', 'register_markdown_tool']
+__all__ = ['MarkdownError', 'MarkdownRunner', 'MarkdownTool', 'register_markdown_tool']
 _EXAMPLE = 'import { read, write } from \'to-vfile\';\nimport { createRemark } from \'./remark.js\';\nimport { visit } from \'unist-util-visit\';\n\nconst processor = createRemark({\n  // frontmatter: true, // if required\n  // behead: { depth: 1 }, // if required\n});\n\nprocessor.use(() => (tree, file) => {\n  // insert code here\n});\n\n// read file – replace \'path/to/file.md\' with the actual file path\nconst file = await read(\'path/to/file.md\');\n\n// parse to AST\nconst tree = await processor.run(processor.parse(file), file);\n\n// Extract headings\nconst headings = [];\nvisit(tree, \'heading\', (node) => {\n    headings.push({\n    depth: node.depth,\n    text: node.children.map(c => c.value || c.children?.map(x => x.value).join(\'\') || \'\').join(\'\').trim()\n    });\n});\n\n// format output\nawait processor.process(file);\nfile.path = \'path/to/file.md\';\nawait write(file);\n\nconsole.log(String("Done"));\n'
 _DESCRIPTION = 'AST-based reading, writing, modifying and transforming of Markdown files. Provide a TypeScript (ESM) script that uses `remark` (with `remark-behead` and `remark-frontmatter` available) to operate on Markdown. Returns the exit code, standard output and, if present, standard error.\n\nFollow this pattern:\n\n```typescript\n' + _EXAMPLE + '```'
 
 class MarkdownError(Exception):
     """Raised when a Markdown (remark) script cannot be executed."""
 
-def run_markdown(script: str, env_dir: Path) -> ProcessResult:
-    """Run ``script`` against the remark environment rooted at ``env_dir``.
-    
-    Args:
-        script: JavaScript/remark script content to execute.
-        env_dir: Path to remark environment root (containing node_modules, package.json).
-    
-    Returns:
-        ProcessResult with:
-            exit_code: Exit code of remark process.
-            stdout: Standard output (up to 3000 chars; see stdout_file if longer).
-            stderr: Standard error output (up to 3000 chars; see stderr_file if longer).
-            stdout_file: Absolute path to temp file with full stdout if > 3000 chars.
-            stderr_file: Absolute path to temp file with full stderr if > 3000 chars.
-    
-    Raises:
-        MarkdownError: If remark/node cannot be launched.
+class MarkdownRunner:
+    """Runs remark scripts against a pre-provisioned Node.js environment.
+
+    ``env_dir`` (the remark environment root, containing ``node_modules`` and
+    ``package.json``) is bound once, at construction, instead of being passed
+    to every call: it is part of the environment, never an argument that
+    varies between individual script invocations. Public callers of
+    :meth:`run_markdown` therefore only ever supply what actually differs per
+    call — the script itself.
+
+    ``run_markdown`` keeps the name of the former module-level function on
+    purpose: it is the published, stable signature plugins can rely on and
+    call on any runner instance they are handed, without needing to know
+    about (or import) :class:`MarkdownRunner` itself.
     """
-    try:
-        return run_process(['node', '-'], input_text=script, cwd=env_dir)
-    except LaunchError as exc:
-        raise MarkdownError(f'Failed to launch remark: {exc}') from exc
+
+    def __init__(self, env_dir: Path | None=None) -> None:
+        self._env_dir = env_dir or ServerConfig().markdown_env_dir
+
+    def run_markdown(self, script: str) -> ProcessResult:
+        """Run ``script`` against the bound remark environment.
+
+        Args:
+            script: JavaScript/remark script content to execute.
+
+        Returns:
+            ProcessResult with:
+                exit_code: Exit code of remark process.
+                stdout: Standard output (up to 3000 chars; see stdout_file if longer).
+                stderr: Standard error output (up to 3000 chars; see stderr_file if longer).
+                stdout_file: Absolute path to temp file with full stdout if > 3000 chars.
+                stderr_file: Absolute path to temp file with full stderr if > 3000 chars.
+
+        Raises:
+            MarkdownError: If remark/node cannot be launched.
+        """
+        try:
+            return run_process(['node', '-'], input_text=script, cwd=self._env_dir)
+        except LaunchError as exc:
+            raise MarkdownError(f'Failed to launch remark: {exc}') from exc
 
 class MarkdownTool(ToolDefinition):
     name = 'markdown'
@@ -51,18 +69,20 @@ class MarkdownTool(ToolDefinition):
     output_schema = {'type': 'object', 'properties': {'exit_code': {'type': 'integer'}, 'stdout': {'type': 'string'}, 'stderr': {'type': 'string'}}, 'required': ['exit_code', 'stdout']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 
-    def __init__(self, config: ServerConfig | None=None) -> None:
-        self._config = config or ServerConfig()
+    def __init__(self, env_dir: Path | None=None) -> None:
+        '# The runner is bound once, at registration; MarkdownTool itself'
+        '# never touches ServerConfig again after construction.'
+        self._runner = MarkdownRunner(env_dir)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`run_markdown` and pack the result into the MCP output schema."""
+        """Delegate to the bound :class:`MarkdownRunner` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = run_markdown(args['script'], env_dir=self._config.markdown_env_dir)
+            result = self._runner.run_markdown(args['script'])
         except MarkdownError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result)
 
 def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment | None=None) -> None:
-    config = environment.config if environment is not None else None
-    registry.register(MarkdownTool(config))
+    env_dir = environment.config.markdown_env_dir if environment is not None else None
+    registry.register(MarkdownTool(env_dir))
