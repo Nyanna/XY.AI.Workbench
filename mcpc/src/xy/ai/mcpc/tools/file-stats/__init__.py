@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['FileStatsError', 'FileStatsResult', 'compute_file_stats', 'file_stats', 'FileStatsTool', 'register_file_stats_tool']
 
 class FileStatsError(Exception):
@@ -134,5 +135,6 @@ class FileStatsTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(content=[], structured_content=result.__dict__, auto_approve=True)
 
-def register_file_stats_tool(registry: ToolRegistry) -> None:
+def register_file_stats_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FileStatsTool())
+    functions.register(file_stats)

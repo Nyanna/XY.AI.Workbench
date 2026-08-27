@@ -2,7 +2,7 @@ package xy.ai.workbench;
 
 public class Tools {
 	private static String toolList = //
-			"ask-user," // top
+			"ask-user,tools," // top
 					+ "file-stats,read-file,list,grep," // retrieve
 					+ "write,replace,replace-block,replace-lines,insert," // edit tools
 					+ "python-ast," // python ast

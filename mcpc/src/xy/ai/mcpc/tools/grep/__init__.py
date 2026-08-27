@@ -5,6 +5,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 import re
 __all__ = ['GrepError', 'grep', 'GrepTool', 'register_grep_tool']
 _MAX_STREAM_CHARS = 10000
@@ -74,5 +75,6 @@ class GrepTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result, normalize_output=True, omit_zero_exit_code=True, max_stream_chars=_MAX_STREAM_CHARS)
 
-def register_grep_tool(registry: ToolRegistry) -> None:
+def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())
+    functions.register(grep)

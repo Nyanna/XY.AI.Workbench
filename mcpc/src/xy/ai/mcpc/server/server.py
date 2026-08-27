@@ -12,6 +12,7 @@ from xy.ai.mcpc.utils.logging_utils import CommunicationLog
 from xy.ai.mcpc.server.mcp_protocol import McpProtocol
 from xy.ai.mcpc.tools import register_tools
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.server.session import SessionStore
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
 from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
@@ -75,9 +76,11 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
     registry_given = registry is not None
     if registry is None:
         registry = ToolRegistry()
+    logger.debug('Initialising Function-Registry')
+    functions = FunctionRegistry()
     # The environment is built before tools are registered so registration
     # can inject it into the handlers that need it (see register_tools()).
-    environment = AppEnvironment(config=config, registry=registry, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
+    environment = AppEnvironment(config=config, registry=registry, functions=functions, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
     if not registry_given:
         register_tools(registry, environment)
     protocol = McpProtocol(config, registry, environment)

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ReplaceCharsError', 'ReplaceCharsResult', 'replace_chars', 'ReplaceCharsTool', 'register_replace_chars_tool']
 
 class ReplaceCharsError(Exception):
@@ -67,5 +68,6 @@ class ReplaceCharsTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)
 
-def register_replace_chars_tool(registry: ToolRegistry) -> None:
+def register_replace_chars_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceCharsTool())
+    functions.register(replace_chars)

@@ -6,6 +6,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._text_match import find as find_text
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ReplaceError', 'ReplaceResult', 'replace', 'ReplaceTool', 'register_replace_tool']
 
 class ReplaceError(Exception):
@@ -78,5 +79,6 @@ class ReplaceTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)
 
-def register_replace_tool(registry: ToolRegistry) -> None:
+def register_replace_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceTool())
+    functions.register(replace)

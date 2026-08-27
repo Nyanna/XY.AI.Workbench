@@ -5,6 +5,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['PythonError', 'run_python', 'PythonTool', 'register_python_tool']
 
 class PythonError(Exception):
@@ -49,5 +50,6 @@ class PythonTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result)
 
-def register_python_tool(registry: ToolRegistry) -> None:
+def register_python_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(PythonTool())
+    functions.register(run_python)

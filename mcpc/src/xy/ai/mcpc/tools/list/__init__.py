@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ListError', 'ListResult', 'list_files', 'ListTool', 'register_list_tool']
 _MAX_ENTRIES = 50
 _EXCLUDED_DIRS = {'.git', '.hg', '.svn', '__pycache__', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.tox', '.venv', 'venv', 'node_modules', '.idea', '.vscode', 'dist', 'build', '.cache'}
@@ -85,5 +86,6 @@ class ListTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'entries': result.entries})
 
-def register_list_tool(registry: ToolRegistry) -> None:
+def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())
+    functions.register(list_files)

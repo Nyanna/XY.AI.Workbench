@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from xy.ai.mcpc.config import ServerConfig
     from xy.ai.mcpc.control import ToolControlManager
     from xy.ai.mcpc.tools.registry import ToolRegistry
+    from xy.ai.mcpc.tools.function_registry import FunctionRegistry
     from xy.ai.mcpc.server.session import SessionStore, Session
     from xy.ai.mcpc.tools.agent.profiles import ProfileRegistry
 
@@ -24,6 +25,7 @@ class AppEnvironment:
     """
     config: 'ServerConfig'
     registry: 'ToolRegistry'
+    functions: 'FunctionRegistry'
     sessions: 'SessionStore'
     cli_manager: 'CliSessionManager'
     profiles: 'ProfileRegistry'

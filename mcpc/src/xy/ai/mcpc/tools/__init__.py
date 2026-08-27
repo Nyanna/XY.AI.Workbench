@@ -19,6 +19,11 @@ Available tools
   enabled via the ``python-ast`` tool-set alias
 * ``ask-user``      – ask the user a clarifying question (back-channel)
 * ``colgrep``       – search a pre-built colgrep index (search-only; never initializes an index)
+* ``tool_search``, ``tool_usage``, ``tool_call`` – discover, introspect and run
+  plain Python functions/methods registered in the ``FunctionRegistry``
+  instance held by :class:`~xy.ai.mcpc.tools.tool_context.AppEnvironment`
+  (see :mod:`xy.ai.mcpc.tools.function_registry`); jointly enabled via the
+  ``tools`` tool-set alias
 
 Skills (on-demand hint tools) are registered from the ``skills`` sub-package.
 Bridges to external MCP servers (e.g. Exa) live in the ``mcp`` sub-package.
@@ -34,6 +39,7 @@ import importlib
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import register_ast_tools
 from xy.ai.mcpc.tools.bash import register_bash_tool
 from xy.ai.mcpc.tools.replace import register_replace_tool
@@ -52,6 +58,13 @@ from xy.ai.mcpc.tools.skills import register_skills
 from xy.ai.mcpc.tools.write import register_write_tool
 from xy.ai.mcpc.tools.agent import register_agent_tools
 from xy.ai.mcpc.tools.grep import register_grep_tool
+from xy.ai.mcpc.tools.tool_search import register as register_tool_search_tool
+from xy.ai.mcpc.tools.tool_usage import register as register_tool_usage_tool
+from xy.ai.mcpc.tools.tool_call import register as register_tool_call_tool
+
+#: Tool-set alias grouping the function-registry discovery/usage/exec tools.
+TOOLS_ALIAS = "tools"
+_TOOLS_ALIAS_MEMBERS = ("tool_search", "tool_usage", "tool_call")
 
 # ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
 # Python identifiers, so they cannot be imported with a regular ``from`` statement.
@@ -68,19 +81,20 @@ register_file_stats_tool = importlib.import_module(
 def register_tools(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
     """Register all built-in file-system and shell tools onto *registry*.
     """
-    register_read_tool(registry)
-    register_file_stats_tool(registry)
-    register_list_tool(registry)
-    register_write_tool(registry)
-    register_insert_tool(registry)
-    register_replace_tool(registry)
-    register_replace_chars_tool(registry)
-    register_replace_lines_tool(registry)
-    register_replace_block_tool(registry)
-    register_bash_tool(registry)
-    register_python_tool(registry)
+    functions = environment.functions if environment is not None else FunctionRegistry()
+    register_read_tool(registry, functions)
+    register_file_stats_tool(registry, functions)
+    register_list_tool(registry, functions)
+    register_write_tool(registry, functions)
+    register_insert_tool(registry, functions)
+    register_replace_tool(registry, functions)
+    register_replace_chars_tool(registry, functions)
+    register_replace_lines_tool(registry, functions)
+    register_replace_block_tool(registry, functions)
+    register_bash_tool(registry, functions)
+    register_python_tool(registry, functions)
     register_markdown_tool(registry, environment)
-    register_ast_tools(registry)
+    register_ast_tools(registry, functions)
     register_ask_user_tool(registry)
     register_colgrep_tool(registry)
     register_skills(registry)
@@ -89,7 +103,11 @@ def register_tools(registry: ToolRegistry, environment: "AppEnvironment | None" 
     register_context7_tools(registry, environment)
     register_openalex_tools(registry, environment)
     register_agent_tools(registry, environment)
-    register_grep_tool(registry)
+    register_grep_tool(registry, functions)
+    register_tool_search_tool(registry, functions)
+    register_tool_usage_tool(registry, functions)
+    register_tool_call_tool(registry, functions)
+    registry.register_alias(TOOLS_ALIAS, _TOOLS_ALIAS_MEMBERS)
 
 
 # Keep the old name available so existing call sites don't break.

@@ -15,6 +15,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = ["ScriptError", "AstScriptResult", "run_ast_script", "ScriptTool", "register"]
 
@@ -128,5 +129,6 @@ class ScriptTool(ToolDefinition):
         return ToolResult(structured_content=structured)
 
 
-def register(registry: ToolRegistry) -> None:
+def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ScriptTool())
+    functions.register(run_ast_script)

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ReadError', 'ReadResult', 'read_file', 'ReadTool', 'register_read_tool']
 _CACHE_STATE_KEY = '_read_cache'
 
@@ -165,5 +166,6 @@ class ReadTool(ToolDefinition):
             content.append(text_content('Content unchanged since the last identical read. Use the former read result.'))
         return ToolResult(content=content, structured_content=structured, auto_approve=result.is_full_file)
 
-def register_read_tool(registry: ToolRegistry) -> None:
+def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadTool())
+    functions.register(read_file)

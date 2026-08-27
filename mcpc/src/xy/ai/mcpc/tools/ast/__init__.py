@@ -14,13 +14,14 @@ the generic tool-set alias ``python-ast``.
 from __future__ import annotations
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import crud, file_ops, layers, node_replace_block, outline, script, validate
 
 #: Alias name that activates the whole family in one go.
 ALIAS = "python-ast"
 
 
-def register_ast_tools(registry: ToolRegistry) -> None:
+def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``python-ast-*`` tool and the ``python-ast`` alias."""
     before = set(registry.names())
 
@@ -29,7 +30,7 @@ def register_ast_tools(registry: ToolRegistry) -> None:
     file_ops.register(registry)
     layers.register(registry)
     node_replace_block.register(registry)
-    script.register(registry)
+    script.register(registry, functions)
     validate.register(registry)
 
     added = [n for n in registry.names() if n not in before]
