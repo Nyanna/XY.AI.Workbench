@@ -40,16 +40,6 @@
 	* bash/grep wird gern zur erkundung eingesetzt und python für umsetzung und edit
 	* sed sogar zur editierung von python in batch edit
 	* bash ist kürzer und effizienter daher kein python
-* RAG tool zur indizierung von projekten
-	* suchergebniss semantisch komprimieren in mcpc
-	* eignet sich RAG zur kondensierung?
-	* nach aspekten, projekte -> module -> dateien -> methoden -> parameter/rückgaben
-	* wie findet der agent leichter was er sucht in einer datei oder projekt, mit code oder referenzen?
-	* Suchtool für dateiinhalt, analog grep mit kontext
-	* Rag server tool bauen/installieren und einbinden für projektknowledge retriefal statt grep/cat/ls
-	* research der kompletten baumstruktur mit allen aspekten eines projektes
-	* Callback tools zum Problem, Projektverzeichnis, Projektinfo, Kontexte
-	* RAG muss in MD auf absätzen basieren (AST).
 * Planing augmentation
 	* AI Planstrukturierung self has the ability to decide abouts it's capacilities.
 	* It can match effort, modell structure and coordination of a federated mind
