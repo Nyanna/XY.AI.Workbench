@@ -8,8 +8,8 @@ import logging
 from pathlib import Path
 from xy.ai import mcpc
 
-from .config import ServerConfig
-from .server import run
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.server.server import run
 
 
 def build_parser() -> argparse.ArgumentParser:

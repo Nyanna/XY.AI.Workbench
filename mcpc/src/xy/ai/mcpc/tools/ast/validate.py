@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 
 __all__ = [
     "ValidateError",

@@ -25,13 +25,13 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import urlparse
 
-from . import errors, jsonrpc
-from .codec import JsonCodec
-from .control.handler import ControlHandler
-from .hooks import HookHandler, PermissionHookHandler
-from .jsonrpc import MessageKind
-from .logging_utils import EVENT, IN, OUT
-from .session import is_valid_uuid
+from xy.ai.mcpc.server import errors, jsonrpc
+from xy.ai.mcpc.server.json_codec import JsonCodec
+from xy.ai.mcpc.control.handler import ControlHandler
+from xy.ai.mcpc.server.hooks import HookHandler, PermissionHookHandler
+from xy.ai.mcpc.server.jsonrpc import MessageKind
+from xy.ai.mcpc.utils.logging_utils import EVENT, IN, OUT
+from xy.ai.mcpc.server.session import is_valid_uuid
 
 logger = logging.getLogger("xy.ai.mcpc.transport")
 

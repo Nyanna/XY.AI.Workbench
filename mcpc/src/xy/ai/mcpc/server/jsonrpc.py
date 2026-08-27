@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from .codec import JsonCodec
-from .errors import JsonRpcError, invalid_request, parse_error
+from xy.ai.mcpc.server.json_codec import JsonCodec
+from xy.ai.mcpc.server.errors import JsonRpcError, invalid_request, parse_error
 
 JSONRPC_VERSION = "2.0"
 

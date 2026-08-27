@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 
-from ..codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 from .parameters import CliParameters
 
 if TYPE_CHECKING:

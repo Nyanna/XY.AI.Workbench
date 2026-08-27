@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ..codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 from ..config import ServerConfig
 
 

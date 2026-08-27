@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 from ...config import ServerConfig
-from ...registry import ToolRegistry
+from xy.ai.mcpc.tools.registry import ToolRegistry
 from .bridge import McpBridge
 from .client import McpClient, McpClientError
 

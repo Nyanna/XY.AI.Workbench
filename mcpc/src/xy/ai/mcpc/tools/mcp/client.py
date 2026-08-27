@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from ...codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 
 #: Protocol revision advertised on ``initialize`` (server may negotiate down).
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"

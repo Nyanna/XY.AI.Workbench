@@ -13,7 +13,7 @@ the generic tool-set alias ``python-ast``.
 
 from __future__ import annotations
 
-from ...registry import ToolRegistry
+from xy.ai.mcpc.tools.registry import ToolRegistry
 from . import crud, file_ops, layers, node_replace_block, outline, script, validate
 
 #: Alias name that activates the whole family in one go.

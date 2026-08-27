@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from .. import jsonrpc
 
 if TYPE_CHECKING:
-    from ..transport import StreamableHttpHandler
+    from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
 
 logger = logging.getLogger("xy.ai.mcpc.control")
 

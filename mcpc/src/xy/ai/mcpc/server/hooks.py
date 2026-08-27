@@ -7,11 +7,11 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from . import jsonrpc
-from .codec import JsonCodec
+from xy.ai.mcpc.server import jsonrpc
+from xy.ai.mcpc.server.json_codec import JsonCodec
 
 if TYPE_CHECKING:
-    from .transport import StreamableHttpHandler
+    from .http_transport import StreamableHttpHandler
 
 logger = logging.getLogger("xy.ai.mcpc.transport")
 

@@ -14,7 +14,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 __all__ = ['ColgrepError', 'ColgrepResult', 'colgrep_search', 'ColgrepTool', 'register_colgrep_tool']
 _COLGREP_BIN = '/home/user/.cargo/bin/colgrep'
 _CONTEXT_LINES = '2'

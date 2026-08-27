@@ -12,10 +12,11 @@ from __future__ import annotations
 import threading
 from typing import Any, Callable
 
-from ...codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 from ...config import ServerConfig
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
-from ...text_sanitize import sanitize_text, sanitize_value
+from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.utils.text_sanitize import sanitize_text, sanitize_value
 from .client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.

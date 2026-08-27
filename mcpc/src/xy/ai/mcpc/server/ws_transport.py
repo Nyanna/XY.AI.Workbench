@@ -53,12 +53,12 @@ import threading
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 
-from . import errors, jsonrpc
-from .codec import JsonCodec
-from .jsonrpc import JsonRpcRequest, MessageKind
-from .logging_utils import EVENT, IN, OUT
-from .session import Session, is_valid_uuid
-from .transport import apply_ccprofile_header, apply_tools_header, is_origin_allowed
+from xy.ai.mcpc.server import errors, jsonrpc
+from xy.ai.mcpc.server.json_codec import JsonCodec
+from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest, MessageKind
+from xy.ai.mcpc.utils.logging_utils import EVENT, IN, OUT
+from xy.ai.mcpc.server.session import Session, is_valid_uuid
+from xy.ai.mcpc.server.http_transport import apply_ccprofile_header, apply_tools_header, is_origin_allowed
 
 try:
     from websockets.asyncio.server import Server as _WsServer
@@ -74,9 +74,9 @@ except ImportError:  # pragma: no cover - exercised only when the optional
 
 if TYPE_CHECKING:
     from .config import ServerConfig
-    from .context import AppServices
+    from .tool_context import AppServices
     from .logging_utils import CommunicationLog
-    from .protocol import McpProtocol
+    from .mcp_protocol import McpProtocol
     from .session import SessionStore
 
 logger = logging.getLogger("xy.ai.mcpc.ws")

@@ -7,20 +7,12 @@ per-session configuration (:attr:`Session.enabled_tools`).
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
-from .codec import JsonCodec
-from .session import Session
+from xy.ai.mcpc.server.json_codec import JsonCodec
+from xy.ai.mcpc.server.session import Session
+from xy.ai.mcpc.tools.tool_context import ToolContext
 from abc import ABC, abstractmethod
 if TYPE_CHECKING:
-    from .context import AppServices
-
-@dataclass(slots=True)
-class ToolContext:
-    """Context handed to a tool handler on invocation."""
-    session: Session
-    arguments: dict[str, Any]
-    '#: Shared process-wide services (session store, CLI manager, profiles).'
-    '#: ``None`` for tools that never orchestrate other sessions.'
-    services: 'AppServices | None' = None
+    from xy.ai.mcpc.tools.tool_context import AppServices
 '#: Default value for the Anthropic-specific ``anthropic/maxResultSizeChars``'
 '#: meta annotation, applied generically to every tool result (see'
 '#: :meth:`ToolResult.to_dict`). This tells Anthropic-compatible MCP clients'
@@ -211,7 +203,7 @@ class ToolRegistry:
         """Whether *name* is enabled for *session*, honouring tool-set aliases."""
         return name in self.expand_aliases(session.enabled_tools)
 
-    def register(self, tool: "Tool | ToolDefinition") -> Tool:
+    def register(self, tool: 'Tool | ToolDefinition') -> Tool:
         if isinstance(tool, ToolDefinition):
             tool = tool.to_tool()
         if tool.name in self._tools:

@@ -17,7 +17,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 __all__ = ['ReadError', 'ReadResult', 'read_file', 'ReadTool', 'register_read_tool']
 _CACHE_STATE_KEY = '_read_cache'
 

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import importlib
 
-from ..registry import ToolRegistry
+from xy.ai.mcpc.tools.registry import ToolRegistry
 from .ast import register_ast_tools
 from .bash import register_bash_tool
 from .change import register_change_tool

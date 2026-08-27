@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .codec import JsonCodec
+from xy.ai.mcpc.server.json_codec import JsonCodec
 
 IN = "in"        # client -> server
 OUT = "out"      # server -> client

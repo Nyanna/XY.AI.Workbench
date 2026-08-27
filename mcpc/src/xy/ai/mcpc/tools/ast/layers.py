@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 
-from ...registry import ToolRegistry
+from xy.ai.mcpc.tools.registry import ToolRegistry
 from .convenience import BulkCrudTool, _import_insert_index
 
 

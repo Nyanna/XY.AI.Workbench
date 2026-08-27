@@ -15,7 +15,8 @@ an actual answering mechanism.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 __all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool']
 _NOT_ANSWERED = 'The user did not answer. Proceed on your own.'
 

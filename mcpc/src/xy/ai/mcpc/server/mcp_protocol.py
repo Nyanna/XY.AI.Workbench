@@ -12,11 +12,12 @@ import logging
 import base64
 from typing import Any
 
-from . import errors
-from .config import ServerConfig
-from .jsonrpc import JsonRpcRequest
-from .registry import ToolContext, ToolRegistry, normalize_result
-from .session import Session
+from xy.ai.mcpc.server import errors
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
+from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result
+from xy.ai.mcpc.server.session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
 

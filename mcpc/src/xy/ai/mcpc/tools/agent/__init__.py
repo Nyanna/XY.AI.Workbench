@@ -17,7 +17,8 @@ import uuid
 from typing import Any
 
 from ...cli import CliParameters, CliSessionError, Effort, Model
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 from ...session import AgentSubSession
 from .profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
 

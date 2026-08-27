@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...config import ServerConfig
-from ...registry import ToolRegistry
+from xy.ai.mcpc.tools.registry import ToolRegistry
 from .bridge import McpBridge
 from .client import McpClient, McpClientError
 

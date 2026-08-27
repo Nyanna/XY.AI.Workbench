@@ -10,7 +10,8 @@ import ast
 from dataclasses import dataclass
 from typing import Any
 
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 from . import core
 
 __all__ = [

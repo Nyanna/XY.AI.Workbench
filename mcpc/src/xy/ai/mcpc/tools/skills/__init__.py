@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ...registry import ToolContext, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_context import ToolContext
 
 
 @dataclass(frozen=True, slots=True)

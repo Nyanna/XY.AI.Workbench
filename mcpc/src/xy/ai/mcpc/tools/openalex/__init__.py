@@ -37,8 +37,9 @@ from ...openalex import (
 )
 from ...openalex.client import ENTITIES
 from ...openalex.presets import WORK_PRESET_NAMES
-from ...registry import ToolContext, ToolRegistry, ToolResult, text_content
-from ...text_sanitize import sanitize_value
+from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 
 #: Hard caps that mirror the OpenAlex API limits.
 _MAX_PER_PAGE = 50 # was 200

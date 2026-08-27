@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from ...registry import ToolContext, ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import ToolContext
 __all__ = ['FileStatsError', 'FileStatsResult', 'compute_file_stats', 'file_stats', 'FileStatsTool', 'register_file_stats_tool']
 
 class FileStatsError(Exception):

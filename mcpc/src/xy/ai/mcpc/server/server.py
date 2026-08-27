@@ -7,17 +7,17 @@ import socket
 from http.server import ThreadingHTTPServer
 from typing import Any
 
-from .cli import CliSessionManager
-from .config import ServerConfig
-from .context import AppServices
-from .control import ToolControlManager
-from .logging_utils import CommunicationLog
-from .protocol import McpProtocol
-from .registry import ToolRegistry
-from .session import SessionStore
-from .tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
-from .transport import StreamableHttpHandler
-from .ws_transport import WebSocketMcpServer
+from xy.ai.mcpc.cli import CliSessionManager
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.tools.tool_context import AppServices
+from xy.ai.mcpc.control import ToolControlManager
+from xy.ai.mcpc.utils.logging_utils import CommunicationLog
+from xy.ai.mcpc.server.mcp_protocol import McpProtocol
+from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.server.session import SessionStore
+from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
+from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
+from xy.ai.mcpc.server.ws_transport import WebSocketMcpServer
 
 logger = logging.getLogger("xy.ai.mcpc")
 
