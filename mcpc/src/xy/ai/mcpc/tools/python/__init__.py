@@ -28,7 +28,7 @@ def run_python(script: str) -> ProcessResult:
         PythonError: If Python binary cannot be launched.
     """
     try:
-        return run_process([sys.executable, '-'], input_text=script)
+        return run_process([sys.executable, '-'], stdin=script)
     except LaunchError as exc:
         raise PythonError(f'Failed to launch Python: {exc}') from exc
 
