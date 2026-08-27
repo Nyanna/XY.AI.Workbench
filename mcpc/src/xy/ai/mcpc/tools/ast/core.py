@@ -31,12 +31,6 @@ from typing import Iterable
 class AstError(Exception):
     """A user-facing, path-free error raised by the AST tools."""
 
-
-# ---------------------------------------------------------------------------
-# Comment -> annotation conversion
-# ---------------------------------------------------------------------------
-
-
 def _annotation_literal(comment: str) -> str:
     """Return a Python source literal representing *comment* (incl. its ``#``)."""
     return repr(comment.rstrip())
@@ -192,12 +186,6 @@ def unparse(tree: ast.AST) -> str:
     """Serialise *tree* back to source, filling in any missing locations."""
     return ast.unparse(ast.fix_missing_locations(tree))
 
-
-# ---------------------------------------------------------------------------
-# Cache
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class _CacheEntry:
     mtime_ns: int
@@ -248,11 +236,6 @@ class AstCache:
 
 #: Process-wide shared cache instance.
 CACHE = AstCache()
-
-
-# ---------------------------------------------------------------------------
-# Node location & summaries
-# ---------------------------------------------------------------------------
 
 #: AST node types exposed by the structural tools (outline / list / find).
 _DEF_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -356,11 +339,6 @@ def matches(
 def find(tree: ast.Module, **filters: object) -> list[Located]:
     active = {k: v for k, v in filters.items() if v is not None}
     return [loc for loc in locate_all(tree) if matches(loc, **active)]  # type: ignore[arg-type]
-
-
-# ---------------------------------------------------------------------------
-# Path helpers
-# ---------------------------------------------------------------------------
 
 
 def require_path(path_str: str, *, must_exist: bool = True) -> Path:

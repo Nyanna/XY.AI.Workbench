@@ -13,10 +13,6 @@ from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
 _CONTENT_OUTPUT: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -29,10 +25,6 @@ _CONTENT_OUTPUT: dict[str, Any] = {
 }
 
 _RO: dict[str, Any] = {"readOnlyHint": True, "openWorldHint": True}
-
-# ---------------------------------------------------------------------------
-# File / code tools
-# ---------------------------------------------------------------------------
 
 _GET_FILE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -128,10 +120,6 @@ _SEARCH_COMMITS_SCHEMA: dict[str, Any] = {
     "required": ["query"],
 }
 
-# ---------------------------------------------------------------------------
-# Repository tools
-# ---------------------------------------------------------------------------
-
 _SEARCH_REPOS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -161,10 +149,6 @@ _SEARCH_REPOS_SCHEMA: dict[str, Any] = {
     },
     "required": ["query"],
 }
-
-# ---------------------------------------------------------------------------
-# Issue tools
-# ---------------------------------------------------------------------------
 
 _ISSUE_READ_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -255,10 +239,6 @@ _SEARCH_ISSUES_SCHEMA: dict[str, Any] = {
     "required": ["query"],
 }
 
-# ---------------------------------------------------------------------------
-# Discussion tools
-# ---------------------------------------------------------------------------
-
 _GET_DISCUSSION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -317,10 +297,6 @@ _LIST_DISCUSSIONS_SCHEMA: dict[str, Any] = {
     },
     "required": ["owner"],
 }
-
-# ---------------------------------------------------------------------------
-# Pull request tools
-# ---------------------------------------------------------------------------
 
 _PR_READ_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -420,10 +396,6 @@ _SEARCH_PRS_SCHEMA: dict[str, Any] = {
     "required": ["query"],
 }
 
-# ---------------------------------------------------------------------------
-# Commit tools
-# ---------------------------------------------------------------------------
-
 _GET_COMMIT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -486,10 +458,6 @@ _LIST_COMMITS_SCHEMA: dict[str, Any] = {
     },
     "required": ["owner", "repo"],
 }
-
-# ---------------------------------------------------------------------------
-# Project tools
-# ---------------------------------------------------------------------------
 
 _PROJECTS_GET_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -592,11 +560,6 @@ _PROJECTS_LIST_SCHEMA: dict[str, Any] = {
     "required": ["method", "owner"],
 }
 
-
-# ---------------------------------------------------------------------------
-# Bridge
-# ---------------------------------------------------------------------------
-
 class GitHubBridge(McpBridge):
     """Bridge to the GitHub remote MCP server (read-only)."""
 
@@ -618,7 +581,6 @@ def register_github_tools(
     """Register read-only GitHub research tools."""
     bridge = bridge or GitHubBridge()
 
-    # -- File / code ----------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-get-file",
@@ -672,7 +634,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Repositories ---------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-search-repos",
@@ -687,7 +648,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Issues ---------------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-issue-read",
@@ -728,7 +688,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Discussions ----------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-get-discussion",
@@ -769,7 +728,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Pull requests --------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-pr-read",
@@ -812,7 +770,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Commits --------------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-get-commit",
@@ -840,7 +797,6 @@ def register_github_tools(
         annotations=_RO,
     )
 
-    # -- Projects -------------------------------------------------------------
     bridge.register_tool(
         registry,
         name="github-projects-get",

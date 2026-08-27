@@ -4,13 +4,6 @@ This tool exists to give agents a back-channel to the user so they can ask
 questions that improve session efficiency instead of, e.g., exhaustively
 searching whole directory hierarchies when the user might already know the
 answer or can find it far more easily.
-
-The permission system already allows the user to intercept tool calls and
-their outputs, so this implementation is intentionally a simple dummy: it
-always reports that the user did not answer, leaving it up to the agent to
-proceed on its own (e.g. by falling back to exploration). The main value of
-this module is exposing a well-defined API/MCP tool for the interaction, not
-an actual answering mechanism.
 """
 from __future__ import annotations
 from dataclasses import dataclass

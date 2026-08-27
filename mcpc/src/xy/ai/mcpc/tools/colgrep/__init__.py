@@ -1,11 +1,6 @@
 """colgrep tool - semantic + keyword code search over a pre-built colgrep index.
 
-Search-only wrapper around the `colgrep` CLI. Never creates, initializes or
-otherwise modifies an index; that remains the user's responsibility (see the
-`colgrep-init.sh` setup script). Given a directory, the tool climbs up through
-parent directories until it finds a colgrep index (built with
-XDG_DATA_HOME/XDG_CONFIG_HOME pointed at the project root) and runs the
-search from there, scoped back to the originally requested directory.
+Search-only wrapper around the `colgrep` CLI.
 """
 from __future__ import annotations
 import json

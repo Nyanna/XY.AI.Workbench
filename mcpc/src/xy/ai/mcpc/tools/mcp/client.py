@@ -55,7 +55,6 @@ class McpClient:
         self._id = 0
         self._lock = threading.RLock()
 
-    # -- lifecycle ----------------------------------------------------------
     def ensure_initialized(self) -> None:
         """Connect and run the ``initialize`` handshake once (idempotent)."""
         with self._lock:
@@ -90,7 +89,6 @@ class McpClient:
             expect_response=False,
         )
 
-    # -- calls --------------------------------------------------------------
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Invoke ``tools/call`` and return the raw ``CallToolResult``."""
         self.ensure_initialized()
@@ -106,7 +104,6 @@ class McpClient:
             )
         return self._result_or_raise(message)
 
-    # -- transport ----------------------------------------------------------
     def _next_id(self) -> int:
         self._id += 1
         return self._id

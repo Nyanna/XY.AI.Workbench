@@ -41,6 +41,7 @@ from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 
+__all__ = ["register_openalex_tools"]
 #: Hard caps that mirror the OpenAlex API limits.
 _MAX_PER_PAGE = 50 # was 200
 _MAX_SEMANTIC_RESULTS = 50
@@ -53,7 +54,6 @@ _WORK_PRESETS = list(WORK_PRESET_NAMES)
 logger = logging.getLogger("xy.ai.mcpc.tools.openalex")
 
 
-# --------------------------------------------------------------------- helpers
 def _client(ctx: ToolContext) -> OpenAlexClient:
     config = ctx.services.config if ctx.services is not None else ServerConfig()
     return OpenAlexClient(
@@ -101,7 +101,6 @@ def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     return structured
 
 
-# ----------------------------------------------------------------- tool: search
 def _register_search(registry: ToolRegistry) -> None:
     @registry.tool(
         "openalex-search",
@@ -219,7 +218,6 @@ def _register_search(registry: ToolRegistry) -> None:
         return _ok_result(_summarise_list(data))
 
 
-# -------------------------------------------------------- tool: semantic search
 def _register_semantic_search(registry: ToolRegistry) -> None:
     @registry.tool(
         "openalex-semantic-search",
@@ -305,7 +303,6 @@ def _register_semantic_search(registry: ToolRegistry) -> None:
         return _ok_result(_summarise_list(data))
 
 
-# ------------------------------------------------------------- tool: single work
 def _register_work(registry: ToolRegistry) -> None:
     @registry.tool(
         "openalex-work",
@@ -364,6 +361,3 @@ def register_openalex_tools(registry: ToolRegistry) -> None:
     _register_search(registry)
     _register_semantic_search(registry)
     _register_work(registry)
-
-
-__all__ = ["register_openalex_tools"]

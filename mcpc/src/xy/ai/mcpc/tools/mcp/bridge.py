@@ -30,12 +30,10 @@ class McpBridge:
         self._client: McpClient | None = None
         self._lock = threading.Lock()
 
-    # -- to be implemented by concrete bridges ------------------------------
     def build_client(self, config: ServerConfig) -> McpClient:
         """Create the client for the target server (called once, lazily)."""
         raise NotImplementedError
 
-    # -- connection ---------------------------------------------------------
     def get_client(self, config: ServerConfig) -> McpClient:
         with self._lock:
             if self._client is None:
@@ -57,7 +55,6 @@ class McpBridge:
             )
         return _to_tool_result(result)
 
-    # -- registration -------------------------------------------------------
     def register_tool(
         self,
         registry: ToolRegistry,

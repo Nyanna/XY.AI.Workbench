@@ -2,9 +2,7 @@
 
 The **agent tool** spawns a sub-agent to offload complex or context-heavy work.
 From the caller's point of view an agent call is indistinguishable from any other
-tool call.  Each invocation mints a fresh session (with a pre-configured toolset)
-and drives a CLI process through the :class:`CliSessionManager`; ``resume``
-reattaches to a previously spawned sub-agent.
+tool call.
 
 The **wrapper tools** (``agt-python``, ``agt-markdown``, …) bind a single profile
 to its description and system prompt and delegate everything else to the agent
@@ -21,6 +19,12 @@ from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.server.session import AgentSubSession
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
+
+__all__ = [
+    "AgentProfile",
+    "ProfileRegistry",
+    "register_agent_tools",
+]
 
 _MODELS = tuple(m.value for m in Model)
 _EFFORTS = tuple(e.value for e in Effort)
@@ -240,10 +244,3 @@ def register_agent_tools(
     """Register the agent tool together with all profile wrapper tools."""
     register_agent_tool(registry)
     register_wrapper_tools(registry, profiles)
-
-
-__all__ = [
-    "AgentProfile",
-    "ProfileRegistry",
-    "register_agent_tools",
-]

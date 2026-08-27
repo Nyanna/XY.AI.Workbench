@@ -1,9 +1,6 @@
 """Agent profiles: named presets binding a toolset, a description and a prompt.
 
-A profile is an alias for a pre-configured toolset.  Each wrapper tool is bound
-to exactly one profile; the wrapper advertises the profile's *description* and
-pre-fills the profile's *system prompt* when delegating to the agent tool.  Not
-every referenced tool is necessarily implemented yet.
+A profile is an alias for a pre-configured toolset.
 """
 
 from __future__ import annotations

@@ -14,10 +14,6 @@ from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge
 from xy.ai.mcpc.tools.mcp.client import McpClient
 
-# ---------------------------------------------------------------------------
-# Tool: resolveLibraryId
-# ---------------------------------------------------------------------------
-
 _RESOLVE_DESCRIPTION = (
     "Search Context7 for a library and return its canonical library ID.\n\n"
     "Best for: Resolving a library name to the ID needed by context7-query-docs.\n"
@@ -55,10 +51,6 @@ _RESOLVE_OUTPUT: dict[str, Any] = {
     },
     "required": ["content"],
 }
-
-# ---------------------------------------------------------------------------
-# Tool: queryDocs
-# ---------------------------------------------------------------------------
 
 _QUERY_DOCS_DESCRIPTION = (
     "Fetch documentation and code examples for a library from Context7.\n\n"
@@ -101,10 +93,6 @@ _QUERY_DOCS_OUTPUT: dict[str, Any] = {
     },
     "required": ["content"],
 }
-
-# ---------------------------------------------------------------------------
-# Bridge
-# ---------------------------------------------------------------------------
 
 _RO: dict[str, Any] = {"readOnlyHint": True, "openWorldHint": True}
 
