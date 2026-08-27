@@ -13,11 +13,11 @@ import threading
 from typing import Any, Callable
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
-from ...config import ServerConfig
+from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_text, sanitize_value
-from .client import McpClient, McpClientError
+from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
 ArgTransform = Callable[[dict[str, Any]], dict[str, Any]]

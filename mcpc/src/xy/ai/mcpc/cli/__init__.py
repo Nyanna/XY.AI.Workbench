@@ -8,8 +8,8 @@ session object owns the process lifecycle and replicates its I/O to disk.
 
 from __future__ import annotations
 
-from .manager import CliSessionError, CliSessionManager
-from .parameters import CliParameters, Effort, Model
-from .session import CliSession
+from xy.ai.mcpc.cli.manager import CliSessionError, CliSessionManager
+from xy.ai.mcpc.cli.parameters import CliParameters, Effort, Model
+from xy.ai.mcpc.cli.session import CliSession
 
 __all__ = []

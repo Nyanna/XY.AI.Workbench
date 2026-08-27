@@ -10,8 +10,8 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from .parameters import CliParameters
-from .session import CliSession, CliSessionError, Launcher, default_launcher
+from xy.ai.mcpc.cli.parameters import CliParameters
+from xy.ai.mcpc.cli.session import CliSession, CliSessionError, Launcher, default_launcher
 
 __all__ = ["CliSessionError", "CliSessionManager"]
 

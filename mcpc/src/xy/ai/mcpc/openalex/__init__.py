@@ -14,9 +14,9 @@ The agent-facing tools that build on this client live in
 
 from __future__ import annotations
 
-from .client import ENTITIES, OpenAlexClient
-from .errors import OpenAlexAPIError, OpenAlexError
-from .presets import (
+from xy.ai.mcpc.openalex.client import ENTITIES, OpenAlexClient
+from xy.ai.mcpc.openalex.errors import OpenAlexAPIError, OpenAlexError
+from xy.ai.mcpc.openalex.presets import (
     DEFAULT_SEARCH_PRESET,
     DEFAULT_WORK_PRESET,
     GENERIC_PRESETS,

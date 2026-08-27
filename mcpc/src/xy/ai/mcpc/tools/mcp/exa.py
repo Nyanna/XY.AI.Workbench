@@ -9,10 +9,10 @@ from __future__ import annotations
 from typing import Any
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
-from ...config import ServerConfig
+from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
-from .bridge import McpBridge
-from .client import McpClient, McpClientError
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge
+from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 _WEB_SEARCH_DESCRIPTION = (
     "Search the web for any topic and get clean, ready-to-use content.\n\n"

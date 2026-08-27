@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...config import ServerConfig
+from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
-from .bridge import McpBridge
-from .client import McpClient
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge
+from xy.ai.mcpc.tools.mcp.client import McpClient
 
 # ---------------------------------------------------------------------------
 # Tool: resolveLibraryId

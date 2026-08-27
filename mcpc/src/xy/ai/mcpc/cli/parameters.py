@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
-from ..config import ServerConfig
+from xy.ai.mcpc.config import ServerConfig
 
 
 class Model(str, Enum):
@@ -127,8 +128,6 @@ class CliParameters:
     # -- Environment --------------------------------------------------------
     def build_environment(self, env: dict[str, str]) -> dict[str, str]:
         """Populate *env* (mutated in place) for the CLI process."""
-        import os
-
         home = os.path.expanduser("~")
         env["CLAUDE_CONFIG_DIR"] = f"{home}/.claude-{self.cc_profile}"
         env[MCPC_SESSION_ENV] = self.mcpc_session_id

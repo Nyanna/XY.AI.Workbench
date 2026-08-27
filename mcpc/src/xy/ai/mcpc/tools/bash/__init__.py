@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from ..process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 __all__ = ['BashError', 'bash', 'BashTool', 'register_bash_tool']
 _MAX_STREAM_CHARS = 3000
 

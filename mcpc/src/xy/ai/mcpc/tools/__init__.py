@@ -33,23 +33,23 @@ from __future__ import annotations
 import importlib
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
-from .ast import register_ast_tools
-from .bash import register_bash_tool
-from .change import register_change_tool
-from .colgrep import register_colgrep_tool
-from .insert import register_insert_tool
-from .list import register_list_tool
-from .markdown import register_markdown_tool
-from .mcp import register_context7_tools, register_exa_tools, register_github_tools
-from .openalex import register_openalex_tools
-from .python import register_python_tool
-from .read import register_read_tool
+from xy.ai.mcpc.tools.ast import register_ast_tools
+from xy.ai.mcpc.tools.bash import register_bash_tool
+from xy.ai.mcpc.tools.change import register_change_tool
+from xy.ai.mcpc.tools.colgrep import register_colgrep_tool
+from xy.ai.mcpc.tools.insert import register_insert_tool
+from xy.ai.mcpc.tools.list import register_list_tool
+from xy.ai.mcpc.tools.markdown import register_markdown_tool
+from xy.ai.mcpc.tools.mcp import register_context7_tools, register_exa_tools, register_github_tools
+from xy.ai.mcpc.tools.openalex import register_openalex_tools
+from xy.ai.mcpc.tools.python import register_python_tool
+from xy.ai.mcpc.tools.read import register_read_tool
 from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
-from .replace_lines import register_replace_lines_tool
-from .replace_block import register_replace_block_tool
-from .skills import register_skills
-from .write import register_write_tool
-from .agent import register_agent_tools
+from xy.ai.mcpc.tools.replace_lines import register_replace_lines_tool
+from xy.ai.mcpc.tools.replace_block import register_replace_block_tool
+from xy.ai.mcpc.tools.skills import register_skills
+from xy.ai.mcpc.tools.write import register_write_tool
+from xy.ai.mcpc.tools.agent import register_agent_tools
 
 # ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
 # Python identifiers, so they cannot be imported with a regular ``from`` statement.

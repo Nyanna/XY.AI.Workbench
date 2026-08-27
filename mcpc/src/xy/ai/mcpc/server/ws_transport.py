@@ -73,11 +73,11 @@ except ImportError:  # pragma: no cover - exercised only when the optional
     ConnectionClosed = Exception  # type: ignore[assignment,misc]
 
 if TYPE_CHECKING:
-    from .config import ServerConfig
-    from .tool_context import AppServices
-    from .logging_utils import CommunicationLog
-    from .mcp_protocol import McpProtocol
-    from .session import SessionStore
+    from xy.ai.mcpc.config import ServerConfig
+    from xy.ai.mcpc.tools.tool_context import AppServices
+    from xy.ai.mcpc.utils.logging_utils import CommunicationLog
+    from xy.ai.mcpc.server.mcp_protocol import McpProtocol
+    from xy.ai.mcpc.server.session import SessionStore
 
 logger = logging.getLogger("xy.ai.mcpc.ws")
 

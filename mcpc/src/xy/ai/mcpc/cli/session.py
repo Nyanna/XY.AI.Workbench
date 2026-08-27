@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
-from .parameters import CliParameters
+from xy.ai.mcpc.cli.parameters import CliParameters
 
 if TYPE_CHECKING:
-    from .manager import CliSessionManager
+    from xy.ai.mcpc.cli.manager import CliSessionManager
 
 
 class Process(Protocol):

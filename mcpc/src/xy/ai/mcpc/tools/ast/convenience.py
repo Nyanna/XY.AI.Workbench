@@ -14,7 +14,7 @@ from typing import Any, Callable, Sequence
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from . import core
+from xy.ai.mcpc.tools.ast import core
 
 __all__ = ["BulkCrudResult", "run_bulk_operation", "BulkCrudTool"]
 

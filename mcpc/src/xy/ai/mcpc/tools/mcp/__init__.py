@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from .bridge import ArgTransform, McpBridge
-from .client import DEFAULT_PROTOCOL_VERSION, McpClient, McpClientError
-from .context7 import Context7Bridge, register_context7_tools
-from .exa import ExaBridge, register_exa_tools
-from .github import GitHubBridge, register_github_tools
+from xy.ai.mcpc.tools.mcp.bridge import ArgTransform, McpBridge
+from xy.ai.mcpc.tools.mcp.client import DEFAULT_PROTOCOL_VERSION, McpClient, McpClientError
+from xy.ai.mcpc.tools.mcp.context7 import Context7Bridge, register_context7_tools
+from xy.ai.mcpc.tools.mcp.exa import ExaBridge, register_exa_tools
+from xy.ai.mcpc.tools.mcp.github import GitHubBridge, register_github_tools
 
 __all__ = [
     "ArgTransform",

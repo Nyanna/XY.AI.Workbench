@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Iterable, Mapping
 
-from .errors import OpenAlexAPIError, OpenAlexError
+from xy.ai.mcpc.openalex.errors import OpenAlexAPIError, OpenAlexError
 
 #: The entity endpoints exposed by OpenAlex.  Each is reachable both as a list
 #: (``/works``) and as a single record (``/works/{id}``).

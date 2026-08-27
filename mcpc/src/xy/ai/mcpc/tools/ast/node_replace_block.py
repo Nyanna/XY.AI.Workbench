@@ -13,8 +13,8 @@ from typing import Any
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from .._text_match import find as find_text
-from . import core
+from xy.ai.mcpc.tools._text_match import find as find_text
+from xy.ai.mcpc.tools.ast import core
 
 __all__ = ["ReplaceBlockResult", "replace_block_in_node", "NodeReplaceBlockTool", "register"]
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
-from .convenience import BulkCrudTool, _import_insert_index
+from xy.ai.mcpc.tools.ast.convenience import BulkCrudTool, _import_insert_index
 
 
 def register(registry: ToolRegistry) -> None:

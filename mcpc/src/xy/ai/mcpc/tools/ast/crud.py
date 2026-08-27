@@ -12,7 +12,7 @@ from typing import Any
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from . import core
+from xy.ai.mcpc.tools.ast import core
 
 __all__ = [
     "ListNodesResult",

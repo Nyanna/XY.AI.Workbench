@@ -11,7 +11,7 @@ from xy.ai.mcpc.server import jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
 
 if TYPE_CHECKING:
-    from .http_transport import StreamableHttpHandler
+    from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
 
 logger = logging.getLogger("xy.ai.mcpc.transport")
 

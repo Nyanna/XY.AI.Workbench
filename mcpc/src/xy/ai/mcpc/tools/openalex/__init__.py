@@ -25,8 +25,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ...config import ServerConfig
-from ...openalex import (
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.openalex import (
     DEFAULT_SEARCH_PRESET,
     DEFAULT_WORK_PRESET,
     OpenAlexAPIError,
@@ -35,8 +35,8 @@ from ...openalex import (
     project_results,
     resolve_select,
 )
-from ...openalex.client import ENTITIES
-from ...openalex.presets import WORK_PRESET_NAMES
+from xy.ai.mcpc.openalex.client import ENTITIES
+from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
