@@ -7,7 +7,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 import re
 __all__ = ['GrepError', 'grep', 'GrepTool', 'register_grep_tool']
-_MAX_STREAM_CHARS = 7000
+_MAX_STREAM_CHARS = 10000
 
 class GrepError(Exception):
     """Raised when a grep search cannot be executed."""
