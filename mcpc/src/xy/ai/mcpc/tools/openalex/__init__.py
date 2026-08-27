@@ -38,7 +38,7 @@ from xy.ai.mcpc.openalex import (
 from xy.ai.mcpc.openalex.client import ENTITIES
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
-from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 
 __all__ = ["register_openalex_tools"]
@@ -54,8 +54,10 @@ _WORK_PRESETS = list(WORK_PRESET_NAMES)
 logger = logging.getLogger("xy.ai.mcpc.tools.openalex")
 
 
-def _client(ctx: ToolContext) -> OpenAlexClient:
-    config = ctx.services.config if ctx.services is not None else ServerConfig()
+def _build_client(config: ServerConfig | None) -> OpenAlexClient:
+    """Build the OpenAlex client once, at registration time.
+    """
+    config = config or ServerConfig()
     return OpenAlexClient(
         api_key=config.openalex_api_key,
         base_url=config.openalex_base_url,
@@ -101,7 +103,7 @@ def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     return structured
 
 
-def _register_search(registry: ToolRegistry) -> None:
+def _register_search(registry: ToolRegistry, client: OpenAlexClient) -> None:
     @registry.tool(
         "openalex-search",
         title="OpenAlex search",
@@ -195,7 +197,7 @@ def _register_search(registry: ToolRegistry) -> None:
 
         select = resolve_select(preset, entity)
         try:
-            data = _client(ctx).search_works(
+            data = client.search_works(
                 query,
                 exact=exact,
                 filters=filters,
@@ -203,7 +205,7 @@ def _register_search(registry: ToolRegistry) -> None:
                 select=select,
                 per_page=limit,
                 page=1,
-            ) if entity == "works" else _client(ctx).list_entities(
+            ) if entity == "works" else client.list_entities(
                 entity,
                 search_exact=query if exact else None,
                 search=None if exact else query,
@@ -218,7 +220,7 @@ def _register_search(registry: ToolRegistry) -> None:
         return _ok_result(_summarise_list(data))
 
 
-def _register_semantic_search(registry: ToolRegistry) -> None:
+def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient) -> None:
     @registry.tool(
         "openalex-semantic-search",
         title="OpenAlex semantic search",
@@ -291,7 +293,7 @@ def _register_semantic_search(registry: ToolRegistry) -> None:
 
         select = resolve_select(preset, "works")
         try:
-            data = _client(ctx).semantic_search_works(
+            data = client.semantic_search_works(
                 query,
                 filters=filters,
                 select=select,
@@ -303,7 +305,7 @@ def _register_semantic_search(registry: ToolRegistry) -> None:
         return _ok_result(_summarise_list(data))
 
 
-def _register_work(registry: ToolRegistry) -> None:
+def _register_work(registry: ToolRegistry, client: OpenAlexClient) -> None:
     @registry.tool(
         "openalex-work",
         title="OpenAlex work",
@@ -348,7 +350,7 @@ def _register_work(registry: ToolRegistry) -> None:
 
         select = resolve_select(preset, "works")
         try:
-            data = _client(ctx).get_work(work_id, select=select)
+            data = client.get_work(work_id, select=select)
         except OpenAlexError as exc:
             return _error_result(exc)
         work = project_results([data])[0]
@@ -356,8 +358,9 @@ def _register_work(registry: ToolRegistry) -> None:
 
 
 # --------------------------------------------------------------------- register
-def register_openalex_tools(registry: ToolRegistry) -> None:
+def register_openalex_tools(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
     """Register the three OpenAlex tools onto *registry*."""
-    _register_search(registry)
-    _register_semantic_search(registry)
-    _register_work(registry)
+    client = _build_client(environment.config if environment is not None else None)
+    _register_search(registry, client)
+    _register_semantic_search(registry, client)
+    _register_work(registry, client)

@@ -239,7 +239,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def _handle_request(self, session_id: str, session, request) -> None:
         skip_control = self.headers.get(self.config.control_header, "").lower() == "off"
 
-        control_manager = getattr(self.server.services, "control_manager", None)  # type: ignore[attr-defined]
+        control_manager = getattr(self.server.environment, "control_manager", None)  # type: ignore[attr-defined]
         stop_watch = threading.Event()
         watcher: threading.Thread | None = None
         if control_manager is not None:

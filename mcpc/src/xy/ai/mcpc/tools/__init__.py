@@ -33,6 +33,7 @@ from __future__ import annotations
 import importlib
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.ast import register_ast_tools
 from xy.ai.mcpc.tools.bash import register_bash_tool
 from xy.ai.mcpc.tools.replace import register_replace_tool
@@ -64,8 +65,9 @@ register_file_stats_tool = importlib.import_module(
 ).register_file_stats_tool
 
 
-def register_tools(registry: ToolRegistry) -> None:
-    """Register all built-in file-system and shell tools onto *registry*."""
+def register_tools(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
+    """Register all built-in file-system and shell tools onto *registry*.
+    """
     register_read_tool(registry)
     register_file_stats_tool(registry)
     register_list_tool(registry)
@@ -77,16 +79,16 @@ def register_tools(registry: ToolRegistry) -> None:
     register_replace_block_tool(registry)
     register_bash_tool(registry)
     register_python_tool(registry)
-    register_markdown_tool(registry)
+    register_markdown_tool(registry, environment)
     register_ast_tools(registry)
     register_ask_user_tool(registry)
     register_colgrep_tool(registry)
     register_skills(registry)
-    register_exa_tools(registry)
-    register_github_tools(registry)
-    register_context7_tools(registry)
-    register_openalex_tools(registry)
-    register_agent_tools(registry)
+    register_exa_tools(registry, environment)
+    register_github_tools(registry, environment)
+    register_context7_tools(registry, environment)
+    register_openalex_tools(registry, environment)
+    register_agent_tools(registry, environment)
     register_grep_tool(registry)
 
 

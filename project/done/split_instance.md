@@ -1,0 +1,3 @@
+`/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_context.py`
+
+Der ToolContext soll separiert werden in wirklichen Kontext (mit Session) und Environment (Services). Services sind etwas, das bei der Instanziierung eines Tools eine Rolle spielt sich aber nicht zwischen Aufrufen unterscheidet. Baue das entsprechend in den Tools um. Bei der Registrierung soll das Environment bereist injected werden für Tools, die dies benötigen.

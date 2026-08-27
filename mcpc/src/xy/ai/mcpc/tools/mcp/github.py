@@ -10,6 +10,7 @@ from typing import Any
 
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
@@ -576,10 +577,12 @@ class GitHubBridge(McpBridge):
 
 
 def register_github_tools(
-    registry: ToolRegistry, bridge: "GitHubBridge | None" = None
+    registry: ToolRegistry,
+    environment: "AppEnvironment | None" = None,
+    bridge: "GitHubBridge | None" = None,
 ) -> None:
     """Register read-only GitHub research tools."""
-    bridge = bridge or GitHubBridge()
+    bridge = bridge or GitHubBridge(environment.config if environment is not None else None)
 
     bridge.register_tool(
         registry,

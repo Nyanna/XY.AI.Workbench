@@ -11,6 +11,7 @@ from typing import Any
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
@@ -106,9 +107,13 @@ class ExaBridge(McpBridge):
         return McpClient(config.exa_mcp_url, headers={"x-api-key": api_key})
 
 
-def register_exa_tools(registry: ToolRegistry, bridge: "ExaBridge | None"=None) -> None:
+def register_exa_tools(
+    registry: ToolRegistry,
+    environment: "AppEnvironment | None" = None,
+    bridge: "ExaBridge | None" = None,
+) -> None:
     """Register the Exa-backed ``web_search_exa`` and ``web_fetch_exa`` tools."""
-    bridge = bridge or ExaBridge()
+    bridge = bridge or ExaBridge(environment.config if environment is not None else None)
     bridge.register_tool(
         registry,
         name="web-search-exa",

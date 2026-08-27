@@ -11,6 +11,7 @@ from typing import Any
 
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge
 from xy.ai.mcpc.tools.mcp.client import McpClient
 
@@ -108,11 +109,13 @@ class Context7Bridge(McpBridge):
 
 
 def register_context7_tools(
-    registry: ToolRegistry, bridge: "Context7Bridge | None" = None
+    registry: ToolRegistry,
+    environment: "AppEnvironment | None" = None,
+    bridge: "Context7Bridge | None" = None,
 ) -> None:
     """Register the Context7-backed ``context7-resolve-library-id`` and
     ``context7-query-docs`` tools."""
-    bridge = bridge or Context7Bridge()
+    bridge = bridge or Context7Bridge(environment.config if environment is not None else None)
 
     bridge.register_tool(
         registry,

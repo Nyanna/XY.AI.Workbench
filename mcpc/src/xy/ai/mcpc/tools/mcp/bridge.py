@@ -24,9 +24,11 @@ ArgTransform = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 class McpBridge:
-    """Bridges selected calls of one external MCP server into the registry."""
+    """Bridges selected calls of one external MCP server into the registry.
+    """
 
-    def __init__(self) -> None:
+    def __init__(self, config: ServerConfig | None = None) -> None:
+        self.config = config or ServerConfig()
         self._client: McpClient | None = None
         self._lock = threading.Lock()
 
@@ -34,18 +36,16 @@ class McpBridge:
         """Create the client for the target server (called once, lazily)."""
         raise NotImplementedError
 
-    def get_client(self, config: ServerConfig) -> McpClient:
+    def get_client(self) -> McpClient:
         with self._lock:
             if self._client is None:
-                self._client = self.build_client(config)
+                self._client = self.build_client(self.config)
             return self._client
 
-    def call(
-        self, config: ServerConfig, remote_tool: str, arguments: dict[str, Any]
-    ) -> ToolResult:
+    def call(self, remote_tool: str, arguments: dict[str, Any]) -> ToolResult:
         """Forward a call and translate the outcome into a :class:`ToolResult`."""
         try:
-            client = self.get_client(config)
+            client = self.get_client()
             result = client.call_tool(remote_tool, arguments)
         except McpClientError as exc:
             msg = f"'{remote_tool}' failed: {exc}"
@@ -81,11 +81,10 @@ class McpBridge:
             annotations=annotations or {"readOnlyHint": True, "openWorldHint": True},
         )
         def handler(ctx: ToolContext) -> ToolResult:
-            config = ctx.services.config if ctx.services is not None else ServerConfig()
             arguments = dict(ctx.arguments)
             if transform is not None:
                 arguments = transform(arguments)
-            return bridge.call(config, remote, arguments)
+            return bridge.call(remote, arguments)
 
 
 def _to_tool_result(result: dict[str, Any]) -> ToolResult:

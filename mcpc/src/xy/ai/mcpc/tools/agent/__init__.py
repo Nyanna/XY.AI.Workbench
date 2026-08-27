@@ -16,7 +16,7 @@ from typing import Any
 
 from xy.ai.mcpc.cli import CliParameters, CliSessionError, Effort, Model
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
-from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.server.session import AgentSubSession
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
 
@@ -69,20 +69,19 @@ def _error(message: str) -> ToolResult:
 def _run_agent(
     ctx: ToolContext,
     *,
+    environment: AppEnvironment,
     profile: AgentProfile | None,
     system_prompt_override: str | None,
 ) -> ToolResult:
     """Shared implementation behind both the agent tool and its wrappers."""
-    services = ctx.services
-    if services is None:  # pragma: no cover - misconfiguration guard
-        return _error("Agent tool is not wired to application services.")
+    services = environment
 
     args = ctx.arguments
     prompt = args.get("prompt")
     resume = args.get("resume")
 
     if resume is not None:
-        return _resume_agent(ctx, str(resume), prompt)
+        return _resume_agent(ctx, environment, str(resume), prompt)
 
     if not isinstance(prompt, str) or not prompt:
         return _error('"prompt" is required.')
@@ -139,9 +138,10 @@ def _run_agent(
     return _result(result.text, sub_id, is_error=result.is_error)
 
 
-def _resume_agent(ctx: ToolContext, resume_id: str, prompt: Any) -> ToolResult:
-    services = ctx.services
-    assert services is not None
+def _resume_agent(
+    ctx: ToolContext, environment: AppEnvironment, resume_id: str, prompt: Any
+) -> ToolResult:
+    services = environment
 
     record: AgentSubSession | None = ctx.session.get_agent_session(resume_id)
     ttl = services.config.agent_session_ttl_seconds
@@ -171,7 +171,7 @@ def _result(text: str, session_id: str, *, is_error: bool) -> ToolResult:
     )
 
 
-def register_agent_tool(registry: ToolRegistry) -> None:
+def register_agent_tool(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
     """Register the raw agent tool (rarely called directly)."""
 
     @registry.tool(
@@ -198,19 +198,25 @@ def register_agent_tool(registry: ToolRegistry) -> None:
         annotations={"readOnlyHint": False, "openWorldHint": True},
     )
     def agent(ctx: ToolContext) -> ToolResult:
-        return _run_agent(ctx, profile=None, system_prompt_override=None)
+        if environment is None:  # pragma: no cover - misconfiguration guard
+            return _error("Agent tool is not wired to application services.")
+        return _run_agent(ctx, environment=environment, profile=None, system_prompt_override=None)
 
 
 def register_wrapper_tools(
-    registry: ToolRegistry, profiles: "ProfileRegistry | None" = None
+    registry: ToolRegistry,
+    environment: "AppEnvironment | None" = None,
+    profiles: "ProfileRegistry | None" = None,
 ) -> None:
     """Register one wrapper tool per agent profile."""
     profiles = profiles or ProfileRegistry(DEFAULT_PROFILES)
     for profile in profiles:
-        _register_wrapper(registry, profile)
+        _register_wrapper(registry, environment, profile)
 
 
-def _register_wrapper(registry: ToolRegistry, profile: AgentProfile) -> None:
+def _register_wrapper(
+    registry: ToolRegistry, environment: "AppEnvironment | None", profile: AgentProfile
+) -> None:
     @registry.tool(
         profile.name,
         title=profile.name,
@@ -232,15 +238,22 @@ def _register_wrapper(registry: ToolRegistry, profile: AgentProfile) -> None:
         annotations={"readOnlyHint": False, "openWorldHint": True},
     )
     def wrapper(ctx: ToolContext, _profile: AgentProfile = profile) -> ToolResult:
+        if environment is None:  # pragma: no cover - misconfiguration guard
+            return _error("Agent tool is not wired to application services.")
         # Profile and system prompt are pre-filled; everything else is delegated.
         return _run_agent(
-            ctx, profile=_profile, system_prompt_override=_profile.system_prompt
+            ctx,
+            environment=environment,
+            profile=_profile,
+            system_prompt_override=_profile.system_prompt,
         )
 
 
 def register_agent_tools(
-    registry: ToolRegistry, profiles: "ProfileRegistry | None" = None
+    registry: ToolRegistry,
+    environment: "AppEnvironment | None" = None,
+    profiles: "ProfileRegistry | None" = None,
 ) -> None:
     """Register the agent tool together with all profile wrapper tools."""
-    register_agent_tool(registry)
-    register_wrapper_tools(registry, profiles)
+    register_agent_tool(registry, environment)
+    register_wrapper_tools(registry, environment, profiles)

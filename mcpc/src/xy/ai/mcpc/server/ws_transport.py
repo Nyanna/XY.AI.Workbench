@@ -74,7 +74,7 @@ except ImportError:  # pragma: no cover - exercised only when the optional
 
 if TYPE_CHECKING:
     from xy.ai.mcpc.config import ServerConfig
-    from xy.ai.mcpc.tools.tool_context import AppServices
+    from xy.ai.mcpc.tools.tool_context import AppEnvironment
     from xy.ai.mcpc.utils.logging_utils import CommunicationLog
     from xy.ai.mcpc.server.mcp_protocol import McpProtocol
     from xy.ai.mcpc.server.session import SessionStore
@@ -99,7 +99,7 @@ class WebSocketMcpServer:
         protocol: "McpProtocol",
         sessions: "SessionStore",
         comm_log: "CommunicationLog",
-        services: "AppServices | None" = None,
+        environment: "AppEnvironment | None" = None,
     ) -> None:
         if ws_serve is None:  # pragma: no cover - environment without the dep
             raise RuntimeError(
@@ -110,7 +110,7 @@ class WebSocketMcpServer:
         self.protocol = protocol
         self.sessions = sessions
         self.comm_log = comm_log
-        self.services = services
+        self.environment = environment
 
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
@@ -214,7 +214,7 @@ class WebSocketMcpServer:
             logger.exception("WS: unhandled error on connection for session %s", session_id)
         finally:
             self.comm_log.log(session_id, EVENT, {"event": "session.ws_disconnected"})
-            control_manager = getattr(self.services, "control_manager", None) if self.services else None
+            control_manager = getattr(self.environment, "control_manager", None) if self.environment else None
             if control_manager is not None:
                 control_manager.cancel_session(session_id, reason="WebSocket connection closed")
 
@@ -281,7 +281,7 @@ class WebSocketMcpServer:
         # human-in-the-loop approval) and must not stall the event loop.
         request_future = loop.run_in_executor(None, _run)
 
-        control_manager = getattr(self.services, "control_manager", None) if self.services else None
+        control_manager = getattr(self.environment, "control_manager", None) if self.environment else None
         if control_manager is not None:
             # Race the (possibly hours-long) request against the connection
             # closing so a pending approval is cancelled the moment the

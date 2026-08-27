@@ -46,7 +46,7 @@ class ControlHandler:
     def handle(self) -> None:
         """Process a poll/approval request from the control client."""
         logger.debug("Control endpoint reached")
-        control = self._http.server.services.control_manager  # type: ignore[attr-defined]
+        control = self._http.server.environment.control_manager  # type: ignore[attr-defined]
         if control is None:
             logger.warning("Control: manager not enabled, returning 404")
             self._http._send_http_error(HTTPStatus.NOT_FOUND, "Tool control is not enabled")

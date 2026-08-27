@@ -6,13 +6,11 @@ per-session configuration (:attr:`Session.enabled_tools`).
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from abc import ABC, abstractmethod
-if TYPE_CHECKING:
-    from xy.ai.mcpc.tools.tool_context import AppServices
 '#: Default value for the Anthropic-specific ``anthropic/maxResultSizeChars``'
 '#: meta annotation, applied generically to every tool result (see'
 '#: :meth:`ToolResult.to_dict`). This tells Anthropic-compatible MCP clients'

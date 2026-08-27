@@ -6,7 +6,7 @@ from http.server import ThreadingHTTPServer
 from typing import Any
 from xy.ai.mcpc.cli import CliSessionManager
 from xy.ai.mcpc.config import ServerConfig
-from xy.ai.mcpc.tools.tool_context import AppServices
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.control import ToolControlManager
 from xy.ai.mcpc.utils.logging_utils import CommunicationLog
 from xy.ai.mcpc.server.mcp_protocol import McpProtocol
@@ -23,12 +23,12 @@ class McpHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, config: ServerConfig, protocol: McpProtocol, sessions: SessionStore, comm_log: CommunicationLog, services: AppServices) -> None:
+    def __init__(self, config: ServerConfig, protocol: McpProtocol, sessions: SessionStore, comm_log: CommunicationLog, environment: AppEnvironment) -> None:
         self.config = config
         self.protocol = protocol
         self.sessions = sessions
         self.comm_log = comm_log
-        self.services = services
+        self.environment = environment
         self.logger = logger
         super().__init__((config.host, config.port), StreamableHttpHandler)
 
@@ -63,10 +63,6 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
     config = config or ServerConfig()
     logger.debug('Reading profiles')
     profiles = ProfileRegistry(list(DEFAULT_PROFILES))
-    logger.debug('Initialising Tool-Registry')
-    if registry is None:
-        registry = ToolRegistry()
-        register_tools(registry)
     logger.debug('Initialising Session-Store')
     sessions = SessionStore()
     logger.debug('Initialising CLI-Manager')
@@ -75,11 +71,19 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
     if enable_control:
         logger.debug('Initialising Tool-Control-Manager')
         control_manager = ToolControlManager(timeout=config.agent_response_timeout_seconds)
-    services = AppServices(config=config, registry=registry, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
-    protocol = McpProtocol(config, registry, services)
+    logger.debug('Initialising Tool-Registry')
+    registry_given = registry is not None
+    if registry is None:
+        registry = ToolRegistry()
+    # The environment is built before tools are registered so registration
+    # can inject it into the handlers that need it (see register_tools()).
+    environment = AppEnvironment(config=config, registry=registry, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
+    if not registry_given:
+        register_tools(registry, environment)
+    protocol = McpProtocol(config, registry, environment)
     logger.debug('Initialising Communication-Log')
     comm_log = CommunicationLog(config.log_dir)
-    return McpHTTPServer(config, protocol, sessions, comm_log, services)
+    return McpHTTPServer(config, protocol, sessions, comm_log, environment)
 
 def build_ws_server(server: McpHTTPServer) -> WebSocketMcpServer | None:
     """Build the WebSocket transport sharing *server*'s component graph.
@@ -92,7 +96,7 @@ def build_ws_server(server: McpHTTPServer) -> WebSocketMcpServer | None:
         logger.info('WebSocket transport disabled (ws_enabled=False)')
         return None
     try:
-        return WebSocketMcpServer(server.config, server.protocol, server.sessions, server.comm_log, server.services)
+        return WebSocketMcpServer(server.config, server.protocol, server.sessions, server.comm_log, server.environment)
     except RuntimeError as exc:
         logger.warning('WebSocket transport unavailable: %s', exc)
         return None
@@ -114,6 +118,6 @@ def run(config: ServerConfig | None=None, **build_kwargs: Any) -> None:
     finally:
         if ws_server is not None:
             ws_server.stop()
-        server.services.cli_manager.shutdown()
+        server.environment.cli_manager.shutdown()
         server.shutdown()
         server.server_close()

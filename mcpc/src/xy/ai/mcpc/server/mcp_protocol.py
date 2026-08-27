@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import base64
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
@@ -18,6 +18,9 @@ from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
 from xy.ai.mcpc.server.session import Session
+
+if TYPE_CHECKING:
+    from xy.ai.mcpc.tools.tool_context import AppEnvironment
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
 
@@ -46,11 +49,11 @@ class McpProtocol:
         self,
         config: ServerConfig,
         registry: ToolRegistry,
-        services: "ToolContext | None" = None,
+        environment: "AppEnvironment | None" = None,
     ) -> None:
         self.config = config
         self.registry = registry
-        self.services = services
+        self.environment = environment
         self._handlers = {
             "initialize": self._handle_initialize,
             "ping": self._handle_ping,
@@ -168,7 +171,7 @@ class McpProtocol:
 
         _validate_arguments(tool.input_schema, arguments)
 
-        control = self.services.control_manager if self.services else None
+        control = self.environment.control_manager if self.environment else None
         request_hint: str | None = None
         if control is not None and not skip_control:
             decision = control.submit_request(session, name, arguments)
@@ -190,7 +193,7 @@ class McpProtocol:
                     ).to_dict()
                 request_hint = decision.approval_hint
 
-        context = ToolContext(session=session, arguments=arguments, services=self.services)
+        context = ToolContext(session=session, arguments=arguments)
         # Tool execution errors are reported *inside* the result (isError=true)
         try:
             with session.lock:

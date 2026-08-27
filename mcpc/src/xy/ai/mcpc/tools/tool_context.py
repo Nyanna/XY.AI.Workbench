@@ -1,4 +1,4 @@
-"""Process-wide services exposed to tool handlers.
+"""Per-call tool context and the process-wide environment tools run in.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -13,14 +13,15 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class ToolContext:
-    """Context handed to a tool handler on invocation."""
+    """Context handed to a tool handler on invocation.
+    """
     session: 'Session'
     arguments: dict[str, Any]
-    services: 'AppServices | None' = None
 
 @dataclass(slots=True)
-class AppServices:
-    """Container for the shared components a tool handler may need."""
+class AppEnvironment:
+    """Process-wide services available while a tool is being registered.
+    """
     config: 'ServerConfig'
     registry: 'ToolRegistry'
     sessions: 'SessionStore'
