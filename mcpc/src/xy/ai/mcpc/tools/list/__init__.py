@@ -59,6 +59,13 @@ def list_files(path: str, pattern: str | None=None) -> ListResult:
             rel_path = os.path.relpath(file_path, str(dir_path))
             if regex is None or regex.search(rel_path):
                 entries.append(rel_path)
+    entries.sort()
+    if len(entries) > _MAX_ENTRIES:
+        raise ListError(
+            f"Too many entries ({len(entries)}) exceed the limit of "
+            f"{_MAX_ENTRIES}. Narrow down the result using the "
+            "'pattern' regular expression parameter."
+        )
     return ListResult(entries=entries)
 
 class ListTool(ToolDefinition):
