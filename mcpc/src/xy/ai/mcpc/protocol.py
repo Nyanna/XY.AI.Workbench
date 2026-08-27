@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import base64
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from . import errors
 from .config import ServerConfig
@@ -19,9 +19,6 @@ from .registry import ToolContext, ToolRegistry, normalize_result
 from .session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
-
-if TYPE_CHECKING:
-    from .context import AppServices
 
 # Methods a client may call before the initialize handshake has completed.
 _PRE_INIT_METHODS = {"initialize", "ping"}
@@ -48,7 +45,7 @@ class McpProtocol:
         self,
         config: ServerConfig,
         registry: ToolRegistry,
-        services: "AppServices | None" = None,
+        services: "ToolContext | None" = None,
     ) -> None:
         self.config = config
         self.registry = registry
@@ -60,7 +57,6 @@ class McpProtocol:
             "tools/call": self._handle_tools_call,
         }
 
-    # -- Request handling ---------------------------------------------------
     def handle_request(
         self,
         session: Session,
@@ -97,9 +93,7 @@ class McpProtocol:
         if request.method == "notifications/initialized":
             with session.lock:
                 session.initialized = True
-        # All other notifications are silently accepted and ignored.
 
-    # -- Lifecycle ----------------------------------------------------------
     def _handle_initialize(self, session: Session, params: dict[str, Any]) -> dict[str, Any]:
         requested = params.get("protocolVersion")
         if not isinstance(requested, str):
@@ -134,7 +128,6 @@ class McpProtocol:
     def _handle_ping(self, session: Session, params: dict[str, Any]) -> dict[str, Any]:
         return {}
 
-    # -- Tools --------------------------------------------------------------
     def _handle_tools_list(self, session: Session, params: dict[str, Any]) -> dict[str, Any]:
         tools = self.registry.list_for_session(session)
 
@@ -174,7 +167,6 @@ class McpProtocol:
 
         _validate_arguments(tool.input_schema, arguments)
 
-        # --- request interception -------------------------------------------
         control = self.services.control_manager if self.services else None
         request_hint: str | None = None
         if control is not None and not skip_control:
@@ -191,11 +183,8 @@ class McpProtocol:
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
             if decision.approval_hint:
-                # For ask-user, an approval hint *is* the human's answer: the
-                # question is answered directly instead of merely annotating
-                # a result that would otherwise just be "not answered".
+                # For ask-user, an approval hint *is* the human's answer
                 if name == "ask-user":
-                    from .registry import ToolResult
                     return ToolResult(
                         structured_content={"answer": decision.approval_hint}
                     ).to_dict()
@@ -204,7 +193,6 @@ class McpProtocol:
 
         context = ToolContext(session=session, arguments=arguments, services=self.services)
         # Tool execution errors are reported *inside* the result (isError=true)
-        # so the model can see and self-correct, not as protocol errors.
         try:
             with session.lock:
                 raw = tool.handler(context)
@@ -212,20 +200,17 @@ class McpProtocol:
         except errors.JsonRpcError:
             raise
         except Exception as exc:  # noqa: BLE001 - surface as tool error result
-            from .registry import ToolResult, text_content
 
             result = ToolResult(
                 content=[text_content(f"Tool '{name}' failed: {exc}")],
                 is_error=True,
             )
 
-        # --- result interception --------------------------------------------
         if control is not None and not skip_control:
             decision = control.submit_result(
                 session, name, result.to_dict(), auto_approve=result.auto_approve
             )
             if not decision.approved:
-                from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool result rejected by controller"
                 if name == "ask-user":
                     return ToolResult(structured_content={"answer": reason}).to_dict()
@@ -245,7 +230,6 @@ class McpProtocol:
             if combined_hint and name == "ask-user":
                 # Same exception as in the request phase: for ask-user the
                 # hint *is* the answer, not an independent side-channel field.
-                from .registry import ToolResult
                 return ToolResult(structured_content={"answer": combined_hint}).to_dict()
             if combined_hint and decision.modified_result is not None:
                 # Must land *inside* structuredContent, not as a sibling key:
@@ -257,7 +241,6 @@ class McpProtocol:
                 result_dict["structuredContent"] = structured
 
             return result_dict
-        # --------------------------------------------------------------------
 
         return result.to_dict()
 

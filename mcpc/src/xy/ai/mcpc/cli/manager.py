@@ -2,8 +2,7 @@
 
 The manager itself never starts or stops a CLI process — that is the session's
 responsibility.  It maintains the index, hands out session objects on request,
-and, on every request, sweeps expired sessions (asking them to terminate their
-CLI and dropping them from the index).
+and, on every request.
 """
 
 from __future__ import annotations
@@ -81,7 +80,6 @@ class CliSessionManager:
             raise CliSessionError(f"CLI session {cli_session_id} has expired")
         return session
 
-    # -- resolution / maintenance ------------------------------------------
     def resolve(self, cli_session_id: str) -> CliSession | None:
         """Resolve a session by id without validity/expiry side effects."""
         with self._lock:

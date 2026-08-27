@@ -6,6 +6,7 @@ import argparse
 import dataclasses
 import logging
 from pathlib import Path
+from xy.ai import mcpc
 
 from .config import ServerConfig
 from .server import run
@@ -14,7 +15,7 @@ from .server import run
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xy.ai.mcpc",
-        description="MCP Controller — stateful Streamable HTTP MCP server.",
+        description=mcpc.__doc__, # @UndefinedVariable
     )
     defaults = ServerConfig()
     parser.add_argument("--host", default=defaults.host, help="Bind host (default: %(default)s)")
@@ -43,17 +44,15 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
-    )# 1. basics from env
+    )
     config = ServerConfig.from_env()
     
-    # 2. add CLI arguments
     valid_fields = {f.name for f in dataclasses.fields(ServerConfig)}
     overrides = {
         k: v for k, v in vars(args).items() 
         if v is not None and k in valid_fields
     }
     
-    # 3. Overridesn
     config = config.with_overrides(**overrides)
     run(config)
 

@@ -49,9 +49,7 @@ class McpHTTPServer(ThreadingHTTPServer):
 
         Long-blocking tool-call requests (waiting for human approval) keep the
         HTTP connection open for up to 24 h.  Without keepalive, NAT gateways
-        and proxies typically drop idle TCP connections after 5–15 minutes,
-        causing ``ConnectionResetError`` on the server when it eventually
-        tries to write the response.
+        and proxies typically drop idle TCP connections after 5–15 minutes.
         """
         conn, addr = super().get_request()
         conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -79,9 +77,6 @@ def build_server(
     enable_control: bool = True,
 ) -> McpHTTPServer:
     """Construct (but do not start) an :class:`McpHTTPServer`.
-
-    If no *registry* is supplied a fresh one is created; unless
-    ``register_builtin`` is false the built-in example tools are registered.
     """
     logger.debug("Aquiring config")
     config = config or ServerConfig()
@@ -123,7 +118,7 @@ def build_server(
         control_manager=control_manager,
     )
     protocol = McpProtocol(config, registry, services)
-    logger.debug("Initialising Communikation-Log")
+    logger.debug("Initialising Communication-Log")
     comm_log = CommunicationLog(config.log_dir)
     return McpHTTPServer(config, protocol, sessions, comm_log, services)
 

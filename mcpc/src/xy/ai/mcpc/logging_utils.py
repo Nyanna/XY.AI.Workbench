@@ -14,7 +14,6 @@ from typing import Any
 
 from .codec import JsonCodec
 
-#: Log entry directions.
 IN = "in"        # client -> server
 OUT = "out"      # server -> client
 EVENT = "event"  # server-side lifecycle / diagnostic entry

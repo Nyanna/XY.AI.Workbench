@@ -26,11 +26,6 @@ logger = logging.getLogger("xy.ai.mcpc.control")
 # How long (seconds) an intercepted call waits before timing out and auto-approving.
 _DEFAULT_TIMEOUT = 24 * 60 * 60.0  # 24 h — matches agent MCP timeout
 
-
-# ---------------------------------------------------------------------------
-# Decision DTO
-# ---------------------------------------------------------------------------
-
 @dataclass(slots=True)
 class ControlDecision:
     """The outcome of a human review, produced by :meth:`ToolControlManager.process_approvals`."""
@@ -56,11 +51,6 @@ class ControlDecision:
     modified_result: dict[str, Any] | None = None
     """Replacement result dict for the ``result`` phase (``None`` → keep original)."""
 
-
-# ---------------------------------------------------------------------------
-# Internal pending item
-# ---------------------------------------------------------------------------
-
 @dataclass
 class _PendingItem:
     id: str
@@ -80,11 +70,6 @@ class _PendingItem:
         if self.result is not None:
             item["result"] = self.result
         return item
-
-
-# ---------------------------------------------------------------------------
-# Manager
-# ---------------------------------------------------------------------------
 
 class ToolControlManager:
     """Thread-safe manager for human-in-the-loop tool interception.
@@ -107,10 +92,6 @@ class ToolControlManager:
         self._lock = threading.Lock()
         self._id_prefix = uuid.uuid4().hex[:4]
         self._id_counter = 0
-
-    # ------------------------------------------------------------------
-    # Interceptor-facing API (blocking)
-    # ------------------------------------------------------------------
 
     def submit_request(
         self,
@@ -163,10 +144,6 @@ class ToolControlManager:
 
         item = self._enqueue(session, "result", tool_name, arguments=None, result=result)
         return self._wait(item)
-
-    # ------------------------------------------------------------------
-    # Control-endpoint-facing API (non-blocking)
-    # ------------------------------------------------------------------
 
     def get_pending(self) -> list[dict[str, Any]]:
         """Return serialisable snapshots of all items still awaiting a decision."""
@@ -244,10 +221,6 @@ class ToolControlManager:
                 item.tool_name, item.phase, item.id, session_id, reason,
             )
             item._event.set()
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _enqueue(
         self,

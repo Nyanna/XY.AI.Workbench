@@ -1,6 +1,6 @@
 """OpenAlex interface package — a complete, unopinionated OpenAlex API client.
 
-This package is the low-level *Schnittstelle* (interface) layer:
+This package is the low-level interface layer:
 
 * :class:`~xy.ai.mcpc.openalex.client.OpenAlexClient` — full coverage of the
   OpenAlex entity endpoints (list + single) with every query parameter.

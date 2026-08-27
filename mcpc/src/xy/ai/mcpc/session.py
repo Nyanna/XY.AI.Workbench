@@ -28,11 +28,6 @@ def is_valid_uuid(value: str) -> bool:
 @dataclass(slots=True)
 class AgentSubSession:
     """Bookkeeping for a single sub-agent spawned from a session.
-
-    A session may spawn an arbitrary number of sub-agents; each one is tracked
-    here and keyed by its CLI-session id (which is also the id of the pre-created
-    MCPC session the sub-agent connects back with).  The last-used timestamp
-    drives the one-hour idle TTL used when a ``resume`` is requested.
     """
 
     cli_session_id: str
@@ -177,10 +172,6 @@ class SessionStore:
         cc_profile: str,
     ) -> Session:
         """Create (or fetch) a session *before* the client first connects.
-
-        This is what the agent tool uses to stage a sub-agent's session with a
-        pre-configured toolset: the sub-agent's CLI later connects with the same
-        session id and never has to send the ``X-MCPC-TOOLS`` header itself.
         """
         with self._lock:
             session = self._sessions.get(session_id)
@@ -199,9 +190,6 @@ class SessionStore:
         names: "set[str] | list[str] | None",
     ) -> Session:
         """Configure the active tools for *session_id*, creating it if needed.
-
-        Convenience for use from within a tool implementation that needs to
-        reconfigure the active toolset of an (existing or future) session id.
         """
         session = self.precreate(session_id)
         session.set_enabled_tools(names)

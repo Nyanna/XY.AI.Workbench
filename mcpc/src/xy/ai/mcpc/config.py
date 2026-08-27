@@ -1,8 +1,4 @@
 """Server configuration.
-
-All runtime configuration lives in a single immutable :class:`ServerConfig`
-dataclass so it can be passed explicitly through the object graph (transport →
-protocol → registry) instead of relying on globals.
 """
 
 from __future__ import annotations
@@ -15,9 +11,7 @@ from pathlib import Path
 
 logger = logging.getLogger("xy.ai.mcpc.config")
 
-# : Protocol revisions understood by this server, newest first.  The first entry
-# : is the version the server prefers when the client requests something it does
-# : not know about.
+# : Protocol revisions understood by this server, newest first.
 SUPPORTED_PROTOCOL_VERSIONS: tuple[str, ...] = (
     "2025-11-25",
     "2025-06-18",

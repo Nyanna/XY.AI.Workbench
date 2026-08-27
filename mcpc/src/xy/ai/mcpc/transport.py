@@ -64,10 +64,6 @@ def is_origin_allowed(config, origin: str | None) -> bool:
 
 def apply_tools_header(config, comm_log, session_id: str, session, raw: str | None) -> None:
     """Reconcile *session*'s active toolset with an ``X-MCPC-TOOLS`` value.
-
-    Shared between the HTTP and the WebSocket transport; see
-    ``StreamableHttpHandler._apply_tools_header`` for the semantics of a
-    missing vs. empty header value.
     """
     if raw is None:
         return
@@ -102,7 +98,6 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "xy.ai.mcpc"
 
-    # ``server`` is our McpHTTPServer instance; expose its parts for brevity.
     @property
     def config(self):
         return self.server.config  # type: ignore[attr-defined]
@@ -119,15 +114,13 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def comm_log(self):
         return self.server.comm_log  # type: ignore[attr-defined]
 
-    # -- logging ------------------------------------------------------------
     def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
         # Route access logs through the standard logging framework instead of
         # writing straight to stderr.
         self.server.logger.debug("%s - %s", self.address_string(), fmt % args)  # type: ignore[attr-defined]
 
     def handle_one_request(self) -> None:
-        # The client may reset the connection at any point (e.g. between
-        # requests, or while we are still reading the request line/headers).
+        # The client may reset the connection at any point.
         # ``BaseHTTPRequestHandler`` does not guard against this, so it would
         # otherwise bubble up as an unhandled exception in the request thread.
         try:
@@ -136,7 +129,6 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             logger.debug("Connection reset by peer while handling request: %s", exc)
             self.close_connection = True
 
-    # -- HTTP verbs ---------------------------------------------------------
     def do_POST(self) -> None:  # noqa: N802
         logger.debug("Accept POST")
         if HookHandler(self).matches():
@@ -231,11 +223,8 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def _apply_tools_header(self, session_id: str, session) -> None:
         """Reconcile the session's active toolset with the ``X-MCPC-TOOLS`` header.
 
-        The header carries a comma-separated list of tool names and is honoured
-        on every request.  When it is *absent* the session's configuration is
-        left untouched — this is deliberate: a spawned sub-agent inherits a
-        pre-configured toolset and never sends the header itself.  A present but
-        empty header activates the empty toolset (no tools).
+        The header carries a comma-separated list of tool names: a spawned sub-agent inherits a
+        pre-configured toolset and never sends the header itself.
         """
         raw = self.headers.get(self.config.tools_header)
         apply_tools_header(self.config, self.comm_log, session_id, session, raw)

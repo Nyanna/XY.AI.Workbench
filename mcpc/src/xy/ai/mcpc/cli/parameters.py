@@ -1,10 +1,4 @@
 """Construction of the ``claude`` CLI command line and process environment.
-
-This is a Python port of the reference ``buildBaseCommand`` /
-``buildEnvironment`` from ``project/sessionmanager.md``.  The CLI is launched in
-stream-json mode with no built-in tools; its only tool source is a self-hook
-back into this MCPC server, which is what lets the pre-configured per-session
-toolset take effect.
 """
 
 from __future__ import annotations
@@ -46,26 +40,19 @@ class CliParameters:
 
     The MCP-server and tool-hook endpoints the spawned CLI connects back to are
     taken straight from this server's own :class:`ServerConfig` (host, port, MCP
-    endpoint path and hook path), so there is a single source of truth.
+    endpoint path and hook path).
     """
 
-    #: The running server's configuration; the CLI's MCP + hook endpoints are
-    #: derived from it.
     config: ServerConfig
     model: str
     system_prompt: str
-    #: MCPC session id the CLI connects back with (its tools are pre-configured
-    #: on that session).  Exposed to the CLI via the ``MCPC_SESSION_ID`` env var.
     mcpc_session_id: str
     effort: str = Effort.MEDIUM.value
-    #: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different
-    #: agent profiles keep isolated credentials/caches.
     cc_profile: str = "none"
 
     executable: str = "claude"
     extra_env: dict[str, str] = field(default_factory=dict)
 
-    # -- URLs ---------------------------------------------------------------
     @property
     def base_url(self) -> str:
         return f"http://{self.config.host}:{self.config.port}"
@@ -78,7 +65,6 @@ class CliParameters:
     def hook_url(self) -> str:
         return f"{self.base_url}{self.config.hook_path}"
 
-    # -- Command ------------------------------------------------------------
     def build_base_command(self, cli_session_id: str) -> list[str]:
         """Build the command line shared by initial-start and resume."""
         session_header = self.config.session_header

@@ -7,10 +7,6 @@ from typing import Any
 
 class OpenAlexError(RuntimeError):
     """Base class for all errors raised by the OpenAlex interface.
-
-    Covers client-side problems (invalid arguments, unreachable host,
-    malformed responses) as well as, via :class:`OpenAlexAPIError`, error
-    responses returned by the OpenAlex REST API itself.
     """
 
 

@@ -9,13 +9,9 @@ this client, wiring in presets and agent-friendly defaults.
 Design notes
 ------------
 * Only the standard library is used (``urllib``), matching the rest of MCPC.
-* Every method returns the parsed JSON response as a plain ``dict`` — OpenAlex
-  responses are already well structured, so no ORM-style modelling is imposed.
 * Authentication follows the brief: the API key is appended to the request URL
   as ``api_key=<KEY>`` (never sent as a header).
 * The ``api_key`` value is redacted from any URL surfaced through an exception.
-
-References: https://docs.openalex.org/
 """
 
 from __future__ import annotations
@@ -183,7 +179,6 @@ class OpenAlexClient:
             params["select"] = select_str
         return self._request(f"/{entity}/{ident}", params)
 
-    # ----------------------------------------------------- convenience (works)
     def search_works(
         self,
         query: str,
@@ -206,7 +201,6 @@ class OpenAlexClient:
         """Fetch a single work by id/DOI/external id."""
         return self.get_entity("works", work_id, select=select)
 
-    # --------------------------------------------------------------- internals
     @staticmethod
     def _check_entity(entity: str) -> str:
         normalised = entity.strip().lower()

@@ -70,9 +70,7 @@ class CliSession:
     """Container around a CLI process that serves prompts over stdin/stdout.
 
     The session owns the process lifecycle and reuses the CLI's prompt cache by
-    passing ``--session-id`` on first start and ``--resume`` on restart.  It
-    replicates every line sent and received to a per-session NDJSON log and
-    enforces a one-hour idle TTL keyed on the last *sent* prompt.
+    passing ``--session-id`` on first start and ``--resume`` on restart.
     """
 
     def __init__(
@@ -106,7 +104,6 @@ class CliSession:
         self._lock = threading.RLock()
         self._log_lock = threading.Lock()
 
-    # -- validity -----------------------------------------------------------
     @property
     def running(self) -> bool:
         return self._process is not None and self._process.poll() is None
@@ -120,7 +117,6 @@ class CliSession:
         now = time.time() if now is None else now
         return (now - self._ttl_reference()) <= self.ttl_seconds
 
-    # -- process lifecycle --------------------------------------------------
     def _start(self) -> None:
         cmd = self.parameters.build_command(self.id, resume=self._started_once)
         env = self.parameters.build_environment(dict(os.environ))
@@ -171,7 +167,6 @@ class CliSession:
                 except Exception:  # noqa: BLE001
                     pass
 
-    # -- prompting ----------------------------------------------------------
     def prompt(self, text: str) -> CliResult:
         """Send *text* to the CLI and return its final result.
 
@@ -254,7 +249,6 @@ class CliSession:
             with self._log_path.open("a", encoding="utf-8") as fh:
                 fh.write(record + "\n")
 
-    # -- diagnostics --------------------------------------------------------
     def summary(self) -> dict[str, Any]:
         return {
             "id": self.id,
