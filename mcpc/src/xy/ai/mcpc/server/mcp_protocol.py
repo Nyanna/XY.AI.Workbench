@@ -16,7 +16,7 @@ from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result
+from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content
 from xy.ai.mcpc.server.session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
@@ -173,7 +173,6 @@ class McpProtocol:
         if control is not None and not skip_control:
             decision = control.submit_request(session, name, arguments)
             if not decision.approved:
-                from .registry import ToolResult, text_content
                 reason = decision.rejection_reason or "Tool call rejected by controller"
                 if name == "ask-user":
                     return ToolResult(structured_content={"answer": reason}).to_dict()

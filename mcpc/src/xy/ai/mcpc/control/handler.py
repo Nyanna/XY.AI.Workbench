@@ -7,7 +7,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from .. import jsonrpc
+from xy.ai.mcpc.server import jsonrpc
 
 if TYPE_CHECKING:
     from xy.ai.mcpc.server.http_transport import StreamableHttpHandler

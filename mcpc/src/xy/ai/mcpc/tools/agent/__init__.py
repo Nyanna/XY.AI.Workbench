@@ -19,7 +19,7 @@ from typing import Any
 from ...cli import CliParameters, CliSessionError, Effort, Model
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from ...session import AgentSubSession
+from xy.ai.mcpc.server.session import AgentSubSession
 from .profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
 
 _MODELS = tuple(m.value for m in Model)
@@ -245,7 +245,5 @@ def register_agent_tools(
 __all__ = [
     "AgentProfile",
     "ProfileRegistry",
-    "register_agent_tool",
     "register_agent_tools",
-    "register_wrapper_tools",
 ]

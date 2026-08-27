@@ -49,6 +49,7 @@ from .replace_lines import register_replace_lines_tool
 from .replace_block import register_replace_block_tool
 from .skills import register_skills
 from .write import register_write_tool
+from .agent import register_agent_tools
 
 # ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
 # Python identifiers, so they cannot be imported with a regular ``from`` statement.
@@ -84,6 +85,7 @@ def register_tools(registry: ToolRegistry) -> None:
     register_github_tools(registry)
     register_context7_tools(registry)
     register_openalex_tools(registry)
+    register_agent_tools(registry)
 
 
 # Keep the old name available so existing call sites don't break.

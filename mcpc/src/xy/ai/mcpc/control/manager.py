@@ -19,7 +19,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
-from xy.ai.mcpc.session import Session
+from xy.ai.mcpc.server.session import Session
 
 logger = logging.getLogger("xy.ai.mcpc.control")
 

@@ -73,7 +73,6 @@ def build_server(
     config: ServerConfig | None = None,
     registry: ToolRegistry | None = None,
     *,
-    register_builtin: bool = True,
     enable_control: bool = True,
 ) -> McpHTTPServer:
     """Construct (but do not start) an :class:`McpHTTPServer`.
@@ -88,12 +87,6 @@ def build_server(
     logger.debug("Initialising Tool-Registry")
     if registry is None:
         registry = ToolRegistry()
-        if register_builtin:
-            from .tools import register_builtin_tools
-            from .tools.agent import register_agent_tools
-
-            register_builtin_tools(registry)
-            register_agent_tools(registry, profiles)
 
     logger.debug("Initialising Session-Store")
     sessions = SessionStore()
