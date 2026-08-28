@@ -578,10 +578,10 @@ class GitHubBridge(McpBridge):
 
 def register_github_tools(
     registry: ToolRegistry,
-    environment: "AppEnvironment",
-    bridge: "GitHubBridge",
+    environment: AppEnvironment,
 ) -> None:
     """Register read-only GitHub research tools."""
+    bridge = GitHubBridge(environment.config)
 
     def github_get_file(
         owner: str, repo: str, path: str | None = None, ref: str | None = None, sha: str | None = None

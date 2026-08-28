@@ -78,10 +78,10 @@ register_file_stats_tool = importlib.import_module(
 ).register_file_stats_tool
 
 
-def register_tools(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
+def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register all built-in file-system and shell tools onto *registry*.
     """
-    functions = environment.functions if environment is not None else FunctionRegistry()
+    functions = environment.functions
     register_read_tool(registry, functions)
     register_file_stats_tool(registry, functions)
     register_list_tool(registry, functions)
