@@ -6,6 +6,7 @@ server configuration.  MCPC advertises its own descriptions and input schemas.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
@@ -17,6 +18,10 @@ from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 __all__ = [
     "ExaBridge",
+    "WebSearchResultItem",
+    "WebSearchResult",
+    "WebFetchResultItem",
+    "WebFetchResult",
     "web_search_exa",
     "web_fetch_exa",
     "WebSearchExaTool",
@@ -95,6 +100,62 @@ _FETCH_OUTPUT_SCHEMA: dict[str, Any] = {
 _RO: dict[str, Any] = {"readOnlyHint": True, "openWorldHint": True}
 
 
+@dataclass(frozen=True, slots=True)
+class WebSearchResultItem:
+    """One entry of a ``web_search_exa`` response; fields mirror Exa's payload."""
+
+    title: str | None = None
+    url: str | None = None
+    published_date: str | None = None
+    author: str | None = None
+    score: float | None = None
+    id: str | None = None
+    text: str | None = None
+    highlights: list[str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WebSearchResult:
+    """Parsed ``web_search_exa`` response."""
+
+    results: list[WebSearchResultItem]
+    autoprompt_string: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WebFetchResultItem:
+    """One entry of a ``web_fetch_exa`` response; fields mirror Exa's payload."""
+
+    id: str | None = None
+    url: str | None = None
+    title: str | None = None
+    text: str | None = None
+    highlights: list[str] | None = None
+    highlight_scores: list[float] | None = None
+    summary: str | None = None
+    author: str | None = None
+    published_date: str | None = None
+    image: str | None = None
+    favicon: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WebFetchResult:
+    """Parsed ``web_fetch_exa`` response."""
+
+    results: list[WebFetchResultItem]
+
+
+def _parse_search_result(raw: dict[str, Any]) -> WebSearchResult:
+    items = [WebSearchResultItem(**item) for item in raw.get("results", [])]
+    return WebSearchResult(results=items, autoprompt_string=raw.get("autoprompt_string"))
+
+
+def _parse_fetch_result(raw: dict[str, Any]) -> WebFetchResult:
+    items = [WebFetchResultItem(**item) for item in raw.get("results", [])]
+    return WebFetchResult(results=items)
+
+
 def _coerce_urls(urls: list[str] | str) -> list[str]:
     """Accept a single URL or a JSON-encoded list for ``urls`` leniently."""
     if isinstance(urls, str):
@@ -128,7 +189,11 @@ def _get_bridge() -> ExaBridge:
     return _bridge
 
 
-def web_search_exa(query: str, numResults: int | None = None) -> dict:
+def _web_search_exa_raw(query: str, numResults: int | None = None) -> dict[str, Any]:
+    return _get_bridge().call("web_search_exa", compact(query=query, numResults=numResults))
+
+
+def web_search_exa(query: str, numResults: int | None = None) -> WebSearchResult:
     """Search the web for any topic and get clean, ready-to-use content.
 
     Best for: Finding current information, facts, or answering questions
@@ -140,15 +205,20 @@ def web_search_exa(query: str, numResults: int | None = None) -> dict:
         numResults: Number of search results to return (default: 10).
 
     Returns:
-        Clean text content from the top results.
+        Parsed search results.
 
     Raises:
         McpBridgeError: if the Exa call fails.
     """
-    return _get_bridge().call("web_search_exa", compact(query=query, numResults=numResults))
+    return _parse_search_result(_web_search_exa_raw(query, numResults))
 
 
-def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> dict:
+def _web_fetch_exa_raw(urls: list[str] | str, maxCharacters: int | None = None) -> dict[str, Any]:
+    arguments = compact(urls=_coerce_urls(urls), maxCharacters=maxCharacters)
+    return _get_bridge().call("web_fetch_exa", arguments)
+
+
+def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> WebFetchResult:
     """Read a webpage's full content as clean markdown.
 
     Best for: Extracting full content from known URLs. Batch multiple
@@ -159,13 +229,12 @@ def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> di
         maxCharacters: Maximum characters to extract per page (default: 3000).
 
     Returns:
-        Clean text content and metadata from the page(s).
+        Parsed page content and metadata.
 
     Raises:
         McpBridgeError: if the Exa call fails.
     """
-    arguments = compact(urls=_coerce_urls(urls), maxCharacters=maxCharacters)
-    return _get_bridge().call("web_fetch_exa", arguments)
+    return _parse_fetch_result(_web_fetch_exa_raw(urls, maxCharacters))
 
 
 class WebSearchExaTool(ToolDefinition):
@@ -179,7 +248,7 @@ class WebSearchExaTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            result = web_search_exa(query=args["query"], numResults=args.get("numResults"))
+            result = _web_search_exa_raw(query=args["query"], numResults=args.get("numResults"))
         except McpBridgeError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content=result)
@@ -196,7 +265,7 @@ class WebFetchExaTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            result = web_fetch_exa(urls=args["urls"], maxCharacters=args.get("maxCharacters"))
+            result = _web_fetch_exa_raw(urls=args["urls"], maxCharacters=args.get("maxCharacters"))
         except McpBridgeError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content=result)

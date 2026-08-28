@@ -1,9 +1,9 @@
 # TODO
+* tools optimieren
+	* ListResult soll file objekte zurückgeben nicht strings, dict[str, Any] in openalex, alle tools kontrollieren auf API
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
 	* wie wird KI für code umgesetzt das ist doch ineffizient ? jedes mal die ganze datei und kontext einslesen?
-* tools optimieren
-	* ListResult soll file objekte zurückgeben nicht strings, dict[str, Any] in openalex, alle tools kontrollieren auf API
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect

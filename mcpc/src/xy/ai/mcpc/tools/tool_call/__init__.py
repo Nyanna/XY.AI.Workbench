@@ -105,12 +105,13 @@ def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:
         error = f'Script failed: {type(exc).__name__}: {exc}'
     return ToolCallExecution(stdout=stdout_buf.getvalue(), stderr=stderr_buf.getvalue(), error=error)
 
+
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
     title = 'Run a script against injected tools'
     description = f"Run Python code against a restricted, session-persistent context. The context persists across calls in this session."
     input_schema = {'type': 'object', 'properties': {'tool_ids': {'type': 'array', 'items': {'type': 'string'}, 'description': "Ids of functions to inject into 'code' as same-named variables."}, 'code': {'type': 'string', 'description': 'Python script; restricted builtins, no imports.'}}, 'required': ['tool_ids', 'code']}
-    output_schema = {'type': 'object', 'properties': {'stdout': {'type': 'string'}, 'stderr': {'type': 'string'}, 'stdout_var': {'type': 'string', 'description': 'Namespace variable holding full STDOUT if it was spilled.'}, 'stderr_var': {'type': 'string', 'description': 'Namespace variable holding full STDERR if it was spilled.'}, 'error': {'type': 'string'}}}
+    output_schema = {'type': 'object', 'properties': {'stdout': {'type': 'string', 'description': "Print to STDOUT to load into the context"}, 'stderr': {'type': 'string'}, 'stdout_var': {'type': 'string', 'description': 'Namespace variable holding full STDOUT if it was spilled.'}, 'stderr_var': {'type': 'string', 'description': 'Namespace variable holding full STDERR if it was spilled.'}, 'error': {'type': 'string'}}}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
