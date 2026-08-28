@@ -1,4 +1,4 @@
-"""Replace tool – replaces the block between start/end markers (both inclusive)."""
+"""Replace tool – replaces the text matched by 'start', optionally extended through 'end' (both inclusive), with given content."""
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,14 +16,16 @@ class ReplaceError(Exception):
 class ReplaceResult:
     result: str
 
-def replace(path: str, start: str, end: str, content: str, exact: bool=False) -> ReplaceResult:
-    """Replace text between start/end markers with content.
+def replace(path: str, start: str, content: str, end: str | None=None, exact: bool=False) -> ReplaceResult:
+    """Replace the text matched by 'start', optionally extended through 'end', with content.
     
     Args:
         path: Absolute path to target file (must be a regular file).
         start: Unique substring marking the block's start (must occur exactly once).
-        end: Unique substring marking the block's end (must occur exactly once, after start).
+               If 'end' is omitted, this substring alone is what gets replaced.
         content: Replacement text. Repeat a marker inside content to keep it.
+        end: Unique substring marking the block's end (must occur exactly once, after start).
+             If omitted, only the 'start' match itself is replaced.
         exact: If False (default), whitespace in start/end is matched tolerantly
                (any whitespace run matches any other). If True, whitespace must match exactly.
     
@@ -48,13 +50,16 @@ def replace(path: str, start: str, end: str, content: str, exact: bool=False) ->
         raise ReplaceError('Start marker not found in file.')
     if start_match.count > 1:
         raise ReplaceError(f'Start marker is ambiguous – found {start_match.count} occurrences in file.')
-    end_match = find_text(text, end, exact=exact)
-    if end_match.count == 0:
-        raise ReplaceError('End marker not found in file.')
-    if end_match.count > 1:
-        raise ReplaceError(f'End marker is ambiguous – found {end_match.count} occurrences in file.')
-    if end_match.start <= start_match.start:
-        raise ReplaceError('End marker must appear after start marker.')
+    if end is None:
+        end_match = start_match
+    else:
+        end_match = find_text(text, end, exact=exact)
+        if end_match.count == 0:
+            raise ReplaceError('End marker not found in file.')
+        if end_match.count > 1:
+            raise ReplaceError(f'End marker is ambiguous – found {end_match.count} occurrences in file.')
+        if end_match.start < start_match.start:
+            raise ReplaceError('End marker must appear after start marker.')
     result_text = text[:start_match.start] + content + text[end_match.end:]
     try:
         file_path.write_text(result_text, encoding='utf-8')
@@ -65,8 +70,8 @@ def replace(path: str, start: str, end: str, content: str, exact: bool=False) ->
 class ReplaceTool(ToolDefinition):
     name = 'replace'
     title = 'Replace file block'
-    description = "Replace the text between 'start' and 'end' (both included) with 'content'. Each marker must occur exactly once in the file; 'end' must come after 'start'. Repeat a marker inside 'content' to keep it. By default whitespace in 'start'/'end' is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the block's start (must occur exactly once)."}, 'end': {'type': 'string', 'description': "Unique substring marking the block's end (must occur exactly once, after 'start')."}, 'content': {'type': 'string', 'description': "Text that replaces the block, including where 'start'/'end' were."}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'end', 'content']}
+    description = "Replace the text matched by 'start' with 'content'. If 'end' is also given, everything from 'start' through 'end' (both included) is replaced instead. Each marker must occur exactly once in the file; if given, 'end' must come after 'start'. Repeat a marker inside 'content' to keep it. By default whitespace in 'start'/'end' is matched tolerantly; set 'exact' to require exact whitespace matching."
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the block's start (must occur exactly once). If 'end' is omitted, this substring alone is what gets replaced."}, 'end': {'type': 'string', 'description': "Optional unique substring marking the block's end (must occur exactly once, after 'start'). If omitted, only the 'start' match is replaced."}, 'content': {'type': 'string', 'description': "Text that replaces the matched block, including where 'start'/'end' were."}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'content']}
     output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': []}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
@@ -74,7 +79,7 @@ class ReplaceTool(ToolDefinition):
         """Delegate to :func:`replace`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = replace(path=args['path'], start=args['start'], end=args['end'], content=args['content'], exact=args.get('exact', False))
+            result = replace(path=args['path'], start=args['start'], end=args.get('end'), content=args['content'], exact=args.get('exact', False))
         except ReplaceError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)

@@ -7,7 +7,6 @@
 	* wie wird KI für code umgesetzt das ist doch ineffizient ? jedes mal die ganze datei und kontext einslesen?
 * tools optimieren
 	* ListResult soll file objekte zurückgeben nicht strings, dict[str, Any] in openalex, alle tools kontrollieren auf API
-* remove all @registry.tool
 	
 Fehler:
 Control Request:

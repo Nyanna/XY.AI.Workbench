@@ -55,7 +55,7 @@ class AskUserTool(ToolDefinition):
             result = ask_user(args['question'])
         except AskUserError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'answer': result.answer})
+        return ToolResult(structured_content={'answer': result})
 
 def register_ask_user_tool(registry: ToolRegistry) -> None:
     registry.register(AskUserTool())
