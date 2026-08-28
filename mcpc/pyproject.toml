@@ -24,3 +24,5 @@ mcpc = "xy.ai.mcpc.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["xy*"]
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"

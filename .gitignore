@@ -1,5 +1,6 @@
-/bin/
+/.bin/
 /target/
 /tools/
-/.claude/logs/*.json
+/.claude/logs/
 .colgrep/
+/bin/
