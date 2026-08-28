@@ -16,6 +16,22 @@ from __future__ import annotations
 
 from xy.ai.mcpc.openalex.client import ENTITIES, OpenAlexClient
 from xy.ai.mcpc.openalex.errors import OpenAlexAPIError, OpenAlexError
+from xy.ai.mcpc.openalex.models import (
+    ENTITY_MODELS,
+    Author,
+    Concept,
+    Funder,
+    GroupByItem,
+    Institution,
+    Keyword,
+    OpenAlexRecord,
+    Publisher,
+    Source,
+    Topic,
+    Work,
+    parse_entity,
+    parse_group_by,
+)
 from xy.ai.mcpc.openalex.presets import (
     DEFAULT_SEARCH_PRESET,
     DEFAULT_WORK_PRESET,
@@ -40,4 +56,18 @@ __all__ = [
     "resolve_select",
     "reconstruct_abstract",
     "project_results",
+    "ENTITY_MODELS",
+    "OpenAlexRecord",
+    "GroupByItem",
+    "Work",
+    "Author",
+    "Source",
+    "Institution",
+    "Topic",
+    "Keyword",
+    "Concept",
+    "Publisher",
+    "Funder",
+    "parse_entity",
+    "parse_group_by",
 ]

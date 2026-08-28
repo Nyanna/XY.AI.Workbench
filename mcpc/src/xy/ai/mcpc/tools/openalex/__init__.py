@@ -23,15 +23,21 @@ Shared conventions
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.openalex import (
     DEFAULT_SEARCH_PRESET,
     DEFAULT_WORK_PRESET,
+    GroupByItem,
     OpenAlexAPIError,
     OpenAlexClient,
     OpenAlexError,
+    OpenAlexRecord,
+    Work,
+    parse_entity,
+    parse_group_by,
     project_results,
     resolve_select,
 )
@@ -42,6 +48,8 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 
 __all__ = [
+    "SearchResult",
+    "WorkResult",
     "openalex_search",
     "openalex_semantic_search",
     "openalex_work",
@@ -112,7 +120,38 @@ def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     return structured
 
 
-def openalex_search(
+@dataclass(frozen=True, slots=True)
+class SearchResult:
+    """Parsed ``openalex_search`` / ``openalex_semantic_search`` response."""
+
+    count: int | None
+    returned: int
+    page: int | None
+    per_page: int | None
+    results: list[OpenAlexRecord]
+    group_by: list[GroupByItem] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WorkResult:
+    """Parsed ``openalex_work`` response."""
+
+    work: Work
+
+
+def _to_search_result(structured: dict[str, Any], entity: str) -> SearchResult:
+    group_by = structured.get("group_by")
+    return SearchResult(
+        count=structured.get("count"),
+        returned=structured.get("returned", 0),
+        page=structured.get("page"),
+        per_page=structured.get("per_page"),
+        results=[parse_entity(entity, item) for item in structured.get("results", [])],
+        group_by=parse_group_by(group_by) if group_by else None,
+    )
+
+
+def _openalex_search_raw(
     query: str,
     entity: str = "works",
     exact: bool = False,
@@ -121,23 +160,6 @@ def openalex_search(
     sort: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    """Keyword/boolean full-text search across OpenAlex scholarly entities.
-
-    Args:
-        query: Full-text query (boolean AND/OR/NOT, quoted phrases, proximity).
-        entity: Entity type to search (default: works).
-        exact: Use exact (unstemmed) search; required for wildcards.
-        fields: Field preset controlling how much of each record is returned.
-        filter: Optional OpenAlex filter string.
-        sort: Optional sort override; defaults to relevance.
-        limit: Max results from the first page.
-
-    Returns:
-        dict with ``count``, ``returned`` and ``results``.
-
-    Raises:
-        OpenAlexError: If the OpenAlex API request fails.
-    """
     client = _client
     preset = fields or DEFAULT_SEARCH_PRESET
     resolved_limit = _clamp(limit, _DEFAULT_SEARCH_LIMIT, _MAX_PER_PAGE)
@@ -163,26 +185,44 @@ def openalex_search(
     return _summarise_list(data)
 
 
-def openalex_semantic_search(
+def openalex_search(
+    query: str,
+    entity: str = "works",
+    exact: bool = False,
+    fields: str | None = None,
+    filter: str | None = None,
+    sort: str | None = None,
+    limit: int | None = None,
+) -> SearchResult:
+    """Keyword/boolean full-text search across OpenAlex scholarly entities.
+
+    Args:
+        query: Full-text query (boolean AND/OR/NOT, quoted phrases, proximity).
+        entity: Entity type to search (default: works).
+        exact: Use exact (unstemmed) search; required for wildcards.
+        fields: Field preset controlling how much of each record is returned.
+        filter: Optional OpenAlex filter string.
+        sort: Optional sort override; defaults to relevance.
+        limit: Max results from the first page.
+
+    Returns:
+        Parsed search results, one dataclass per *entity* record.
+
+    Raises:
+        OpenAlexError: If the OpenAlex API request fails.
+    """
+    structured = _openalex_search_raw(
+        query, entity=entity, exact=exact, fields=fields, filter=filter, sort=sort, limit=limit
+    )
+    return _to_search_result(structured, entity)
+
+
+def _openalex_semantic_search_raw(
     query: str,
     fields: str | None = None,
     filter: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    """AI-powered semantic search over OpenAlex works.
-
-    Args:
-        query: Natural-language description of what to look for.
-        fields: Field preset for each work (default: core).
-        filter: Optional OpenAlex filter string (no cited_by_count/country_code).
-        limit: Max results (1-50, default 10).
-
-    Returns:
-        dict with ``count``, ``returned`` and ``results``.
-
-    Raises:
-        OpenAlexError: If the OpenAlex API request fails.
-    """
     client = _client
     preset = fields or DEFAULT_SEARCH_PRESET
     resolved_limit = _clamp(limit, _DEFAULT_SEMANTIC_LIMIT, _MAX_SEMANTIC_RESULTS)
@@ -197,7 +237,40 @@ def openalex_semantic_search(
     return _summarise_list(data)
 
 
-def openalex_work(id: str, fields: str | None = None) -> dict[str, Any]:
+def openalex_semantic_search(
+    query: str,
+    fields: str | None = None,
+    filter: str | None = None,
+    limit: int | None = None,
+) -> SearchResult:
+    """AI-powered semantic search over OpenAlex works.
+
+    Args:
+        query: Natural-language description of what to look for.
+        fields: Field preset for each work (default: core).
+        filter: Optional OpenAlex filter string (no cited_by_count/country_code).
+        limit: Max results (1-50, default 10).
+
+    Returns:
+        Parsed search results (:class:`~xy.ai.mcpc.openalex.Work` records).
+
+    Raises:
+        OpenAlexError: If the OpenAlex API request fails.
+    """
+    structured = _openalex_semantic_search_raw(query, fields=fields, filter=filter, limit=limit)
+    return _to_search_result(structured, "works")
+
+
+def _openalex_work_raw(id: str, fields: str | None = None) -> dict[str, Any]:
+    client = _client
+    preset = fields or DEFAULT_WORK_PRESET
+    select = resolve_select(preset, "works")
+    data = client.get_work(id, select=select)
+    work = project_results([data])[0]
+    return {"work": work}
+
+
+def openalex_work(id: str, fields: str | None = None) -> WorkResult:
     """Fetch a single OpenAlex work by identifier.
 
     Args:
@@ -205,17 +278,13 @@ def openalex_work(id: str, fields: str | None = None) -> dict[str, Any]:
         fields: Field preset (default: full).
 
     Returns:
-        dict with the ``work`` record.
+        The parsed work record.
 
     Raises:
         OpenAlexError: If the OpenAlex API request fails.
     """
-    client = _client
-    preset = fields or DEFAULT_WORK_PRESET
-    select = resolve_select(preset, "works")
-    data = client.get_work(id, select=select)
-    work = project_results([data])[0]
-    return {"work": work}
+    structured = _openalex_work_raw(id, fields=fields)
+    return WorkResult(work=parse_entity("works", structured["work"]))
 
 
 _RO: dict[str, Any] = {"readOnlyHint": True, "openWorldHint": True}
@@ -390,7 +459,7 @@ class OpenalexSearchTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            structured = openalex_search(
+            structured = _openalex_search_raw(
                 query=args["query"],
                 entity=args.get("entity", "works"),
                 exact=bool(args.get("exact", False)),
@@ -415,7 +484,7 @@ class OpenalexSemanticSearchTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            structured = openalex_semantic_search(
+            structured = _openalex_semantic_search_raw(
                 query=args["query"],
                 fields=args.get("fields"),
                 filter=args.get("filter"),
@@ -437,7 +506,7 @@ class OpenalexWorkTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            structured = openalex_work(id=args["id"], fields=args.get("fields"))
+            structured = _openalex_work_raw(id=args["id"], fields=args.get("fields"))
         except OpenAlexError as exc:
             return _error_result(exc)
         return _ok_result(structured)
