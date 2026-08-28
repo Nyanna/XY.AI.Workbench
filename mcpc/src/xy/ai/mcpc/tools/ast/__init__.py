@@ -17,6 +17,7 @@ from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import crud, file_ops, layers, node_replace_block, outline, script, validate
 
+__all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
 ALIAS = "python-ast"
 
@@ -35,6 +36,3 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
 
     added = [n for n in registry.names() if n not in before]
     registry.register_alias(ALIAS, added)
-
-
-__all__ = ["register_ast_tools", "ALIAS"]

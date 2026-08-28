@@ -10,7 +10,6 @@
 		* dict[str, Any] in openalex
 		* AppEnvironment | None -> None ist unsinnig
 		* alle formatieren mit ast
-		* bridge, exa, layers und ast kontrollieren
 	* alle tools kontrollieren auf API
 	* foreach schleife mit claude subsessions zum refactoring einzelner tools
 * remove all @registry.tool

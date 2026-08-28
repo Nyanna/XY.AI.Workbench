@@ -99,7 +99,7 @@ class WebSocketMcpServer:
         protocol: "McpProtocol",
         sessions: "SessionStore",
         comm_log: "CommunicationLog",
-        environment: "AppEnvironment | None" = None,
+        environment: "AppEnvironment",
     ) -> None:
         if ws_serve is None:  # pragma: no cover - environment without the dep
             raise RuntimeError(

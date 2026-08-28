@@ -84,7 +84,7 @@ class MarkdownTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result)
 
-def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment | None=None) -> None:
+def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment) -> None:
     tool = MarkdownTool(environment.config.markdown_env_dir)
     registry.register(tool)
     environment.functions.register(tool._runner.markdown)

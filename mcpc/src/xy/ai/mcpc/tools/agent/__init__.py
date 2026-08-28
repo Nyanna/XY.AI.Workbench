@@ -171,7 +171,7 @@ def _result(text: str, session_id: str, *, is_error: bool) -> ToolResult:
     )
 
 
-def register_agent_tool(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
+def register_agent_tool(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the raw agent tool (rarely called directly)."""
 
     @registry.tool(
@@ -205,17 +205,16 @@ def register_agent_tool(registry: ToolRegistry, environment: "AppEnvironment | N
 
 def register_wrapper_tools(
     registry: ToolRegistry,
-    environment: "AppEnvironment | None" = None,
-    profiles: "ProfileRegistry | None" = None,
+    environment: AppEnvironment,
 ) -> None:
     """Register one wrapper tool per agent profile."""
-    profiles = profiles or ProfileRegistry(DEFAULT_PROFILES)
+    profiles = ProfileRegistry(DEFAULT_PROFILES)
     for profile in profiles:
         _register_wrapper(registry, environment, profile)
 
 
 def _register_wrapper(
-    registry: ToolRegistry, environment: "AppEnvironment | None", profile: AgentProfile
+    registry: ToolRegistry, environment: AppEnvironment, profile: AgentProfile
 ) -> None:
     @registry.tool(
         profile.name,
@@ -251,9 +250,8 @@ def _register_wrapper(
 
 def register_agent_tools(
     registry: ToolRegistry,
-    environment: "AppEnvironment | None" = None,
-    profiles: "ProfileRegistry | None" = None,
+    environment: AppEnvironment,
 ) -> None:
     """Register the agent tool together with all profile wrapper tools."""
     register_agent_tool(registry, environment)
-    register_wrapper_tools(registry, environment, profiles)
+    register_wrapper_tools(registry, environment)

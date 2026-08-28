@@ -49,7 +49,7 @@ class McpProtocol:
         self,
         config: ServerConfig,
         registry: ToolRegistry,
-        environment: "AppEnvironment | None" = None,
+        environment: AppEnvironment,
     ) -> None:
         self.config = config
         self.registry = registry
