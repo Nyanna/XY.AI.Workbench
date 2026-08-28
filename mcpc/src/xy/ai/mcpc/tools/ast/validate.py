@@ -1,4 +1,4 @@
-"""``python-ast-validate`` – compile a list of Python files and report results."""
+"""``python_ast_validate`` – compile a list of Python files and report results."""
 
 from __future__ import annotations
 
@@ -8,12 +8,13 @@ from typing import Any
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = [
     "ValidateError",
     "FileCheck",
     "ValidateResult",
-    "validate_python_files",
+    "python_ast_validate",
     "ValidateTool",
     "register",
 ]
@@ -25,7 +26,7 @@ class ValidateError(Exception):
 
 @dataclass(frozen=True)
 class FileCheck:
-    """Compile-check result for a single file, as returned by :func:`validate_python_files`.
+    """Compile-check result for a single file, as returned by :func:`python_ast_validate`.
 
     Attributes:
         path: The path exactly as given in the input.
@@ -40,7 +41,7 @@ class FileCheck:
 
 @dataclass(frozen=True)
 class ValidateResult:
-    """Result of :func:`validate_python_files`.
+    """Result of :func:`python_ast_validate`.
 
     Attributes:
         all_ok: Whether every file in ``files`` compiled successfully.
@@ -66,7 +67,7 @@ def _check(path_str: str) -> FileCheck:
     return FileCheck(path=path_str, ok=True, error=None)
 
 
-def validate_python_files(paths: list[str]) -> ValidateResult:
+def python_ast_validate(paths: list[str]) -> ValidateResult:
     """Compile each of ``paths`` and report success/error per file.
 
     Per-file failures (non-absolute path, unreadable file, syntax error) are
@@ -90,7 +91,7 @@ def validate_python_files(paths: list[str]) -> ValidateResult:
 
 
 class ValidateTool(ToolDefinition):
-    name = "python-ast-validate"
+    name = "python_ast_validate"
     title = "Validate Python files"
     description = "Check that each of a list of Python files compiles; report success/error per file."
     input_schema = {
@@ -126,12 +127,12 @@ class ValidateTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`validate_python_files`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_validate`, translating the MCP schema to/from the Python API."""
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
         try:
-            result = validate_python_files(paths)
+            result = python_ast_validate(paths)
         except ValidateError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
 
@@ -144,5 +145,6 @@ class ValidateTool(ToolDefinition):
         )
 
 
-def register(registry: ToolRegistry) -> None:
+def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ValidateTool())
+    functions.register(python_ast_validate)

@@ -6,7 +6,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['WriteError', 'WriteResult', 'write_file', 'WriteTool', 'register_write_tool']
+__all__ = ['WriteError', 'WriteResult', 'write', 'WriteTool', 'register_write_tool']
 
 class WriteError(Exception):
     """Raised when a write operation cannot be performed."""
@@ -15,7 +15,7 @@ class WriteError(Exception):
 class WriteResult:
     result: str
 
-def write_file(path: str, mode: str, content: str) -> WriteResult:
+def write(path: str, mode: str, content: str) -> WriteResult:
     """Write ``content`` to ``path``; ``mode`` is ``replace`` or ``append``.
     
     Args:
@@ -51,14 +51,14 @@ class WriteTool(ToolDefinition):
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`write_file`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = write_file(path=args['path'], mode=args['mode'], content=args['content'])
+            result = write(path=args['path'], mode=args['mode'], content=args['content'])
         except WriteError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)
 
 def register_write_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WriteTool())
-    functions.register(write_file)
+    functions.register(write)

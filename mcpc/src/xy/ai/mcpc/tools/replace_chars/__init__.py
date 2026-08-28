@@ -52,7 +52,7 @@ def replace_chars(path: str, offset: int, length: int, content: str) -> ReplaceC
     return ReplaceCharsResult(result='success')
 
 class ReplaceCharsTool(ToolDefinition):
-    name = 'replace-chars'
+    name = 'replace_chars'
     title = 'Replace characters in file'
     description = 'Replace a range of characters inside an existing file with new content. The range is defined by a zero-based character ``offset`` and a ``length`` (number of characters to remove starting at the offset). The supplied ``content`` is written in place of the removed range. To replace whole lines instead, use ``replace-lines``.'
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file to modify.'}, 'offset': {'type': 'integer', 'description': 'Zero-based character offset of the first character to replace.', 'minimum': 0}, 'length': {'type': 'integer', 'description': 'Number of characters to remove starting at ``offset``.', 'minimum': 0}, 'content': {'type': 'string', 'description': 'Replacement text (may be empty to perform a pure deletion).'}}, 'required': ['path', 'offset', 'length', 'content']}

@@ -55,7 +55,7 @@ def replace_block(path: str, old_text: str, new_text: str, exact: bool=False) ->
     return ReplaceBlockResult(result='success')
 
 class ReplaceBlockTool(ToolDefinition):
-    name = 'replace-block'
+    name = 'replace_block'
     title = 'Replace text block in file'
     description = "Replace a complete block of text inside an existing file. 'old_text' must occur exactly once. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'old_text': {'type': 'string', 'description': 'Text to find and replace. Must occur exactly once.'}, 'new_text': {'type': 'string', 'description': "Text that replaces 'old_text'."}, 'exact': {'type': 'boolean', 'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'old_text', 'new_text']}

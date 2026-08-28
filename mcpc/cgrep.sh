@@ -7,6 +7,7 @@
 #   cgrep.sh init [project-directory]   Build/update the index (defaults to $PWD)
 #   cgrep.sh <query-args...>            Run "colgrep <query-args...>" against
 #                                        the index rooted at $PWD/.colgrep
+export PYTHONDONTWRITEBYTECODE=1
 
 set -euo pipefail
 

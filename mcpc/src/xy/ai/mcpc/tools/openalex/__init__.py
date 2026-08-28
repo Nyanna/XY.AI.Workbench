@@ -4,9 +4,9 @@ Three tools sit on top of the :mod:`xy.ai.mcpc.openalex` interface package and
 apply standard assumptions so an AI agent can use OpenAlex without knowing the
 raw API:
 
-* ``openalex-search``          – keyword / boolean full-text search.
-* ``openalex-semantic-search`` – AI (embedding) search by meaning.
-* ``openalex-work``            – fetch a single work by id / DOI.
+* ``openalex_search``          – keyword / boolean full-text search.
+* ``openalex_semantic_search`` – AI (embedding) search by meaning.
+* ``openalex_work``            – fetch a single work by id / DOI.
 
 Shared conventions
 ------------------
@@ -39,6 +39,7 @@ from xy.ai.mcpc.openalex.client import ENTITIES
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 
 __all__ = ["register_openalex_tools"]
@@ -103,9 +104,58 @@ def _summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     return structured
 
 
-def _register_search(registry: ToolRegistry, client: OpenAlexClient) -> None:
+def _register_search(registry: ToolRegistry, client: OpenAlexClient, functions: "FunctionRegistry | None" = None) -> None:
+    def openalex_search(
+        query: str,
+        entity: str = "works",
+        exact: bool = False,
+        fields: str | None = None,
+        filter: str | None = None,
+        sort: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Keyword/boolean full-text search across OpenAlex scholarly entities.
+
+        Args:
+            query: Full-text query (boolean AND/OR/NOT, quoted phrases, proximity).
+            entity: Entity type to search (default: works).
+            exact: Use exact (unstemmed) search; required for wildcards.
+            fields: Field preset controlling how much of each record is returned.
+            filter: Optional OpenAlex filter string.
+            sort: Optional sort override; defaults to relevance.
+            limit: Max results from the first page.
+
+        Returns:
+            dict with ``count``, ``returned`` and ``results``.
+
+        Raises:
+            OpenAlexError: If the OpenAlex API request fails.
+        """
+        preset = fields or DEFAULT_SEARCH_PRESET
+        resolved_limit = _clamp(limit, _DEFAULT_SEARCH_LIMIT, _MAX_PER_PAGE)
+        select = resolve_select(preset, entity)
+        data = client.search_works(
+            query,
+            exact=exact,
+            filters=filter,
+            sort=sort,
+            select=select,
+            per_page=resolved_limit,
+            page=1,
+        ) if entity == "works" else client.list_entities(
+            entity,
+            search_exact=query if exact else None,
+            search=None if exact else query,
+            filters=filter,
+            sort=sort,
+            select=select,
+            per_page=resolved_limit,
+            page=1,
+        )
+        return _summarise_list(data)
+
     @registry.tool(
-        "openalex-search",
+        "openalex_search",
         title="OpenAlex search",
         description=(
             "Keyword and boolean full-text search across OpenAlex scholarly "
@@ -185,44 +235,61 @@ def _register_search(registry: ToolRegistry, client: OpenAlexClient) -> None:
         },
         annotations={"readOnlyHint": True, "openWorldHint": True},
     )
-    def openalex_search(ctx: ToolContext) -> ToolResult:
+    def handler(ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
-        query = args["query"]
-        entity = args.get("entity", "works")
-        exact = bool(args.get("exact", False))
-        preset = args.get("fields", DEFAULT_SEARCH_PRESET)
-        filters = args.get("filter")
-        sort = args.get("sort")
-        limit = _clamp(args.get("limit"), _DEFAULT_SEARCH_LIMIT, _MAX_PER_PAGE)
-
-        select = resolve_select(preset, entity)
         try:
-            data = client.search_works(
-                query,
-                exact=exact,
-                filters=filters,
-                sort=sort,
-                select=select,
-                per_page=limit,
-                page=1,
-            ) if entity == "works" else client.list_entities(
-                entity,
-                search_exact=query if exact else None,
-                search=None if exact else query,
-                filters=filters,
-                sort=sort,
-                select=select,
-                per_page=limit,
-                page=1,
+            structured = openalex_search(
+                query=args["query"],
+                entity=args.get("entity", "works"),
+                exact=bool(args.get("exact", False)),
+                fields=args.get("fields"),
+                filter=args.get("filter"),
+                sort=args.get("sort"),
+                limit=args.get("limit"),
             )
         except OpenAlexError as exc:
             return _error_result(exc)
-        return _ok_result(_summarise_list(data))
+        return _ok_result(structured)
+
+    if functions is not None:
+        functions.register(openalex_search, id="openalex_search")
 
 
-def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient) -> None:
+def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient, functions: "FunctionRegistry | None" = None) -> None:
+    def openalex_semantic_search(
+        query: str,
+        fields: str | None = None,
+        filter: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """AI-powered semantic search over OpenAlex works.
+
+        Args:
+            query: Natural-language description of what to look for.
+            fields: Field preset for each work (default: core).
+            filter: Optional OpenAlex filter string (no cited_by_count/country_code).
+            limit: Max results (1-50, default 10).
+
+        Returns:
+            dict with ``count``, ``returned`` and ``results``.
+
+        Raises:
+            OpenAlexError: If the OpenAlex API request fails.
+        """
+        preset = fields or DEFAULT_SEARCH_PRESET
+        resolved_limit = _clamp(limit, _DEFAULT_SEMANTIC_LIMIT, _MAX_SEMANTIC_RESULTS)
+        select = resolve_select(preset, "works")
+        data = client.semantic_search_works(
+            query,
+            filters=filter,
+            select=select,
+            per_page=resolved_limit,
+            page=1,
+        )
+        return _summarise_list(data)
+
     @registry.tool(
-        "openalex-semantic-search",
+        "openalex_semantic_search",
         title="OpenAlex semantic search",
         description=(
             "AI-powered semantic search over OpenAlex works: finds works by "
@@ -282,32 +349,45 @@ def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient) ->
         },
         annotations={"readOnlyHint": True, "openWorldHint": True},
     )
-    def openalex_semantic_search(ctx: ToolContext) -> ToolResult:
+    def handler(ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
-        query = args["query"]
-        preset = args.get("fields", DEFAULT_SEARCH_PRESET)
-        filters = args.get("filter")
-        limit = _clamp(
-            args.get("limit"), _DEFAULT_SEMANTIC_LIMIT, _MAX_SEMANTIC_RESULTS
-        )
-
-        select = resolve_select(preset, "works")
         try:
-            data = client.semantic_search_works(
-                query,
-                filters=filters,
-                select=select,
-                per_page=limit,
-                page=1,
+            structured = openalex_semantic_search(
+                query=args["query"],
+                fields=args.get("fields"),
+                filter=args.get("filter"),
+                limit=args.get("limit"),
             )
         except OpenAlexError as exc:
             return _error_result(exc)
-        return _ok_result(_summarise_list(data))
+        return _ok_result(structured)
+
+    if functions is not None:
+        functions.register(openalex_semantic_search, id="openalex_semantic_search")
 
 
-def _register_work(registry: ToolRegistry, client: OpenAlexClient) -> None:
+def _register_work(registry: ToolRegistry, client: OpenAlexClient, functions: "FunctionRegistry | None" = None) -> None:
+    def openalex_work(id: str, fields: str | None = None) -> dict[str, Any]:
+        """Fetch a single OpenAlex work by identifier.
+
+        Args:
+            id: OpenAlex id/URL, DOI (bare or URL), or namespaced id (pmid:, mag:, ...).
+            fields: Field preset (default: full).
+
+        Returns:
+            dict with the ``work`` record.
+
+        Raises:
+            OpenAlexError: If the OpenAlex API request fails.
+        """
+        preset = fields or DEFAULT_WORK_PRESET
+        select = resolve_select(preset, "works")
+        data = client.get_work(id, select=select)
+        work = project_results([data])[0]
+        return {"work": work}
+
     @registry.tool(
-        "openalex-work",
+        "openalex_work",
         title="OpenAlex work",
         description=(
             "Fetch a single OpenAlex work by identifier. Accepts an OpenAlex id "
@@ -343,24 +423,23 @@ def _register_work(registry: ToolRegistry, client: OpenAlexClient) -> None:
         },
         annotations={"readOnlyHint": True, "openWorldHint": True},
     )
-    def openalex_work(ctx: ToolContext) -> ToolResult:
+    def handler(ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
-        work_id = args["id"]
-        preset = args.get("fields", DEFAULT_WORK_PRESET)
-
-        select = resolve_select(preset, "works")
         try:
-            data = client.get_work(work_id, select=select)
+            structured = openalex_work(id=args["id"], fields=args.get("fields"))
         except OpenAlexError as exc:
             return _error_result(exc)
-        work = project_results([data])[0]
-        return _ok_result({"work": work})
+        return _ok_result(structured)
+
+    if functions is not None:
+        functions.register(openalex_work, id="openalex_work")
 
 
 # --------------------------------------------------------------------- register
 def register_openalex_tools(registry: ToolRegistry, environment: "AppEnvironment | None" = None) -> None:
     """Register the three OpenAlex tools onto *registry*."""
     client = _build_client(environment.config if environment is not None else None)
-    _register_search(registry, client)
-    _register_semantic_search(registry, client)
-    _register_work(registry, client)
+    functions = environment.functions if environment is not None else None
+    _register_search(registry, client, functions)
+    _register_semantic_search(registry, client, functions)
+    _register_work(registry, client, functions)

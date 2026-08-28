@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-__all__ = ['ColgrepError', 'ColgrepResult', 'colgrep_search', 'ColgrepTool', 'register_colgrep_tool']
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+__all__ = ['ColgrepError', 'ColgrepResult', 'colgrep', 'ColgrepTool', 'register_colgrep_tool']
 _COLGREP_BIN = '/home/user/.cargo/bin/colgrep'
 _CONTEXT_LINES = '2'
 _DEFAULT_RESULTS = 15
@@ -66,7 +67,7 @@ def _clean_result(value: Any) -> Any:
         return [_clean_result(item) for item in value]
     return value
 
-def colgrep_search(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only: bool=False, code_only: bool=False, files_only: bool=False, full_content: bool=False, include: list[str] | None=None, exclude: list[str] | None=None, exclude_dir: list[str] | None=None) -> ColgrepResult:
+def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only: bool=False, code_only: bool=False, files_only: bool=False, full_content: bool=False, include: list[str] | None=None, exclude: list[str] | None=None, exclude_dir: list[str] | None=None) -> ColgrepResult:
     """Search colgrep index for code matching query.
     
     Searches the colgrep index covering the given path using semantic and/or
@@ -166,13 +167,14 @@ class ColgrepTool(ToolDefinition):
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`colgrep_search`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = colgrep_search(path=args['path'], query=args['query'], results=args.get('results', _DEFAULT_RESULTS), semantic_only=args.get('semantic_only', False), code_only=args.get('code_only', False), files_only=args.get('files_only', False), full_content=args.get('full_content', False), include=args.get('include') or [], exclude=args.get('exclude') or [], exclude_dir=args.get('exclude_dir') or [])
+            result = colgrep(path=args['path'], query=args['query'], results=args.get('results', _DEFAULT_RESULTS), semantic_only=args.get('semantic_only', False), code_only=args.get('code_only', False), files_only=args.get('files_only', False), full_content=args.get('full_content', False), include=args.get('include') or [], exclude=args.get('exclude') or [], exclude_dir=args.get('exclude_dir') or [])
         except ColgrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'results': result.results, 'count': result.count})
 
-def register_colgrep_tool(registry: ToolRegistry) -> None:
+def register_colgrep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ColgrepTool())
+    functions.register(colgrep)

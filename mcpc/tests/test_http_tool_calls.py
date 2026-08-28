@@ -3,7 +3,7 @@ transport (the actual wire protocol a client speaks), not just in-process
 Python calls.
 
 Covers: the ``initialize``/``notifications/initialized`` handshake, then
-``tools/call`` for ``list``, ``bash`` and ``python-ast-outline`` — exercising
+``tools/call`` for ``list``, ``bash`` and ``python_ast_outline`` — exercising
 JSON-RPC parsing, session handling, tool dispatch and (for the AST tool) the
 real parser stack in one pass.
 """
@@ -38,7 +38,7 @@ def http_client():
     thread.start()
 
     session_id = str(uuid.uuid4())
-    enabled_tools = "list,bash,python-ast-outline"
+    enabled_tools = "list,bash,python_ast_outline"
 
     class Client:
         def rpc(self, method: str, params: dict | None = None, *, notification: bool = False):
@@ -143,7 +143,7 @@ def test_http_python_ast_outline_tool(http_client, tmp_path):
         )
     )
 
-    result = http_client.call_tool("python-ast-outline", {"paths": [str(source)]})
+    result = http_client.call_tool("python_ast_outline", {"paths": [str(source)]})
 
     assert result.get("isError") is not True
     structured = result["structuredContent"]

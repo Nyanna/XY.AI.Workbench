@@ -1,8 +1,8 @@
 """Context7 bridge – library documentation tools backed by the Context7 MCP server.
 
 Exposes two tools:
-  context7-resolve-library-id  →  resolveLibraryId
-  context7-query-docs          →  queryDocs
+  context7_libraries      →  resolveLibraryId
+  context7_documentation  →  queryDocs
 """
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from typing import Any
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
-from xy.ai.mcpc.tools.mcp.bridge import McpBridge
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient
 
 _RESOLVE_DESCRIPTION = (
     "Search Context7 for a library and return its canonical library ID.\n\n"
-    "Best for: Resolving a library name to the ID needed by context7-query-docs.\n"
+    "Best for: Resolving a library name to the ID needed by context7_documentation.\n"
     "Returns: Ranked list of matching libraries with ID, title, description, "
     "snippet count, reputation, benchmark score, and available versions."
 )
@@ -57,7 +57,7 @@ _QUERY_DOCS_DESCRIPTION = (
     "Fetch documentation and code examples for a library from Context7.\n\n"
     "Best for: Retrieving accurate API docs, usage examples, and configuration guides "
     "for any library or framework.\n"
-    "Use context7-resolve-library-id first to obtain the correct libraryId.\n"
+    "Use context7_libraries first to obtain the correct libraryId.\n"
     "Returns: Documentation snippets and code examples relevant to the query.\n\n"
     "Keep each query scoped to a single concept. For multi-concept questions, "
     "make separate calls per concept unless the question is about how the concepts interact.\n"
@@ -68,7 +68,7 @@ _QUERY_DOCS_SCHEMA: dict[str, Any] = {
         "libraryId": {
             "type": "string",
             "description": (
-                "Context7-compatible library ID as returned by context7-resolve-library-id "
+                "Context7-compatible library ID as returned by context7_libraries "
                 "(e.g. '/reactjs/react.dev', '/vercel/next.js'). "
                 "Optionally suffix with a version: '/vercel/next.js/v14.3.0'."
             ),
@@ -113,27 +113,68 @@ def register_context7_tools(
     environment: "AppEnvironment | None" = None,
     bridge: "Context7Bridge | None" = None,
 ) -> None:
-    """Register the Context7-backed ``context7-resolve-library-id`` and
-    ``context7-query-docs`` tools."""
+    """Register the Context7-backed ``context7_libraries`` and
+    ``context7_documentation`` tools."""
     bridge = bridge or Context7Bridge(environment.config if environment is not None else None)
+    functions = environment.functions if environment is not None else None
+
+    def context7_libraries(libraryName: str, query: str) -> dict:
+        """Search Context7 for a library and return its canonical library ID.
+
+        Best for: Resolving a library name to the ID needed by
+        ``context7_documentation``.
+
+        Args:
+            libraryName: Library name to search for (e.g. 'react', 'next.js', 'vue').
+            query: User's original question or task, used for relevance ranking.
+
+        Returns:
+            dict with ``content``: ranked list of matching libraries (ID, title,
+            description, snippet count, reputation, benchmark score, versions).
+        """
+        return bridge.call("resolve-library-id", compact(libraryName=libraryName, query=query)).to_dict()
+
+    def context7_documentation(libraryId: str, query: str) -> dict:
+        """Fetch documentation and code examples for a library from Context7.
+
+        Best for: Retrieving accurate API docs, usage examples, and
+        configuration guides for any library or framework. Use
+        ``context7_libraries`` first to obtain the correct libraryId. Keep
+        each query scoped to a single concept.
+
+        Args:
+            libraryId: Context7-compatible library ID as returned by
+                ``context7_libraries`` (e.g. '/reactjs/react.dev'), optionally
+                suffixed with a version.
+            query: The question or task to find documentation for, scoped to
+                a single concept.
+
+        Returns:
+            dict with ``content``: documentation snippets and code examples.
+        """
+        return bridge.call("query-docs", compact(libraryId=libraryId, query=query)).to_dict()
 
     bridge.register_tool(
         registry,
-        name="context7-libraries",
+        name="context7_libraries",
         remote_tool="resolve-library-id",
         title="Context7 resolve library ID",
         description=_RESOLVE_DESCRIPTION,
         input_schema=_RESOLVE_SCHEMA,
         output_schema=_RESOLVE_OUTPUT,
         annotations=_RO,
+        functions=functions,
+        core=context7_libraries,
     )
     bridge.register_tool(
         registry,
-        name="context7-documentation",
+        name="context7_documentation",
         remote_tool="query-docs",
         title="Context7 query docs",
         description=_QUERY_DOCS_DESCRIPTION,
         input_schema=_QUERY_DOCS_SCHEMA,
         output_schema=_QUERY_DOCS_OUTPUT,
         annotations=_RO,
+        functions=functions,
+        core=context7_documentation,
     )

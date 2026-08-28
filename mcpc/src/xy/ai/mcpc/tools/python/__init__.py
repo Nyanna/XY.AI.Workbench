@@ -6,12 +6,12 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['PythonError', 'run_python', 'PythonTool', 'register_python_tool']
+__all__ = ['PythonError', 'python', 'PythonTool', 'register_python_tool']
 
 class PythonError(Exception):
     """Raised when a Python script cannot be executed."""
 
-def run_python(script: str) -> ProcessResult:
+def python(script: str) -> ProcessResult:
     """Feed ``script`` to a fresh Python interpreter on standard input.
     
     Args:
@@ -42,14 +42,14 @@ class PythonTool(ToolDefinition):
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`run_python` and pack the result into the MCP output schema."""
+        """Delegate to :func:`python` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = run_python(args['script'])
+            result = python(args['script'])
         except PythonError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result)
 
 def register_python_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(PythonTool())
-    functions.register(run_python)
+    functions.register(python)

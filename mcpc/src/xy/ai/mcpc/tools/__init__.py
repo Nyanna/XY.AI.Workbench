@@ -2,22 +2,22 @@
 
 Available tools
 ---------------
-* ``read-file``          – read a file (with session-level content-hash caching, line/char slicing)
-* ``file-stats``    – get file metrics for access and processing planning
+* ``read_file``          – read a file (with session-level content-hash caching, line/char slicing)
+* ``file_stats``    – get file metrics for access and processing planning
 * ``list``          – recursively list files below a directory
 * ``write``         – overwrite or append to a file
 * ``insert``        – insert text at a character offset
-* ``replace-chars`` – replace a character range with new text
-* ``replace-lines`` – replace a line range with new text
-* ``replace-block`` – replace an exact block of text (old text -> new text)
+* ``replace_chars`` – replace a character range with new text
+* ``replace_lines`` – replace a line range with new text
+* ``replace_block`` – replace an exact block of text (old text -> new text)
 * ``change``        – replace a delimited block identified by start/end markers
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
 * ``markdown``      – AST-based Markdown editing via a remark (Node.js) script
-* ``python-ast-*``  – ``ast``-based Python editing (outline, node CRUD, imports/
+* ``python_ast_*``  – ``ast``-based Python editing (outline, node CRUD, imports/
   classes/functions, node-scoped replace-block, script, validate); jointly
   enabled via the ``python-ast`` tool-set alias
-* ``ask-user``      – ask the user a clarifying question (back-channel)
+* ``ask_user``      – ask the user a clarifying question (back-channel)
 * ``colgrep``       – search a pre-built colgrep index (search-only; never initializes an index)
 * ``tool_search``, ``tool_usage``, ``tool_call`` – discover, introspect and run
   plain Python functions/methods registered in the ``FunctionRegistry``
@@ -96,8 +96,8 @@ def register_tools(registry: ToolRegistry, environment: "AppEnvironment | None" 
     register_markdown_tool(registry, environment)
     register_ast_tools(registry, functions)
     register_ask_user_tool(registry)
-    register_colgrep_tool(registry)
-    register_skills(registry)
+    register_colgrep_tool(registry, functions)
+    register_skills(registry, environment)
     register_exa_tools(registry, environment)
     register_github_tools(registry, environment)
     register_context7_tools(registry, environment)

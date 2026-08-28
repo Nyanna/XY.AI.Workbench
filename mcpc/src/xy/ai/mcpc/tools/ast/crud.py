@@ -1,4 +1,4 @@
-"""Node-level CRUD tools: ``python-ast-{list,find,insert,replace,delete,create}``.
+"""Node-level CRUD tools: ``python_ast_{list,find,insert,replace,delete,create}``.
 
 These operate on the typed AST directly and are the foundation the ``imports``,
 ``classes`` and ``functions`` convenience layers build on.
@@ -13,6 +13,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = [
     "ListNodesResult",
@@ -21,12 +22,12 @@ __all__ = [
     "ReplaceNodeResult",
     "DeleteNodeResult",
     "CreateNodeResult",
-    "list_nodes",
-    "find_nodes",
-    "insert_node",
-    "replace_node",
-    "delete_node",
-    "create_node",
+    "python_ast_list",
+    "python_ast_find",
+    "python_ast_insert",
+    "python_ast_replace",
+    "python_ast_delete",
+    "python_ast_create",
     "ListNodesTool",
     "FindNodesTool",
     "InsertNodeTool",
@@ -74,7 +75,7 @@ def _list_output_schema() -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class ListNodesResult:
-    """Result of :func:`list_nodes`.
+    """Result of :func:`python_ast_list`.
 
     Attributes:
         nodes: Node summaries (see :func:`core.node_summary`) in document order.
@@ -87,7 +88,7 @@ class ListNodesResult:
 
 @dataclass(frozen=True)
 class FindNodesResult:
-    """Result of :func:`find_nodes`.
+    """Result of :func:`python_ast_find`.
 
     Attributes:
         nodes: Node summaries matching the given selectors.
@@ -100,7 +101,7 @@ class FindNodesResult:
 
 @dataclass(frozen=True)
 class InsertNodeResult:
-    """Result of :func:`insert_node`.
+    """Result of :func:`python_ast_insert`.
 
     Attributes:
         result: Always ``"success"``.
@@ -113,7 +114,7 @@ class InsertNodeResult:
 
 @dataclass(frozen=True)
 class ReplaceNodeResult:
-    """Result of :func:`replace_node`.
+    """Result of :func:`python_ast_replace`.
 
     Attributes:
         result: Always ``"success"``.
@@ -124,7 +125,7 @@ class ReplaceNodeResult:
 
 @dataclass(frozen=True)
 class DeleteNodeResult:
-    """Result of :func:`delete_node`.
+    """Result of :func:`python_ast_delete`.
 
     Attributes:
         result: Always ``"success"``.
@@ -135,7 +136,7 @@ class DeleteNodeResult:
 
 @dataclass(frozen=True)
 class CreateNodeResult:
-    """Result of :func:`create_node`.
+    """Result of :func:`python_ast_create`.
 
     Attributes:
         result: Always ``"success"``.
@@ -146,7 +147,7 @@ class CreateNodeResult:
     created: int
 
 
-def list_nodes(path: str | None = None, code: str | None = None, node_type: str | None = None) -> ListNodesResult:
+def python_ast_list(path: str | None = None, code: str | None = None, node_type: str | None = None) -> ListNodesResult:
     """List AST nodes (imports, classes, functions, statements) of a file or source snippet.
 
     Args:
@@ -174,7 +175,7 @@ def list_nodes(path: str | None = None, code: str | None = None, node_type: str 
     return ListNodesResult(nodes=summaries, count=len(summaries))
 
 
-def find_nodes(
+def python_ast_find(
     path: str | None = None,
     code: str | None = None,
     *,
@@ -221,7 +222,7 @@ def find_nodes(
     return FindNodesResult(nodes=[core.node_summary(h) for h in hits], count=len(hits))
 
 
-def insert_node(
+def python_ast_insert(
     path: str,
     code: str,
     *,
@@ -273,7 +274,7 @@ def insert_node(
     return InsertNodeResult(result="success", inserted=len(new_nodes))
 
 
-def replace_node(
+def python_ast_replace(
     path: str,
     code: str,
     *,
@@ -320,7 +321,7 @@ def replace_node(
     return ReplaceNodeResult(result="success")
 
 
-def delete_node(
+def python_ast_delete(
     path: str,
     *,
     qualified_name: str | None = None,
@@ -364,7 +365,7 @@ def delete_node(
     return DeleteNodeResult(result="success")
 
 
-def create_node(path: str, code: str) -> CreateNodeResult:
+def python_ast_create(path: str, code: str) -> CreateNodeResult:
     """Append statement(s) parsed from ``code`` to a Python file's top level.
 
     Args:
@@ -387,7 +388,7 @@ def create_node(path: str, code: str) -> CreateNodeResult:
 
 
 class ListNodesTool(ToolDefinition):
-    name = "python-ast-list"
+    name = "python_ast_list"
     title = "List AST nodes"
     description = "List AST nodes (imports, classes, functions, statements) of a Python file, optionally filtered by type."
     input_schema = {
@@ -403,17 +404,17 @@ class ListNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`list_nodes`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_list`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = list_nodes(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
+            result = python_ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"nodes": result.nodes, "count": result.count})
 
 
 class FindNodesTool(ToolDefinition):
-    name = "python-ast-find"
+    name = "python_ast_find"
     title = "Find AST nodes"
     description = "Find AST nodes by type, name, qualified name, line range or parent type."
     input_schema = {
@@ -429,10 +430,10 @@ class FindNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`find_nodes`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_find`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = find_nodes(
+            result = python_ast_find(
                 path=args.get("path"),
                 code=args.get("code"),
                 qualified_name=args.get("qualified_name"),
@@ -448,7 +449,7 @@ class FindNodesTool(ToolDefinition):
 
 
 class InsertNodeTool(ToolDefinition):
-    name = "python-ast-insert"
+    name = "python_ast_insert"
     title = "Insert AST node"
     description = "Insert statement(s) parsed from code relative to a selected node ('before' or 'after')."
     input_schema = {
@@ -474,10 +475,10 @@ class InsertNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`insert_node`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_insert`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = insert_node(
+            result = python_ast_insert(
                 args["path"],
                 args["code"],
                 position=args.get("position", "after"),
@@ -494,7 +495,7 @@ class InsertNodeTool(ToolDefinition):
 
 
 class ReplaceNodeTool(ToolDefinition):
-    name = "python-ast-replace"
+    name = "python_ast_replace"
     title = "Replace AST node"
     description = "Replace the single selected node with statement(s) parsed from code."
     input_schema = {
@@ -514,10 +515,10 @@ class ReplaceNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`replace_node`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_replace`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = replace_node(
+            result = python_ast_replace(
                 args["path"],
                 args["code"],
                 qualified_name=args.get("qualified_name"),
@@ -533,7 +534,7 @@ class ReplaceNodeTool(ToolDefinition):
 
 
 class DeleteNodeTool(ToolDefinition):
-    name = "python-ast-delete"
+    name = "python_ast_delete"
     title = "Delete AST node"
     description = "Delete the single selected node from a Python file."
     input_schema = {
@@ -552,10 +553,10 @@ class DeleteNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`delete_node`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_delete`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = delete_node(
+            result = python_ast_delete(
                 args["path"],
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
@@ -570,7 +571,7 @@ class DeleteNodeTool(ToolDefinition):
 
 
 class CreateNodeTool(ToolDefinition):
-    name = "python-ast-create"
+    name = "python_ast_create"
     title = "Create AST node"
     description = "Append statement(s) parsed from code to a Python file's top level (creating the file if needed)."
     input_schema = {
@@ -589,19 +590,25 @@ class CreateNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`create_node`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_create`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = create_node(args["path"], args["code"])
+            result = python_ast_create(args["path"], args["code"])
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"result": result.result, "created": result.created}, auto_approve=True)
 
 
-def register(registry: ToolRegistry) -> None:
+def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())
     registry.register(FindNodesTool())
     registry.register(InsertNodeTool())
     registry.register(ReplaceNodeTool())
     registry.register(DeleteNodeTool())
     registry.register(CreateNodeTool())
+    functions.register(python_ast_list)
+    functions.register(python_ast_find)
+    functions.register(python_ast_insert)
+    functions.register(python_ast_replace)
+    functions.register(python_ast_delete)
+    functions.register(python_ast_create)

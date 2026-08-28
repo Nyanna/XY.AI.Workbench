@@ -4,7 +4,7 @@ The **agent tool** spawns a sub-agent to offload complex or context-heavy work.
 From the caller's point of view an agent call is indistinguishable from any other
 tool call.
 
-The **wrapper tools** (``agt-python``, ``agt-markdown``, …) bind a single profile
+The **wrapper tools** (``agt_python``, ``agt_markdown``, …) bind a single profile
 to its description and system prompt and delegate everything else to the agent
 tool.  The agent tool itself is rarely called directly.
 """

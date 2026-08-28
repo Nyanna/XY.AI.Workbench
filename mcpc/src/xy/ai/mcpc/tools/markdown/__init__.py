@@ -13,6 +13,7 @@ from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['MarkdownError', 'MarkdownRunner', 'MarkdownTool', 'register_markdown_tool']
 _EXAMPLE = 'import { read, write } from \'to-vfile\';\nimport { createRemark } from \'./remark.js\';\nimport { visit } from \'unist-util-visit\';\n\nconst processor = createRemark({\n  // frontmatter: true, // if required\n  // behead: { depth: 1 }, // if required\n});\n\nprocessor.use(() => (tree, file) => {\n  // insert code here\n});\n\n// read file – replace \'path/to/file.md\' with the actual file path\nconst file = await read(\'path/to/file.md\');\n\n// parse to AST\nconst tree = await processor.run(processor.parse(file), file);\n\n// Extract headings\nconst headings = [];\nvisit(tree, \'heading\', (node) => {\n    headings.push({\n    depth: node.depth,\n    text: node.children.map(c => c.value || c.children?.map(x => x.value).join(\'\') || \'\').join(\'\').trim()\n    });\n});\n\n// format output\nawait processor.process(file);\nfile.path = \'path/to/file.md\';\nawait write(file);\n\nconsole.log(String("Done"));\n'
 _DESCRIPTION = 'AST-based reading, writing, modifying and transforming of Markdown files. Provide a TypeScript (ESM) script that uses `remark` (with `remark-behead` and `remark-frontmatter` available) to operate on Markdown. Returns the exit code, standard output and, if present, standard error.\n\nFollow this pattern:\n\n```typescript\n' + _EXAMPLE + '```'
@@ -30,16 +31,16 @@ class MarkdownRunner:
     :meth:`run_markdown` therefore only ever supply what actually differs per
     call — the script itself.
 
-    ``run_markdown`` keeps the name of the former module-level function on
-    purpose: it is the published, stable signature plugins can rely on and
-    call on any runner instance they are handed, without needing to know
-    about (or import) :class:`MarkdownRunner` itself.
+    ``markdown`` keeps the name of the MCP tool it backs on purpose: it is
+    the published, stable signature plugins can rely on and call on any
+    runner instance they are handed, without needing to know about (or
+    import) :class:`MarkdownRunner` itself.
     """
 
     def __init__(self, env_dir: Path | None=None) -> None:
         self._env_dir = env_dir or ServerConfig().markdown_env_dir
 
-    def run_markdown(self, script: str) -> ProcessResult:
+    def markdown(self, script: str) -> ProcessResult:
         """Run ``script`` against the bound remark environment.
 
         Args:
@@ -78,11 +79,12 @@ class MarkdownTool(ToolDefinition):
         """Delegate to the bound :class:`MarkdownRunner` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = self._runner.run_markdown(args['script'])
+            result = self._runner.markdown(args['script'])
         except MarkdownError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(result)
 
 def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment | None=None) -> None:
-    env_dir = environment.config.markdown_env_dir if environment is not None else None
-    registry.register(MarkdownTool(env_dir))
+    tool = MarkdownTool(environment.config.markdown_env_dir)
+    registry.register(tool)
+    environment.functions.register(tool._runner.markdown)

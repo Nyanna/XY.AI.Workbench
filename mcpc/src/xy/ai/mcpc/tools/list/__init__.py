@@ -17,7 +17,7 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ListError', 'ListResult', 'list_files', 'ListTool', 'register_list_tool']
+__all__ = ['ListError', 'ListResult', 'list', 'ListTool', 'register_list_tool']
 _MAX_ENTRIES = 50
 _EXCLUDED_DIRS = {'.git', '.hg', '.svn', '__pycache__', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.tox', '.venv', 'venv', 'node_modules', '.idea', '.vscode', 'dist', 'build', '.cache'}
 
@@ -28,7 +28,7 @@ class ListError(Exception):
 class ListResult:
     entries: list[str]
 
-def list_files(path: str, pattern: str | None=None) -> ListResult:
+def list(path: str, pattern: str | None=None) -> ListResult:
     """List all files below the absolute directory ``path``, optionally filtered by ``pattern``.
     
     Args:
@@ -78,14 +78,14 @@ class ListTool(ToolDefinition):
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`list_files`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = list_files(path=args['path'], pattern=args.get('pattern'))
+            result = list(path=args['path'], pattern=args.get('pattern'))
         except ListError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'entries': result.entries})
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())
-    functions.register(list_files)
+    functions.register(list)

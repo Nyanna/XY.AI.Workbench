@@ -1,6 +1,6 @@
-"""``python-ast-replace-block`` – text replace scoped to a single AST node.
+"""``python_ast_replace_block`` – text replace scoped to a single AST node.
 
-Like the top-level ``replace-block`` tool but constrained to the line range of a
+Like the top-level ``replace_block`` tool but constrained to the line range of a
 selected node (method/class/function), so ``old_text`` only has to be unique
 within that node rather than the whole file. Shares the whitespace-tolerant
 matcher with the file-level tool.
@@ -15,8 +15,9 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._text_match import find as find_text
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["ReplaceBlockResult", "replace_block_in_node", "NodeReplaceBlockTool", "register"]
+__all__ = ["ReplaceBlockResult", "python_ast_replace_block", "NodeReplaceBlockTool", "register"]
 
 _SELECTOR_PROPS = {
     "qualified_name": {"type": "string", "description": "Python-style FQN of the enclosing node."},
@@ -42,7 +43,7 @@ def _select(tree, **selectors: Any) -> core.Located:
 
 @dataclass(frozen=True)
 class ReplaceBlockResult:
-    """Result of :func:`replace_block_in_node`.
+    """Result of :func:`python_ast_replace_block`.
 
     Attributes:
         result: Always ``"success"``.
@@ -51,7 +52,7 @@ class ReplaceBlockResult:
     result: str
 
 
-def replace_block_in_node(
+def python_ast_replace_block(
     path: str,
     old_text: str,
     new_text: str,
@@ -119,7 +120,7 @@ def replace_block_in_node(
 
 
 class NodeReplaceBlockTool(ToolDefinition):
-    name = "python-ast-replace-block"
+    name = "python_ast_replace_block"
     title = "Replace block within node"
     description = (
         "Replace a text block inside the line range of a selected AST node. "
@@ -149,10 +150,10 @@ class NodeReplaceBlockTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`replace_block_in_node`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_replace_block`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = replace_block_in_node(
+            result = python_ast_replace_block(
                 args["path"],
                 args["old_text"],
                 args["new_text"],
@@ -167,5 +168,6 @@ class NodeReplaceBlockTool(ToolDefinition):
         return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
-def register(registry: ToolRegistry) -> None:
+def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(NodeReplaceBlockTool())
+    functions.register(python_ast_replace_block)

@@ -119,7 +119,7 @@ def file_stats(path: str) -> FileStatsResult:
     return FileStatsResult(**compute_file_stats(file_path))
 
 class FileStatsTool(ToolDefinition):
-    name = 'file-stats'
+    name = 'file_stats'
     title = 'File stats'
     description = 'Get file metrics for access and processing planning: complexity, timestamps, size, line/word counts, and line length statistics.'
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute file path.'}}, 'required': ['path']}

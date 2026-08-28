@@ -61,7 +61,7 @@ def replace_lines(path: str, offset: int, length: int, content: str) -> ReplaceL
     return ReplaceLinesResult(result='success')
 
 class ReplaceLinesTool(ToolDefinition):
-    name = 'replace-lines'
+    name = 'replace_lines'
     title = 'Replace lines in file'
     description = 'Replace a range of lines inside an existing file with new content. The range is defined by a zero-based line ``offset`` and a ``length`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted. To replace an arbitrary character range instead, use ``replace-chars``.'
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file to modify.'}, 'offset': {'type': 'integer', 'description': 'Zero-based line offset of the first line to replace.', 'minimum': 0}, 'length': {'type': 'integer', 'description': 'Number of lines to remove starting at ``offset``.', 'minimum': 0}, 'content': {'type': 'string', 'description': 'Replacement text (may be empty to perform a pure deletion).'}}, 'required': ['path', 'offset', 'length', 'content']}

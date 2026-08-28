@@ -4,6 +4,7 @@
 # Polls /control/tool in a continuous loop and presents each pending tool-call
 # for approval.  The operator may only Allow (default) or Deny with a reason.
 # Modification of arguments or results is intentionally not supported.
+export PYTHONDONTWRITEBYTECODE=1
 
 # ---------------------------------------------------------------------------
 # Configuration (override via environment)

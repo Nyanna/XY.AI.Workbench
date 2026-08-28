@@ -1,4 +1,4 @@
-"""``python-ast-outline`` – compact structural overview of Python files."""
+"""``python_ast_outline`` – compact structural overview of Python files."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = [
     "OutlineError",
     "FileOutline",
     "OutlineResult",
-    "outline_python_files",
+    "python_ast_outline",
     "OutlineTool",
     "register",
 ]
@@ -31,7 +32,7 @@ class OutlineError(Exception):
 
 @dataclass(frozen=True)
 class FileOutline:
-    """Structural outline of a single file, as returned by :func:`outline_python_files`.
+    """Structural outline of a single file, as returned by :func:`python_ast_outline`.
 
     Attributes:
         path: The path exactly as given in the input.
@@ -54,7 +55,7 @@ class FileOutline:
 
 @dataclass(frozen=True)
 class OutlineResult:
-    """Result of :func:`outline_python_files`.
+    """Result of :func:`python_ast_outline`.
 
     Attributes:
         all_ok: Whether every file in ``files`` outlined successfully.
@@ -128,7 +129,7 @@ def _outline_one(path_str: str) -> FileOutline:
     )
 
 
-def outline_python_files(paths: list[str]) -> OutlineResult:
+def python_ast_outline(paths: list[str]) -> OutlineResult:
     """Build a structural outline (imports, classes, functions, stats) for each of ``paths``.
 
     Per-file failures (e.g. a non-existent or unparsable file) are reported inside
@@ -186,7 +187,7 @@ _OUTLINE_ITEM_SCHEMA = {
 
 
 class OutlineTool(ToolDefinition):
-    name = "python-ast-outline"
+    name = "python_ast_outline"
     title = "Python outline"
     description = (
         "Token-efficient structural overview of Python files: file metrics, "
@@ -215,12 +216,12 @@ class OutlineTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`outline_python_files`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`python_ast_outline`, translating the MCP schema to/from the Python API."""
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
         try:
-            result = outline_python_files(paths)
+            result = python_ast_outline(paths)
         except OutlineError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
 
@@ -232,5 +233,6 @@ class OutlineTool(ToolDefinition):
         )
 
 
-def register(registry: ToolRegistry) -> None:
+def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(OutlineTool())
+    functions.register(python_ast_outline)

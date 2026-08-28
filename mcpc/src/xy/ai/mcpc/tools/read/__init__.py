@@ -135,7 +135,7 @@ def read_file(path: str, min_line: int | None=None, max_line: int | None=None, m
     return ReadResult(content=sliced, checksum=checksum, is_full_file=is_full_file)
 
 class ReadTool(ToolDefinition):
-    name = 'read-file'
+    name = 'read_file'
     title = 'Read file'
     description = "Read a file as text, optionally sliced to a range. Don't use to read directories."
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute file path.'}, 'min_line': {'type': 'integer', 'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.', 'minimum': 1}, 'max_line': {'type': 'integer', 'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.', 'minimum': 1}, 'min_char': {'type': 'integer', 'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.', 'minimum': 0}, 'max_char': {'type': 'integer', 'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.', 'minimum': 0}, 'start': {'type': 'string', 'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'}, 'end': {'type': 'string', 'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}}, 'required': ['path']}

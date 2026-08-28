@@ -41,7 +41,7 @@ def ask_user(question: str) -> str:
     return '[User did not answer]'
 
 class AskUserTool(ToolDefinition):
-    name = 'ask-user'
+    name = 'ask_user'
     title = 'Ask user'
     description = "Ask the user a clarifying question, in the user's language, to improve session efficiency (e.g. instead of searching an entire file hierarchy when the user likely knows the answer already). "
     input_schema = {'type': 'object', 'properties': {'question': {'type': 'string', 'description': "The question to ask the user, in the user's language."}}, 'required': ['question']}

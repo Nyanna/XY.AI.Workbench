@@ -53,7 +53,7 @@ class ProfileRegistry:
 #: be edited or copied as a single self-contained unit.
 DEFAULT_PROFILES: list[AgentProfile] = [
     AgentProfile(
-        name="agt-python",
+        name="agt_python",
         tools=("python",),
         description=(
             "Python code tool that translates instructions, plans, and tasks "
@@ -70,7 +70,7 @@ DEFAULT_PROFILES: list[AgentProfile] = [
         ),
     ),
     AgentProfile(
-        name="agt-markdown",
+        name="agt_markdown",
         tools=("markdown",),
         description="Read, write, edit, and transform Markdown files.",
         system_prompt=(
@@ -82,8 +82,8 @@ DEFAULT_PROFILES: list[AgentProfile] = [
         ),
     ),
     AgentProfile(
-        name="agt-web-research",
-        tools=("web-search-exa", "web-fetch-exa", "context7-libraries", "context7-documentation"),
+        name="agt_web_research",
+        tools=("web_search_exa", "web_fetch_exa", "context7_libraries", "context7_documentation"),
         description=(
             "Conducts structured web research, internet-based lookups, and "
             "external queries; aggregates comprehensive, prioritized results "
@@ -104,8 +104,8 @@ DEFAULT_PROFILES: list[AgentProfile] = [
         ),
     ),
     AgentProfile(
-        name="agt-github-research",
-        tools=("github-get-file","github-get-tree","github-search-code","github-search-repos"),
+        name="agt_github_research",
+        tools=("github_get_file","github_get_tree","github_search_code","github_search_repos"),
         description=(
             "Conducts structured research on behalf of the caller and "
             "aggregates comprehensive, prioritized results using GitHub MCP "
