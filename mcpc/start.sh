@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export PYTHONDONTWRITEBYTECODE=1
 LT_COMPOSE_FILE="${HOME}/xyan/xy.ai.workbench/language-tool/docker-compose.yml"
 
 lt_is_running() {

@@ -10,5 +10,6 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
+export PYTHONDONTWRITEBYTECODE=1
 
 PYTHONPATH="src${PYTHONPATH:+:${PYTHONPATH}}" python3 -m pytest tests "$@"
