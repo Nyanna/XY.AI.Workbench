@@ -1,87 +1,47 @@
 """Skills – on-demand hints an agent can request.
 
-A *skill* is a small, easy-to-maintain unit bundling a name, a description, a
-hint and a set of instructions.  Every declared skill is automatically exposed
-as a tool:
-
-* the tool's **description** is the skill's *description* plus its *hint*,
-* the tool takes **no inputs**, and
-* calling it simply **returns the skill's instructions**.
-
-To add a skill, append a :class:`Skill` to :data:`SKILLS` *and* write a real,
-named module-level function (no parameters, returning the instructions text)
-that backs it in the ``FunctionRegistry`` (``tool_call``'s Python context
-requires an actually existing function with a real signature/docstring —
-functions cannot be generated dynamically) — see :func:`markdown_format` for
-the pattern.
+A *skill* is a small, easy-to-maintain unit combining an MCP tool schema
+(name, title, description, hint) with a real, named module-level function
+that backs it as ``core`` (``FunctionRegistry`` requires actually existing
+functions with a real signature/docstring.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable
+from abc import ABC, abstractmethod
 
-from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
+__all__ = ["Skill", "SKILLS", "MarkdownFormatSkill", "register_skills", "markdown_format"]
 
-@dataclass(frozen=True, slots=True)
-class Skill:
-    """A maintainable hint the agent can request on demand."""
 
-    name: str
-    description: str
+class Skill(ToolDefinition, ABC):
+    """Base class for skills: input-less tools returning maintainable hints."""
+
     hint: str
-    instructions: str
-    #: Real function backing this skill in the ``FunctionRegistry`` (see
-    #: :func:`markdown_format`); ``None`` if the skill has none (yet).
-    core: "Callable[[], str] | None" = None
-
-    @property
-    def tool_name(self) -> str:
-        """MCP tool name: hyphens are not valid in the core function's name."""
-        return self.name.replace("-", "_")
-
-    @property
-    def tool_description(self) -> str:
-        """Description + hint, as advertised to the agent."""
-        return f"{self.description}\n\n{self.hint}"
-
-
-def register_skill(registry: ToolRegistry, skill: Skill, functions: "FunctionRegistry | None" = None) -> None:
-    """Register a single *skill* as an input-less tool returning its instructions."""
-
-    @registry.tool(
-        skill.tool_name,
-        title=skill.name,
-        description=skill.tool_description,
-        input_schema={"type": "object", "properties": {}},
-        output_schema={
-            "type": "object",
-            "properties": {
-                "instructions": {"type": "string"},
-            },
-            "required": ["instructions"],
+    input_schema = {"type": "object", "properties": {}}
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "instructions": {"type": "string"},
         },
-        annotations={"readOnlyHint": True, "openWorldHint": False},
-    )
-    def skill_tool(ctx: ToolContext, _skill: Skill = skill) -> ToolResult:
-        return ToolResult(structured_content={"instructions": _skill.instructions})
+        "required": ["instructions"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
 
-    if functions is not None and skill.core is not None:
-        functions.register(skill.core, id=skill.tool_name)
+    def __init__(self) -> None:
+        self.description = f"{self.description}\n\n{self.hint}"
 
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        """Call ``core`` and wrap its result into the MCP output schema."""
+        return ToolResult(structured_content={"instructions": self.core()})
 
-_MARKDOWN_FORMAT_INSTRUCTIONS = (
-    "* Use a line containing only `***` to insert a page break in PDF output.\n"
-    "* Insert page breaks before top-level chapters (H1) at the start of each chapter.\n"
-    "* Use `\\n---\\n` as a section separator before second-order chapters (H2) at the start of each chapter.\n"
-    "* All files must end with an additional newline to prevent Markdown formatting errors on merge.\n"
-    "* Use third-order headings and below only when necessary for navigation; use simple bold paragraph headings instead.\n"
-    "* Chapter headings are numbered for H1–H3 only; lower-order headings do not contain numbering.\n"
-    "* Use LaTeX (`$$`) for block mathematical expressions and inline LaTeX (`$`) for inline mathematical symbols, expressions, and formulas."
-)
+    @staticmethod
+    @abstractmethod
+    def core() -> str:
+        """Real function backing this skill; also registered in the ``FunctionRegistry``."""
 
 
 def markdown_format() -> str:
@@ -94,37 +54,43 @@ def markdown_format() -> str:
     Returns:
         The formatting instructions text.
     """
-    return _MARKDOWN_FORMAT_INSTRUCTIONS
+    return (
+        "* Use a line containing only `***` to insert a page break in PDF output.\n"
+        "* Insert page breaks before top-level chapters (H1) at the start of each chapter.\n"
+        "* Use `\\n---\\n` as a section separator before second-order chapters (H2) at the start of each chapter.\n"
+        "* All files must end with an additional newline to prevent Markdown formatting errors on merge.\n"
+        "* Use third-order headings and below only when necessary for navigation; use simple bold paragraph headings instead.\n"
+        "* Chapter headings are numbered for H1–H3 only; lower-order headings do not contain numbering.\n"
+        "* Use LaTeX (`$$`) for block mathematical expressions and inline LaTeX (`$`) for inline mathematical symbols, expressions, and formulas."
+    )
+
+
+class MarkdownFormatSkill(Skill):
+    name = "markdown_format"
+    title = "markdown-format"
+    description = (
+        "Preferred formatting rules for Pandoc-compatible Markdown "
+        "documents. Load when formatting rules are requested or required."
+    )
+    hint = (
+        "Apply proactively whenever creating, editing, or reviewing "
+        "Markdown documents — even when formatting is not explicitly "
+        "mentioned."
+    )
+    core = staticmethod(markdown_format)
 
 
 #: All declared skills.  Append here to add a new one.
 SKILLS: list[Skill] = [
-    Skill(
-        name="markdown-format",
-        description=(
-            "Preferred formatting rules for Pandoc-compatible Markdown "
-            "documents. Load when formatting rules are requested or required."
-        ),
-        hint=(
-            "Apply proactively whenever creating, editing, or reviewing "
-            "Markdown documents — even when formatting is not explicitly "
-            "mentioned."
-        ),
-        instructions=_MARKDOWN_FORMAT_INSTRUCTIONS,
-        core=markdown_format,
-    ),
+    MarkdownFormatSkill(),
 ]
 
 
 def register_skills(
     registry: ToolRegistry,
-    environment: "AppEnvironment | None" = None,
-    skills: "list[Skill] | None" = None,
+    environment: AppEnvironment,
 ) -> None:
-    """Register every skill in *skills* (defaults to :data:`SKILLS`) as a tool."""
-    functions = environment.functions if environment is not None else None
-    for skill in SKILLS if skills is None else skills:
-        register_skill(registry, skill, functions)
-
-
-__all__ = ["Skill", "SKILLS", "register_skill", "register_skills", "markdown_format"]
+    """Register every skill in *skills* (defaults to :data:`SKILLS`) in both registries."""
+    for skill in SKILLS:
+        registry.register(skill)
+        environment.functions.register(skill.core, id=skill.name)
