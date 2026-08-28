@@ -67,11 +67,11 @@ class ServerConfig:
     tools_header: str = "X-MCPC-TOOLS"
 
     # : Central directory into which per-session communication logs are written.
-    log_dir: Path = field(default=Path("logs"))
+    log_dir: Path = field(default=Path(".claude/logs"))
 
     # : Directory into which the CLI-session manager replicates the input/output
     # : streams of every managed CLI process (one NDJSON file per CLI session).
-    cli_log_dir: Path = field(default=Path("logs"))
+    cli_log_dir: Path = field(default=Path(".claude/logs"))
 
     # : Node.js package environment used by the ``markdown`` tool (provides
     # : ``remark``, ``remark-behead`` and ``remark-frontmatter``).  Used as the
