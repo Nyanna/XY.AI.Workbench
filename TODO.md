@@ -14,6 +14,17 @@
 	* alle tools kontrollieren auf API
 	* foreach schleife mit claude subsessions zum refactoring einzelner tools
 	
+Fehler:
+Control Request:
+```yaml
+id: 85c0-13
+result:
+  content:
+  - type: text
+    text: "Tool 'ask_user' failed: 'str' object has no attribute 'answer'"
+  isError: true
+```
+	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten?

@@ -1,42 +1,34 @@
-"""Base class for exposing hard-coded calls of an external MCP server as tools.
-
-A :class:`McpBridge` owns a single lazily-created :class:`McpClient` and registers
-one MCPC tool per forwarded call.  MCPC supplies its own tool descriptions and
-input schemas; the target server's tool list is never fetched.  Any error
-returned by the target server (transport, protocol, or a tool-level
-``isError`` result) is surfaced back to the agent.
+"""Utility for forwarding hard-coded calls of an external MCP server.
 """
 
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable
+from typing import Any
 
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.config import ServerConfig
-from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
-from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.utils.text_sanitize import sanitize_text, sanitize_value
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
-
-#: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
-ArgTransform = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def compact(**kwargs: Any) -> dict[str, Any]:
     """Build a remote-call argument dict, dropping keys whose value is ``None``.
 
-    Shared helper for the hand-written ``core`` functions in the bridge
-    modules (:mod:`exa`, :mod:`context7`, :mod:`github`), which forward only
-    the arguments the caller actually supplied.
+    Shared helper for the core functions in ``context7``, ``exa`` and
+    ``github``, which forward only the arguments the caller actually
+    supplied.
     """
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
+class McpBridgeError(RuntimeError):
+    """Raised when a forwarded call fails, at transport level or because the
+    remote tool itself reported ``isError``."""
+
+
 class McpBridge:
-    """Bridges selected calls of one external MCP server into the registry.
-    """
+    """Lazily connects to one external MCP server and forwards ``tools/call``."""
 
     def __init__(self, config: ServerConfig | None = None) -> None:
         self.config = config or ServerConfig()
@@ -53,72 +45,26 @@ class McpBridge:
                 self._client = self.build_client(self.config)
             return self._client
 
-    def call(self, remote_tool: str, arguments: dict[str, Any]) -> ToolResult:
-        """Forward a call and translate the outcome into a :class:`ToolResult`."""
+    def call(self, remote_tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Forward a call and return the remote's structured result.
+
+        Raises:
+            McpBridgeError: if the transport/protocol fails, or the remote
+                tool call itself reports ``isError``.
+        """
         try:
             client = self.get_client()
             result = client.call_tool(remote_tool, arguments)
         except McpClientError as exc:
-            msg = f"'{remote_tool}' failed: {exc}"
-            return ToolResult(
-                content=[text_content(msg)],
-                is_error=True,
-            )
-        return _to_tool_result(result)
-
-    def register_tool(
-        self,
-        registry: ToolRegistry,
-        *,
-        name: str,
-        description: str,
-        input_schema: dict[str, Any],
-        remote_tool: str | None = None,
-        transform: ArgTransform | None = None,
-        title: str | None = None,
-        output_schema: dict[str, Any] | None = None,
-        annotations: dict[str, Any] | None = None,
-        functions: "FunctionRegistry | None" = None,
-        core: "Callable[..., dict[str, Any]] | None" = None,
-    ) -> None:
-        """Register a single forwarded call as an MCPC tool.
-
-        When *functions* and *core* are both given, *core* – a real, hand-written
-        module-level function with the same name and an actual signature/docstring
-        (functions cannot be generated dynamically: ``tool_call``'s Python context
-        and ``tool_usage``'s introspection both need one that genuinely exists) –
-        is also published under *name* in the :class:`FunctionRegistry`, mirroring
-        the tool registered onto *registry*.
-        """
-        remote = remote_tool or name
-        bridge = self
-
-        @registry.tool(
-            name,
-            title=title or name,
-            description=description,
-            input_schema=input_schema,
-            output_schema=output_schema,
-            annotations=annotations or {"readOnlyHint": True, "openWorldHint": True},
-        )
-        def handler(ctx: ToolContext) -> ToolResult:
-            arguments = dict(ctx.arguments)
-            if transform is not None:
-                arguments = transform(arguments)
-            return bridge.call(remote, arguments)
-
-        if functions is not None and core is not None:
-            functions.register(core, id=name)
+            raise McpBridgeError(f"'{remote_tool}' failed: {exc}") from exc
+        return _extract_result(remote_tool, result)
 
 
-def _to_tool_result(result: dict[str, Any]) -> ToolResult:
-    """Mirror a remote ``CallToolResult`` into an MCPC :class:`ToolResult`."""
-    is_error = bool(result.get("isError", False))
-
-    # Extract the text blocks from the remote content array; this is only
-    # ever surfaced to the agent as a ``content`` block on error (see below) –
-    # emitting it a second time on success is what used to duplicate the
-    # remote's answer next to structuredContent.
+def _extract_result(remote_tool: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Resolve a remote ``CallToolResult`` into structured data, or raise."""
+    # Extract the text blocks from the remote content array; on error this is
+    # the only material the agent gets to see, so it also becomes the
+    # McpBridgeError message.
     raw_blocks = result.get("content")
     if isinstance(raw_blocks, list):
         texts = [
@@ -134,15 +80,8 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     # (notably YAML block-scalar rendering) never choke on them.
     text = sanitize_text(text)
 
-    # Mirrors the tools' own convention (see tools/CHECKLIST.md): a
-    # successful result relies on structuredContent alone; errors are
-    # reported purely through a readable text block, since agents commonly
-    # read content[0].text for the error message.
-    if is_error:
-        return ToolResult(
-            content=[text_content(text)] if text else [],
-            is_error=True,
-        )
+    if result.get("isError", False):
+        raise McpBridgeError(text or f"'{remote_tool}' failed")
 
     # Use structuredContent from the remote server when present. Otherwise
     # recover it from the text: some servers only ever fill in the text
@@ -152,13 +91,6 @@ def _to_tool_result(result: dict[str, Any]) -> ToolResult:
     # ``{"content": text}`` string.
     structured = result.get("structuredContent")
     if isinstance(structured, dict):
-        structured_content = sanitize_value(structured)
-    else:
-        parsed = JsonCodec.try_decode(text)
-        structured_content = sanitize_value(parsed) if isinstance(parsed, dict) else {"content": text}
-
-    return ToolResult(
-        content=[],
-        structured_content=structured_content,
-        is_error=False,
-    )
+        return sanitize_value(structured)
+    parsed = JsonCodec.try_decode(text)
+    return sanitize_value(parsed) if isinstance(parsed, dict) else {"content": text}

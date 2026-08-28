@@ -10,9 +10,9 @@ from __future__ import annotations
 from typing import Any
 
 from xy.ai.mcpc.config import ServerConfig
-from xy.ai.mcpc.tools.registry import ToolRegistry
-from xy.ai.mcpc.tools.tool_context import AppEnvironment
-from xy.ai.mcpc.tools.mcp.bridge import McpBridge, compact
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient
 
 _RESOLVE_DESCRIPTION = (
@@ -110,13 +110,12 @@ class Context7Bridge(McpBridge):
 
 def register_context7_tools(
     registry: ToolRegistry,
-    environment: "AppEnvironment | None" = None,
-    bridge: "Context7Bridge | None" = None,
+    environment: AppEnvironment,
 ) -> None:
     """Register the Context7-backed ``context7_libraries`` and
     ``context7_documentation`` tools."""
-    bridge = bridge or Context7Bridge(environment.config if environment is not None else None)
-    functions = environment.functions if environment is not None else None
+    bridge = Context7Bridge(environment.config)
+    functions = environment.functions
 
     def context7_libraries(libraryName: str, query: str) -> dict:
         """Search Context7 for a library and return its canonical library ID.
@@ -129,10 +128,13 @@ def register_context7_tools(
             query: User's original question or task, used for relevance ranking.
 
         Returns:
-            dict with ``content``: ranked list of matching libraries (ID, title,
-            description, snippet count, reputation, benchmark score, versions).
+            Ranked list of matching libraries (ID, title, description, snippet
+            count, reputation, benchmark score, versions).
+
+        Raises:
+            McpBridgeError: if the Context7 call fails.
         """
-        return bridge.call("resolve-library-id", compact(libraryName=libraryName, query=query)).to_dict()
+        return bridge.call("resolve-library-id", compact(libraryName=libraryName, query=query))
 
     def context7_documentation(libraryId: str, query: str) -> dict:
         """Fetch documentation and code examples for a library from Context7.
@@ -150,31 +152,46 @@ def register_context7_tools(
                 a single concept.
 
         Returns:
-            dict with ``content``: documentation snippets and code examples.
-        """
-        return bridge.call("query-docs", compact(libraryId=libraryId, query=query)).to_dict()
+            Documentation snippets and code examples relevant to the query.
 
-    bridge.register_tool(
-        registry,
-        name="context7_libraries",
-        remote_tool="resolve-library-id",
-        title="Context7 resolve library ID",
-        description=_RESOLVE_DESCRIPTION,
-        input_schema=_RESOLVE_SCHEMA,
-        output_schema=_RESOLVE_OUTPUT,
-        annotations=_RO,
-        functions=functions,
-        core=context7_libraries,
-    )
-    bridge.register_tool(
-        registry,
-        name="context7_documentation",
-        remote_tool="query-docs",
-        title="Context7 query docs",
-        description=_QUERY_DOCS_DESCRIPTION,
-        input_schema=_QUERY_DOCS_SCHEMA,
-        output_schema=_QUERY_DOCS_OUTPUT,
-        annotations=_RO,
-        functions=functions,
-        core=context7_documentation,
-    )
+        Raises:
+            McpBridgeError: if the Context7 call fails.
+        """
+        return bridge.call("query-docs", compact(libraryId=libraryId, query=query))
+
+    class Context7LibrariesTool(ToolDefinition):
+        name = "context7_libraries"
+        title = "Context7 resolve library ID"
+        description = _RESOLVE_DESCRIPTION
+        input_schema = _RESOLVE_SCHEMA
+        output_schema = _RESOLVE_OUTPUT
+        annotations = _RO
+
+        def handle(self, ctx: ToolContext) -> ToolResult:
+            args = ctx.arguments
+            try:
+                result = context7_libraries(libraryName=args["libraryName"], query=args["query"])
+            except McpBridgeError as exc:
+                return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult(structured_content=result)
+
+    class Context7DocumentationTool(ToolDefinition):
+        name = "context7_documentation"
+        title = "Context7 query docs"
+        description = _QUERY_DOCS_DESCRIPTION
+        input_schema = _QUERY_DOCS_SCHEMA
+        output_schema = _QUERY_DOCS_OUTPUT
+        annotations = _RO
+
+        def handle(self, ctx: ToolContext) -> ToolResult:
+            args = ctx.arguments
+            try:
+                result = context7_documentation(libraryId=args["libraryId"], query=args["query"])
+            except McpBridgeError as exc:
+                return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult(structured_content=result)
+
+    registry.register(Context7LibrariesTool())
+    registry.register(Context7DocumentationTool())
+    functions.register(context7_libraries)
+    functions.register(context7_documentation)
