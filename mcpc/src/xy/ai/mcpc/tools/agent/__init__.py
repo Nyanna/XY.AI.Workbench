@@ -15,7 +15,7 @@ import uuid
 from typing import Any
 
 from xy.ai.mcpc.cli import CliParameters, CliSessionError, Effort, Model
-from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.server.session import AgentSubSession
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
@@ -23,6 +23,8 @@ from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, AgentProfile, Prof
 __all__ = [
     "AgentProfile",
     "ProfileRegistry",
+    "AgentTool",
+    "AgentProfileTool",
     "register_agent_tools",
 ]
 
@@ -115,7 +117,7 @@ def _run_agent(
     # CLI connects back with this id and never sends X-MCPC-TOOLS itself.
     sub_id = str(uuid.uuid4())
     cc_profile = ctx.session.cc_profile
-    services.sessions.precreate(sub_id, enabled_tools=set(tools), cc_profile = cc_profile)
+    services.sessions.precreate(sub_id, enabled_tools=set(tools), cc_profile=cc_profile)
 
     params = CliParameters(
         config=services.config,
@@ -171,87 +173,80 @@ def _result(text: str, session_id: str, *, is_error: bool) -> ToolResult:
     )
 
 
-def register_agent_tool(registry: ToolRegistry, environment: AppEnvironment) -> None:
-    """Register the raw agent tool (rarely called directly)."""
+class AgentTool(ToolDefinition):
+    """Raw agent tool (rarely called directly); profile is selected via the ``profile`` argument."""
 
-    @registry.tool(
-        "agent",
-        title="Run sub-agent",
-        description=(
-            "Delegate a task to a sub-agent. Sub-agents offload complex or "
-            "context-heavy work to keep the main context lean or to use faster "
-            "or more specialised models. Returns the agent's answer."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": _base_properties(include_system_prompt=True),
-            "required": ["prompt"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "response": {"type": "string"},
-                "session_id": {"type": "string"},
-            },
-            "required": ["response", "session_id"],
-        },
-        annotations={"readOnlyHint": False, "openWorldHint": True},
+    name = "agent"
+    title = "Run sub-agent"
+    description = (
+        "Delegate a task to a sub-agent. Sub-agents offload complex or "
+        "context-heavy work to keep the main context lean or to use faster "
+        "or more specialised models. Returns the agent's answer."
     )
-    def agent(ctx: ToolContext) -> ToolResult:
-        if environment is None:  # pragma: no cover - misconfiguration guard
+    input_schema = {
+        "type": "object",
+        "properties": _base_properties(include_system_prompt=True),
+        "required": ["prompt"],
+    }
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "response": {"type": "string"},
+            "session_id": {"type": "string"},
+        },
+        "required": ["response", "session_id"],
+    }
+    annotations = {"readOnlyHint": False, "openWorldHint": True}
+
+    def __init__(self, environment: AppEnvironment) -> None:
+        self.environment = environment
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        if self.environment is None:  # pragma: no cover - misconfiguration guard
             return _error("Agent tool is not wired to application services.")
-        return _run_agent(ctx, environment=environment, profile=None, system_prompt_override=None)
+        return _run_agent(ctx, environment=self.environment, profile=None, system_prompt_override=None)
 
 
-def register_wrapper_tools(
-    registry: ToolRegistry,
-    environment: AppEnvironment,
-) -> None:
-    """Register one wrapper tool per agent profile."""
-    profiles = ProfileRegistry(DEFAULT_PROFILES)
-    for profile in profiles:
-        _register_wrapper(registry, environment, profile)
+class AgentProfileTool(ToolDefinition):
+    """Wrapper tool binding a single :class:`AgentProfile` to the agent tool."""
 
+    output_schema = {
+        "type": "object",
+        "properties": {
+            "response": {"type": "string"},
+            "session_id": {"type": "string"},
+        },
+        "required": ["response", "session_id"],
+    }
+    annotations = {"readOnlyHint": False, "openWorldHint": True}
 
-def _register_wrapper(
-    registry: ToolRegistry, environment: AppEnvironment, profile: AgentProfile
-) -> None:
-    @registry.tool(
-        profile.name,
-        title=profile.name,
+    def __init__(self, environment: AppEnvironment, profile: AgentProfile) -> None:
+        self.environment = environment
+        self.profile = profile
+        self.name = profile.name
+        self.title = profile.name
         # The wrapper surfaces the profile's task description.
-        description=profile.description,
-        input_schema={
+        self.description = profile.description
+        self.input_schema = {
             "type": "object",
             "properties": _base_properties(include_system_prompt=False),
             "required": ["prompt"],
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "response": {"type": "string"},
-                "session_id": {"type": "string"},
-            },
-            "required": ["response", "session_id"],
-        },
-        annotations={"readOnlyHint": False, "openWorldHint": True},
-    )
-    def wrapper(ctx: ToolContext, _profile: AgentProfile = profile) -> ToolResult:
-        if environment is None:  # pragma: no cover - misconfiguration guard
+        }
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        if self.environment is None:  # pragma: no cover - misconfiguration guard
             return _error("Agent tool is not wired to application services.")
         # Profile and system prompt are pre-filled; everything else is delegated.
         return _run_agent(
             ctx,
-            environment=environment,
-            profile=_profile,
-            system_prompt_override=_profile.system_prompt,
+            environment=self.environment,
+            profile=self.profile,
+            system_prompt_override=self.profile.system_prompt,
         )
 
 
-def register_agent_tools(
-    registry: ToolRegistry,
-    environment: AppEnvironment,
-) -> None:
+def register_agent_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the agent tool together with all profile wrapper tools."""
-    register_agent_tool(registry, environment)
-    register_wrapper_tools(registry, environment)
+    registry.register(AgentTool(environment))
+    for profile in ProfileRegistry(DEFAULT_PROFILES):
+        registry.register(AgentProfileTool(environment, profile))

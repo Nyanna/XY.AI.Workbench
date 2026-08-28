@@ -6,12 +6,7 @@
 	* micro promt in persistent cache context
 	* wie wird KI für code umgesetzt das ist doch ineffizient ? jedes mal die ganze datei und kontext einslesen?
 * tools optimieren
-	* ListResult soll file objekte zurückgeben nicht strings
-		* dict[str, Any] in openalex
-		* AppEnvironment | None -> None ist unsinnig
-		* alle formatieren mit ast
-	* alle tools kontrollieren auf API
-	* foreach schleife mit claude subsessions zum refactoring einzelner tools
+	* ListResult soll file objekte zurückgeben nicht strings, dict[str, Any] in openalex, alle tools kontrollieren auf API
 * remove all @registry.tool
 	
 Fehler:
