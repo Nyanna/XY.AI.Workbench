@@ -11,7 +11,7 @@ from typing import Any
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
-from xy.ai.mcpc.tools.mcp.bridge import McpBridge
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 _CONTENT_OUTPUT: dict[str, Any] = {
@@ -578,15 +578,474 @@ class GitHubBridge(McpBridge):
 
 def register_github_tools(
     registry: ToolRegistry,
-    environment: "AppEnvironment | None" = None,
-    bridge: "GitHubBridge | None" = None,
+    environment: "AppEnvironment",
+    bridge: "GitHubBridge",
 ) -> None:
     """Register read-only GitHub research tools."""
-    bridge = bridge or GitHubBridge(environment.config if environment is not None else None)
+
+    def github_get_file(
+        owner: str, repo: str, path: str | None = None, ref: str | None = None, sha: str | None = None
+    ) -> dict:
+        """Read a file or directory listing from a GitHub repository.
+
+        Best for: Fetching source code, configs, and READMEs at any ref or commit.
+
+        Args:
+            owner: Repository owner (user or org).
+            repo: Repository name.
+            path: Path to the file or directory (omit for root).
+            ref: Branch, tag, or ref (e.g. refs/heads/main); ignored when sha is given.
+            sha: Exact commit SHA; takes precedence over ref.
+        """
+        return bridge.call("get_file_contents", compact(owner=owner, repo=repo, path=path, ref=ref, sha=sha)).to_dict()
+
+    def github_get_tree(
+        owner: str,
+        repo: str,
+        tree_sha: str | None = None,
+        recursive: bool | None = None,
+        path_filter: str | None = None,
+    ) -> dict:
+        """List the file tree of a GitHub repository at a given ref.
+
+        Best for: Understanding project layout before reading individual files.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            tree_sha: SHA, branch, or tag to read the tree from (defaults to default branch).
+            recursive: Recurse into sub-trees (default false).
+            path_filter: Optional path prefix to filter results (e.g. 'src/').
+        """
+        return bridge.call(
+            "get_repository_tree",
+            compact(owner=owner, repo=repo, tree_sha=tree_sha, recursive=recursive, path_filter=path_filter),
+        ).to_dict()
+
+    def github_search_code(query: str, perPage: int | None = None, page: int | None = None) -> dict:
+        """Search GitHub code across repositories.
+
+        Best for: Finding specific functions, patterns, or usages across the
+        GitHub ecosystem.
+
+        Args:
+            query: GitHub code search query (max 256 chars); qualifiers:
+                repo:owner/repo, org:, language:, path:, filename:, extension:, in:file|path.
+            perPage: Results per page (max 15).
+            page: Page number (min 1).
+        """
+        return bridge.call("search_code", compact(query=query, perPage=perPage, page=page)).to_dict()
+
+    def github_search_commits(
+        query: str,
+        sort: str | None = None,
+        order: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """Search commit messages on GitHub.
+
+        Best for: Finding commits by message keyword, author, or date across repositories.
+
+        Args:
+            query: GitHub commit search query; scope with repo:owner/repo or org:;
+                qualifiers: author:, committer:, author-date:, committer-date:,
+                merge:true|false, hash:.
+            sort: Sort by author-date or committer-date (defaults to best match).
+            order: Sort order: asc | desc.
+            perPage: Results per page (max 15).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "search_commits", compact(query=query, sort=sort, order=order, perPage=perPage, page=page)
+        ).to_dict()
+
+    def github_search_repos(
+        query: str,
+        sort: str | None = None,
+        order: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+        minimal_output: bool | None = None,
+    ) -> dict:
+        """Search GitHub for repositories matching a query.
+
+        Best for: Discovering projects by name, topic, language, or stars.
+
+        Args:
+            query: Repository search query; qualifiers: topic:, language:,
+                stars:>N, user:, org:, is:archived.
+            sort: Sort by: stars | forks | help-wanted-issues | updated.
+            order: Sort order: asc | desc.
+            perPage: Results per page (max 10).
+            page: Page number (min 1).
+            minimal_output: Return minimal repository info (default true).
+        """
+        return bridge.call(
+            "search_repositories",
+            compact(query=query, sort=sort, order=order, perPage=perPage, page=page, minimal_output=minimal_output),
+        ).to_dict()
+
+    def github_issue_read(
+        owner: str,
+        repo: str,
+        issue_number: int,
+        method: str,
+        page: int | None = None,
+        perPage: int | None = None,
+    ) -> dict:
+        """Read a GitHub issue: body, comments, sub-issues, labels, or parent.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            issue_number: Issue number.
+            method: One of get | get_comments | get_sub_issues | get_parent | get_labels.
+            page: Page number (min 1).
+            perPage: Results per page (max 20).
+        """
+        return bridge.call(
+            "issue_read",
+            compact(owner=owner, repo=repo, issue_number=issue_number, method=method, page=page, perPage=perPage),
+        ).to_dict()
+
+    def github_list_issues(
+        owner: str,
+        repo: str,
+        state: str | None = None,
+        labels: list[str] | None = None,
+        since: str | None = None,
+        perPage: int | None = None,
+        after: str | None = None,
+    ) -> dict:
+        """List issues in a GitHub repository with optional filters.
+
+        Best for: Enumerating open or closed issues, filtering by label or state.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            state: Filter by state: open | closed (default: both).
+            labels: Filter by label names.
+            since: Only issues updated after this ISO 8601 timestamp.
+            perPage: Results per page (max 15).
+            after: Cursor for pagination (from previous response).
+        """
+        return bridge.call(
+            "list_issues",
+            compact(owner=owner, repo=repo, state=state, labels=labels, since=since, perPage=perPage, after=after),
+        ).to_dict()
+
+    def github_search_issues(
+        query: str,
+        owner: str | None = None,
+        repo: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """Search GitHub issues using GitHub's issue search syntax.
+
+        Best for: Finding issues by keyword, author, label, or state across repositories.
+
+        Args:
+            query: Search query using GitHub issues search syntax.
+            owner: Restrict to this owner (requires repo).
+            repo: Restrict to this repo (requires owner).
+            sort: Sort field.
+            order: Sort order: asc | desc.
+            perPage: Results per page (max 15).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "search_issues",
+            compact(query=query, owner=owner, repo=repo, sort=sort, order=order, perPage=perPage, page=page),
+        ).to_dict()
+
+    def github_get_discussion(owner: str, repo: str, discussionNumber: int) -> dict:
+        """Get the body and metadata of a single GitHub Discussion.
+
+        Best for: Reading a specific community discussion or Q&A thread.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            discussionNumber: Discussion number.
+        """
+        return bridge.call(
+            "get_discussion", compact(owner=owner, repo=repo, discussionNumber=discussionNumber)
+        ).to_dict()
+
+    def github_get_discussion_comments(
+        owner: str,
+        repo: str,
+        discussionNumber: int,
+        includeReplies: bool | None = None,
+        perPage: int | None = None,
+        after: str | None = None,
+    ) -> dict:
+        """Get comments for a GitHub Discussion, optionally including nested replies.
+
+        Best for: Reading community feedback, answers, and Q&A responses.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            discussionNumber: Discussion number.
+            includeReplies: Include nested replies per comment (up to 100, default false).
+            perPage: Results per page (max 20).
+            after: Cursor for pagination.
+        """
+        return bridge.call(
+            "get_discussion_comments",
+            compact(
+                owner=owner,
+                repo=repo,
+                discussionNumber=discussionNumber,
+                includeReplies=includeReplies,
+                perPage=perPage,
+                after=after,
+            ),
+        ).to_dict()
+
+    def github_list_discussions(
+        owner: str,
+        repo: str | None = None,
+        category: str | None = None,
+        orderBy: str | None = None,
+        direction: str | None = None,
+        perPage: int | None = None,
+        after: str | None = None,
+    ) -> dict:
+        """List GitHub Discussions for a repository or organisation.
+
+        Best for: Browsing community discussions, optionally filtered by category.
+
+        Args:
+            owner: Repository owner or org.
+            repo: Repository name (omit for org-level discussions).
+            category: Filter by discussion category ID.
+            orderBy: Order by field (requires direction).
+            direction: Order direction: ASC | DESC.
+            perPage: Results per page (max 20).
+            after: Cursor for pagination.
+        """
+        return bridge.call(
+            "list_discussions",
+            compact(
+                owner=owner, repo=repo, category=category, orderBy=orderBy, direction=direction,
+                perPage=perPage, after=after,
+            ),
+        ).to_dict()
+
+    def github_pr_read(
+        owner: str,
+        repo: str,
+        pullNumber: int,
+        method: str,
+        page: int | None = None,
+        perPage: int | None = None,
+        after: str | None = None,
+    ) -> dict:
+        """Read details of a GitHub Pull Request: body, diff, files, commits, reviews, or comments.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            pullNumber: Pull request number.
+            method: One of get | get_diff | get_status | get_files | get_commits |
+                get_review_comments | get_reviews | get_comments | get_check_runs.
+            page: Page number (min 1).
+            perPage: Results per page (max 10).
+            after: Cursor for pagination (get_review_comments only).
+        """
+        return bridge.call(
+            "pull_request_read",
+            compact(owner=owner, repo=repo, pullNumber=pullNumber, method=method, page=page, perPage=perPage, after=after),
+        ).to_dict()
+
+    def github_list_prs(
+        owner: str,
+        repo: str,
+        state: str | None = None,
+        base: str | None = None,
+        sort: str | None = None,
+        direction: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """List pull requests in a GitHub repository.
+
+        Best for: Enumerating open or merged PRs with optional state and base-branch filters.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            state: Filter: open | closed | all.
+            base: Filter by base branch name.
+            sort: Sort by: created | updated | popularity | long-running.
+            direction: Sort direction: asc | desc.
+            perPage: Results per page (max 10).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "list_pull_requests",
+            compact(owner=owner, repo=repo, state=state, base=base, sort=sort, direction=direction,
+                    perPage=perPage, page=page),
+        ).to_dict()
+
+    def github_search_prs(
+        query: str,
+        owner: str | None = None,
+        repo: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """Search GitHub pull requests using GitHub's PR search syntax.
+
+        Best for: Finding PRs by keyword, author, state, or label across repositories.
+
+        Args:
+            query: Search query using GitHub pull request search syntax.
+            owner: Restrict to this owner (requires repo).
+            repo: Restrict to this repo (requires owner).
+            sort: Sort field.
+            order: Sort order: asc | desc.
+            perPage: Results per page (max 10).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "search_pull_requests",
+            compact(query=query, owner=owner, repo=repo, sort=sort, order=order, perPage=perPage, page=page),
+        ).to_dict()
+
+    def github_get_commit(
+        owner: str,
+        repo: str,
+        sha: str,
+        detail: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """Get details of a single GitHub commit including changed files.
+
+        Best for: Inspecting what changed in a specific commit.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            sha: Commit SHA, branch name, or tag name.
+            detail: File detail level: none | stats (default) | full_patch.
+            perPage: Results per page (max 10).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "get_commit", compact(owner=owner, repo=repo, sha=sha, detail=detail, perPage=perPage, page=page)
+        ).to_dict()
+
+    def github_list_commits(
+        owner: str,
+        repo: str,
+        sha: str | None = None,
+        path: str | None = None,
+        author: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        perPage: int | None = None,
+        page: int | None = None,
+    ) -> dict:
+        """List commits in a GitHub repository, optionally filtered by author, path, or date.
+
+        Best for: Reviewing recent history or changes to a specific file.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            sha: Branch, tag, or SHA to list commits from (defaults to default branch).
+            path: Only commits touching this file path.
+            author: Filter by author username or email.
+            since: Only commits after this date (ISO 8601).
+            until: Only commits before this date (ISO 8601).
+            perPage: Results per page (max 10).
+            page: Page number (min 1).
+        """
+        return bridge.call(
+            "list_commits",
+            compact(owner=owner, repo=repo, sha=sha, path=path, author=author, since=since, until=until,
+                    perPage=perPage, page=page),
+        ).to_dict()
+
+    def github_projects_get(
+        method: str,
+        owner: str | None = None,
+        owner_type: str | None = None,
+        project_number: int | None = None,
+        field_id: int | None = None,
+        item_id: int | None = None,
+        fields: list[str] | None = None,
+        status_update_id: str | None = None,
+    ) -> dict:
+        """Get details of a GitHub Project or one of its fields, items, or status updates.
+
+        Args:
+            method: One of get_project | get_project_field | get_project_item |
+                get_project_status_update.
+            owner: Owner (user or org login).
+            owner_type: Owner type: user | org (auto-detected if omitted).
+            project_number: Project number.
+            field_id: Field ID (required for get_project_field).
+            item_id: Item ID (required for get_project_item).
+            fields: Field IDs to include in get_project_item response.
+            status_update_id: Status update node ID (required for get_project_status_update).
+        """
+        return bridge.call(
+            "projects_get",
+            compact(
+                method=method, owner=owner, owner_type=owner_type, project_number=project_number,
+                field_id=field_id, item_id=item_id, fields=fields, status_update_id=status_update_id,
+            ),
+        ).to_dict()
+
+    def github_projects_list(
+        method: str,
+        owner: str,
+        owner_type: str | None = None,
+        project_number: int | None = None,
+        query: str | None = None,
+        fields: list[str] | None = None,
+        per_page: int | None = None,
+        after: str | None = None,
+        before: str | None = None,
+    ) -> dict:
+        """List GitHub Projects resources: projects, fields, items, or status updates.
+
+        Args:
+            method: One of list_projects | list_project_fields | list_project_items |
+                list_project_status_updates.
+            owner: Owner (user or org login).
+            owner_type: Owner type: user | org.
+            project_number: Project number (required for fields, items, and status updates).
+            query: Filter string (title/state filters for list_projects; GitHub
+                project filter syntax for list_project_items).
+            fields: Field IDs to include for list_project_items.
+            per_page: Results per page (max 20).
+            after: Forward pagination cursor.
+            before: Backward pagination cursor.
+        """
+        return bridge.call(
+            "projects_list",
+            compact(
+                method=method, owner=owner, owner_type=owner_type, project_number=project_number,
+                query=query, fields=fields, per_page=per_page, after=after, before=before,
+            ),
+        ).to_dict()
 
     bridge.register_tool(
         registry,
-        name="github-get-file",
+        name="github_get_file",
         remote_tool="get_file_contents",
         title="GitHub get file contents",
         description=(
@@ -596,10 +1055,12 @@ def register_github_tools(
         input_schema=_GET_FILE_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_get_file,
     )
     bridge.register_tool(
         registry,
-        name="github-get-tree",
+        name="github_get_tree",
         remote_tool="get_repository_tree",
         title="GitHub get repository tree",
         description=(
@@ -609,10 +1070,12 @@ def register_github_tools(
         input_schema=_GET_TREE_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_get_tree,
     )
     bridge.register_tool(
         registry,
-        name="github-search-code",
+        name="github_search_code",
         remote_tool="search_code",
         title="GitHub search code",
         description=(
@@ -622,10 +1085,12 @@ def register_github_tools(
         input_schema=_SEARCH_CODE_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_search_code,
     )
     bridge.register_tool(
         registry,
-        name="github-search-commits",
+        name="github_search_commits",
         remote_tool="search_commits",
         title="GitHub search commits",
         description=(
@@ -635,11 +1100,13 @@ def register_github_tools(
         input_schema=_SEARCH_COMMITS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_search_commits,
     )
 
     bridge.register_tool(
         registry,
-        name="github-search-repos",
+        name="github_search_repos",
         remote_tool="search_repositories",
         title="GitHub search repositories",
         description=(
@@ -649,11 +1116,13 @@ def register_github_tools(
         input_schema=_SEARCH_REPOS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_search_repos,
     )
 
     bridge.register_tool(
         registry,
-        name="github-issue-read",
+        name="github_issue_read",
         remote_tool="issue_read",
         title="GitHub read issue",
         description=(
@@ -663,10 +1132,12 @@ def register_github_tools(
         input_schema=_ISSUE_READ_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_issue_read,
     )
     bridge.register_tool(
         registry,
-        name="github-list-issues",
+        name="github_list_issues",
         remote_tool="list_issues",
         title="GitHub list issues",
         description=(
@@ -676,10 +1147,12 @@ def register_github_tools(
         input_schema=_LIST_ISSUES_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_list_issues,
     )
     bridge.register_tool(
         registry,
-        name="github-search-issues",
+        name="github_search_issues",
         remote_tool="search_issues",
         title="GitHub search issues",
         description=(
@@ -689,11 +1162,13 @@ def register_github_tools(
         input_schema=_SEARCH_ISSUES_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_search_issues,
     )
 
     bridge.register_tool(
         registry,
-        name="github-get-discussion",
+        name="github_get_discussion",
         remote_tool="get_discussion",
         title="GitHub get discussion",
         description=(
@@ -703,10 +1178,12 @@ def register_github_tools(
         input_schema=_GET_DISCUSSION_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_get_discussion,
     )
     bridge.register_tool(
         registry,
-        name="github-get-discussion-comments",
+        name="github_get_discussion_comments",
         remote_tool="get_discussion_comments",
         title="GitHub get discussion comments",
         description=(
@@ -716,10 +1193,12 @@ def register_github_tools(
         input_schema=_GET_DISCUSSION_COMMENTS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_get_discussion_comments,
     )
     bridge.register_tool(
         registry,
-        name="github-list-discussions",
+        name="github_list_discussions",
         remote_tool="list_discussions",
         title="GitHub list discussions",
         description=(
@@ -729,11 +1208,13 @@ def register_github_tools(
         input_schema=_LIST_DISCUSSIONS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_list_discussions,
     )
 
     bridge.register_tool(
         registry,
-        name="github-pr-read",
+        name="github_pr_read",
         remote_tool="pull_request_read",
         title="GitHub read pull request",
         description=(
@@ -745,10 +1226,12 @@ def register_github_tools(
         input_schema=_PR_READ_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_pr_read,
     )
     bridge.register_tool(
         registry,
-        name="github-list-prs",
+        name="github_list_prs",
         remote_tool="list_pull_requests",
         title="GitHub list pull requests",
         description=(
@@ -758,10 +1241,12 @@ def register_github_tools(
         input_schema=_LIST_PRS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_list_prs,
     )
     bridge.register_tool(
         registry,
-        name="github-search-prs",
+        name="github_search_prs",
         remote_tool="search_pull_requests",
         title="GitHub search pull requests",
         description=(
@@ -771,11 +1256,13 @@ def register_github_tools(
         input_schema=_SEARCH_PRS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_search_prs,
     )
 
     bridge.register_tool(
         registry,
-        name="github-get-commit",
+        name="github_get_commit",
         remote_tool="get_commit",
         title="GitHub get commit",
         description=(
@@ -785,10 +1272,12 @@ def register_github_tools(
         input_schema=_GET_COMMIT_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_get_commit,
     )
     bridge.register_tool(
         registry,
-        name="github-list-commits",
+        name="github_list_commits",
         remote_tool="list_commits",
         title="GitHub list commits",
         description=(
@@ -798,11 +1287,13 @@ def register_github_tools(
         input_schema=_LIST_COMMITS_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_list_commits,
     )
 
     bridge.register_tool(
         registry,
-        name="github-projects-get",
+        name="github_projects_get",
         remote_tool="projects_get",
         title="GitHub get project",
         description=(
@@ -812,10 +1303,12 @@ def register_github_tools(
         input_schema=_PROJECTS_GET_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_projects_get,
     )
     bridge.register_tool(
         registry,
-        name="github-projects-list",
+        name="github_projects_list",
         remote_tool="projects_list",
         title="GitHub list projects",
         description=(
@@ -826,4 +1319,6 @@ def register_github_tools(
         input_schema=_PROJECTS_LIST_SCHEMA,
         output_schema=_CONTENT_OUTPUT,
         annotations=_RO,
+        functions=environment.functions,
+        core=github_projects_list,
     )

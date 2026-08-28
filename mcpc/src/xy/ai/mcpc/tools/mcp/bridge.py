@@ -16,11 +16,22 @@ from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.utils.text_sanitize import sanitize_text, sanitize_value
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 #: Optional hook to adapt MCPC's tool arguments to the remote tool's shape.
 ArgTransform = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+def compact(**kwargs: Any) -> dict[str, Any]:
+    """Build a remote-call argument dict, dropping keys whose value is ``None``.
+
+    Shared helper for the hand-written ``core`` functions in the bridge
+    modules (:mod:`exa`, :mod:`context7`, :mod:`github`), which forward only
+    the arguments the caller actually supplied.
+    """
+    return {k: v for k, v in kwargs.items() if v is not None}
 
 
 class McpBridge:
@@ -67,8 +78,18 @@ class McpBridge:
         title: str | None = None,
         output_schema: dict[str, Any] | None = None,
         annotations: dict[str, Any] | None = None,
+        functions: "FunctionRegistry | None" = None,
+        core: "Callable[..., dict[str, Any]] | None" = None,
     ) -> None:
-        """Register a single forwarded call as an MCPC tool."""
+        """Register a single forwarded call as an MCPC tool.
+
+        When *functions* and *core* are both given, *core* – a real, hand-written
+        module-level function with the same name and an actual signature/docstring
+        (functions cannot be generated dynamically: ``tool_call``'s Python context
+        and ``tool_usage``'s introspection both need one that genuinely exists) –
+        is also published under *name* in the :class:`FunctionRegistry`, mirroring
+        the tool registered onto *registry*.
+        """
         remote = remote_tool or name
         bridge = self
 
@@ -85,6 +106,9 @@ class McpBridge:
             if transform is not None:
                 arguments = transform(arguments)
             return bridge.call(remote, arguments)
+
+        if functions is not None and core is not None:
+            functions.register(core, id=name)
 
 
 def _to_tool_result(result: dict[str, Any]) -> ToolResult:

@@ -12,7 +12,7 @@ from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
-from xy.ai.mcpc.tools.mcp.bridge import McpBridge
+from xy.ai.mcpc.tools.mcp.bridge import McpBridge, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
 _WEB_SEARCH_DESCRIPTION = (
@@ -114,22 +114,59 @@ def register_exa_tools(
 ) -> None:
     """Register the Exa-backed ``web_search_exa`` and ``web_fetch_exa`` tools."""
     bridge = bridge or ExaBridge(environment.config if environment is not None else None)
+
+    def web_search_exa(query: str, numResults: int | None = None) -> dict:
+        """Search the web for any topic and get clean, ready-to-use content.
+
+        Best for: Finding current information, facts, or answering questions
+        about any topic.
+
+        Args:
+            query: Natural language search query; should be a semantically
+                rich description of the ideal page.
+            numResults: Number of search results to return (default: 10).
+
+        Returns:
+            dict with ``content``: clean text content from the top results.
+        """
+        return bridge.call("web_search_exa", compact(query=query, numResults=numResults)).to_dict()
+
+    def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> dict:
+        """Read a webpage's full content as clean markdown.
+
+        Best for: Extracting full content from known URLs. Batch multiple
+        URLs in one call.
+
+        Args:
+            urls: URL(s) to read; a single URL or a list of URLs.
+            maxCharacters: Maximum characters to extract per page (default: 3000).
+
+        Returns:
+            dict with ``content``: clean text content and metadata from the page(s).
+        """
+        arguments = _coerce_urls(compact(urls=urls, maxCharacters=maxCharacters))
+        return bridge.call("web_fetch_exa", arguments).to_dict()
+
     bridge.register_tool(
         registry,
-        name="web-search-exa",
+        name="web_search_exa",
         remote_tool="web_search_exa",
         title="Exa web search",
         description=_WEB_SEARCH_DESCRIPTION,
         input_schema=_WEB_SEARCH_SCHEMA,
         output_schema=_SEARCH_OUTPUT_SCHEMA,
+        functions=environment.functions,
+        core=web_search_exa,
     )
     bridge.register_tool(
         registry,
-        name="web-fetch-exa",
+        name="web_fetch_exa",
         remote_tool="web_fetch_exa",
         title="Exa web fetch",
         description=_WEB_FETCH_DESCRIPTION,
         input_schema=_WEB_FETCH_SCHEMA,
         output_schema=_FETCH_OUTPUT_SCHEMA,
         transform=_coerce_urls,
+        functions=environment.functions,
+        core=web_fetch_exa,
     )
