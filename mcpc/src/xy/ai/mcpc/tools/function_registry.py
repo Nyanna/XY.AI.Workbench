@@ -10,9 +10,12 @@ introspect (signature, docstring, referenced project-local types), and
 """
 from __future__ import annotations
 import inspect
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 __all__ = ['FunctionEntry', 'FunctionRegistry']
+
+logger = logging.getLogger("xy.ai.mcpc.control")
 
 @dataclass(slots=True)
 class FunctionEntry:
@@ -34,25 +37,19 @@ class FunctionRegistry:
     def __init__(self) -> None:
         self._entries: dict[str, FunctionEntry] = {}
 
-    def register(self, func: Callable[..., Any], *, id: str | None=None) -> str:
+    def register(self, func: Callable[..., Any]) -> str:
         """Register *func* (a function or a bound method) under *id*.
-
-        *id* defaults to ``func.__qualname__`` (falling back to
-        ``func.__name__``), so a bound method is published as
-        ``"ClassName.method_name"`` while a module-level function keeps its
-        plain name. Re-registering the same callable under the same id is a
-        no-op; registering a *different* callable under an id already in use
-        raises.
         """
-        entry_id = id or getattr(func, '__qualname__', None) or getattr(func, '__name__')
+        entry_id = getattr(func, '__qualname__', None) or getattr(func, '__name__')
         existing = self._entries.get(entry_id)
         if existing is not None and existing.func is not func:
             raise ValueError(f'Function already registered under id: {entry_id}')
         self._entries[entry_id] = FunctionEntry(id=entry_id, func=func)
+        logger.info('Registered function: %s', entry_id)
         return entry_id
 
-    def get(self, id: str) -> 'FunctionEntry | None':
-        return self._entries.get(id)
+    def get(self, name: str) -> FunctionEntry | None:
+        return self._entries.get(name)
 
     def all(self) -> list[FunctionEntry]:
         return list(self._entries.values())

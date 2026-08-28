@@ -251,8 +251,7 @@ def _register_search(registry: ToolRegistry, client: OpenAlexClient, functions: 
             return _error_result(exc)
         return _ok_result(structured)
 
-    if functions is not None:
-        functions.register(openalex_search, id="openalex_search")
+    functions.register(openalex_search)
 
 
 def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient, functions: "FunctionRegistry | None" = None) -> None:
@@ -362,8 +361,7 @@ def _register_semantic_search(registry: ToolRegistry, client: OpenAlexClient, fu
             return _error_result(exc)
         return _ok_result(structured)
 
-    if functions is not None:
-        functions.register(openalex_semantic_search, id="openalex_semantic_search")
+    functions.register(openalex_semantic_search)
 
 
 def _register_work(registry: ToolRegistry, client: OpenAlexClient, functions: "FunctionRegistry | None" = None) -> None:
@@ -431,8 +429,7 @@ def _register_work(registry: ToolRegistry, client: OpenAlexClient, functions: "F
             return _error_result(exc)
         return _ok_result(structured)
 
-    if functions is not None:
-        functions.register(openalex_work, id="openalex_work")
+    functions.register(openalex_work)
 
 
 # --------------------------------------------------------------------- register

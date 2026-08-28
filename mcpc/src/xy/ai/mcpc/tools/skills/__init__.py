@@ -93,4 +93,4 @@ def register_skills(
     """Register every skill in *skills* (defaults to :data:`SKILLS`) in both registries."""
     for skill in SKILLS:
         registry.register(skill)
-        environment.functions.register(skill.core, id=skill.name)
+        environment.functions.register(skill.core)
