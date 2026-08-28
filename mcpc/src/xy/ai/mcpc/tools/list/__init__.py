@@ -82,7 +82,7 @@ def list(path: str, pattern: str | None=None) -> ListResult:
         if entries:
             entries.append('')
         entries.append(f'{header}:')
-        entries.extend(f'\t{name}' for name in groups[rel_dir])
+        entries.extend(f' {name}' for name in groups[rel_dir])
     return ListResult(entries=entries)
 
 class ListTool(ToolDefinition):
