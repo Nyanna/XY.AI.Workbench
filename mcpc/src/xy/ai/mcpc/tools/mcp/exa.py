@@ -15,6 +15,15 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 
+__all__ = [
+    "ExaBridge",
+    "web_search_exa",
+    "web_fetch_exa",
+    "WebSearchExaTool",
+    "WebFetchExaTool",
+    "register_exa_tools",
+]
+
 _WEB_SEARCH_DESCRIPTION = (
     "Search the web for any topic and get clean, ready-to-use content.\n\n"
     "Best for: Finding current information, facts, or "
@@ -108,85 +117,99 @@ class ExaBridge(McpBridge):
         return McpClient(config.exa_mcp_url, headers={"x-api-key": api_key})
 
 
+#: Module-level bridge, built by :func:`register_exa_tools`.
+_bridge: ExaBridge | None = None
+
+
+def _get_bridge() -> ExaBridge:
+    """Return the module-level Exa bridge configured by :func:`register_exa_tools`."""
+    if _bridge is None:
+        raise McpBridgeError("Exa tools used before register_exa_tools() was called.")
+    return _bridge
+
+
+def web_search_exa(query: str, numResults: int | None = None) -> dict:
+    """Search the web for any topic and get clean, ready-to-use content.
+
+    Best for: Finding current information, facts, or answering questions
+    about any topic.
+
+    Args:
+        query: Natural language search query; should be a semantically
+            rich description of the ideal page.
+        numResults: Number of search results to return (default: 10).
+
+    Returns:
+        Clean text content from the top results.
+
+    Raises:
+        McpBridgeError: if the Exa call fails.
+    """
+    return _get_bridge().call("web_search_exa", compact(query=query, numResults=numResults))
+
+
+def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> dict:
+    """Read a webpage's full content as clean markdown.
+
+    Best for: Extracting full content from known URLs. Batch multiple
+    URLs in one call.
+
+    Args:
+        urls: URL(s) to read; a single URL or a list of URLs.
+        maxCharacters: Maximum characters to extract per page (default: 3000).
+
+    Returns:
+        Clean text content and metadata from the page(s).
+
+    Raises:
+        McpBridgeError: if the Exa call fails.
+    """
+    arguments = compact(urls=_coerce_urls(urls), maxCharacters=maxCharacters)
+    return _get_bridge().call("web_fetch_exa", arguments)
+
+
+class WebSearchExaTool(ToolDefinition):
+    name = "web_search_exa"
+    title = "Exa web search"
+    description = _WEB_SEARCH_DESCRIPTION
+    input_schema = _WEB_SEARCH_SCHEMA
+    output_schema = _SEARCH_OUTPUT_SCHEMA
+    annotations = _RO
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        args = ctx.arguments
+        try:
+            result = web_search_exa(query=args["query"], numResults=args.get("numResults"))
+        except McpBridgeError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        return ToolResult(structured_content=result)
+
+
+class WebFetchExaTool(ToolDefinition):
+    name = "web_fetch_exa"
+    title = "Exa web fetch"
+    description = _WEB_FETCH_DESCRIPTION
+    input_schema = _WEB_FETCH_SCHEMA
+    output_schema = _FETCH_OUTPUT_SCHEMA
+    annotations = _RO
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        args = ctx.arguments
+        try:
+            result = web_fetch_exa(urls=args["urls"], maxCharacters=args.get("maxCharacters"))
+        except McpBridgeError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        return ToolResult(structured_content=result)
+
+
 def register_exa_tools(
     registry: ToolRegistry,
     environment: AppEnvironment,
 ) -> None:
     """Register the Exa-backed ``web_search_exa`` and ``web_fetch_exa`` tools."""
-    bridge = ExaBridge(environment.config)
-    functions = environment.functions
-
-    def web_search_exa(query: str, numResults: int | None = None) -> dict:
-        """Search the web for any topic and get clean, ready-to-use content.
-
-        Best for: Finding current information, facts, or answering questions
-        about any topic.
-
-        Args:
-            query: Natural language search query; should be a semantically
-                rich description of the ideal page.
-            numResults: Number of search results to return (default: 10).
-
-        Returns:
-            Clean text content from the top results.
-
-        Raises:
-            McpBridgeError: if the Exa call fails.
-        """
-        return bridge.call("web_search_exa", compact(query=query, numResults=numResults))
-
-    def web_fetch_exa(urls: list[str] | str, maxCharacters: int | None = None) -> dict:
-        """Read a webpage's full content as clean markdown.
-
-        Best for: Extracting full content from known URLs. Batch multiple
-        URLs in one call.
-
-        Args:
-            urls: URL(s) to read; a single URL or a list of URLs.
-            maxCharacters: Maximum characters to extract per page (default: 3000).
-
-        Returns:
-            Clean text content and metadata from the page(s).
-
-        Raises:
-            McpBridgeError: if the Exa call fails.
-        """
-        arguments = compact(urls=_coerce_urls(urls), maxCharacters=maxCharacters)
-        return bridge.call("web_fetch_exa", arguments)
-
-    class WebSearchExaTool(ToolDefinition):
-        name = "web_search_exa"
-        title = "Exa web search"
-        description = _WEB_SEARCH_DESCRIPTION
-        input_schema = _WEB_SEARCH_SCHEMA
-        output_schema = _SEARCH_OUTPUT_SCHEMA
-        annotations = _RO
-
-        def handle(self, ctx: ToolContext) -> ToolResult:
-            args = ctx.arguments
-            try:
-                result = web_search_exa(query=args["query"], numResults=args.get("numResults"))
-            except McpBridgeError as exc:
-                return ToolResult(content=[text_content(str(exc))], is_error=True)
-            return ToolResult(structured_content=result)
-
-    class WebFetchExaTool(ToolDefinition):
-        name = "web_fetch_exa"
-        title = "Exa web fetch"
-        description = _WEB_FETCH_DESCRIPTION
-        input_schema = _WEB_FETCH_SCHEMA
-        output_schema = _FETCH_OUTPUT_SCHEMA
-        annotations = _RO
-
-        def handle(self, ctx: ToolContext) -> ToolResult:
-            args = ctx.arguments
-            try:
-                result = web_fetch_exa(urls=args["urls"], maxCharacters=args.get("maxCharacters"))
-            except McpBridgeError as exc:
-                return ToolResult(content=[text_content(str(exc))], is_error=True)
-            return ToolResult(structured_content=result)
-
+    global _bridge
+    _bridge = ExaBridge(environment.config)
     registry.register(WebSearchExaTool())
     registry.register(WebFetchExaTool())
-    functions.register(web_search_exa)
-    functions.register(web_fetch_exa)
+    environment.functions.register(web_search_exa)
+    environment.functions.register(web_fetch_exa)
