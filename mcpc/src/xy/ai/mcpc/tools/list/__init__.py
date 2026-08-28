@@ -1,12 +1,14 @@
-"""List tool – returns a flat, sorted list of relative file paths below a directory.
+"""List tool – returns files below a directory, grouped by relative subdirectory like ``ls -R``.
 
 Walks the given absolute directory recursively and returns all file paths
-(files only, no directories) as an alphabetically sorted flat list of paths
-relative to the requested directory. An optional regular expression can be
-supplied to filter the resulting list (matched against each relative file
-path). Common VCS/build/cache directories (e.g. ``.git``) are always excluded.
-To keep results manageable, the number of returned entries is capped; use
-``pattern`` to narrow down large directories instead of raising the limit.
+(files only, no directories), grouped by the relative directory they live in
+(e.g. ``./src/pkg:`` followed by tab-indented file names), mirroring the
+output format of ``ls -R``. An optional regular expression can be supplied to
+filter the resulting files (matched against each file's path relative to the
+requested directory). Common VCS/build/cache directories (e.g. ``.git``) are
+always excluded. To keep results manageable, the number of matched files is
+capped; use ``pattern`` to narrow down large directories instead of raising
+the limit.
 """
 from __future__ import annotations
 import os
@@ -29,16 +31,19 @@ class ListResult:
     entries: list[str]
 
 def list(path: str, pattern: str | None=None) -> ListResult:
-    """List all files below the absolute directory ``path``, optionally filtered by ``pattern``.
-    
+    """List all files below the absolute directory ``path``, grouped like ``ls -R``.
+
     Args:
         path: Absolute directory path to list (must exist and be a directory).
         pattern: Optional regular expression to filter results. Only matching file paths are included.
-    
+
     Returns:
         ListResult with:
-            entries: List of file paths relative to start directory (sorted).
-    
+            entries: Lines of output, one directory header (e.g. ``./sub:``)
+                followed by its tab-indented file names, then a blank line
+                before the next directory group. Directories without
+                matching files are omitted.
+
     Raises:
         ListError: If path is not absolute.
         ListError: If path does not exist or is not a directory.
@@ -53,20 +58,31 @@ def list(path: str, pattern: str | None=None) -> ListResult:
         regex = re.compile(pattern) if pattern else None
     except re.error as exc:
         raise ListError(f'Invalid regex pattern: {exc}') from exc
-    entries = []
+    groups: dict[str, list[str]] = {}
+    match_count = 0
     for root, dirs, files in os.walk(str(dir_path)):
+        rel_dir = os.path.relpath(root, str(dir_path))
+        matched_files = []
         for file in sorted(files):
-            file_path = os.path.join(root, file)
-            rel_path = os.path.relpath(file_path, str(dir_path))
+            rel_path = os.path.normpath(os.path.join(rel_dir, file))
             if regex is None or regex.search(rel_path):
-                entries.append(rel_path)
-    entries.sort()
-    if len(entries) > _MAX_ENTRIES:
+                matched_files.append(file)
+        if matched_files:
+            groups[rel_dir] = matched_files
+            match_count += len(matched_files)
+    if match_count > _MAX_ENTRIES:
         raise ListError(
-            f"Too many entries ({len(entries)}) exceed the limit of "
+            f"Too many entries ({match_count}) exceed the limit of "
             f"{_MAX_ENTRIES}. Narrow down the result using the "
             "'pattern' regular expression parameter."
         )
+    entries = []
+    for rel_dir in sorted(groups):
+        header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
+        if entries:
+            entries.append('')
+        entries.append(f'{header}:')
+        entries.extend(f'\t{name}' for name in groups[rel_dir])
     return ListResult(entries=entries)
 
 class ListTool(ToolDefinition):
