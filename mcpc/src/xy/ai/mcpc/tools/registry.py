@@ -75,7 +75,7 @@ class Tool:
         return spec
 
 class ToolDefinition(ABC):
-    """Base class for registering a tool as an object instead of via ``@registry.tool``.
+    """Base class for registering a tool as an object.
 
     Subclasses declare the MCP metadata as class attributes and implement
     :meth:`handle`; an instance is itself a callable :data:`ToolHandler` and
@@ -201,9 +201,8 @@ class ToolRegistry:
         """Whether *name* is enabled for *session*, honouring tool-set aliases."""
         return name in self.expand_aliases(session.enabled_tools)
 
-    def register(self, tool: 'Tool | ToolDefinition') -> Tool:
-        if isinstance(tool, ToolDefinition):
-            tool = tool.to_tool()
+    def register(self, tool: ToolDefinition) -> Tool:
+        tool = tool.to_tool()
         if tool.name in self._tools:
             raise ValueError(f'Tool already registered: {tool.name}')
         tool.input_schema = _with_mandatory_reason(tool.input_schema)
