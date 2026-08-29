@@ -6,11 +6,9 @@ Available tools
 * ``file_stats``    – get file metrics for access and processing planning
 * ``list``          – recursively list files below a directory
 * ``write``         – overwrite or append to a file
-* ``insert``        – insert text at a character offset
-* ``replace_chars`` – replace a character range with new text
-* ``replace_lines`` – replace a line range with new text
-* ``replace_block`` – replace an exact block of text (old text -> new text)
-* ``change``        – replace a delimited block identified by start/end markers
+* ``edit_chars`` – replace a character range with new text
+* ``edit_lines`` – replace a line range with new text
+* ``edit_block`` – replace an exact block of text (old text -> new text)
 * ``bash``          – run a Bash script in a given working directory
 * ``python``        – run a Python script directly from context
 * ``markdown``      – AST-based Markdown editing via a remark (Node.js) script
@@ -41,18 +39,17 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import register_ast_tools
 from xy.ai.mcpc.tools.bash import register_bash_tool
-from xy.ai.mcpc.tools.replace_marks import register_replace_tool
 from xy.ai.mcpc.tools.colgrep import register_colgrep_tool
-from xy.ai.mcpc.tools.insert import register_insert_tool
 from xy.ai.mcpc.tools.list import register_list_tool
 from xy.ai.mcpc.tools.markdown import register_markdown_tool
 from xy.ai.mcpc.tools.mcp import register_context7_tools, register_exa_tools, register_github_tools
 from xy.ai.mcpc.tools.openalex import register_openalex_tools
 from xy.ai.mcpc.tools.python import register_python_tool
 from xy.ai.mcpc.tools.read import register_read_tool
-from xy.ai.mcpc.tools.replace_chars import register_replace_chars_tool
-from xy.ai.mcpc.tools.replace_lines import register_replace_lines_tool
-from xy.ai.mcpc.tools.replace_block import register_replace_block_tool
+from xy.ai.mcpc.tools.edit_marks import register_edit_marks_tool
+from xy.ai.mcpc.tools.edit_chars import register_edit_chars_tool
+from xy.ai.mcpc.tools.edit_lines import register_edit_lines_tool
+from xy.ai.mcpc.tools.edit_block import register_edit_block_tool
 from xy.ai.mcpc.tools.skills import register_skills
 from xy.ai.mcpc.tools.write import register_write_tool
 from xy.ai.mcpc.tools.agent import register_agent_tools
@@ -75,11 +72,10 @@ def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     register_file_stats_tool(registry, functions)
     register_list_tool(registry, functions)
     register_write_tool(registry, functions)
-    register_insert_tool(registry, functions)
-    register_replace_tool(registry, functions)
-    register_replace_chars_tool(registry, functions)
-    register_replace_lines_tool(registry, functions)
-    register_replace_block_tool(registry, functions)
+    register_edit_marks_tool(registry, functions)
+    register_edit_chars_tool(registry, functions)
+    register_edit_lines_tool(registry, functions)
+    register_edit_block_tool(registry, functions)
     register_bash_tool(registry, functions)
     register_python_tool(registry, functions)
     register_markdown_tool(registry, environment)
