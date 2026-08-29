@@ -60,22 +60,12 @@ from xy.ai.mcpc.tools.grep import register_grep_tool
 from xy.ai.mcpc.tools.tool_search import register as register_tool_search_tool
 from xy.ai.mcpc.tools.tool_usage import register as register_tool_usage_tool
 from xy.ai.mcpc.tools.tool_call import register as register_tool_call_tool
+from xy.ai.mcpc.tools.ask_user import register_ask_user_tool
+from xy.ai.mcpc.tools.file_stats import register_file_stats_tool
 
 #: Tool-set alias grouping the function-registry discovery/usage/exec tools.
 TOOLS_ALIAS = "tools"
 _TOOLS_ALIAS_MEMBERS = ("tool_search", "tool_usage", "tool_call")
-
-# ``ask-user`` and ``file-stats`` use hyphenated directory names, which are not valid 
-# Python identifiers, so they cannot be imported with a regular ``from`` statement.
-# Use ``importlib`` instead.
-register_ask_user_tool = importlib.import_module(
-    "xy.ai.mcpc.tools.ask-user"
-).register_ask_user_tool
-
-register_file_stats_tool = importlib.import_module(
-    "xy.ai.mcpc.tools.file-stats"
-).register_file_stats_tool
-
 
 def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register all built-in file-system and shell tools onto *registry*.

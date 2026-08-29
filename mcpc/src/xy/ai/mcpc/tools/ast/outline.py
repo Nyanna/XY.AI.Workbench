@@ -2,7 +2,6 @@
 
 
 import ast
-import importlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -10,6 +9,7 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.file_stats import  compute_file_stats
 
 __all__ = [
     "OutlineError",
@@ -19,11 +19,6 @@ __all__ = [
     "OutlineTool",
     "register",
 ]
-
-compute_file_stats = importlib.import_module(
-    "xy.ai.mcpc.tools.file-stats"
-).compute_file_stats
-
 
 class OutlineError(Exception):
     """Raised when the outline operation cannot be performed at all."""
