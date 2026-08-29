@@ -2,8 +2,7 @@
 
 
 import ast
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import asdict, dataclass, field
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -13,7 +12,9 @@ from xy.ai.mcpc.tools.file_stats import  compute_file_stats, FileStatsResult
 
 __all__ = [
     "OutlineError",
+    "OutlineNode",
     "FileOutline",
+    "OutlineFailure",
     "OutlineResult",
     "python_ast_outline",
     "OutlineTool",
@@ -25,26 +26,52 @@ class OutlineError(Exception):
 
 
 @dataclass(frozen=True)
+class OutlineNode:
+    """One AST statement in the outline tree.
+
+    Attributes:
+        type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"Import"``.
+        qualified_name: Dotted path, for classes/functions only; ``None`` otherwise.
+        lines: Line number, or a ``"start-end"`` range if the node spans several lines.
+        signature: One-line rendering of the node's header (or the statement itself).
+        docstring: Short docstring, only possible for classes/functions.
+        children: Nested outline entries for a class's body; empty otherwise.
+    """
+
+    type: str
+    qualified_name: str | None
+    lines: str
+    signature: str
+    docstring: str | None
+    children: list["OutlineNode"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class FileOutline:
-    """Structural outline of a single file, as returned by :func:`python_ast_outline`.
+    """Structural outline of one successfully parsed file.
 
     Attributes:
         path: The path exactly as given in the input.
-        ok: Whether the file could be read and parsed.
-        error: Error message if ``ok`` is ``False``, else ``None``.
-        stats: File-metrics block (see the ``file-stats`` tool), only if ``ok``.
-        imports: Top-level imports with ``names``/``lineno``, only if ``ok``.
-        classes: Top-level classes with nested ``methods``, only if ``ok``.
-        functions: Top-level functions, only if ``ok``.
+        stats: File-metrics block (see the ``file-stats`` tool).
+        nodes: Direct children of the module, with nested classes expanded.
     """
 
     path: str
-    ok: bool
-    error: str | None
     stats: FileStatsResult
-    imports: list[dict[str, Any]] = field(default_factory=list)
-    classes: list[dict[str, Any]] = field(default_factory=list)
-    functions: list[dict[str, Any]] = field(default_factory=list)
+    nodes: list[OutlineNode] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class OutlineFailure:
+    """A path that could not be outlined.
+
+    Attributes:
+        path: The path exactly as given in the input.
+        error: Human-readable reason.
+    """
+
+    path: str
+    error: str
 
 
 @dataclass(frozen=True)
@@ -52,131 +79,133 @@ class OutlineResult:
     """Result of :func:`python_ast_outline`.
 
     Attributes:
-        all_ok: Whether every file in ``files`` outlined successfully.
-        files: One :class:`FileOutline` per input path, in the given order.
+        files: Successfully outlined files, in the given order.
+        failed: Paths that could not be outlined, in the given order.
     """
 
-    all_ok: bool
     files: list[FileOutline] = field(default_factory=list)
+    failed: list[OutlineFailure] = field(default_factory=list)
 
 
-def _method_entry(loc: core.Located) -> dict[str, Any]:
-    node = loc.node
-    return {
-        "name": loc.name,
-        "qualified_name": loc.qualified_name,
-        "lineno": node.lineno,
-        "end_lineno": getattr(node, "end_lineno", node.lineno),
-        "docstring": core.short_docstring(node),
-    }
+def _line_range(node: ast.stmt) -> str:
+    end = getattr(node, "end_lineno", node.lineno)
+    return str(node.lineno) if end == node.lineno else f"{node.lineno}-{end}"
 
 
-def _build_outline(tree: ast.Module) -> dict[str, Any]:
-    located = core.locate_all(tree)
+def _decorators(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> str:
+    return "".join(f"@{ast.unparse(d)} " for d in node.decorator_list)
 
-    imports = [
-        {"names": loc.name, "lineno": loc.node.lineno}
-        for loc in located
-        if isinstance(loc.node, core._IMPORT_TYPES)
-    ]
 
-    classes: list[dict[str, Any]] = []
-    functions: list[dict[str, Any]] = []
-    for loc in located:
-        node = loc.node
-        if isinstance(node, ast.ClassDef):
-            methods = [
-                _method_entry(m)
-                for m in located
-                if m.parent is node and isinstance(m.node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            ]
-            classes.append(
-                {
-                    "name": loc.name,
-                    "qualified_name": loc.qualified_name,
-                    "lineno": node.lineno,
-                    "end_lineno": getattr(node, "end_lineno", node.lineno),
-                    "docstring": core.short_docstring(node),
-                    "methods": methods,
-                }
+def _signature(node: ast.stmt, limit: int = 80) -> str:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        keyword = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+        returns = f" -> {ast.unparse(node.returns)}" if node.returns is not None else ""
+        return f"{_decorators(node)}{keyword} {node.name}({ast.unparse(node.args)}){returns}:"
+    if isinstance(node, ast.ClassDef):
+        bases = [ast.unparse(b) for b in node.bases] + [
+            f"{kw.arg}={ast.unparse(kw.value)}" for kw in node.keywords
+        ]
+        bases_str = f"({', '.join(bases)})" if bases else ""
+        return f"{_decorators(node)}class {node.name}{bases_str}:"
+    first_line = ast.unparse(node).splitlines()[0]
+    return first_line if len(first_line) <= limit else first_line[: limit - 1] + "…"
+
+
+def _outline_body(body: list[ast.stmt], qualified_name: str | None) -> list[OutlineNode]:
+    nodes: list[OutlineNode] = []
+    for node in body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            qual = f"{qualified_name}.{node.name}" if qualified_name else node.name
+        else:
+            qual = None
+        children = _outline_body(node.body, qual) if isinstance(node, ast.ClassDef) else []
+        nodes.append(
+            OutlineNode(
+                type=type(node).__name__,
+                qualified_name=qual,
+                lines=_line_range(node),
+                signature=_signature(node),
+                docstring=core.short_docstring(node),
+                children=children,
             )
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and isinstance(
-            loc.parent, ast.Module
-        ):
-            functions.append(_method_entry(loc))
-
-    return {"imports": imports, "classes": classes, "functions": functions}
+        )
+    return nodes
 
 
-def _outline_one(path_str: str) -> FileOutline:
+def _outline_one(path_str: str) -> FileOutline | OutlineFailure:
     try:
         path, tree = core.load(path_str)
     except core.AstError as exc:
-        return FileOutline(path=path_str, ok=False, error=str(exc))
-    outline = _build_outline(tree)
+        return OutlineFailure(path=path_str, error=str(exc))
     return FileOutline(
         path=path_str,
-        ok=True,
-        error=None,
         stats=compute_file_stats(path),
-        **outline,
+        nodes=_outline_body(tree.body, None),
     )
 
 
 def python_ast_outline(paths: list[str]) -> OutlineResult:
-    """Build a structural outline (imports, classes, functions, stats) for each of ``paths``.
+    """Build a structural outline (module-level nodes, nested classes, stats) for each of ``paths``.
 
-    Per-file failures (e.g. a non-existent or unparsable file) are reported inside
-    the corresponding :class:`FileOutline` rather than raised; only a malformed
-    call (empty ``paths``) raises.
+    Per-file failures (e.g. a non-existent or unparsable file) are reported in
+    ``failed`` rather than raised; only a malformed call (empty ``paths``) raises.
 
     Args:
         paths: Absolute paths of Python files to outline. Must be non-empty.
 
     Returns:
-        OutlineResult: One :class:`FileOutline` per path, in order, plus an overall
-        ``all_ok`` flag.
+        OutlineResult: Successfully outlined files in ``files``, everything else in
+        ``failed``, both in the given order.
 
     Raises:
         OutlineError: If ``paths`` is empty.
     """
     if not paths:
         raise OutlineError("'paths' must be a non-empty list.")
-    files = [_outline_one(p) for p in paths]
-    return OutlineResult(all_ok=all(f.ok for f in files), files=files)
+    files: list[FileOutline] = []
+    failed: list[OutlineFailure] = []
+    for p in paths:
+        result = _outline_one(p)
+        if isinstance(result, FileOutline):
+            files.append(result)
+        else:
+            failed.append(result)
+    return OutlineResult(files=files, failed=failed)
 
 
-_OUTLINE_ITEM_SCHEMA = {
+_OUTLINE_NODE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string"},
+        "qualified_name": {"type": ["string", "null"]},
+        "lines": {
+            "type": "string",
+            "description": "Line number, or 'start-end' if the node spans multiple lines.",
+        },
+        "signature": {"type": "string"},
+        "docstring": {"type": ["string", "null"]},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
+    },
+    "required": ["type", "qualified_name", "lines", "signature", "docstring", "children"],
+}
+
+_FILE_OUTLINE_SCHEMA = {
     "type": "object",
     "properties": {
         "path": {"type": "string"},
-        "ok": {"type": "boolean"},
-        "error": {"type": ["string", "null"]},
         "stats": {"type": "object", "description": "File-metrics block."},
-        "imports": {
-            "type": "array",
-            "description": "Imports with line numbers.",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "names": {"type": "string"},
-                    "lineno": {"type": "integer"},
-                },
-                "required": ["names", "lineno"],
-            },
-        },
-        "classes": {
-            "type": "array",
-            "description": "Top-level classes with nested methods.",
-            "items": {"type": "object"},
-        },
-        "functions": {
-            "type": "array",
-            "description": "Top-level functions.",
-            "items": {"type": "object"},
-        },
+        "nodes": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
     },
-    "required": ["path", "ok", "error"],
+    "required": ["path", "stats", "nodes"],
+}
+
+_OUTLINE_FAILURE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string"},
+        "error": {"type": "string"},
+    },
+    "required": ["path", "error"],
 }
 
 
@@ -184,9 +213,10 @@ class OutlineTool(ToolDefinition):
     name = "python_ast_outline"
     title = "Python outline"
     description = (
-        "Token-efficient structural overview of Python files: file metrics, "
-        "imports, and a class/function hierarchy with line ranges and short "
-        "docstrings. Accepts one or several files at once."
+        "Token-efficient structural overview of Python files: file metrics plus "
+        "every module-level statement (type, qualified name, line range, one-line "
+        "signature, short docstring), with nested classes recursively expanded. "
+        "Accepts one or several files at once."
     )
     input_schema = {
         "type": "object",
@@ -200,12 +230,13 @@ class OutlineTool(ToolDefinition):
         "required": ["paths"],
     }
     output_schema = {
+        "$defs": {"outline_node": _OUTLINE_NODE_SCHEMA},
         "type": "object",
         "properties": {
-            "all_ok": {"type": "boolean"},
-            "files": {"type": "array", "items": _OUTLINE_ITEM_SCHEMA},
+            "files": {"type": "array", "items": _FILE_OUTLINE_SCHEMA},
+            "failed": {"type": "array", "items": _OUTLINE_FAILURE_SCHEMA},
         },
-        "required": ["all_ok", "files"],
+        "required": ["files", "failed"],
     }
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
@@ -221,8 +252,8 @@ class OutlineTool(ToolDefinition):
 
         return ToolResult(
             structured_content={
-                "all_ok": result.all_ok,
-                "files": [f.__dict__ for f in result.files],
+                "files": [asdict(f) for f in result.files],
+                "failed": [asdict(f) for f in result.failed],
             },
         )
 
