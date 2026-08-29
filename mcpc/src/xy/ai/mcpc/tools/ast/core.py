@@ -15,7 +15,6 @@ Central pieces:
 (absolute import), not the package itself.
 """
 
-from __future__ import annotations
 
 import ast
 import hashlib

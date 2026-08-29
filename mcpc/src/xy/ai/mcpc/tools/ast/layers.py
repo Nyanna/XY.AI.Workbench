@@ -7,7 +7,6 @@ generated wrapper), so ``tool_usage`` can report its real signature/docstring
 and ``tool_call`` can inject it as-is.
 """
 
-from __future__ import annotations
 
 import ast
 from typing import Any, Sequence

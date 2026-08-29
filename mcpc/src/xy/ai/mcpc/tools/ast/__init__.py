@@ -11,7 +11,6 @@ Call :func:`register_ast_tools` to register the whole family and expose it under
 the generic tool-set alias ``python-ast``.
 """
 
-from __future__ import annotations
 
 from xy.ai.mcpc.tools.registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -20,11 +19,12 @@ from xy.ai.mcpc.tools.ast import crud, file_ops, layers, node_replace_block, out
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
 ALIAS = "python-ast"
+_ALIAS_MEMBERS = ("python_ast_outline", "python_ast_list", "python_ast_find", "python_ast_insert", "python_ast_replace", "python_ast_delete", "python_ast_create","python_ast_create_file","python_ast_delete_file",
+                  "python_ast_imports"), "python_ast_classes", "python_ast_functions", "python_ast_replace_block", "python_ast_validate"
 
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``python_ast_*`` tool and the ``python-ast`` alias."""
-    before = set(registry.names())
 
     outline.register(registry, functions)
     crud.register(registry, functions)
@@ -34,5 +34,4 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     script.register(registry, functions)
     validate.register(registry, functions)
 
-    added = [n for n in registry.names() if n not in before]
-    registry.register_alias(ALIAS, added)
+    registry.register_alias(ALIAS, _ALIAS_MEMBERS)

@@ -3,7 +3,6 @@
 A profile is an alias for a pre-configured toolset.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 

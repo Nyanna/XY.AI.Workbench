@@ -9,7 +9,6 @@ to its description and system prompt and delegate everything else to the agent
 tool.  The agent tool itself is rarely called directly.
 """
 
-from __future__ import annotations
 
 import uuid
 from typing import Any

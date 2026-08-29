@@ -1,7 +1,6 @@
 """Utility for forwarding hard-coded calls of an external MCP server.
 """
 
-from __future__ import annotations
 
 import threading
 from typing import Any

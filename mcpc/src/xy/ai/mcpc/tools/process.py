@@ -26,7 +26,6 @@ The module is split in two layers:
   (stream normalisation, spill-to-file safety limit, ``exit_code`` omission).
   This belongs to a tool's ``handle`` method, not its delegate function.
 """
-from __future__ import annotations
 import os
 import re
 import subprocess

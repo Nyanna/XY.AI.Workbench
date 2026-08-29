@@ -1,6 +1,5 @@
 """A single managed CLI process and its stream-json conversation."""
 
-from __future__ import annotations
 
 import os
 import queue

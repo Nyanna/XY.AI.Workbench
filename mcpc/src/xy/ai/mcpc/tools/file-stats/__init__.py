@@ -3,7 +3,6 @@
 Provides compact metrics including complexity, timestamps, size, line/word
 counts, line length statistics, and average words per line.
 """
-from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass

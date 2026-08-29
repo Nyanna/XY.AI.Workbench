@@ -5,7 +5,6 @@ apply.  Anything in the implementation-defined range ``[-32000, -32099]`` is
 reserved for MCP/server specific errors.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

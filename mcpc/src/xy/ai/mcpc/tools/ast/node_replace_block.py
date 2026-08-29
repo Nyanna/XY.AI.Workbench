@@ -6,7 +6,6 @@ within that node rather than the whole file. Shares the whitespace-tolerant
 matcher with the file-level tool.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any

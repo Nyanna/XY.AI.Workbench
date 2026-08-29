@@ -5,7 +5,6 @@ responsibility.  It maintains the index, hands out session objects on request,
 and, on every request.
 """
 
-from __future__ import annotations
 
 import threading
 from pathlib import Path

@@ -8,7 +8,6 @@ instance) that ``tool_search`` can find by keyword, ``tool_usage`` can
 introspect (signature, docstring, referenced project-local types), and
 ``tool_call`` can inject by id into its sandboxed script namespace.
 """
-from __future__ import annotations
 import inspect
 import logging
 from dataclasses import dataclass

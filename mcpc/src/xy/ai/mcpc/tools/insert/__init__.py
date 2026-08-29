@@ -1,5 +1,4 @@
 """Insert tool – inserts text at a character offset inside an existing file."""
-from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

@@ -10,7 +10,6 @@ always excluded. To keep results manageable, the number of matched files is
 capped; use ``pattern`` to narrow down large directories instead of raising
 the limit.
 """
-from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass

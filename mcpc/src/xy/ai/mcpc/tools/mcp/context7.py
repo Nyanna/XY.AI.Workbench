@@ -5,7 +5,6 @@ Exposes two tools:
   context7_documentation  →  queryDocs
 """
 
-from __future__ import annotations
 
 from typing import Any
 

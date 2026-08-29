@@ -5,7 +5,6 @@ line (JSON Lines / NDJSON), to ``<log_dir>/<session-id>.json.log``.  This gives 
 complete, replayable audit trail keyed by the session id.
 """
 
-from __future__ import annotations
 
 import threading
 from datetime import datetime, timezone

@@ -5,7 +5,6 @@ questions that improve session efficiency instead of, e.g., exhaustively
 searching whole directory hierarchies when the user might already know the
 answer or can find it far more easily.
 """
-from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content

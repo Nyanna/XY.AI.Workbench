@@ -1,5 +1,4 @@
 """Assembling and running the MCP Controller HTTP server."""
-from __future__ import annotations
 import logging
 import socket
 from http.server import ThreadingHTTPServer

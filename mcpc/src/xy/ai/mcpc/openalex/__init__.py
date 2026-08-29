@@ -12,7 +12,6 @@ The agent-facing tools that build on this client live in
 :mod:`xy.ai.mcpc.tools.openalex`.
 """
 
-from __future__ import annotations
 
 from xy.ai.mcpc.openalex.client import ENTITIES, OpenAlexClient
 from xy.ai.mcpc.openalex.errors import OpenAlexAPIError, OpenAlexError

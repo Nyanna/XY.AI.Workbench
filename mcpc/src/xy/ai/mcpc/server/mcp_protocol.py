@@ -6,11 +6,10 @@ owning :class:`Session` and returns a result payload (or raises
 in a JSON-RPC envelope.
 """
 
-from __future__ import annotations
 
 import logging
 import base64
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
@@ -18,9 +17,7 @@ from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
 from xy.ai.mcpc.server.session import Session
-
-if TYPE_CHECKING:
-    from xy.ai.mcpc.tools.tool_context import AppEnvironment
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
 

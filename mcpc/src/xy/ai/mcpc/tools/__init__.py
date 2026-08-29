@@ -33,7 +33,6 @@ Call :func:`register_tools` to register all tools onto a
 :class:`~xy.ai.mcpc.registry.ToolRegistry` instance.
 """
 
-from __future__ import annotations
 
 import importlib
 

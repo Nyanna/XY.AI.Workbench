@@ -10,7 +10,6 @@ Batch requests were removed from the MCP spec (protocol revision 2025-06-18
 onwards), therefore a message is always a single JSON object.
 """
 
-from __future__ import annotations
 
 import json
 from dataclasses import dataclass

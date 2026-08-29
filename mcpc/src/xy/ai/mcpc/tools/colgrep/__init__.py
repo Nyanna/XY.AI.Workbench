@@ -2,7 +2,6 @@
 
 Search-only wrapper around the `colgrep` CLI.
 """
-from __future__ import annotations
 import json
 import os
 import subprocess

@@ -1,5 +1,4 @@
 """Python tool – executes a Python script directly from context (no file)."""
-from __future__ import annotations
 import sys
 from typing import Any
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content

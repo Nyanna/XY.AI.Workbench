@@ -4,7 +4,6 @@ These operate on the typed AST directly and are the foundation the ``imports``,
 ``classes`` and ``functions`` convenience layers build on.
 """
 
-from __future__ import annotations
 
 import ast
 from dataclasses import dataclass

@@ -1,5 +1,4 @@
 """Replace tool – replaces the text strictly between two markers with given content."""
-from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

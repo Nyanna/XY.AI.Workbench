@@ -4,7 +4,6 @@ Exa is reached through its remote MCP server; the API key is taken from the
 server configuration.  MCPC advertises its own descriptions and input schemas.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any

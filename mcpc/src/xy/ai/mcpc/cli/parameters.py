@@ -1,7 +1,6 @@
 """Construction of the ``claude`` CLI command line and process environment.
 """
 
-from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field

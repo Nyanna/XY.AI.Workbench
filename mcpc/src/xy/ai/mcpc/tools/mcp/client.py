@@ -7,7 +7,6 @@ request/response exchanges are performed.  Both ``application/json`` and
 ``text/event-stream`` responses are understood.
 """
 
-from __future__ import annotations
 
 import json
 import threading

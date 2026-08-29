@@ -4,7 +4,6 @@ Tools are registered once in a process-wide :class:`ToolRegistry`.  What a
 given client actually sees is derived by reconciling the registry against the
 per-session configuration (:attr:`Session.enabled_tools`).
 """
-from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from xy.ai.mcpc.server.json_codec import JsonCodec

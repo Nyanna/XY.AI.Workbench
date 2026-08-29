@@ -11,7 +11,6 @@ If a subsequent read with identical parameters yields the same checksum,
 explanatory text content block; only the checksum is still returned.
 ``structured_content`` always carries the ``checksum``.
 """
-from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass

@@ -20,7 +20,6 @@ Shared conventions
   ``mailto`` come from the server config and are handled by the client.
 """
 
-from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

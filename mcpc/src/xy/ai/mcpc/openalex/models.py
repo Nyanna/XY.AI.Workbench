@@ -10,7 +10,6 @@ the tools-layer field presets) may return only a subset of an entity's
 fields.
 """
 
-from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass

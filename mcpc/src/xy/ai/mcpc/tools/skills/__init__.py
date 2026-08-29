@@ -6,7 +6,6 @@ that backs it as ``core`` (``FunctionRegistry`` requires actually existing
 functions with a real signature/docstring.
 """
 
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 

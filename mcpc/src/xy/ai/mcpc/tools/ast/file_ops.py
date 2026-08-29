@@ -1,6 +1,5 @@
 """Whole-file operations: ``python_ast_create_file`` and ``python_ast_delete_file``."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any

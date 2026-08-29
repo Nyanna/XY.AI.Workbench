@@ -1,6 +1,5 @@
 """Exception hierarchy for the OpenAlex interface package."""
 
-from __future__ import annotations
 
 from typing import Any
 

@@ -6,7 +6,6 @@ set of safe names; the only capability handed in is the AST itself (``tree``)
 and the standard-library ``ast`` module. Any change to ``tree`` is persisted.
 """
 
-from __future__ import annotations
 
 import ast
 from dataclasses import dataclass

@@ -6,7 +6,6 @@ single generic :class:`BulkCrudTool` here keeps them consistent and DRY (see
 :mod:`layers` for the three concrete instantiations).
 """
 
-from __future__ import annotations
 
 import ast
 from dataclasses import dataclass

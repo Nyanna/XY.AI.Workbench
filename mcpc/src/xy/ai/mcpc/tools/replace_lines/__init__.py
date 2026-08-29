@@ -3,7 +3,6 @@
 This is the line-oriented analogue of ``replace-chars``: the range is given as a
 zero-based *line* offset and a *line* count instead of character offsets.
 """
-from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

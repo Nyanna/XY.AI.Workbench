@@ -13,7 +13,6 @@ Implements the client-facing half of the MCP *Streamable HTTP* transport:
 The session id is taken from the configured ``X-MCPC-SESSION-ID`` header, which
 the client must send on every request.
 """
-from __future__ import annotations
 
 import logging
 import select

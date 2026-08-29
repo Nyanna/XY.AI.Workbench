@@ -6,7 +6,6 @@ the negotiated protocol version, the client-specific tool configuration and
 arbitrary per-session state for the lifetime of the process.
 """
 
-from __future__ import annotations
 
 import logging
 import threading

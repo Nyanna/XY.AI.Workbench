@@ -1,6 +1,5 @@
 """HTTP handler for the human-in-the-loop control endpoint."""
 
-from __future__ import annotations
 
 import logging
 from http import HTTPStatus

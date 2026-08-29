@@ -12,7 +12,6 @@ pending items and post approval decisions.  The intercepting threads block on
 per-item ``threading.Event`` objects until a decision arrives.
 """
 
-from __future__ import annotations
 
 import logging
 import threading

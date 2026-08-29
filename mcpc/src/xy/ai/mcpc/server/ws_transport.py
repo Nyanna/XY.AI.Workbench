@@ -45,12 +45,11 @@ other WebSocket connection. Each request is therefore dispatched to a worker
 thread via ``loop.run_in_executor``.
 """
 
-from __future__ import annotations
 
 import asyncio
 import logging
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from xy.ai.mcpc.server import errors, jsonrpc
@@ -72,12 +71,11 @@ except ImportError:  # pragma: no cover - exercised only when the optional
     ws_serve = None  # type: ignore[assignment]
     ConnectionClosed = Exception  # type: ignore[assignment,misc]
 
-if TYPE_CHECKING:
-    from xy.ai.mcpc.config import ServerConfig
-    from xy.ai.mcpc.tools.tool_context import AppEnvironment
-    from xy.ai.mcpc.utils.logging_utils import CommunicationLog
-    from xy.ai.mcpc.server.mcp_protocol import McpProtocol
-    from xy.ai.mcpc.server.session import SessionStore
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.tools.tool_context import AppEnvironment
+from xy.ai.mcpc.utils.logging_utils import CommunicationLog
+from xy.ai.mcpc.server.mcp_protocol import McpProtocol
+from xy.ai.mcpc.server.session import SessionStore
 
 logger = logging.getLogger("xy.ai.mcpc.ws")
 

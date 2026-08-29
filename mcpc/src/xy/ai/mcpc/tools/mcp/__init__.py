@@ -1,6 +1,5 @@
 """Bridges that expose external MCP servers as MCPC tools."""
 
-from __future__ import annotations
 
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import DEFAULT_PROTOCOL_VERSION, McpClient, McpClientError

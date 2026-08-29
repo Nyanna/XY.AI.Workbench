@@ -1,6 +1,5 @@
 """``tool_usage`` – full signature, docstring and type sources for one function.
 """
-from __future__ import annotations
 import inspect
 import typing
 from dataclasses import dataclass, field

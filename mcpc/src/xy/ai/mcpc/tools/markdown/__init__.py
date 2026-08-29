@@ -6,7 +6,6 @@ environment that exposes ``remark``, ``remark-behead`` and ``remark-frontmatter`
 ``node --input-type=module`` on standard input and executed with the environment
 directory as its working directory, so bare package imports resolve.
 """
-from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.config import ServerConfig

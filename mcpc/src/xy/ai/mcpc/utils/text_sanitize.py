@@ -13,7 +13,6 @@ removes such characters from every string it finds, leaving dict keys,
 numbers, booleans and ``None`` untouched.
 """
 
-from __future__ import annotations
 
 import re
 from typing import Any

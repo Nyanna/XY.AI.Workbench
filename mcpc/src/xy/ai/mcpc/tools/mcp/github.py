@@ -4,7 +4,6 @@ Only read-only tools are registered: file/code access, issues, discussions,
 pull requests, commits, and project information.
 """
 
-from __future__ import annotations
 
 from typing import Any, Callable
 

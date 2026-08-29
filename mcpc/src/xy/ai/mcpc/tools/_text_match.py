@@ -1,6 +1,5 @@
 """Shared exact / whitespace-tolerant text search for change and replace-block."""
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass

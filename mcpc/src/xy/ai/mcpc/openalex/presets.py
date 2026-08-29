@@ -10,7 +10,6 @@ Presets are intentionally kept to top-level fields only, which is all the
 OpenAlex ``select`` parameter accepts for works.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

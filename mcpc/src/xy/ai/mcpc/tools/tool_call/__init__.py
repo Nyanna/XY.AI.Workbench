@@ -7,7 +7,6 @@ with). The namespace persists per session across calls, so a script can stash
 objects (including large outputs, see :data:`STREAM_SPILL_THRESHOLD`) for
 later reuse.
 """
-from __future__ import annotations
 import contextlib
 import io
 from dataclasses import dataclass, field

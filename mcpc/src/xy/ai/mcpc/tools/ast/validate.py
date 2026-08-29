@@ -1,6 +1,5 @@
 """``python_ast_validate`` – compile a list of Python files and report results."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path

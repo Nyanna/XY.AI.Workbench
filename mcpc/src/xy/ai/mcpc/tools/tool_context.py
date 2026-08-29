@@ -1,15 +1,14 @@
 """Per-call tool context and the process-wide environment tools run in.
 """
-from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from xy.ai.mcpc.cli import CliSessionManager
+from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.control import ToolControlManager
+from xy.ai.mcpc.server.session import SessionStore, Session
+from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 if TYPE_CHECKING:
-    from xy.ai.mcpc.cli import CliSessionManager
-    from xy.ai.mcpc.config import ServerConfig
-    from xy.ai.mcpc.control import ToolControlManager
     from xy.ai.mcpc.tools.registry import ToolRegistry
-    from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-    from xy.ai.mcpc.server.session import SessionStore, Session
     from xy.ai.mcpc.tools.agent.profiles import ProfileRegistry
 
 @dataclass(slots=True)

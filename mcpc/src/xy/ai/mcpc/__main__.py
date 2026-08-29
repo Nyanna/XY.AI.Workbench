@@ -1,6 +1,5 @@
 """Command-line entry point: ``python -m xy.ai.mcpc``."""
 
-from __future__ import annotations
 
 import argparse
 import dataclasses

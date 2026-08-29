@@ -14,7 +14,6 @@ Design notes
 * The ``api_key`` value is redacted from any URL surfaced through an exception.
 """
 
-from __future__ import annotations
 
 import json
 import urllib.error

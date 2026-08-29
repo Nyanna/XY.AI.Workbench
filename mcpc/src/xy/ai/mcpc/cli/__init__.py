@@ -6,7 +6,6 @@ protocol.  The manager creates, resolves, and expires sessions; the individual
 session object owns the process lifecycle and replicates its I/O to disk.
 """
 
-from __future__ import annotations
 
 from xy.ai.mcpc.cli.manager import CliSessionError, CliSessionManager
 from xy.ai.mcpc.cli.parameters import CliParameters, Effort, Model

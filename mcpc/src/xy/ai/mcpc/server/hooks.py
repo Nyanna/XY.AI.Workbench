@@ -1,6 +1,5 @@
 """HTTP handlers for the CLI hook endpoints (PreToolUse and PermissionRequest)."""
 
-from __future__ import annotations
 
 import logging
 from http import HTTPStatus

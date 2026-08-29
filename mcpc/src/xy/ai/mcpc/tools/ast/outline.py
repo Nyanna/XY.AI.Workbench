@@ -1,6 +1,5 @@
 """``python_ast_outline`` – compact structural overview of Python files."""
 
-from __future__ import annotations
 
 import ast
 import importlib
