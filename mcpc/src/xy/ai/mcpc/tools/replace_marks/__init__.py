@@ -6,7 +6,7 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._text_match import find as find_text
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ReplaceError', 'ReplaceResult', 'replace', 'ReplaceTool', 'register_replace_tool']
+__all__ = ['ReplaceError', 'ReplaceResult', 'replace_marks', 'ReplaceTool', 'register_replace_tool']
 
 class ReplaceError(Exception):
     """Raised when a replace operation cannot be performed."""
@@ -15,7 +15,7 @@ class ReplaceError(Exception):
 class ReplaceResult:
     result: str
 
-def replace(path: str, start: str, end: str, content: str, exact: bool=False) -> ReplaceResult:
+def replace_marks(path: str, start: str, end: str, content: str, exact: bool=False) -> ReplaceResult:
     """Replace everything strictly between 'start' and 'end' with content.
 
     Both markers are excluded from the replacement and remain unchanged.
@@ -76,7 +76,7 @@ def replace(path: str, start: str, end: str, content: str, exact: bool=False) ->
 
 
 class ReplaceTool(ToolDefinition):
-    name = 'replace'
+    name = 'replace_marks'
     title = 'Replace file block'
     description = "Replace everything strictly between the unique 'start' and 'end' markers with 'content'. Both markers remain unchanged. The end marker must occur exactly once after the start marker. By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching."
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the beginning of the block (must occur exactly once). The marker itself is kept."}, 'end': {'type': 'string', 'description': "Unique substring marking the end of the block (must occur exactly once, after 'start'). The marker itself is kept."}, 'content': {'type': 'string', 'description': "Text that replaces everything strictly between the start and end markers."}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'end', 'content']}
@@ -87,11 +87,11 @@ class ReplaceTool(ToolDefinition):
         """Delegate to :func:`replace`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = replace(path=args['path'], start=args['start'], end=args['end'], content=args['content'], exact=args.get('exact', False))
+            result = replace_marks(path=args['path'], start=args['start'], end=args['end'], content=args['content'], exact=args.get('exact', False))
         except ReplaceError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)
 
 def register_replace_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceTool())
-    functions.register(replace)
+    functions.register(replace_marks)

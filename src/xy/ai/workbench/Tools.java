@@ -4,7 +4,7 @@ public class Tools {
 	private static String toolList = //
 			"ask_user,tools," // top
 					+ "file_stats,read_file,list,grep," // retrieve
-					+ "write,replace,replace_block,replace_lines,insert," // edit tools
+					+ "write,replace-marks,replace_block,replace_lines,insert," // edit tools
 					+ "python_ast,python_ast_script," // python ast
 					+ "bash,python," // scripting
 					+ "markdown,markdown_format," // Dynamic code tools

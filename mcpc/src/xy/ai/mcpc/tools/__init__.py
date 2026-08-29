@@ -41,7 +41,7 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import register_ast_tools
 from xy.ai.mcpc.tools.bash import register_bash_tool
-from xy.ai.mcpc.tools.replace import register_replace_tool
+from xy.ai.mcpc.tools.replace_marks import register_replace_tool
 from xy.ai.mcpc.tools.colgrep import register_colgrep_tool
 from xy.ai.mcpc.tools.insert import register_insert_tool
 from xy.ai.mcpc.tools.list import register_list_tool
