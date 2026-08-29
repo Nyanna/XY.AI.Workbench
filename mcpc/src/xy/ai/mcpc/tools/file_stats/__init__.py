@@ -5,7 +5,7 @@ counts, line length statistics, and average words per line.
 """
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -52,12 +52,10 @@ def _calculate_complexity(text: str) -> float:
     complexity = char_type_score * 0.4 + entropy_score * 0.6
     return round(complexity, 3)
 
-def compute_file_stats(path: Path) -> dict[str, Any]:
+def compute_file_stats(path: Path) -> FileStatsResult:
     """Compute the file-metrics block for *path* (also reused by the outline tool).
 
-    Assumes *path* is an existing regular file. Returns dict with keys:
-    path, size_bytes, lines, words, complexity, created, modified, accessed,
-    line_length_max, line_length_min, line_length_avg, words_per_line_avg, checksum.
+    Assumes *path* is an existing regular file.
     """
     raw_bytes = path.read_bytes()
     text = raw_bytes.decode('utf-8', errors='replace')
@@ -77,7 +75,7 @@ def compute_file_stats(path: Path) -> dict[str, Any]:
     created = datetime.fromtimestamp(stat.st_birthtime if hasattr(stat, 'st_birthtime') else stat.st_mtime, tz=timezone.utc).isoformat()
     modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
     accessed = datetime.fromtimestamp(stat.st_atime, tz=timezone.utc).isoformat()
-    return {'path': str(path.resolve()), 'size_bytes': size_bytes, 'lines': num_lines, 'words': num_words, 'complexity': complexity, 'created': created, 'modified': modified, 'accessed': accessed, 'line_length_max': line_length_max, 'line_length_min': line_length_min, 'line_length_avg': line_length_avg, 'words_per_line_avg': words_per_line_avg, 'checksum': checksum}
+    return FileStatsResult(path=str(path.resolve()), size_bytes=size_bytes, lines=num_lines, words=num_words, complexity=complexity, created=created, modified=modified, accessed=accessed, line_length_max=line_length_max, line_length_min=line_length_min, line_length_avg=line_length_avg, words_per_line_avg=words_per_line_avg, checksum=checksum)
 
 def file_stats(path: str) -> FileStatsResult:
     """Compute file metrics for the absolute path ``path``.
@@ -115,7 +113,7 @@ def file_stats(path: str) -> FileStatsResult:
         raise FileStatsError('File not found.')
     if not file_path.is_file():
         raise FileStatsError('Not a regular file.')
-    return FileStatsResult(**compute_file_stats(file_path))
+    return compute_file_stats(file_path)
 
 class FileStatsTool(ToolDefinition):
     name = 'file_stats'
@@ -132,7 +130,7 @@ class FileStatsTool(ToolDefinition):
             result = file_stats(args['path'])
         except FileStatsError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(content=[], structured_content=result.__dict__, auto_approve=True)
+        return ToolResult(content=[], structured_content=asdict(result), auto_approve=True)
 
 def register_file_stats_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FileStatsTool())

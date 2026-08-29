@@ -9,7 +9,7 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.file_stats import  compute_file_stats
+from xy.ai.mcpc.tools.file_stats import  compute_file_stats, FileStatsResult
 
 __all__ = [
     "OutlineError",
@@ -41,7 +41,7 @@ class FileOutline:
     path: str
     ok: bool
     error: str | None
-    stats: dict[str, Any] | None = None
+    stats: FileStatsResult
     imports: list[dict[str, Any]] = field(default_factory=list)
     classes: list[dict[str, Any]] = field(default_factory=list)
     functions: list[dict[str, Any]] = field(default_factory=list)
