@@ -22,6 +22,23 @@ def _fuzzy_pattern(needle: str) -> re.Pattern[str]:
     return re.compile("".join(segments))
 
 
+def find_all(haystack: str, needle: str, *, exact: bool) -> list[MatchResult]:
+    """Return all non-overlapping occurrences of ``needle`` in ``haystack``."""
+    if exact:
+        results: list[MatchResult] = []
+        start = 0
+        while True:
+            idx = haystack.find(needle, start)
+            if idx == -1:
+                break
+            results.append(MatchResult(count=1, start=idx, end=idx + len(needle)))
+            start = idx + len(needle)
+        return results
+
+    pattern = _fuzzy_pattern(needle)
+    return [MatchResult(count=1, start=m.start(), end=m.end()) for m in pattern.finditer(haystack)]
+
+
 def find(haystack: str, needle: str, *, exact: bool) -> MatchResult:
     if exact:
         count = haystack.count(needle)
