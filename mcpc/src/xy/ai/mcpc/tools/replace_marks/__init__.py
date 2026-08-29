@@ -1,4 +1,4 @@
-"""Replace tool – replaces the text strictly between two markers with given content."""
+"""Replace tool – replaces the text strictly including two markers."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,17 +16,16 @@ class ReplaceResult:
     result: str
 
 def replace_marks(path: str, start: str, end: str, content: str, exact: bool=False) -> ReplaceResult:
-    """Replace everything strictly between 'start' and 'end' with content.
+    """Replace everything between and including 'start' and 'end' with content.
 
-    Both markers are excluded from the replacement and remain unchanged.
+    Both markers are included in the replacement.
 
     Args:
-        path: Absolute path to target file (must be a regular file).
+        path: Absolute path to target file.
         start: Unique substring marking the beginning of the block.
         end: Unique substring marking the end of the block.
-        content: Replacement text for everything between the markers.
-        exact: If False (default), whitespace in start/end is matched tolerantly
-               (any whitespace run matches any other). If True, whitespace must match exactly.
+        content: Replacement text.
+        exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
 
     Returns:
         ReplaceResult with success status.
@@ -65,7 +64,7 @@ def replace_marks(path: str, start: str, end: str, content: str, exact: bool=Fal
     if end_match.start < start_match.end:
         raise ReplaceError('End marker must start after start marker ends.')
 
-    result_text = text[:start_match.end] + content + text[end_match.start:]
+    result_text = text[:start_match.start] + content + text[end_match.end:]
 
     try:
         file_path.write_text(result_text, encoding='utf-8')
@@ -77,9 +76,9 @@ def replace_marks(path: str, start: str, end: str, content: str, exact: bool=Fal
 
 class ReplaceTool(ToolDefinition):
     name = 'replace_marks'
-    title = 'Replace file block'
-    description = "Replace everything strictly between the unique 'start' and 'end' markers with 'content'. Both markers remain unchanged. The end marker must occur exactly once after the start marker. By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the beginning of the block (must occur exactly once). The marker itself is kept."}, 'end': {'type': 'string', 'description': "Unique substring marking the end of the block (must occur exactly once, after 'start'). The marker itself is kept."}, 'content': {'type': 'string', 'description': "Text that replaces everything strictly between the start and end markers."}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'end', 'content']}
+    title = 'Replace marked file block'
+    description = "Replace everything strictly between and includig the unique 'start' and 'end' markers with 'content'. The end marker must occur exactly once after the start marker. By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching."
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the beginning of the block (must occur exactly once)."}, 'end': {'type': 'string', 'description': "Unique substring marking the end of the block (must occur exactly once, after 'start')."}, 'content': {'type': 'string', 'description': "Replacement block"}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'end', 'content']}
     output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': []}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
