@@ -47,9 +47,9 @@ def edit_lines(path: str, offset: int, amount: int, content: str) -> EditLinesRe
         lines = text.splitlines(keepends=True)
         if offset < 0 or offset > len(lines):
             raise EditLinesError('Offset is out of bounds.')
-        if length < 0 or offset + length > len(lines):
+        if amount < 0 or offset + amount > len(lines):
             raise EditLinesError('Length is out of bounds.')
-        new_lines = lines[:offset] + [content] + lines[offset + length:]
+        new_lines = lines[:offset] + [content] + lines[offset + amount:]
         new_text = ''.join(new_lines)
         file_path.write_text(new_text, encoding='utf-8')
     except OSError as exc:
