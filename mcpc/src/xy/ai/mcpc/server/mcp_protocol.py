@@ -18,6 +18,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
+from xy.ai.mcpc.tools.ask_user import TOOLNAME_ASK_USER
 
 logger = logging.getLogger("xy.ai.mcpc.protocol")
 
@@ -174,7 +175,7 @@ class McpProtocol:
             decision = control.submit_request(session, name, arguments)
             if not decision.approved:
                 reason = decision.rejection_reason or "Tool call rejected by controller"
-                if name == "ask-user":
+                if name == TOOLNAME_ASK_USER:
                     return ToolResult(structured_content={"answer": reason}).to_dict()
                 return ToolResult(
                     content=[text_content(f"DENIED: {reason}")],
@@ -183,8 +184,8 @@ class McpProtocol:
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
             if decision.approval_hint:
-                # For ask-user, an approval hint *is* the human's answer
-                if name == "ask-user":
+                # For ask_user, an approval hint *is* the human's answer
+                if name == TOOLNAME_ASK_USER:
                     return ToolResult(
                         structured_content={"answer": decision.approval_hint}
                     ).to_dict()
@@ -211,7 +212,7 @@ class McpProtocol:
             )
             if not decision.approved:
                 reason = decision.rejection_reason or "Tool result rejected by controller"
-                if name == "ask-user":
+                if name == TOOLNAME_ASK_USER:
                     return ToolResult(structured_content={"answer": reason}).to_dict()
                 return ToolResult(
                     content=[text_content(f"DENIED: {reason}")],
@@ -226,8 +227,8 @@ class McpProtocol:
                 result.control_hint = combined_hint
                 result_dict = result.to_dict()
 
-            if combined_hint and name == "ask-user":
-                # Same exception as in the request phase: for ask-user the
+            if combined_hint and name == TOOLNAME_ASK_USER:
+                # Same exception as in the request phase: for ask_user the
                 # hint *is* the answer, not an independent side-channel field.
                 return ToolResult(structured_content={"answer": combined_hint}).to_dict()
             if combined_hint and decision.modified_result is not None:
