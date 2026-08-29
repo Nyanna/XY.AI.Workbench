@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.ast.core import OutlineNode
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.file_stats import  compute_file_stats, FileStatsResult
 
@@ -23,27 +24,6 @@ __all__ = [
 
 class OutlineError(Exception):
     """Raised when the outline operation cannot be performed at all."""
-
-
-@dataclass(frozen=True)
-class OutlineNode:
-    """One AST statement in the outline tree.
-
-    Attributes:
-        type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"Import"``.
-        qualified_name: Dotted path, for classes/functions only; ``None`` otherwise.
-        lines: Line number, or a ``"start-end"`` range if the node spans several lines.
-        signature: One-line rendering of the node's header (or the statement itself).
-        docstring: Short docstring, only possible for classes/functions.
-        children: Nested outline entries for a class's body; empty otherwise.
-    """
-
-    type: str
-    qualified_name: str | None
-    lines: str
-    signature: str
-    docstring: str | None
-    children: list["OutlineNode"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -87,30 +67,6 @@ class OutlineResult:
     failed: list[OutlineFailure] = field(default_factory=list)
 
 
-def _line_range(node: ast.stmt) -> str:
-    end = getattr(node, "end_lineno", node.lineno)
-    return str(node.lineno) if end == node.lineno else f"{node.lineno}-{end}"
-
-
-def _decorators(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> str:
-    return "".join(f"@{ast.unparse(d)} " for d in node.decorator_list)
-
-
-def _signature(node: ast.stmt, limit: int = 80) -> str:
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        keyword = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
-        returns = f" -> {ast.unparse(node.returns)}" if node.returns is not None else ""
-        return f"{_decorators(node)}{keyword} {node.name}({ast.unparse(node.args)}){returns}:"
-    if isinstance(node, ast.ClassDef):
-        bases = [ast.unparse(b) for b in node.bases] + [
-            f"{kw.arg}={ast.unparse(kw.value)}" for kw in node.keywords
-        ]
-        bases_str = f"({', '.join(bases)})" if bases else ""
-        return f"{_decorators(node)}class {node.name}{bases_str}:"
-    first_line = ast.unparse(node).splitlines()[0]
-    return first_line if len(first_line) <= limit else first_line[: limit - 1] + "…"
-
-
 def _outline_body(body: list[ast.stmt], qualified_name: str | None) -> list[OutlineNode]:
     nodes: list[OutlineNode] = []
     for node in body:
@@ -123,8 +79,8 @@ def _outline_body(body: list[ast.stmt], qualified_name: str | None) -> list[Outl
             OutlineNode(
                 type=type(node).__name__,
                 qualified_name=qual,
-                lines=_line_range(node),
-                signature=_signature(node),
+                lines=core.line_range(node),
+                signature=core.node_signature(node),
                 docstring=core.short_docstring(node),
                 children=children,
             )
@@ -173,22 +129,6 @@ def python_ast_outline(paths: list[str]) -> OutlineResult:
     return OutlineResult(files=files, failed=failed)
 
 
-_OUTLINE_NODE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "type": {"type": "string"},
-        "qualified_name": {"type": ["string", "null"]},
-        "lines": {
-            "type": "string",
-            "description": "Line number, or 'start-end' if the node spans multiple lines.",
-        },
-        "signature": {"type": "string"},
-        "docstring": {"type": ["string", "null"]},
-        "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
-    },
-    "required": ["type", "qualified_name", "lines", "signature", "docstring", "children"],
-}
-
 _FILE_OUTLINE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -230,7 +170,7 @@ class OutlineTool(ToolDefinition):
         "required": ["paths"],
     }
     output_schema = {
-        "$defs": {"outline_node": _OUTLINE_NODE_SCHEMA},
+        "$defs": {"outline_node": core.OUTLINE_NODE_SCHEMA},
         "type": "object",
         "properties": {
             "files": {"type": "array", "items": _FILE_OUTLINE_SCHEMA},

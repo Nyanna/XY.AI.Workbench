@@ -6,7 +6,7 @@ These operate on the typed AST directly and are the foundation the ``imports``,
 
 
 import ast
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -17,18 +17,22 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     "ListNodesResult",
     "FindNodesResult",
+    "ReadNode",
+    "ReadNodeResult",
     "InsertNodeResult",
     "ReplaceNodeResult",
     "DeleteNodeResult",
     "CreateNodeResult",
     "python_ast_list",
     "python_ast_find",
+    "python_ast_read",
     "python_ast_insert",
     "python_ast_replace",
     "python_ast_delete",
     "python_ast_create",
     "ListNodesTool",
     "FindNodesTool",
+    "ReadNodeTool",
     "InsertNodeTool",
     "ReplaceNodeTool",
     "DeleteNodeTool",
@@ -63,9 +67,10 @@ def _select_one(tree: ast.Module, **selectors: Any) -> core.Located:
 
 def _list_output_schema() -> dict[str, Any]:
     return {
+        "$defs": {"outline_node": core.OUTLINE_NODE_SCHEMA},
         "type": "object",
         "properties": {
-            "nodes": {"type": "array", "items": {"type": "object"}, "description": "Only structural information"},
+            "nodes": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
             "count": {"type": "integer"},
         },
         "required": ["nodes", "count"],
@@ -77,11 +82,12 @@ class ListNodesResult:
     """Result of :func:`python_ast_list`.
 
     Attributes:
-        nodes: Node summaries (see :func:`core.node_summary`) in document order.
+        nodes: Outline-style node descriptions (see :class:`core.OutlineNode`), in
+            document order, suited for retrieval and navigation.
         count: Number of entries in ``nodes``.
     """
 
-    nodes: list[dict[str, Any]]
+    nodes: list[core.OutlineNode]
     count: int
 
 
@@ -90,12 +96,45 @@ class FindNodesResult:
     """Result of :func:`python_ast_find`.
 
     Attributes:
-        nodes: Node summaries matching the given selectors.
+        nodes: Outline-style node descriptions (see :class:`core.OutlineNode`)
+            matching the given selectors, suited for retrieval and navigation.
         count: Number of entries in ``nodes``.
     """
 
-    nodes: list[dict[str, Any]]
+    nodes: list[core.OutlineNode]
     count: int
+
+
+@dataclass(frozen=True)
+class ReadNode:
+    """One node in a subtree read for block-wise edit/replace.
+
+    Attributes:
+        type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"FunctionDef"``.
+        qualified_name: Dotted path, for classes/functions/imports only; ``None`` otherwise.
+        lines: Line number, or a ``"start-end"`` range if the node spans several lines.
+        code: The node's full source, usable as-is with ``python_ast_replace``; ``None``
+            if the node's body consists solely of the nested classes/functions listed
+            in ``children`` (whose source is then given by those children instead).
+        children: Nested read entries, populated only when ``code`` is ``None``.
+    """
+
+    type: str
+    qualified_name: str | None
+    lines: str
+    code: str | None
+    children: list["ReadNode"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ReadNodeResult:
+    """Result of :func:`python_ast_read`.
+
+    Attributes:
+        node: The selected node, expanded recursively.
+    """
+
+    node: ReadNode
 
 
 @dataclass(frozen=True)
@@ -166,12 +205,12 @@ def python_ast_list(path: str | None = None, code: str | None = None, node_type:
     """
     tree = core.tree_from_input(path, code)
     located = core.locate_all(tree)
-    summaries = [
-        core.node_summary(loc)
+    nodes = [
+        core.node_outline(loc)
         for loc in located
         if node_type is None or type(loc.node).__name__.lower() == node_type.lower()
     ]
-    return ListNodesResult(nodes=summaries, count=len(summaries))
+    return ListNodesResult(nodes=nodes, count=len(nodes))
 
 
 def python_ast_find(
@@ -218,7 +257,85 @@ def python_ast_find(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    return FindNodesResult(nodes=[core.node_summary(h) for h in hits], count=len(hits))
+    return FindNodesResult(nodes=[core.node_outline(h) for h in hits], count=len(hits))
+
+
+def _only_defs(body: list[ast.stmt]) -> bool:
+    """Whether *body* is non-empty and consists solely of nested classes/functions."""
+    return bool(body) and all(isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) for n in body)
+
+
+def _read_node(node: ast.stmt, qualified_name: str | None) -> ReadNode:
+    body = getattr(node, "body", None)
+    if isinstance(body, list) and _only_defs(body):
+        children = [
+            _read_node(child, f"{qualified_name}.{child.name}" if qualified_name else child.name)
+            for child in body
+        ]
+        return ReadNode(
+            type=type(node).__name__,
+            qualified_name=qualified_name,
+            lines=core.line_range(node),
+            code=None,
+            children=children,
+        )
+    return ReadNode(
+        type=type(node).__name__,
+        qualified_name=qualified_name,
+        lines=core.line_range(node),
+        code=core.unparse(node),
+        children=[],
+    )
+
+
+def python_ast_read(
+    path: str | None = None,
+    code: str | None = None,
+    *,
+    qualified_name: str | None = None,
+    name: str | None = None,
+    node_type: str | None = None,
+    lineno: int | None = None,
+    end_lineno: int | None = None,
+    parent_type: str | None = None,
+) -> ReadNodeResult:
+    """Recursively read the selected node's subtree for block-wise edit/replace.
+
+    A node whose body consists solely of nested classes/functions is expanded into
+    ``children`` instead of source, so the agent can descend to the innermost block
+    that actually needs editing; any other node is returned whole, as ``code`` ready
+    to hand back to ``python_ast_replace`` via its ``qualified_name``.
+
+    Args:
+        path: Absolute path to the Python file to read. Mutually usable with ``code``;
+            exactly one of the two must be given.
+        code: Python source to parse instead of reading ``path``.
+        qualified_name: Selector – exact Python-style FQN of the target node.
+        name: Selector – exact simple name of the target node.
+        node_type: Selector – AST node class name of the target node.
+        lineno: Selector – exact start line of the target node.
+        end_lineno: Selector – exact end line of the target node.
+        parent_type: Selector – AST class name of the target node's container.
+
+    Returns:
+        ReadNodeResult: The selected node's subtree.
+
+    Raises:
+        core.AstError: If neither ``path`` nor ``code`` is given, if ``path`` is not
+            absolute or does not point to an existing regular file, the source has a
+            syntax error, or the selector matches zero or more than one node.
+    """
+    tree = core.tree_from_input(path, code)
+    target = _select_one(
+        tree,
+        qualified_name=qualified_name,
+        name=name,
+        node_type=node_type,
+        lineno=lineno,
+        end_lineno=end_lineno,
+        parent_type=parent_type,
+    )
+    return ReadNodeResult(node=_read_node(target.node, target.qualified_name))
 
 
 def python_ast_insert(
@@ -409,7 +526,7 @@ class ListNodesTool(ToolDefinition):
             result = python_ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={"nodes": result.nodes, "count": result.count})
+        return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes], "count": result.count})
 
 
 class FindNodesTool(ToolDefinition):
@@ -444,7 +561,74 @@ class FindNodesTool(ToolDefinition):
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={"nodes": result.nodes, "count": result.count})
+        return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes], "count": result.count})
+
+
+_READ_NODE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string"},
+        "qualified_name": {"type": ["string", "null"]},
+        "lines": {
+            "type": "string",
+            "description": "Line number, or 'start-end' if the node spans multiple lines.",
+        },
+        "code": {
+            "type": ["string", "null"],
+            "description": (
+                "Full source of this node, ready for python_ast_replace; null if the node "
+                "consists solely of the nested classes/functions listed in 'children'."
+            ),
+        },
+        "children": {"type": "array", "items": {"$ref": "#/$defs/read_node"}},
+    },
+    "required": ["type", "qualified_name", "lines", "code", "children"],
+}
+
+
+class ReadNodeTool(ToolDefinition):
+    name = "python_ast_read"
+    title = "Read AST subtree"
+    description = (
+        "Recursively read the selected node's subtree, surfacing each block's qualified "
+        "name and source so it can be handed back to python_ast_replace. Nodes whose body "
+        "consists solely of nested classes/functions are expanded into 'children' instead "
+        "of source, letting the agent descend to the innermost block that needs editing."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Absolute path to the Python file."},
+            "code": {"type": "string", "description": "Python source to parse instead of a file."},
+            **_SELECTOR_PROPS,
+        },
+        "required": [],
+    }
+    output_schema = {
+        "$defs": {"read_node": _READ_NODE_SCHEMA},
+        "type": "object",
+        "properties": {"node": {"$ref": "#/$defs/read_node"}},
+        "required": ["node"],
+    }
+    annotations = {"readOnlyHint": True, "openWorldHint": False}
+
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        """Delegate to :func:`python_ast_read`, translating the MCP schema to/from the Python API."""
+        args: dict[str, Any] = ctx.arguments
+        try:
+            result = python_ast_read(
+                path=args.get("path"),
+                code=args.get("code"),
+                qualified_name=args.get("qualified_name"),
+                name=args.get("name"),
+                node_type=args.get("node_type"),
+                lineno=args.get("lineno"),
+                end_lineno=args.get("end_lineno"),
+                parent_type=args.get("parent_type"),
+            )
+        except core.AstError as exc:
+            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        return ToolResult(structured_content={"node": asdict(result.node)})
 
 
 class InsertNodeTool(ToolDefinition):
@@ -601,12 +785,14 @@ class CreateNodeTool(ToolDefinition):
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())
     registry.register(FindNodesTool())
+    registry.register(ReadNodeTool())
     registry.register(InsertNodeTool())
     registry.register(ReplaceNodeTool())
     registry.register(DeleteNodeTool())
     registry.register(CreateNodeTool())
     functions.register(python_ast_list)
     functions.register(python_ast_find)
+    functions.register(python_ast_read)
     functions.register(python_ast_insert)
     functions.register(python_ast_replace)
     functions.register(python_ast_delete)

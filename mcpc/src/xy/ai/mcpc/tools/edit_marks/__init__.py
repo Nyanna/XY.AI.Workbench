@@ -15,20 +15,16 @@ class EditMarksError(Exception):
 class EditMarksResult:
     result: str
 
-def edit_marks(path: str, start: str, content: str, end: str | None=None, exact: bool=False) -> EditMarksResult:
-    """Replace text at/around the unique 'start' marker with 'content'.
+def edit_marks(path: str, start: str, end: str, content: str, exact: bool=False) -> EditMarksResult:
+    """Replace everything between and including 'start' and 'end' with content.
 
-    If 'end' is given, everything between and including 'start' and 'end' is
-    replaced (both markers included). If 'end' is omitted, only the 'start'
-    marker itself is replaced, which allows replacing a single line, inserting
-    content before/after it (by including the marker text in 'content'), or
-    deleting it (by passing empty 'content').
+    Both markers are included in the replacement.
 
     Args:
         path: Absolute path to target file.
         start: Unique substring marking the beginning of the block.
+        end: Unique substring marking the end of the block.
         content: Replacement text.
-        end: Optional unique substring marking the end of the block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
 
     Returns:
@@ -57,21 +53,18 @@ def edit_marks(path: str, start: str, content: str, end: str | None=None, exact:
             f'Start marker is ambiguous – found {start_match.count} occurrences in file.'
         )
 
-    if end is None:
-        result_text = text[:start_match.start] + content + text[start_match.end:]
-    else:
-        end_match = find_text(text, end, exact=exact)
-        if end_match.count == 0:
-            raise EditMarksError('End marker not found in file.')
-        if end_match.count > 1:
-            raise EditMarksError(
-                f'End marker is ambiguous – found {end_match.count} occurrences in file.'
-            )
+    end_match = find_text(text, end, exact=exact)
+    if end_match.count == 0:
+        raise EditMarksError('End marker not found in file.')
+    if end_match.count > 1:
+        raise EditMarksError(
+            f'End marker is ambiguous – found {end_match.count} occurrences in file.'
+        )
 
-        if end_match.start < start_match.end:
-            raise EditMarksError('End marker must start after start marker ends.')
+    if end_match.start < start_match.end:
+        raise EditMarksError('End marker must start after start marker ends.')
 
-        result_text = text[:start_match.start] + content + text[end_match.end:]
+    result_text = text[:start_match.start] + content + text[end_match.end:]
 
     try:
         file_path.write_text(result_text, encoding='utf-8')
@@ -84,8 +77,8 @@ def edit_marks(path: str, start: str, content: str, end: str | None=None, exact:
 class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
     title = 'Edit marked file block'
-    description = "Replace everything strictly between and including the unique 'start' and 'end' markers with 'content'. If 'end' is omitted, only the 'start' marker itself is replaced – useful for replacing a single line, inserting content before/after it, or deleting it (empty 'content'). If given, 'end' must occur exactly once after 'start'. By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the beginning of the block (must occur exactly once)."}, 'end': {'type': 'string', 'description': "Optional unique substring marking the end of the block (must occur exactly once, after 'start'). If omitted, only 'start' is replaced."}, 'content': {'type': 'string', 'description': "Replacement block"}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'content']}
+    description = "Replace everything strictly between and includig the unique 'start' and 'end' markers with 'content'. The end marker must occur exactly once after the start marker. By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching."
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'start': {'type': 'string', 'description': "Unique substring marking the beginning of the block (must occur exactly once)."}, 'end': {'type': 'string', 'description': "Unique substring marking the end of the block (must occur exactly once, after 'start')."}, 'content': {'type': 'string', 'description': "Replacement block"}, 'exact': {'type': 'boolean', 'description': "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'start', 'end', 'content']}
     output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': []}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
@@ -93,7 +86,7 @@ class EditMarksTool(ToolDefinition):
         """Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = edit_marks(path=args['path'], start=args['start'], content=args['content'], end=args.get('end'), exact=args.get('exact', False))
+            result = edit_marks(path=args['path'], start=args['start'], end=args['end'], content=args['content'], exact=args.get('exact', False))
         except EditMarksError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)

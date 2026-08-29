@@ -22,7 +22,7 @@ import io
 import re
 import threading
 import tokenize
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
@@ -296,17 +296,81 @@ def short_docstring(node: ast.AST, limit: int = 80) -> str | None:
     return doc if len(doc) <= limit else doc[: limit - 1] + "…"
 
 
-def node_summary(loc: Located) -> dict[str, object]:
+@dataclass(frozen=True)
+class OutlineNode:
+    """One AST statement in a structural (outline/list/find) result.
+
+    Attributes:
+        type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"Import"``.
+        qualified_name: Dotted path, for classes/functions/imports only; ``None`` otherwise.
+        lines: Line number, or a ``"start-end"`` range if the node spans several lines.
+        signature: One-line rendering of the node's header (or the statement itself).
+        docstring: Short docstring, only possible for classes/functions.
+        children: Nested entries for a class's body; empty for flat (list/find) results.
+    """
+
+    type: str
+    qualified_name: str | None
+    lines: str
+    signature: str
+    docstring: str | None
+    children: list["OutlineNode"] = field(default_factory=list)
+
+
+def line_range(node: ast.stmt) -> str:
+    """Return *node*'s start line, or a ``"start-end"`` range if it spans several lines."""
+    end = getattr(node, "end_lineno", node.lineno)
+    return str(node.lineno) if end == node.lineno else f"{node.lineno}-{end}"
+
+
+def _decorators(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> str:
+    return "".join(f"@{ast.unparse(d)} " for d in node.decorator_list)
+
+
+def node_signature(node: ast.stmt, limit: int = 80) -> str:
+    """Return a one-line rendering of *node*'s header (or the statement itself)."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        keyword = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+        returns = f" -> {ast.unparse(node.returns)}" if node.returns is not None else ""
+        return f"{_decorators(node)}{keyword} {node.name}({ast.unparse(node.args)}){returns}:"
+    if isinstance(node, ast.ClassDef):
+        bases = [ast.unparse(b) for b in node.bases] + [
+            f"{kw.arg}={ast.unparse(kw.value)}" for kw in node.keywords
+        ]
+        bases_str = f"({', '.join(bases)})" if bases else ""
+        return f"{_decorators(node)}class {node.name}{bases_str}:"
+    first_line = ast.unparse(node).splitlines()[0]
+    return first_line if len(first_line) <= limit else first_line[: limit - 1] + "…"
+
+
+def node_outline(loc: Located) -> OutlineNode:
+    """Build a flat (childless) :class:`OutlineNode` describing *loc*."""
     node = loc.node
-    return {
-        "type": type(node).__name__,
-        "name": loc.name,
-        "qualified_name": loc.qualified_name,
-        "lineno": node.lineno,
-        "end_lineno": getattr(node, "end_lineno", node.lineno),
-        "parent_type": type(loc.parent).__name__,
-        "docstring": short_docstring(node),
-    }
+    return OutlineNode(
+        type=type(node).__name__,
+        qualified_name=loc.qualified_name,
+        lines=line_range(node),
+        signature=node_signature(node),
+        docstring=short_docstring(node),
+    )
+
+
+#: JSON-Schema fragment for :class:`OutlineNode`, shared by the outline/list/find tools.
+OUTLINE_NODE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string"},
+        "qualified_name": {"type": ["string", "null"]},
+        "lines": {
+            "type": "string",
+            "description": "Line number, or 'start-end' if the node spans multiple lines.",
+        },
+        "signature": {"type": "string"},
+        "docstring": {"type": ["string", "null"]},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
+    },
+    "required": ["type", "qualified_name", "lines", "signature", "docstring", "children"],
+}
 
 
 def matches(
