@@ -17,6 +17,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import (
     crud_create,
     crud_delete,
+    crud_edit,
     crud_find,
     crud_insert,
     crud_list,
@@ -37,6 +38,7 @@ _ALIAS_MEMBERS = (
     "python_ast_find",
     "python_ast_read",
     "python_ast_insert",
+    "python_ast_edit",
     "python_ast_replace",
     "python_ast_delete",
     "python_ast_create",
@@ -58,6 +60,7 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     crud_find.register(registry, functions)
     crud_read.register(registry, functions)
     crud_insert.register(registry, functions)
+    crud_edit.register(registry, functions)
     crud_replace.register(registry, functions)
     crud_delete.register(registry, functions)
     crud_create.register(registry, functions)

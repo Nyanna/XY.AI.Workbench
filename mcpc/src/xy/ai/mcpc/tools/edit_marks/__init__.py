@@ -6,7 +6,7 @@ from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, 
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._text_match import find as find_text
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['EditMarksError', 'EditMarksResult', 'edit_marks', 'EditMarksTool', 'register_edit_mark_tool']
+__all__ = ['EditMarksError', 'EditMarksResult', 'edit_marks', 'edit_marks_text', 'EditMarksTool', 'register_edit_mark_tool']
 
 class EditMarksError(Exception):
     """Raised when a replace operation cannot be performed."""
@@ -14,6 +14,47 @@ class EditMarksError(Exception):
 @dataclass(frozen=True)
 class EditMarksResult:
     result: str
+
+def edit_marks_text(text: str, start: str, end: str, content: str, exact: bool = False) -> str:
+    """Replace everything between and including 'start' and 'end' with content, in *text*.
+
+    Both markers are included in the replacement.
+
+    Args:
+        text: Source text to edit.
+        start: Unique substring marking the beginning of the block.
+        end: Unique substring marking the end of the block.
+        content: Replacement text.
+        exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
+
+    Returns:
+        The edited text.
+
+    Raises:
+        EditMarksError: If start or end markers are not found or appear more than once.
+        EditMarksError: If end marker does not start after start marker ends.
+    """
+    start_match = find_text(text, start, exact=exact)
+    if start_match.count == 0:
+        raise EditMarksError('Start marker not found in file.')
+    if start_match.count > 1:
+        raise EditMarksError(
+            f'Start marker is ambiguous – found {start_match.count} occurrences in file.'
+        )
+
+    end_match = find_text(text, end, exact=exact)
+    if end_match.count == 0:
+        raise EditMarksError('End marker not found in file.')
+    if end_match.count > 1:
+        raise EditMarksError(
+            f'End marker is ambiguous – found {end_match.count} occurrences in file.'
+        )
+
+    if end_match.start < start_match.end:
+        raise EditMarksError('End marker must start after start marker ends.')
+
+    return text[:start_match.start] + content + text[end_match.end:]
+
 
 def edit_marks(path: str, start: str, end: str, content: str, exact: bool=False) -> EditMarksResult:
     """Replace everything between and including 'start' and 'end' with content.
@@ -44,27 +85,7 @@ def edit_marks(path: str, start: str, end: str, content: str, exact: bool=False)
         raise EditMarksError('Not a regular file.')
 
     text = file_path.read_text(encoding='utf-8')
-
-    start_match = find_text(text, start, exact=exact)
-    if start_match.count == 0:
-        raise EditMarksError('Start marker not found in file.')
-    if start_match.count > 1:
-        raise EditMarksError(
-            f'Start marker is ambiguous – found {start_match.count} occurrences in file.'
-        )
-
-    end_match = find_text(text, end, exact=exact)
-    if end_match.count == 0:
-        raise EditMarksError('End marker not found in file.')
-    if end_match.count > 1:
-        raise EditMarksError(
-            f'End marker is ambiguous – found {end_match.count} occurrences in file.'
-        )
-
-    if end_match.start < start_match.end:
-        raise EditMarksError('End marker must start after start marker ends.')
-
-    result_text = text[:start_match.start] + content + text[end_match.end:]
+    result_text = edit_marks_text(text, start, end, content, exact=exact)
 
     try:
         file_path.write_text(result_text, encoding='utf-8')
