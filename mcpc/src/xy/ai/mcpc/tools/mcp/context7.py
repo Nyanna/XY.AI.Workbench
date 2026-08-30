@@ -6,6 +6,8 @@ Exposes two tools:
 """
 
 
+import re
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from xy.ai.mcpc.config import ServerConfig
@@ -16,6 +18,8 @@ from xy.ai.mcpc.tools.mcp.client import McpClient
 
 __all__ = [
     "Context7Bridge",
+    "Library",
+    "DocumentationSection",
     "context7_libraries",
     "context7_documentation",
     "Context7LibrariesTool",
@@ -26,8 +30,7 @@ __all__ = [
 _RESOLVE_DESCRIPTION = (
     "Search Context7 for a library and return its canonical library ID.\n\n"
     "Best for: Resolving a library name to the ID needed by context7_documentation.\n"
-    "Returns: Ranked list of matching libraries with ID, title, description, "
-    "snippet count, reputation, benchmark score, and available versions."
+    "Returns: Ranked list of matching libraries with library ID, title, and description."
 )
 _RESOLVE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -49,16 +52,23 @@ _RESOLVE_SCHEMA: dict[str, Any] = {
 _RESOLVE_OUTPUT: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "content": {
-            "type": "string",
-            "description": (
-                "Ranked list of matching libraries. Each entry contains "
-                "Context7-compatible library ID, title, description, code snippet count, "
-                "source reputation, benchmark score, and available versions."
-            ),
+        "libraries": {
+            "type": "array",
+            "description": "Ranked list of matching libraries.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "library_id": {
+                        "type": "string",
+                        "description": "Context7-compatible library ID.",
+                    },
+                    "description": {"type": "string"},
+                },
+            },
         },
     },
-    "required": ["content"],
+    "required": ["libraries"],
 }
 
 _QUERY_DOCS_DESCRIPTION = (
@@ -95,15 +105,68 @@ _QUERY_DOCS_SCHEMA: dict[str, Any] = {
 _QUERY_DOCS_OUTPUT: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "content": {
-            "type": "string",
-            "description": "Documentation snippets and code examples relevant to the query.",
+        "sections": {
+            "type": "array",
+            "description": "Documentation sections",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string"},
+                },
+                "required": ["content"],
+            },
         },
     },
-    "required": ["content"],
+    "required": ["sections"],
 }
 
 _RO: dict[str, Any] = {"readOnlyHint": True, "openWorldHint": True}
+
+_NOT_FOUND_TRIGGER = "No documentation found for library"
+_BLOCK_SEPARATOR = re.compile(r"(?m)^-{3,}\s*$")
+_LIBRARY_FIELD = re.compile(r"(?m)^-\s*(.+?):\s*(.*)$")
+
+
+@dataclass(frozen=True, slots=True)
+class Library:
+    """One Context7 library search result."""
+
+    title: str | None = None
+    library_id: str | None = None
+    description: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentationSection:
+    """One documentation section of a Context7 ``queryDocs`` response."""
+
+    content: str
+
+
+def _parse_libraries(text: str) -> list[Library]:
+    libraries: list[Library] = []
+    for block in _BLOCK_SEPARATOR.split(text):
+        fields = {label.strip(): value.strip() for label, value in _LIBRARY_FIELD.findall(block)}
+        if not fields:
+            continue
+        libraries.append(
+            Library(
+                title=fields.get("Title"),
+                library_id=fields.get("Context7-compatible library ID"),
+                description=fields.get("Description"),
+            )
+        )
+    return libraries
+
+
+def _parse_documentation(text: str) -> list[DocumentationSection]:
+    if _NOT_FOUND_TRIGGER in text:
+        raise McpBridgeError(text.strip())
+    return [
+        DocumentationSection(content=section.strip())
+        for section in _BLOCK_SEPARATOR.split(text)
+        if section.strip()
+    ]
 
 
 class Context7Bridge(McpBridge):
@@ -127,7 +190,7 @@ def _get_bridge() -> Context7Bridge:
     return _bridge
 
 
-def context7_libraries(libraryName: str, query: str) -> dict:
+def context7_libraries(libraryName: str, query: str) -> list[Library]:
     """Search Context7 for a library and return its canonical library ID.
 
     Best for: Resolving a library name to the ID needed by
@@ -138,16 +201,16 @@ def context7_libraries(libraryName: str, query: str) -> dict:
         query: User's original question or task, used for relevance ranking.
 
     Returns:
-        Ranked list of matching libraries (ID, title, description, snippet
-        count, reputation, benchmark score, versions).
+        Ranked list of matching libraries (title, library ID, description).
 
     Raises:
         McpBridgeError: if the Context7 call fails.
     """
-    return _get_bridge().call("resolve-library-id", compact(libraryName=libraryName, query=query))
+    result = _get_bridge().call("resolve-library-id", compact(libraryName=libraryName, query=query))
+    return _parse_libraries(result.get("content", ""))
 
 
-def context7_documentation(libraryId: str, query: str) -> dict:
+def context7_documentation(libraryId: str, query: str) -> list[DocumentationSection]:
     """Fetch documentation and code examples for a library from Context7.
 
     Best for: Retrieving accurate API docs, usage examples, and
@@ -163,12 +226,13 @@ def context7_documentation(libraryId: str, query: str) -> dict:
             a single concept.
 
     Returns:
-        Documentation snippets and code examples relevant to the query.
+        Documentation, split into sections on '---' separators.
 
     Raises:
-        McpBridgeError: if the Context7 call fails.
+        McpBridgeError: if the Context7 call fails, or no documentation was found.
     """
-    return _get_bridge().call("query-docs", compact(libraryId=libraryId, query=query))
+    result = _get_bridge().call("query-docs", compact(libraryId=libraryId, query=query))
+    return _parse_documentation(result.get("content", ""))
 
 
 class Context7LibrariesTool(ToolDefinition):
@@ -182,10 +246,10 @@ class Context7LibrariesTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            result = context7_libraries(libraryName=args["libraryName"], query=args["query"])
+            libraries = context7_libraries(libraryName=args["libraryName"], query=args["query"])
         except McpBridgeError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content=result)
+        return ToolResult(structured_content={"libraries": [asdict(library) for library in libraries]})
 
 
 class Context7DocumentationTool(ToolDefinition):
@@ -199,10 +263,10 @@ class Context7DocumentationTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            result = context7_documentation(libraryId=args["libraryId"], query=args["query"])
+            sections = context7_documentation(libraryId=args["libraryId"], query=args["query"])
         except McpBridgeError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content=result)
+        return ToolResult(structured_content={"sections": [asdict(section) for section in sections]})
 
 
 def register_context7_tools(

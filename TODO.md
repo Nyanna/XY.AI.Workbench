@@ -1,5 +1,4 @@
 # TODO
-* types für context7
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
 	* wie wird KI für code umgesetzt das ist doch ineffizient ? jedes mal die ganze datei und kontext einslesen?

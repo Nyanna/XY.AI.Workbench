@@ -132,6 +132,7 @@ def read_file(path: str, min_line: int | None=None, max_line: int | None=None, m
     if not is_full_file and len(text) and (region_end - region_start) > 0.7 * len(text):
         raise ReadError('The requested range selects more than 70% of the file. Read the whole file instead (omit the range parameters) and rely on the checksum-based conditional read to detect unchanged content.')
     sliced = text[region_start:region_end]
+    checksum = hashlib.sha256(sliced.encode('utf-8')).hexdigest()
     return ReadResult(content=sliced, checksum=checksum, is_full_file=is_full_file)
 
 class ReadTool(ToolDefinition):
