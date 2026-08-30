@@ -128,9 +128,10 @@ def read_file(path: str, min_line: int | None=None, max_line: int | None=None, m
         region_end = len(text)
     if region_end < region_start:
         raise ReadError('Resolved end position must not lie before the resolved start position.')
-    sliced = text[region_start:region_end]
-    checksum = hashlib.sha256(sliced.encode('utf-8')).hexdigest()
     is_full_file = min_line is None and max_line is None and (min_char is None) and (max_char is None) and (start is None) and (end is None)
+    if not is_full_file and len(text) and (region_end - region_start) > 0.7 * len(text):
+        raise ReadError('The requested range selects more than 70% of the file. Read the whole file instead (omit the range parameters) and rely on the checksum-based conditional read to detect unchanged content.')
+    sliced = text[region_start:region_end]
     return ReadResult(content=sliced, checksum=checksum, is_full_file=is_full_file)
 
 class ReadTool(ToolDefinition):

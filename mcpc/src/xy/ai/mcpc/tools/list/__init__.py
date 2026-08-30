@@ -39,9 +39,8 @@ def list(path: str, pattern: str | None=None) -> ListResult:
     Returns:
         ListResult with:
             entries: Lines of output, one directory header (e.g. ``./sub:``)
-                followed by its tab-indented file names, then a blank line
-                before the next directory group. Directories without
-                matching files are omitted.
+                followed by its file names. Directories without matching
+                files are omitted.
 
     Raises:
         ListError: If path is not absolute.
@@ -78,10 +77,8 @@ def list(path: str, pattern: str | None=None) -> ListResult:
     entries = []
     for rel_dir in sorted(groups):
         header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
-        if entries:
-            entries.append('')
         entries.append(f'{header}:')
-        entries.extend(f' {name}' for name in groups[rel_dir])
+        entries.extend(groups[rel_dir])
     return ListResult(entries=entries)
 
 class ListTool(ToolDefinition):
