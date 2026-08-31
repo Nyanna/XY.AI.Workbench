@@ -4,11 +4,11 @@
 	* treesitter in ast_generic
 	* nur baum mit list/find/grep und read und replace/edit(block/marker) und remove/create/insert
 	* grep für python? grep musst fragment pfad liefern also ast grep
-	* list prüfen muss aubpfade und kinder anzeigen (beide)
 	* file ops in separate dateien splitten
 	* alle optionen für "generic_" AST, mit pycharm
-	* core engine extrahieren
-
+	* core engine extrahieren, kein prefix auf ending unterscheiden
+	
+* ast list prüfen muss subpfade und kinder anzeigen (beide), -> nur flach
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
 	

@@ -14,7 +14,7 @@ the generic tool-set alias ``python-ast``.
 
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, file_ops, script, replace, outline, find, list
+from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, create_file, delete_file, script, replace, outline, find, list
 
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
@@ -51,7 +51,8 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     replace.register(registry, functions)
     delete.register(registry, functions)
     create.register(registry, functions)
-    file_ops.register(registry, functions)
+    create_file.register(registry, functions)
+    delete_file.register(registry, functions)
     script.register(registry, functions)
     validate.register(registry, functions)
 
