@@ -152,8 +152,8 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: boo
         cmd.append(f'--exclude-dir={name}')
     cmd.append('--no-update')
     env = dict(os.environ)
-    env['XDG_DATA_HOME'] = str(index_root)
-    env['XDG_CONFIG_HOME'] = str(index_root)
+    env['XDG_DATA_HOME'] = str(index_root / '.colgrep')
+    env['XDG_CONFIG_HOME'] = str(index_root / '.colgrep')
     try:
         proc = subprocess.run(cmd, cwd=str(index_root), env=env, input='', capture_output=True, encoding='utf-8', errors='replace')
     except OSError as exc:
