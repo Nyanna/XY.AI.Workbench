@@ -1,4 +1,4 @@
-"""``python_ast_edit`` tool: mark-based edit within the source of a selected node."""
+"""``ast_edit`` tool: mark-based edit within the source of a selected node."""
 
 
 from dataclasses import dataclass
@@ -11,12 +11,12 @@ from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.edit_marks import EditMarksError, edit_marks_text
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["EditNodeResult", "python_ast_edit", "EditNodeTool", "register"]
+__all__ = ["EditNodeResult", "ast_edit", "EditNodeTool", "register"]
 
 
 @dataclass(frozen=True)
 class EditNodeResult:
-    """Result of :func:`python_ast_edit`.
+    """Result of :func:`ast_edit`.
 
     Attributes:
         result: Always ``"success"``.
@@ -25,7 +25,7 @@ class EditNodeResult:
     result: str
 
 
-def python_ast_edit(
+def ast_edit(
     path: str,
     start: str,
     end: str,
@@ -67,7 +67,7 @@ def python_ast_edit(
             syntax error.
     """
     if not any((qualified_name, name, node_type, lineno, end_lineno, parent_type)):
-        raise core.AstError("A node selector is required; python_ast_edit targets a node's content, not the whole file.")
+        raise core.AstError("A node selector is required; ast_edit targets a node's content, not the whole file.")
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
     target = select_one(
@@ -91,7 +91,7 @@ def python_ast_edit(
 
 
 class EditNodeTool(ToolDefinition):
-    name = "python_ast_edit"
+    name = "ast_edit"
     title = "Edit AST node"
     description = (
         "Replace everything strictly between and including the unique 'start' and 'end' "
@@ -127,10 +127,10 @@ class EditNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_edit`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_edit`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_edit(
+            result = ast_edit(
                 args["path"],
                 args["start"],
                 args["end"],
@@ -150,4 +150,4 @@ class EditNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditNodeTool())
-    functions.register(python_ast_edit)
+    functions.register(ast_edit)

@@ -1,4 +1,4 @@
-"""``python_ast_find`` tool: find AST nodes by type, name, qualified name, line range or parent type."""
+"""``ast_find`` tool: find AST nodes by type, name, qualified name, line range or parent type."""
 
 
 from dataclasses import asdict, dataclass
@@ -10,12 +10,12 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, list_output_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["FindNodesResult", "python_ast_find", "FindNodesTool", "register"]
+__all__ = ["FindNodesResult", "ast_find", "FindNodesTool", "register"]
 
 
 @dataclass(frozen=True)
 class FindNodesResult:
-    """Result of :func:`python_ast_find`.
+    """Result of :func:`ast_find`.
 
     Attributes:
         nodes: Outline-style node descriptions (see :class:`core.OutlineNode`)
@@ -27,7 +27,7 @@ class FindNodesResult:
     count: int
 
 
-def python_ast_find(
+def ast_find(
     path: str | None = None,
     code: str | None = None,
     *,
@@ -75,7 +75,7 @@ def python_ast_find(
 
 
 class FindNodesTool(ToolDefinition):
-    name = "python_ast_find"
+    name = "ast_find"
     title = "Find AST nodes"
     description = "Find AST nodes by type, name, qualified name, line range or parent type."
     input_schema = {
@@ -91,10 +91,10 @@ class FindNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_find`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_find`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_find(
+            result = ast_find(
                 path=args.get("path"),
                 code=args.get("code"),
                 qualified_name=args.get("qualified_name"),
@@ -111,4 +111,4 @@ class FindNodesTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FindNodesTool())
-    functions.register(python_ast_find)
+    functions.register(ast_find)

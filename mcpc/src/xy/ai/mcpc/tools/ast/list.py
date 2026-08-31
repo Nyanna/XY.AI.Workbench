@@ -1,4 +1,4 @@
-"""``python_ast_list`` tool: list AST nodes of a file or source snippet."""
+"""``ast_list`` tool: list AST nodes of a file or source snippet."""
 
 
 from dataclasses import asdict, dataclass
@@ -10,12 +10,12 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import list_output_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["ListNodesResult", "python_ast_list", "ListNodesTool", "register"]
+__all__ = ["ListNodesResult", "ast_list", "ListNodesTool", "register"]
 
 
 @dataclass(frozen=True)
 class ListNodesResult:
-    """Result of :func:`python_ast_list`.
+    """Result of :func:`ast_list`.
 
     Attributes:
         nodes: Outline-style node descriptions (see :class:`core.OutlineNode`), in
@@ -27,7 +27,7 @@ class ListNodesResult:
     count: int
 
 
-def python_ast_list(path: str | None = None, code: str | None = None, node_type: str | None = None) -> ListNodesResult:
+def ast_list(path: str | None = None, code: str | None = None, node_type: str | None = None) -> ListNodesResult:
     """List AST nodes (imports, classes, functions, statements) of a file or source snippet.
 
     Args:
@@ -56,7 +56,7 @@ def python_ast_list(path: str | None = None, code: str | None = None, node_type:
 
 
 class ListNodesTool(ToolDefinition):
-    name = "python_ast_list"
+    name = "ast_list"
     title = "List AST nodes"
     description = "List AST nodes (imports, classes, functions, statements) of a Python file, optionally filtered by type."
     input_schema = {
@@ -72,10 +72,10 @@ class ListNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_list`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_list`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
+            result = ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes], "count": result.count})
@@ -83,4 +83,4 @@ class ListNodesTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())
-    functions.register(python_ast_list)
+    functions.register(ast_list)

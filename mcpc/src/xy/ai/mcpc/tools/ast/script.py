@@ -1,4 +1,4 @@
-"""``python_ast_script`` – run restricted Python against the parsed AST.
+"""``ast_script`` – run restricted Python against the parsed AST.
 
 For complex reorganisation/optimisation the model can operate on the tree
 directly. The script runs with an empty ``__builtins__`` plus a small, curated
@@ -16,7 +16,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["ScriptError", "AstScriptResult", "python_ast_script", "ScriptTool", "register"]
+__all__ = ["ScriptError", "AstScriptResult", "ast_script", "ScriptTool", "register"]
 
 _SAFE_BUILTINS = {
     name: getattr(__builtins__, name, None) if not isinstance(__builtins__, dict)
@@ -36,7 +36,7 @@ class ScriptError(Exception):
 
 @dataclass(frozen=True)
 class AstScriptResult:
-    """Result of :func:`python_ast_script`.
+    """Result of :func:`ast_script`.
 
     Attributes:
         result: Always ``"success"``.
@@ -48,7 +48,7 @@ class AstScriptResult:
     value: str | None = None
 
 
-def python_ast_script(path: str, code: str) -> AstScriptResult:
+def ast_script(path: str, code: str) -> AstScriptResult:
     """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``.
 
     ``code`` runs with an empty ``__builtins__`` plus a small, curated set of safe
@@ -88,7 +88,7 @@ def python_ast_script(path: str, code: str) -> AstScriptResult:
 
 
 class ScriptTool(ToolDefinition):
-    name = "python_ast_script"
+    name = "ast_script"
     title = "Run AST script"
     description = (
         "Run restricted Python against a file's AST for complex/incremental "
@@ -115,10 +115,10 @@ class ScriptTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_script`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_script`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_script(args["path"], args["code"])
+            result = ast_script(args["path"], args["code"])
         except (core.AstError, ScriptError) as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
 
@@ -130,4 +130,4 @@ class ScriptTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ScriptTool())
-    functions.register(python_ast_script)
+    functions.register(ast_script)

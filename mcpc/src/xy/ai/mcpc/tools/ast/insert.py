@@ -1,4 +1,4 @@
-"""``python_ast_insert`` tool: insert statement(s) relative to a selected node."""
+"""``ast_insert`` tool: insert statement(s) relative to a selected node."""
 
 
 from dataclasses import dataclass
@@ -10,12 +10,12 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["InsertNodeResult", "python_ast_insert", "InsertNodeTool", "register"]
+__all__ = ["InsertNodeResult", "ast_insert", "InsertNodeTool", "register"]
 
 
 @dataclass(frozen=True)
 class InsertNodeResult:
-    """Result of :func:`python_ast_insert`.
+    """Result of :func:`ast_insert`.
 
     Attributes:
         result: Always ``"success"``.
@@ -26,7 +26,7 @@ class InsertNodeResult:
     inserted: int
 
 
-def python_ast_insert(
+def ast_insert(
     path: str,
     code: str,
     *,
@@ -79,7 +79,7 @@ def python_ast_insert(
 
 
 class InsertNodeTool(ToolDefinition):
-    name = "python_ast_insert"
+    name = "ast_insert"
     title = "Insert AST node"
     description = "Insert statement(s) parsed from code relative to a selected node ('before' or 'after')."
     input_schema = {
@@ -105,10 +105,10 @@ class InsertNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_insert`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_insert`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_insert(
+            result = ast_insert(
                 args["path"],
                 args["code"],
                 position=args.get("position", "after"),
@@ -126,4 +126,4 @@ class InsertNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(InsertNodeTool())
-    functions.register(python_ast_insert)
+    functions.register(ast_insert)

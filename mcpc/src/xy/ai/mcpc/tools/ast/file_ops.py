@@ -1,4 +1,4 @@
-"""Whole-file operations: ``python_ast_create_file`` and ``python_ast_delete_file``."""
+"""Whole-file operations: ``ast_create_file`` and ``ast_delete_file``."""
 
 
 from dataclasses import dataclass
@@ -11,8 +11,8 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = [
     "AstFileResult",
-    "python_ast_create_file",
-    "python_ast_delete_file",
+    "ast_create_file",
+    "ast_delete_file",
     "CreateFileTool",
     "DeleteFileTool",
     "register",
@@ -21,7 +21,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class AstFileResult:
-    """Result of :func:`python_ast_create_file` / :func:`python_ast_delete_file`.
+    """Result of :func:`ast_create_file` / :func:`ast_delete_file`.
 
     Attributes:
         result: Always ``"success"``.
@@ -30,7 +30,7 @@ class AstFileResult:
     result: str
 
 
-def python_ast_create_file(path: str, code: str, overwrite: bool = False) -> AstFileResult:
+def ast_create_file(path: str, code: str, overwrite: bool = False) -> AstFileResult:
     """Create a new Python file at ``path`` from ``code`` (validated by parsing it).
 
     Args:
@@ -54,7 +54,7 @@ def python_ast_create_file(path: str, code: str, overwrite: bool = False) -> Ast
     return AstFileResult(result="success")
 
 
-def python_ast_delete_file(path: str) -> AstFileResult:
+def ast_delete_file(path: str) -> AstFileResult:
     """Delete the Python file at ``path`` and drop it from the AST cache.
 
     Args:
@@ -77,7 +77,7 @@ def python_ast_delete_file(path: str) -> AstFileResult:
 
 
 class CreateFileTool(ToolDefinition):
-    name = "python_ast_create_file"
+    name = "ast_create_file"
     title = "Create Python file"
     description = "Create a new Python file from source text (validated by parsing it through the AST)."
     input_schema = {
@@ -101,10 +101,10 @@ class CreateFileTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_create_file`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_create_file`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_create_file(
+            result = ast_create_file(
                 path=args["path"], code=args["code"], overwrite=args.get("overwrite", False)
             )
         except core.AstError as exc:
@@ -113,7 +113,7 @@ class CreateFileTool(ToolDefinition):
 
 
 class DeleteFileTool(ToolDefinition):
-    name = "python_ast_delete_file"
+    name = "ast_delete_file"
     title = "Delete Python file"
     description = "Delete a Python file and drop it from the AST cache."
     input_schema = {
@@ -131,9 +131,9 @@ class DeleteFileTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_delete_file`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_delete_file`, translating the MCP schema to/from the Python API."""
         try:
-            result = python_ast_delete_file(ctx.arguments["path"])
+            result = ast_delete_file(ctx.arguments["path"])
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"result": result.result}, auto_approve=True)
@@ -142,5 +142,5 @@ class DeleteFileTool(ToolDefinition):
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(CreateFileTool())
     registry.register(DeleteFileTool())
-    functions.register(python_ast_create_file)
-    functions.register(python_ast_delete_file)
+    functions.register(ast_create_file)
+    functions.register(ast_delete_file)

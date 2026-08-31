@@ -1,4 +1,4 @@
-"""``python_ast_delete`` tool: delete the single selected node from a Python file."""
+"""``ast_delete`` tool: delete the single selected node from a Python file."""
 
 
 from dataclasses import dataclass
@@ -10,12 +10,12 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["DeleteNodeResult", "python_ast_delete", "DeleteNodeTool", "register"]
+__all__ = ["DeleteNodeResult", "ast_delete", "DeleteNodeTool", "register"]
 
 
 @dataclass(frozen=True)
 class DeleteNodeResult:
-    """Result of :func:`python_ast_delete`.
+    """Result of :func:`ast_delete`.
 
     Attributes:
         result: Always ``"success"``.
@@ -24,7 +24,7 @@ class DeleteNodeResult:
     result: str
 
 
-def python_ast_delete(
+def ast_delete(
     path: str,
     *,
     qualified_name: str | None = None,
@@ -69,7 +69,7 @@ def python_ast_delete(
 
 
 class DeleteNodeTool(ToolDefinition):
-    name = "python_ast_delete"
+    name = "ast_delete"
     title = "Delete AST node"
     description = "Delete the single selected node from a Python file."
     input_schema = {
@@ -88,10 +88,10 @@ class DeleteNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_delete`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_delete`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_delete(
+            result = ast_delete(
                 args["path"],
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
@@ -107,4 +107,4 @@ class DeleteNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(DeleteNodeTool())
-    functions.register(python_ast_delete)
+    functions.register(ast_delete)

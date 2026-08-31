@@ -1,4 +1,4 @@
-"""``python_ast_create`` tool: append statement(s) to a Python file's top level."""
+"""``ast_create`` tool: append statement(s) to a Python file's top level."""
 
 
 from dataclasses import dataclass
@@ -9,12 +9,12 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["CreateNodeResult", "python_ast_create", "CreateNodeTool", "register"]
+__all__ = ["CreateNodeResult", "ast_create", "CreateNodeTool", "register"]
 
 
 @dataclass(frozen=True)
 class CreateNodeResult:
-    """Result of :func:`python_ast_create`.
+    """Result of :func:`ast_create`.
 
     Attributes:
         result: Always ``"success"``.
@@ -25,7 +25,7 @@ class CreateNodeResult:
     created: int
 
 
-def python_ast_create(path: str, code: str) -> CreateNodeResult:
+def ast_create(path: str, code: str) -> CreateNodeResult:
     """Append statement(s) parsed from ``code`` to a Python file's top level.
 
     Args:
@@ -48,7 +48,7 @@ def python_ast_create(path: str, code: str) -> CreateNodeResult:
 
 
 class CreateNodeTool(ToolDefinition):
-    name = "python_ast_create"
+    name = "ast_create"
     title = "Create AST node"
     description = "Append statement(s) parsed from code to a Python file's top level (creating the file if needed)."
     input_schema = {
@@ -67,10 +67,10 @@ class CreateNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_create`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_create`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_create(args["path"], args["code"])
+            result = ast_create(args["path"], args["code"])
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"result": result.result, "created": result.created}, auto_approve=True)
@@ -78,4 +78,4 @@ class CreateNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(CreateNodeTool())
-    functions.register(python_ast_create)
+    functions.register(ast_create)

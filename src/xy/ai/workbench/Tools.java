@@ -5,7 +5,7 @@ public class Tools {
 			"ask_user,tools," // top
 					+ "file_stats,read_file,list,grep," // retrieve
 					+ "write,edit_marks,edit_line,edit_block,edit_lines," // edit tools
-					+ "python_ast,python_ast_script," // python ast
+					+ "ast,ast_script," // python ast
 					+ "bash,python," // scripting
 					+ "markdown,markdown_format," // Dynamic code tools
 					+ "colgrep,web_search_exa,web_fetch_exa," // research cpabilities

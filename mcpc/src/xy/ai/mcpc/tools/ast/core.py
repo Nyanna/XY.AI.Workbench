@@ -1,4 +1,4 @@
-"""Shared AST machinery for the ``python_ast_*`` tool family.
+"""Shared AST machinery for the ``ast_*`` tool family.
 
 Central pieces:
 

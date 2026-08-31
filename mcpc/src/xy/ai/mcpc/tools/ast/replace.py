@@ -1,4 +1,4 @@
-"""``python_ast_replace`` tool: replace the single selected node with new source."""
+"""``ast_replace`` tool: replace the single selected node with new source."""
 
 
 from dataclasses import dataclass
@@ -10,12 +10,12 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["ReplaceNodeResult", "python_ast_replace", "ReplaceNodeTool", "register"]
+__all__ = ["ReplaceNodeResult", "ast_replace", "ReplaceNodeTool", "register"]
 
 
 @dataclass(frozen=True)
 class ReplaceNodeResult:
-    """Result of :func:`python_ast_replace`.
+    """Result of :func:`ast_replace`.
 
     Attributes:
         result: Always ``"success"``.
@@ -24,7 +24,7 @@ class ReplaceNodeResult:
     result: str
 
 
-def python_ast_replace(
+def ast_replace(
     path: str,
     code: str,
     *,
@@ -72,7 +72,7 @@ def python_ast_replace(
 
 
 class ReplaceNodeTool(ToolDefinition):
-    name = "python_ast_replace"
+    name = "ast_replace"
     title = "Replace AST node"
     description = "Replace the single selected node with statement(s) parsed from code."
     input_schema = {
@@ -92,10 +92,10 @@ class ReplaceNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_replace`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_replace`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_replace(
+            result = ast_replace(
                 args["path"],
                 args["code"],
                 qualified_name=args.get("qualified_name"),
@@ -112,4 +112,4 @@ class ReplaceNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())
-    functions.register(python_ast_replace)
+    functions.register(ast_replace)

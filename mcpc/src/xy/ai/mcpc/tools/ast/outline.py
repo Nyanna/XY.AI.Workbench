@@ -1,4 +1,4 @@
-"""``python_ast_outline`` – compact structural overview of Python files."""
+"""``ast_outline`` – compact structural overview of Python files."""
 
 import ast
 from dataclasses import asdict, dataclass, field
@@ -16,7 +16,7 @@ __all__ = [
     "FileOutline",
     "OutlineFailure",
     "OutlineResult",
-    "python_ast_outline",
+    "ast_outline",
     "OutlineTool",
     "register",
 ]
@@ -55,7 +55,7 @@ class OutlineFailure:
 
 @dataclass(frozen=True)
 class OutlineResult:
-    """Result of :func:`python_ast_outline`.
+    """Result of :func:`ast_outline`.
 
     Attributes:
         files: Successfully outlined files, in the given order.
@@ -99,7 +99,7 @@ def _outline_one(path_str: str) -> FileOutline | OutlineFailure:
     )
 
 
-def python_ast_outline(paths: list[str]) -> OutlineResult:
+def ast_outline(paths: list[str]) -> OutlineResult:
     """Build a structural outline (module-level nodes, nested classes, stats) for each of ``paths``.
 
     Per-file failures (e.g. a non-existent or unparsable file) are reported in
@@ -149,7 +149,7 @@ _OUTLINE_FAILURE_SCHEMA = {
 
 
 class OutlineTool(ToolDefinition):
-    name = "python_ast_outline"
+    name = "ast_outline"
     title = "Python outline"
     description = (
         "Token-efficient structural overview of Python files: file metrics plus "
@@ -180,12 +180,12 @@ class OutlineTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_outline`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_outline`, translating the MCP schema to/from the Python API."""
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
         try:
-            result = python_ast_outline(paths)
+            result = ast_outline(paths)
         except OutlineError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
 
@@ -199,4 +199,4 @@ class OutlineTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(OutlineTool())
-    functions.register(python_ast_outline)
+    functions.register(ast_outline)

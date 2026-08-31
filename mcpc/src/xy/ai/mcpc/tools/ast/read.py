@@ -1,4 +1,4 @@
-"""``python_ast_read`` tool: recursively read a node's subtree for block-wise edit/replace."""
+"""``ast_read`` tool: recursively read a node's subtree for block-wise edit/replace."""
 
 import ast
 from dataclasses import asdict, dataclass, field
@@ -10,7 +10,7 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["ReadNode", "ReadNodeResult", "python_ast_read", "ReadNodeTool", "register"]
+__all__ = ["ReadNode", "ReadNodeResult", "ast_read", "ReadNodeTool", "register"]
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class ReadNode:
         type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"FunctionDef"``.
         qualified_name: Dotted path, for classes/functions/imports only; ``None`` otherwise.
         lines: Line number, or a ``"start-end"`` range if the node spans several lines.
-        code: The node's full source, usable as-is with ``python_ast_replace``; ``None``
+        code: The node's full source, usable as-is with ``ast_replace``; ``None``
             if the node's body consists solely of the nested classes/functions listed
             in ``children`` (whose source is then given by those children instead).
         children: Nested read entries, populated only when ``code`` is ``None``.
@@ -36,7 +36,7 @@ class ReadNode:
 
 @dataclass(frozen=True)
 class ReadNodeResult:
-    """Result of :func:`python_ast_read`.
+    """Result of :func:`ast_read`.
 
     Attributes:
         node: The selected node, expanded recursively.
@@ -73,7 +73,7 @@ def _read_node(node: ast.stmt, qualified_name: str | None) -> ReadNode:
     )
 
 
-def python_ast_read(
+def ast_read(
     path: str | None = None,
     code: str | None = None,
     *,
@@ -89,7 +89,7 @@ def python_ast_read(
     A node whose body consists solely of nested classes/functions is expanded into
     ``children`` instead of source, so the agent can descend to the innermost block
     that actually needs editing; any other node is returned whole, as ``code`` ready
-    to hand back to ``python_ast_replace`` via its ``qualified_name``.
+    to hand back to ``ast_replace`` via its ``qualified_name``.
 
     Args:
         path: Absolute path to the Python file to read. Mutually usable with ``code``;
@@ -135,7 +135,7 @@ _READ_NODE_SCHEMA = {
         "code": {
             "type": ["string", "null"],
             "description": (
-                "Full source of this node, ready for python_ast_replace; null if the node "
+                "Full source of this node, ready for ast_replace; null if the node "
                 "consists solely of the nested classes/functions listed in 'children'."
             ),
         },
@@ -146,11 +146,11 @@ _READ_NODE_SCHEMA = {
 
 
 class ReadNodeTool(ToolDefinition):
-    name = "python_ast_read"
+    name = "ast_read"
     title = "Read AST subtree"
     description = (
         "Recursively read the selected node's subtree, surfacing each block's qualified "
-        "name and source so it can be handed back to python_ast_replace. Nodes whose body "
+        "name and source so it can be handed back to ast_replace. Nodes whose body "
         "consists solely of nested classes/functions are expanded into 'children' instead "
         "of source, letting the agent descend to the innermost block that needs editing."
     )
@@ -172,10 +172,10 @@ class ReadNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`python_ast_read`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_read`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = python_ast_read(
+            result = ast_read(
                 path=args.get("path"),
                 code=args.get("code"),
                 qualified_name=args.get("qualified_name"),
@@ -192,4 +192,4 @@ class ReadNodeTool(ToolDefinition):
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadNodeTool())
-    functions.register(python_ast_read)
+    functions.register(ast_read)

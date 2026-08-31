@@ -1,4 +1,4 @@
-"""Selector machinery shared by the ``python_ast_{find,read,insert,replace,delete}`` tools."""
+"""Selector machinery shared by the ``ast_{find,read,insert,replace,delete}`` tools."""
 
 
 from typing import Any

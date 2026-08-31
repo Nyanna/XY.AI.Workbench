@@ -1,4 +1,4 @@
-"""``python_ast_*`` tool family built on the standard-library ``ast`` module.
+"""``ast_*`` tool family built on the standard-library ``ast`` module.
 
 A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
@@ -18,29 +18,29 @@ from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, f
 
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
-ALIAS = "python-ast"
+ALIAS = "ast"
 _ALIAS_MEMBERS = (
-    "python_ast_outline",
-    "python_ast_list",
-    "python_ast_find",
-    "python_ast_read",
-    "python_ast_insert",
-    "python_ast_edit",
-    "python_ast_replace",
-    "python_ast_delete",
-    "python_ast_create",
-    "python_ast_create_file",
-    "python_ast_delete_file",
-    "python_ast_imports",
-    "python_ast_classes",
-    "python_ast_functions",
-    "python_ast_replace_block",
-    "python_ast_validate",
+    "ast_outline",
+    "ast_list",
+    "ast_find",
+    "ast_read",
+    "ast_insert",
+    "ast_edit",
+    "ast_replace",
+    "ast_delete",
+    "ast_create",
+    "ast_create_file",
+    "ast_delete_file",
+    "ast_imports",
+    "ast_classes",
+    "ast_functions",
+    "ast_replace_block",
+    "ast_validate",
 )
 
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    """Register every ``python_ast_*`` tool and the ``python-ast`` alias."""
+    """Register every ``ast_*`` tool and the ``ast`` alias."""
 
     outline.register(registry, functions)
     list.register(registry, functions)
