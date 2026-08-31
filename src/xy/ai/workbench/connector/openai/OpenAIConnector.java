@@ -129,7 +129,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 			ResponseUsage usage = resp.usage().get();
 			res.stats.inputToken = usage.inputTokens();
 			res.stats.outputToken = usage.outputTokens();
-			res.stats.totalinToken = usage.totalTokens();
+			res.stats.totalToken = usage.totalTokens();
 			if (usage.outputTokensDetails() != null)
 				res.stats.reasoningToken = usage.outputTokensDetails().reasoningTokens();
 		}

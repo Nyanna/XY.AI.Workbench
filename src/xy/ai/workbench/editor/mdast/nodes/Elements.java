@@ -50,7 +50,8 @@ public class Elements {
 		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
 		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
-		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT);
+		public static final PrefixBlock RESULT = new PrefixBlock(ProtocolParser.RESULT);
+		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
 	}
 
 	public static class Tools {
@@ -99,7 +100,8 @@ public class Elements {
 				Agent.TOOLUSE, //
 				Agent.REASONING_TOKEN, //
 				Agent.TOKEN_STATS, //
-				Agent.SYSTEM_INIT //
+				Agent.SYSTEM_INIT, //
+				Agent.RESULT //
 		);
 		private static final AbstractNode[] AGENT_ELEMENTS = concat( //
 				AGENT_ONLY, //
@@ -122,6 +124,7 @@ public class Elements {
 							Agent.REASONING_TOKEN, //
 							Agent.TOKEN_STATS, //
 							Agent.SYSTEM_INIT, //
+							Agent.RESULT, //
 							Basics.PARAGRAPH //
 					));
 		}

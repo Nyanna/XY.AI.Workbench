@@ -14,9 +14,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.models.TokenStats;
 
 public class ProtocolParser {
 	public static final String SYSTEM_INIT = "SystemInit: ";
+	public static final String RESULT = "Result Stats: ";
 	public static final String REASONING_TOKEN = "ReasoningToken: ";
 	public static final String THINKING = "Thinking:";
 	public static final String TOKEN_STATS = "Token Usage: ";
@@ -109,13 +111,17 @@ public class ProtocolParser {
 		if (modelUsage.isObject()) {
 			@SuppressWarnings("deprecation")
 			Iterator<Entry<String, JsonNode>> fields = modelUsage.fields();
+			TokenStats stats = new TokenStats();
 			fields.forEachRemaining(entry -> {
 				JsonNode usage = entry.getValue();
-				resp.stats.inputToken += usage.path("inputTokens").asLong(0);
-				resp.stats.outputToken += usage.path("outputTokens").asLong(0);
-				resp.stats.cacheRead += usage.path("cacheReadInputTokens").asLong(0);
-				resp.stats.cacheCreate += usage.path("cacheCreationInputTokens").asLong(0);
+				stats.inputToken += usage.path("inputTokens").asLong(0);
+				stats.outputToken += usage.path("outputTokens").asLong(0);
+				stats.cacheRead += usage.path("cacheReadInputTokens").asLong(0);
+				stats.cacheCreate += usage.path("cacheCreationInputTokens").asLong(0);
 			});
+			resp.stats.add(stats);
+			String metadata = String.format("%s id=%s, %s", RESULT, session.getID(), stats.print());
+			resp.events.putIfAbsent("result\0metadata", metadata);
 		}
 	}
 
@@ -270,7 +276,7 @@ public class ProtocolParser {
 				}
 			}
 
-			String metadata = String.format("%s id=%s, cwd=%s, model=%s", SYSTEM_INIT, 					sessionId, cwd, model);
+			String metadata = String.format("%s id=%s, cwd=%s, model=%s", SYSTEM_INIT, sessionId, cwd, model);
 			assistantEvents.putIfAbsent("system_init\0metadata", metadata);
 		} catch (Exception e) {
 			LOG.error("Failed to parse system init event", e);

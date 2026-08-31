@@ -4,7 +4,7 @@ public class TokenStats {
 	public long inputToken;
 	public long outputToken;
 	public long reasoningToken;
-	public long totalinToken;
+	public long totalToken;
 	public long cacheRead;
 	public long cacheCreate;
 
@@ -12,11 +12,11 @@ public class TokenStats {
 	public String toString() {
 		return String.format(
 				"TokenStats [inputToken=%s, outputToken=%s, reasoningToken=%s, totalInToken=%s, cacheRead=%s, cacheCreate=%s]",
-				inputToken, outputToken, reasoningToken, totalinToken, cacheRead, cacheCreate);
+				inputToken, outputToken, reasoningToken, totalToken, cacheRead, cacheCreate);
 	}
 
 	public String print() {
-		return String.format("total in: %s, out: %s, reason: %s, read: %s, write: %s, in: %s", totalinToken, inputToken,
+		return String.format("total: %s, out: %s, reason: %s, read: %s, write: %s, in: %s", totalToken, inputToken,
 				outputToken, reasoningToken, cacheRead, cacheCreate);
 	}
 
@@ -24,7 +24,7 @@ public class TokenStats {
 		inputToken += stats.inputToken;
 		outputToken += stats.outputToken;
 		reasoningToken += stats.reasoningToken;
-		totalinToken += stats.totalinToken;
+		totalToken += stats.totalToken;
 		cacheRead += stats.cacheRead;
 		cacheCreate += stats.cacheCreate;
 	}

@@ -182,7 +182,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
 			if (resp.isReady()) {
 				session.stats.add(resp.stats);
-				session.stats.totalinToken = session.stats.inputToken + session.stats.cacheCreate;
+				session.stats.totalToken = session.stats.inputToken + session.stats.cacheCreate;
 				return resp;
 			}
 			sessionManager.onSessionChanged(session);
@@ -227,10 +227,10 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
-		answer.stats.inputToken = resp.stats.inputToken + resp.stats.cacheCreate;
+		answer.stats.inputToken = resp.stats.inputToken;
 		answer.stats.outputToken = resp.stats.outputToken;
 		answer.stats.reasoningToken = resp.stats.reasoningToken;
-		answer.stats.totalinToken = answer.stats.inputToken + answer.stats.outputToken;
+		answer.stats.totalToken = answer.stats.inputToken + answer.stats.outputToken;
 		answer.stats.cacheRead = resp.stats.cacheRead;
 		answer.stats.cacheCreate = resp.stats.cacheCreate;
 		answer.answer = resp.resultText;

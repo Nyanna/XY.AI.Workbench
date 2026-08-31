@@ -7,18 +7,13 @@
 	* list prüfen muss aubpfade und kinder anzeigen (beide)
 	* python crud_ prefix umbenennen -> common.js, file ops in separate dateien splitten
 	* alle optionen für "all_" AST, mit pycharm
-	
-* colgrep unterhalb von 3 zeichen nur semantic kein keyword
-	* no update --no-update, --semantic-only, --alpha 0.9 (0-1 semantik)
 
-* anzeige für tokens verbesser, in zu out ist 10:1, also besser tool description optimieren als falsche benutzung, thinking farblich abgrenzen und token mit in chatverlauf bei result, result oken mit besser Result metausgabe
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
-	* wie wird KI für code umgesetzt das ist doch ineffizient ? jedes mal die ganze datei und kontext einslesen?
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect
-* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten?
+* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen?
 
 ##  Workbench  
 

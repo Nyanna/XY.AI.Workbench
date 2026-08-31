@@ -532,7 +532,7 @@ public class AISessionView extends ViewPart {
 			footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
 			usageLog = toolkit.createText(footer, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
-			usageLog.setText("Total In, Out, Reason, Cached, Created, In\n");
+			usageLog.setText("Total, Out, Reason, Cached, Created, In\n");
 			GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 			gridData.heightHint = 50;
 			usageLog.setLayoutData(gridData);
@@ -543,9 +543,9 @@ public class AISessionView extends ViewPart {
 				if (a != null && a.stats.inputToken > 0) {
 					String text = usageLog.getText();
 					if (text == null || text.isEmpty())
-						text = "Total In, Out, Reason, Cached, Created, In\n";
+						text = "Total, Out, Reason, CRead, CCreate, In\n";
 
-					String newtext = String.format("%6d,%6d,%5d,%6d,%6d,%6d\n", a.stats.totalinToken,
+					String newtext = String.format("%6d,%6d,%5d,%6d,%6d,%6d\n", a.stats.totalToken,
 							a.stats.outputToken, a.stats.reasoningToken, a.stats.cacheRead, a.stats.cacheCreate,
 							a.stats.inputToken);
 					int idx = text.indexOf('\n');
