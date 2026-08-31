@@ -17,6 +17,11 @@ _CONTEXT_LINES = '2'
 _DEFAULT_RESULTS = 15
 _MAX_RESULTS = 50
 _MAX_CODE_LEN = 100
+_SEMANTIC_ONLY_MAX_LEN = 4
+_ALPHA_RAMP_MIN_LEN = 5
+_ALPHA_RAMP_MAX_LEN = 10
+_ALPHA_RAMP_START = 0.9
+_ALPHA_RAMP_END = 0.6
 _DROPPED_KEYS = frozenset({'language', 'signature', 'qualified_name', 'unit_type', 'complexity', 'has_loops', 'has_branches', 'has_error_handling', 'extends', 'parent_class', 'variables', 'name', 'return_type', 'calls', 'imports', 'parameters'})
 
 class ColgrepError(Exception):
@@ -25,7 +30,6 @@ class ColgrepError(Exception):
 @dataclass(frozen=True)
 class ColgrepResult:
     results: list[Any] = field(default_factory=list)
-    count: int = 0
 
 def _find_index_root(start: Path) -> Path | None:
     """Climb from *start* up to the filesystem root looking for a colgrep index.
@@ -66,44 +70,53 @@ def _clean_result(value: Any) -> Any:
         return [_clean_result(item) for item in value]
     return value
 
-def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only: bool=False, code_only: bool=False, files_only: bool=False, full_content: bool=False, include: list[str] | None=None, exclude: list[str] | None=None, exclude_dir: list[str] | None=None) -> ColgrepResult:
+def _search_mode_for_query(query: str) -> tuple[bool, float | None]:
+    """Derive (semantic_only, alpha) from the query length.
+
+    <= _SEMANTIC_ONLY_MAX_LEN chars: semantic-only search, no alpha.
+    _ALPHA_RAMP_MIN_LEN.._ALPHA_RAMP_MAX_LEN chars: alpha ramps linearly from
+    _ALPHA_RAMP_START down to _ALPHA_RAMP_END.
+    Longer queries: alpha fixed at _ALPHA_RAMP_END.
+    """
+    length = len(query)
+    if length <= _SEMANTIC_ONLY_MAX_LEN:
+        return (True, None)
+    if length >= _ALPHA_RAMP_MAX_LEN:
+        return (False, _ALPHA_RAMP_END)
+    span = _ALPHA_RAMP_MAX_LEN - _ALPHA_RAMP_MIN_LEN
+    fraction = (_ALPHA_RAMP_MAX_LEN - length) / span
+    alpha = _ALPHA_RAMP_END + fraction * (_ALPHA_RAMP_START - _ALPHA_RAMP_END)
+    return (False, round(alpha, 2))
+
+def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: bool=False, files_only: bool=False, include: list[str] | None=None, exclude: list[str] | None=None, exclude_dir: list[str] | None=None) -> ColgrepResult:
     """Search colgrep index for code matching query.
-    
+
     Searches the colgrep index covering the given path using semantic and/or
     keyword matching. The tool climbs up from path to find the index root.
-    
+    The search mode (semantic-only vs. keyword/semantic fusion via alpha) is
+    derived automatically from the query length, see ``_search_mode_for_query``.
+
     Args:
         path: Absolute directory path to search within (must be a directory).
         query: Non-empty search query (semantic, keyword, or combined).
         results: Number of results to return (minimum 1, maximum 50). Default: 15.
-        semantic_only: If True, use only semantic matching (skip keyword search).
         code_only: If True, search only code (skip comments, docs).
-        files_only: If True, return only file paths without content. Mutually
-                    exclusive with full_content.
-        full_content: If True, return full file content. Mutually exclusive with
-                      files_only.
+        files_only: If True, return only file paths without content; otherwise
+                    each result includes a code snippet truncated to 100 chars.
         include: Optional list of glob patterns to include in search.
         exclude: Optional list of glob patterns to exclude from search.
         exclude_dir: Optional list of directory names to exclude from search.
-    
+
     Returns:
-        ColgrepResult with:
-            results: List of matched results (each cleaned to max 100 char code snippets).
-            count: Number of results returned.
-    
+        ColgrepResult with results: list of matched results (each cleaned to
+        max 100 char code snippets, unless files_only).
+
     Raises:
         ColgrepError: If path is not absolute or not a directory.
         ColgrepError: If query is empty.
         ColgrepError: If results not in range [1, 50].
-        ColgrepError: If files_only and full_content are both True.
         ColgrepError: If no colgrep index found in path or parent directories.
         ColgrepError: If colgrep binary fails or returns unparseable JSON.
-    
-    Note:
-        Index location: Climbs from path up to find .colgrep/colgrep/indices.
-        Context lines in results: 2 lines of context around matches.
-        Result cleaning: Fields like language, signature, variables are dropped.
-        Code snippets are truncated to 100 characters.
     """
     include = include or []
     exclude = exclude or []
@@ -115,23 +128,22 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only:
         raise ColgrepError('path must be an absolute path.')
     if not search_path.is_dir():
         raise ColgrepError('Directory not found.')
-    if files_only and full_content:
-        raise ColgrepError('files_only and full_content are mutually exclusive.')
     if not 1 <= results <= _MAX_RESULTS:
         raise ColgrepError(f'results must be between 1 and {_MAX_RESULTS}.')
     search_dir = search_path.resolve()
     index_root = _find_index_root(search_dir)
     if index_root is None:
         raise ColgrepError('No colgrep index found for this directory or any parent directory.')
+    semantic_only, alpha = _search_mode_for_query(query)
     cmd = [_COLGREP_BIN, query, str(search_dir), '--json', '-n', _CONTEXT_LINES, '-k', str(results)]
     if files_only:
         cmd.append('-l')
-    if full_content:
-        cmd.append('-c')
     if code_only:
         cmd.append('--code-only')
     if semantic_only:
         cmd.append('--semantic-only')
+    elif alpha is not None:
+        cmd.extend(['--alpha', str(alpha)])
     for pattern in include:
         cmd.append(f'--include={pattern}')
     for pattern in exclude:
@@ -155,25 +167,25 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only:
         raise ColgrepError('colgrep returned output that could not be parsed as JSON.') from exc
     parsed = _clean_result(parsed)
     if isinstance(parsed, list):
-        return ColgrepResult(results=parsed, count=len(parsed))
-    return ColgrepResult(results=[parsed], count=1)
+        return ColgrepResult(results=parsed)
+    return ColgrepResult(results=[parsed])
 
 class ColgrepTool(ToolDefinition):
     name = 'colgrep'
     title = 'Search code with colgrep'
     description = "Search a project's codebase with colgrep."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute directory to search in.'}, 'query': {'type': 'string', 'description': 'Search query: natural language and/or identifiers/keywords.'}, 'results': {'type': 'integer', 'minimum': 1, 'maximum': _MAX_RESULTS, 'default': _DEFAULT_RESULTS, 'description': 'Maximum number of results to return.'}, 'semantic_only': {'type': 'boolean', 'default': False, 'description': 'Disable keyword fusion; pure semantic ranking only.'}, 'code_only': {'type': 'boolean', 'default': False, 'description': 'Skip documentation/config files; search source code only.'}, 'files_only': {'type': 'boolean', 'default': False, 'description': 'Return matching file paths only, without snippets.'}, 'full_content': {'type': 'boolean', 'default': False, 'description': 'Return the full matched function/class body instead of a short snippet.'}, 'include': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'}, 'exclude': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'}, 'exclude_dir': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}}, 'required': ['path', 'query']}
-    output_schema = {'type': 'object', 'properties': {'results': {'type': 'array', 'items': {'type': 'object'}, 'description': 'Result objects as produced by `colgrep'}, 'count': {'type': 'integer'}}, 'required': ['results']}
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute directory to search in.'}, 'query': {'type': 'string', 'description': 'Search query: natural language and/or identifiers/keywords.'}, 'results': {'type': 'integer', 'minimum': 1, 'maximum': _MAX_RESULTS, 'default': _DEFAULT_RESULTS, 'description': 'Maximum number of results to return.'}, 'code_only': {'type': 'boolean', 'default': False, 'description': 'Skip documentation/config files; search source code only.'}, 'files_only': {'type': 'boolean', 'default': False, 'description': 'Return matching file paths only, without snippets.'}, 'include': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'}, 'exclude': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'}, 'exclude_dir': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}}, 'required': ['path', 'query']}
+    output_schema = {'type': 'object', 'properties': {'results': {'type': 'array', 'items': {'type': 'object'}, 'description': 'Result objects as produced by `colgrep'}}, 'required': ['results']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = colgrep(path=args['path'], query=args['query'], results=args.get('results', _DEFAULT_RESULTS), semantic_only=args.get('semantic_only', False), code_only=args.get('code_only', False), files_only=args.get('files_only', False), full_content=args.get('full_content', False), include=args.get('include') or [], exclude=args.get('exclude') or [], exclude_dir=args.get('exclude_dir') or [])
+            result = colgrep(path=args['path'], query=args['query'], results=args.get('results', _DEFAULT_RESULTS), code_only=args.get('code_only', False), files_only=args.get('files_only', False), include=args.get('include') or [], exclude=args.get('exclude') or [], exclude_dir=args.get('exclude_dir') or [])
         except ColgrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'results': result.results, 'count': result.count})
+        return ToolResult(structured_content={'results': result.results})
 
 def register_colgrep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ColgrepTool())
