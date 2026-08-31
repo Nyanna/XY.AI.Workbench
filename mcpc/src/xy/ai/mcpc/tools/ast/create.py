@@ -1,7 +1,6 @@
 """``python_ast_create`` tool: append statement(s) to a Python file's top level."""
 
 
-import ast
 from dataclasses import dataclass
 from typing import Any
 

@@ -3,7 +3,7 @@
 A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
 ``parse``/``unparse`` round-trip. The tools cover a structural ``outline``,
-node-level CRUD (each tool in its own ``crud_*`` module), whole-file
+node-level CRUD (each tool in its own ``*`` module), whole-file
 create/delete, the imports/classes/functions convenience layers, a node-scoped
 ``replace_block``, a restricted ``script`` and a ``validate`` compile check.
 
@@ -14,20 +14,7 @@ the generic tool-set alias ``python-ast``.
 
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import (
-    crud_create,
-    crud_delete,
-    crud_edit,
-    crud_find,
-    crud_insert,
-    crud_list,
-    crud_read,
-    crud_replace,
-    file_ops,
-    outline,
-    script,
-    validate,
-)
+from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, file_ops, script, replace, outline, find, list
 
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
@@ -56,14 +43,14 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     """Register every ``python_ast_*`` tool and the ``python-ast`` alias."""
 
     outline.register(registry, functions)
-    crud_list.register(registry, functions)
-    crud_find.register(registry, functions)
-    crud_read.register(registry, functions)
-    crud_insert.register(registry, functions)
-    crud_edit.register(registry, functions)
-    crud_replace.register(registry, functions)
-    crud_delete.register(registry, functions)
-    crud_create.register(registry, functions)
+    list.register(registry, functions)
+    find.register(registry, functions)
+    read.register(registry, functions)
+    insert.register(registry, functions)
+    edit.register(registry, functions)
+    replace.register(registry, functions)
+    delete.register(registry, functions)
+    create.register(registry, functions)
     file_ops.register(registry, functions)
     script.register(registry, functions)
     validate.register(registry, functions)

@@ -1,6 +1,5 @@
 """``python_ast_outline`` – compact structural overview of Python files."""
 
-
 import ast
 from dataclasses import asdict, dataclass, field
 

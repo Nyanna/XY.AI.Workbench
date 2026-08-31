@@ -1,12 +1,13 @@
 # TODO
 * Dynamischr AST konverter read-augmented, wandelt Code in AST, gibt gegenüber Agent mit kommentaren annotierten Code aus und entfernt wieder auf dem rückweg.
 	* generisches AST Edit mit node level block-replace für alle Sprachen und dateien, mit treesitter
-	* python ast in subpacke treesitter in ast_all
+	* treesitter in ast_generic
 	* nur baum mit list/find/grep und read und replace/edit(block/marker) und remove/create/insert
 	* grep für python? grep musst fragment pfad liefern also ast grep
 	* list prüfen muss aubpfade und kinder anzeigen (beide)
-	* python crud_ prefix umbenennen -> common.js, file ops in separate dateien splitten
-	* alle optionen für "all_" AST, mit pycharm
+	* file ops in separate dateien splitten
+	* alle optionen für "generic_" AST, mit pycharm
+	* core engine extrahieren
 
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
