@@ -4,7 +4,7 @@
 
 import importlib
 
-from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import register_ast_tools

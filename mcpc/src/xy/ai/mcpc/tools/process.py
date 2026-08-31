@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.registry import ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 _BLANK_RUN_RE = re.compile('[ \\t]+$', re.MULTILINE)
 _MULTI_BLANK_RE = re.compile('\\n{3,}')
 

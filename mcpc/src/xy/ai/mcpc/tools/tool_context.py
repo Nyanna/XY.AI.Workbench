@@ -8,7 +8,7 @@ from xy.ai.mcpc.control import ToolControlManager
 from xy.ai.mcpc.server.session import SessionStore, Session
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 if TYPE_CHECKING:
-    from xy.ai.mcpc.tools.registry import ToolRegistry
+    from xy.ai.mcpc.tools.tool_registry import ToolRegistry
     from xy.ai.mcpc.tools.agent.profiles import ProfileRegistry
 
 @dataclass(slots=True)

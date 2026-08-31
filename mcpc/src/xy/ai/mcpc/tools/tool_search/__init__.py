@@ -1,7 +1,7 @@
 """``tool_search`` – keyword search over the :class:`FunctionRegistry`.
 """
 from typing import Any
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionEntry, FunctionRegistry
 __all__ = ['search_functions', 'ToolSearchTool', 'register']

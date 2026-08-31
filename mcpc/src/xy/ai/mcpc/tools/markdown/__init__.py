@@ -9,7 +9,7 @@ directory as its working directory, so bare package imports resolve.
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.config import ServerConfig
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry

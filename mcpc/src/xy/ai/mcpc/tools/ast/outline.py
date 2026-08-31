@@ -4,7 +4,7 @@
 import ast
 from dataclasses import asdict, dataclass, field
 
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.core import OutlineNode

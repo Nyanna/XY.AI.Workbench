@@ -1,7 +1,7 @@
 """Registry for plain Python functions/bound methods exposed to the
 ``tool_search`` / ``tool_usage`` / ``tool_call`` family.
 
-Complements the classic MCP :class:`~xy.ai.mcpc.tools.registry.ToolRegistry`:
+Complements the classic MCP :class:`~xy.ai.mcpc.tools.tool_registry.ToolRegistry`:
 entries here are never advertised via ``tools/list``. They are ordinary
 Python callables (module-level functions or bound methods on a live
 instance) that ``tool_search`` can find by keyword, ``tool_usage`` can
@@ -44,7 +44,7 @@ class FunctionRegistry:
         if existing is not None and existing.func is not func:
             raise ValueError(f'Function already registered under id: {entry_id}')
         self._entries[entry_id] = FunctionEntry(id=entry_id, func=func)
-        logger.info('Registered function: %s', entry_id)
+        logger.debug('Registered function: %s', entry_id)
         return entry_id
 
     def get(self, name: str) -> FunctionEntry | None:

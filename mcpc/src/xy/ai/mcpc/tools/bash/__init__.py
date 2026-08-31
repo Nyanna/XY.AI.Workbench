@@ -1,7 +1,7 @@
 """Bash tool – executes a shell script inside a specified working directory."""
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry

@@ -42,7 +42,7 @@ from xy.ai.mcpc.openalex import (
 )
 from xy.ai.mcpc.openalex.client import ENTITIES
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 

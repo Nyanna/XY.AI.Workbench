@@ -11,7 +11,7 @@ import contextlib
 import io
 from dataclasses import dataclass, field
 from typing import Any
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ToolCallError', 'ToolCallExecution', 'fresh_namespace', 'inject_tools', 'run_tool_call', 'ToolCallTool', 'register']

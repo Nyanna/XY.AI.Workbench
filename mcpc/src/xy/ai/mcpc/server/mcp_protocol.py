@@ -15,7 +15,7 @@ from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.ask_user import TOOLNAME_ASK_USER

@@ -7,7 +7,7 @@ answer or can find it far more easily.
 """
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 __all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool', "TOOLNAME_ASK_USER"]
 _NOT_ANSWERED = 'The user did not answer. Proceed on your own.'

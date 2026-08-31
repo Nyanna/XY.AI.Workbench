@@ -12,7 +12,7 @@ the generic tool-set alias ``python-ast``.
 """
 
 
-from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast import (
     crud_create,

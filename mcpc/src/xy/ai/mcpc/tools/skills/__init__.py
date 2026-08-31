@@ -9,7 +9,7 @@ functions with a real signature/docstring.
 
 from abc import ABC, abstractmethod
 
-from xy.ai.mcpc.tools.registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 

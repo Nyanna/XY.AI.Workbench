@@ -10,7 +10,7 @@ from xy.ai.mcpc.control import ToolControlManager
 from xy.ai.mcpc.utils.logging_utils import CommunicationLog
 from xy.ai.mcpc.server.mcp_protocol import McpProtocol
 from xy.ai.mcpc.tools import register_tools
-from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.server.session import SessionStore
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, ProfileRegistry
