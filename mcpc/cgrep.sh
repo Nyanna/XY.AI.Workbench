@@ -78,6 +78,7 @@ init() {
     # maybe use lightonai/mLateOn for language
     colgrep set-model lightonai/mLateOn
     colgrep settings --parallel 1
+    colgrep settings --relative-paths
     colgrep init "$project_dir" -y
 }
 

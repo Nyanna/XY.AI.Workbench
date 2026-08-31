@@ -138,6 +138,7 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, semantic_only:
         cmd.append(f'--exclude={pattern}')
     for name in exclude_dir:
         cmd.append(f'--exclude-dir={name}')
+    cmd.append('--no-update')
     env = dict(os.environ)
     env['XDG_DATA_HOME'] = str(index_root)
     env['XDG_CONFIG_HOME'] = str(index_root)

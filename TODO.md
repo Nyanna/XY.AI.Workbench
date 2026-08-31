@@ -1,4 +1,16 @@
 # TODO
+* Dynamischr AST konverter read-augmented, wandelt Code in AST, gibt gegenüber Agent mit kommentaren annotierten Code aus und entfernt wieder auf dem rückweg.
+	* generisches AST Edit mit node level block-replace für alle Sprachen und dateien, mit treesitter
+	* python ast in subpacke treesitter in ast_all
+	* nur baum mit list/find/grep und read und replace/edit(block/marker) und remove/create/insert
+	* grep für python? grep musst fragment pfad liefern also ast grep
+	* list prüfen muss aubpfade und kinder anzeigen (beide)
+	* python crud_ prefix umbenennen -> common.js, file ops in separate dateien splitten
+	* alle optionen für "all_" AST, mit pycharm
+	
+* colgrep unterhalb von 3 zeichen nur semantic kein keyword
+	* no update --no-update, --semantic-only, --alpha 0.9 (0-1 semantik)
+
 * anzeige für tokens verbesser, in zu out ist 10:1, also besser tool description optimieren als falsche benutzung, thinking farblich abgrenzen und token mit in chatverlauf bei result, result oken mit besser Result metausgabe
 * ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
 	* micro promt in persistent cache context
@@ -38,6 +50,7 @@
 	- eclipse suchprovider für caolgrep -> oder generellen RAG tool panel um kontext auszuwählen
 * AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
 	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
+	* tree-sitter für AST?
 	* java ast bauen
 	* Project AST: project > dir > file > imports/class > global > node s, code ist immer ein baum (für planing phase)
 	* AST/LanguageServer geben/LSP/syntax parser/lint/prettier/block diff
