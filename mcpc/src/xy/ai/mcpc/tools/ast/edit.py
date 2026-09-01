@@ -27,8 +27,8 @@ class EditNodeResult:
 
 def ast_edit(
     path: str,
-    start: str,
-    end: str,
+    block_start: str,
+    block_end: str,
     content: str,
     *,
     exact: bool = False,
@@ -40,15 +40,15 @@ def ast_edit(
     end_lineno: int | None = None,
     parent_type: str | None = None,
 ) -> EditNodeResult:
-    """Replace everything between the 'start' and 'end' markers inside a selected node's source.
+    """Replace everything between the 'block_start' and 'block_end' markers inside a selected node's source.
 
     The selected node's source is unparsed, edited between the two markers (both
     included) as with ``edit_marks``, re-parsed, and used to replace the node.
 
     Args:
         path: Absolute path to the file to modify.
-        start: Unique substring marking the beginning of the block, within the selected node's source.
-        end: Unique substring marking the end of the block, within the selected node's source.
+        block_start: Unique substring marking the beginning of the block, within the selected node's source.
+        block_end: Unique substring marking the end of the block, within the selected node's source.
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
         qualified_name: Selector – exact FQN of the target node.
@@ -83,7 +83,7 @@ def ast_edit(
     )
     node_source = core.edit_node_source(target)
     try:
-        new_source = edit_marks_text(node_source, start, end, content, exact=exact)
+        new_source = edit_marks_text(node_source, block_start, block_end, content, exact=exact)
     except EditMarksError as exc:
         raise core.AstError(str(exc)) from exc
     core.replace_node(target, new_source)
@@ -95,30 +95,30 @@ class EditNodeTool(ToolDefinition):
     name = "ast_edit"
     title = "Edit AST node"
     description = (
-        "Replace everything strictly between and including the unique 'start' and 'end' "
+        "Replace everything strictly between and including the unique 'block_start' and 'block_end' "
         "markers, found within the source of the selected node, with 'content'."
     )
     input_schema = {
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the file."},
-            "start": {
+            "block_start": {
                 "type": "string",
                 "description": "Unique substring marking the beginning of the block, within the selected node's source.",
             },
-            "end": {
+            "block_end": {
                 "type": "string",
                 "description": "Unique substring marking the end of the block, within the selected node's source.",
             },
             "content": {"type": "string", "description": "Replacement source for the marked block."},
             "exact": {
                 "type": "boolean",
-                "description": "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                "description": "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
                 "default": False,
             },
             **SELECTOR_PROPS,
         },
-        "required": ["path", "start", "end", "content"],
+        "required": ["path", "block_start", "block_end", "content"],
     }
     output_schema = {
         "type": "object",
@@ -133,8 +133,8 @@ class EditNodeTool(ToolDefinition):
         try:
             result = ast_edit(
                 args["path"],
-                args["start"],
-                args["end"],
+                args["block_start"],
+                args["block_end"],
                 args["content"],
                 exact=args.get("exact", False),
                 id=args.get("id"),
