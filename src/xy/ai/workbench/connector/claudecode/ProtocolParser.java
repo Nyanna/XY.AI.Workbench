@@ -91,6 +91,7 @@ public class ProtocolParser {
 		// (and handles a structured result node), instead of a bare asText().
 		String resultText = postProcessor.process(JsonUtil.plainText(node.path("result")));
 		resp.events.remove(TEXT_CACHE_PREEFIX + resultText);
+		extractUsage(resp, node, session);
 
 		appendEvents(resp.events, res);
 
@@ -105,7 +106,9 @@ public class ProtocolParser {
 
 		resp.resultText = res.toString();
 		resp.isError = isError;
+	}
 
+	private void extractUsage(CCResponse resp, JsonNode node, CCSession session) {
 		// Extract token usage information
 		JsonNode modelUsage = node.path("modelUsage");
 		if (modelUsage.isObject()) {
