@@ -4,18 +4,18 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.core import ReadNode
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ReadNode', 'ReadNodeResult', 'ast_read', 'ReadNodeTool', 'register']
+__all__ = ['ReadNodeResult', 'ast_read', 'ReadNodeTool', 'register']
 
 @dataclass(frozen=True)
 class ReadNodeResult:
     """Result of :func:`ast_read`.
 
     Attributes:
-        nodes: One expanded subtree per requested id, in the given order.
+        nodes: One expanded subtree per requested id, in the given order; same
+            shape as :func:`ast_find`'s results (see :class:`core.OutlineNode`).
     """
-    nodes: list[ReadNode]
+    nodes: list[core.OutlineNode]
 
 def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeResult:
     """Recursively read the subtree of each addressed node for block-wise edit/replace.
@@ -42,14 +42,13 @@ def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeRes
     tree = core.load(path)[1]
     nodes = core.read_subtrees(core.locate_all(tree), ids, with_lines=with_lines)
     return ReadNodeResult(nodes=nodes)
-_READ_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique node id; the address for ast_replace/edit.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines."}, 'code': {'type': 'string', 'description': "Full source of this node, ready for ast_replace; omitted if the node consists solely of the nested classes/functions listed in 'children'."}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/read_node'}}}, 'required': ['id', 'type', 'lines']}
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'Read AST subtrees'
     description = "Recursively read the subtree of each addressed node (by id), surfacing each block's id and source so it can be handed to ast_replace/ast_edit_marks/ast_edit_block. Nodes whose body consists solely of nested classes/functions are expanded into 'children' instead of source, letting the agent descend to the innermost block that needs editing."
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'ids': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Node ids to read.'}}, 'required': ['ids', 'path']}
-    output_schema = {'$defs': {'read_node': _READ_NODE_SCHEMA}, 'type': 'object', 'properties': {'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/read_node'}}}, 'required': ['nodes']}
+    output_schema = {'$defs': {'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['nodes']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

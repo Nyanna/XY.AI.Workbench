@@ -70,13 +70,14 @@ class Located:
 
 @dataclass(frozen=True)
 class OutlineNode:
-    """One node in a structural (list/find) result.
+    """One node in a structural (list/find/read) result.
 
     ``id`` is the node's unique, primarily name-based path used by every tool to
-    address it. ``code`` carries the node's full source and is populated only by
-    ``find`` – ``list`` always leaves it ``None``. ``signature`` is only set for
-    class/function nodes. Serialization drops ``None``/empty fields, see
-    :func:`to_dict`.
+    address it. ``code`` carries the node's full source and is populated by
+    ``find``/``read`` – ``list`` always leaves it ``None``. ``signature``/
+    ``docstring`` are only set for class/function nodes whose ``code`` is
+    *not* included, since the full source already makes them visible.
+    Serialization drops ``None``/empty fields, see :func:`to_dict`.
     """
     id: str
     type: str
@@ -85,20 +86,6 @@ class OutlineNode:
     docstring: str | None
     code: str | None = None
     children: list['OutlineNode'] = field(default_factory=list)
-
-@dataclass(frozen=True)
-class ReadNode:
-    """One node in a subtree read for block-wise edit/replace.
-
-    ``code`` holds the node's full source unless it is a pure container of
-    nested addressable nodes, in which case it is ``None`` and ``children`` is
-    populated so the agent can descend to the innermost editable block.
-    """
-    id: str
-    type: str
-    lines: str
-    code: str | None
-    children: list['ReadNode'] = field(default_factory=list)
 
 def line_range(loc: Located) -> str:
     """Return ``loc``'s start line, or a ``"start-end"`` range if it spans several."""
@@ -139,10 +126,20 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
 _SIGNATURE_TYPE_RE = re.compile('class|function', re.IGNORECASE)
 
 def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
-    """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``)."""
+    """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``).
+
+    ``signature``/``docstring`` are only computed when ``code`` is not, since the
+    full source already makes them visible.
+    """
     engine = loc.tree.engine
-    signature = engine.signature(loc.node) if _SIGNATURE_TYPE_RE.search(loc.node_type) else None
-    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=signature, docstring=engine.docstring(loc.node), code=engine.node_code(loc.node) if with_code else None, children=children or [])
+    if with_code:
+        signature = docstring = None
+        code = engine.node_code(loc.node)
+    else:
+        signature = engine.signature(loc.node) if _SIGNATURE_TYPE_RE.search(loc.node_type) else None
+        docstring = engine.docstring(loc.node)
+        code = None
+    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=signature, docstring=docstring, code=code, children=children or [])
 
 def _compact(value: Any) -> Any:
     """Recursively drop ``None`` values and empty lists from a dataclass-derived structure."""
@@ -152,8 +149,8 @@ def _compact(value: Any) -> Any:
         return [_compact(v) for v in value]
     return value
 
-def to_dict(node: OutlineNode | ReadNode) -> dict:
-    """Serialize an :class:`OutlineNode`/:class:`ReadNode` to MCP output, omitting empty fields."""
+def to_dict(node: OutlineNode) -> dict:
+    """Serialize an :class:`OutlineNode` to MCP output, omitting empty fields."""
     return _compact(asdict(node))
 
 @dataclass
@@ -180,14 +177,14 @@ def build_outline(located: list[Located], *, with_code: bool=False, with_lines: 
         return [node_outline(t.loc, with_code=with_code, with_lines=with_lines, children=convert(t.children)) for t in nodes]
     return convert(_build_forest(located))
 
-def _to_read(t: _TreeNode, *, with_lines: bool=True) -> ReadNode:
+def _to_outline(t: _TreeNode, *, with_lines: bool=True) -> OutlineNode:
+    """Turn a forest node into an :class:`OutlineNode`, collapsing pure containers into ``children`` for descent."""
     loc = t.loc
-    lines = line_range(loc) if with_lines else None
     if loc.expandable and t.children:
-        return ReadNode(id=loc.node_id, type=loc.node_type, lines=lines, code=None, children=[_to_read(c, with_lines=with_lines) for c in t.children])
-    return ReadNode(id=loc.node_id, type=loc.node_type, lines=lines, code=loc.tree.engine.node_code(loc.node), children=[])
+        return node_outline(loc, with_code=False, with_lines=with_lines, children=[_to_outline(c, with_lines=with_lines) for c in t.children])
+    return node_outline(loc, with_code=True, with_lines=with_lines)
 
-def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> list[ReadNode]:
+def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> list[OutlineNode]:
     """Return one read subtree per ``keys`` entry, matched by ``id``.
 
     Raises:
@@ -200,12 +197,12 @@ def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=T
             index.setdefault(t.loc.node_id, t)
             collect(t.children)
     collect(_build_forest(located))
-    result: list[ReadNode] = []
+    result: list[OutlineNode] = []
     for key in keys:
         target = index.get(key)
         if target is None:
             raise AstError(f"No node matched '{key}'.")
-        result.append(_to_read(target, with_lines=with_lines))
+        result.append(_to_outline(target, with_lines=with_lines))
     return result
 
 def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None) -> bool:
@@ -308,4 +305,4 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
             raise AstError('Not a regular file.')
     return path
 '#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
-OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string', 'description': 'One-line header; present only for class/function nodes.'}, 'docstring': {'type': 'string'}, 'code': {'type': 'string', 'description': 'Full node source; populated by find, omitted in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type']}
+OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string', 'description': 'One-line header for class/function nodes; omitted when code is included.'}, 'docstring': {'type': 'string', 'description': 'Omitted when code is included.'}, 'code': {'type': 'string', 'description': 'Full node source; populated by find/read, omitted in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type']}

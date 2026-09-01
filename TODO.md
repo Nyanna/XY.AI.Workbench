@@ -4,8 +4,32 @@
 ! ast script muss generisch werden
 ! Tests reparieren
 
-find auch nur zeilen ausgeben analog list
+numerische ID durch coiontenthash ersetzen, return neue hash
 outline knoten kollabieren wenn zu klein
+      children:
+      - id: ast_read.0
+        type: statements
+      - id: ast_read.1
+        type: statements
+    - id: 11
+      type: statements
+    - id: ReadNodeTool
+      type: ClassDef
+      signature: "class ReadNodeTool(ToolDefinition):"
+      children:
+      - id: ReadNodeTool.0
+        type: statements
+      - id: ReadNodeTool.3
+        type: statements
+
+    - id: delete_node
+      type: FunctionDef
+      signature: "def delete_node(loc: Located) -> None:"
+      children:
+      - id: delete_node.0
+        type: statements
+        
+        nur docstring
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect
