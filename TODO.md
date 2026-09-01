@@ -1,6 +1,6 @@
 # TODO
-was ist toital token?
-! schon wieder end marker fehler, umbenennen auf begin_marker end_marker
+* per script zwingen hat massives refaktoring optimiert
+! schon wieder end marker fehler, umbenennen auf begin_marker end_marker, end marker nach hinten im schema
 ! erwartete contenthash für read tools um fehler abfangen zu können, oder last updates seid read (also last read)
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden

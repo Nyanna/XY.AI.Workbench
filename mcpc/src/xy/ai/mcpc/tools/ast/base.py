@@ -1,6 +1,6 @@
 """Engine-agnostic model shared by every ``ast_*`` tool.
 
-The tools address nodes by *selector* (id, type, name, qualified name, line
+The tools address nodes by *selector* (id, type, name, line
 range or parent type) and never touch a concrete parser. Two engines implement
 :class:`Engine`: a Python one built on the standard-library ``ast`` module and a
 generic tree-sitter one for every other language/format. :mod:`.core` picks the
@@ -53,10 +53,11 @@ class Located:
         node: Engine-native node object.
         parent: Engine-native container node.
         index: Position of ``node`` among its parent's addressable children.
-        node_id: Stable dotted index path from the root, e.g. ``"3.1"``.
+        node_id: The node's unique ``id`` — its fully-qualified path from the
+            root (e.g. ``"MyClass.method"``), in name/hash form or, for nameless
+            nodes/segments, a numeric fallback. There is no separate FQN.
         node_type: Engine-reported node type name.
         name: Simple name, if the node carries one.
-        qualified_name: Dotted path of enclosing names, if any.
         lineno / end_lineno: 1-based inclusive line span.
         parent_type: Type name of ``parent``, or ``None`` at the top level.
         expandable: Whether ``read`` should descend into children instead of
@@ -70,7 +71,6 @@ class Located:
     node_id: str
     node_type: str
     name: str | None
-    qualified_name: str | None
     lineno: int
     end_lineno: int
     parent_type: str | None
@@ -81,14 +81,13 @@ class Located:
 class OutlineNode:
     """One node in a structural (list/find) result.
 
-    ``id`` is the primarily name-based path used by every non-``find`` tool to
-    address the node. ``code`` carries the node's full source and is populated
-    only by ``find`` – ``list`` always leaves it ``None``.
+    ``id`` is the node's unique, primarily name-based path used by every tool to
+    address it. ``code`` carries the node's full source and is populated only by
+    ``find`` – ``list`` always leaves it ``None``.
     """
 
     id: str
     type: str
-    qualified_name: str | None
     lines: str
     signature: str
     docstring: str | None
@@ -107,7 +106,6 @@ class ReadNode:
 
     id: str
     type: str
-    qualified_name: str | None
     lines: str
     code: str | None
     children: list["ReadNode"] = field(default_factory=list)
@@ -122,21 +120,31 @@ def line_range(loc: Located) -> str:
 
 _ID_CLEAN_RE = re.compile(r"\W+")
 
+#: A statement/anonymous segment keeps accumulating siblings until adding the
+#: next one would push its source past this many characters (then it splits).
+SEGMENT_MAX_CHARS = 500
 
-def id_segment(name: str | None, index: int, used: dict[str, int]) -> str:
+
+def _hash(name: str, length: int) -> str:
+    return hashlib.sha1(name.encode("utf-8")).hexdigest()[:length]
+
+
+def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool = False) -> str:
     """Return a unique-within-siblings id segment, name-based when feasible.
 
-    A clean, short name becomes the segment verbatim; a long/awkward name (e.g. a
-    Markdown heading) collapses to a short hash; a nameless node falls back to its
-    numeric ``index``. Collisions among siblings get a numeric suffix.
+    A clean, short name becomes the segment verbatim; a long/awkward name collapses
+    to a short hash; a nameless node falls back to its numeric ``index``. With
+    ``hash_only`` the name is *always* reduced to a 6-char hex hash (used for
+    Markdown headings, whose id must never be the literal heading text). Collisions
+    among siblings get a numeric suffix.
     """
     seg: str | None = None
     if name:
-        cleaned = _ID_CLEAN_RE.sub("_", name).strip("_")
-        if cleaned and len(cleaned) <= 40:
-            seg = cleaned
+        if hash_only:
+            seg = _hash(name, 6)
         else:
-            seg = "h" + hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+            cleaned = _ID_CLEAN_RE.sub("_", name).strip("_")
+            seg = cleaned if cleaned and len(cleaned) <= 40 else "h" + _hash(name, 8)
     if not seg:
         seg = str(index)
     count = used.get(seg, 0)
@@ -150,7 +158,6 @@ def node_outline(loc: Located, *, with_code: bool = False, children: list[Outlin
     return OutlineNode(
         id=loc.node_id,
         type=loc.node_type,
-        qualified_name=loc.qualified_name,
         lines=line_range(loc),
         signature=engine.signature(loc.node),
         docstring=engine.docstring(loc.node),
@@ -193,7 +200,6 @@ def _to_read(t: _TreeNode) -> ReadNode:
         return ReadNode(
             id=loc.node_id,
             type=loc.node_type,
-            qualified_name=loc.qualified_name,
             lines=line_range(loc),
             code=None,
             children=[_to_read(c) for c in t.children],
@@ -201,7 +207,6 @@ def _to_read(t: _TreeNode) -> ReadNode:
     return ReadNode(
         id=loc.node_id,
         type=loc.node_type,
-        qualified_name=loc.qualified_name,
         lines=line_range(loc),
         code=loc.tree.engine.node_code(loc.node),
         children=[],
@@ -209,7 +214,7 @@ def _to_read(t: _TreeNode) -> ReadNode:
 
 
 def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
-    """Return one read subtree per ``keys`` entry, matched by ``node_id`` or FQN.
+    """Return one read subtree per ``keys`` entry, matched by ``id``.
 
     Raises:
         AstError: If any key matches no node.
@@ -219,8 +224,6 @@ def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
     def collect(nodes: list[_TreeNode]) -> None:
         for t in nodes:
             index.setdefault(t.loc.node_id, t)
-            if t.loc.qualified_name:
-                index.setdefault(t.loc.qualified_name, t)
             collect(t.children)
 
     collect(_build_forest(located))
@@ -239,7 +242,6 @@ def matches(
     id: str | None = None,
     node_type: str | None = None,
     name: str | None = None,
-    qualified_name: str | None = None,
     lineno: int | None = None,
     end_lineno: int | None = None,
     parent_type: str | None = None,
@@ -249,8 +251,6 @@ def matches(
     if node_type is not None and loc.node_type.lower() != node_type.lower():
         return False
     if name is not None and loc.name != name:
-        return False
-    if qualified_name is not None and loc.qualified_name != qualified_name:
         return False
     if lineno is not None and loc.lineno != lineno:
         return False
@@ -344,9 +344,8 @@ def require_path(path_str: str, *, must_exist: bool = True) -> Path:
 OUTLINE_NODE_SCHEMA = {
     "type": "object",
     "properties": {
-        "id": {"type": "string", "description": "Primarily name-based node path; address for every non-find tool."},
+        "id": {"type": "string", "description": "Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool."},
         "type": {"type": "string"},
-        "qualified_name": {"type": ["string", "null"]},
         "lines": {
             "type": "string",
             "description": "Line number, or 'start-end' if the node spans multiple lines.",
@@ -356,5 +355,5 @@ OUTLINE_NODE_SCHEMA = {
         "code": {"type": ["string", "null"], "description": "Full node source; populated by find, null in list."},
         "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
     },
-    "required": ["id", "type", "qualified_name", "lines", "signature", "docstring", "code", "children"],
+    "required": ["id", "type", "lines", "signature", "docstring", "code", "children"],
 }

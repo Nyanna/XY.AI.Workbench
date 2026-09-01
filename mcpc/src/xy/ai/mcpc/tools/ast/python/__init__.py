@@ -16,6 +16,7 @@ import ast
 import io
 import re
 import tokenize
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,10 +24,9 @@ from xy.ai.mcpc.tools.ast.base import (
     AstError,
     Engine,
     Located,
-    id_segment,
-
+    SEGMENT_MAX_CHARS,
     Tree,
-
+    id_segment,
 )
 
 _DEF_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -168,6 +168,35 @@ def _decorators(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> 
     return "".join(f"@{ast.unparse(d)} " for d in node.decorator_list)
 
 
+@dataclass
+class _StatementGroup:
+    """A run of consecutive same-kind statements addressed as a single node.
+
+    Individual statements are never addressable on their own: consecutive imports
+    collapse into one ``imports`` segment, all other statements into ``statements``
+    segments (split once their source would exceed ``SEGMENT_MAX_CHARS``). The group
+    stands in for a real ``ast`` node wherever the engine expects one.
+    """
+
+    parent: ast.AST
+    start: int
+    stop: int
+    kind: str
+
+    @property
+    def stmts(self) -> list[ast.stmt]:
+        return self.parent.body[self.start : self.stop]
+
+    @property
+    def lineno(self) -> int:
+        return self.stmts[0].lineno
+
+    @property
+    def end_lineno(self) -> int:
+        last = self.stmts[-1]
+        return getattr(last, "end_lineno", last.lineno)
+
+
 class PythonEngine(Engine):
     """``ast``-based engine: comment-preserving parse, ``unparse`` serialisation."""
 
@@ -198,16 +227,16 @@ class PythonEngine(Engine):
             return f"{exc.msg} (line {exc.lineno})"
         return None
 
-    def _loc(self, tree, node, parent, index, name, qname, nid, expandable=False) -> Located:
+    def _loc(self, tree, node, parent, index, name, nid, expandable=False) -> Located:
+        node_type = node.kind if isinstance(node, _StatementGroup) else type(node).__name__
         return Located(
             tree=tree,
             node=node,
             parent=parent,
             index=index,
             node_id=nid,
-            node_type=type(node).__name__,
+            node_type=node_type,
             name=name,
-            qualified_name=qname,
             lineno=node.lineno,
             end_lineno=getattr(node, "end_lineno", node.lineno),
             parent_type=type(parent).__name__,
@@ -217,31 +246,46 @@ class PythonEngine(Engine):
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []
 
-        def walk(container: ast.AST, prefix: str, path: str) -> None:
+        def walk(container: ast.AST, path: str) -> None:
             used: dict[str, int] = {}
-            for index, node in enumerate(getattr(container, "body", [])):
-                if isinstance(node, _IMPORT_TYPES):
-                    name = import_names(node)
-                    seg = id_segment(name, index, used)
+            body = getattr(container, "body", [])
+            i = 0
+            while i < len(body):
+                node = body[i]
+                if isinstance(node, _DEF_TYPES):
+                    seg = id_segment(node.name, i, used)
                     nid = f"{path}.{seg}" if path else seg
-                    results.append(self._loc(tree, node, container, index, name, name, nid))
-                elif isinstance(node, _DEF_TYPES):
-                    qual = f"{prefix}.{node.name}" if prefix else node.name
-                    seg = id_segment(node.name, index, used)
-                    nid = f"{path}.{seg}" if path else seg
-                    results.append(
-                        self._loc(tree, node, container, index, node.name, qual, nid, _only_defs(node.body))
-                    )
-                    walk(node, qual, nid)
-                else:
-                    seg = id_segment(None, index, used)
-                    nid = f"{path}.{seg}" if path else seg
-                    results.append(self._loc(tree, node, container, index, None, None, nid))
+                    results.append(self._loc(tree, node, container, i, node.name, nid, _only_defs(node.body)))
+                    walk(node, nid)
+                    i += 1
+                    continue
+                start = i
+                kind = "imports" if isinstance(node, _IMPORT_TYPES) else "statements"
+                length = 0
+                while i < len(body):
+                    current = body[i]
+                    if isinstance(current, _DEF_TYPES):
+                        break
+                    current_kind = "imports" if isinstance(current, _IMPORT_TYPES) else "statements"
+                    if current_kind != kind:
+                        break
+                    piece = len(self.node_code(current))
+                    if i > start and length + piece > SEGMENT_MAX_CHARS:
+                        break
+                    length += piece
+                    i += 1
+                group = _StatementGroup(container, start, i, kind)
+                seg = id_segment(None, start, used)
+                nid = f"{path}.{seg}" if path else seg
+                results.append(self._loc(tree, group, container, start, None, nid))
 
-        walk(tree.raw, "", "")
+        walk(tree.raw, "")
         return results
 
     def signature(self, node: Any, limit: int = 80) -> str:
+        if isinstance(node, _StatementGroup):
+            first_line = (self.node_code(node).splitlines() or [""])[0]
+            return first_line if len(first_line) <= limit else first_line[: limit - 1] + "…"
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             keyword = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
             returns = f" -> {ast.unparse(node.returns)}" if node.returns is not None else ""
@@ -265,21 +309,36 @@ class PythonEngine(Engine):
         return doc if len(doc) <= limit else doc[: limit - 1] + "…"
 
     def node_code(self, node: Any) -> str:
+        if isinstance(node, _StatementGroup):
+            return "\n".join(ast.unparse(ast.fix_missing_locations(s)) for s in node.stmts)
         return ast.unparse(ast.fix_missing_locations(node))
 
     def replace(self, loc: Located, code: str) -> None:
-        loc.parent.body[loc.index : loc.index + 1] = self._parse_fragment(code)
+        node = loc.node
+        if isinstance(node, _StatementGroup):
+            node.parent.body[node.start : node.stop] = self._parse_fragment(code)
+        else:
+            loc.parent.body[loc.index : loc.index + 1] = self._parse_fragment(code)
 
     def insert(self, loc: Located, code: str, position: str) -> int:
         stmts = self._parse_fragment(code)
-        body = loc.parent.body
-        offset = 1 if position == "after" else 0
-        index = body.index(loc.node) + offset
+        node = loc.node
+        if isinstance(node, _StatementGroup):
+            body = node.parent.body
+            index = node.stop if position == "after" else node.start
+        else:
+            body = loc.parent.body
+            offset = 1 if position == "after" else 0
+            index = body.index(loc.node) + offset
         body[index:index] = stmts
         return len(stmts)
 
     def delete(self, loc: Located) -> None:
-        del loc.parent.body[loc.index]
+        node = loc.node
+        if isinstance(node, _StatementGroup):
+            del node.parent.body[node.start : node.stop]
+        else:
+            del loc.parent.body[loc.index]
 
     def append(self, tree: Tree, code: str) -> int:
         stmts = self._parse_fragment(code)

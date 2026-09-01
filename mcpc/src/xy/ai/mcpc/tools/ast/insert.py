@@ -32,7 +32,7 @@ def ast_insert(
     *,
     position: str = "after",
     id: str | None = None,
-    qualified_name: str | None = None,
+
 ) -> InsertNodeResult:
     """Insert statement(s) parsed from ``code`` relative to a selected node.
 
@@ -40,20 +40,19 @@ def ast_insert(
         path: Absolute path to the file to modify.
         code: Source of the statement(s) to insert.
         position: ``"before"`` or ``"after"`` the selected node. Defaults to ``"after"``.
-        id: Node id (primarily name-based path).
-        qualified_name: Exact qualified name of the target node.
+        id: Unique id of the target node.
+
 
     Returns:
         InsertNodeResult: Success status and the number of statements inserted.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``code`` has a syntax error, neither
-            ``id`` nor ``qualified_name`` is given, or the path matches zero or more
-            than one node.
+        core.AstError: If ``path`` is invalid, ``code`` has a syntax error, ``id`` is
+            not given, or it matches zero or more than one node.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id, qualified_name=qualified_name)
+    target = select_by_path(tree, id=id)
     inserted = core.insert_node(target, code, position)
     core.CACHE.save(file_path, tree)
     return InsertNodeResult(result="success", inserted=inserted)
@@ -94,7 +93,7 @@ class InsertNodeTool(ToolDefinition):
                 args["code"],
                 position=args.get("position", "after"),
                 id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
+
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

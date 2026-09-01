@@ -29,27 +29,24 @@ def ast_replace(
     code: str,
     *,
     id: str | None = None,
-    qualified_name: str | None = None,
 ) -> ReplaceNodeResult:
     """Replace the single selected node with ``code``.
 
     Args:
         path: Absolute path to the file to modify.
         code: Replacement source.
-        id: Node id (primarily name-based path).
-        qualified_name: Exact qualified name of the target node.
+        id: Unique id of the target node.
 
     Returns:
         ReplaceNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``code`` has a syntax error, neither
-            ``id`` nor ``qualified_name`` is given, or the path matches zero or more
-            than one node.
+        core.AstError: If ``path`` is invalid, ``code`` has a syntax error, ``id`` is
+            not given, or it matches zero or more than one node.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id, qualified_name=qualified_name)
+    target = select_by_path(tree, id=id)
     core.replace_node(target, code)
     core.CACHE.save(file_path, tree)
     return ReplaceNodeResult(result="success")
@@ -83,7 +80,6 @@ class ReplaceNodeTool(ToolDefinition):
                 args["path"],
                 args["code"],
                 id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

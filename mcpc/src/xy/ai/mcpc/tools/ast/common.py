@@ -2,7 +2,7 @@
 
 ``ast_find`` is the only tool that restricts on diverse node properties, so it
 uses the full :data:`SELECTOR_PROPS`. Every mutation tool addresses a node purely
-by its path (id/qualified name) and uses the reduced :data:`PATH_SELECTOR_PROPS`.
+by its unique ``id`` and uses the reduced :data:`PATH_SELECTOR_PROPS`.
 """
 
 
@@ -14,8 +14,7 @@ __all__ = ["SELECTOR_PROPS", "PATH_SELECTOR_PROPS", "select_one", "select_by_pat
 
 #: Full node selectors – only ``ast_find`` may restrict on node properties.
 SELECTOR_PROPS = {
-    "id": {"type": "string", "description": "Node id: primarily name-based dotted path (e.g. 'MyClass.method'), numeric only as fallback."},
-    "qualified_name": {"type": "string", "description": "Qualified name of the target node."},
+    "id": {"type": "string", "description": "Unique node id: primarily name-based dotted path (e.g. 'MyClass.method'), numeric only as fallback."},
     "name": {"type": "string", "description": "Simple node name."},
     "node_type": {"type": "string", "description": "Node type name, e.g. 'FunctionDef' or 'pair'."},
     "lineno": {"type": "integer", "description": "Start line of the target node."},
@@ -26,7 +25,6 @@ SELECTOR_PROPS = {
 #: Path-only selectors used by every mutation tool (replace/insert/delete/edit_*).
 PATH_SELECTOR_PROPS = {
     "id": SELECTOR_PROPS["id"],
-    "qualified_name": SELECTOR_PROPS["qualified_name"],
 }
 
 
@@ -44,15 +42,15 @@ def select_one(tree, **selectors: Any) -> core.Located:
     return hits[0]
 
 
-def select_by_path(tree, *, id: str | None = None, qualified_name: str | None = None) -> core.Located:
-    """Return the single node in *tree* addressed by ``id`` or ``qualified_name``.
+def select_by_path(tree, *, id: str | None = None) -> core.Located:
+    """Return the single node in *tree* addressed by its unique ``id``.
 
     Raises:
-        core.AstError: If neither is given, or the path matches zero/many nodes.
+        core.AstError: If ``id`` is missing, or it matches zero/many nodes.
     """
-    if id is None and qualified_name is None:
-        raise core.AstError("A node selector (id or qualified_name) is required.")
-    return select_one(tree, id=id, qualified_name=qualified_name)
+    if id is None:
+        raise core.AstError("A node selector (id) is required.")
+    return select_one(tree, id=id)
 
 
 def list_output_schema() -> dict[str, Any]:

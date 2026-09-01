@@ -28,19 +28,17 @@ def ast_delete(
     path: str,
     *,
     id: str | None = None,
-    qualified_name: str | None = None,
 ) -> DeleteResult:
     """Delete the single selected node, or the whole file if the root is selected.
 
-    The whole file is deleted by omitting both selectors – there is no other way
+    The whole file is deleted by omitting the ``id`` selector – there is no other way
     to address the root, since it is never itself an addressable child. Deleting the
     file also removes it from the AST cache and, if its parent directory becomes
     empty as a result, removes that directory too.
 
     Args:
         path: Absolute path to the file to modify.
-        id: Node id (primarily name-based path).
-        qualified_name: Exact qualified name of the target node.
+        id: Unique id of the target node.
 
     Returns:
         DeleteResult: Success status.
@@ -50,7 +48,7 @@ def ast_delete(
             zero or more than one node.
     """
     file_path = core.require_path(path)
-    if id is None and qualified_name is None:
+    if id is None:
         try:
             file_path.unlink()
         except OSError as exc:
@@ -62,7 +60,7 @@ def ast_delete(
         return DeleteResult(result="success")
 
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id, qualified_name=qualified_name)
+    target = select_by_path(tree, id=id)
     core.delete_node(target)
     core.CACHE.save(file_path, tree)
     return DeleteResult(result="success")
@@ -97,7 +95,6 @@ class DeleteTool(ToolDefinition):
             result = ast_delete(
                 args["path"],
                 id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

@@ -1,4 +1,4 @@
-"""``ast_read`` tool: read one or more node subtrees (with source) by id/FQN."""
+"""``ast_read`` tool: read one or more node subtrees (with source) by id."""
 
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -17,7 +17,7 @@ class ReadNodeResult:
     """Result of :func:`ast_read`.
 
     Attributes:
-        nodes: One expanded subtree per requested id/FQN, in the given order.
+        nodes: One expanded subtree per requested id, in the given order.
     """
 
     nodes: list[ReadNode]
@@ -25,33 +25,29 @@ class ReadNodeResult:
 
 def ast_read(
     ids: list[str],
-    path: str | None = None,
-    code: str | None = None,
+    path: str,
 ) -> ReadNodeResult:
     """Recursively read the subtree of each addressed node for block-wise edit/replace.
 
-    Each id/FQN resolves to a subtree: a node whose body consists solely of nested
+    Each id resolves to a subtree: a node whose body consists solely of nested
     classes/functions is expanded into ``children`` instead of source, so the agent
     can descend to the innermost editable block; any other node is returned whole,
-    as ``code`` ready to hand back to ``ast_replace`` via its ``id``/qualified name.
+    as ``code`` ready to hand back to ``ast_replace`` via its ``id``.
 
     Args:
-        ids: Node ids or qualified names to read. Must be non-empty.
-        path: Absolute path to the file to read. Mutually usable with ``code``;
-            exactly one of the two must be given.
-        code: Source to parse instead of reading ``path``.
+        ids: Node ids to read. Must be non-empty.
+        path: Absolute path to the file to read.
 
     Returns:
         ReadNodeResult: One subtree per entry in ``ids``.
 
     Raises:
-        core.AstError: If ``ids`` is empty, neither ``path`` nor ``code`` is given,
-            ``path`` is not absolute or not an existing regular file, the source has
-            a syntax error, or an id matches no node.
+        core.AstError: If ``ids`` is empty, ``path`` is not absolute or not an existing
+            regular file, the source has a syntax error, or an id matches no node.
     """
     if not ids:
-        raise core.AstError("'ids' must be a non-empty list of node ids or qualified names.")
-    tree = core.tree_from_input(path, code)
+        raise core.AstError("'ids' must be a non-empty list of node ids.")
+    tree = core.load(path)[1]
     nodes = core.read_subtrees(core.locate_all(tree), ids)
     return ReadNodeResult(nodes=nodes)
 
@@ -59,9 +55,9 @@ def ast_read(
 _READ_NODE_SCHEMA = {
     "type": "object",
     "properties": {
-        "id": {"type": "string", "description": "Primarily name-based node path; address for ast_replace/edit."},
+        "id": {"type": "string", "description": "Unique node id; the address for ast_replace/edit."},
         "type": {"type": "string"},
-        "qualified_name": {"type": ["string", "null"]},
+
         "lines": {
             "type": "string",
             "description": "Line number, or 'start-end' if the node spans multiple lines.",
@@ -75,7 +71,7 @@ _READ_NODE_SCHEMA = {
         },
         "children": {"type": "array", "items": {"$ref": "#/$defs/read_node"}},
     },
-    "required": ["id", "type", "qualified_name", "lines", "code", "children"],
+    "required": ["id", "type", "lines", "code", "children"],
 }
 
 
@@ -83,8 +79,8 @@ class ReadNodeTool(ToolDefinition):
     name = "ast_read"
     title = "Read AST subtrees"
     description = (
-        "Recursively read the subtree of each addressed node (by id or qualified "
-        "name), surfacing each block's id and source so it can be handed to "
+        "Recursively read the subtree of each addressed node (by id), surfacing "
+        "each block's id and source so it can be handed to "
         "ast_replace/ast_edit_marks/ast_edit_block. Nodes whose body consists solely "
         "of nested classes/functions are expanded into 'children' instead of source, "
         "letting the agent descend to the innermost block that needs editing."
@@ -93,14 +89,13 @@ class ReadNodeTool(ToolDefinition):
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the file."},
-            "code": {"type": "string", "description": "Source to parse instead of a file."},
             "ids": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Node ids or qualified names to read.",
+                "description": "Node ids to read.",
             },
         },
-        "required": ["ids"],
+        "required": ["ids", "path"],
     }
     output_schema = {
         "$defs": {"read_node": _READ_NODE_SCHEMA},
@@ -117,7 +112,7 @@ class ReadNodeTool(ToolDefinition):
             result = ast_read(
                 ids=args.get("ids") or [],
                 path=args.get("path"),
-                code=args.get("code"),
+
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

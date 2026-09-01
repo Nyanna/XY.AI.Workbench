@@ -6,9 +6,11 @@ the Python engine there is no ``unparse``: mutations are plain source-text
 operations – splice a node's byte-range, or concatenate – followed by a
 re-parse, matching how these formats are edited in practice.
 
-Nodes are addressed engine-independently by a dotted index path (``node_id``)
-over the *named* child hierarchy, plus any name/qualified name recovered from
-language name/key fields.
+Nodes are addressed engine-independently by a single dotted ``id`` over the
+*named* child hierarchy, name/hash based (a Markdown heading always collapses to
+a 6-char hex hash) or numeric where no name exists. A node is addressable in its
+own right only when it is a top-level child, a Markdown ``section``, or larger
+than ``SEGMENT_MAX_CHARS``; anything smaller is reached through its parent.
 """
 
 
@@ -23,10 +25,9 @@ from xy.ai.mcpc.tools.ast.base import (
     AstError,
     Engine,
     Located,
-    id_segment,
-
+    SEGMENT_MAX_CHARS,
     Tree,
-
+    id_segment,
 )
 
 #: File extension -> ``tree_sitter_language_pack`` language identifier.
@@ -162,40 +163,40 @@ class TreeSitterEngine(Engine):
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []
 
-        def walk(node: Any, parent_qname: str, path: str) -> None:
+        def addressable(child: Any, depth: int) -> bool:
+            if depth == 0 or child.type == "section":
+                return True
+            return (child.end_byte - child.start_byte) > SEGMENT_MAX_CHARS
+
+        def walk(node: Any, path: str, depth: int) -> None:
             used: dict[str, int] = {}
             for index, child in enumerate(node.named_children):
+                if not addressable(child, depth):
+                    continue
+                is_section = child.type == "section"
                 name = self._name(child)
-                seg = id_segment(name, index, used)
+                seg = id_segment(name, index, used, hash_only=is_section)
                 nid = f"{path}.{seg}" if path else seg
-                if name and parent_qname:
-                    qname = f"{parent_qname}.{name}"
-                elif name:
-                    qname = name
-                else:
-                    qname = None
-                if child.named_children or name is not None:
-                    containers = [c for c in child.named_children if c.named_children]
-                    expandable = bool(child.named_children) and len(containers) == len(child.named_children)
-                    results.append(
-                        Located(
-                            tree=tree,
-                            node=child,
-                            parent=node,
-                            index=index,
-                            node_id=nid,
-                            node_type=child.type,
-                            name=name,
-                            qualified_name=qname,
-                            lineno=child.start_point[0] + 1,
-                            end_lineno=child.end_point[0] + 1,
-                            parent_type=node.type,
-                            expandable=expandable,
-                        )
+                addr_children = [c for c in child.named_children if addressable(c, depth + 1)]
+                expandable = bool(child.named_children) and len(addr_children) == len(child.named_children)
+                results.append(
+                    Located(
+                        tree=tree,
+                        node=child,
+                        parent=node,
+                        index=index,
+                        node_id=nid,
+                        node_type=child.type,
+                        name=name,
+                        lineno=child.start_point[0] + 1,
+                        end_lineno=child.end_point[0] + 1,
+                        parent_type=node.type,
+                        expandable=expandable,
                     )
-                walk(child, qname if name else parent_qname, nid)
+                )
+                walk(child, nid, depth + 1)
 
-        walk(tree.raw.root_node, "", "")
+        walk(tree.raw.root_node, "", 0)
         return results
 
     def signature(self, node: Any, limit: int = 80) -> str:

@@ -121,15 +121,6 @@ def parse_for(path_str: str, code: str) -> Tree:
     return engine_for_path(path).parse(code, path)
 
 
-def tree_from_input(path: str | None, code: str | None) -> Tree:
-    """Return a tree from an existing file (*path*) or raw *code* text."""
-    if code is not None:
-        return parse_source(code)
-    if path is not None:
-        return load(path)[1]
-    raise AstError("Either 'path' or 'code' is required.")
-
-
 def locate_all(tree: Tree) -> list[Located]:
     return tree.engine.locate_all(tree)
 

@@ -50,9 +50,8 @@ def ast_edit_block(
     exact: bool = False,
     replace_all: bool = False,
     id: str | None = None,
-    qualified_name: str | None = None,
 ) -> EditBlockNodeResult:
-    """Replace occurrence(s) of ``old_text`` with ``new_text`` inside a node addressed by id/FQN.
+    """Replace occurrence(s) of ``old_text`` with ``new_text`` inside a node addressed by id.
 
     The addressed node's source is unparsed, its ``old_text`` block replaced (as with
     ``edit_block``), re-parsed, and used to replace the node.
@@ -63,21 +62,20 @@ def ast_edit_block(
         new_text: Replacement text (may be empty to delete the block).
         exact: If False (default), whitespace in ``old_text`` is matched tolerantly.
         replace_all: If True, replace every occurrence instead of requiring a single match.
-        id: Node id (primarily name-based path).
-        qualified_name: Exact qualified name of the target node.
+        id: Unique id of the target node.
 
     Returns:
         EditBlockNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, neither ``id`` nor ``qualified_name`` is
+        core.AstError: If ``path`` is invalid, ``id`` is not
             given, the path matches zero or more than one node, ``old_text`` is not
             found or (without ``replace_all``) ambiguous within the node's source, or
             the edited source has a syntax error.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id, qualified_name=qualified_name)
+    target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
     new_source = _replace_block(node_source, old_text, new_text, exact=exact, replace_all=replace_all)
     core.replace_node(target, new_source)
@@ -90,7 +88,7 @@ class EditBlockNodeTool(ToolDefinition):
     title = "Edit text block in AST node"
     description = (
         "In-node block edit: replace occurrence(s) of 'old_text' with 'new_text' "
-        "within the node addressed by id/qualified name. Use for a single, "
+        "within the node addressed by id. Use for a single, "
         "self-contained block; prefer ast_edit_marks for larger, marker-delimited regions."
     )
     input_schema = {
@@ -136,7 +134,6 @@ class EditBlockNodeTool(ToolDefinition):
                 exact=args.get("exact", False),
                 replace_all=args.get("replaceAll", False),
                 id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

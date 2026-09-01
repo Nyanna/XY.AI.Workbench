@@ -1,4 +1,4 @@
-"""``ast_edit_marks`` tool: mark-based edit within the source of a node addressed by id/FQN."""
+"""``ast_edit_marks`` tool: mark-based edit within the source of a node addressed by id."""
 
 
 from dataclasses import dataclass
@@ -33,9 +33,8 @@ def ast_edit_marks(
     *,
     exact: bool = False,
     id: str | None = None,
-    qualified_name: str | None = None,
 ) -> EditMarksNodeResult:
-    """Replace everything between the 'block_start' and 'block_end' markers inside a node addressed by id/FQN.
+    """Replace everything between the 'block_start' and 'block_end' markers inside a node addressed by id.
 
     The addressed node's source is unparsed, edited between the two markers (both
     included) as with ``edit_marks``, re-parsed, and used to replace the node.
@@ -46,21 +45,20 @@ def ast_edit_marks(
         block_end: Unique 10-30 char substring marking the end of the block, within the node's source.
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
-        id: Node id (primarily name-based path).
-        qualified_name: Exact qualified name of the target node.
+        id: Unique id of the target node.
 
     Returns:
         EditMarksNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, neither ``id`` nor ``qualified_name`` is
+        core.AstError: If ``path`` is invalid, ``id`` is not
             given, the path matches zero or more than one node, the markers are not
             found or ambiguous within the node's source, or the edited source has a
             syntax error.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id, qualified_name=qualified_name)
+    target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
     try:
         new_source = edit_marks_text(node_source, block_start, block_end, content, exact=exact)
@@ -77,7 +75,7 @@ class EditMarksNodeTool(ToolDefinition):
     description = (
         "In-node marker edit: replace everything strictly between and including the "
         "unique 'block_start' and 'block_end' markers, found within the node addressed "
-        "by id/qualified name, with 'content'. Ideal for focused in-section changes."
+        "by id, with 'content'. Ideal for focused in-section changes."
     )
     input_schema = {
         "type": "object",
@@ -123,7 +121,6 @@ class EditMarksNodeTool(ToolDefinition):
                 args["content"],
                 exact=args.get("exact", False),
                 id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

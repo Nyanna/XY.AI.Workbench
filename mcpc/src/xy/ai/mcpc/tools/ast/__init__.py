@@ -4,7 +4,7 @@ A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
 ``parse``/``unparse`` round-trip. Retrieval is layered on a
 single ``list`` tree (``ast_list`` structure, ``ast_find`` property/text/regexp
-filtering with source, ``ast_read`` reads subtrees by id/FQN); mutation is
+filtering with source, ``ast_read`` reads subtrees by id); mutation is
 node-level CRUD, each tool in its own ``*`` module (``ast_create``/``ast_delete``
 cover the whole-file case too), with two in-node editors ``ast_edit_marks``
 (marker-delimited) and ``ast_edit_block`` (exact block), a restricted ``script``
