@@ -23,8 +23,8 @@ from xy.ai.mcpc.tools.ast.base import (
     AstError,
     Engine,
     Located,
-    OutlineNode,
-    ReadNode,
+    id_segment,
+
     Tree,
 
 )
@@ -198,7 +198,7 @@ class PythonEngine(Engine):
             return f"{exc.msg} (line {exc.lineno})"
         return None
 
-    def _loc(self, tree, node, parent, index, name, qname, nid) -> Located:
+    def _loc(self, tree, node, parent, index, name, qname, nid, expandable=False) -> Located:
         return Located(
             tree=tree,
             node=node,
@@ -211,22 +211,31 @@ class PythonEngine(Engine):
             lineno=node.lineno,
             end_lineno=getattr(node, "end_lineno", node.lineno),
             parent_type=type(parent).__name__,
+            expandable=expandable,
         )
 
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []
 
         def walk(container: ast.AST, prefix: str, path: str) -> None:
+            used: dict[str, int] = {}
             for index, node in enumerate(getattr(container, "body", [])):
-                nid = f"{path}.{index}" if path else str(index)
                 if isinstance(node, _IMPORT_TYPES):
                     name = import_names(node)
+                    seg = id_segment(name, index, used)
+                    nid = f"{path}.{seg}" if path else seg
                     results.append(self._loc(tree, node, container, index, name, name, nid))
                 elif isinstance(node, _DEF_TYPES):
                     qual = f"{prefix}.{node.name}" if prefix else node.name
-                    results.append(self._loc(tree, node, container, index, node.name, qual, nid))
+                    seg = id_segment(node.name, index, used)
+                    nid = f"{path}.{seg}" if path else seg
+                    results.append(
+                        self._loc(tree, node, container, index, node.name, qual, nid, _only_defs(node.body))
+                    )
                     walk(node, qual, nid)
                 else:
+                    seg = id_segment(None, index, used)
+                    nid = f"{path}.{seg}" if path else seg
                     results.append(self._loc(tree, node, container, index, None, None, nid))
 
         walk(tree.raw, "", "")
@@ -257,52 +266,6 @@ class PythonEngine(Engine):
 
     def node_code(self, node: Any) -> str:
         return ast.unparse(ast.fix_missing_locations(node))
-
-    def outline_nodes(self, tree: Tree) -> list[OutlineNode]:
-        return self._outline_body(tree.raw.body, None)
-
-    def _outline_body(self, body: list[ast.stmt], qualified_name: str | None) -> list[OutlineNode]:
-        nodes: list[OutlineNode] = []
-        for node in body:
-            if isinstance(node, _DEF_TYPES):
-                qual = f"{qualified_name}.{node.name}" if qualified_name else node.name
-            else:
-                qual = None
-            children = self._outline_body(node.body, qual) if isinstance(node, ast.ClassDef) else []
-            end = getattr(node, "end_lineno", node.lineno)
-            lines = str(node.lineno) if end == node.lineno else f"{node.lineno}-{end}"
-            nodes.append(
-                OutlineNode(
-                    type=type(node).__name__,
-                    qualified_name=qual,
-                    lines=lines,
-                    signature=self.signature(node),
-                    docstring=self.docstring(node),
-                    children=children,
-                )
-            )
-        return nodes
-
-    def read_node(self, loc: Located) -> ReadNode:
-        return self._read(loc.node, loc.qualified_name)
-
-    def _read(self, node: ast.stmt, qualified_name: str | None) -> ReadNode:
-        end = getattr(node, "end_lineno", node.lineno)
-        lines = str(node.lineno) if end == node.lineno else f"{node.lineno}-{end}"
-        body = getattr(node, "body", None)
-        if isinstance(body, list) and _only_defs(body):
-            children = [
-                self._read(child, f"{qualified_name}.{child.name}" if qualified_name else child.name)
-                for child in body
-            ]
-            return ReadNode(type=type(node).__name__, qualified_name=qualified_name, lines=lines, code=None, children=children)
-        return ReadNode(
-            type=type(node).__name__,
-            qualified_name=qualified_name,
-            lines=lines,
-            code=self.node_code(node),
-            children=[],
-        )
 
     def replace(self, loc: Located, code: str) -> None:
         loc.parent.body[loc.index : loc.index + 1] = self._parse_fragment(code)

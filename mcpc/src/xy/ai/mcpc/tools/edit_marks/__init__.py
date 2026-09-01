@@ -56,7 +56,7 @@ def edit_marks_text(text: str, block_start: str, block_end: str, content: str, e
     return text[:start_match.start] + content + text[end_match.end:]
 
 
-def edit_marks(path: str, start: str, end: str, content: str, exact: bool=False) -> EditMarksResult:
+def edit_marks(path: str, block_start: str, block_end: str, content: str, exact: bool=False) -> EditMarksResult:
     """Replace everything between and including 'start' and 'end' with content.
 
     Both markers are included in the replacement.
@@ -85,7 +85,7 @@ def edit_marks(path: str, start: str, end: str, content: str, exact: bool=False)
         raise EditMarksError('Not a regular file.')
 
     text = file_path.read_text(encoding='utf-8')
-    result_text = edit_marks_text(text, start, end, content, exact=exact)
+    result_text = edit_marks_text(text, block_start, block_end, content, exact=exact)
 
     try:
         file_path.write_text(result_text, encoding='utf-8')
@@ -99,7 +99,7 @@ class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
     title = 'Edit marked file block'
     description = "Replace everything strictly between and including the unique 'block_start' and 'block_end' markers (both markers included) with 'content'. Rules: (1) 'block_start' and 'block_end' must each appear exactly once in the file. (2) 'block_end' must begin after 'block_start' ends — they must not overlap, and 'block_end' must NOT appear anywhere inside 'block_start'. (3) Choose markers that are multicharacter and span a distinctive substring, ideally a full line or phrase, never a single word or whitespace only or big block. (4) The replaced region should be focused — a few lines at most, not the entire file. (5) Do not use this tool to replace a single line; the block must span at least a meaningful multi-line region. (6) By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching. (7) Prefer distinct, short start/end lines over reusing a large block as both markers — 'block_start' should mark only the opening boundary, 'block_end' only the closing boundary. (8) CRITICAL: 'block_end' must be a substring that does NOT appear in 'block_start' — verify this before calling the tool."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'block_start': {'type': 'string', 'description': "Unique substring marking the beginning of the block. Must occur exactly once in the file. Must end before 'block_end' begins (no overlap). IMPORTANT: 'block_end' must not appear anywhere within this string. Choose a distinctive multi-character phrase, e.g. a full line of code or text."}, 'block_end': {'type': 'string', 'description': "Unique substring marking the end of the block. Must occur exactly once in the file, at a position strictly after 'block_start' ends. Must NOT be a substring of 'block_start'. Choose a distinctive multi-character phrase, e.g. a full line of code or text."}, 'content': {'type': 'string', 'description': "Replacement text that will replace everything from the start of 'block_start' to the end of 'block_end', inclusive."}, 'exact': {'type': 'boolean', 'description': "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'block_start', 'block_end', 'content']}
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'block_start': {'type': 'string', 'minLength': 10, 'maxLength': 30, 'description': "Unique substring (10-30 chars) marking the beginning of the block. Must occur exactly once in the file. Must end before 'block_end' begins (no overlap). IMPORTANT: 'block_end' must not appear anywhere within this string. Choose a distinctive short phrase, e.g. a full line of code or text."}, 'block_end': {'type': 'string', 'minLength': 10, 'maxLength': 30, 'description': "Unique substring (10-30 chars) marking the end of the block. Must occur exactly once in the file, at a position strictly after 'block_start' ends. Must NOT be a substring of 'block_start'. Choose a distinctive short phrase, e.g. a full line of code or text."}, 'content': {'type': 'string', 'description': "Replacement text that will replace everything from the start of 'block_start' to the end of 'block_end', inclusive."}, 'exact': {'type': 'boolean', 'description': "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}}, 'required': ['path', 'block_start', 'block_end', 'content']}
     output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': []}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 

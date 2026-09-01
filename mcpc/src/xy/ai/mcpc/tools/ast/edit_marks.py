@@ -1,4 +1,4 @@
-"""``ast_edit`` tool: mark-based edit within the source of a selected node."""
+"""``ast_edit_marks`` tool: mark-based edit within the source of a node addressed by id/FQN."""
 
 
 from dataclasses import dataclass
@@ -7,16 +7,16 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
 from xy.ai.mcpc.tools.edit_marks import EditMarksError, edit_marks_text
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["EditNodeResult", "ast_edit", "EditNodeTool", "register"]
+__all__ = ["EditMarksNodeResult", "ast_edit_marks", "EditMarksNodeTool", "register"]
 
 
 @dataclass(frozen=True)
-class EditNodeResult:
-    """Result of :func:`ast_edit`.
+class EditMarksNodeResult:
+    """Result of :func:`ast_edit_marks`.
 
     Attributes:
         result: Always ``"success"``.
@@ -25,7 +25,7 @@ class EditNodeResult:
     result: str
 
 
-def ast_edit(
+def ast_edit_marks(
     path: str,
     block_start: str,
     block_end: str,
@@ -34,53 +34,33 @@ def ast_edit(
     exact: bool = False,
     id: str | None = None,
     qualified_name: str | None = None,
-    name: str | None = None,
-    node_type: str | None = None,
-    lineno: int | None = None,
-    end_lineno: int | None = None,
-    parent_type: str | None = None,
-) -> EditNodeResult:
-    """Replace everything between the 'block_start' and 'block_end' markers inside a selected node's source.
+) -> EditMarksNodeResult:
+    """Replace everything between the 'block_start' and 'block_end' markers inside a node addressed by id/FQN.
 
-    The selected node's source is unparsed, edited between the two markers (both
+    The addressed node's source is unparsed, edited between the two markers (both
     included) as with ``edit_marks``, re-parsed, and used to replace the node.
 
     Args:
         path: Absolute path to the file to modify.
-        block_start: Unique substring marking the beginning of the block, within the selected node's source.
-        block_end: Unique substring marking the end of the block, within the selected node's source.
+        block_start: Unique 10-30 char substring marking the beginning of the block, within the node's source.
+        block_end: Unique 10-30 char substring marking the end of the block, within the node's source.
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
-        qualified_name: Selector – exact FQN of the target node.
-        name: Selector – exact simple name of the target node.
-        node_type: Selector – AST node class name of the target node.
-        lineno: Selector – exact start line of the target node.
-        end_lineno: Selector – exact end line of the target node.
-        parent_type: Selector – AST class name of the target node's container.
+        id: Node id (primarily name-based path).
+        qualified_name: Exact qualified name of the target node.
 
     Returns:
-        EditNodeResult: Success status.
+        EditMarksNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, no selector is given, the selector
-            matches zero or more than one node, the markers are not found or
-            ambiguous within the node's source, or the edited source has a
+        core.AstError: If ``path`` is invalid, neither ``id`` nor ``qualified_name`` is
+            given, the path matches zero or more than one node, the markers are not
+            found or ambiguous within the node's source, or the edited source has a
             syntax error.
     """
-    if not any((id, qualified_name, name, node_type, lineno, end_lineno, parent_type)):
-        raise core.AstError("A node selector is required; ast_edit targets a node's content, not the whole file.")
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_one(
-        tree,
-        id=id,
-        qualified_name=qualified_name,
-        name=name,
-        node_type=node_type,
-        lineno=lineno,
-        end_lineno=end_lineno,
-        parent_type=parent_type,
-    )
+    target = select_by_path(tree, id=id, qualified_name=qualified_name)
     node_source = core.edit_node_source(target)
     try:
         new_source = edit_marks_text(node_source, block_start, block_end, content, exact=exact)
@@ -88,15 +68,16 @@ def ast_edit(
         raise core.AstError(str(exc)) from exc
     core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
-    return EditNodeResult(result="success")
+    return EditMarksNodeResult(result="success")
 
 
-class EditNodeTool(ToolDefinition):
-    name = "ast_edit"
-    title = "Edit AST node"
+class EditMarksNodeTool(ToolDefinition):
+    name = "ast_edit_marks"
+    title = "Edit AST node between markers"
     description = (
-        "Replace everything strictly between and including the unique 'block_start' and 'block_end' "
-        "markers, found within the source of the selected node, with 'content'."
+        "In-node marker edit: replace everything strictly between and including the "
+        "unique 'block_start' and 'block_end' markers, found within the node addressed "
+        "by id/qualified name, with 'content'. Ideal for focused in-section changes."
     )
     input_schema = {
         "type": "object",
@@ -104,11 +85,15 @@ class EditNodeTool(ToolDefinition):
             "path": {"type": "string", "description": "Absolute path to the file."},
             "block_start": {
                 "type": "string",
-                "description": "Unique substring marking the beginning of the block, within the selected node's source.",
+                "minLength": 10,
+                "maxLength": 30,
+                "description": "Unique 10-30 char substring marking the beginning of the block, within the node's source.",
             },
             "block_end": {
                 "type": "string",
-                "description": "Unique substring marking the end of the block, within the selected node's source.",
+                "minLength": 10,
+                "maxLength": 30,
+                "description": "Unique 10-30 char substring marking the end of the block, within the node's source.",
             },
             "content": {"type": "string", "description": "Replacement source for the marked block."},
             "exact": {
@@ -116,7 +101,7 @@ class EditNodeTool(ToolDefinition):
                 "description": "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
                 "default": False,
             },
-            **SELECTOR_PROPS,
+            **PATH_SELECTOR_PROPS,
         },
         "required": ["path", "block_start", "block_end", "content"],
     }
@@ -128,10 +113,10 @@ class EditNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_edit`, translating the MCP schema to/from the AST API."""
+        """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_edit(
+            result = ast_edit_marks(
                 args["path"],
                 args["block_start"],
                 args["block_end"],
@@ -139,11 +124,6 @@ class EditNodeTool(ToolDefinition):
                 exact=args.get("exact", False),
                 id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
-                name=args.get("name"),
-                node_type=args.get("node_type"),
-                lineno=args.get("lineno"),
-                end_lineno=args.get("end_lineno"),
-                parent_type=args.get("parent_type"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
@@ -151,5 +131,5 @@ class EditNodeTool(ToolDefinition):
 
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    registry.register(EditNodeTool())
-    functions.register(ast_edit)
+    registry.register(EditMarksNodeTool())
+    functions.register(ast_edit_marks)

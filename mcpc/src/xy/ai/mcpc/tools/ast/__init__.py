@@ -2,35 +2,46 @@
 
 A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
-``parse``/``unparse`` round-trip. The tools cover a structural ``outline``,
-node-level CRUD (each tool in its own ``*`` module, ``ast_create``/``ast_delete``
-covering the whole-file case too), the imports/classes/functions convenience
-layers, a node-scoped ``replace_block``, a restricted ``script`` and a
-``validate`` compile check.
+``parse``/``unparse`` round-trip. Retrieval is layered on a
+single ``list`` tree (``ast_list`` structure, ``ast_find`` property/text/regexp
+filtering with source, ``ast_read`` reads subtrees by id/FQN); mutation is
+node-level CRUD, each tool in its own ``*`` module (``ast_create``/``ast_delete``
+cover the whole-file case too), with two in-node editors ``ast_edit_marks``
+(marker-delimited) and ``ast_edit_block`` (exact block), a restricted ``script``
+and a ``validate`` compile check.
 """
 
 
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, script, replace, outline, find, list
+from xy.ai.mcpc.tools.ast import (
+    create,
+    delete,
+    edit_block,
+    edit_marks,
+    find,
+    insert,
+    list,
+    read,
+    replace,
+    script,
+    validate,
+)
 
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
 ALIAS = "ast"
 _ALIAS_MEMBERS = (
-    "ast_outline",
     "ast_list",
     "ast_find",
     "ast_read",
     "ast_insert",
-    "ast_edit",
+    "ast_edit_marks",
+    "ast_edit_block",
     "ast_replace",
     "ast_delete",
     "ast_create",
-    "ast_imports",
-    "ast_classes",
-    "ast_functions",
-    "ast_replace_block",
+    "ast_script",
     "ast_validate",
 )
 
@@ -38,12 +49,13 @@ _ALIAS_MEMBERS = (
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``ast_*`` tool and the ``ast`` alias."""
 
-    outline.register(registry, functions)
+
     list.register(registry, functions)
     find.register(registry, functions)
     read.register(registry, functions)
     insert.register(registry, functions)
-    edit.register(registry, functions)
+    edit_marks.register(registry, functions)
+    edit_block.register(registry, functions)
     replace.register(registry, functions)
     delete.register(registry, functions)
     create.register(registry, functions)

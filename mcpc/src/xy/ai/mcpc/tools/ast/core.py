@@ -28,10 +28,12 @@ from xy.ai.mcpc.tools.ast.base import (  # noqa: F401  (re-exported for the tool
     OUTLINE_NODE_SCHEMA,
     ReadNode,
     Tree,
+    build_outline,
     find,
     line_range,
     matches,
     node_outline,
+    read_subtrees,
     require_path,
 )
 from xy.ai.mcpc.tools.ast import generic
@@ -130,14 +132,6 @@ def tree_from_input(path: str | None, code: str | None) -> Tree:
 
 def locate_all(tree: Tree) -> list[Located]:
     return tree.engine.locate_all(tree)
-
-
-def outline_nodes(tree: Tree) -> list[OutlineNode]:
-    return tree.engine.outline_nodes(tree)
-
-
-def read_node(loc: Located) -> ReadNode:
-    return loc.tree.engine.read_node(loc)
 
 
 def edit_node_source(loc: Located) -> str:

@@ -14,6 +14,8 @@ which one is in play.
 
 from __future__ import annotations
 
+import hashlib
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,6 +59,8 @@ class Located:
         qualified_name: Dotted path of enclosing names, if any.
         lineno / end_lineno: 1-based inclusive line span.
         parent_type: Type name of ``parent``, or ``None`` at the top level.
+        expandable: Whether ``read`` should descend into children instead of
+            returning the node's full source (a pure container of nested defs).
     """
 
     tree: Tree
@@ -70,17 +74,25 @@ class Located:
     lineno: int
     end_lineno: int
     parent_type: str | None
+    expandable: bool = False
 
 
 @dataclass(frozen=True)
 class OutlineNode:
-    """One node in a structural (outline/list/find) result."""
+    """One node in a structural (list/find) result.
 
+    ``id`` is the primarily name-based path used by every non-``find`` tool to
+    address the node. ``code`` carries the node's full source and is populated
+    only by ``find`` – ``list`` always leaves it ``None``.
+    """
+
+    id: str
     type: str
     qualified_name: str | None
     lines: str
     signature: str
     docstring: str | None
+    code: str | None = None
     children: list["OutlineNode"] = field(default_factory=list)
 
 
@@ -93,6 +105,7 @@ class ReadNode:
     populated so the agent can descend to the innermost editable block.
     """
 
+    id: str
     type: str
     qualified_name: str | None
     lines: str
@@ -107,16 +120,117 @@ def line_range(loc: Located) -> str:
     return f"{loc.lineno}-{loc.end_lineno}"
 
 
-def node_outline(loc: Located) -> OutlineNode:
-    """Build a flat (childless) :class:`OutlineNode` describing ``loc``."""
+_ID_CLEAN_RE = re.compile(r"\W+")
+
+
+def id_segment(name: str | None, index: int, used: dict[str, int]) -> str:
+    """Return a unique-within-siblings id segment, name-based when feasible.
+
+    A clean, short name becomes the segment verbatim; a long/awkward name (e.g. a
+    Markdown heading) collapses to a short hash; a nameless node falls back to its
+    numeric ``index``. Collisions among siblings get a numeric suffix.
+    """
+    seg: str | None = None
+    if name:
+        cleaned = _ID_CLEAN_RE.sub("_", name).strip("_")
+        if cleaned and len(cleaned) <= 40:
+            seg = cleaned
+        else:
+            seg = "h" + hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+    if not seg:
+        seg = str(index)
+    count = used.get(seg, 0)
+    used[seg] = count + 1
+    return seg if count == 0 else f"{seg}_{count}"
+
+
+def node_outline(loc: Located, *, with_code: bool = False, children: list[OutlineNode] | None = None) -> OutlineNode:
+    """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``)."""
     engine = loc.tree.engine
     return OutlineNode(
+        id=loc.node_id,
         type=loc.node_type,
         qualified_name=loc.qualified_name,
         lines=line_range(loc),
         signature=engine.signature(loc.node),
         docstring=engine.docstring(loc.node),
+        code=engine.node_code(loc.node) if with_code else None,
+        children=children or [],
     )
+
+
+@dataclass
+class _TreeNode:
+    loc: Located
+    children: list["_TreeNode"] = field(default_factory=list)
+
+
+def _build_forest(located: list[Located]) -> list[_TreeNode]:
+    """Nest a pre-order list of ``Located`` into a forest via ``node_id`` prefixes."""
+    roots: list[_TreeNode] = []
+    stack: list[_TreeNode] = []
+    for loc in located:
+        node = _TreeNode(loc)
+        while stack and not loc.node_id.startswith(stack[-1].loc.node_id + "."):
+            stack.pop()
+        (stack[-1].children if stack else roots).append(node)
+        stack.append(node)
+    return roots
+
+
+def build_outline(located: list[Located], *, with_code: bool = False) -> list[OutlineNode]:
+    """Build the nested outline of ``located`` (source per node only if ``with_code``)."""
+
+    def convert(nodes: list[_TreeNode]) -> list[OutlineNode]:
+        return [node_outline(t.loc, with_code=with_code, children=convert(t.children)) for t in nodes]
+
+    return convert(_build_forest(located))
+
+
+def _to_read(t: _TreeNode) -> ReadNode:
+    loc = t.loc
+    if loc.expandable and t.children:
+        return ReadNode(
+            id=loc.node_id,
+            type=loc.node_type,
+            qualified_name=loc.qualified_name,
+            lines=line_range(loc),
+            code=None,
+            children=[_to_read(c) for c in t.children],
+        )
+    return ReadNode(
+        id=loc.node_id,
+        type=loc.node_type,
+        qualified_name=loc.qualified_name,
+        lines=line_range(loc),
+        code=loc.tree.engine.node_code(loc.node),
+        children=[],
+    )
+
+
+def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
+    """Return one read subtree per ``keys`` entry, matched by ``node_id`` or FQN.
+
+    Raises:
+        AstError: If any key matches no node.
+    """
+    index: dict[str, _TreeNode] = {}
+
+    def collect(nodes: list[_TreeNode]) -> None:
+        for t in nodes:
+            index.setdefault(t.loc.node_id, t)
+            if t.loc.qualified_name:
+                index.setdefault(t.loc.qualified_name, t)
+            collect(t.children)
+
+    collect(_build_forest(located))
+    result: list[ReadNode] = []
+    for key in keys:
+        target = index.get(key)
+        if target is None:
+            raise AstError(f"No node matched '{key}'.")
+        result.append(_to_read(target))
+    return result
 
 
 def matches(
@@ -185,14 +299,6 @@ class Engine(ABC):
         """Flatten ``tree`` into every addressable node, in document order."""
 
     @abstractmethod
-    def outline_nodes(self, tree: Tree) -> list[OutlineNode]:
-        """Build the nested structural outline of ``tree``."""
-
-    @abstractmethod
-    def read_node(self, loc: Located) -> ReadNode:
-        """Read ``loc``'s subtree, expanding pure containers into children."""
-
-    @abstractmethod
     def signature(self, node: Any) -> str:
         """One-line rendering of ``node``'s header (or the node itself)."""
 
@@ -234,10 +340,11 @@ def require_path(path_str: str, *, must_exist: bool = True) -> Path:
     return path
 
 
-#: JSON-Schema fragment for :class:`OutlineNode`, shared by outline/list/find.
+#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.
 OUTLINE_NODE_SCHEMA = {
     "type": "object",
     "properties": {
+        "id": {"type": "string", "description": "Primarily name-based node path; address for every non-find tool."},
         "type": {"type": "string"},
         "qualified_name": {"type": ["string", "null"]},
         "lines": {
@@ -246,7 +353,8 @@ OUTLINE_NODE_SCHEMA = {
         },
         "signature": {"type": "string"},
         "docstring": {"type": ["string", "null"]},
+        "code": {"type": ["string", "null"], "description": "Full node source; populated by find, null in list."},
         "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
     },
-    "required": ["type", "qualified_name", "lines", "signature", "docstring", "children"],
+    "required": ["id", "type", "qualified_name", "lines", "signature", "docstring", "code", "children"],
 }

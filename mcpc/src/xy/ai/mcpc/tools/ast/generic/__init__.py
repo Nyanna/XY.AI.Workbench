@@ -23,8 +23,8 @@ from xy.ai.mcpc.tools.ast.base import (
     AstError,
     Engine,
     Located,
-    OutlineNode,
-    ReadNode,
+    id_segment,
+
     Tree,
 
 )
@@ -138,6 +138,10 @@ class TreeSitterEngine(Engine):
         return "Parse error."
 
     def _name(self, node: Any) -> str | None:
+        if node.type == "section":
+            for child in node.named_children:
+                if child.type.endswith("heading"):
+                    return self._clean_heading(child.text)
         for field in ("name", "key", "tag"):
             child = node.child_by_field_name(field)
             if child is not None:
@@ -148,6 +152,10 @@ class TreeSitterEngine(Engine):
         return None
 
     @staticmethod
+    def _clean_heading(raw: bytes) -> str:
+        return raw.decode("utf-8", "replace").strip().lstrip("#").strip()
+
+    @staticmethod
     def _clean(raw: bytes) -> str:
         return raw.decode("utf-8", "replace").strip().strip("\"'")
 
@@ -155,9 +163,11 @@ class TreeSitterEngine(Engine):
         results: list[Located] = []
 
         def walk(node: Any, parent_qname: str, path: str) -> None:
+            used: dict[str, int] = {}
             for index, child in enumerate(node.named_children):
-                nid = f"{path}.{index}" if path else str(index)
                 name = self._name(child)
+                seg = id_segment(name, index, used)
+                nid = f"{path}.{seg}" if path else seg
                 if name and parent_qname:
                     qname = f"{parent_qname}.{name}"
                 elif name:
@@ -165,6 +175,8 @@ class TreeSitterEngine(Engine):
                 else:
                     qname = None
                 if child.named_children or name is not None:
+                    containers = [c for c in child.named_children if c.named_children]
+                    expandable = bool(child.named_children) and len(containers) == len(child.named_children)
                     results.append(
                         Located(
                             tree=tree,
@@ -178,6 +190,7 @@ class TreeSitterEngine(Engine):
                             lineno=child.start_point[0] + 1,
                             end_lineno=child.end_point[0] + 1,
                             parent_type=node.type,
+                            expandable=expandable,
                         )
                     )
                 walk(child, qname if name else parent_qname, nid)
@@ -195,55 +208,6 @@ class TreeSitterEngine(Engine):
 
     def node_code(self, node: Any) -> str:
         return node.text.decode("utf-8", "replace")
-
-    def outline_nodes(self, tree: Tree) -> list[OutlineNode]:
-        def build(node: Any, parent_qname: str) -> list[OutlineNode]:
-            out: list[OutlineNode] = []
-            for child in node.named_children:
-                name = self._name(child)
-                if name and parent_qname:
-                    qname = f"{parent_qname}.{name}"
-                elif name:
-                    qname = name
-                else:
-                    qname = None
-                if not (child.named_children or name is not None):
-                    continue
-                children = build(child, qname if name else parent_qname)
-                start = child.start_point[0] + 1
-                end = child.end_point[0] + 1
-                out.append(
-                    OutlineNode(
-                        type=child.type,
-                        qualified_name=qname,
-                        lines=str(start) if start == end else f"{start}-{end}",
-                        signature=self.signature(child),
-                        docstring=None,
-                        children=children,
-                    )
-                )
-            return out
-
-        return build(tree.raw.root_node, "")
-
-    def read_node(self, loc: Located) -> ReadNode:
-        return self._read(loc.node, loc.qualified_name)
-
-    def _read(self, node: Any, qname: str | None) -> ReadNode:
-        start = node.start_point[0] + 1
-        end = node.end_point[0] + 1
-        lines = str(start) if start == end else f"{start}-{end}"
-        containers = [c for c in node.named_children if c.named_children]
-        if node.named_children and len(containers) == len(node.named_children):
-            children = [self._read(c, self._child_qname(c, qname)) for c in containers]
-            return ReadNode(type=node.type, qualified_name=qname, lines=lines, code=None, children=children)
-        return ReadNode(type=node.type, qualified_name=qname, lines=lines, code=self.node_code(node), children=[])
-
-    def _child_qname(self, node: Any, parent_qname: str | None) -> str | None:
-        name = self._name(node)
-        if not name:
-            return parent_qname
-        return f"{parent_qname}.{name}" if parent_qname else name
 
     def _splice(self, tree: Tree, start: int, end: int, text: str) -> None:
         data = tree.source.encode("utf-8")

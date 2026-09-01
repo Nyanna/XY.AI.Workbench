@@ -1,6 +1,7 @@
 """``ast_find`` tool: find AST nodes by type, name, qualified name, line range or parent type."""
 
 
+import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -38,29 +39,37 @@ def ast_find(
     lineno: int | None = None,
     end_lineno: int | None = None,
     parent_type: str | None = None,
+    text: str | None = None,
+    regexp: str | None = None,
 ) -> FindNodesResult:
-    """Find nodes by id, type, name, qualified name, line range or parent type.
+    """Find nodes by id, type, name, qualified name, line range, parent type, text or regexp.
+
+    ``ast_find`` is the single retrieval point that restricts on node properties;
+    every other tool addresses nodes purely by ``id``/qualified name. Matches are
+    returned with their full source.
 
     Args:
         path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
         code: Source to parse instead of reading ``path``.
-        id: Engine-independent node id (dotted index path).
+        id: Engine-independent node id (primarily name-based path).
         qualified_name: Exact qualified name a node's ``qualified_name`` must equal.
         name: Exact simple name a node's ``name`` must equal.
         node_type: Node type name a node must match (case-insensitive).
         lineno: Exact start line a node must match.
         end_lineno: Exact end line a node must match.
         parent_type: Node type name of the enclosing container (case-insensitive).
+        text: Case-insensitive substring the node's source must contain.
+        regexp: Regular expression the node's source must match (``re.search``).
 
     Returns:
-        FindNodesResult: The matching node summaries and their count. Any number of
-        matches (including zero) is a normal, successful result.
+        FindNodesResult: The matching node summaries (with source) and their count.
+        Any number of matches (including zero) is a normal, successful result.
 
     Raises:
         core.AstError: If neither ``path`` nor ``code`` is given, if ``path`` is not
-            absolute or does not point to an existing regular file, or if the source
-            has a syntax error.
+            absolute or does not point to an existing regular file, if the source
+            has a syntax error, or if ``regexp`` is not a valid regular expression.
     """
     tree = core.tree_from_input(path, code)
     hits = core.find(
@@ -73,19 +82,34 @@ def ast_find(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    return FindNodesResult(nodes=[core.node_outline(h) for h in hits], count=len(hits))
+    if text is not None:
+        needle = text.lower()
+        hits = [h for h in hits if needle in tree.engine.node_code(h.node).lower()]
+    if regexp is not None:
+        try:
+            pattern = re.compile(regexp)
+        except re.error as exc:
+            raise core.AstError(f"Invalid regexp: {exc}") from exc
+        hits = [h for h in hits if pattern.search(tree.engine.node_code(h.node))]
+    return FindNodesResult(nodes=[core.node_outline(h, with_code=True) for h in hits], count=len(hits))
 
 
 class FindNodesTool(ToolDefinition):
     name = "ast_find"
     title = "Find AST nodes"
-    description = "Find AST nodes by type, name, qualified name, line range or parent type."
+    description = (
+        "Filter the AST-node tree by type, name, qualified name, id, line range, "
+        "parent type, text substring or regexp – the only retrieval point with "
+        "property/text restriction. Returns matches with their full source."
+    )
     input_schema = {
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the file."},
             "code": {"type": "string", "description": "Source to parse instead of a file."},
             **SELECTOR_PROPS,
+            "text": {"type": "string", "description": "Case-insensitive substring the node's source must contain."},
+            "regexp": {"type": "string", "description": "Regular expression the node's source must match (re.search)."},
         },
         "required": [],
     }
@@ -106,6 +130,8 @@ class FindNodesTool(ToolDefinition):
                 lineno=args.get("lineno"),
                 end_lineno=args.get("end_lineno"),
                 parent_type=args.get("parent_type"),
+                text=args.get("text"),
+                regexp=args.get("regexp"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)

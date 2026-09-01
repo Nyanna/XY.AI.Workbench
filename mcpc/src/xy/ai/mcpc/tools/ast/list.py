@@ -27,18 +27,21 @@ class ListNodesResult:
     count: int
 
 
-def ast_list(path: str | None = None, code: str | None = None, node_type: str | None = None) -> ListNodesResult:
-    """List AST nodes (imports, classes, functions, statements) of a file or source snippet.
+def ast_list(path: str | None = None, code: str | None = None) -> ListNodesResult:
+    """List the hierarchical AST-node tree of a file or source snippet.
+
+    The tree is the foundation every other tool builds on: each node carries its
+    primarily name-based ``id``/qualified name and line range, but never its
+    source – use ``ast_find`` (property/text filtering) or ``ast_read`` (by id)
+    to retrieve source.
 
     Args:
         path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
         code: Source to parse instead of reading ``path``.
-        node_type: Restrict the result to this AST node class name (case-insensitive),
-            e.g. ``"FunctionDef"``. ``None`` returns every node.
 
     Returns:
-        ListNodesResult: The matching node summaries and their count.
+        ListNodesResult: The nested node tree and the number of top-level nodes.
 
     Raises:
         core.AstError: If neither ``path`` nor ``code`` is given, if ``path`` is not
@@ -46,25 +49,24 @@ def ast_list(path: str | None = None, code: str | None = None, node_type: str | 
             has a syntax error.
     """
     tree = core.tree_from_input(path, code)
-    located = core.locate_all(tree)
-    nodes = [
-        core.node_outline(loc)
-        for loc in located
-        if node_type is None or loc.node_type.lower() == node_type.lower()
-    ]
+    nodes = core.build_outline(core.locate_all(tree))
     return ListNodesResult(nodes=nodes, count=len(nodes))
 
 
 class ListNodesTool(ToolDefinition):
     name = "ast_list"
     title = "List AST nodes"
-    description = "List AST nodes (imports, classes, functions, statements) of a file, optionally filtered by type."
+    description = (
+        "Hierarchical tree of a file's AST nodes (imports, classes, functions, "
+        "statements) with id, qualified name and line range – no source. Use "
+        "ast_find to filter/search and get source, ast_read to read source by id."
+    )
     input_schema = {
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the file."},
             "code": {"type": "string", "description": "Source to parse instead of a file."},
-            "node_type": {"type": "string", "description": "Restrict to this AST node class name."},
+
         },
         "required": [],
     }
@@ -75,7 +77,7 @@ class ListNodesTool(ToolDefinition):
         """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))
+            result = ast_list(path=args.get("path"), code=args.get("code"))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes], "count": result.count})

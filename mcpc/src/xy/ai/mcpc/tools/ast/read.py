@@ -1,4 +1,4 @@
-"""``ast_read`` tool: recursively read a node's subtree for block-wise edit/replace."""
+"""``ast_read`` tool: read one or more node subtrees (with source) by id/FQN."""
 
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -7,7 +7,6 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.core import ReadNode
-from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = ["ReadNode", "ReadNodeResult", "ast_read", "ReadNodeTool", "register"]
@@ -18,67 +17,49 @@ class ReadNodeResult:
     """Result of :func:`ast_read`.
 
     Attributes:
-        node: The selected node, expanded recursively.
+        nodes: One expanded subtree per requested id/FQN, in the given order.
     """
 
-    node: ReadNode
+    nodes: list[ReadNode]
 
 
 def ast_read(
+    ids: list[str],
     path: str | None = None,
     code: str | None = None,
-    *,
-    id: str | None = None,
-    qualified_name: str | None = None,
-    name: str | None = None,
-    node_type: str | None = None,
-    lineno: int | None = None,
-    end_lineno: int | None = None,
-    parent_type: str | None = None,
 ) -> ReadNodeResult:
-    """Recursively read the selected node's subtree for block-wise edit/replace.
+    """Recursively read the subtree of each addressed node for block-wise edit/replace.
 
-    A node whose body consists solely of nested classes/functions is expanded into
-    ``children`` instead of source, so the agent can descend to the innermost block
-    that actually needs editing; any other node is returned whole, as ``code`` ready
-    to hand back to ``ast_replace`` via its ``qualified_name``.
+    Each id/FQN resolves to a subtree: a node whose body consists solely of nested
+    classes/functions is expanded into ``children`` instead of source, so the agent
+    can descend to the innermost editable block; any other node is returned whole,
+    as ``code`` ready to hand back to ``ast_replace`` via its ``id``/qualified name.
 
     Args:
+        ids: Node ids or qualified names to read. Must be non-empty.
         path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
         code: Source to parse instead of reading ``path``.
-        qualified_name: Selector – exact FQN of the target node.
-        name: Selector – exact simple name of the target node.
-        node_type: Selector – AST node class name of the target node.
-        lineno: Selector – exact start line of the target node.
-        end_lineno: Selector – exact end line of the target node.
-        parent_type: Selector – AST class name of the target node's container.
 
     Returns:
-        ReadNodeResult: The selected node's subtree.
+        ReadNodeResult: One subtree per entry in ``ids``.
 
     Raises:
-        core.AstError: If neither ``path`` nor ``code`` is given, if ``path`` is not
-            absolute or does not point to an existing regular file, the source has a
-            syntax error, or the selector matches zero or more than one node.
+        core.AstError: If ``ids`` is empty, neither ``path`` nor ``code`` is given,
+            ``path`` is not absolute or not an existing regular file, the source has
+            a syntax error, or an id matches no node.
     """
+    if not ids:
+        raise core.AstError("'ids' must be a non-empty list of node ids or qualified names.")
     tree = core.tree_from_input(path, code)
-    target = select_one(
-        tree,
-        id=id,
-        qualified_name=qualified_name,
-        name=name,
-        node_type=node_type,
-        lineno=lineno,
-        end_lineno=end_lineno,
-        parent_type=parent_type,
-    )
-    return ReadNodeResult(node=core.read_node(target))
+    nodes = core.read_subtrees(core.locate_all(tree), ids)
+    return ReadNodeResult(nodes=nodes)
 
 
 _READ_NODE_SCHEMA = {
     "type": "object",
     "properties": {
+        "id": {"type": "string", "description": "Primarily name-based node path; address for ast_replace/edit."},
         "type": {"type": "string"},
         "qualified_name": {"type": ["string", "null"]},
         "lines": {
@@ -94,33 +75,38 @@ _READ_NODE_SCHEMA = {
         },
         "children": {"type": "array", "items": {"$ref": "#/$defs/read_node"}},
     },
-    "required": ["type", "qualified_name", "lines", "code", "children"],
+    "required": ["id", "type", "qualified_name", "lines", "code", "children"],
 }
 
 
 class ReadNodeTool(ToolDefinition):
     name = "ast_read"
-    title = "Read AST subtree"
+    title = "Read AST subtrees"
     description = (
-        "Recursively read the selected node's subtree, surfacing each block's qualified "
-        "name and source so it can be handed back to ast_replace. Nodes whose body "
-        "consists solely of nested classes/functions are expanded into 'children' instead "
-        "of source, letting the agent descend to the innermost block that needs editing."
+        "Recursively read the subtree of each addressed node (by id or qualified "
+        "name), surfacing each block's id and source so it can be handed to "
+        "ast_replace/ast_edit_marks/ast_edit_block. Nodes whose body consists solely "
+        "of nested classes/functions are expanded into 'children' instead of source, "
+        "letting the agent descend to the innermost block that needs editing."
     )
     input_schema = {
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Absolute path to the file."},
             "code": {"type": "string", "description": "Source to parse instead of a file."},
-            **SELECTOR_PROPS,
+            "ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Node ids or qualified names to read.",
+            },
         },
-        "required": [],
+        "required": ["ids"],
     }
     output_schema = {
         "$defs": {"read_node": _READ_NODE_SCHEMA},
         "type": "object",
-        "properties": {"node": {"$ref": "#/$defs/read_node"}},
-        "required": ["node"],
+        "properties": {"nodes": {"type": "array", "items": {"$ref": "#/$defs/read_node"}}},
+        "required": ["nodes"],
     }
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
@@ -129,19 +115,13 @@ class ReadNodeTool(ToolDefinition):
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_read(
+                ids=args.get("ids") or [],
                 path=args.get("path"),
                 code=args.get("code"),
-                id=args.get("id"),
-                qualified_name=args.get("qualified_name"),
-                name=args.get("name"),
-                node_type=args.get("node_type"),
-                lineno=args.get("lineno"),
-                end_lineno=args.get("end_lineno"),
-                parent_type=args.get("parent_type"),
             )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={"node": asdict(result.node)})
+        return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes]})
 
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
