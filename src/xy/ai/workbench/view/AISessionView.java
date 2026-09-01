@@ -532,7 +532,7 @@ public class AISessionView extends ViewPart {
 			footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
 			usageLog = toolkit.createText(footer, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
-			usageLog.setText("Total, Out, Reason, Cached, Created, In\n");
+			usageLog.setText("Total, Out, Reason, CRead, CCreate, In\n");
 			GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 			gridData.heightHint = 50;
 			usageLog.setLayoutData(gridData);

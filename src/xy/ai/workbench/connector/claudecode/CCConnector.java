@@ -230,7 +230,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		answer.stats.inputToken = resp.stats.inputToken;
 		answer.stats.outputToken = resp.stats.outputToken;
 		answer.stats.reasoningToken = resp.stats.reasoningToken;
-		answer.stats.totalToken = answer.stats.inputToken + answer.stats.outputToken;
+		answer.stats.totalToken = answer.stats.inputToken + answer.stats.cacheCreate + answer.stats.outputToken;
 		answer.stats.cacheRead = resp.stats.cacheRead;
 		answer.stats.cacheCreate = resp.stats.cacheCreate;
 		answer.answer = resp.resultText;
