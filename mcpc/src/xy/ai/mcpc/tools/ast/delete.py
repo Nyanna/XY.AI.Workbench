@@ -1,4 +1,4 @@
-"""``ast_delete`` tool: delete the single selected node from a Python file."""
+"""``ast_delete`` tool: delete a selected node, or the whole file if none is selected."""
 
 
 from dataclasses import dataclass
@@ -10,11 +10,11 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["DeleteNodeResult", "ast_delete", "DeleteNodeTool", "register"]
+__all__ = ["DeleteResult", "ast_delete", "DeleteTool", "register"]
 
 
 @dataclass(frozen=True)
-class DeleteNodeResult:
+class DeleteResult:
     """Result of :func:`ast_delete`.
 
     Attributes:
@@ -34,8 +34,13 @@ def ast_delete(
     lineno: int | None = None,
     end_lineno: int | None = None,
     parent_type: str | None = None,
-) -> DeleteNodeResult:
-    """Delete the single selected node from a file.
+) -> DeleteResult:
+    """Delete the single selected node, or the whole file if the root is selected.
+
+    The root node is selected by omitting every selector – there is no other way
+    to address it, since it is never itself an addressable child. Deleting the
+    file also removes it from the AST cache and, if its parent directory becomes
+    empty as a result, removes that directory too.
 
     Args:
         path: Absolute path to the file to modify.
@@ -48,16 +53,14 @@ def ast_delete(
         parent_type: Selector – node type name of the target node's container.
 
     Returns:
-        DeleteNodeResult: Success status.
+        DeleteResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, or the selector matches zero or more
-            than one node.
+        core.AstError: If ``path`` is invalid, or a selector is given but matches
+            zero or more than one node.
     """
     file_path = core.require_path(path)
-    tree = core.CACHE.get_tree(file_path)
-    target = select_one(
-        tree,
+    selectors = dict(
         id=id,
         qualified_name=qualified_name,
         name=name,
@@ -66,19 +69,35 @@ def ast_delete(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
+    if all(value is None for value in selectors.values()):
+        try:
+            file_path.unlink()
+        except OSError as exc:
+            raise core.AstError("Delete failed.") from exc
+        core.CACHE.invalidate(file_path)
+        parent = file_path.parent
+        if not any(parent.iterdir()):
+            parent.rmdir()
+        return DeleteResult(result="success")
+
+    tree = core.CACHE.get_tree(file_path)
+    target = select_one(tree, **selectors)
     core.delete_node(target)
     core.CACHE.save(file_path, tree)
-    return DeleteNodeResult(result="success")
+    return DeleteResult(result="success")
 
 
-class DeleteNodeTool(ToolDefinition):
+class DeleteTool(ToolDefinition):
     name = "ast_delete"
-    title = "Delete AST node"
-    description = "Delete the single selected node from a Python file."
+    title = "Delete AST node or file"
+    description = (
+        "Delete the single selected node from a file, or the whole file – and its "
+        "directory if no selector is given."
+    )
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
             **SELECTOR_PROPS,
         },
         "required": ["path"],
@@ -110,5 +129,5 @@ class DeleteNodeTool(ToolDefinition):
 
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    registry.register(DeleteNodeTool())
+    registry.register(DeleteTool())
     functions.register(ast_delete)

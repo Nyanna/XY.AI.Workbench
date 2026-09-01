@@ -1,10 +1,7 @@
 # TODO
-! muss verzeichnis anlegen `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/create.py`
-! create/create_file delete/delte file zusammenführen
 ! ast script muss generisch werden
 !AST parameter kontrollieren, alle edits nur auf FQN, Find und LIst liefert FQN
 
-! result objekt und token fehlen
 ! Tests reparieren
 ! fqnd in allen ast edit file.js#Segmend.segment
 	- für java, package und signatur verwenden root_dir/package, das ganze ID nennen und nicht path

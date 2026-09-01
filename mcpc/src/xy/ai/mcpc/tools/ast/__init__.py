@@ -3,15 +3,16 @@
 A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
 ``parse``/``unparse`` round-trip. The tools cover a structural ``outline``,
-node-level CRUD (each tool in its own ``*`` module), whole-file
-create/delete, the imports/classes/functions convenience layers, a node-scoped
-``replace_block``, a restricted ``script`` and a ``validate`` compile check.
+node-level CRUD (each tool in its own ``*`` module, ``ast_create``/``ast_delete``
+covering the whole-file case too), the imports/classes/functions convenience
+layers, a node-scoped ``replace_block``, a restricted ``script`` and a
+``validate`` compile check.
 """
 
 
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, create_file, delete_file, script, replace, outline, find, list
+from xy.ai.mcpc.tools.ast import delete, edit, validate, read, create, insert, script, replace, outline, find, list
 
 __all__ = ["register_ast_tools", "ALIAS"]
 #: Alias name that activates the whole family in one go.
@@ -26,8 +27,6 @@ _ALIAS_MEMBERS = (
     "ast_replace",
     "ast_delete",
     "ast_create",
-    "ast_create_file",
-    "ast_delete_file",
     "ast_imports",
     "ast_classes",
     "ast_functions",
@@ -48,8 +47,6 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     replace.register(registry, functions)
     delete.register(registry, functions)
     create.register(registry, functions)
-    create_file.register(registry, functions)
-    delete_file.register(registry, functions)
     script.register(registry, functions)
     validate.register(registry, functions)
 

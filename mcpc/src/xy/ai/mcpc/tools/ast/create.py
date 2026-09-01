@@ -1,4 +1,4 @@
-"""``ast_create`` tool: creates a file with source content."""
+"""``ast_create`` tool: create a file from source, creating missing directories."""
 
 
 from dataclasses import dataclass
@@ -9,58 +9,68 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
-__all__ = ["CreateNodeResult", "ast_create", "CreateNodeTool", "register"]
+__all__ = ["CreateFileResult", "ast_create", "CreateFileTool", "register"]
 
 
 @dataclass(frozen=True)
-class CreateNodeResult:
+class CreateFileResult:
     """Result of :func:`ast_create`.
 
     Attributes:
         result: Always ``"success"``.
-        created: Number of top-level statements parsed from ``code`` and appended.
     """
 
     result: str
-    created: int
 
 
-def ast_create(path: str, source: str) -> CreateNodeResult:
-    """Create a file from ``source``.
+def ast_create(path: str, source: str, overwrite: bool = False) -> CreateFileResult:
+    """Create a new file at ``path`` from ``source`` (validated by parsing it).
+
+    Creating a single node
+    in an existing file is covered by ``ast_insert``, not this tool.
 
     Args:
-        path: Absolute path to the file to replace or create.
-        code: source to write.
+        path: Absolute path of the file to create.
+        source: Source for the new file.
+        overwrite: Allow replacing an existing file. Defaults to ``False``.
 
     Returns:
-        CreateNodeResult: Success status and the number of statements appended.
+        CreateFileResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is not absolute, or ``source`` has a syntax error.
+        core.AstError: If ``path`` is not absolute, if the file already exists and
+            ``overwrite`` is ``False``, or if ``source`` has a syntax error.
     """
     file_path = core.require_path(path, must_exist=False)
-    tree = core.CACHE.get_tree(file_path) if file_path.exists() else core.empty_tree(file_path)
-    created = core.append_nodes(tree, source)
+    if file_path.exists() and not overwrite:
+        raise core.AstError("File already exists.")
+    tree = core.parse_for(path, source)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     core.CACHE.save(file_path, tree)
-    return CreateNodeResult(result="success", created=created)
+    return CreateFileResult(result="success")
 
 
-class CreateNodeTool(ToolDefinition):
+class CreateFileTool(ToolDefinition):
     name = "ast_create"
     title = "Create a file"
-    description = "Create a file with source."
+    description = "Create a file from source (validated by parsing it)."
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the file."},
-            "source": {"type": "string", "description": "source of the statement(s) to append."},
+            "path": {"type": "string", "description": "Absolute path of the file to create."},
+            "source": {"type": "string", "description": "Source for the new file."},
+            "overwrite": {
+                "type": "boolean",
+                "description": "Allow replacing an existing file.",
+                "default": False,
+            },
         },
         "required": ["path", "source"],
     }
     output_schema = {
         "type": "object",
-        "properties": {"result": {"type": "string"}, "created": {"type": "integer"}},
-        "required": ["result", "created"],
+        "properties": {"result": {"type": "string"}},
+        "required": ["result"],
     }
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
@@ -68,12 +78,14 @@ class CreateNodeTool(ToolDefinition):
         """Delegate to :func:`ast_create`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_create(args["path"], args["code"])
+            result = ast_create(
+                path=args["path"], source=args["source"], overwrite=args.get("overwrite", False)
+            )
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={"result": result.result, "created": result.created}, auto_approve=True)
+        return ToolResult(structured_content={"result": result.result}, auto_approve=True)
 
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    registry.register(CreateNodeTool())
+    registry.register(CreateFileTool())
     functions.register(ast_create)
