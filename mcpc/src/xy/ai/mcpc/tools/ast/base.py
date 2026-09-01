@@ -227,6 +227,15 @@ def find(tree: Tree, **filters: object) -> list[Located]:
     '# type: ignore[arg-type]'
     return [loc for loc in tree.engine.locate_all(tree) if matches(loc, **active)]
 
+def most_specific(located: list[Located], lineno: int, end_lineno: int) -> Located | None:
+    """Return the smallest node in *located* fully containing lines [lineno, end_lineno]."""
+    best = None
+    for loc in located:
+        if loc.lineno <= lineno and loc.end_lineno >= end_lineno:
+            if best is None or loc.end_lineno - loc.lineno < best.end_lineno - best.lineno:
+                best = loc
+    return best
+
 class Engine(ABC):
     """A parser back-end turning source into an addressable, mutable tree.
 

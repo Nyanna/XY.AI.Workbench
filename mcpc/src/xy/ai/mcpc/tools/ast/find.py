@@ -25,8 +25,12 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
     """Find nodes by id, type, name, line range, parent type, text or regexp.
 
     ``ast_find`` is the single retrieval point that restricts on node properties;
-    every other tool addresses nodes purely by ``id``. Matches are returned with
-    their full source.
+    every other tool addresses nodes purely by ``id``. ``text``/``regexp`` are
+    matched against the whole file, and each match is attributed to the most
+    specific (smallest) enclosing node rather than to every ancestor whose
+    source happens to contain it. Matches are returned with their full source.
+    Called with no selector at all, ``ast_find`` returns the whole node tree,
+    nested like ``ast_list`` but including source.
 
     Args:
         path: Absolute path to the file to read.
@@ -36,8 +40,8 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
         lineno: Exact start line a node must match.
         end_lineno: Exact end line a node must match.
         parent_type: Node type name of the enclosing container (case-insensitive).
-        text: Case-insensitive substring the node's source must contain.
-        regexp: Regular expression the node's source must match (``re.search``).
+        text: Case-insensitive substring to search for in the file.
+        regexp: Regular expression to search for in the file (``re.finditer``).
         with_lines: Whether to populate each match's line range.
 
     Returns:
@@ -50,22 +54,38 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
             a valid regular expression.
     """
     tree = core.load(path)[1]
-    hits = core.find(tree, id=id, name=name, node_type=node_type, lineno=lineno, end_lineno=end_lineno, parent_type=parent_type)
-    if text is not None:
-        needle = text.lower()
-        hits = [h for h in hits if needle in tree.engine.node_code(h.node).lower()]
+    structural = dict(id=id, name=name, node_type=node_type, lineno=lineno, end_lineno=end_lineno, parent_type=parent_type)
+    no_selector = not any(structural.values()) and text is None and (regexp is None)
+    if no_selector:
+        nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines)
+        return FindNodesResult(nodes=nodes, count=len(nodes))
+    if text is None and regexp is None:
+        hits = core.find(tree, **structural)
+        return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in hits], count=len(hits))
     if regexp is not None:
         try:
             pattern = re.compile(regexp)
         except re.error as exc:
             raise core.AstError(f'Invalid regexp: {exc}') from exc
-        hits = [h for h in hits if pattern.search(tree.engine.node_code(h.node))]
-    return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in hits], count=len(hits))
+    else:
+        pattern = re.compile(re.escape(text), re.IGNORECASE)
+    candidates = core.find(tree, **structural)
+    source = tree.source
+    seen: set[str] = set()
+    ordered: list[core.Located] = []
+    for m in pattern.finditer(source):
+        start_line = source.count('\n', 0, m.start()) + 1
+        end_line = source.count('\n', 0, max(m.end() - 1, m.start())) + 1
+        loc = core.most_specific(candidates, start_line, end_line)
+        if loc is not None and loc.node_id not in seen:
+            seen.add(loc.node_id)
+            ordered.append(loc)
+    return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in ordered], count=len(ordered))
 
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
     title = 'Find AST nodes'
-    description = 'Filter the AST-node tree by type, name, id, line range, parent type, text substring or regexp – the only retrieval point with property/text restriction. Returns matches with their full source.'
+    description = 'Filter the AST-node tree by type, name, id, line range, parent type, text substring or regexp. Returns matches with their full source.'
     input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, **SELECTOR_PROPS, 'text': {'type': 'string', 'description': "Case-insensitive substring the node's source must contain."}, 'regexp': {'type': 'string', 'description': "Regular expression the node's source must match (re.search)."}}, 'required': ['path']}
     output_schema = list_output_schema()
     annotations = {'readOnlyHint': True, 'openWorldHint': False}

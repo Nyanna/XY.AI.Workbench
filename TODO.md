@@ -3,6 +3,9 @@
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden
 ! Tests reparieren
+
+find auch nur zeilen ausgeben analog list
+outline knoten kollabieren wenn zu klein
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect
