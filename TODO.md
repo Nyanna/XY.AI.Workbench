@@ -1,32 +1,8 @@
 # TODO
-* per script zwingen hat massives refaktoring optimiert
-! schon wieder end marker fehler, umbenennen auf begin_marker end_marker, end marker nach hinten im schema
 ! erwartete contenthash für read tools um fehler abfangen zu können, oder last updates seid read (also last read)
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden
 * Zeilenbereiche sollen nur ausgegeben werden wenn die Tools "tools" oder "edit-lines" in der Session aktiviert sind
-
-!outline gibt nur struktur aus aber read oder find geben strukturiert code in JSON aus
-find darf nur ID ausgeben und outline nur zeilenweise in einer datei replaced werden soll
-ausgabe bis kleinste semantische einheit also function oder zeilenbereich oder header/imports Class/Function/Section(header/any/imports)
-also nur drei dinge
-	1. separate zeilentools mit delegate auf outline und find, -> edit_lines (high level generic)
-	2. ID/FQND mit AST und in segment edit edit_marks/replace -> für code
-	! marken mit max_length begrenzen, block replace mit may_length auf edit_marker zwingen
-
-!AST parameter kontrollieren, alle edits nur auf FQN, Find und LIst liefert FQN
-! fqnd in allen ast edit file.js#Segmend.segment
-	- für java, package und signatur verwenden root_dir/package, das ganze ID nennen und nicht path
-	- id muss name sein wenns segment einen hat, für sprachen mit namen
-	* ast list prüfen muss subpfade und kinder anzeigen (beide), -> nur flach -> !ist list nicht die outline? outline ersetzen mit list -> code aber nur mit read (read macht list structur mit code) list/find(search mit text)/read liefern ID und zeilen
-	* list ist primär mit code anzeige flag(false) -> find ist suche auf list mit code/read ist list mit code anzeige true 
-	* ist alles nicht replace? (delete A = "", create ""(last) = A, insert A = A+B/B+A )
-	* insert ohne before/after ist immer last
-
-* Dynamischr AST konverter read-augmented, wandelt Code in AST, gibt gegenüber Agent mit kommentaren annotierten Code aus und entfernt wieder auf dem rückweg.
-	* grep für python? grep musst fragment pfad liefern also ast grep
-! string länge in MCP schema interference für splitt, block replace versus marker replace?
-
 ! Tests reparieren
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
