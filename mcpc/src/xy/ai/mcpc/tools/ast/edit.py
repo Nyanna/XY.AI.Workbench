@@ -32,6 +32,7 @@ def ast_edit(
     content: str,
     *,
     exact: bool = False,
+    id: str | None = None,
     qualified_name: str | None = None,
     name: str | None = None,
     node_type: str | None = None,
@@ -45,12 +46,12 @@ def ast_edit(
     included) as with ``edit_marks``, re-parsed, and used to replace the node.
 
     Args:
-        path: Absolute path to the Python file to modify.
+        path: Absolute path to the file to modify.
         start: Unique substring marking the beginning of the block, within the selected node's source.
         end: Unique substring marking the end of the block, within the selected node's source.
-        content: Replacement Python source for the marked block.
+        content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
-        qualified_name: Selector – exact Python-style FQN of the target node.
+        qualified_name: Selector – exact FQN of the target node.
         name: Selector – exact simple name of the target node.
         node_type: Selector – AST node class name of the target node.
         lineno: Selector – exact start line of the target node.
@@ -66,12 +67,13 @@ def ast_edit(
             ambiguous within the node's source, or the edited source has a
             syntax error.
     """
-    if not any((qualified_name, name, node_type, lineno, end_lineno, parent_type)):
+    if not any((id, qualified_name, name, node_type, lineno, end_lineno, parent_type)):
         raise core.AstError("A node selector is required; ast_edit targets a node's content, not the whole file.")
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
     target = select_one(
         tree,
+        id=id,
         qualified_name=qualified_name,
         name=name,
         node_type=node_type,
@@ -79,13 +81,12 @@ def ast_edit(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    node_source = core.unparse(target.node)
+    node_source = core.edit_node_source(target)
     try:
         new_source = edit_marks_text(node_source, start, end, content, exact=exact)
     except EditMarksError as exc:
         raise core.AstError(str(exc)) from exc
-    new_nodes = core.parse_snippet(new_source)
-    core.replace_in_body(target, new_nodes)
+    core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
     return EditNodeResult(result="success")
 
@@ -100,7 +101,7 @@ class EditNodeTool(ToolDefinition):
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
             "start": {
                 "type": "string",
                 "description": "Unique substring marking the beginning of the block, within the selected node's source.",
@@ -109,7 +110,7 @@ class EditNodeTool(ToolDefinition):
                 "type": "string",
                 "description": "Unique substring marking the end of the block, within the selected node's source.",
             },
-            "content": {"type": "string", "description": "Replacement Python source for the marked block."},
+            "content": {"type": "string", "description": "Replacement source for the marked block."},
             "exact": {
                 "type": "boolean",
                 "description": "If true, 'start'/'end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
@@ -127,7 +128,7 @@ class EditNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_edit`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_edit`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_edit(
@@ -136,6 +137,7 @@ class EditNodeTool(ToolDefinition):
                 args["end"],
                 args["content"],
                 exact=args.get("exact", False),
+                id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
                 node_type=args.get("node_type"),

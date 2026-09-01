@@ -31,6 +31,7 @@ def ast_insert(
     code: str,
     *,
     position: str = "after",
+    id: str | None = None,
     qualified_name: str | None = None,
     name: str | None = None,
     node_type: str | None = None,
@@ -41,15 +42,16 @@ def ast_insert(
     """Insert statement(s) parsed from ``code`` relative to a selected node.
 
     Args:
-        path: Absolute path to the Python file to modify.
-        code: Python source of the statement(s) to insert.
+        path: Absolute path to the file to modify.
+        code: Source of the statement(s) to insert.
         position: ``"before"`` or ``"after"`` the selected node. Defaults to ``"after"``.
-        qualified_name: Selector – exact Python-style FQN of the target node.
+        id: Selector – engine-independent node id.
+        qualified_name: Selector – exact qualified name of the target node.
         name: Selector – exact simple name of the target node.
-        node_type: Selector – AST node class name of the target node.
+        node_type: Selector – node type name of the target node.
         lineno: Selector – exact start line of the target node.
         end_lineno: Selector – exact end line of the target node.
-        parent_type: Selector – AST class name of the target node's container.
+        parent_type: Selector – node type name of the target node's container.
 
     Returns:
         InsertNodeResult: Success status and the number of statements inserted.
@@ -60,9 +62,9 @@ def ast_insert(
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    new_nodes = core.parse_snippet(code)
     target = select_one(
         tree,
+        id=id,
         qualified_name=qualified_name,
         name=name,
         node_type=node_type,
@@ -70,12 +72,9 @@ def ast_insert(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    body = target.parent.body  # type: ignore[attr-defined]
-    offset = 1 if position == "after" else 0
-    index = body.index(target.node) + offset
-    body[index:index] = new_nodes
+    inserted = core.insert_node(target, code, position)
     core.CACHE.save(file_path, tree)
-    return InsertNodeResult(result="success", inserted=len(new_nodes))
+    return InsertNodeResult(result="success", inserted=inserted)
 
 
 class InsertNodeTool(ToolDefinition):
@@ -85,8 +84,8 @@ class InsertNodeTool(ToolDefinition):
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python source of the statement(s) to insert."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
+            "code": {"type": "string", "description": "Source of the statement(s) to insert."},
             "position": {
                 "type": "string",
                 "enum": ["before", "after"],
@@ -105,13 +104,14 @@ class InsertNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": False, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_insert`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_insert`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_insert(
                 args["path"],
                 args["code"],
                 position=args.get("position", "after"),
+                id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
                 node_type=args.get("node_type"),

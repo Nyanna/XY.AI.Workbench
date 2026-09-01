@@ -27,6 +27,7 @@ class DeleteNodeResult:
 def ast_delete(
     path: str,
     *,
+    id: str | None = None,
     qualified_name: str | None = None,
     name: str | None = None,
     node_type: str | None = None,
@@ -34,16 +35,17 @@ def ast_delete(
     end_lineno: int | None = None,
     parent_type: str | None = None,
 ) -> DeleteNodeResult:
-    """Delete the single selected node from a Python file.
+    """Delete the single selected node from a file.
 
     Args:
-        path: Absolute path to the Python file to modify.
-        qualified_name: Selector – exact Python-style FQN of the target node.
+        path: Absolute path to the file to modify.
+        id: Selector – engine-independent node id.
+        qualified_name: Selector – exact qualified name of the target node.
         name: Selector – exact simple name of the target node.
-        node_type: Selector – AST node class name of the target node.
+        node_type: Selector – node type name of the target node.
         lineno: Selector – exact start line of the target node.
         end_lineno: Selector – exact end line of the target node.
-        parent_type: Selector – AST class name of the target node's container.
+        parent_type: Selector – node type name of the target node's container.
 
     Returns:
         DeleteNodeResult: Success status.
@@ -56,6 +58,7 @@ def ast_delete(
     tree = core.CACHE.get_tree(file_path)
     target = select_one(
         tree,
+        id=id,
         qualified_name=qualified_name,
         name=name,
         node_type=node_type,
@@ -63,7 +66,7 @@ def ast_delete(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    core.delete_from_body(target)
+    core.delete_node(target)
     core.CACHE.save(file_path, tree)
     return DeleteNodeResult(result="success")
 
@@ -93,6 +96,7 @@ class DeleteNodeTool(ToolDefinition):
         try:
             result = ast_delete(
                 args["path"],
+                id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
                 node_type=args.get("node_type"),

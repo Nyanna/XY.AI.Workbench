@@ -6,9 +6,6 @@ converted to standalone string-literal annotations on import so they survive the
 node-level CRUD (each tool in its own ``*`` module), whole-file
 create/delete, the imports/classes/functions convenience layers, a node-scoped
 ``replace_block``, a restricted ``script`` and a ``validate`` compile check.
-
-Call :func:`register_ast_tools` to register the whole family and expose it under
-the generic tool-set alias ``python-ast``.
 """
 
 

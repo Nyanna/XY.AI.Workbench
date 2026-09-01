@@ -1,37 +1,16 @@
 """``ast_read`` tool: recursively read a node's subtree for block-wise edit/replace."""
 
-import ast
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.ast.core import ReadNode
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, select_one
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = ["ReadNode", "ReadNodeResult", "ast_read", "ReadNodeTool", "register"]
-
-
-@dataclass(frozen=True)
-class ReadNode:
-    """One node in a subtree read for block-wise edit/replace.
-
-    Attributes:
-        type: The node's exact AST type, e.g. ``"ClassDef"`` or ``"FunctionDef"``.
-        qualified_name: Dotted path, for classes/functions/imports only; ``None`` otherwise.
-        lines: Line number, or a ``"start-end"`` range if the node spans several lines.
-        code: The node's full source, usable as-is with ``ast_replace``; ``None``
-            if the node's body consists solely of the nested classes/functions listed
-            in ``children`` (whose source is then given by those children instead).
-        children: Nested read entries, populated only when ``code`` is ``None``.
-    """
-
-    type: str
-    qualified_name: str | None
-    lines: str
-    code: str | None
-    children: list["ReadNode"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -45,38 +24,11 @@ class ReadNodeResult:
     node: ReadNode
 
 
-def _only_defs(body: list[ast.stmt]) -> bool:
-    """Whether *body* is non-empty and consists solely of nested classes/functions."""
-    return bool(body) and all(isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) for n in body)
-
-
-def _read_node(node: ast.stmt, qualified_name: str | None) -> ReadNode:
-    body = getattr(node, "body", None)
-    if isinstance(body, list) and _only_defs(body):
-        children = [
-            _read_node(child, f"{qualified_name}.{child.name}" if qualified_name else child.name)
-            for child in body
-        ]
-        return ReadNode(
-            type=type(node).__name__,
-            qualified_name=qualified_name,
-            lines=core.line_range(node),
-            code=None,
-            children=children,
-        )
-    return ReadNode(
-        type=type(node).__name__,
-        qualified_name=qualified_name,
-        lines=core.line_range(node),
-        code=core.unparse(node),
-        children=[],
-    )
-
-
 def ast_read(
     path: str | None = None,
     code: str | None = None,
     *,
+    id: str | None = None,
     qualified_name: str | None = None,
     name: str | None = None,
     node_type: str | None = None,
@@ -92,10 +44,10 @@ def ast_read(
     to hand back to ``ast_replace`` via its ``qualified_name``.
 
     Args:
-        path: Absolute path to the Python file to read. Mutually usable with ``code``;
+        path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
-        code: Python source to parse instead of reading ``path``.
-        qualified_name: Selector – exact Python-style FQN of the target node.
+        code: Source to parse instead of reading ``path``.
+        qualified_name: Selector – exact FQN of the target node.
         name: Selector – exact simple name of the target node.
         node_type: Selector – AST node class name of the target node.
         lineno: Selector – exact start line of the target node.
@@ -113,6 +65,7 @@ def ast_read(
     tree = core.tree_from_input(path, code)
     target = select_one(
         tree,
+        id=id,
         qualified_name=qualified_name,
         name=name,
         node_type=node_type,
@@ -120,7 +73,7 @@ def ast_read(
         end_lineno=end_lineno,
         parent_type=parent_type,
     )
-    return ReadNodeResult(node=_read_node(target.node, target.qualified_name))
+    return ReadNodeResult(node=core.read_node(target))
 
 
 _READ_NODE_SCHEMA = {
@@ -157,8 +110,8 @@ class ReadNodeTool(ToolDefinition):
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python source to parse instead of a file."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
+            "code": {"type": "string", "description": "Source to parse instead of a file."},
             **SELECTOR_PROPS,
         },
         "required": [],
@@ -172,12 +125,13 @@ class ReadNodeTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_read`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_read(
                 path=args.get("path"),
                 code=args.get("code"),
+                id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
                 node_type=args.get("node_type"),

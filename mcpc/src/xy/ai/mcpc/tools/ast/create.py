@@ -1,4 +1,4 @@
-"""``ast_create`` tool: append statement(s) to a Python file's top level."""
+"""``ast_create`` tool: creates a file with source content."""
 
 
 from dataclasses import dataclass
@@ -25,39 +25,37 @@ class CreateNodeResult:
     created: int
 
 
-def ast_create(path: str, code: str) -> CreateNodeResult:
-    """Append statement(s) parsed from ``code`` to a Python file's top level.
+def ast_create(path: str, source: str) -> CreateNodeResult:
+    """Create a file from ``source``.
 
     Args:
-        path: Absolute path to the Python file to modify or create (its parent
-            directory must already exist).
-        code: Python source of the statement(s) to append.
+        path: Absolute path to the file to replace or create.
+        code: source to write.
 
     Returns:
         CreateNodeResult: Success status and the number of statements appended.
 
     Raises:
-        core.AstError: If ``path`` is not absolute, or ``code`` has a syntax error.
+        core.AstError: If ``path`` is not absolute, or ``source`` has a syntax error.
     """
     file_path = core.require_path(path, must_exist=False)
-    new_nodes = core.parse_snippet(code)
-    tree = core.CACHE.get_tree(file_path) if file_path.exists() else ast.Module(body=[], type_ignores=[])
-    tree.body.extend(new_nodes)
+    tree = core.CACHE.get_tree(file_path) if file_path.exists() else core.empty_tree(file_path)
+    created = core.append_nodes(tree, source)
     core.CACHE.save(file_path, tree)
-    return CreateNodeResult(result="success", created=len(new_nodes))
+    return CreateNodeResult(result="success", created=created)
 
 
 class CreateNodeTool(ToolDefinition):
     name = "ast_create"
-    title = "Create AST node"
-    description = "Append statement(s) parsed from code to a Python file's top level (creating the file if needed)."
+    title = "Create a file"
+    description = "Create a file with source."
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python source of the statement(s) to append."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
+            "source": {"type": "string", "description": "source of the statement(s) to append."},
         },
-        "required": ["path", "code"],
+        "required": ["path", "source"],
     }
     output_schema = {
         "type": "object",

@@ -31,6 +31,7 @@ def ast_find(
     path: str | None = None,
     code: str | None = None,
     *,
+    id: str | None = None,
     qualified_name: str | None = None,
     name: str | None = None,
     node_type: str | None = None,
@@ -38,19 +39,19 @@ def ast_find(
     end_lineno: int | None = None,
     parent_type: str | None = None,
 ) -> FindNodesResult:
-    """Find AST nodes by type, name, qualified name, line range or parent type.
+    """Find nodes by id, type, name, qualified name, line range or parent type.
 
     Args:
-        path: Absolute path to the Python file to read. Mutually usable with ``code``;
+        path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
-        code: Python source to parse instead of reading ``path``.
-        qualified_name: Exact Python-style FQN a node's ``qualified_name`` must equal.
+        code: Source to parse instead of reading ``path``.
+        id: Engine-independent node id (dotted index path).
+        qualified_name: Exact qualified name a node's ``qualified_name`` must equal.
         name: Exact simple name a node's ``name`` must equal.
-        node_type: AST node class name a node must match (case-insensitive).
+        node_type: Node type name a node must match (case-insensitive).
         lineno: Exact start line a node must match.
         end_lineno: Exact end line a node must match.
-        parent_type: AST class name of the enclosing container a node must match
-            (case-insensitive).
+        parent_type: Node type name of the enclosing container (case-insensitive).
 
     Returns:
         FindNodesResult: The matching node summaries and their count. Any number of
@@ -64,6 +65,7 @@ def ast_find(
     tree = core.tree_from_input(path, code)
     hits = core.find(
         tree,
+        id=id,
         qualified_name=qualified_name,
         name=name,
         node_type=node_type,
@@ -81,8 +83,8 @@ class FindNodesTool(ToolDefinition):
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python source to parse instead of a file."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
+            "code": {"type": "string", "description": "Source to parse instead of a file."},
             **SELECTOR_PROPS,
         },
         "required": [],
@@ -91,12 +93,13 @@ class FindNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_find`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_find`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_find(
                 path=args.get("path"),
                 code=args.get("code"),
+                id=args.get("id"),
                 qualified_name=args.get("qualified_name"),
                 name=args.get("name"),
                 node_type=args.get("node_type"),

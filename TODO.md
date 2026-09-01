@@ -1,23 +1,32 @@
 # TODO
+! muss verzeichnis anlegen `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/create.py`
+! create/create_file delete/delte file zusammenführen
+! ast script muss generisch werden
+!AST parameter kontrollieren, alle edits nur auf FQN, Find und LIst liefert FQN
+
+! result objekt und token fehlen
+! Tests reparieren
+! fqnd in allen ast edit file.js#Segmend.segment
+	- für java, package und signatur verwenden root_dir/package, das ganze ID nennen und nicht path
+	- Alternativ für 
+	- Bereichlisten müssen kompakt sein, ziel ist edit einheiten zu verkleinern
+	- id muss name sein wenns egment einen hat, für sprachen mit namen
+! ersetzgsprobleme mit edit_marks, nicht duplizieren, kompakter machen
+
 * Dynamischr AST konverter read-augmented, wandelt Code in AST, gibt gegenüber Agent mit kommentaren annotierten Code aus und entfernt wieder auf dem rückweg.
-	* generisches AST Edit mit node level block-replace für alle Sprachen und dateien, mit treesitter
-	* treesitter in ast_generic
-	* nur baum mit list/find/grep und read und replace/edit(block/marker) und remove/create/insert
 	* grep für python? grep musst fragment pfad liefern also ast grep
-	* file ops in separate dateien splitten
-	* alle optionen für "generic_" AST, mit pycharm
-	* core engine extrahieren, kein prefix auf ending unterscheiden
 	
 * ast list prüfen muss subpfade und kinder anzeigen (beide), -> nur flach
-* ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
-	* micro promt in persistent cache context
+
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen?
 
-##  Workbench  
+##  Workbench
 
+* ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
+	* micro promt in persistent cache context, vielleicht console in tandem mit editor sessions und session graph/state
 * Diff support für edit commands
 	* diff editor in Eclipse in memory aufrufen und Toolausgabe mit Action oder annotation versehen, "view as diff"
 	* block selektieren und mit Parametern diff tool starten, es gibt ein compare with clipboad analog

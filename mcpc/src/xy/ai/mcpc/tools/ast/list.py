@@ -31,9 +31,9 @@ def ast_list(path: str | None = None, code: str | None = None, node_type: str | 
     """List AST nodes (imports, classes, functions, statements) of a file or source snippet.
 
     Args:
-        path: Absolute path to the Python file to read. Mutually usable with ``code``;
+        path: Absolute path to the file to read. Mutually usable with ``code``;
             exactly one of the two must be given.
-        code: Python source to parse instead of reading ``path``.
+        code: Source to parse instead of reading ``path``.
         node_type: Restrict the result to this AST node class name (case-insensitive),
             e.g. ``"FunctionDef"``. ``None`` returns every node.
 
@@ -50,7 +50,7 @@ def ast_list(path: str | None = None, code: str | None = None, node_type: str | 
     nodes = [
         core.node_outline(loc)
         for loc in located
-        if node_type is None or type(loc.node).__name__.lower() == node_type.lower()
+        if node_type is None or loc.node_type.lower() == node_type.lower()
     ]
     return ListNodesResult(nodes=nodes, count=len(nodes))
 
@@ -58,12 +58,12 @@ def ast_list(path: str | None = None, code: str | None = None, node_type: str | 
 class ListNodesTool(ToolDefinition):
     name = "ast_list"
     title = "List AST nodes"
-    description = "List AST nodes (imports, classes, functions, statements) of a Python file, optionally filtered by type."
+    description = "List AST nodes (imports, classes, functions, statements) of a file, optionally filtered by type."
     input_schema = {
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python source to parse instead of a file."},
+            "path": {"type": "string", "description": "Absolute path to the file."},
+            "code": {"type": "string", "description": "Source to parse instead of a file."},
             "node_type": {"type": "string", "description": "Restrict to this AST node class name."},
         },
         "required": [],
@@ -72,7 +72,7 @@ class ListNodesTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_list`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
             result = ast_list(path=args.get("path"), code=args.get("code"), node_type=args.get("node_type"))

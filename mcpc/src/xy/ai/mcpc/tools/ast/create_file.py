@@ -46,7 +46,7 @@ def ast_create_file(path: str, code: str, overwrite: bool = False) -> AstFileRes
     file_path = core.require_path(path, must_exist=False)
     if file_path.exists() and not overwrite:
         raise core.AstError("File already exists.")
-    tree = core.parse_source(code)
+    tree = core.parse_for(path, code)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     core.CACHE.save(file_path, tree)
     return AstFileResult(result="success")

@@ -1,4 +1,4 @@
-"""``ast_validate`` – compile a list of Python files and report results."""
+"""``ast_validate`` – compile a list of files and report results."""
 
 
 from dataclasses import dataclass, field
@@ -7,6 +7,7 @@ from typing import Any
 
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 
 __all__ = [
@@ -60,10 +61,11 @@ def _check(path_str: str) -> FileCheck:
     except OSError:
         return FileCheck(path=path_str, ok=False, error="File not readable.")
     try:
-        compile(source, str(path), "exec")
-    except SyntaxError as exc:
-        return FileCheck(path=path_str, ok=False, error=f"{exc.msg} (line {exc.lineno})")
-    return FileCheck(path=path_str, ok=True, error=None)
+        error = core.validate_source(path, source)
+    except core.AstError as exc:
+        return FileCheck(path=path_str, ok=False, error=str(exc))
+    return FileCheck(path=path_str, ok=(error is None), error=error)
+
 
 
 def ast_validate(paths: list[str]) -> ValidateResult:
@@ -74,7 +76,7 @@ def ast_validate(paths: list[str]) -> ValidateResult:
     a malformed call (empty ``paths``) raises.
 
     Args:
-        paths: Absolute paths of Python files to validate. Must be non-empty.
+        paths: Absolute paths of files to validate. Must be non-empty.
 
     Returns:
         ValidateResult: One :class:`FileCheck` per path, in order, plus an overall
@@ -91,15 +93,15 @@ def ast_validate(paths: list[str]) -> ValidateResult:
 
 class ValidateTool(ToolDefinition):
     name = "ast_validate"
-    title = "Validate Python files"
-    description = "Check that each of a list of Python files compiles; report success/error per file."
+    title = "Validate files"
+    description = "Check that each of a list of files compiles; report success/error per file."
     input_schema = {
         "type": "object",
         "properties": {
             "paths": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Absolute paths of Python files to validate.",
+                "description": "Absolute paths of files to validate.",
             }
         },
         "required": ["paths"],
@@ -126,7 +128,7 @@ class ValidateTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_validate`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_validate`, translating the MCP schema to/from the AST API."""
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)

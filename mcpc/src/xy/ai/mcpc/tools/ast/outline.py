@@ -1,6 +1,6 @@
-"""``ast_outline`` – compact structural overview of Python files."""
+"""``ast_outline`` – compact structural overview of files."""
 
-import ast
+
 from dataclasses import asdict, dataclass, field
 
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -66,27 +66,6 @@ class OutlineResult:
     failed: list[OutlineFailure] = field(default_factory=list)
 
 
-def _outline_body(body: list[ast.stmt], qualified_name: str | None) -> list[OutlineNode]:
-    nodes: list[OutlineNode] = []
-    for node in body:
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            qual = f"{qualified_name}.{node.name}" if qualified_name else node.name
-        else:
-            qual = None
-        children = _outline_body(node.body, qual) if isinstance(node, ast.ClassDef) else []
-        nodes.append(
-            OutlineNode(
-                type=type(node).__name__,
-                qualified_name=qual,
-                lines=core.line_range(node),
-                signature=core.node_signature(node),
-                docstring=core.short_docstring(node),
-                children=children,
-            )
-        )
-    return nodes
-
-
 def _outline_one(path_str: str) -> FileOutline | OutlineFailure:
     try:
         path, tree = core.load(path_str)
@@ -95,7 +74,7 @@ def _outline_one(path_str: str) -> FileOutline | OutlineFailure:
     return FileOutline(
         path=path_str,
         stats=compute_file_stats(path),
-        nodes=_outline_body(tree.body, None),
+        nodes=core.outline_nodes(tree),
     )
 
 
@@ -106,7 +85,7 @@ def ast_outline(paths: list[str]) -> OutlineResult:
     ``failed`` rather than raised; only a malformed call (empty ``paths``) raises.
 
     Args:
-        paths: Absolute paths of Python files to outline. Must be non-empty.
+        paths: Absolute paths of files to outline. Must be non-empty.
 
     Returns:
         OutlineResult: Successfully outlined files in ``files``, everything else in
@@ -150,9 +129,9 @@ _OUTLINE_FAILURE_SCHEMA = {
 
 class OutlineTool(ToolDefinition):
     name = "ast_outline"
-    title = "Python outline"
+    title = "File Outline"
     description = (
-        "Token-efficient structural overview of Python files: file metrics plus "
+        "Token-efficient structural overview of files: file metrics plus "
         "every module-level statement (type, qualified name, line range, one-line "
         "signature, short docstring), with nested classes recursively expanded. "
         "Accepts one or several files at once."
@@ -163,7 +142,7 @@ class OutlineTool(ToolDefinition):
             "paths": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Absolute paths of Python files to outline.",
+                "description": "Absolute paths of files to outline.",
             }
         },
         "required": ["paths"],
@@ -180,7 +159,7 @@ class OutlineTool(ToolDefinition):
     annotations = {"readOnlyHint": True, "openWorldHint": False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_outline`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func:`ast_outline`, translating the MCP schema to/from the AST API."""
         paths = ctx.arguments["paths"]
         if not isinstance(paths, list):
             return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)

@@ -9,12 +9,13 @@ __all__ = ["SELECTOR_PROPS", "select_one", "list_output_schema"]
 
 #: Shared JSON-Schema fragment for the node selectors accepted by find/read/insert/replace/delete.
 SELECTOR_PROPS = {
-    "qualified_name": {"type": "string", "description": "Python-style FQN of the target node."},
+    "id": {"type": "string", "description": "Node id (dotted index path, e.g. '3.1')."},
+    "qualified_name": {"type": "string", "description": "Qualified name of the target node."},
     "name": {"type": "string", "description": "Simple node name."},
-    "node_type": {"type": "string", "description": "AST node class name, e.g. 'FunctionDef'."},
+    "node_type": {"type": "string", "description": "Node type name, e.g. 'FunctionDef' or 'pair'."},
     "lineno": {"type": "integer", "description": "Start line of the target node."},
     "end_lineno": {"type": "integer", "description": "End line of the target node."},
-    "parent_type": {"type": "string", "description": "AST class name of the container."},
+    "parent_type": {"type": "string", "description": "Node type name of the container."},
 }
 
 

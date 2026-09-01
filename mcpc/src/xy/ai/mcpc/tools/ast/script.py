@@ -58,7 +58,7 @@ def ast_script(path: str, code: str) -> AstScriptResult:
     success.
 
     Args:
-        path: Absolute path to the Python file whose AST is exposed as ``tree``.
+        path: Absolute path to the file whose AST is exposed as ``tree``.
         code: Python script to execute against ``tree``. May assign a module-level
             name ``result`` to return an arbitrary value (reported as its ``repr()``).
 
@@ -72,7 +72,9 @@ def ast_script(path: str, code: str) -> AstScriptResult:
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    env: dict[str, Any] = {"tree": tree, "ast": ast}
+    if tree.engine is not core.python.ENGINE:
+        raise core.AstError("ast_script operates on the Python AST; it is only available for Python files.")
+    env: dict[str, Any] = {"tree": tree.raw, "ast": ast}
     sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
     try:
         exec(compile(code, "<ast-script>", "exec"), sandbox_globals, env)  # noqa: S102
