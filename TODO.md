@@ -2,7 +2,6 @@
 ! erwartete contenthash für read tools um fehler abfangen zu können, oder last updates seid read (also last read)
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden
-* Zeilenbereiche sollen nur ausgegeben werden wenn die Tools "tools" oder "edit-lines" in der Session aktiviert sind
 ! Tests reparieren
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session

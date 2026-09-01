@@ -1,6 +1,6 @@
 """``ast_find`` tool: find AST nodes by type, name, id, line range or parent type."""
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -78,7 +78,7 @@ class FindNodesTool(ToolDefinition):
             result = ast_find(path=args.get('path'), id=args.get('id'), name=args.get('name'), node_type=args.get('node_type'), lineno=args.get('lineno'), end_lineno=args.get('end_lineno'), parent_type=args.get('parent_type'), text=args.get('text'), regexp=args.get('regexp'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'nodes': [asdict(n) for n in result.nodes], 'count': result.count})
+        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes], 'count': result.count})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FindNodesTool())

@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -74,12 +74,14 @@ class OutlineNode:
 
     ``id`` is the node's unique, primarily name-based path used by every tool to
     address it. ``code`` carries the node's full source and is populated only by
-    ``find`` – ``list`` always leaves it ``None``.
+    ``find`` – ``list`` always leaves it ``None``. ``signature`` is only set for
+    class/function nodes. Serialization drops ``None``/empty fields, see
+    :func:`to_dict`.
     """
     id: str
     type: str
     lines: str | None
-    signature: str
+    signature: str | None
     docstring: str | None
     code: str | None = None
     children: list['OutlineNode'] = field(default_factory=list)
@@ -132,11 +134,27 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
     count = used.get(seg, 0)
     used[seg] = count + 1
     return seg if count == 0 else f'{seg}_{count}'
+'#: Node-type substrings (case-insensitive) that identify a class/function'
+'#: definition across engines, the only nodes a "signature" makes sense for.'
+_SIGNATURE_TYPE_RE = re.compile('class|function', re.IGNORECASE)
 
 def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
     """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``)."""
     engine = loc.tree.engine
-    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=engine.signature(loc.node), docstring=engine.docstring(loc.node), code=engine.node_code(loc.node) if with_code else None, children=children or [])
+    signature = engine.signature(loc.node) if _SIGNATURE_TYPE_RE.search(loc.node_type) else None
+    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=signature, docstring=engine.docstring(loc.node), code=engine.node_code(loc.node) if with_code else None, children=children or [])
+
+def _compact(value: Any) -> Any:
+    """Recursively drop ``None`` values and empty lists from a dataclass-derived structure."""
+    if isinstance(value, dict):
+        return {k: _compact(v) for k, v in value.items() if v is not None and v != []}
+    if isinstance(value, list):
+        return [_compact(v) for v in value]
+    return value
+
+def to_dict(node: OutlineNode | ReadNode) -> dict:
+    """Serialize an :class:`OutlineNode`/:class:`ReadNode` to MCP output, omitting empty fields."""
+    return _compact(asdict(node))
 
 @dataclass
 class _TreeNode:
@@ -280,4 +298,4 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
             raise AstError('Not a regular file.')
     return path
 '#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
-OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': ['string', 'null'], 'description': "Line number, or 'start-end' if the node spans multiple lines; null unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string'}, 'docstring': {'type': ['string', 'null']}, 'code': {'type': ['string', 'null'], 'description': 'Full node source; populated by find, null in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type', 'lines', 'signature', 'docstring', 'code', 'children']}
+OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string', 'description': 'One-line header; present only for class/function nodes.'}, 'docstring': {'type': 'string'}, 'code': {'type': 'string', 'description': 'Full node source; populated by find, omitted in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type']}

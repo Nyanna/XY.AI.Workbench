@@ -1,5 +1,5 @@
 """``ast_list`` tool: list AST nodes of a file or source snippet."""
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -59,7 +59,7 @@ class ListNodesTool(ToolDefinition):
             result = ast_list(path=args.get('path'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'nodes': [asdict(n) for n in result.nodes], 'count': result.count})
+        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes], 'count': result.count})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())
