@@ -17,7 +17,7 @@ class ReadNodeResult:
     """
     nodes: list[ReadNode]
 
-def ast_read(ids: list[str], path: str) -> ReadNodeResult:
+def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeResult:
     """Recursively read the subtree of each addressed node for block-wise edit/replace.
 
     Each id resolves to a subtree: a node whose body consists solely of nested
@@ -28,6 +28,7 @@ def ast_read(ids: list[str], path: str) -> ReadNodeResult:
     Args:
         ids: Node ids to read. Must be non-empty.
         path: Absolute path to the file to read.
+        with_lines: Whether to populate each node's line range.
 
     Returns:
         ReadNodeResult: One subtree per entry in ``ids``.
@@ -39,7 +40,7 @@ def ast_read(ids: list[str], path: str) -> ReadNodeResult:
     if not ids:
         raise core.AstError("'ids' must be a non-empty list of node ids.")
     tree = core.load(path)[1]
-    nodes = core.read_subtrees(core.locate_all(tree), ids)
+    nodes = core.read_subtrees(core.locate_all(tree), ids, with_lines=with_lines)
     return ReadNodeResult(nodes=nodes)
 _READ_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique node id; the address for ast_replace/edit.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines."}, 'code': {'type': 'string', 'description': "Full source of this node, ready for ast_replace; omitted if the node consists solely of the nested classes/functions listed in 'children'."}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/read_node'}}}, 'required': ['id', 'type', 'lines']}
 
@@ -54,8 +55,9 @@ class ReadNodeTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
+        with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
         try:
-            result = ast_read(ids=args.get('ids') or [], path=args.get('path'))
+            result = ast_read(ids=args.get('ids') or [], path=args.get('path'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes]})

@@ -180,13 +180,14 @@ def build_outline(located: list[Located], *, with_code: bool=False, with_lines: 
         return [node_outline(t.loc, with_code=with_code, with_lines=with_lines, children=convert(t.children)) for t in nodes]
     return convert(_build_forest(located))
 
-def _to_read(t: _TreeNode) -> ReadNode:
+def _to_read(t: _TreeNode, *, with_lines: bool=True) -> ReadNode:
     loc = t.loc
+    lines = line_range(loc) if with_lines else None
     if loc.expandable and t.children:
-        return ReadNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc), code=None, children=[_to_read(c) for c in t.children])
-    return ReadNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc), code=loc.tree.engine.node_code(loc.node), children=[])
+        return ReadNode(id=loc.node_id, type=loc.node_type, lines=lines, code=None, children=[_to_read(c, with_lines=with_lines) for c in t.children])
+    return ReadNode(id=loc.node_id, type=loc.node_type, lines=lines, code=loc.tree.engine.node_code(loc.node), children=[])
 
-def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
+def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> list[ReadNode]:
     """Return one read subtree per ``keys`` entry, matched by ``id``.
 
     Raises:
@@ -204,7 +205,7 @@ def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
         target = index.get(key)
         if target is None:
             raise AstError(f"No node matched '{key}'.")
-        result.append(_to_read(target))
+        result.append(_to_read(target, with_lines=with_lines))
     return result
 
 def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None) -> bool:
