@@ -218,16 +218,12 @@ def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=T
         result.append(_to_outline(target, with_lines=with_lines))
     return result
 
-def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None) -> bool:
+def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, parent_type: str | None=None) -> bool:
     if id is not None and loc.node_id != id:
         return False
     if node_type is not None and loc.node_type.lower() != node_type.lower():
         return False
     if name is not None and loc.name != name:
-        return False
-    if lineno is not None and loc.lineno != lineno:
-        return False
-    if end_lineno is not None and loc.end_lineno != end_lineno:
         return False
     if parent_type is not None and (loc.parent_type or '').lower() != parent_type.lower():
         return False

@@ -37,8 +37,11 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
         id: Engine-independent unique node id (primarily name-based path).
         name: Exact simple name a node's ``name`` must equal.
         node_type: Node type name a node must match (case-insensitive).
-        lineno: Exact start line a node must match.
-        end_lineno: Exact end line a node must match.
+        lineno: Line the target node must contain; selects the most specific
+            (smallest) matching node. Combined with ``end_lineno``, selects the
+            most specific node fully covering ``[lineno, end_lineno]``.
+        end_lineno: End line of the target range; see ``lineno``. May be given
+            alone to select the most specific node containing that single line.
         parent_type: Node type name of the enclosing container (case-insensitive).
         text: Case-insensitive substring to search for in the file.
         regexp: Regular expression to search for in the file (``re.finditer``).
@@ -54,14 +57,20 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
             a valid regular expression.
     """
     tree = core.load(path)[1]
-    structural = dict(id=id, name=name, node_type=node_type, lineno=lineno, end_lineno=end_lineno, parent_type=parent_type)
+    exact = dict(id=id, name=name, node_type=node_type, parent_type=parent_type)
+    structural = dict(exact, lineno=lineno, end_lineno=end_lineno)
     no_selector = not any(structural.values()) and text is None and (regexp is None)
     if no_selector:
         nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines)
         return FindNodesResult(nodes=nodes, count=len(nodes))
+    candidates = core.find(tree, **exact)
+    if lineno is not None or end_lineno is not None:
+        start = lineno if lineno is not None else end_lineno
+        end = end_lineno if end_lineno is not None else lineno
+        hit = core.most_specific(candidates, start, end)
+        candidates = [hit] if hit is not None else []
     if text is None and regexp is None:
-        hits = core.find(tree, **structural)
-        return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in hits], count=len(hits))
+        return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in candidates], count=len(candidates))
     if regexp is not None:
         try:
             pattern = re.compile(regexp)
@@ -69,7 +78,6 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
             raise core.AstError(f'Invalid regexp: {exc}') from exc
     else:
         pattern = re.compile(re.escape(text), re.IGNORECASE)
-    candidates = core.find(tree, **structural)
     source = tree.source
     seen: set[str] = set()
     ordered: list[core.Located] = []
