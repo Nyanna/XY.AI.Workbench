@@ -1,18 +1,13 @@
 """``ast_find`` tool: find AST nodes by type, name, id, line range or parent type."""
-
-
 import re
 from dataclasses import asdict, dataclass
 from typing import Any
-
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS, list_output_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-
-__all__ = ["FindNodesResult", "ast_find", "FindNodesTool", "register"]
-
+__all__ = ['FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
 
 @dataclass(frozen=True)
 class FindNodesResult:
@@ -23,23 +18,10 @@ class FindNodesResult:
             matching the given selectors, suited for retrieval and navigation.
         count: Number of entries in ``nodes``.
     """
-
     nodes: list[core.OutlineNode]
     count: int
 
-
-def ast_find(
-    path: str,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    node_type: str | None = None,
-    lineno: int | None = None,
-    end_lineno: int | None = None,
-    parent_type: str | None = None,
-    text: str | None = None,
-    regexp: str | None = None,
-) -> FindNodesResult:
+def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None, text: str | None=None, regexp: str | None=None, with_lines: bool=True) -> FindNodesResult:
     """Find nodes by id, type, name, line range, parent type, text or regexp.
 
     ``ast_find`` is the single retrieval point that restricts on node properties;
@@ -56,6 +38,7 @@ def ast_find(
         parent_type: Node type name of the enclosing container (case-insensitive).
         text: Case-insensitive substring the node's source must contain.
         regexp: Regular expression the node's source must match (``re.search``).
+        with_lines: Whether to populate each match's line range.
 
     Returns:
         FindNodesResult: The matching node summaries (with source) and their count.
@@ -67,15 +50,7 @@ def ast_find(
             a valid regular expression.
     """
     tree = core.load(path)[1]
-    hits = core.find(
-        tree,
-        id=id,
-        name=name,
-        node_type=node_type,
-        lineno=lineno,
-        end_lineno=end_lineno,
-        parent_type=parent_type,
-    )
+    hits = core.find(tree, id=id, name=name, node_type=node_type, lineno=lineno, end_lineno=end_lineno, parent_type=parent_type)
     if text is not None:
         needle = text.lower()
         hits = [h for h in hits if needle in tree.engine.node_code(h.node).lower()]
@@ -83,53 +58,27 @@ def ast_find(
         try:
             pattern = re.compile(regexp)
         except re.error as exc:
-            raise core.AstError(f"Invalid regexp: {exc}") from exc
+            raise core.AstError(f'Invalid regexp: {exc}') from exc
         hits = [h for h in hits if pattern.search(tree.engine.node_code(h.node))]
-    return FindNodesResult(nodes=[core.node_outline(h, with_code=True) for h in hits], count=len(hits))
-
+    return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in hits], count=len(hits))
 
 class FindNodesTool(ToolDefinition):
-    name = "ast_find"
-    title = "Find AST nodes"
-    description = (
-        "Filter the AST-node tree by type, name, id, line range, parent type, "
-        "text substring or regexp – the only retrieval point with property/text "
-        "restriction. Returns matches with their full source."
-    )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Absolute path to the file."},
-            **SELECTOR_PROPS,
-            "text": {"type": "string", "description": "Case-insensitive substring the node's source must contain."},
-            "regexp": {"type": "string", "description": "Regular expression the node's source must match (re.search)."},
-        },
-        "required": ["path"],
-    }
+    name = 'ast_find'
+    title = 'Find AST nodes'
+    description = 'Filter the AST-node tree by type, name, id, line range, parent type, text substring or regexp – the only retrieval point with property/text restriction. Returns matches with their full source.'
+    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, **SELECTOR_PROPS, 'text': {'type': 'string', 'description': "Case-insensitive substring the node's source must contain."}, 'regexp': {'type': 'string', 'description': "Regular expression the node's source must match (re.search)."}}, 'required': ['path']}
     output_schema = list_output_schema()
-    annotations = {"readOnlyHint": True, "openWorldHint": False}
+    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_find`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
+        with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
         try:
-            result = ast_find(
-                path=args.get("path"),
-
-                id=args.get("id"),
-
-                name=args.get("name"),
-                node_type=args.get("node_type"),
-                lineno=args.get("lineno"),
-                end_lineno=args.get("end_lineno"),
-                parent_type=args.get("parent_type"),
-                text=args.get("text"),
-                regexp=args.get("regexp"),
-            )
+            result = ast_find(path=args.get('path'), id=args.get('id'), name=args.get('name'), node_type=args.get('node_type'), lineno=args.get('lineno'), end_lineno=args.get('end_lineno'), parent_type=args.get('parent_type'), text=args.get('text'), regexp=args.get('regexp'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={"nodes": [asdict(n) for n in result.nodes], "count": result.count})
-
+        return ToolResult(structured_content={'nodes': [asdict(n) for n in result.nodes], 'count': result.count})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FindNodesTool())

@@ -10,10 +10,7 @@ A :class:`Tree` carries a back-reference to the engine that produced it, so
 every helper here can dispatch to the right engine without the tools knowing
 which one is in play.
 """
-
-
 from __future__ import annotations
-
 import hashlib
 import re
 from abc import ABC, abstractmethod
@@ -21,10 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 class AstError(Exception):
     """A user-facing, path-free error raised by the AST tools."""
-
 
 @dataclass
 class Tree:
@@ -37,12 +32,10 @@ class Tree:
             engines, refreshed by the Python engine only on save.
         path: Absolute path the tree was loaded from, or ``None`` for snippets.
     """
-
-    engine: "Engine"
+    engine: 'Engine'
     raw: Any
     source: str
     path: Path | None = None
-
 
 @dataclass
 class Located:
@@ -63,7 +56,6 @@ class Located:
         expandable: Whether ``read`` should descend into children instead of
             returning the node's full source (a pure container of nested defs).
     """
-
     tree: Tree
     node: Any
     parent: Any
@@ -76,7 +68,6 @@ class Located:
     parent_type: str | None
     expandable: bool = False
 
-
 @dataclass(frozen=True)
 class OutlineNode:
     """One node in a structural (list/find) result.
@@ -85,15 +76,13 @@ class OutlineNode:
     address it. ``code`` carries the node's full source and is populated only by
     ``find`` – ``list`` always leaves it ``None``.
     """
-
     id: str
     type: str
-    lines: str
+    lines: str | None
     signature: str
     docstring: str | None
     code: str | None = None
-    children: list["OutlineNode"] = field(default_factory=list)
-
+    children: list['OutlineNode'] = field(default_factory=list)
 
 @dataclass(frozen=True)
 class ReadNode:
@@ -103,33 +92,26 @@ class ReadNode:
     nested addressable nodes, in which case it is ``None`` and ``children`` is
     populated so the agent can descend to the innermost editable block.
     """
-
     id: str
     type: str
     lines: str
     code: str | None
-    children: list["ReadNode"] = field(default_factory=list)
-
+    children: list['ReadNode'] = field(default_factory=list)
 
 def line_range(loc: Located) -> str:
     """Return ``loc``'s start line, or a ``"start-end"`` range if it spans several."""
     if loc.end_lineno == loc.lineno:
         return str(loc.lineno)
-    return f"{loc.lineno}-{loc.end_lineno}"
-
-
-_ID_CLEAN_RE = re.compile(r"\W+")
-
-#: A statement/anonymous segment keeps accumulating siblings until adding the
-#: next one would push its source past this many characters (then it splits).
+    return f'{loc.lineno}-{loc.end_lineno}'
+_ID_CLEAN_RE = re.compile('\\W+')
+'#: A statement/anonymous segment keeps accumulating siblings until adding the'
+'#: next one would push its source past this many characters (then it splits).'
 SEGMENT_MAX_CHARS = 500
 
-
 def _hash(name: str, length: int) -> str:
-    return hashlib.sha1(name.encode("utf-8")).hexdigest()[:length]
+    return hashlib.sha1(name.encode('utf-8')).hexdigest()[:length]
 
-
-def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool = False) -> str:
+def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool=False) -> str:
     """Return a unique-within-siblings id segment, name-based when feasible.
 
     A clean, short name becomes the segment verbatim; a long/awkward name collapses
@@ -143,34 +125,23 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
         if hash_only:
             seg = _hash(name, 6)
         else:
-            cleaned = _ID_CLEAN_RE.sub("_", name).strip("_")
-            seg = cleaned if cleaned and len(cleaned) <= 40 else "h" + _hash(name, 8)
+            cleaned = _ID_CLEAN_RE.sub('_', name).strip('_')
+            seg = cleaned if cleaned and len(cleaned) <= 40 else 'h' + _hash(name, 8)
     if not seg:
         seg = str(index)
     count = used.get(seg, 0)
     used[seg] = count + 1
-    return seg if count == 0 else f"{seg}_{count}"
+    return seg if count == 0 else f'{seg}_{count}'
 
-
-def node_outline(loc: Located, *, with_code: bool = False, children: list[OutlineNode] | None = None) -> OutlineNode:
-    """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``)."""
+def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
+    """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``)."""
     engine = loc.tree.engine
-    return OutlineNode(
-        id=loc.node_id,
-        type=loc.node_type,
-        lines=line_range(loc),
-        signature=engine.signature(loc.node),
-        docstring=engine.docstring(loc.node),
-        code=engine.node_code(loc.node) if with_code else None,
-        children=children or [],
-    )
-
+    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=engine.signature(loc.node), docstring=engine.docstring(loc.node), code=engine.node_code(loc.node) if with_code else None, children=children or [])
 
 @dataclass
 class _TreeNode:
     loc: Located
-    children: list["_TreeNode"] = field(default_factory=list)
-
+    children: list['_TreeNode'] = field(default_factory=list)
 
 def _build_forest(located: list[Located]) -> list[_TreeNode]:
     """Nest a pre-order list of ``Located`` into a forest via ``node_id`` prefixes."""
@@ -178,40 +149,24 @@ def _build_forest(located: list[Located]) -> list[_TreeNode]:
     stack: list[_TreeNode] = []
     for loc in located:
         node = _TreeNode(loc)
-        while stack and not loc.node_id.startswith(stack[-1].loc.node_id + "."):
+        while stack and (not loc.node_id.startswith(stack[-1].loc.node_id + '.')):
             stack.pop()
         (stack[-1].children if stack else roots).append(node)
         stack.append(node)
     return roots
 
-
-def build_outline(located: list[Located], *, with_code: bool = False) -> list[OutlineNode]:
-    """Build the nested outline of ``located`` (source per node only if ``with_code``)."""
+def build_outline(located: list[Located], *, with_code: bool=False, with_lines: bool=True) -> list[OutlineNode]:
+    """Build the nested outline of ``located`` (source only if ``with_code``, lines only if ``with_lines``)."""
 
     def convert(nodes: list[_TreeNode]) -> list[OutlineNode]:
-        return [node_outline(t.loc, with_code=with_code, children=convert(t.children)) for t in nodes]
-
+        return [node_outline(t.loc, with_code=with_code, with_lines=with_lines, children=convert(t.children)) for t in nodes]
     return convert(_build_forest(located))
-
 
 def _to_read(t: _TreeNode) -> ReadNode:
     loc = t.loc
     if loc.expandable and t.children:
-        return ReadNode(
-            id=loc.node_id,
-            type=loc.node_type,
-            lines=line_range(loc),
-            code=None,
-            children=[_to_read(c) for c in t.children],
-        )
-    return ReadNode(
-        id=loc.node_id,
-        type=loc.node_type,
-        lines=line_range(loc),
-        code=loc.tree.engine.node_code(loc.node),
-        children=[],
-    )
-
+        return ReadNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc), code=None, children=[_to_read(c) for c in t.children])
+    return ReadNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc), code=loc.tree.engine.node_code(loc.node), children=[])
 
 def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
     """Return one read subtree per ``keys`` entry, matched by ``id``.
@@ -225,7 +180,6 @@ def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
         for t in nodes:
             index.setdefault(t.loc.node_id, t)
             collect(t.children)
-
     collect(_build_forest(located))
     result: list[ReadNode] = []
     for key in keys:
@@ -235,17 +189,7 @@ def read_subtrees(located: list[Located], keys: list[str]) -> list[ReadNode]:
         result.append(_to_read(target))
     return result
 
-
-def matches(
-    loc: Located,
-    *,
-    id: str | None = None,
-    node_type: str | None = None,
-    name: str | None = None,
-    lineno: int | None = None,
-    end_lineno: int | None = None,
-    parent_type: str | None = None,
-) -> bool:
+def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None) -> bool:
     if id is not None and loc.node_id != id:
         return False
     if node_type is not None and loc.node_type.lower() != node_type.lower():
@@ -256,15 +200,14 @@ def matches(
         return False
     if end_lineno is not None and loc.end_lineno != end_lineno:
         return False
-    if parent_type is not None and (loc.parent_type or "").lower() != parent_type.lower():
+    if parent_type is not None and (loc.parent_type or '').lower() != parent_type.lower():
         return False
     return True
 
-
 def find(tree: Tree, **filters: object) -> list[Located]:
     active = {k: v for k, v in filters.items() if v is not None}
-    return [loc for loc in tree.engine.locate_all(tree) if matches(loc, **active)]  # type: ignore[arg-type]
-
+    '# type: ignore[arg-type]'
+    return [loc for loc in tree.engine.locate_all(tree) if matches(loc, **active)]
 
 class Engine(ABC):
     """A parser back-end turning source into an addressable, mutable tree.
@@ -274,16 +217,15 @@ class Engine(ABC):
     whereas generic engines splice source text at node byte-ranges and re-parse.
     Both, however, expose the same node-oriented operations below.
     """
-
-    #: Human-readable engine name (used e.g. to guard Python-only tools).
-    name: str = "engine"
+    '#: Human-readable engine name (used e.g. to guard Python-only tools).'
+    name: str = 'engine'
 
     @abstractmethod
-    def parse(self, source: str, path: Path | None = None) -> Tree:
+    def parse(self, source: str, path: Path | None=None) -> Tree:
         """Parse ``source`` into a :class:`Tree`, raising :class:`AstError` on error."""
 
     @abstractmethod
-    def empty_tree(self, path: Path | None = None) -> Tree:
+    def empty_tree(self, path: Path | None=None) -> Tree:
         """Return an empty tree, used when appending to a not-yet-existing file."""
 
     @abstractmethod
@@ -326,34 +268,16 @@ class Engine(ABC):
     def append(self, tree: Tree, code: str) -> int:
         """Append ``code`` at ``tree``'s top level; return units appended."""
 
-
-def require_path(path_str: str, *, must_exist: bool = True) -> Path:
+def require_path(path_str: str, *, must_exist: bool=True) -> Path:
     """Validate a mandatory absolute path, raising :class:`AstError` on failure."""
     path = Path(path_str)
     if not path.is_absolute():
-        raise AstError("Path must be absolute.")
+        raise AstError('Path must be absolute.')
     if must_exist:
         if not path.exists():
-            raise AstError("File not found.")
+            raise AstError('File not found.')
         if not path.is_file():
-            raise AstError("Not a regular file.")
+            raise AstError('Not a regular file.')
     return path
-
-
-#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.
-OUTLINE_NODE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "id": {"type": "string", "description": "Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool."},
-        "type": {"type": "string"},
-        "lines": {
-            "type": "string",
-            "description": "Line number, or 'start-end' if the node spans multiple lines.",
-        },
-        "signature": {"type": "string"},
-        "docstring": {"type": ["string", "null"]},
-        "code": {"type": ["string", "null"], "description": "Full node source; populated by find, null in list."},
-        "children": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
-    },
-    "required": ["id", "type", "lines", "signature", "docstring", "code", "children"],
-}
+'#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
+OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': ['string', 'null'], 'description': "Line number, or 'start-end' if the node spans multiple lines; null unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string'}, 'docstring': {'type': ['string', 'null']}, 'code': {'type': ['string', 'null'], 'description': 'Full node source; populated by find, null in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type', 'lines', 'signature', 'docstring', 'code', 'children']}
