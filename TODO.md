@@ -4,6 +4,8 @@
 ! ast script muss generisch werden
 ! Tests reparieren
 
+find lineno sowie endlineno muss contains prüfen und auch mehrere knoten zurückgeben, jeweils die spezifischten
+
 numerische ID durch coiontenthash ersetzen, return neue hash
 outline knoten kollabieren wenn zu klein
       children:

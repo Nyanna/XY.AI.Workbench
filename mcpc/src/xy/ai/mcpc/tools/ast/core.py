@@ -98,8 +98,23 @@ def locate_all(tree: Tree) -> list[Located]:
 def edit_node_source(loc: Located) -> str:
     return loc.tree.engine.node_code(loc.node)
 
-def replace_node(loc: Located, code: str) -> None:
+def relocate(tree: Tree, old: Located) -> Located | None:
+    """Find the node now occupying ``old``'s former slot after an in-place edit.
+
+    Matched by start line and parent type (unaffected by the edit itself), then
+    disambiguated by sibling index if several candidates share that line.
+    """
+    candidates = [loc for loc in locate_all(tree) if loc.lineno == old.lineno and loc.parent_type == old.parent_type]
+    for loc in candidates:
+        if loc.index == old.index:
+            return loc
+    return candidates[0] if candidates else None
+
+def replace_node(loc: Located, code: str) -> str | None:
+    """Replace ``loc``'s node with ``code``; return its new id if the id changed."""
     loc.tree.engine.replace(loc, code)
+    new_loc = relocate(loc.tree, loc)
+    return new_loc.node_id if new_loc and new_loc.node_id != loc.node_id else None
 
 def insert_node(loc: Located, code: str, position: str) -> int:
     return loc.tree.engine.insert(loc, code, position)

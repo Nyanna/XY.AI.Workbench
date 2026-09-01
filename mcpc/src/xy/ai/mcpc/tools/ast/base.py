@@ -13,6 +13,7 @@ which one is in play.
 from __future__ import annotations
 import hashlib
 import re
+import string
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -48,7 +49,7 @@ class Located:
         index: Position of ``node`` among its parent's addressable children.
         node_id: The node's unique ``id`` — its fully-qualified path from the
             root (e.g. ``"MyClass.method"``), in name/hash form or, for nameless
-            nodes/segments, a numeric fallback. There is no separate FQN.
+            nodes/segments, a stable content-hash fallback. There is no separate FQN.
         node_type: Engine-reported node type name.
         name: Simple name, if the node carries one.
         lineno / end_lineno: 1-based inclusive line span.
@@ -99,15 +100,27 @@ SEGMENT_MAX_CHARS = 500
 
 def _hash(name: str, length: int) -> str:
     return hashlib.sha1(name.encode('utf-8')).hexdigest()[:length]
+_ID_HASH_ALPHABET = string.digits + string.ascii_letters
 
-def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool=False) -> str:
+def _content_hash(content: str, length: int=6) -> str:
+    """Base62 (0-9a-zA-Z) digest of ``content``, stable across unrelated tree edits."""
+    digest = int.from_bytes(hashlib.sha1(content.encode('utf-8')).digest(), 'big')
+    base = len(_ID_HASH_ALPHABET)
+    chars = []
+    for _ in range(length):
+        digest, rem = divmod(digest, base)
+        chars.append(_ID_HASH_ALPHABET[rem])
+    return ''.join(chars)
+
+def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool=False, content: str | None=None) -> str:
     """Return a unique-within-siblings id segment, name-based when feasible.
 
     A clean, short name becomes the segment verbatim; a long/awkward name collapses
-    to a short hash; a nameless node falls back to its numeric ``index``. With
-    ``hash_only`` the name is *always* reduced to a 6-char hex hash (used for
-    Markdown headings, whose id must never be the literal heading text). Collisions
-    among siblings get a numeric suffix.
+    to a short hash; a nameless node falls back to a 6-char content hash (derived
+    from ``content``, stable across edits made elsewhere in the file) or, lacking
+    that, its numeric ``index``. With ``hash_only`` the name is *always* reduced to
+    a 6-char hex hash (used for Markdown headings, whose id must never be the
+    literal heading text). Collisions among siblings get a numeric suffix.
     """
     seg: str | None = None
     if name:
@@ -117,7 +130,7 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
             cleaned = _ID_CLEAN_RE.sub('_', name).strip('_')
             seg = cleaned if cleaned and len(cleaned) <= 40 else 'h' + _hash(name, 8)
     if not seg:
-        seg = str(index)
+        seg = _content_hash(content, 6) if content else str(index)
     count = used.get(seg, 0)
     used[seg] = count + 1
     return seg if count == 0 else f'{seg}_{count}'
