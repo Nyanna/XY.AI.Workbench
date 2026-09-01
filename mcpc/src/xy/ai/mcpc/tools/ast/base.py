@@ -184,18 +184,22 @@ def _build_forest(located: list[Located]) -> list[_TreeNode]:
     return roots
 
 def build_outline(located: list[Located], *, with_code: bool=False, with_lines: bool=True) -> list[OutlineNode]:
-    """Build the nested outline of ``located`` (source only if ``with_code``, lines only if ``with_lines``)."""
+    """Build the nested outline of ``located`` (source only if ``with_code``, lines only if ``with_lines``).
 
-    def convert(nodes: list[_TreeNode]) -> list[OutlineNode]:
-        return [node_outline(t.loc, with_code=with_code, with_lines=with_lines, children=convert(t.children)) for t in nodes]
-    return convert(_build_forest(located))
+    Non-expandable nodes (no nested defs worth descending into) are rendered with
+    their full source instead of being fragmented into ``children``.
+    """
+    return _outline_nodes(_build_forest(located), with_code=with_code, with_lines=with_lines)
 
-def _to_outline(t: _TreeNode, *, with_lines: bool=True) -> OutlineNode:
-    """Turn a forest node into an :class:`OutlineNode`, collapsing pure containers into ``children`` for descent."""
-    loc = t.loc
-    if loc.expandable and t.children:
-        return node_outline(loc, with_code=False, with_lines=with_lines, children=[_to_outline(c, with_lines=with_lines) for c in t.children])
-    return node_outline(loc, with_code=True, with_lines=with_lines)
+def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: bool=True) -> list[OutlineNode]:
+    """Convert a forest into OutlineNodes, collapsing non-expandable nodes to full source instead of ``children``."""
+    result: list[OutlineNode] = []
+    for t in nodes:
+        if t.loc.expandable and t.children:
+            result.append(node_outline(t.loc, with_code=False, with_lines=with_lines, children=_outline_nodes(t.children, with_code=with_code, with_lines=with_lines)))
+        else:
+            result.append(node_outline(t.loc, with_code=with_code, with_lines=with_lines))
+    return result
 
 def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> list[OutlineNode]:
     """Return one read subtree per ``keys`` entry, matched by ``id``.
@@ -215,7 +219,7 @@ def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=T
         target = index.get(key)
         if target is None:
             raise AstError(f"No node matched '{key}'.")
-        result.append(_to_outline(target, with_lines=with_lines))
+        result.append(_outline_nodes([target], with_code=True, with_lines=with_lines)[0])
     return result
 
 def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, parent_type: str | None=None) -> bool:

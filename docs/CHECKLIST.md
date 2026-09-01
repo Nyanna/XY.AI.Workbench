@@ -10,3 +10,5 @@
 * Better to incur some extra thinking through iteration and tool interruptions than to load too much into the context; the equation is salience versus tokens.
 * Separate understanding => separate contexts.
 * Always use build-scripts to save analyzation costs
+* A syntax validation and postprocessing turned out to be very effectice
+* AST Editing with smaller file like semantic segmentation and edit is very efficient 

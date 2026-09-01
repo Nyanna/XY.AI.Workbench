@@ -3,52 +3,6 @@
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden
 ! Tests reparieren
-
-find lineno sowie endlineno muss contains prüfen und auch mehrere knoten zurückgeben, jeweils die spezifischten
-
-numerische ID durch coiontenthash ersetzen, return neue hash
-outline knoten kollabieren wenn zu klein
-      children:
-      - id: ast_read.0
-        type: statements
-      - id: ast_read.1
-        type: statements
-    - id: 11
-      type: statements
-    - id: ReadNodeTool
-      type: ClassDef
-      signature: "class ReadNodeTool(ToolDefinition):"
-      children:
-      - id: ReadNodeTool.0
-        type: statements
-      - id: ReadNodeTool.3
-        type: statements
-
-    - id: delete_node
-      type: FunctionDef
-      signature: "def delete_node(loc: Located) -> None:"
-      children:
-      - id: delete_node.0
-        type: statements
-        
-        nur docstring in methode
-        
-        
-      - id: ast_find.7aCsyS
-        type: statements
-      - id: ast_find.wY7bFC
-        type: statements
-      - id: ast_find.lupOqA
-        type: statements
-        
- 
-    - id: select_one
-      type: FunctionDef
-      signature: "def select_one(tree, **selectors: Any) -> core.Located:"
-      docstring: "Return the single node in *tree* matching *selectors*. Raises: core.AstError: I…"
-      children:
-      - id: select_one.tB7gLi
-        type: statements
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect

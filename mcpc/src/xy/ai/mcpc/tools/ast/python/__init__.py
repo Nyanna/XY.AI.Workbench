@@ -133,6 +133,17 @@ def import_names(node: ast.Import | ast.ImportFrom) -> str:
 def _only_defs(body: list[ast.stmt]) -> bool:
     return bool(body) and all((isinstance(n, _DEF_TYPES) for n in body))
 
+def _is_expandable(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:
+    """Whether ``read``/``list`` should descend into ``node`` instead of returning its full source.
+
+    A class is worth descending into as soon as it nests a def, even alongside
+    plain attributes/statements; a function only if its body is nothing but
+    nested defs (otherwise it's a small enough unit to show whole).
+    """
+    if isinstance(node, ast.ClassDef):
+        return any((isinstance(n, _DEF_TYPES) for n in node.body))
+    return _only_defs(node.body)
+
 def _decorators(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> str:
     return ''.join((f'@{ast.unparse(d)} ' for d in node.decorator_list))
 
@@ -208,7 +219,7 @@ class PythonEngine(Engine):
                 if isinstance(node, _DEF_TYPES):
                     seg = id_segment(node.name, i, used)
                     nid = f'{path}.{seg}' if path else seg
-                    results.append(self._loc(tree, node, container, i, node.name, nid, _only_defs(node.body)))
+                    results.append(self._loc(tree, node, container, i, node.name, nid, _is_expandable(node)))
                     walk(node, nid)
                     i += 1
                     continue
