@@ -15,63 +15,41 @@ from xy.ai.mcpc.tools.ast.python._nodes import _DEF_TYPES, _IMPORT_TYPES, _State
 logger = logging.getLogger('xy.ai.mcpc.tools.ast.python')
 
 class _FormattingUnparser(ast._Unparser):
-    """``ast.unparse`` variant that reflows overlong single-line literals.
+    """``ast.unparse`` variant that reflows overlong single-line statements.
 
-    ``ast.unparse`` always renders collections (dicts, lists, ...) on one
-    line. For a top-level node of ``INTERCEPT_TYPES`` whose single-line
-    rendering exceeds ``MAX_LINE_LENGTH``, the whole rendered subtree is
-    reformatted at once via autopep8, using the real prefix already written
-    on the line so continuation lines get correctly aligned. Nested
-    ``INTERCEPT_TYPES`` nodes are not reformatted individually: autopep8
-    already reflows them as part of their enclosing literal.
+    ``ast.unparse`` always renders simple statements (assignments, returns,
+    ...) on one line. Before writing a statement, it is unparsed in
+    isolation (independent of the live buffer) to measure its real, final
+    width at the current indent depth and, if too long, reformatted as a
+    whole via autopep8. Compound statements (``if``/``def``/``class``/...)
+    are left untouched: their own rendering already spans multiple lines,
+    so the "single line" check naturally excludes them.
     """
     MAX_LINE_LENGTH = 100
-    INTERCEPT_TYPES = (ast.Dict, ast.List, ast.Set, ast.Tuple, ast.Call)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._formatting = False
 
     def traverse(self, node):
-        if isinstance(node, list) or self._formatting or (not isinstance(node, self.INTERCEPT_TYPES)):
+        if isinstance(node, list) or not isinstance(node, ast.stmt):
             super().traverse(node)
             return
-        start = len(self._source)
-        self._formatting = True
-        try:
+        rendered = ast.unparse(node)
+        if '\n' in rendered:
             super().traverse(node)
-        finally:
-            self._formatting = False
-        text = ''.join(self._source[start:])
-        if '\n' in text:
             return
-        line_so_far = ''.join(self._source[:start]).rsplit('\n', 1)[-1]
-        indent = line_so_far[:len(line_so_far) - len(line_so_far.lstrip(' '))]
-        prefix = line_so_far[len(indent):]
-        if len(indent) + len(prefix) + len(text) <= self.MAX_LINE_LENGTH:
+        indent = '    ' * self._indent
+        if len(indent) + len(rendered) <= self.MAX_LINE_LENGTH:
+            super().traverse(node)
             return
-        '# Shield the prefix (e.g. a long annotation) behind a same-width dummy'
-        '# assignment target, so autopep8 only reflows the appended literal'
-        '# instead of possibly rewrapping the prefix itself.'
-        dummy = self._dummy_prefix(prefix)
-        formatted = self._fix_code(dummy + text, max(1, self.MAX_LINE_LENGTH - len(indent)), node)
+        formatted = self._fix_code(rendered, max(1, self.MAX_LINE_LENGTH - len(indent)), node)
         if formatted is None:
+            super().traverse(node)
             return
-        first_line, _, rest = formatted.partition('\n')
-        if not first_line.startswith(dummy):
-            return
-        continuation = ''.join((f'\n{indent}{line}' for line in rest.split('\n'))) if rest else ''
-        self._source[start:] = [first_line[len(dummy):] + continuation]
-
-    @staticmethod
-    def _dummy_prefix(prefix: str) -> str:
-        tail = ' = '
-        if len(prefix) <= len(tail):
-            return prefix
-        return '_' * (len(prefix) - len(tail)) + tail
+        lines = formatted.split('\n')
+        self.fill(lines[0])
+        for line in lines[1:]:
+            self.write('\n' + indent + line)
 
     def _fix_code(self, code: str, max_line_length: int, node: ast.AST) -> str | None:
-        options = {'max_line_length': max_line_length, 'indent_size': 2}
+        options = {'max_line_length': max_line_length, 'indent_size': 4}
         for aggressive in (2, 1, 0):
             try:
                 return autopep8.fix_code(
