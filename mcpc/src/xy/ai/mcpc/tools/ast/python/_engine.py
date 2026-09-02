@@ -5,11 +5,58 @@ Mutations edit the ``ast`` object graph in place and are re-serialised via
 """
 from __future__ import annotations
 import ast
+import autopep8
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, SEGMENT_MAX_CHARS, Tree, id_segment
 from xy.ai.mcpc.tools.ast.python._comments import comments_to_annotations
 from xy.ai.mcpc.tools.ast.python._nodes import _DEF_TYPES, _IMPORT_TYPES, _StatementGroup, _decorators, _is_expandable
+
+class _FormattingUnparser(ast._Unparser):
+    """``ast.unparse`` variant that reflows overlong single-line literals.
+
+    ``ast.unparse`` always renders collections (dicts, lists, ...) on one
+    line. For a top-level node of ``INTERCEPT_TYPES`` whose single-line
+    rendering exceeds ``MAX_LINE_LENGTH``, the whole rendered subtree is
+    reformatted at once via autopep8, using the real prefix already written
+    on the line so continuation lines get correctly aligned. Nested
+    ``INTERCEPT_TYPES`` nodes are not reformatted individually: autopep8
+    already reflows them as part of their enclosing literal.
+    """
+    MAX_LINE_LENGTH = 100
+    INTERCEPT_TYPES = (ast.Dict, ast.List, ast.Set, ast.Tuple, ast.Call)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._formatting = False
+
+    def traverse(self, node):
+        if isinstance(node, list) or self._formatting or (not isinstance(node, self.INTERCEPT_TYPES)):
+            super().traverse(node)
+            return
+        start = len(self._source)
+        self._formatting = True
+        try:
+            super().traverse(node)
+        finally:
+            self._formatting = False
+        text = ''.join(self._source[start:])
+        if '\n' in text:
+            return
+        line_so_far = ''.join(self._source[:start]).rsplit('\n', 1)[-1]
+        indent = line_so_far[:len(line_so_far) - len(line_so_far.lstrip(' '))]
+        prefix = line_so_far[len(indent):]
+        if len(indent) + len(prefix) + len(text) <= self.MAX_LINE_LENGTH:
+            return
+        formatted = autopep8.fix_code(prefix + text, options={'max_line_length': max(1, self.MAX_LINE_LENGTH - len(indent)), 'aggressive': 1}).rstrip('\n')
+        first_line, _, rest = formatted.partition('\n')
+        if not first_line.startswith(prefix):
+            return
+        continuation = ''.join((f'\n{indent}{line}' for line in rest.split('\n'))) if rest else ''
+        self._source[start:] = [first_line[len(prefix):] + continuation]
+
+def _unparse(node: ast.AST) -> str:
+    return _FormattingUnparser().visit(node)
 
 class PythonEngine(Engine):
     """``ast``-based engine: comment-preserving parse, ``unparse`` serialisation."""
@@ -31,7 +78,7 @@ class PythonEngine(Engine):
         return Tree(self, ast.Module(body=[], type_ignores=[]), '', path)
 
     def serialize(self, tree: Tree) -> str:
-        return ast.unparse(ast.fix_missing_locations(tree.raw))
+        return _unparse(ast.fix_missing_locations(tree.raw))
 
     def validate(self, source: str) -> str | None:
         try:
@@ -108,8 +155,8 @@ class PythonEngine(Engine):
 
     def node_code(self, node: Any) -> str:
         if isinstance(node, _StatementGroup):
-            return '\n'.join((ast.unparse(ast.fix_missing_locations(s)) for s in node.stmts))
-        return ast.unparse(ast.fix_missing_locations(node))
+            return '\n'.join((_unparse(ast.fix_missing_locations(s)) for s in node.stmts))
+        return _unparse(ast.fix_missing_locations(node))
 
     def replace(self, loc: Located, code: str) -> None:
         node = loc.node
@@ -142,6 +189,5 @@ class PythonEngine(Engine):
         stmts = self._parse_fragment(code)
         tree.raw.body.extend(stmts)
         return len(stmts)
-
-# Shared instance; the Python engine is stateless.
+'# Shared instance; the Python engine is stateless.'
 ENGINE = PythonEngine()

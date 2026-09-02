@@ -9,7 +9,6 @@
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 
 * exa verbessern, outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
-* AST verbessern, leichtgewichtiger python formatter wenn zeile zu lang -> autopep8, unparse ergänzen und bei langen zeilen autopep verwenden > 200 zeichen
 	
 * ast script muss generisch werden
 * Tests reparieren

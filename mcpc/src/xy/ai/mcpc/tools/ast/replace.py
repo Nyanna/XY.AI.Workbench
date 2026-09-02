@@ -45,8 +45,28 @@ class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
     title = 'Replace AST node'
     description = 'Replace the single selected node with statement(s) parsed from code.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'code': {'type': 'string', 'description': 'Replacement source.'}, **PATH_SELECTOR_PROPS}, 'required': ['path', 'code']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'id': {'type': 'string', 'description': "The node's new id, if the replacement changed it."}}, 'required': ['result']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            'code': {
+                'type': 'string',
+                'description': 'Replacement source.'},
+            **PATH_SELECTOR_PROPS},
+        'required': [
+            'path',
+            'code']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'result': {
+                'type': 'string'},
+            'id': {
+                'type': 'string',
+                'description': "The node's new id, if the replacement changed it."}},
+        'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
