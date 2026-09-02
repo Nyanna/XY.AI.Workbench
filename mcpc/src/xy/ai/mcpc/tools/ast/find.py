@@ -16,10 +16,8 @@ class FindNodesResult:
     Attributes:
         nodes: Outline-style node descriptions (see :class:`core.OutlineNode`)
             matching the given selectors, suited for retrieval and navigation.
-        count: Number of entries in ``nodes``.
     """
     nodes: list[core.OutlineNode]
-    count: int
 
 def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None, text: str | None=None, regexp: str | None=None, with_lines: bool=True) -> FindNodesResult:
     """Find nodes by id, type, name, line range, parent type, text or regexp.
@@ -48,7 +46,7 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
         with_lines: Whether to populate each match's line range.
 
     Returns:
-        FindNodesResult: The matching node summaries (with source) and their count.
+        FindNodesResult: The matching node summaries (with source).
         Any number of matches (including zero) is a normal, successful result.
 
     Raises:
@@ -62,7 +60,7 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
     no_selector = not any(structural.values()) and text is None and (regexp is None)
     if no_selector:
         nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines)
-        return FindNodesResult(nodes=nodes, count=len(nodes))
+        return FindNodesResult(nodes=nodes)
     candidates = core.find(tree, **exact)
     if lineno is not None or end_lineno is not None:
         start = lineno if lineno is not None else end_lineno
@@ -70,7 +68,7 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
         hit = core.most_specific(candidates, start, end)
         candidates = [hit] if hit is not None else []
     if text is None and regexp is None:
-        return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in candidates], count=len(candidates))
+        return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in candidates])
     if regexp is not None:
         try:
             pattern = re.compile(regexp)
@@ -88,7 +86,7 @@ def ast_find(path: str, *, id: str | None=None, name: str | None=None, node_type
         if loc is not None and loc.node_id not in seen:
             seen.add(loc.node_id)
             ordered.append(loc)
-    return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in ordered], count=len(ordered))
+    return FindNodesResult(nodes=[core.node_outline(h, with_code=True, with_lines=with_lines) for h in ordered])
 
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
@@ -106,7 +104,7 @@ class FindNodesTool(ToolDefinition):
             result = ast_find(path=args.get('path'), id=args.get('id'), name=args.get('name'), node_type=args.get('node_type'), lineno=args.get('lineno'), end_lineno=args.get('end_lineno'), parent_type=args.get('parent_type'), text=args.get('text'), regexp=args.get('regexp'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes], 'count': result.count})
+        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes]})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FindNodesTool())

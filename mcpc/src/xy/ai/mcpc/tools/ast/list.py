@@ -15,10 +15,8 @@ class ListNodesResult:
     Attributes:
         nodes: Outline-style node descriptions (see :class:`core.OutlineNode`), in
             document order, suited for retrieval and navigation.
-        count: Number of entries in ``nodes``.
     """
     nodes: list[core.OutlineNode]
-    count: int
 
 def ast_list(path: str, *, with_lines: bool=True) -> ListNodesResult:
     """List the hierarchical AST-node tree of a file.
@@ -41,7 +39,7 @@ def ast_list(path: str, *, with_lines: bool=True) -> ListNodesResult:
     """
     tree = core.load(path)[1]
     nodes = core.build_outline(core.locate_all(tree), with_lines=with_lines)
-    return ListNodesResult(nodes=nodes, count=len(nodes))
+    return ListNodesResult(nodes=nodes)
 
 class ListNodesTool(ToolDefinition):
     name = 'ast_list'
@@ -59,7 +57,7 @@ class ListNodesTool(ToolDefinition):
             result = ast_list(path=args.get('path'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes], 'count': result.count})
+        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes]})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())

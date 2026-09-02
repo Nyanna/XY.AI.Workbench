@@ -1,8 +1,15 @@
 # TODO
+! Ast tool descriptions pruefen und interfaces und beschreibungen prüfen
+! Mehr grep xu Zeilennummern statt list, toolbeschreibungen verbessern, die kombi war optimal, also mit ast_find
+* leichtgewichtiger python formatter wenn zeile zu lang -> autopep8, unparse ergänzen und bei langen zeilen autopep verwenden > 200 zeichen
 ! erwartete contenthash für read tools um fehler abfangen zu können, oder last updates seid read (also last read)
 	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 ! ast script muss generisch werden
 ! Tests reparieren
+* outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
+* ast_read wird mit module aufgerufen -> description verbessern
+* counts für results abschaffen
+* finding, grep war abensp 2stufig, grep durch viele dateien mit preview, zweiter call dann gezielt mit zeilennummer in datei
 	
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session
 	* mit log datei, control tool connect

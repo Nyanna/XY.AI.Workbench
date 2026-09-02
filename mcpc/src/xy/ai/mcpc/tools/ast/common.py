@@ -59,7 +59,6 @@ def list_output_schema() -> dict[str, Any]:
         "type": "object",
         "properties": {
             "nodes": {"type": "array", "items": {"$ref": "#/$defs/outline_node"}},
-            "count": {"type": "integer"},
         },
-        "required": ["nodes", "count"],
+        "required": ["nodes"],
     }
