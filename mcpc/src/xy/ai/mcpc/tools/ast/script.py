@@ -108,8 +108,8 @@ def ast_script(path: str, code: str) -> AstScriptResult:
 
 class ScriptTool(ToolDefinition):
     name = 'ast_script'
-    title = 'Run AST script'
-    description = "Run restricted Python against a file's AST for complex/incremental transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign 'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
+    title = 'Run AST python script'
+    description = "Run a restricted Python script code against a file's AST for complex/incremental transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign 'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
     input_schema = {
         'type': 'object',
         'properties': {

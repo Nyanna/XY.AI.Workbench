@@ -70,8 +70,8 @@ def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
-    title = 'Edit text block in AST node'
-    description = "In-node block edit: replace occurrence(s) of 'old_text' with 'new_text' within the node addressed by id. Use for a single, self-contained block; prefer ast_edit_marks for larger, marker-delimited regions."
+    title = 'Replace text block within AST node'
+    description = "In-node block edit: replace occurrence(s) of 'old_text' with 'new_text' within the node addressed by id. Prefer ast_edit_marks for larger, marker-delimited regions."
     input_schema = {
         'type': 'object',
         'properties': {

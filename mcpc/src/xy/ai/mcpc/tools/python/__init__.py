@@ -35,7 +35,7 @@ def python(script: str) -> ProcessResult:
 class PythonTool(ToolDefinition):
     name = 'python'
     title = 'Run Python script'
-    description = 'Execute a Python script passed directly as content, without writing a script file. The script is fed to the interpreter on standard input. Returns the exit code, standard output and, if present, standard error output.'
+    description = 'Execute a Python script passed directly as content. Returns the exit code, standard output and, if present, standard error output.'
     input_schema = {
         'type': 'object',
         'properties': {

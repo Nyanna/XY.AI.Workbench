@@ -11,7 +11,7 @@ __all__ = ['SELECTOR_PROPS', 'PATH_SELECTOR_PROPS', 'select_one', 'select_by_pat
 SELECTOR_PROPS = {
     'id': {
         'type': 'string',
-        'description': "Unique node id: primarily name-based dotted path (e.g. 'MyClass.method'), numeric only as fallback."},
+        'description': "Unique node id"},
     'name': {
         'type': 'string',
         'description': 'Simple node name.'},
@@ -20,10 +20,10 @@ SELECTOR_PROPS = {
                 'description': "Node type name, e.g. 'FunctionDef' or 'pair'."},
     'lineno': {
         'type': 'integer',
-        'description': 'Start line of the target node.'},
+        'description': 'Line in the target node.'},
     'end_lineno': {
         'type': 'integer',
-        'description': 'End line of the target node.'},
+        'description': 'End line of a range to get all nodes touching the lines.'},
     'parent_type': {
         'type': 'string',
         'description': 'Node type name of the container.'}}

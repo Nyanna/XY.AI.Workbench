@@ -19,45 +19,45 @@ class ReplaceNodeResult:
     result: str
     id: str | None = None
 
-def ast_replace(path: str, code: str, *, id: str | None=None) -> ReplaceNodeResult:
-    """Replace the single selected node with ``code``.
+def ast_replace(path: str, source: str, *, id: str | None=None) -> ReplaceNodeResult:
+    """Replace the single selected node with ``source``.
 
     Args:
         path: Absolute path to the file to modify.
-        code: Replacement source.
+        source: Replacement source.
         id: Unique id of the target node.
 
     Returns:
         ReplaceNodeResult: Success status and the node's new id, if changed.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``code`` has a syntax error, ``id`` is
+        core.AstError: If ``path`` is invalid, ``source`` has a syntax error, ``id`` is
             not given, or it matches zero or more than one node.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=id)
-    new_id = core.replace_node(target, code)
+    new_id = core.replace_node(target, source)
     core.CACHE.save(file_path, tree)
     return ReplaceNodeResult(result='success', id=new_id)
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
     title = 'Replace AST node'
-    description = 'Replace the single selected node with statement(s) parsed from code.'
+    description = 'Replace the single selected node with source or text.'
     input_schema = {
         'type': 'object',
         'properties': {
             'path': {
                 'type': 'string',
                 'description': 'Absolute path to the file.'},
-            'code': {
+            'source': {
                 'type': 'string',
                 'description': 'Replacement source.'},
             **PATH_SELECTOR_PROPS},
         'required': [
             'path',
-            'code']}
+            'source']}
     output_schema = {
         'type': 'object',
         'properties': {
@@ -73,7 +73,7 @@ class ReplaceNodeTool(ToolDefinition):
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_replace(args['path'], args['code'], id=args.get('id'))
+            result = ast_replace(args['path'], args['source'], id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         content = {'result': result.result}

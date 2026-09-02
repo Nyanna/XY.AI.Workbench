@@ -44,7 +44,7 @@ def ast_list(path: str, *, with_lines: bool=True) -> ListNodesResult:
 class ListNodesTool(ToolDefinition):
     name = 'ast_list'
     title = 'List AST nodes'
-    description = "Hierarchical tree of a file's AST nodes (import/statement segments, classes, functions, sections) with id and line range – no source. Use ast_find to filter/search and get source, ast_read to read source by id."
+    description = "Hierarchical tree of a file's AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source."
     input_schema = {
         'type': 'object',
         'properties': {

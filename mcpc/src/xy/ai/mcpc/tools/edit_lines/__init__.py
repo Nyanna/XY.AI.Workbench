@@ -58,7 +58,7 @@ def edit_lines(path: str, offset: int, amount: int, content: str) -> EditLinesRe
 
 class EditLinesTool(ToolDefinition):
     name = 'edit_lines'
-    title = 'Replace lines in file'
+    title = 'Replace lines in file by line offsets'
     description = 'Replace a range of lines inside an existing file with new content. The range is defined by a zero-based line ``offset`` and a ``length`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted.'
     input_schema = {
         'type': 'object',

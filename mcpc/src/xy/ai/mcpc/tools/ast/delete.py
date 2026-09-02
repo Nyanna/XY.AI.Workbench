@@ -56,7 +56,7 @@ def ast_delete(path: str, *, id: str | None=None) -> DeleteResult:
 class DeleteTool(ToolDefinition):
     name = 'ast_delete'
     title = 'Delete AST node or file'
-    description = 'Delete the single selected node from a file, or the whole file – and its directory if no selector is given.'
+    description = 'Delete the single selected node from a file, or the whole file if no selector is given.'
     input_schema = {
         'type': 'object',
         'properties': {

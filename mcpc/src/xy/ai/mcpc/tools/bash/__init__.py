@@ -44,16 +44,16 @@ def bash(cwd: str, script: str) -> ProcessResult:
 class BashTool(ToolDefinition):
     name = 'bash'
     title = 'Run Bash script'
-    description = f"Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file instead; the absolute file path is returned (as 'stdout_file'/'stderr_file') so it can be inspected further."
+    description = f"Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file."
     input_schema = {
         'type': 'object',
         'properties': {
             'cwd': {
                 'type': 'string',
-                'description': 'Absolute path to the working directory in which to run the script.'},
+                'description': 'Absolute path to the working directory.'},
             'script': {
                 'type': 'string',
-                'description': 'Bash script content to execute.'}},
+                'description': 'Bash script content.'}},
         'required': [
             'cwd',
             'script']}
@@ -68,10 +68,10 @@ class BashTool(ToolDefinition):
                 'type': 'string'},
             'stdout_file': {
                 'type': 'string',
-                'description': 'Absolute path to a file containing the full STDOUT, present only if STDOUT exceeded the safety limit.'},
+                'description': 'Absolute path to a file containing the full STDOUT, if STDOUT exceeded the safety limit.'},
             'stderr_file': {
                 'type': 'string',
-                'description': 'Absolute path to a file containing the full STDERR, present only if STDERR exceeded the safety limit.'}},
+                'description': 'Absolute path to a file containing the full STDERR, if STDERR exceeded the safety limit.'}},
         'required': ['stdout']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 

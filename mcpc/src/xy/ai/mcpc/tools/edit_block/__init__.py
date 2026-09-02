@@ -66,8 +66,8 @@ def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, repla
 
 class EditBlockTool(ToolDefinition):
     name = 'edit_block'
-    title = 'Edit text block in file'
-    description = "Replace a complete block of text inside an existing file. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
+    title = 'Replace text in file'
+    description = "Replace a short text inside an file. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -81,7 +81,7 @@ class EditBlockTool(ToolDefinition):
                 'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
             'new_text': {
                 'type': 'string',
-                        'description': "Text that replace 'old_text (may be empty to perform a pure deletion)'."},
+                        'description': "Text that replace 'old_text (empty to perform a deletion)'."},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",

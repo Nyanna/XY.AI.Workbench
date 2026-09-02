@@ -48,7 +48,7 @@ def search_functions(functions: FunctionRegistry, keywords: str, seen: set[str])
 class ToolSearchTool(ToolDefinition):
     name = 'tool_search'
     title = 'Search function-based tools'
-    description = 'Search function-based tools by space-separated English keywords, matched against each tool. Returns name + first docstring line, alphabetically sorted. Each function is only ever returned once per session.'
+    description = 'Search function-based tools by space-separated English keywords, matched against each tool.'
     input_schema = {
         'type': 'object',
         'properties': {

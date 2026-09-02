@@ -91,8 +91,8 @@ def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exac
 
 class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
-    title = 'Edit file block with marks'
-    description = "Replace everything strictly between and including the unique 'begin_marker' and 'end_marker' markers (both markers included) with 'content'. Rules: (1) 'begin_marker' and 'end_marker' must each appear exactly once in the file. (2) 'end_marker' must begin after 'begin_marker' ends — they must not overlap, and 'end_marker' must NOT appear anywhere inside 'begin_marker'. (3) Choose markers that are multicharacter and span a distinctive substring, ideally a full line or phrase, never a single word or whitespace only or big block. (4) The replaced region should be focused — a few lines at most, not the entire file. (5) Do not use this tool to replace a single line; the block must span at least a meaningful multi-line region. (6) By default whitespace in markers is matched tolerantly; set 'exact' to require exact whitespace matching. (7) Prefer distinct, short start/end lines over reusing a large block as both markers — 'begin_marker' should mark only the opening boundary, 'end_marker' only the closing boundary. (8) CRITICAL: 'end_marker' must be a substring that does NOT appear in 'begin_marker' — verify this before calling the tool."
+    title = 'Replace text between two marks'
+    description = "Replace between and including the unique 'begin_marker' and 'end_marker' markers (both markers included) with 'content'. Rules: (1) 'begin_marker' and 'end_marker' must be unique. (2) 'begin_marker' must not contain 'end_marker' — they must not overlap. (3) The replaced region should be a few lines at most. (5) 'begin_marker' should mark only the prefix, 'end_marker' only the postfix."
     input_schema = {
         'type': 'object',
         'strict': True,
@@ -105,15 +105,15 @@ class EditMarksTool(ToolDefinition):
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique substring (10-30 chars) marking the beginning of the block. Must occur exactly once in the file. Must end before 'end_marker' begins (no overlap). IMPORTANT: 'end_marker' must not appear anywhere within this string. Choose a distinctive short phrase, e.g. a full line of code or text."},
+                'description': "Unique substring (10-30 chars) marking the beginning of the text to replace. Must occur exactly once in the file. "},
             'content': {
                 'type': 'string',
-                        'description': "Replacement text that will replace everything from the start of 'begin_marker' to the end of 'end_marker', inclusive."},
+                        'description': "Replacement text that will replace everything from the begin of 'begin_marker' to the end of 'end_marker', inclusive."},
             'end_marker': {
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique substring (10-30 chars) marking the end of the block. Must occur exactly once in the file, at a position strictly after 'begin_marker' ends. Must NOT be a substring of 'begin_marker'. Choose a distinctive short phrase, e.g. a full line of code or text."},
+                'description': "Unique substring (10-30 chars) marking the end of the text to replace. Must occur exactly once in the file, at a position after 'begin_marker'."},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",

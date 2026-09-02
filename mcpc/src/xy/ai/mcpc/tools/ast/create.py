@@ -45,7 +45,7 @@ def ast_create(path: str, source: str, overwrite: bool=False) -> CreateFileResul
 class CreateFileTool(ToolDefinition):
     name = 'ast_create'
     title = 'Create a file'
-    description = 'Create a file from source (validated by parsing it).'
+    description = 'Create a file from source.'
     input_schema = {
         'type': 'object', 'properties': {
             'path': {

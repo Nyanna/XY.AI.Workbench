@@ -141,8 +141,8 @@ def read_file(path: str, min_line: int | None=None, max_line: int | None=None, m
 
 class ReadTool(ToolDefinition):
     name = 'read_file'
-    title = 'Read file'
-    description = "Read a file as text, optionally sliced to a range. Don't use to read directories."
+    title = 'Read file content'
+    description = "Read a file as text, optionally sliced to a range."
     input_schema = {
         'type': 'object',
         'properties': {

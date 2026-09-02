@@ -43,13 +43,13 @@ def ask_user(question: str) -> str:
 class AskUserTool(ToolDefinition):
     name = TOOLNAME_ASK_USER
     title = 'Ask user'
-    description = "Ask the user a clarifying question, in the user's language, to improve session efficiency (e.g. instead of searching an entire file hierarchy when the user likely knows the answer already). "
+    description = "Ask the user a clarifying question, in the user's language, to improve session efficiency. "
     input_schema = {
         'type': 'object',
         'properties': {
             'question': {
                 'type': 'string',
-                'description': "The question to ask the user, in the user's language."}},
+                'description': "The question to ask the user."}},
         'required': ['question']}
     output_schema = {'type': 'object', 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}

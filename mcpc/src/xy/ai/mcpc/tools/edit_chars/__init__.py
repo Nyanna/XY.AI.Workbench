@@ -53,7 +53,7 @@ def edit_chars(path: str, offset: int, length: int, content: str) -> EditCharsRe
 class EditCharsTool(ToolDefinition):
     name = 'edit_chars'
     title = 'Replace characters in file'
-    description = 'Replace a range of characters inside an existing file with new content. The range is defined by a zero-based character ``offset`` and a ``length`` (number of characters to remove starting at the offset). The supplied ``content`` is written in place of the removed range.'
+    description = 'Replace a range of characters inside an file with new content. The range is defined by a zero-based character ``offset`` and a ``length`` (number of characters to remove starting at the offset). The supplied ``content`` is written in place of the removed range.'
     input_schema = {
         'type': 'object',
         'properties': {

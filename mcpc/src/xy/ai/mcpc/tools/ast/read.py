@@ -46,7 +46,7 @@ def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeRes
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'Read AST subtrees'
-    description = "Recursively read the subtree of each addressed node (by id), surfacing each block's id and source so it can be handed to ast_replace/ast_edit_marks/ast_edit_block. Nodes whose body consists solely of nested classes/functions are expanded into 'children' instead of source, letting the agent descend to the innermost block that needs editing."
+    description = "Recursively read the subtree of each addressed AST node id, surfacing each node's id, children, and source."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -57,7 +57,7 @@ class ReadNodeTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                         'type': 'string'},
-                'description': 'Node ids to read.'}},
+                'description': 'AST node ids to read. Don\'t guess ID\'s'}},
         'required': [
             'ids',
             'path']}

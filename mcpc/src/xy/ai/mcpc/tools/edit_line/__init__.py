@@ -50,8 +50,8 @@ def edit_line(path: str, old_line: str, new_lines: str, exact: bool=False, repla
 
 class EditLineTool(ToolDefinition):
     name = 'edit_line'
-    title = 'Edit single line in file'
-    description = "Replace exactly one line inside an existing file with one or more lines. IMPORTANT: 'old_line' MUST be a single line — it MUST NOT contain any newline character ('\\n'). Choose 'old_line' to be short and unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
+    title = 'Replace a single line in file'
+    description = "Replace exactly one line inside an file with one or more lines. 'old_line' must be a single line without a newline character. Choose 'old_line' to be unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -60,10 +60,10 @@ class EditLineTool(ToolDefinition):
                 'description': 'Absolute path to the target file.'},
             'old_line': {
                 'type': 'string',
-                'description': 'A SINGLE line to find and replace. MUST NOT contain a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Do NOT pass multiple lines here.'},
+                'description': 'A single line to find and replace without a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Never pass multiple lines here.'},
             'new_lines': {
                 'type': 'string',
-                        'description': "Replacement content for 'old_line'. Either a single line, or multiple lines joined with '\\n' (may be empty to delete the line)."},
+                        'description': "Replacement content for 'old_line', may be empty to delete the line."},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",

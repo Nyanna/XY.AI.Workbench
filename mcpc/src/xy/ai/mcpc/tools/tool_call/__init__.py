@@ -159,7 +159,7 @@ def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
     title = 'Run a script against injected tools'
-    description = f'Run Python code against a restricted, session-persistent context. The context persists across calls in this session.'
+    description = f'Run Python code against a restricted, session-persistent context.'
     input_schema = {
         'type': 'object',
         'properties': {

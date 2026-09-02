@@ -20,16 +20,16 @@ class EditMarksNodeResult:
     result: str
     id: str | None = None
 
-def ast_edit_marks(path: str, block_start: str, block_end: str, content: str, *, exact: bool=False, id: str | None=None) -> EditMarksNodeResult:
-    """Replace everything between the 'block_start' and 'block_end' markers inside a node addressed by id.
+def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, *, exact: bool=False, id: str | None=None) -> EditMarksNodeResult:
+    """Replace everything between the 'start_marker' and 'end_marker' markers inside a node addressed by id.
 
     The addressed node's source is unparsed, edited between the two markers (both
     included) as with ``edit_marks``, re-parsed, and used to replace the node.
 
     Args:
         path: Absolute path to the file to modify.
-        block_start: Unique 10-30 char substring marking the beginning of the block, within the node's source.
-        block_end: Unique 10-30 char substring marking the end of the block, within the node's source.
+        start_marker: Unique 10-30 char substring marking the beginning of the block, within the node's source.
+        end_marker: Unique 10-30 char substring marking the end of the block, within the node's source.
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
         id: Unique id of the target node.
@@ -48,7 +48,7 @@ def ast_edit_marks(path: str, block_start: str, block_end: str, content: str, *,
     target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
     try:
-        new_source = edit_marks_text(node_source, block_start, block_end, content, exact=exact)
+        new_source = edit_marks_text(node_source, start_marker, end_marker, content, exact=exact)
     except EditMarksError as exc:
         raise core.AstError(str(exc)) from exc
     new_id = core.replace_node(target, new_source)
@@ -57,36 +57,36 @@ def ast_edit_marks(path: str, block_start: str, block_end: str, content: str, *,
 
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
-    title = 'Edit AST node between markers'
-    description = "In-node marker edit: replace everything strictly between and including the unique 'block_start' and 'block_end' markers, found within the node addressed by id, with 'content'. Ideal for focused in-section changes."
+    title = 'Replace text within a AST node between markers'
+    description = "In-node marker edit: replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within the node addressed by id, with 'content'."
     input_schema = {
         'type': 'object',
         'properties': {
             'path': {
                 'type': 'string',
                 'description': 'Absolute path to the file.'},
-            'block_start': {
+            'start_marker': {
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique 10-30 char substring marking the beginning of the block, within the node's source."},
-            'block_end': {
+                'description': "Unique 10-30 char substring marking the beginning of the text to replace, within the node's source."},
+            'end_marker': {
                 'type': 'string',
                         'minLength': 10,
                         'maxLength': 30,
-                        'description': "Unique 10-30 char substring marking the end of the block, within the node's source."},
+                        'description': "Unique 10-30 char substring marking the end of the text to replace, within the node's source."},
             'content': {
                 'type': 'string',
-                'description': 'Replacement source for the marked block.'},
+                'description': 'Replacement source for the marked text.'},
             'exact': {
                 'type': 'boolean',
-                'description': "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                'description': "If true, 'start_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
                 'default': False},
             **PATH_SELECTOR_PROPS},
         'required': [
             'path',
-            'block_start',
-            'block_end',
+            'start_marker',
+            'end_marker',
             'content']}
     output_schema = {
         'type': 'object',
@@ -105,8 +105,8 @@ class EditMarksNodeTool(ToolDefinition):
         try:
             result = ast_edit_marks(
                 args['path'],
-                args['block_start'],
-                args['block_end'],
+                args['start_marker'],
+                args['end_marker'],
                 args['content'],
                 exact=args.get(
                     'exact',

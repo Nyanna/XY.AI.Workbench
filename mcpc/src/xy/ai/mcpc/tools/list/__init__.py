@@ -96,8 +96,8 @@ def list(path: str, pattern: str | None=None) -> ListResult:
 
 class ListTool(ToolDefinition):
     name = 'list'
-    title = 'List directory'
-    description = 'List all files below an absolute directory path, recursively, as a flat list. Optionally filter the result with a regular expression.'
+    title = 'List directory contents'
+    description = 'List all files below an absolute directory path, recursively, as a flat list. Filter the result with a regular expression.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -106,7 +106,7 @@ class ListTool(ToolDefinition):
                 'description': 'Absolute directory path.'},
             'pattern': {
                 'type': 'string',
-                'description': 'Optional regular expression used to filter the result.'}},
+                'description': 'Regular expression to filter the result.'}},
         'required': ['path']}
     output_schema = {
         'type': 'object',

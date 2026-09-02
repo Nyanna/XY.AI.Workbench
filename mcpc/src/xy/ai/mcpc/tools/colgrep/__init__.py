@@ -194,8 +194,8 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: boo
 
 class ColgrepTool(ToolDefinition):
     name = 'colgrep'
-    title = 'Search code with colgrep'
-    description = "Search a project's codebase with colgrep."
+    title = 'Project vector DB.'
+    description = "Search a project with a multi-vector DB."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -244,7 +244,7 @@ class ColgrepTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                     'type': 'object'},
-                'description': 'Result objects as produced by `colgrep'}},
+                'description': 'Result objects'}},
         'required': ['results']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
