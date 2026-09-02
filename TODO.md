@@ -1,12 +1,6 @@
-# TODO
-! Ast tool descriptions pruefen und interfaces und beschreibungen prüfen
-	* ast_read wird mit module aufgerufen -> description verbessern
-	
+# TODO	
 ! Mehr grep xu Zeilennummern statt list, toolbeschreibungen verbessern, die kombi war optimal, also mit ast_find
 	* finding, grep war abensp 2stufig, grep durch viele dateien mit preview, zweiter call dann gezielt mit zeilennummer in datei
-
-! erwartete contenthash für read tools um fehler abfangen zu können, oder last updates seid read (also last read)
-	* verweis auf toolresult mit ID ?, result ID timecode plus kurze content hash
 
 * exa verbessern, outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
 	
