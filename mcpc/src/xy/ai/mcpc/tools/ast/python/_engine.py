@@ -6,11 +6,13 @@ Mutations edit the ``ast`` object graph in place and are re-serialised via
 from __future__ import annotations
 import ast
 import autopep8
+import logging
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, SEGMENT_MAX_CHARS, Tree, id_segment
 from xy.ai.mcpc.tools.ast.python._comments import comments_to_annotations
 from xy.ai.mcpc.tools.ast.python._nodes import _DEF_TYPES, _IMPORT_TYPES, _StatementGroup, _decorators, _is_expandable
+logger = logging.getLogger('xy.ai.mcpc.tools.ast.python')
 
 class _FormattingUnparser(ast._Unparser):
     """``ast.unparse`` variant that reflows overlong single-line literals.
@@ -48,12 +50,39 @@ class _FormattingUnparser(ast._Unparser):
         prefix = line_so_far[len(indent):]
         if len(indent) + len(prefix) + len(text) <= self.MAX_LINE_LENGTH:
             return
-        formatted = autopep8.fix_code(prefix + text, options={'max_line_length': max(1, self.MAX_LINE_LENGTH - len(indent)), 'indent_size': 2,'aggressive': 1}).rstrip('\n')
+        '# Shield the prefix (e.g. a long annotation) behind a same-width dummy'
+        '# assignment target, so autopep8 only reflows the appended literal'
+        '# instead of possibly rewrapping the prefix itself.'
+        dummy = self._dummy_prefix(prefix)
+        formatted = self._fix_code(dummy + text, max(1, self.MAX_LINE_LENGTH - len(indent)), node)
+        if formatted is None:
+            return
         first_line, _, rest = formatted.partition('\n')
-        if not first_line.startswith(prefix):
+        if not first_line.startswith(dummy):
             return
         continuation = ''.join((f'\n{indent}{line}' for line in rest.split('\n'))) if rest else ''
-        self._source[start:] = [first_line[len(prefix):] + continuation]
+        self._source[start:] = [first_line[len(dummy):] + continuation]
+
+    @staticmethod
+    def _dummy_prefix(prefix: str) -> str:
+        tail = ' = '
+        if len(prefix) <= len(tail):
+            return prefix
+        return '_' * (len(prefix) - len(tail)) + tail
+
+    def _fix_code(self, code: str, max_line_length: int, node: ast.AST) -> str | None:
+        options = {'max_line_length': max_line_length, 'indent_size': 2}
+        for aggressive in (2, 1, 0):
+            try:
+                return autopep8.fix_code(
+                    code, options={**options, 'aggressive': aggressive}).rstrip('\n')
+            except Exception:
+                continue
+        logger.error(
+            'autopep8 failed to format node at line %s, col %s; leaving unformatted', getattr(
+                node, 'lineno', '?'), getattr(
+                    node, 'col_offset', '?'))
+        return None
 
 def _unparse(node: ast.AST) -> str:
     return _FormattingUnparser().visit(node)
@@ -89,7 +118,8 @@ class PythonEngine(Engine):
 
     def _loc(self, tree, node, parent, index, name, nid, expandable=False) -> Located:
         node_type = node.kind if isinstance(node, _StatementGroup) else type(node).__name__
-        return Located(tree=tree, node=node, parent=parent, index=index, node_id=nid, node_type=node_type, name=name, lineno=node.lineno, end_lineno=getattr(node, 'end_lineno', node.lineno), parent_type=type(parent).__name__, expandable=expandable)
+        return Located(tree=tree, node=node, parent=parent, index=index, node_id=nid, node_type=node_type, name=name, lineno=node.lineno,
+                       end_lineno=getattr(node, 'end_lineno', node.lineno), parent_type=type(parent).__name__, expandable=expandable)
 
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []
@@ -103,7 +133,15 @@ class PythonEngine(Engine):
                 if isinstance(node, _DEF_TYPES):
                     seg = id_segment(node.name, i, used)
                     nid = f'{path}.{seg}' if path else seg
-                    results.append(self._loc(tree, node, container, i, node.name, nid, _is_expandable(node)))
+                    results.append(
+                        self._loc(
+                            tree,
+                            node,
+                            container,
+                            i,
+                            node.name,
+                            nid,
+                            _is_expandable(node)))
                     walk(node, nid)
                     i += 1
                     continue
