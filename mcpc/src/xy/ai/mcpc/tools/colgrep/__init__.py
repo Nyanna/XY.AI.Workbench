@@ -22,7 +22,22 @@ _ALPHA_RAMP_MIN_LEN = 5
 _ALPHA_RAMP_MAX_LEN = 10
 _ALPHA_RAMP_START = 0.9
 _ALPHA_RAMP_END = 0.6
-_DROPPED_KEYS = frozenset({'language', 'signature', 'qualified_name', 'unit_type', 'complexity', 'has_loops', 'has_branches', 'has_error_handling', 'extends', 'parent_class', 'variables', 'name', 'return_type', 'calls', 'imports', 'parameters'})
+_DROPPED_KEYS = frozenset({'language',
+                           'signature',
+                           'qualified_name',
+                           'unit_type',
+                           'complexity',
+                           'has_loops',
+                           'has_branches',
+                           'has_error_handling',
+                           'extends',
+                           'parent_class',
+                           'variables',
+                           'name',
+                           'return_type',
+                           'calls',
+                           'imports',
+                           'parameters'})
 
 class ColgrepError(Exception):
     """Raised when a colgrep search cannot be performed."""
@@ -155,7 +170,14 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: boo
     env['XDG_DATA_HOME'] = str(index_root / '.colgrep')
     env['XDG_CONFIG_HOME'] = str(index_root / '.colgrep')
     try:
-        proc = subprocess.run(cmd, cwd=str(index_root), env=env, input='', capture_output=True, encoding='utf-8', errors='replace')
+        proc = subprocess.run(
+            cmd,
+            cwd=str(index_root),
+            env=env,
+            input='',
+            capture_output=True,
+            encoding='utf-8',
+            errors='replace')
     except OSError as exc:
         raise ColgrepError(f'Failed to launch colgrep: {exc}') from exc
     if proc.returncode != 0:
@@ -174,15 +196,77 @@ class ColgrepTool(ToolDefinition):
     name = 'colgrep'
     title = 'Search code with colgrep'
     description = "Search a project's codebase with colgrep."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute directory to search in.'}, 'query': {'type': 'string', 'description': 'Search query: natural language and/or identifiers/keywords.'}, 'results': {'type': 'integer', 'minimum': 1, 'maximum': _MAX_RESULTS, 'default': _DEFAULT_RESULTS, 'description': 'Maximum number of results to return.'}, 'code_only': {'type': 'boolean', 'default': False, 'description': 'Skip documentation/config files; search source code only.'}, 'files_only': {'type': 'boolean', 'default': False, 'description': 'Return matching file paths only, without snippets.'}, 'include': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'}, 'exclude': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'}, 'exclude_dir': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}}, 'required': ['path', 'query']}
-    output_schema = {'type': 'object', 'properties': {'results': {'type': 'array', 'items': {'type': 'object'}, 'description': 'Result objects as produced by `colgrep'}}, 'required': ['results']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute directory to search in.'},
+            'query': {
+                'type': 'string',
+                'description': 'Search query: natural language and/or identifiers/keywords.'},
+            'results': {
+                'type': 'integer',
+                        'minimum': 1,
+                        'maximum': _MAX_RESULTS,
+                        'default': _DEFAULT_RESULTS,
+                        'description': 'Maximum number of results to return.'},
+            'code_only': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip documentation/config files; search source code only.'},
+            'files_only': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Return matching file paths only, without snippets.'},
+            'include': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'},
+                'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'},
+            'exclude': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'},
+                'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'},
+            'exclude_dir': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'},
+                'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}},
+        'required': [
+            'path',
+            'query']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'results': {
+                'type': 'array',
+                'items': {
+                    'type': 'object'},
+                'description': 'Result objects as produced by `colgrep'}},
+        'required': ['results']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = colgrep(path=args['path'], query=args['query'], results=args.get('results', _DEFAULT_RESULTS), code_only=args.get('code_only', False), files_only=args.get('files_only', False), include=args.get('include') or [], exclude=args.get('exclude') or [], exclude_dir=args.get('exclude_dir') or [])
+            result = colgrep(
+                path=args['path'],
+                query=args['query'],
+                results=args.get(
+                    'results',
+                    _DEFAULT_RESULTS),
+                code_only=args.get(
+                    'code_only',
+                    False),
+                files_only=args.get(
+                    'files_only',
+                    False),
+                include=args.get('include') or [],
+                exclude=args.get('exclude') or [],
+                exclude_dir=args.get('exclude_dir') or [])
         except ColgrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'results': result.results})

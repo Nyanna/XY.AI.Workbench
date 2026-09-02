@@ -4,43 +4,25 @@ The manager itself never starts or stops a CLI process — that is the session's
 responsibility.  It maintains the index, hands out session objects on request,
 and, on every request.
 """
-
-
 import threading
 from pathlib import Path
-
 from xy.ai.mcpc.cli.parameters import CliParameters
 from xy.ai.mcpc.cli.session import CliSession, CliSessionError, Launcher, default_launcher
-
-__all__ = ["CliSessionError", "CliSessionManager"]
-
+__all__ = ['CliSessionError', 'CliSessionManager']
 
 class CliSessionManager:
     """Thread-safe pool of :class:`CliSession` objects keyed by CLI-session id."""
 
-    def __init__(
-        self,
-        *,
-        log_dir: Path | str = ".claude/logs",
-        ttl_seconds: float = 3600.0,
-        response_timeout: float = 300.0,
-        launcher: Launcher = default_launcher,
-    ) -> None:
+    def __init__(self, *, log_dir: Path | str='.claude/logs', ttl_seconds: float=3600.0, response_timeout: float=300.0, launcher: Launcher=default_launcher) -> None:
         self.log_dir = Path(log_dir)
         self.ttl_seconds = ttl_seconds
         self.response_timeout = response_timeout
         self._launcher = launcher
         self._sessions: dict[str, CliSession] = {}
         self._lock = threading.RLock()
+    '# -- requests -----------------------------------------------------------'
 
-    # -- requests -----------------------------------------------------------
-    def request(
-        self,
-        parameters: CliParameters | None = None,
-        *,
-        resume: str | None = None,
-        session_id: str | None = None,
-    ) -> CliSession:
+    def request(self, parameters: CliParameters | None=None, *, resume: str | None=None, session_id: str | None=None) -> CliSession:
         """Obtain a CLI session, creating a new one unless *resume* is given.
 
         When *resume* is provided the existing session is looked up and its
@@ -54,9 +36,9 @@ class CliSessionManager:
             if resume is not None:
                 return self._resume(resume)
             if parameters is None:
-                raise CliSessionError("parameters are required to start a new CLI session")
+                raise CliSessionError('parameters are required to start a new CLI session')
             if session_id is not None and session_id in self._sessions:
-                raise CliSessionError(f"CLI session already exists: {session_id}")
+                raise CliSessionError(f'CLI session already exists: {session_id}')
             session = CliSession(
                 self,
                 parameters,
@@ -64,19 +46,18 @@ class CliSessionManager:
                 log_dir=self.log_dir,
                 ttl_seconds=self.ttl_seconds,
                 response_timeout=self.response_timeout,
-                launcher=self._launcher,
-            )
+                launcher=self._launcher)
             self._sessions[session.id] = session
             return session
 
     def _resume(self, cli_session_id: str) -> CliSession:
         session = self._sessions.get(cli_session_id)
         if session is None:
-            raise CliSessionError(f"Unknown CLI session: {cli_session_id}")
+            raise CliSessionError(f'Unknown CLI session: {cli_session_id}')
         if not session.is_valid():
             session.terminate()
             self._sessions.pop(cli_session_id, None)
-            raise CliSessionError(f"CLI session {cli_session_id} has expired")
+            raise CliSessionError(f'CLI session {cli_session_id} has expired')
         return session
 
     def resolve(self, cli_session_id: str) -> CliSession | None:

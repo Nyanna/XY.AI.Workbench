@@ -1,19 +1,13 @@
 """HTTP handlers for the CLI hook endpoints (PreToolUse and PermissionRequest)."""
-
-
 import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
-
 from xy.ai.mcpc.server import jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
-
 if TYPE_CHECKING:
     from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
-
-logger = logging.getLogger("xy.ai.mcpc.transport")
-
+logger = logging.getLogger('xy.ai.mcpc.transport')
 
 class HookHandler:
     """Handles POST requests to the CLI PreToolUse hook endpoint (``/hooks/tool``).
@@ -27,7 +21,7 @@ class HookHandler:
     interception handles the actual permission check.
     """
 
-    def __init__(self, http: "StreamableHttpHandler") -> None:
+    def __init__(self, http: 'StreamableHttpHandler') -> None:
         self._http = http
 
     def matches(self) -> bool:
@@ -39,10 +33,9 @@ class HookHandler:
         raw = self._http._read_body()
         if raw is None:
             return
-        logger.debug("PreToolUse hook called: %s", JsonCodec.for_log(raw))
-        response: dict[str, Any] = {"continue": True, "suppressOutput": False}
+        logger.debug('PreToolUse hook called: %s', JsonCodec.for_log(raw))
+        response: dict[str, Any] = {'continue': True, 'suppressOutput': False}
         self._http._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
-
 
 class PermissionHookHandler:
     """Handles POST requests to the CLI PermissionRequest hook endpoint (``/hooks/permission``).
@@ -55,7 +48,7 @@ class PermissionHookHandler:
     granted unconditionally.
     """
 
-    def __init__(self, http: "StreamableHttpHandler") -> None:
+    def __init__(self, http: 'StreamableHttpHandler') -> None:
         self._http = http
 
     def matches(self) -> bool:
@@ -67,15 +60,7 @@ class PermissionHookHandler:
         raw = self._http._read_body()
         if raw is None:
             return
-        logger.debug("PermissionRequest hook called: %s", JsonCodec.for_log(raw))
-        response: dict[str, Any] = {
-            "continue": True,
-            "suppressOutput": False,
-            "hookSpecificOutput": {
-                "hookEventName": "PermissionRequest",
-                "decision": {
-                    "behavior": "allow",
-                },
-            },
-        }
+        logger.debug('PermissionRequest hook called: %s', JsonCodec.for_log(raw))
+        response: dict[str, Any] = {'continue': True, 'suppressOutput': False, 'hookSpecificOutput': {
+            'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'allow'}}}
         self._http._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)

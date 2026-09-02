@@ -1,18 +1,12 @@
 """HTTP handler for the human-in-the-loop control endpoint."""
-
-
 import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
-
 from xy.ai.mcpc.server import jsonrpc
-
 if TYPE_CHECKING:
     from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
-
-logger = logging.getLogger("xy.ai.mcpc.control")
-
+logger = logging.getLogger('xy.ai.mcpc.control')
 
 class ControlHandler:
     """Handles POST requests to the tool-control endpoint (``/control/tool``).
@@ -35,7 +29,7 @@ class ControlHandler:
         {"pending": [...]}
     """
 
-    def __init__(self, http: "StreamableHttpHandler") -> None:
+    def __init__(self, http: 'StreamableHttpHandler') -> None:
         self._http = http
 
     def matches(self) -> bool:
@@ -44,38 +38,36 @@ class ControlHandler:
 
     def handle(self) -> None:
         """Process a poll/approval request from the control client."""
-        logger.debug("Control endpoint reached")
-        control = self._http.server.environment.control_manager  # type: ignore[attr-defined]
+        logger.debug('Control endpoint reached')
+        '# type: ignore[attr-defined]'
+        control = self._http.server.environment.control_manager
         if control is None:
-            logger.warning("Control: manager not enabled, returning 404")
-            self._http._send_http_error(HTTPStatus.NOT_FOUND, "Tool control is not enabled")
+            logger.warning('Control: manager not enabled, returning 404')
+            self._http._send_http_error(HTTPStatus.NOT_FOUND, 'Tool control is not enabled')
             return
-
         raw = self._http._read_body()
-        logger.debug("Control: body read, length=%d", len(raw) if raw is not None else -1)
+        logger.debug('Control: body read, length=%d', len(raw) if raw is not None else -1)
         if raw is None:
             return
-
         if raw:
             try:
                 body = jsonrpc.parse_body(raw)
             except Exception as exc:
-                logger.warning("Control: invalid JSON body: %s", exc)
-                self._http._send_http_error(HTTPStatus.BAD_REQUEST, "Invalid JSON body")
+                logger.warning('Control: invalid JSON body: %s', exc)
+                self._http._send_http_error(HTTPStatus.BAD_REQUEST, 'Invalid JSON body')
                 return
-            approvals = body.get("approvals", [])
+            approvals = body.get('approvals', [])
             if not isinstance(approvals, list):
                 logger.warning("Control: 'approvals' is not a list: %r", approvals)
                 self._http._send_http_error(HTTPStatus.BAD_REQUEST, '"approvals" must be an array')
                 return
-            logger.debug("Control: processing %d approval(s)", len(approvals))
-            # Process decisions first so callers can be unblocked before
-            # the next pending list is assembled.
+            logger.debug('Control: processing %d approval(s)', len(approvals))
+            '# Process decisions first so callers can be unblocked before'
+            '# the next pending list is assembled.'
             control.process_approvals(approvals)
         else:
-            logger.debug("Control: empty body, poll only")
-
+            logger.debug('Control: empty body, poll only')
         pending = control.get_pending()
-        logger.debug("Control: returning %d pending item(s)", len(pending))
-        response: dict[str, Any] = {"pending": pending}
+        logger.debug('Control: returning %d pending item(s)', len(pending))
+        response: dict[str, Any] = {'pending': pending}
         self._http._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)

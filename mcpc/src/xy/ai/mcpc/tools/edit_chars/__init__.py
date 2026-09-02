@@ -54,15 +54,46 @@ class EditCharsTool(ToolDefinition):
     name = 'edit_chars'
     title = 'Replace characters in file'
     description = 'Replace a range of characters inside an existing file with new content. The range is defined by a zero-based character ``offset`` and a ``length`` (number of characters to remove starting at the offset). The supplied ``content`` is written in place of the removed range.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file to modify.'}, 'offset': {'type': 'integer', 'description': 'Zero-based character offset of the first character to replace.', 'minimum': 0}, 'length': {'type': 'integer', 'description': 'Number of characters to remove starting at ``offset``.', 'minimum': 0}, 'content': {'type': 'string', 'description': 'Replacement text (may be empty to perform a pure deletion).'}}, 'required': ['path', 'offset', 'length', 'content']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': ['result']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file to modify.'},
+            'offset': {
+                'type': 'integer',
+                'description': 'Zero-based character offset of the first character to replace.',
+                'minimum': 0},
+            'length': {
+                'type': 'integer',
+                        'description': 'Number of characters to remove starting at ``offset``.',
+                        'minimum': 0},
+            'content': {
+                'type': 'string',
+                'description': 'Replacement text (may be empty to perform a pure deletion).'}},
+        'required': [
+            'path',
+            'offset',
+            'length',
+            'content']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'result': {
+                'type': 'string',
+                'description': '``success`` on success.'}},
+        'required': ['result']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_chars`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = edit_chars(path=args['path'], offset=args['offset'], length=args['length'], content=args['content'])
+            result = edit_chars(
+                path=args['path'],
+                offset=args['offset'],
+                length=args['length'],
+                content=args['content'])
         except EditCharsError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)

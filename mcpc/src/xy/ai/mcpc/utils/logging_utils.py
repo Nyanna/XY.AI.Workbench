@@ -4,23 +4,20 @@ Every JSON message exchanged with a client is appended, one JSON object per
 line (JSON Lines / NDJSON), to ``<log_dir>/<session-id>.json.log``.  This gives a
 complete, replayable audit trail keyed by the session id.
 """
-
-
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 from xy.ai.mcpc.server.json_codec import JsonCodec
-
-IN = "in"        # client -> server
-OUT = "out"      # server -> client
-EVENT = "event"  # server-side lifecycle / diagnostic entry
-
+'# client -> server'
+IN = 'in'
+'# server -> client'
+OUT = 'out'
+'# server-side lifecycle / diagnostic entry'
+EVENT = 'event'
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _safe_name(session_id: str) -> str:
     """Sanitise a session id for safe use as a filename.
@@ -28,8 +25,7 @@ def _safe_name(session_id: str) -> str:
     Keeps only characters that are safe on common filesystems; anything else is
     replaced with ``_`` so a malicious session id cannot escape ``log_dir``.
     """
-    return "".join(c if (c.isalnum() or c in "-_.") else "_" for c in session_id) or "unknown"
-
+    return ''.join((c if c.isalnum() or c in '-_.' else '_' for c in session_id)) or 'unknown'
 
 class CommunicationLog:
     """Thread-safe, append-only NDJSON logger, one file per session id."""
@@ -45,7 +41,7 @@ class CommunicationLog:
         return self._dir
 
     def path_for(self, session_id: str) -> Path:
-        return self._dir / f"{_safe_name(session_id)}.json.log"
+        return self._dir / f'{_safe_name(session_id)}.json.log'
 
     def _lock_for(self, key: str) -> threading.Lock:
         with self._guard:
@@ -55,30 +51,20 @@ class CommunicationLog:
                 self._locks[key] = lock
             return lock
 
-    def log(
-        self,
-        session_id: str,
-        direction: str,
-        payload: Any,
-        **meta: Any,
-    ) -> None:
+    def log(self, session_id: str, direction: str, payload: Any, **meta: Any) -> None:
         """Append a single log entry for *session_id*.
 
         ``payload`` is typically the JSON-RPC message; ``meta`` carries extra
         context such as the HTTP method or status code.
         """
-        entry: dict[str, Any] = {
-            "ts": _now_iso(),
-            "session": session_id,
-            "direction": direction,
-        }
+        entry: dict[str, Any] = {'ts': _now_iso(), 'session': session_id, 'direction': direction}
         if meta:
             entry.update(meta)
-        entry["message"] = payload
+        entry['message'] = payload
         line = JsonCodec.encode(entry)
         key = _safe_name(session_id)
-        path = self._dir / f"{key}.json.log"
+        path = self._dir / f'{key}.json.log'
         with self._lock_for(key):
-            with path.open("a", encoding="utf-8") as fh:
+            with path.open('a', encoding='utf-8') as fh:
                 fh.write(line)
-                fh.write("\n")
+                fh.write('\n')

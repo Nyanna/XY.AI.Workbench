@@ -1,6 +1,4 @@
 """A single managed CLI process and its stream-json conversation."""
-
-
 import os
 import queue
 import subprocess
@@ -10,60 +8,54 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol
-
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.cli.parameters import CliParameters
-
 if TYPE_CHECKING:
     from xy.ai.mcpc.cli.manager import CliSessionManager
 
-
 class Process(Protocol):
     """The subset of :class:`subprocess.Popen` the session relies on."""
-
     stdin: Any
     stdout: Any
     stderr: Any
 
-    def poll(self) -> int | None: ...
-    def terminate(self) -> None: ...
-    def kill(self) -> None: ...
-    def wait(self, timeout: float | None = None) -> int: ...
+    def poll(self) -> int | None:
+        ...
 
+    def terminate(self) -> None:
+        ...
 
-#: A launcher turns a command line + environment into a running process.  It is
-#: injectable so tests can supply a fake CLI without spawning ``claude``.
+    def kill(self) -> None:
+        ...
+
+    def wait(self, timeout: float | None=None) -> int:
+        ...
+'#: A launcher turns a command line + environment into a running process.  It is'
+'#: injectable so tests can supply a fake CLI without spawning ``claude``.'
 Launcher = Callable[[list[str], dict[str, str]], Process]
-
-#: Sentinel pushed onto the output queue when the process stream reaches EOF.
+'#: Sentinel pushed onto the output queue when the process stream reaches EOF.'
 _EOF = object()
-
 
 def default_launcher(cmd: list[str], env: dict[str, str]) -> Process:
     """Start a real CLI process wired for line-buffered stream-json stdio."""
-    return subprocess.Popen(  # type: ignore[return-value]
+    return subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
         text=True,
-        bufsize=1,
-    )
-
+        bufsize=1)
 
 class CliSessionError(RuntimeError):
     """Raised when a prompt cannot be served (expired, timed out, crashed…)."""
 
-
 @dataclass(slots=True)
 class CliResult:
     """The outcome of a single prompt/response exchange."""
-
     text: str
     is_error: bool = False
     subtype: str | None = None
-
 
 class CliSession:
     """Container around a CLI process that serves prompts over stdin/stdout.
@@ -72,34 +64,22 @@ class CliSession:
     passing ``--session-id`` on first start and ``--resume`` on restart.
     """
 
-    def __init__(
-        self,
-        manager: "CliSessionManager",
-        parameters: CliParameters,
-        *,
-        session_id: str | None = None,
-        log_dir: Path | None = None,
-        ttl_seconds: float = 3600.0,
-        response_timeout: float = 300.0,
-        launcher: Launcher = default_launcher,
-    ) -> None:
+    def __init__(self, manager: 'CliSessionManager', parameters: CliParameters, *, session_id: str | None=None, log_dir: Path | None=None, ttl_seconds: float=3600.0, response_timeout: float=300.0, launcher: Launcher=default_launcher) -> None:
         self.manager = manager
         self.parameters = parameters
         self.id = session_id or str(uuid.uuid4())
         self.ttl_seconds = ttl_seconds
         self.response_timeout = response_timeout
         self._launcher = launcher
-        self._log_path = Path(log_dir) / f"{self.id}.json.log" if log_dir else None
-
+        self._log_path = Path(log_dir) / f'{self.id}.json.log' if log_dir else None
         self.created_at = time.time()
         self.started_at: float | None = None
         self.last_sent_at: float | None = None
         self.last_received_at: float | None = None
-
         self._process: Process | None = None
         self._started_once = False
         self._reader: threading.Thread | None = None
-        self._out: "queue.Queue[Any]" = queue.Queue()
+        self._out: 'queue.Queue[Any]' = queue.Queue()
         self._lock = threading.RLock()
         self._log_lock = threading.Lock()
 
@@ -108,13 +88,13 @@ class CliSession:
         return self._process is not None and self._process.poll() is None
 
     def _ttl_reference(self) -> float:
-        # The last *sent* message drives the TTL; before any prompt, use the
-        # creation time so a freshly minted session is valid.
+        """# The last *sent* message drives the TTL; before any prompt, use the"""
+        '# creation time so a freshly minted session is valid.'
         return self.last_sent_at if self.last_sent_at is not None else self.created_at
 
-    def is_valid(self, *, now: float | None = None) -> bool:
+    def is_valid(self, *, now: float | None=None) -> bool:
         now = time.time() if now is None else now
-        return (now - self._ttl_reference()) <= self.ttl_seconds
+        return now - self._ttl_reference() <= self.ttl_seconds
 
     def _start(self) -> None:
         cmd = self.parameters.build_command(self.id, resume=self._started_once)
@@ -123,19 +103,17 @@ class CliSession:
         self.started_at = time.time()
         self._started_once = True
         self._out = queue.Queue()
-        self._reader = threading.Thread(
-            target=self._read_loop, args=(self._process,), daemon=True
-        )
+        self._reader = threading.Thread(target=self._read_loop, args=(self._process,), daemon=True)
         self._reader.start()
 
     def _read_loop(self, process: Process) -> None:
         stdout = process.stdout
         try:
-            for line in iter(stdout.readline, ""):
-                if line == "":
+            for line in iter(stdout.readline, ''):
+                if line == '':
                     break
                 self.last_received_at = time.time()
-                self._replicate("out", line.rstrip("\n"))
+                self._replicate('out', line.rstrip('\n'))
                 obj = JsonCodec.decode_line(line)
                 if obj is None:
                     continue
@@ -155,15 +133,18 @@ class CliSession:
                     process.terminate()
                     try:
                         process.wait(timeout=5)
-                    except Exception:  # noqa: BLE001 - fall through to kill
+                    except Exception:
+                        '# noqa: BLE001 - fall through to kill'
                         process.kill()
-                except Exception:  # noqa: BLE001 - best-effort teardown
+                except Exception:
+                    '# noqa: BLE001 - best-effort teardown'
                     pass
             for stream in (process.stdin, process.stdout, process.stderr):
                 try:
                     if stream is not None:
                         stream.close()
-                except Exception:  # noqa: BLE001
+                except Exception:
+                    '# noqa: BLE001'
                     pass
 
     def prompt(self, text: str) -> CliResult:
@@ -176,26 +157,21 @@ class CliSession:
         with self._lock:
             if not self.is_valid():
                 self.terminate()
-                raise CliSessionError(f"CLI session {self.id} has expired")
-
+                raise CliSessionError(f'CLI session {self.id} has expired')
             if not self.running:
                 self._start()
-
             self._send_user_message(text)
             return self._collect_result()
 
     def _send_user_message(self, text: str) -> None:
         assert self._process is not None and self._process.stdin is not None
-        message = {
-            "type": "user",
-            "message": {"role": "user", "content": [{"type": "text", "text": text}]},
-        }
-        self._replicate("in", JsonCodec.encode(message, compact=True))
+        message = {'type': 'user', 'message': {'role': 'user', 'content': [{'type': 'text', 'text': text}]}}
+        self._replicate('in', JsonCodec.encode(message, compact=True))
         try:
             JsonCodec.write_line(self._process.stdin, message)
         except (BrokenPipeError, ValueError) as exc:
-            raise CliSessionError(f"CLI session {self.id} is not accepting input: {exc}")
-        # A sent prompt resets the remaining lifetime to the full TTL.
+            raise CliSessionError(f'CLI session {self.id} is not accepting input: {exc}')
+        '# A sent prompt resets the remaining lifetime to the full TTL.'
         self.last_sent_at = time.time()
 
     def _collect_result(self) -> CliResult:
@@ -204,72 +180,53 @@ class CliSession:
         while True:
             remaining = deadline - time.time()
             if remaining <= 0:
-                raise CliSessionError(
-                    f"CLI session {self.id} timed out after {self.response_timeout}s"
-                )
+                raise CliSessionError(f'CLI session {self.id} timed out after {self.response_timeout}s')
             try:
                 obj = self._out.get(timeout=remaining)
             except queue.Empty:
-                raise CliSessionError(f"CLI session {self.id} timed out")
-
+                raise CliSessionError(f'CLI session {self.id} timed out')
             if obj is _EOF:
-                raise CliSessionError(
-                    f"CLI session {self.id} ended before returning a result"
-                )
+                raise CliSessionError(f'CLI session {self.id} ended before returning a result')
             if not isinstance(obj, dict):
                 continue
-
-            kind = obj.get("type")
-            if kind == "assistant":
-                assistant_text.append(_extract_text(obj.get("message", {})))
-            elif kind == "result":
-                subtype = obj.get("subtype")
-                is_error = bool(obj.get("is_error")) or (
-                    isinstance(subtype, str) and subtype != "success"
-                )
-                text = obj.get("result")
+            kind = obj.get('type')
+            if kind == 'assistant':
+                assistant_text.append(_extract_text(obj.get('message', {})))
+            elif kind == 'result':
+                subtype = obj.get('subtype')
+                is_error = bool(obj.get('is_error')) or (isinstance(subtype, str) and subtype != 'success')
+                text = obj.get('result')
                 if not isinstance(text, str):
-                    text = "".join(assistant_text)
+                    text = ''.join(assistant_text)
                 return CliResult(text=text, is_error=is_error, subtype=subtype)
+    '# -- replication --------------------------------------------------------'
 
-    # -- replication --------------------------------------------------------
     def _replicate(self, direction: str, line: str) -> None:
         if self._log_path is None:
             return
-        entry = {
-            "ts": time.time(),
-            "cliSessionId": self.id,
-            "direction": direction,
-            "line": line,
-        }
+        entry = {'ts': time.time(), 'cliSessionId': self.id, 'direction': direction, 'line': line}
         record = JsonCodec.encode(entry)
         with self._log_lock:
             self._log_path.parent.mkdir(parents=True, exist_ok=True)
-            with self._log_path.open("a", encoding="utf-8") as fh:
-                fh.write(record + "\n")
+            with self._log_path.open('a', encoding='utf-8') as fh:
+                fh.write(record + '\n')
 
     def summary(self) -> dict[str, Any]:
         return {
-            "id": self.id,
-            "running": self.running,
-            "createdAt": self.created_at,
-            "startedAt": self.started_at,
-            "lastSentAt": self.last_sent_at,
-            "lastReceivedAt": self.last_received_at,
-            "valid": self.is_valid(),
-        }
-
+            'id': self.id,
+            'running': self.running,
+            'createdAt': self.created_at,
+            'startedAt': self.started_at,
+            'lastSentAt': self.last_sent_at,
+            'lastReceivedAt': self.last_received_at,
+            'valid': self.is_valid()}
 
 def _extract_text(message: dict[str, Any]) -> str:
     """Concatenate text blocks from an assistant stream-json message."""
-    content = message.get("content")
+    content = message.get('content')
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
-        return ""
-    parts = [
-        block.get("text", "")
-        for block in content
-        if isinstance(block, dict) and block.get("type") == "text"
-    ]
-    return "".join(parts)
+        return ''
+    parts = [block.get('text', '') for block in content if isinstance(block, dict) and block.get('type') == 'text']
+    return ''.join(parts)

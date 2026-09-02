@@ -12,20 +12,13 @@ whitespace.
 removes such characters from every string it finds, leaving dict keys,
 numbers, booleans and ``None`` untouched.
 """
-
-
 import re
 from typing import Any
-
-__all__ = ["sanitize_text", "sanitize_value"]
-
-#: C0 controls (except tab/newline/carriage-return), DEL, and C1 controls.
-#: These are the characters that are never legitimately part of readable text
-#: and that break YAML block-scalar / plain-scalar representation.
-_CONTROL_CHARS_RE = re.compile(
-    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]"
-)
-
+__all__ = ['sanitize_text', 'sanitize_value']
+'#: C0 controls (except tab/newline/carriage-return), DEL, and C1 controls.'
+'#: These are the characters that are never legitimately part of readable text'
+'#: and that break YAML block-scalar / plain-scalar representation.'
+_CONTROL_CHARS_RE = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]')
 
 def sanitize_text(text: str) -> str:
     """Remove non-printable ASCII/C1 control characters from *text*.
@@ -36,8 +29,7 @@ def sanitize_text(text: str) -> str:
     """
     if not text:
         return text
-    return _CONTROL_CHARS_RE.sub("", text)
-
+    return _CONTROL_CHARS_RE.sub('', text)
 
 def sanitize_value(value: Any) -> Any:
     """Recursively sanitise *value*, descending into dicts/lists/tuples.
@@ -48,12 +40,9 @@ def sanitize_value(value: Any) -> Any:
     if isinstance(value, str):
         return sanitize_text(value)
     if isinstance(value, dict):
-        return {
-            (sanitize_text(key) if isinstance(key, str) else key): sanitize_value(val)
-            for key, val in value.items()
-        }
+        return {sanitize_text(key) if isinstance(key, str) else key: sanitize_value(val) for key, val in value.items()}
     if isinstance(value, list):
         return [sanitize_value(item) for item in value]
     if isinstance(value, tuple):
-        return tuple(sanitize_value(item) for item in value)
+        return tuple((sanitize_value(item) for item in value))
     return value

@@ -12,7 +12,13 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['FileStatsError', 'FileStatsResult', 'compute_file_stats', 'file_stats', 'FileStatsTool', 'register_file_stats_tool']
+__all__ = [
+    'FileStatsError',
+    'FileStatsResult',
+    'compute_file_stats',
+    'file_stats',
+    'FileStatsTool',
+    'register_file_stats_tool']
 
 class FileStatsError(Exception):
     """Raised when file metrics cannot be computed."""
@@ -72,10 +78,25 @@ def compute_file_stats(path: Path) -> FileStatsResult:
     words_per_line = [len(line.split()) for line in lines]
     words_per_line_avg = round(sum(words_per_line) / len(words_per_line), 2) if words_per_line else 0.0
     stat = path.stat()
-    created = datetime.fromtimestamp(stat.st_birthtime if hasattr(stat, 'st_birthtime') else stat.st_mtime, tz=timezone.utc).isoformat()
+    created = datetime.fromtimestamp(stat.st_birthtime if hasattr(stat, 'st_birthtime')
+                                     else stat.st_mtime, tz=timezone.utc).isoformat()
     modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
     accessed = datetime.fromtimestamp(stat.st_atime, tz=timezone.utc).isoformat()
-    return FileStatsResult(path=str(path.resolve()), size_bytes=size_bytes, lines=num_lines, words=num_words, complexity=complexity, created=created, modified=modified, accessed=accessed, line_length_max=line_length_max, line_length_min=line_length_min, line_length_avg=line_length_avg, words_per_line_avg=words_per_line_avg, checksum=checksum)
+    return FileStatsResult(
+        path=str(
+            path.resolve()),
+        size_bytes=size_bytes,
+        lines=num_lines,
+        words=num_words,
+        complexity=complexity,
+        created=created,
+        modified=modified,
+        accessed=accessed,
+        line_length_max=line_length_max,
+        line_length_min=line_length_min,
+        line_length_avg=line_length_avg,
+        words_per_line_avg=words_per_line_avg,
+        checksum=checksum)
 
 def file_stats(path: str) -> FileStatsResult:
     """Compute file metrics for the absolute path ``path``.
@@ -119,8 +140,69 @@ class FileStatsTool(ToolDefinition):
     name = 'file_stats'
     title = 'File stats'
     description = 'Get file metrics for access and processing planning: complexity, timestamps, size, line/word counts, and line length statistics.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute file path.'}}, 'required': ['path']}
-    output_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute file path.'}, 'size_bytes': {'type': 'integer', 'description': 'File size in bytes.'}, 'lines': {'type': 'integer', 'description': 'Total number of lines.'}, 'words': {'type': 'integer', 'description': 'Total number of words.'}, 'complexity': {'type': 'number', 'description': 'Data structure complexity (0.0 to 1.0).'}, 'created': {'type': 'string', 'description': 'Creation timestamp (ISO 8601).'}, 'modified': {'type': 'string', 'description': 'Last modification timestamp (ISO 8601).'}, 'accessed': {'type': 'string', 'description': 'Last access timestamp (ISO 8601).'}, 'line_length_max': {'type': 'integer', 'description': 'Maximum line length in characters.'}, 'line_length_min': {'type': 'integer', 'description': 'Minimum line length in characters.'}, 'line_length_avg': {'type': 'number', 'description': 'Average line length in characters.'}, 'words_per_line_avg': {'type': 'number', 'description': 'Average number of words per line.'}, 'checksum': {'type': 'string', 'description': 'sha256 checksum of the file content.'}}, 'required': ['path', 'size_bytes', 'lines', 'words', 'complexity', 'created', 'modified', 'accessed', 'line_length_max', 'line_length_min', 'line_length_avg', 'words_per_line_avg', 'checksum']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute file path.'}},
+        'required': ['path']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute file path.'},
+            'size_bytes': {
+                'type': 'integer',
+                'description': 'File size in bytes.'},
+            'lines': {
+                'type': 'integer',
+                        'description': 'Total number of lines.'},
+            'words': {
+                'type': 'integer',
+                'description': 'Total number of words.'},
+            'complexity': {
+                'type': 'number',
+                'description': 'Data structure complexity (0.0 to 1.0).'},
+            'created': {
+                'type': 'string',
+                'description': 'Creation timestamp (ISO 8601).'},
+            'modified': {
+                'type': 'string',
+                'description': 'Last modification timestamp (ISO 8601).'},
+            'accessed': {
+                'type': 'string',
+                'description': 'Last access timestamp (ISO 8601).'},
+            'line_length_max': {
+                'type': 'integer',
+                'description': 'Maximum line length in characters.'},
+            'line_length_min': {
+                'type': 'integer',
+                'description': 'Minimum line length in characters.'},
+            'line_length_avg': {
+                'type': 'number',
+                'description': 'Average line length in characters.'},
+            'words_per_line_avg': {
+                'type': 'number',
+                'description': 'Average number of words per line.'},
+            'checksum': {
+                'type': 'string',
+                'description': 'sha256 checksum of the file content.'}},
+        'required': [
+            'path',
+            'size_bytes',
+            'lines',
+            'words',
+            'complexity',
+            'created',
+            'modified',
+            'accessed',
+            'line_length_max',
+            'line_length_min',
+            'line_length_avg',
+            'words_per_line_avg',
+            'checksum']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

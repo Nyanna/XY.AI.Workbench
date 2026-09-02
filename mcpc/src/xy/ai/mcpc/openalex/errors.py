@@ -1,13 +1,9 @@
 """Exception hierarchy for the OpenAlex interface package."""
-
-
 from typing import Any
-
 
 class OpenAlexError(RuntimeError):
     """Base class for all errors raised by the OpenAlex interface.
     """
-
 
 class OpenAlexAPIError(OpenAlexError):
     """Raised when the OpenAlex API returns an error status.
@@ -23,14 +19,7 @@ class OpenAlexAPIError(OpenAlexError):
         The raw (truncated) response body, useful for debugging 4xx errors.
     """
 
-    def __init__(
-        self,
-        message: str,
-        *,
-        status: int | None = None,
-        url: str | None = None,
-        payload: Any = None,
-    ) -> None:
+    def __init__(self, message: str, *, status: int | None=None, url: str | None=None, payload: Any=None) -> None:
         super().__init__(message)
         self.status = status
         self.url = url

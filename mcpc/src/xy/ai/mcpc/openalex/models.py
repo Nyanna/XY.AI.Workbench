@@ -9,43 +9,35 @@ Every field defaults to ``None`` because OpenAlex's ``select`` parameter (and
 the tools-layer field presets) may return only a subset of an entity's
 fields.
 """
-
-
 import dataclasses
 from dataclasses import dataclass
 from typing import Any
-
 __all__ = [
-    "GroupByItem",
-    "Work",
-    "Author",
-    "Source",
-    "Institution",
-    "Topic",
-    "Keyword",
-    "Concept",
-    "Publisher",
-    "Funder",
-    "OpenAlexRecord",
-    "ENTITY_MODELS",
-    "parse_entity",
-    "parse_group_by",
-]
-
+    'GroupByItem',
+    'Work',
+    'Author',
+    'Source',
+    'Institution',
+    'Topic',
+    'Keyword',
+    'Concept',
+    'Publisher',
+    'Funder',
+    'OpenAlexRecord',
+    'ENTITY_MODELS',
+    'parse_entity',
+    'parse_group_by']
 
 @dataclass(frozen=True, slots=True)
 class GroupByItem:
     """One bucket of a ``group_by`` aggregation."""
-
     key: str | None = None
     key_display_name: str | None = None
     count: int | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Work:
     """A scholarly document (article, book, dataset, thesis, ...)."""
-
     id: str | None = None
     doi: str | None = None
     title: str | None = None
@@ -64,8 +56,8 @@ class Work:
     authorships: list[dict[str, Any]] | None = None
     ids: dict[str, Any] | None = None
     biblio: dict[str, Any] | None = None
-    # Reconstructed by xy.ai.mcpc.openalex.presets.project_results from
-    # OpenAlex's abstract_inverted_index.
+    '# Reconstructed by xy.ai.mcpc.openalex.presets.project_results from'
+    "# OpenAlex's abstract_inverted_index."
     abstract: str | None = None
     referenced_works: list[str] | None = None
     referenced_works_count: int | None = None
@@ -86,9 +78,8 @@ class Work:
     content_url: str | None = None
     created_date: str | None = None
     updated_date: str | None = None
-    # Only present on search/list responses, not on single-record fetches.
+    '# Only present on search/list responses, not on single-record fetches.'
     relevance_score: float | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class Author:
@@ -110,7 +101,6 @@ class Author:
     created_date: str | None = None
     updated_date: str | None = None
     relevance_score: float | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class Source:
@@ -136,7 +126,6 @@ class Source:
     updated_date: str | None = None
     relevance_score: float | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Institution:
     id: str | None = None
@@ -161,7 +150,6 @@ class Institution:
     updated_date: str | None = None
     relevance_score: float | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Topic:
     id: str | None = None
@@ -179,7 +167,6 @@ class Topic:
     updated_date: str | None = None
     relevance_score: float | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Keyword:
     id: str | None = None
@@ -190,7 +177,6 @@ class Keyword:
     created_date: str | None = None
     updated_date: str | None = None
     relevance_score: float | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class Concept:
@@ -212,7 +198,6 @@ class Concept:
     updated_date: str | None = None
     relevance_score: float | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Publisher:
     id: str | None = None
@@ -230,7 +215,6 @@ class Publisher:
     created_date: str | None = None
     updated_date: str | None = None
     relevance_score: float | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class Funder:
@@ -251,26 +235,19 @@ class Funder:
     created_date: str | None = None
     updated_date: str | None = None
     relevance_score: float | None = None
-
-
-#: Union of every entity record type a search/lookup can return.
-OpenAlexRecord = (
-    Work | Author | Source | Institution | Topic | Keyword | Concept | Publisher | Funder
-)
-
-#: Maps an OpenAlex entity name (as used by the client/ENTITIES) to its dataclass.
-ENTITY_MODELS: dict[str, type[OpenAlexRecord]] = {
-    "works": Work,
-    "authors": Author,
-    "sources": Source,
-    "institutions": Institution,
-    "topics": Topic,
-    "keywords": Keyword,
-    "concepts": Concept,
-    "publishers": Publisher,
-    "funders": Funder,
-}
-
+'#: Union of every entity record type a search/lookup can return.'
+OpenAlexRecord = Work | Author | Source | Institution | Topic | Keyword | Concept | Publisher | Funder
+'#: Maps an OpenAlex entity name (as used by the client/ENTITIES) to its dataclass.'
+ENTITY_MODELS: dict[str,
+                    type[OpenAlexRecord]] = {'works': Work,
+                                             'authors': Author,
+                                             'sources': Source,
+                                             'institutions': Institution,
+                                             'topics': Topic,
+                                             'keywords': Keyword,
+                                             'concepts': Concept,
+                                             'publishers': Publisher,
+                                             'funders': Funder}
 
 def parse_entity(entity: str, data: dict[str, Any]) -> OpenAlexRecord:
     """Build the dataclass matching *entity* from a raw OpenAlex record.
@@ -282,11 +259,7 @@ def parse_entity(entity: str, data: dict[str, Any]) -> OpenAlexRecord:
     known = {f.name for f in dataclasses.fields(model)}
     return model(**{key: value for key, value in data.items() if key in known})
 
-
 def parse_group_by(items: list[dict[str, Any]]) -> list[GroupByItem]:
     """Build :class:`GroupByItem` records from a raw ``group_by`` list."""
     known = {f.name for f in dataclasses.fields(GroupByItem)}
-    return [
-        GroupByItem(**{key: value for key, value in item.items() if key in known})
-        for item in items
-    ]
+    return [GroupByItem(**{key: value for key, value in item.items() if key in known}) for item in items]

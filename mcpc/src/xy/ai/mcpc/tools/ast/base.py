@@ -152,7 +152,14 @@ def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, 
         signature = engine.signature(loc.node) if _SIGNATURE_TYPE_RE.search(loc.node_type) else None
         docstring = engine.docstring(loc.node)
         code = None
-    return OutlineNode(id=loc.node_id, type=loc.node_type, lines=line_range(loc) if with_lines else None, signature=signature, docstring=docstring, code=code, children=children or [])
+    return OutlineNode(
+        id=loc.node_id,
+        type=loc.node_type,
+        lines=line_range(loc) if with_lines else None,
+        signature=signature,
+        docstring=docstring,
+        code=code,
+        children=children or [])
 
 def _compact(value: Any) -> Any:
     """Recursively drop ``None`` values and empty lists from a dataclass-derived structure."""
@@ -196,7 +203,15 @@ def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: boo
     result: list[OutlineNode] = []
     for t in nodes:
         if t.loc.expandable and t.children:
-            result.append(node_outline(t.loc, with_code=False, with_lines=with_lines, children=_outline_nodes(t.children, with_code=with_code, with_lines=with_lines)))
+            result.append(
+                node_outline(
+                    t.loc,
+                    with_code=False,
+                    with_lines=with_lines,
+                    children=_outline_nodes(
+                        t.children,
+                        with_code=with_code,
+                        with_lines=with_lines)))
         else:
             result.append(node_outline(t.loc, with_code=with_code, with_lines=with_lines))
     return result
@@ -318,4 +333,30 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
             raise AstError('Not a regular file.')
     return path
 '#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
-OUTLINE_NODE_SCHEMA = {'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'}, 'type': {'type': 'string'}, 'lines': {'type': 'string', 'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."}, 'signature': {'type': 'string', 'description': 'One-line header for class/function nodes; omitted when code is included.'}, 'docstring': {'type': 'string', 'description': 'Omitted when code is included.'}, 'code': {'type': 'string', 'description': 'Full node source; populated by find/read, omitted in list.'}, 'children': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['id', 'type']}
+OUTLINE_NODE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'id': {
+            'type': 'string',
+            'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'},
+        'type': {
+            'type': 'string'},
+        'lines': {
+            'type': 'string',
+                    'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."},
+        'signature': {
+            'type': 'string',
+            'description': 'One-line header for class/function nodes; omitted when code is included.'},
+        'docstring': {
+            'type': 'string',
+            'description': 'Omitted when code is included.'},
+        'code': {
+            'type': 'string',
+            'description': 'Full node source; populated by find/read, omitted in list.'},
+        'children': {
+            'type': 'array',
+            'items': {
+                '$ref': '#/$defs/outline_node'}}},
+    'required': [
+        'id',
+        'type']}

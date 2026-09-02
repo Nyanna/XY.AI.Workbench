@@ -45,8 +45,34 @@ class BashTool(ToolDefinition):
     name = 'bash'
     title = 'Run Bash script'
     description = f"Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file instead; the absolute file path is returned (as 'stdout_file'/'stderr_file') so it can be inspected further."
-    input_schema = {'type': 'object', 'properties': {'cwd': {'type': 'string', 'description': 'Absolute path to the working directory in which to run the script.'}, 'script': {'type': 'string', 'description': 'Bash script content to execute.'}}, 'required': ['cwd', 'script']}
-    output_schema = {'type': 'object', 'properties': {'exit_code': {'type': 'integer'}, 'stdout': {'type': 'string'}, 'stderr': {'type': 'string'}, 'stdout_file': {'type': 'string', 'description': 'Absolute path to a file containing the full STDOUT, present only if STDOUT exceeded the safety limit.'}, 'stderr_file': {'type': 'string', 'description': 'Absolute path to a file containing the full STDERR, present only if STDERR exceeded the safety limit.'}}, 'required': ['stdout']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'cwd': {
+                'type': 'string',
+                'description': 'Absolute path to the working directory in which to run the script.'},
+            'script': {
+                'type': 'string',
+                'description': 'Bash script content to execute.'}},
+        'required': [
+            'cwd',
+            'script']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'exit_code': {
+                'type': 'integer'},
+            'stdout': {
+                'type': 'string'},
+            'stderr': {
+                'type': 'string'},
+            'stdout_file': {
+                'type': 'string',
+                'description': 'Absolute path to a file containing the full STDOUT, present only if STDOUT exceeded the safety limit.'},
+            'stderr_file': {
+                'type': 'string',
+                'description': 'Absolute path to a file containing the full STDERR, present only if STDERR exceeded the safety limit.'}},
+        'required': ['stdout']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
@@ -56,7 +82,11 @@ class BashTool(ToolDefinition):
             result = bash(cwd=args['cwd'], script=args['script'])
         except BashError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result, normalize_output=True, omit_zero_exit_code=True, max_stream_chars=_MAX_STREAM_CHARS)
+        return pack_process_result(
+            result,
+            normalize_output=True,
+            omit_zero_exit_code=True,
+            max_stream_chars=_MAX_STREAM_CHARS)
 
 def register_bash_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(BashTool())

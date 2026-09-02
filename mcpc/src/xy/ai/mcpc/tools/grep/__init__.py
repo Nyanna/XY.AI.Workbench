@@ -75,7 +75,7 @@ def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include
     except LaunchError as exc:
         raise GrepError(f'Failed to launch grep: {exc}') from exc
     prefix = str(directory_path).rstrip('/') + '/'
-    stdout = re.sub(rf'^{re.escape(prefix)}', '', result.stdout, flags=re.MULTILINE)
+    stdout = re.sub(f'^{re.escape(prefix)}', '', result.stdout, flags=re.MULTILINE)
     return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
 
 def grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None) -> list[GrepMatch]:
@@ -108,18 +108,50 @@ class GrepTool(ToolDefinition):
     name = 'grep'
     title = 'Search files with grep'
     description = f"Recursively search a directory for lines matching an extended regular expression (grep -E). Returns matches as 'path:line:content' (path relative to the searched directory), the exit code (0 = matches found, 1 = none found) and, if present, standard error output.\n\nUSAGE GUIDANCE: Always use the 'include' and 'exclude' filters unless (a) the directory tree is already known to be small and relevant, or (b) the search pattern is expected to match very rarely across all file types. Unfiltered searches on large or unknown directory trees frequently exceed output limits and waste resources — filter first, then broaden only if needed."
-    input_schema = {'type': 'object', 'properties': {'directory': {'type': 'string', 'description': 'Absolute path to the directory to search recursively. Prefer the narrowest subtree that is likely to contain the target files.'}, 'pattern': {'type': 'string', 'description': 'Extended regular expression (grep -E syntax) to search for. Make the pattern as specific as possible to reduce noise.'}, 'exclude': {'type': 'string', 'description': "Glob of file names to exclude from the search, e.g. '*.min.js'. RECOMMENDED: always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files unless you have a specific reason not to."}, 'include': {'type': 'string', 'description': "Glob of file names to include in the search, e.g. '*.py'. RECOMMENDED: always set this to restrict the search to the relevant file types; omit only when the file type is unknown or intentionally broad."}}, 'required': ['directory', 'pattern']}
-    output_schema = {'type': 'object', 'properties': {'exit_code': {'type': 'integer'}, 'stdout': {'type': 'string'}, 'stderr': {'type': 'string'}, 'stdout_file': {'type': 'string', 'description': 'Absolute path to a file containing the full STDOUT.'}, 'stderr_file': {'type': 'string', 'description': 'Absolute path to a file containing the full STDERR.'}}, 'required': ['stdout']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'directory': {
+                'type': 'string',
+                'description': 'Absolute path to the directory to search recursively. Prefer the narrowest subtree that is likely to contain the target files.'},
+            'pattern': {
+                'type': 'string',
+                'description': 'Extended regular expression (grep -E syntax) to search for. Make the pattern as specific as possible to reduce noise.'},
+            'exclude': {
+                'type': 'string',
+                        'description': "Glob of file names to exclude from the search, e.g. '*.min.js'. RECOMMENDED: always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files unless you have a specific reason not to."},
+            'include': {
+                'type': 'string',
+                'description': "Glob of file names to include in the search, e.g. '*.py'. RECOMMENDED: always set this to restrict the search to the relevant file types; omit only when the file type is unknown or intentionally broad."}},
+        'required': [
+            'directory',
+            'pattern']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'exit_code': {
+                'type': 'integer'}, 'stdout': {
+                    'type': 'string'}, 'stderr': {
+                        'type': 'string'}, 'stdout_file': {
+                            'type': 'string', 'description': 'Absolute path to a file containing the full STDOUT.'}, 'stderr_file': {
+                                'type': 'string', 'description': 'Absolute path to a file containing the full STDERR.'}}, 'required': ['stdout']}
     annotations = {'readOnlyHint': True, 'idempotentHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`_run_grep` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = _run_grep(args['directory'], args['pattern'], exclude=args.get('exclude'), include=args.get('include'))
+            result = _run_grep(
+                args['directory'],
+                args['pattern'],
+                exclude=args.get('exclude'),
+                include=args.get('include'))
         except GrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result, normalize_output=True, omit_zero_exit_code=True, max_stream_chars=_MAX_STREAM_CHARS)
+        return pack_process_result(
+            result,
+            normalize_output=True,
+            omit_zero_exit_code=True,
+            max_stream_chars=_MAX_STREAM_CHARS)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

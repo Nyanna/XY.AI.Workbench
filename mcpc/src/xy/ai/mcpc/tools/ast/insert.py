@@ -52,8 +52,34 @@ class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
     title = 'Insert AST node'
     description = "Insert statement(s) parsed from code relative to a selected node ('before' or 'after')."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'code': {'type': 'string', 'description': 'Source of the statement(s) to insert.'}, 'position': {'type': 'string', 'enum': ['before', 'after'], 'description': 'Placement relative to the selected node.', 'default': 'after'}, **PATH_SELECTOR_PROPS}, 'required': ['path', 'code']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'inserted': {'type': 'integer'}, 'ids': {'type': 'array', 'items': {'type': 'string'}, 'description': 'The newly inserted node(s) ids.'}}, 'required': ['result', 'inserted']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            'code': {
+                'type': 'string',
+                'description': 'Source of the statement(s) to insert.'},
+            'position': {
+                'type': 'string',
+                        'enum': [
+                            'before',
+                            'after'],
+                'description': 'Placement relative to the selected node.',
+                'default': 'after'},
+            **PATH_SELECTOR_PROPS},
+        'required': [
+            'path',
+            'code']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'result': {
+                'type': 'string'}, 'inserted': {
+                    'type': 'integer'}, 'ids': {
+                        'type': 'array', 'items': {
+                            'type': 'string'}, 'description': 'The newly inserted node(s) ids.'}}, 'required': [
+                                'result', 'inserted']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

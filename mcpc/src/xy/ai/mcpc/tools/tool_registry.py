@@ -105,7 +105,14 @@ class ToolDefinition(ABC):
         return self.handle(ctx)
 
     def to_tool(self) -> Tool:
-        return Tool(name=self.name, description=self.description, input_schema=self.input_schema, handler=self, title=self.title, output_schema=self.output_schema, annotations=self.annotations)
+        return Tool(
+            name=self.name,
+            description=self.description,
+            input_schema=self.input_schema,
+            handler=self,
+            title=self.title,
+            output_schema=self.output_schema,
+            annotations=self.annotations)
 
 def normalize_result(value: 'ToolResult | str | dict[str, Any] | None') -> ToolResult:
     """Coerce whatever a handler returned into a :class:`ToolResult`."""
@@ -118,7 +125,8 @@ def normalize_result(value: 'ToolResult | str | dict[str, Any] | None') -> ToolR
     if isinstance(value, dict):
         '# A dict already shaped like a CallToolResult is passed through.'
         if 'content' in value and isinstance(value['content'], list):
-            return ToolResult(content=value['content'], structured_content=value.get('structuredContent'), is_error=bool(value.get('isError', False)))
+            return ToolResult(content=value['content'], structured_content=value.get(
+                'structuredContent'), is_error=bool(value.get('isError', False)))
         '# Otherwise treat the dict as structured content.'
         rendered = JsonCodec.encode(value)
         return ToolResult(content=[text_content(rendered)], structured_content=value)
@@ -158,7 +166,11 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
     the authorizing user can review it (e.g. via the human-in-the-loop
     control layer) before or while it executes.
     """
-    return _inject_property(schema, REASON_PROPERTY, 'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.', required=True)
+    return _inject_property(
+        schema,
+        REASON_PROPERTY,
+        'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.',
+        required=True)
 
 def _with_optional_control_hint(schema: dict[str, Any]) -> dict[str, Any]:
     """Return *schema* with the optional ``controlHint`` output property injected.
@@ -166,7 +178,11 @@ def _with_optional_control_hint(schema: dict[str, Any]) -> dict[str, Any]:
     Documents the field that may appear inside ``structuredContent`` when the
     authorizing user attached a hint to an ``/allow`` decision.
     """
-    return _inject_property(schema, CONTROL_HINT_PROPERTY, 'Optional hint or question from the authorizing user', required=False)
+    return _inject_property(
+        schema,
+        CONTROL_HINT_PROPERTY,
+        'Optional hint or question from the authorizing user',
+        required=False)
 
 class ToolRegistry:
     """Process-wide registry of available tools."""
@@ -219,7 +235,15 @@ class ToolRegistry:
         """Decorator registering the decorated function as a tool handler."""
 
         def decorator(handler: ToolHandler) -> ToolHandler:
-            self.register(Tool(name=name, description=description, input_schema=input_schema, handler=handler, title=title, output_schema=output_schema, annotations=annotations))
+            self.register(
+                Tool(
+                    name=name,
+                    description=description,
+                    input_schema=input_schema,
+                    handler=handler,
+                    title=title,
+                    output_schema=output_schema,
+                    annotations=annotations))
             return handler
         return decorator
 

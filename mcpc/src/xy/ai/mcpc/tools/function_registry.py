@@ -13,8 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 __all__ = ['FunctionEntry', 'FunctionRegistry']
-
-logger = logging.getLogger("xy.ai.mcpc.control")
+logger = logging.getLogger('xy.ai.mcpc.control')
 
 @dataclass(slots=True)
 class FunctionEntry:

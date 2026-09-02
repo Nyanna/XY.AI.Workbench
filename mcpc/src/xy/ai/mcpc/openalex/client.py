@@ -13,38 +13,20 @@ Design notes
   as ``api_key=<KEY>`` (never sent as a header).
 * The ``api_key`` value is redacted from any URL surfaced through an exception.
 """
-
-
 import json
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Iterable, Mapping
-
 from xy.ai.mcpc.openalex.errors import OpenAlexAPIError, OpenAlexError
-
-#: The entity endpoints exposed by OpenAlex.  Each is reachable both as a list
-#: (``/works``) and as a single record (``/works/{id}``).
-ENTITIES: frozenset[str] = frozenset(
-    {
-        "works",
-        "authors",
-        "sources",
-        "institutions",
-        "topics",
-        "keywords",
-        "concepts",
-        "publishers",
-        "funders",
-    }
-)
-
-#: The three mutually exclusive full-text search parameters.  OpenAlex permits
-#: at most one per request.
-_SEARCH_PARAMS = ("search", "search.exact", "search.semantic")
-
-_DEFAULT_USER_AGENT = "xy.ai.mcpc-openalex/0.1"
-
+'#: The entity endpoints exposed by OpenAlex.  Each is reachable both as a list'
+'#: (``/works``) and as a single record (``/works/{id}``).'
+ENTITIES: frozenset[str] = frozenset({'works', 'authors', 'sources', 'institutions',
+                                     'topics', 'keywords', 'concepts', 'publishers', 'funders'})
+'#: The three mutually exclusive full-text search parameters.  OpenAlex permits'
+'#: at most one per request.'
+_SEARCH_PARAMS = ('search', 'search.exact', 'search.semantic')
+_DEFAULT_USER_AGENT = 'xy.ai.mcpc-openalex/0.1'
 
 class OpenAlexClient:
     """Talks to the OpenAlex REST API over HTTPS (GET only).
@@ -65,40 +47,15 @@ class OpenAlexClient:
         ``User-Agent`` header sent with every request.
     """
 
-    def __init__(
-        self,
-        *,
-        api_key: str | None = None,
-        base_url: str = "https://api.openalex.org",
-        mailto: str | None = None,
-        timeout: float = 30.0,
-        user_agent: str = _DEFAULT_USER_AGENT,
-    ) -> None:
+    def __init__(self, *, api_key: str | None=None, base_url: str='https://api.openalex.org', mailto: str | None=None, timeout: float=30.0, user_agent: str=_DEFAULT_USER_AGENT) -> None:
         self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip('/')
         self.mailto = mailto
         self.timeout = timeout
         self.user_agent = user_agent
+    '# ------------------------------------------------------------------ API'
 
-    # ------------------------------------------------------------------ API
-    def list_entities(
-        self,
-        entity: str,
-        *,
-        search: str | None = None,
-        search_exact: str | None = None,
-        search_semantic: str | None = None,
-        filters: str | Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
-        sort: str | Iterable[str] | None = None,
-        select: str | Iterable[str] | None = None,
-        page: int | None = None,
-        per_page: int | None = None,
-        sample: int | None = None,
-        seed: int | None = None,
-        group_by: str | Iterable[str] | None = None,
-        cursor: str | None = None,
-        extra: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def list_entities(self, entity: str, *, search: str | None=None, search_exact: str | None=None, search_semantic: str | None=None, filters: str | Mapping[str, Any] | Iterable[tuple[str, Any]] | None=None, sort: str | Iterable[str] | None=None, select: str | Iterable[str] | None=None, page: int | None=None, per_page: int | None=None, sample: int | None=None, seed: int | None=None, group_by: str | Iterable[str] | None=None, cursor: str | None=None, extra: Mapping[str, Any] | None=None) -> dict[str, Any]:
         """List records for *entity*, returning the raw OpenAlex response.
 
         The response has the standard OpenAlex shape: ``meta`` (count, page,
@@ -112,58 +69,39 @@ class OpenAlexClient:
         """
         entity = self._check_entity(entity)
         params: dict[str, Any] = {}
-
-        provided = [
-            (name, value)
-            for name, value in (
-                ("search", search),
-                ("search.exact", search_exact),
-                ("search.semantic", search_semantic),
-            )
-            if value not in (None, "")
-        ]
+        provided = [(name, value) for name, value in (('search', search), ('search.exact', search_exact),
+                                                      ('search.semantic', search_semantic)) if value not in (None, '')]
         if len(provided) > 1:
-            raise OpenAlexError(
-                "Only one of search, search.exact or search.semantic may be "
-                "used per request."
-            )
+            raise OpenAlexError('Only one of search, search.exact or search.semantic may be used per request.')
         for name, value in provided:
             params[name] = value
-
         filter_str = self._format_filters(filters)
         if filter_str:
-            params["filter"] = filter_str
+            params['filter'] = filter_str
         sort_str = self._format_csv(sort)
         if sort_str:
-            params["sort"] = sort_str
+            params['sort'] = sort_str
         select_str = self._format_csv(select)
         if select_str:
-            params["select"] = select_str
+            params['select'] = select_str
         group_str = self._format_csv(group_by)
         if group_str:
-            params["group_by"] = group_str
+            params['group_by'] = group_str
         if page is not None:
-            params["page"] = page
+            params['page'] = page
         if per_page is not None:
-            params["per-page"] = per_page
+            params['per-page'] = per_page
         if sample is not None:
-            params["sample"] = sample
+            params['sample'] = sample
         if seed is not None:
-            params["seed"] = seed
+            params['seed'] = seed
         if cursor is not None:
-            params["cursor"] = cursor
+            params['cursor'] = cursor
         if extra:
             params.update(extra)
+        return self._request(f'/{entity}', params)
 
-        return self._request(f"/{entity}", params)
-
-    def get_entity(
-        self,
-        entity: str,
-        entity_id: str,
-        *,
-        select: str | Iterable[str] | None = None,
-    ) -> dict[str, Any]:
+    def get_entity(self, entity: str, entity_id: str, *, select: str | Iterable[str] | None=None) -> dict[str, Any]:
         """Fetch a single record by id, DOI, or other supported external id.
 
         *entity_id* may be an OpenAlex id (``W2741809807``), an OpenAlex URL,
@@ -175,45 +113,31 @@ class OpenAlexClient:
         params: dict[str, Any] = {}
         select_str = self._format_csv(select)
         if select_str:
-            params["select"] = select_str
-        return self._request(f"/{entity}/{ident}", params)
+            params['select'] = select_str
+        return self._request(f'/{entity}/{ident}', params)
 
-    def search_works(
-        self,
-        query: str,
-        *,
-        exact: bool = False,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    def search_works(self, query: str, *, exact: bool=False, **kwargs: Any) -> dict[str, Any]:
         """Full-text search over works (``search`` or ``search.exact``)."""
         if exact:
-            return self.list_entities("works", search_exact=query, **kwargs)
-        return self.list_entities("works", search=query, **kwargs)
+            return self.list_entities('works', search_exact=query, **kwargs)
+        return self.list_entities('works', search=query, **kwargs)
 
     def semantic_search_works(self, query: str, **kwargs: Any) -> dict[str, Any]:
         """Meaning-based (embedding) search over works (``search.semantic``)."""
-        return self.list_entities("works", search_semantic=query, **kwargs)
+        return self.list_entities('works', search_semantic=query, **kwargs)
 
-    def get_work(
-        self, work_id: str, *, select: str | Iterable[str] | None = None
-    ) -> dict[str, Any]:
+    def get_work(self, work_id: str, *, select: str | Iterable[str] | None=None) -> dict[str, Any]:
         """Fetch a single work by id/DOI/external id."""
-        return self.get_entity("works", work_id, select=select)
+        return self.get_entity('works', work_id, select=select)
 
     @staticmethod
     def _check_entity(entity: str) -> str:
         normalised = entity.strip().lower()
         if normalised not in ENTITIES:
-            raise OpenAlexError(
-                f"Unknown entity type: {entity!r}. "
-                f"Valid types: {', '.join(sorted(ENTITIES))}."
-            )
+            raise OpenAlexError(f'Unknown entity type: {entity!r}. Valid types: {', '.join(sorted(ENTITIES))}.')
         return normalised
 
-    def _format_filters(
-        self,
-        filters: str | Mapping[str, Any] | Iterable[tuple[str, Any]] | None,
-    ) -> str | None:
+    def _format_filters(self, filters: str | Mapping[str, Any] | Iterable[tuple[str, Any]] | None) -> str | None:
         if filters is None:
             return None
         if isinstance(filters, str):
@@ -221,16 +145,17 @@ class OpenAlexClient:
         if isinstance(filters, Mapping):
             pairs: Iterable[tuple[str, Any]] = filters.items()
         else:
-            pairs = filters  # assume iterable of (key, value)
-        parts = [f"{key}:{self._filter_value(value)}" for key, value in pairs]
-        return ",".join(parts) or None
+            '# assume iterable of (key, value)'
+            pairs = filters
+        parts = [f'{key}:{self._filter_value(value)}' for key, value in pairs]
+        return ','.join(parts) or None
 
     @staticmethod
     def _filter_value(value: Any) -> str:
         if isinstance(value, bool):
-            return "true" if value else "false"
+            return 'true' if value else 'false'
         if isinstance(value, (list, tuple)):
-            return "|".join(str(item) for item in value)
+            return '|'.join((str(item) for item in value))
         return str(value)
 
     @staticmethod
@@ -239,32 +164,32 @@ class OpenAlexClient:
             return None
         if isinstance(value, str):
             return value.strip() or None
-        joined = ",".join(str(item) for item in value)
+        joined = ','.join((str(item) for item in value))
         return joined or None
 
     @staticmethod
     def _normalize_id(value: str) -> str:
         ident = value.strip()
         low = ident.lower()
-        if low.startswith(("http://", "https://")):
-            if "doi.org/" in low:
-                return "doi:" + ident.split("doi.org/", 1)[1]
-            # Any other OpenAlex/ROR/ORCID URL: keep the trailing segment.
-            return ident.rstrip("/").rsplit("/", 1)[-1]
-        # A bare DOI ("10.x/....") -> namespaced form the API understands.
-        if low.startswith("10.") and "/" in ident:
-            return "doi:" + ident
+        if low.startswith(('http://', 'https://')):
+            if 'doi.org/' in low:
+                return 'doi:' + ident.split('doi.org/', 1)[1]
+            '# Any other OpenAlex/ROR/ORCID URL: keep the trailing segment.'
+            return ident.rstrip('/').rsplit('/', 1)[-1]
+        '# A bare DOI ("10.x/....") -> namespaced form the API understands.'
+        if low.startswith('10.') and '/' in ident:
+            return 'doi:' + ident
         return ident
 
     def _build_url(self, path: str, params: Mapping[str, Any]) -> str:
         query = dict(params)
-        if self.mailto and "mailto" not in query:
-            query["mailto"] = self.mailto
+        if self.mailto and 'mailto' not in query:
+            query['mailto'] = self.mailto
         if self.api_key:
-            query["api_key"] = self.api_key
-        url = f"{self.base_url}{path}"
+            query['api_key'] = self.api_key
+        url = f'{self.base_url}{path}'
         if query:
-            url = f"{url}?{urllib.parse.urlencode(query)}"
+            url = f'{url}?{urllib.parse.urlencode(query)}'
         return url
 
     def _request(self, path: str, params: Mapping[str, Any]) -> dict[str, Any]:
@@ -272,38 +197,27 @@ class OpenAlexClient:
         safe_url = _redact_api_key(url)
         request = urllib.request.Request(
             url,
-            method="GET",
-            headers={"User-Agent": self.user_agent, "Accept": "application/json"},
-        )
+            method='GET',
+            headers={
+                'User-Agent': self.user_agent,
+                'Accept': 'application/json'})
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")
-            message = _extract_api_error(detail) or f"HTTP {exc.code} error"
-            raise OpenAlexAPIError(
-                f"OpenAlex request failed: {message}",
-                status=exc.code,
-                url=safe_url,
-                payload=detail[:1000],
-            ) from exc
+            detail = exc.read().decode('utf-8', 'replace')
+            message = _extract_api_error(detail) or f'HTTP {exc.code} error'
+            raise OpenAlexAPIError(f'OpenAlex request failed: {message}',
+                                   status=exc.code, url=safe_url, payload=detail[:1000]) from exc
         except (urllib.error.URLError, OSError) as exc:
-            raise OpenAlexAPIError(
-                f"Cannot reach OpenAlex ({safe_url}): {exc}", url=safe_url
-            ) from exc
-
+            raise OpenAlexAPIError(f'Cannot reach OpenAlex ({safe_url}): {exc}', url=safe_url) from exc
         try:
-            parsed = json.loads(body.decode("utf-8", "replace"))
+            parsed = json.loads(body.decode('utf-8', 'replace'))
         except json.JSONDecodeError as exc:
-            raise OpenAlexAPIError(
-                f"Malformed JSON in OpenAlex response: {exc}", url=safe_url
-            ) from exc
+            raise OpenAlexAPIError(f'Malformed JSON in OpenAlex response: {exc}', url=safe_url) from exc
         if not isinstance(parsed, dict):
-            raise OpenAlexAPIError(
-                "Unexpected OpenAlex response (not a JSON object).", url=safe_url
-            )
+            raise OpenAlexAPIError('Unexpected OpenAlex response (not a JSON object).', url=safe_url)
         return parsed
-
 
 def _redact_api_key(url: str) -> str:
     """Return *url* with the value of any ``api_key`` parameter masked."""
@@ -311,12 +225,9 @@ def _redact_api_key(url: str) -> str:
     if not split.query:
         return url
     pairs = urllib.parse.parse_qsl(split.query, keep_blank_values=True)
-    redacted = [
-        (key, "***" if key == "api_key" else value) for key, value in pairs
-    ]
+    redacted = [(key, '***' if key == 'api_key' else value) for key, value in pairs]
     new_query = urllib.parse.urlencode(redacted)
     return urllib.parse.urlunsplit(split._replace(query=new_query))
-
 
 def _extract_api_error(body: str) -> str | None:
     """Pull a human-readable message out of an OpenAlex error body."""
@@ -325,7 +236,7 @@ def _extract_api_error(body: str) -> str | None:
     except (json.JSONDecodeError, TypeError):
         return None
     if isinstance(data, dict):
-        message = data.get("message") or data.get("error")
+        message = data.get('message') or data.get('error')
         if isinstance(message, str) and message.strip():
             return message.strip()
     return None

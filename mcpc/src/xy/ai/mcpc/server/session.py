@@ -5,16 +5,13 @@ The server is *stateful*: for every session id supplied via the
 the negotiated protocol version, the client-specific tool configuration and
 arbitrary per-session state for the lifetime of the process.
 """
-
-
 import logging
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Iterator
-
-logger = logging.getLogger("xy.ai.mcpc.session")
+logger = logging.getLogger('xy.ai.mcpc.session')
 
 def is_valid_uuid(value: str) -> bool:
     try:
@@ -23,12 +20,10 @@ def is_valid_uuid(value: str) -> bool:
         return False
     return True
 
-
 @dataclass(slots=True)
 class AgentSubSession:
     """Bookkeeping for a single sub-agent spawned from a session.
     """
-
     cli_session_id: str
     created_at: float = field(default_factory=time.time)
     last_used_at: float = field(default_factory=time.time)
@@ -38,53 +33,43 @@ class AgentSubSession:
     def touch(self) -> None:
         self.last_used_at = time.time()
 
-    def is_valid(self, ttl_seconds: float, *, now: float | None = None) -> bool:
+    def is_valid(self, ttl_seconds: float, *, now: float | None=None) -> bool:
         now = time.time() if now is None else now
-        return (now - self.last_used_at) <= ttl_seconds
+        return now - self.last_used_at <= ttl_seconds
 
     def summary(self) -> dict[str, Any]:
         return {
-            "cliSessionId": self.cli_session_id,
-            "createdAt": self.created_at,
-            "lastUsedAt": self.last_used_at,
-            "model": self.model,
-            "profile": self.profile,
-        }
-
+            'cliSessionId': self.cli_session_id,
+            'createdAt': self.created_at,
+            'lastUsedAt': self.last_used_at,
+            'model': self.model,
+            'profile': self.profile}
 
 @dataclass(slots=True)
 class Session:
     """Server-side state for a single ``X-MCPC-SESSION-ID``."""
-
     id: str
     created_at: float = field(default_factory=time.time)
     last_seen_at: float = field(default_factory=time.time)
-
-    #: Set once the ``initialize`` request has been processed.
+    '#: Set once the ``initialize`` request has been processed.'
     protocol_version: str | None = None
-    #: Set once the ``notifications/initialized`` notification has arrived.
+    '#: Set once the ``notifications/initialized`` notification has arrived.'
     initialized: bool = False
-
     client_info: dict[str, Any] | None = None
     client_capabilities: dict[str, Any] | None = None
-    
-    #: Names of tools enabled for this session. An empty set means 
-    #: no tools are enabled.
+    '#: Names of tools enabled for this session. An empty set means'
+    '#: no tools are enabled.'
     enabled_tools: set[str] = field(default_factory=set)
-    
-    #: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different
-    #: agent profiles keep isolated credentials/caches.
-    cc_profile: str = "none"
-
-    #: Sub-agents spawned from this session, keyed by their CLI-session id.  A
-    #: single session may drive an arbitrary number of sub-agents concurrently.
+    '#: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different'
+    '#: agent profiles keep isolated credentials/caches.'
+    cc_profile: str = 'none'
+    '#: Sub-agents spawned from this session, keyed by their CLI-session id.  A'
+    '#: single session may drive an arbitrary number of sub-agents concurrently.'
     agent_sessions: dict[str, AgentSubSession] = field(default_factory=dict)
-
-    #: Arbitrary per-session key/value state persisted across requests.
+    '#: Arbitrary per-session key/value state persisted across requests.'
     state: dict[str, Any] = field(default_factory=dict)
-
-    #: Serialises request handling for this session so state stays consistent
-    #: even though the HTTP server is multi-threaded.
+    '#: Serialises request handling for this session so state stays consistent'
+    '#: even though the HTTP server is multi-threaded.'
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
     @property
@@ -98,26 +83,18 @@ class Session:
     def is_tool_enabled(self, name: str) -> bool:
         return name in self.enabled_tools
 
-    def set_enabled_tools(self, names: "set[str] | list[str] | None") -> None:
+    def set_enabled_tools(self, names: 'set[str] | list[str] | None') -> None:
         """Replace the set of enabled tools (``None`` or empty input clears it)."""
-        logger.info("Enable tools for session %s: %s", self.id, names)
+        logger.info('Enable tools for session %s: %s', self.id, names)
         with self.lock:
             self.enabled_tools = set() if names is None else set(names)
 
-    def register_agent_session(
-        self,
-        cli_session_id: str,
-        *,
-        model: str | None = None,
-        profile: str | None = None,
-    ) -> AgentSubSession:
+    def register_agent_session(self, cli_session_id: str, *, model: str | None=None, profile: str | None=None) -> AgentSubSession:
         """Record (or refresh) a sub-agent spawned from this session."""
         with self.lock:
             record = self.agent_sessions.get(cli_session_id)
             if record is None:
-                record = AgentSubSession(
-                    cli_session_id=cli_session_id, model=model, profile=profile
-                )
+                record = AgentSubSession(cli_session_id=cli_session_id, model=model, profile=profile)
                 self.agent_sessions[cli_session_id] = record
             else:
                 record.touch()
@@ -130,17 +107,18 @@ class Session:
     def summary(self) -> dict[str, Any]:
         """A JSON-serialisable snapshot, e.g. for diagnostics tools."""
         return {
-            "id": self.id,
-            "createdAt": self.created_at,
-            "lastSeenAt": self.last_seen_at,
-            "protocolVersion": self.protocol_version,
-            "initialized": self.initialized,
-            "clientInfo": self.client_info,
-            "enabledTools": sorted(self.enabled_tools) if self.enabled_tools is not None else None,
-            "agentSessions": [r.summary() for r in self.agent_sessions.values()],
-            "stateKeys": sorted(self.state),
-        }
-
+            'id': self.id,
+            'createdAt': self.created_at,
+            'lastSeenAt': self.last_seen_at,
+            'protocolVersion': self.protocol_version,
+            'initialized': self.initialized,
+            'clientInfo': self.client_info,
+            'enabledTools': sorted(
+                self.enabled_tools) if self.enabled_tools is not None else None,
+            'agentSessions': [
+                r.summary() for r in self.agent_sessions.values()],
+            'stateKeys': sorted(
+                self.state)}
 
 class SessionStore:
     """Thread-safe registry of live sessions keyed by session id."""
@@ -158,18 +136,12 @@ class SessionStore:
         with self._lock:
             session = self._sessions.get(session_id)
             if session is not None:
-                return session, False
+                return (session, False)
             session = Session(id=session_id)
             self._sessions[session_id] = session
-            return session, True
+            return (session, True)
 
-    def precreate(
-        self,
-        session_id: str,
-        *,
-        enabled_tools: "set[str] | list[str] | None" = None,
-        cc_profile: str,
-    ) -> Session:
+    def precreate(self, session_id: str, *, enabled_tools: 'set[str] | list[str] | None'=None, cc_profile: str) -> Session:
         """Create (or fetch) a session *before* the client first connects.
         """
         with self._lock:
@@ -183,11 +155,7 @@ class SessionStore:
                 session.cc_profile = cc_profile
             return session
 
-    def set_enabled_tools(
-        self,
-        session_id: str,
-        names: "set[str] | list[str] | None",
-    ) -> Session:
+    def set_enabled_tools(self, session_id: str, names: 'set[str] | list[str] | None') -> Session:
         """Configure the active tools for *session_id*, creating it if needed.
         """
         session = self.precreate(session_id)

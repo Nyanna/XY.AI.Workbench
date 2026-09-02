@@ -65,12 +65,24 @@ class MarkdownTool(ToolDefinition):
     name = 'markdown'
     title = 'Run Markdown (remark) script'
     description = _DESCRIPTION
-    input_schema = {'type': 'object', 'properties': {'script': {'type': 'string', 'description': 'TypeScript (ESM) script content to execute against the remark environment.'}}, 'required': ['script']}
-    output_schema = {'type': 'object', 'properties': {'exit_code': {'type': 'integer'}, 'stdout': {'type': 'string'}, 'stderr': {'type': 'string'}}, 'required': ['exit_code', 'stdout']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'script': {
+                'type': 'string',
+                'description': 'TypeScript (ESM) script content to execute against the remark environment.'}},
+        'required': ['script']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'exit_code': {
+                'type': 'integer'}, 'stdout': {
+                    'type': 'string'}, 'stderr': {
+                        'type': 'string'}}, 'required': [
+                            'exit_code', 'stdout']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 
     def __init__(self, env_dir: Path | None=None) -> None:
-        '# The runner is bound once, at registration; MarkdownTool itself'
+        """# The runner is bound once, at registration; MarkdownTool itself"""
         '# never touches ServerConfig again after construction.'
         self._runner = MarkdownRunner(env_dir)
 

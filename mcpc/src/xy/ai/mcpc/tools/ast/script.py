@@ -5,34 +5,53 @@ directly. The script runs with an empty ``__builtins__`` plus a small, curated
 set of safe names; the only capability handed in is the AST itself (``tree``)
 and the standard-library ``ast`` module. Any change to ``tree`` is persisted.
 """
-
-
 import ast
 from dataclasses import dataclass
 from typing import Any
-
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-
-__all__ = ["ScriptError", "AstScriptResult", "ast_script", "ScriptTool", "register"]
-
+__all__ = ['ScriptError', 'AstScriptResult', 'ast_script', 'ScriptTool', 'register']
 _SAFE_BUILTINS = {
-    name: getattr(__builtins__, name, None) if not isinstance(__builtins__, dict)
-    else __builtins__.get(name)
-    for name in (
-        "isinstance", "issubclass", "getattr", "setattr", "hasattr", "delattr",
-        "len", "list", "dict", "set", "tuple", "str", "int", "float", "bool",
-        "enumerate", "range", "sorted", "reversed", "zip", "map", "filter",
-        "any", "all", "min", "max", "sum", "type", "repr",
-    )
-}
-
+    name: getattr(
+        __builtins__,
+        name,
+        None) if not isinstance(
+            __builtins__,
+            dict) else __builtins__.get(name) for name in (
+                'isinstance',
+                'issubclass',
+                'getattr',
+                'setattr',
+                'hasattr',
+                'delattr',
+                'len',
+                'list',
+                'dict',
+                'set',
+                'tuple',
+                'str',
+                'int',
+                'float',
+                'bool',
+                'enumerate',
+                'range',
+                'sorted',
+                'reversed',
+                'zip',
+                'map',
+                'filter',
+                'any',
+                'all',
+                'min',
+                'max',
+                'sum',
+                'type',
+        'repr')}
 
 class ScriptError(Exception):
     """Raised when an AST script cannot be run to completion."""
-
 
 @dataclass(frozen=True)
 class AstScriptResult:
@@ -43,10 +62,8 @@ class AstScriptResult:
         value: ``repr()`` of the script's ``result`` variable, if the script set one;
             otherwise ``None``.
     """
-
     result: str
     value: str | None = None
-
 
 def ast_script(path: str, code: str) -> AstScriptResult:
     """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``.
@@ -73,62 +90,53 @@ def ast_script(path: str, code: str) -> AstScriptResult:
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
     if tree.engine is not core.python.ENGINE:
-        raise core.AstError("ast_script operates on the Python AST; it is only available for Python files.")
-    env: dict[str, Any] = {"tree": tree.raw, "ast": ast}
-    sandbox_globals = {"__builtins__": _SAFE_BUILTINS}
+        raise core.AstError('ast_script operates on the Python AST; it is only available for Python files.')
+    env: dict[str, Any] = {'tree': tree.raw, 'ast': ast}
+    sandbox_globals = {'__builtins__': _SAFE_BUILTINS}
     try:
-        exec(compile(code, "<ast-script>", "exec"), sandbox_globals, env)  # noqa: S102
+        '# noqa: S102'
+        exec(compile(code, '<ast-script>', 'exec'), sandbox_globals, env)
     except SyntaxError as exc:
-        raise ScriptError(f"Script syntax error: {exc.msg}") from exc
-    except Exception as exc:  # noqa: BLE001
-        raise ScriptError(f"Script failed: {type(exc).__name__}: {exc}") from exc
+        raise ScriptError(f'Script syntax error: {exc.msg}') from exc
+    except Exception as exc:
+        '# noqa: BLE001'
+        raise ScriptError(f'Script failed: {type(exc).__name__}: {exc}') from exc
     core.CACHE.save(file_path, tree)
-
-    if "result" in env:
-        return AstScriptResult(result="success", value=repr(env["result"]))
-    return AstScriptResult(result="success")
-
+    if 'result' in env:
+        return AstScriptResult(result='success', value=repr(env['result']))
+    return AstScriptResult(result='success')
 
 class ScriptTool(ToolDefinition):
-    name = "ast_script"
-    title = "Run AST script"
-    description = (
-        "Run restricted Python against a file's AST for complex/incremental "
-        "transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign "
-        "'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
-    )
+    name = 'ast_script'
+    title = 'Run AST script'
+    description = "Run restricted Python against a file's AST for complex/incremental transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign 'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
     input_schema = {
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Absolute path to the Python file."},
-            "code": {"type": "string", "description": "Python script operating on 'tree';"
-                     "Environment is restricted; Don't use imports;"},
-        },
-        "required": ["path", "code"],
-    }
-    output_schema = {
-        "type": "object",
-        "properties": {
-            "result": {"type": "string"},
-            "value": {"description": "Repr of the script's 'result' variable, if set."},
-        },
-        "required": ["result"],
-    }
-    annotations = {"readOnlyHint": False, "openWorldHint": False}
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the Python file.'},
+            'code': {
+                'type': 'string',
+                'description': "Python script operating on 'tree';Environment is restricted; Don't use imports;"}},
+        'required': [
+            'path',
+            'code']}
+    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'value': {
+        'description': "Repr of the script's 'result' variable, if set."}}, 'required': ['result']}
+    annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_script`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_script(args["path"], args["code"])
+            result = ast_script(args['path'], args['code'])
         except (core.AstError, ScriptError) as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-
-        structured: dict[str, Any] = {"result": result.result}
+        structured: dict[str, Any] = {'result': result.result}
         if result.value is not None:
-            structured["value"] = result.value
+            structured['value'] = result.value
         return ToolResult(structured_content=structured)
-
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ScriptTool())

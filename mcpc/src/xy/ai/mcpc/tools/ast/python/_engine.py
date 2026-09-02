@@ -25,7 +25,7 @@ class _FormattingUnparser(ast._Unparser):
     are left untouched: their own rendering already spans multiple lines,
     so the "single line" check naturally excludes them.
     """
-    MAX_LINE_LENGTH = 100
+    MAX_LINE_LENGTH = 120
 
     def traverse(self, node):
         if isinstance(node, list) or not isinstance(node, ast.stmt):
@@ -49,17 +49,14 @@ class _FormattingUnparser(ast._Unparser):
             self.write('\n' + indent + line)
 
     def _fix_code(self, code: str, max_line_length: int, node: ast.AST) -> str | None:
-        options = {'max_line_length': max_line_length, 'indent_size': 4}
+        options = {'max_line_length': max_line_length, 'indent_size': 2}
         for aggressive in (2, 1, 0):
             try:
-                return autopep8.fix_code(
-                    code, options={**options, 'aggressive': aggressive}).rstrip('\n')
+                return autopep8.fix_code(code, options={**options, 'aggressive': aggressive}).rstrip('\n')
             except Exception:
                 continue
-        logger.error(
-            'autopep8 failed to format node at line %s, col %s; leaving unformatted', getattr(
-                node, 'lineno', '?'), getattr(
-                    node, 'col_offset', '?'))
+        logger.error('autopep8 failed to format node at line %s, col %s; leaving unformatted',
+                     getattr(node, 'lineno', '?'), getattr(node, 'col_offset', '?'))
         return None
 
 def _unparse(node: ast.AST) -> str:
@@ -96,8 +93,21 @@ class PythonEngine(Engine):
 
     def _loc(self, tree, node, parent, index, name, nid, expandable=False) -> Located:
         node_type = node.kind if isinstance(node, _StatementGroup) else type(node).__name__
-        return Located(tree=tree, node=node, parent=parent, index=index, node_id=nid, node_type=node_type, name=name, lineno=node.lineno,
-                       end_lineno=getattr(node, 'end_lineno', node.lineno), parent_type=type(parent).__name__, expandable=expandable)
+        return Located(
+            tree=tree,
+            node=node,
+            parent=parent,
+            index=index,
+            node_id=nid,
+            node_type=node_type,
+            name=name,
+            lineno=node.lineno,
+            end_lineno=getattr(
+                node,
+                'end_lineno',
+                node.lineno),
+            parent_type=type(parent).__name__,
+            expandable=expandable)
 
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []
@@ -111,15 +121,7 @@ class PythonEngine(Engine):
                 if isinstance(node, _DEF_TYPES):
                     seg = id_segment(node.name, i, used)
                     nid = f'{path}.{seg}' if path else seg
-                    results.append(
-                        self._loc(
-                            tree,
-                            node,
-                            container,
-                            i,
-                            node.name,
-                            nid,
-                            _is_expandable(node)))
+                    results.append(self._loc(tree, node, container, i, node.name, nid, _is_expandable(node)))
                     walk(node, nid)
                     i += 1
                     continue

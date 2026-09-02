@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-__all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool', "TOOLNAME_ASK_USER"]
+__all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool', 'TOOLNAME_ASK_USER']
 _NOT_ANSWERED = 'The user did not answer. Proceed on your own.'
-TOOLNAME_ASK_USER = "ask_user"
+TOOLNAME_ASK_USER = 'ask_user'
 
 class AskUserError(Exception):
     """Raised when a question cannot be asked."""
@@ -44,7 +44,13 @@ class AskUserTool(ToolDefinition):
     name = TOOLNAME_ASK_USER
     title = 'Ask user'
     description = "Ask the user a clarifying question, in the user's language, to improve session efficiency (e.g. instead of searching an entire file hierarchy when the user likely knows the answer already). "
-    input_schema = {'type': 'object', 'properties': {'question': {'type': 'string', 'description': "The question to ask the user, in the user's language."}}, 'required': ['question']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'question': {
+                'type': 'string',
+                'description': "The question to ask the user, in the user's language."}},
+        'required': ['question']}
     output_schema = {'type': 'object', 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 

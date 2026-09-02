@@ -10,46 +10,27 @@ cover the whole-file case too), with two in-node editors ``ast_edit_marks``
 (marker-delimited) and ``ast_edit_block`` (exact block), a restricted ``script``
 and a ``validate`` compile check.
 """
-
-
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import (
-    create,
-    delete,
-    edit_block,
-    edit_marks,
-    find,
-    insert,
-    list,
-    read,
-    replace,
-    script,
-    validate,
-)
-
-__all__ = ["register_ast_tools", "ALIAS"]
-#: Alias name that activates the whole family in one go.
-ALIAS = "ast"
+from xy.ai.mcpc.tools.ast import create, delete, edit_block, edit_marks, find, insert, list, read, replace, script, validate
+__all__ = ['register_ast_tools', 'ALIAS']
+'#: Alias name that activates the whole family in one go.'
+ALIAS = 'ast'
 _ALIAS_MEMBERS = (
-    "ast_list",
-    "ast_find",
-    "ast_read",
-    "ast_insert",
-    "ast_edit_marks",
-    "ast_edit_block",
-    "ast_replace",
-    "ast_delete",
-    "ast_create",
-    "ast_script",
-    "ast_validate",
-)
-
+    'ast_list',
+    'ast_find',
+    'ast_read',
+    'ast_insert',
+    'ast_edit_marks',
+    'ast_edit_block',
+    'ast_replace',
+    'ast_delete',
+    'ast_create',
+    'ast_script',
+    'ast_validate')
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``ast_*`` tool and the ``ast`` alias."""
-
-
     list.register(registry, functions)
     find.register(registry, functions)
     read.register(registry, functions)
@@ -61,5 +42,4 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     create.register(registry, functions)
     script.register(registry, functions)
     validate.register(registry, functions)
-
     registry.register_alias(ALIAS, _ALIAS_MEMBERS)

@@ -52,7 +52,30 @@ class EditLineTool(ToolDefinition):
     name = 'edit_line'
     title = 'Edit single line in file'
     description = "Replace exactly one line inside an existing file with one or more lines. IMPORTANT: 'old_line' MUST be a single line — it MUST NOT contain any newline character ('\\n'). Choose 'old_line' to be short and unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the target file.'}, 'old_line': {'type': 'string', 'description': 'A SINGLE line to find and replace. MUST NOT contain a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Do NOT pass multiple lines here.'}, 'new_lines': {'type': 'string', 'description': "Replacement content for 'old_line'. Either a single line, or multiple lines joined with '\\n' (may be empty to delete the line)."}, 'exact': {'type': 'boolean', 'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}, 'replaceAll': {'type': 'boolean', 'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.", 'default': False}}, 'required': ['path', 'old_line', 'new_lines']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the target file.'},
+            'old_line': {
+                'type': 'string',
+                'description': 'A SINGLE line to find and replace. MUST NOT contain a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Do NOT pass multiple lines here.'},
+            'new_lines': {
+                'type': 'string',
+                        'description': "Replacement content for 'old_line'. Either a single line, or multiple lines joined with '\\n' (may be empty to delete the line)."},
+            'exact': {
+                'type': 'boolean',
+                'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                'default': False},
+            'replaceAll': {
+                'type': 'boolean',
+                'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.",
+                'default': False}},
+        'required': [
+            'path',
+            'old_line',
+            'new_lines']}
     output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}}, 'required': []}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
@@ -60,7 +83,16 @@ class EditLineTool(ToolDefinition):
         """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = edit_line(path=args['path'], old_line=args['old_line'], new_lines=args['new_lines'], exact=args.get('exact', False), replace_all=args.get('replaceAll', False))
+            result = edit_line(
+                path=args['path'],
+                old_line=args['old_line'],
+                new_lines=args['new_lines'],
+                exact=args.get(
+                    'exact',
+                    False),
+                replace_all=args.get(
+                    'replaceAll',
+                    False))
         except EditLineError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)

@@ -72,15 +72,52 @@ class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
     title = 'Edit text block in AST node'
     description = "In-node block edit: replace occurrence(s) of 'old_text' with 'new_text' within the node addressed by id. Use for a single, self-contained block; prefer ast_edit_marks for larger, marker-delimited regions."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'old_text': {'type': 'string', 'minLength': 10, 'maxLength': 100, 'description': "Text (10-100 chars) to find within the node's source. Must occur exactly once, unless replaceAll is set."}, 'new_text': {'type': 'string', 'description': 'Replacement text (may be empty to delete the block).'}, 'exact': {'type': 'boolean', 'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}, 'replaceAll': {'type': 'boolean', 'description': "If true, replace every occurrence of 'old_text' within the node instead of requiring a single unique match.", 'default': False}, **PATH_SELECTOR_PROPS}, 'required': ['path', 'old_text', 'new_text']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'id': {'type': 'string', 'description': "The node's new id, if the edit changed it."}}, 'required': ['result']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            'old_text': {
+                'type': 'string',
+                'minLength': 10,
+                'maxLength': 100,
+                'description': "Text (10-100 chars) to find within the node's source. Must occur exactly once, unless replaceAll is set."},
+            'new_text': {
+                'type': 'string',
+                        'description': 'Replacement text (may be empty to delete the block).'},
+            'exact': {
+                'type': 'boolean',
+                'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                'default': False},
+            'replaceAll': {
+                'type': 'boolean',
+                'description': "If true, replace every occurrence of 'old_text' within the node instead of requiring a single unique match.",
+                'default': False},
+            **PATH_SELECTOR_PROPS},
+        'required': [
+            'path',
+            'old_text',
+            'new_text']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'result': {
+                'type': 'string'},
+            'id': {
+                'type': 'string',
+                'description': "The node's new id, if the edit changed it."}},
+        'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_edit_block(args['path'], args['old_text'], args['new_text'], exact=args.get('exact', False), replace_all=args.get('replaceAll', False), id=args.get('id'))
+            result = ast_edit_block(
+                args['path'], args['old_text'], args['new_text'], exact=args.get(
+                    'exact', False), replace_all=args.get(
+                        'replaceAll', False), id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         content = {'result': result.result}

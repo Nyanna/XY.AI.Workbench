@@ -14,13 +14,65 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ToolCallError', 'ToolCallExecution', 'fresh_namespace', 'inject_tools', 'run_tool_call', 'ToolCallTool', 'register']
+__all__ = [
+    'ToolCallError',
+    'ToolCallExecution',
+    'fresh_namespace',
+    'inject_tools',
+    'run_tool_call',
+    'ToolCallTool',
+    'register']
 '#: Per-session state key holding the persistent exec namespace (globals dict).'
 _NAMESPACE_STATE_KEY = 'tool_call_namespace'
 '#: STDOUT/STDERR beyond this many characters is spilled into the persistent'
 '#: namespace under a dynamic variable name instead of being returned inline.'
 STREAM_SPILL_THRESHOLD = 4000
-_SAFE_BUILTINS = {name: getattr(__builtins__, name, None) if not isinstance(__builtins__, dict) else __builtins__.get(name) for name in ('print', 'isinstance', 'issubclass', 'getattr', 'setattr', 'hasattr', 'delattr', 'len', 'list', 'dict', 'set', 'tuple', 'str', 'int', 'float', 'bool', 'enumerate', 'range', 'sorted', 'reversed', 'zip', 'map', 'filter', 'any', 'all', 'min', 'max', 'sum', 'type', 'repr', 'abs', 'round', 'Exception', 'ValueError', 'TypeError', 'KeyError', 'IndexError', 'StopIteration', 'RuntimeError')}
+_SAFE_BUILTINS = {
+    name: getattr(
+        __builtins__,
+        name,
+        None) if not isinstance(
+            __builtins__,
+            dict) else __builtins__.get(name) for name in (
+                'print',
+                'isinstance',
+                'issubclass',
+                'getattr',
+                'setattr',
+                'hasattr',
+                'delattr',
+                'len',
+                'list',
+                'dict',
+                'set',
+                'tuple',
+                'str',
+                'int',
+                'float',
+                'bool',
+                'enumerate',
+                'range',
+                'sorted',
+                'reversed',
+                'zip',
+                'map',
+                'filter',
+                'any',
+                'all',
+                'min',
+                'max',
+                'sum',
+                'type',
+                'repr',
+                'abs',
+                'round',
+                'Exception',
+                'ValueError',
+                'TypeError',
+                'KeyError',
+                'IndexError',
+                'StopIteration',
+        'RuntimeError')}
 
 class ToolCallError(Exception):
     """Raised when *tool_ids* cannot be resolved/injected."""
@@ -104,13 +156,32 @@ def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:
         error = f'Script failed: {type(exc).__name__}: {exc}'
     return ToolCallExecution(stdout=stdout_buf.getvalue(), stderr=stderr_buf.getvalue(), error=error)
 
-
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
     title = 'Run a script against injected tools'
-    description = f"Run Python code against a restricted, session-persistent context. The context persists across calls in this session."
-    input_schema = {'type': 'object', 'properties': {'tool_ids': {'type': 'array', 'items': {'type': 'string'}, 'description': "Ids of functions to inject into 'code' as same-named variables."}, 'code': {'type': 'string', 'description': 'Python script; restricted builtins, no imports.'}}, 'required': ['tool_ids', 'code']}
-    output_schema = {'type': 'object', 'properties': {'stdout': {'type': 'string', 'description': "Print to STDOUT to load into the context"}, 'stderr': {'type': 'string'}, 'stdout_var': {'type': 'string', 'description': 'Namespace variable holding full STDOUT if it was spilled.'}, 'stderr_var': {'type': 'string', 'description': 'Namespace variable holding full STDERR if it was spilled.'}, 'error': {'type': 'string'}}}
+    description = f'Run Python code against a restricted, session-persistent context. The context persists across calls in this session.'
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'tool_ids': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'},
+                'description': "Ids of functions to inject into 'code' as same-named variables."},
+            'code': {
+                'type': 'string',
+                        'description': 'Python script; restricted builtins, no imports.'}},
+        'required': [
+            'tool_ids',
+            'code']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'stdout': {
+                'type': 'string', 'description': 'Print to STDOUT to load into the context'}, 'stderr': {
+                    'type': 'string'}, 'stdout_var': {
+                        'type': 'string', 'description': 'Namespace variable holding full STDOUT if it was spilled.'}, 'stderr_var': {
+                            'type': 'string', 'description': 'Namespace variable holding full STDERR if it was spilled.'}, 'error': {
+                                'type': 'string'}}}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
@@ -136,7 +207,8 @@ class ToolCallTool(ToolDefinition):
             if len(execution.stderr) > STREAM_SPILL_THRESHOLD:
                 var_name = _spill(namespace, execution.stderr, 'stderr')
                 structured['stderr_var'] = var_name
-                notices.append(f"STDERR exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it and re-print via a follow-up tool_call using '{var_name}'.")
+                notices.append(
+                    f"STDERR exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it and re-print via a follow-up tool_call using '{var_name}'.")
             else:
                 structured['stderr'] = execution.stderr
         if execution.error is not None:

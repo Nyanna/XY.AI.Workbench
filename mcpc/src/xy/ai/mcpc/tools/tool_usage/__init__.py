@@ -100,8 +100,20 @@ class ToolUsageTool(ToolDefinition):
     name = 'tool_usage'
     title = 'Show function-based tool usage'
     description = 'Get usage and information for one function-based tool: its signature and the source.'
-    input_schema = {'type': 'object', 'properties': {'name': {'type': 'string', 'description': 'Id/name of the function, as returned by tool_search.'}}, 'required': ['name']}
-    output_schema = {'type': 'object', 'properties': {'signature': {'type': 'string'}, 'docstring': {'type': 'string'}, 'type_sources': {'type': 'array', 'items': {'type': 'string'}}}}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'name': {
+                'type': 'string',
+                'description': 'Id/name of the function, as returned by tool_search.'}},
+        'required': ['name']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'signature': {
+                'type': 'string'}, 'docstring': {
+                    'type': 'string'}, 'type_sources': {
+                        'type': 'array', 'items': {
+                            'type': 'string'}}}}
     annotations = {'readOnlyHint': True, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
@@ -112,13 +124,20 @@ class ToolUsageTool(ToolDefinition):
         name = args['name']
         seen: set[str] = ctx.session.state.setdefault(_SEEN_STATE_KEY, set())
         if name in seen:
-            return ToolResult(content=[text_content(f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result.")])
+            return ToolResult(
+                content=[
+                    text_content(
+                        f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result.")])
         try:
             info = describe_function(self._functions, name)
         except ToolUsageError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         seen.add(name)
-        return ToolResult(structured_content={'signature': info.signature, 'docstring': info.docstring, 'type_sources': info.type_sources})
+        return ToolResult(
+            structured_content={
+                'signature': info.signature,
+                'docstring': info.docstring,
+                'type_sources': info.type_sources})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolUsageTool(functions))

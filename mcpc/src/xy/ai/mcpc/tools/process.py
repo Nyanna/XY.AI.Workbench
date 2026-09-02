@@ -51,7 +51,8 @@ def run_process(cmd: list[str], *, cwd: str | os.PathLike[str] | None=None, stdi
     Raises :class:`LaunchError` if the executable cannot be started.
     """
     try:
-        proc = subprocess.run(cmd, input=stdin, cwd=os.fspath(cwd) if cwd is not None else None, capture_output=True, encoding='utf-8', errors='replace')
+        proc = subprocess.run(cmd, input=stdin, cwd=os.fspath(cwd) if cwd is not None else None,
+                              capture_output=True, encoding='utf-8', errors='replace')
     except OSError as exc:
         raise LaunchError(str(exc)) from exc
     return ProcessResult(exit_code=proc.returncode, stdout=proc.stdout or '', stderr=proc.stderr or '')
@@ -118,14 +119,20 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
         structured['exit_code'] = result.exit_code
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
         stdout_file = _spill_to_file(stdout, 'stdout')
-        content.append(text_content(f'Full output written to file ({len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
+        content.append(
+            text_content(
+                f'Full output written to file ({
+                    len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
         structured['stdout_file'] = stdout_file
     else:
         structured['stdout'] = stdout
     if stderr:
         if max_stream_chars is not None and len(stderr) > max_stream_chars:
             stderr_file = _spill_to_file(stderr, 'stderr')
-            content.append(text_content(f'Full output written to file ({len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
+            content.append(
+                text_content(
+                    f'Full output written to file ({
+                        len(stdout)} characters). Before loading the file, reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk) to extract only the relevant parts.Only load the file with `file-read` once the output is already narrowed down to the essential information.'))
             structured['stderr_file'] = stderr_file
         else:
             structured['stderr'] = stderr

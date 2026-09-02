@@ -11,63 +11,52 @@ The control endpoint at ``/control/tool`` lets an external client poll for
 pending items and post approval decisions.  The intercepting threads block on
 per-item ``threading.Event`` objects until a decision arrives.
 """
-
-
 import logging
 import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 from xy.ai.mcpc.server.session import Session
-
-logger = logging.getLogger("xy.ai.mcpc.control")
-
-# How long (seconds) an intercepted call waits before timing out and auto-approving.
-_DEFAULT_TIMEOUT = 24 * 60 * 60.0  # 24 h — matches agent MCP timeout
+logger = logging.getLogger('xy.ai.mcpc.control')
+'# How long (seconds) an intercepted call waits before timing out and auto-approving.'
+'# 24 h — matches agent MCP timeout'
+_DEFAULT_TIMEOUT = 24 * 60 * 60.0
 
 @dataclass(slots=True)
 class ControlDecision:
     """The outcome of a human review, produced by :meth:`ToolControlManager.process_approvals`."""
-
     approved: bool
-    """True when the call should proceed (possibly with modified data)."""
-
+    'True when the call should proceed (possibly with modified data).'
     rejection_reason: str | None = None
-    """Human-readable hint for the agent when ``approved`` is False."""
-
+    'Human-readable hint for the agent when ``approved`` is False.'
     approval_hint: str | None = None
-    """Optional human-written hint attached to an *approval* (``/allow <id> <hint>``).
-
-    Unlike :attr:`rejection_reason`, this never aborts the call — it enriches
-    the eventual result instead. The same field is used for both the
-    ``request`` and ``result`` phase; when a hint is supplied at both phases
-    for the same call, the two are combined (see ``protocol.py``).
-    """
-
+    'Optional human-written hint attached to an *approval* (``/allow <id> <hint>``).\n\n    Unlike :attr:`rejection_reason`, this never aborts the call — it enriches\n    the eventual result instead. The same field is used for both the\n    ``request`` and ``result`` phase; when a hint is supplied at both phases\n    for the same call, the two are combined (see ``protocol.py``).\n    '
     modified_arguments: dict[str, Any] | None = None
-    """Replacement arguments for the ``request`` phase (``None`` → keep originals)."""
-
+    'Replacement arguments for the ``request`` phase (``None`` → keep originals).'
     modified_result: dict[str, Any] | None = None
-    """Replacement result dict for the ``result`` phase (``None`` → keep original)."""
+    'Replacement result dict for the ``result`` phase (``None`` → keep original).'
 
 @dataclass
 class _PendingItem:
     id: str
-    phase: str          # "request" | "result"
+    '# "request" | "result"'
+    phase: str
     tool_name: str
     session_id: str
-    arguments: dict[str, Any] | None       # populated in request phase
-    result: dict[str, Any] | None          # populated in result phase
+    '# populated in request phase'
+    arguments: dict[str, Any] | None
+    '# populated in result phase'
+    result: dict[str, Any] | None
     _event: threading.Event = field(default_factory=threading.Event, repr=False)
     _decision: ControlDecision | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
-        item: dict[str, Any] = {"id": self.id}
+        item: dict[str, Any] = {'id': self.id}
         if self.arguments is not None:
-            item["toolName"] = self.tool_name
-            item["arguments"] = self.arguments
+            item['toolName'] = self.tool_name
+            item['arguments'] = self.arguments
         if self.result is not None:
-            item["result"] = self.result
+            item['result'] = self.result
         return item
 
 class ToolControlManager:
@@ -85,21 +74,14 @@ class ToolControlManager:
         manager.process_approvals([{"id": "…", "approved": True}])
     """
 
-    def __init__(self, timeout: float = _DEFAULT_TIMEOUT) -> None:
+    def __init__(self, timeout: float=_DEFAULT_TIMEOUT) -> None:
         self._timeout = timeout
         self._pending: dict[str, _PendingItem] = {}
         self._lock = threading.Lock()
         self._id_prefix = uuid.uuid4().hex[:4]
         self._id_counter = 0
 
-    def submit_request(
-        self,
-        session: Session,
-        tool_name: str,
-        arguments: dict[str, Any],
-        *,
-        auto_approve: bool = False,
-    ) -> ControlDecision:
+    def submit_request(self, session: Session, tool_name: str, arguments: dict[str, Any], *, auto_approve: bool=False) -> ControlDecision:
         """Block until the controller approves/rejects a tool-call *request*.
 
         Returns a :class:`ControlDecision`.  If the decision includes
@@ -107,23 +89,12 @@ class ToolControlManager:
         invoking the tool handler.
         """
         if auto_approve:
-            logger.info(
-                "Auto-approving request for %s [%s] (tool-flagged)",
-                tool_name, session.id,
-            )
+            logger.info('Auto-approving request for %s [%s] (tool-flagged)', tool_name, session.id)
             return ControlDecision(approved=True)
-
-        item = self._enqueue(session, "request", tool_name, arguments=arguments, result=None)
+        item = self._enqueue(session, 'request', tool_name, arguments=arguments, result=None)
         return self._wait(item)
 
-    def submit_result(
-        self,
-        session: Session,
-        tool_name: str,
-        result: dict[str, Any],
-        *,
-        auto_approve: bool = False,
-    ) -> ControlDecision:
+    def submit_result(self, session: Session, tool_name: str, result: dict[str, Any], *, auto_approve: bool=False) -> ControlDecision:
         """Block until the controller approves/replaces a tool-call *result*.
 
         Returns a :class:`ControlDecision`.  If the decision includes
@@ -135,13 +106,9 @@ class ToolControlManager:
         result.
         """
         if auto_approve:
-            logger.info(
-                "Auto-approving result for %s [%s] (tool-flagged)",
-                tool_name, session.id,
-            )
+            logger.info('Auto-approving result for %s [%s] (tool-flagged)', tool_name, session.id)
             return ControlDecision(approved=True)
-
-        item = self._enqueue(session, "result", tool_name, arguments=None, result=result)
+        item = self._enqueue(session, 'result', tool_name, arguments=None, result=result)
         return self._wait(item)
 
     def get_pending(self) -> list[dict[str, Any]]:
@@ -164,39 +131,33 @@ class ToolControlManager:
           the eventual result.
         """
         for approval in approvals:
-            item_id = approval.get("id")
+            item_id = approval.get('id')
             if not isinstance(item_id, str):
                 logger.warning("Approval entry missing 'id', skipped: %s", approval)
                 continue
             with self._lock:
                 item = self._pending.get(item_id)
             if item is None:
-                logger.warning("Unknown approval id %s, skipped", item_id)
+                logger.warning('Unknown approval id %s, skipped', item_id)
                 continue
-
-            if approval.get("rejected"):
+            if approval.get('rejected'):
                 decision = ControlDecision(
                     approved=False,
-                    rejection_reason=approval.get("reason") or "Rejected by controller",
-                )
+                    rejection_reason=approval.get('reason') or 'Rejected by controller')
             else:
                 decision = ControlDecision(
                     approved=True,
-                    modified_arguments=approval.get("arguments"),
-                    modified_result=approval.get("result"),
-                    approval_hint=approval.get("hint"),
-                )
-
+                    modified_arguments=approval.get('arguments'),
+                    modified_result=approval.get('result'),
+                    approval_hint=approval.get('hint'))
             item._decision = decision
             with self._lock:
                 self._pending.pop(item_id, None)
-            logger.info(
-                "Dequeued control item %s [%s/%s]: approved=%s",
-                item.tool_name, item.phase, item_id, decision.approved,
-            )
+            logger.info('Dequeued control item %s [%s/%s]: approved=%s',
+                        item.tool_name, item.phase, item_id, decision.approved)
             item._event.set()
 
-    def cancel_session(self, session_id: str, reason: str = "Connection closed") -> None:
+    def cancel_session(self, session_id: str, reason: str='Connection closed') -> None:
         """Reject every pending item belonging to *session_id*.
 
         Called by a transport (HTTP or WebSocket) as soon as it notices that
@@ -207,55 +168,39 @@ class ToolControlManager:
         """
         with self._lock:
             items = [item for item in self._pending.values() if item.session_id == session_id]
-
         for item in items:
             with self._lock:
                 still_pending = self._pending.pop(item.id, None) is not None
             if not still_pending:
-                continue  # already resolved by a concurrent approval/timeout
-
+                '# already resolved by a concurrent approval/timeout'
+                continue
             item._decision = ControlDecision(approved=False, rejection_reason=reason)
-            logger.info(
-                "Cancelling control item %s [%s/%s] for session %s: %s",
-                item.tool_name, item.phase, item.id, session_id, reason,
-            )
+            logger.info('Cancelling control item %s [%s/%s] for session %s: %s',
+                        item.tool_name, item.phase, item.id, session_id, reason)
             item._event.set()
 
-    def _enqueue(
-        self,
-        session: Session,
-        phase: str,
-        tool_name: str,
-        arguments: dict[str, Any] | None,
-        result: dict[str, Any] | None,
-    ) -> _PendingItem:
+    def _enqueue(self, session: Session, phase: str, tool_name: str, arguments: dict[str, Any] | None, result: dict[str, Any] | None) -> _PendingItem:
         with self._lock:
             self._id_counter += 1
-            item_id = f"{self._id_prefix}-{self._id_counter:x}"
+            item_id = f'{self._id_prefix}-{self._id_counter:x}'
         item = _PendingItem(
             id=item_id,
             phase=phase,
             tool_name=tool_name,
             session_id=session.id,
             arguments=arguments,
-            result=result,
-        )
+            result=result)
         with self._lock:
             self._pending[item_id] = item
-        logger.info("Enqueued control item %s [%s/%s/%s]", tool_name, phase, session.id, item_id)
+        logger.info('Enqueued control item %s [%s/%s/%s]', tool_name, phase, session.id, item_id)
         return item
 
     def _wait(self, item: _PendingItem) -> ControlDecision:
         signalled = item._event.wait(timeout=self._timeout)
         with self._lock:
             self._pending.pop(item.id, None)
-
         if not signalled or item._decision is None:
-            # Timeout — auto-approve to avoid hanging the agent forever.
-            logger.warning(
-                "Control item %s [%s/%s] timed out, auto-approving",
-                item.tool_name, item.phase, item.id,
-            )
+            '# Timeout — auto-approve to avoid hanging the agent forever.'
+            logger.warning('Control item %s [%s/%s] timed out, auto-approving', item.tool_name, item.phase, item.id)
             return ControlDecision(approved=True)
-
         return item._decision

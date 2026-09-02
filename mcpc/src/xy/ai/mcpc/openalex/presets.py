@@ -9,144 +9,104 @@ metrics, ...).  ``full`` maps to *no* ``select`` (every field is returned).
 Presets are intentionally kept to top-level fields only, which is all the
 OpenAlex ``select`` parameter accepts for works.
 """
-
-
 from typing import Any
-
-#: Fields that carry the essential identity of any entity.  Used as the base
-#: preset for the non-``works`` entity types, whose object shapes differ.
-_GENERIC_MINIMAL = ["id", "display_name", "relevance_score"]
-
-#: Presets for the ``works`` entity.  ``None`` means "no select" (all fields).
-WORK_PRESETS: dict[str, list[str] | None] = {
-    # Just enough to identify and rank a hit.
-    "minimal": [
-        "id",
-        "doi",
-        "title",
-        "publication_year",
-        "type",
-        "cited_by_count",
-        "relevance_score",
-    ],
-    # Sensible default: identity, venue, access and impact at a glance.
-    "core": [
-        "id",
-        "doi",
-        "title",
-        "display_name",
-        "publication_year",
-        "publication_date",
-        "type",
-        "language",
-        "primary_location",
-        "open_access",
-        "cited_by_count",
-        "primary_topic",
-        "relevance_score",
-    ],
-    # Everything needed to build a citation / reference entry.
-    "bibliographic": [
-        "id",
-        "doi",
-        "title",
-        "display_name",
-        "publication_year",
-        "publication_date",
-        "type",
-        "biblio",
-        "primary_location",
-        "authorships",
-        "language",
-        "relevance_score",
-    ],
-    # Who wrote it and where they are affiliated.
-    "authorship": [
-        "id",
-        "title",
-        "publication_year",
-        "authorships",
-        "corresponding_author_ids",
-        "corresponding_institution_ids",
-        "countries_distinct_count",
-        "institutions_distinct_count",
-        "relevance_score",
-    ],
-    # Open-access status, locations and article-processing charges.
-    "access": [
-        "id",
-        "doi",
-        "title",
-        "publication_year",
-        "open_access",
-        "best_oa_location",
-        "primary_location",
-        "locations",
-        "has_fulltext",
-        "apc_list",
-        "apc_paid",
-        "relevance_score",
-    ],
-    # Citation impact and reference counts over time.
-    "metrics": [
-        "id",
-        "title",
-        "publication_year",
-        "cited_by_count",
-        "cited_by_percentile_year",
-        "counts_by_year",
-        "referenced_works_count",
-        "relevance_score",
-    ],
-    # Subject classification: topics, keywords, concepts, SDGs, MeSH.
-    "topics": [
-        "id",
-        "title",
-        "publication_year",
-        "primary_topic",
-        "topics",
-        "keywords",
-        "concepts",
-        "sustainable_development_goals",
-        "mesh",
-        "relevance_score",
-    ],
-    # Title plus the (reconstructed) abstract text.
-    "abstract": [
-        "id",
-        "doi",
-        "title",
-        "publication_year",
-        "abstract_inverted_index",
-        "relevance_score",
-    ],
-    # Citation graph: referenced and related works.
-    "references": [
-        "id",
-        "title",
-        "publication_year",
-        "referenced_works",
-        "referenced_works_count",
-        "related_works",
-        "relevance_score",
-    ],
-    # Everything OpenAlex returns for the work.
-    "full": None,
-}
-
-#: Presets available for non-``works`` entities (authors, sources, ...).
-GENERIC_PRESETS: dict[str, list[str] | None] = {
-    "minimal": _GENERIC_MINIMAL,
-    "full": None,
-}
-
-#: Preset names an agent may pick for a works search / lookup.
+'#: Fields that carry the essential identity of any entity.  Used as the base'
+'#: preset for the non-``works`` entity types, whose object shapes differ.'
+_GENERIC_MINIMAL = ['id', 'display_name', 'relevance_score']
+'#: Presets for the ``works`` entity.  ``None`` means "no select" (all fields).'
+WORK_PRESETS: dict[str,
+                   list[str] | None] = {'minimal': ['id',
+                                                    'doi',
+                                                    'title',
+                                                    'publication_year',
+                                                    'type',
+                                                    'cited_by_count',
+                                                    'relevance_score'],
+                                        'core': ['id',
+                                                 'doi',
+                                                 'title',
+                                                 'display_name',
+                                                 'publication_year',
+                                                 'publication_date',
+                                                 'type',
+                                                 'language',
+                                                 'primary_location',
+                                                 'open_access',
+                                                 'cited_by_count',
+                                                 'primary_topic',
+                                                 'relevance_score'],
+                                        'bibliographic': ['id',
+                                                          'doi',
+                                                          'title',
+                                                          'display_name',
+                                                          'publication_year',
+                                                          'publication_date',
+                                                          'type',
+                                                          'biblio',
+                                                          'primary_location',
+                                                          'authorships',
+                                                          'language',
+                                                          'relevance_score'],
+                                        'authorship': ['id',
+                                                       'title',
+                                                       'publication_year',
+                                                       'authorships',
+                                                       'corresponding_author_ids',
+                                                       'corresponding_institution_ids',
+                                                       'countries_distinct_count',
+                                                       'institutions_distinct_count',
+                                                       'relevance_score'],
+                                        'access': ['id',
+                                                   'doi',
+                                                   'title',
+                                                   'publication_year',
+                                                   'open_access',
+                                                   'best_oa_location',
+                                                   'primary_location',
+                                                   'locations',
+                                                   'has_fulltext',
+                                                   'apc_list',
+                                                   'apc_paid',
+                                                   'relevance_score'],
+                                        'metrics': ['id',
+                                                    'title',
+                                                    'publication_year',
+                                                    'cited_by_count',
+                                                    'cited_by_percentile_year',
+                                                    'counts_by_year',
+                                                    'referenced_works_count',
+                                                    'relevance_score'],
+                                        'topics': ['id',
+                                                   'title',
+                                                   'publication_year',
+                                                   'primary_topic',
+                                                   'topics',
+                                                   'keywords',
+                                                   'concepts',
+                                                   'sustainable_development_goals',
+                                                   'mesh',
+                                                   'relevance_score'],
+                                        'abstract': ['id',
+                                                     'doi',
+                                                     'title',
+                                                     'publication_year',
+                                                     'abstract_inverted_index',
+                                                     'relevance_score'],
+                                        'references': ['id',
+                                                       'title',
+                                                       'publication_year',
+                                                       'referenced_works',
+                                                       'referenced_works_count',
+                                                       'related_works',
+                                                       'relevance_score'],
+                                        'full': None}
+'#: Presets available for non-``works`` entities (authors, sources, ...).'
+GENERIC_PRESETS: dict[str, list[str] | None] = {'minimal': _GENERIC_MINIMAL, 'full': None}
+'#: Preset names an agent may pick for a works search / lookup.'
 WORK_PRESET_NAMES: tuple[str, ...] = tuple(WORK_PRESETS)
-
-#: Defaults chosen for each tool.
-DEFAULT_SEARCH_PRESET = "core"
-DEFAULT_WORK_PRESET = "full"
-
+'#: Defaults chosen for each tool.'
+DEFAULT_SEARCH_PRESET = 'core'
+DEFAULT_WORK_PRESET = 'full'
 
 def resolve_select(preset: str | None, entity: str) -> list[str] | None:
     """Translate a preset name into a ``select`` field list (or ``None``).
@@ -156,14 +116,13 @@ def resolve_select(preset: str | None, entity: str) -> list[str] | None:
     every field.  Unknown preset names fall back to a sensible default rather
     than raising, so an agent typo never hard-fails a lookup.
     """
-    table = WORK_PRESETS if entity == "works" else GENERIC_PRESETS
+    table = WORK_PRESETS if entity == 'works' else GENERIC_PRESETS
     if preset in table:
         return table[preset]
-    # Unknown preset -> fall back to the entity's default.
-    if entity == "works":
+    "# Unknown preset -> fall back to the entity's default."
+    if entity == 'works':
         return WORK_PRESETS[DEFAULT_SEARCH_PRESET]
-    return GENERIC_PRESETS["minimal"]
-
+    return GENERIC_PRESETS['minimal']
 
 def reconstruct_abstract(inverted_index: dict[str, list[int]] | None) -> str | None:
     """Rebuild readable abstract text from OpenAlex's inverted index.
@@ -180,8 +139,7 @@ def reconstruct_abstract(inverted_index: dict[str, list[int]] | None) -> str | N
     if not positioned:
         return None
     positioned.sort(key=lambda item: item[0])
-    return " ".join(word for _, word in positioned)
-
+    return ' '.join((word for _, word in positioned))
 
 def project_results(results: list[Any]) -> list[Any]:
     """Post-process raw records for agent consumption.
@@ -196,12 +154,11 @@ def project_results(results: list[Any]) -> list[Any]:
         processed.append(_project_one(item))
     return processed
 
-
 def _project_one(item: Any) -> Any:
-    if not isinstance(item, dict) or "abstract_inverted_index" not in item:
+    if not isinstance(item, dict) or 'abstract_inverted_index' not in item:
         return item
     clone = dict(item)
-    abstract = reconstruct_abstract(clone.pop("abstract_inverted_index"))
+    abstract = reconstruct_abstract(clone.pop('abstract_inverted_index'))
     if abstract is not None:
-        clone["abstract"] = abstract
+        clone['abstract'] = abstract
     return clone

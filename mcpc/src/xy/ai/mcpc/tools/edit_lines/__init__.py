@@ -60,15 +60,46 @@ class EditLinesTool(ToolDefinition):
     name = 'edit_lines'
     title = 'Replace lines in file'
     description = 'Replace a range of lines inside an existing file with new content. The range is defined by a zero-based line ``offset`` and a ``length`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file to modify.'}, 'offset': {'type': 'integer', 'description': 'Zero-based line offset of the first line to replace.', 'minimum': 0}, 'amount': {'type': 'integer', 'description': 'Number of lines to remove starting at ``offset``.', 'minimum': 0}, 'content': {'type': 'string', 'description': 'Replacement text (may be empty to perform a pure deletion).'}}, 'required': ['path', 'offset', 'length', 'content']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string', 'description': '``success`` on success.'}}, 'required': ['result']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file to modify.'},
+            'offset': {
+                'type': 'integer',
+                'description': 'Zero-based line offset of the first line to replace.',
+                'minimum': 0},
+            'amount': {
+                'type': 'integer',
+                        'description': 'Number of lines to remove starting at ``offset``.',
+                        'minimum': 0},
+            'content': {
+                'type': 'string',
+                'description': 'Replacement text (may be empty to perform a pure deletion).'}},
+        'required': [
+            'path',
+            'offset',
+            'length',
+            'content']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'result': {
+                'type': 'string',
+                'description': '``success`` on success.'}},
+        'required': ['result']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_lines`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = edit_lines(path=args['path'], offset=args['offset'], amount=args['amount'], content=args['content'])
+            result = edit_lines(
+                path=args['path'],
+                offset=args['offset'],
+                amount=args['amount'],
+                content=args['content'])
         except EditLinesError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'result': result.result}, auto_approve=True)

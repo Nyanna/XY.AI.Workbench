@@ -13,17 +13,14 @@ Implements the client-facing half of the MCP *Streamable HTTP* transport:
 The session id is taken from the configured ``X-MCPC-SESSION-ID`` header, which
 the client must send on every request.
 """
-
 import logging
 import select
 import socket
 import threading
-
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import urlparse
-
 from xy.ai.mcpc.server import errors, jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.control.handler import ControlHandler
@@ -31,20 +28,16 @@ from xy.ai.mcpc.server.hooks import HookHandler, PermissionHookHandler
 from xy.ai.mcpc.server.jsonrpc import MessageKind
 from xy.ai.mcpc.utils.logging_utils import EVENT, IN, OUT
 from xy.ai.mcpc.server.session import is_valid_uuid
-
-logger = logging.getLogger("xy.ai.mcpc.transport")
-
-#: Polling interval (seconds) for the connection watchdog used while a
-#: request is blocked awaiting a human-in-the-loop control decision.
+logger = logging.getLogger('xy.ai.mcpc.transport')
+'#: Polling interval (seconds) for the connection watchdog used while a'
+'#: request is blocked awaiting a human-in-the-loop control decision.'
 _CONNECTION_WATCH_INTERVAL = 10.0
-
 
 def _origin_host(origin: str) -> str:
     try:
-        return urlparse(origin).hostname or ""
+        return urlparse(origin).hostname or ''
     except ValueError:
-        return ""
-
+        return ''
 
 def is_origin_allowed(config, origin: str | None) -> bool:
     """Shared Origin check, used by both the HTTP and the WebSocket transport.
@@ -55,81 +48,76 @@ def is_origin_allowed(config, origin: str | None) -> bool:
     if origin is None:
         return True
     host = _origin_host(origin)
-    allowed = {"localhost", "127.0.0.1", "::1", "[::1]", config.host}
+    allowed = {'localhost', '127.0.0.1', '::1', '[::1]', config.host}
     if config.allowed_origins:
         allowed.update(config.allowed_origins)
     return host in allowed
-
 
 def apply_tools_header(config, comm_log, session_id: str, session, raw: str | None) -> None:
     """Reconcile *session*'s active toolset with an ``X-MCPC-TOOLS`` value.
     """
     if raw is None:
         return
-    logger.debug("Process tool header: %s", raw)
-    names = {part.strip() for part in raw.split(",") if part.strip()}
+    logger.debug('Process tool header: %s', raw)
+    names = {part.strip() for part in raw.split(',') if part.strip()}
     if session.enabled_tools != names:
         session.set_enabled_tools(names)
-        comm_log.log(
-            session_id,
-            EVENT,
-            {"event": "session.tools", "tools": sorted(names)},
-        )
-
+        comm_log.log(session_id, EVENT, {'event': 'session.tools', 'tools': sorted(names)})
 
 def apply_ccprofile_header(comm_log, session_id: str, session, raw: str | None) -> None:
     """Reconcile *session*'s active CC-profile with an ``X-MCPC-CC-PROFILE`` value."""
     if raw is None:
         return
-    logger.debug("Process CC-profile header: %s", raw)
+    logger.debug('Process CC-profile header: %s', raw)
     if session.cc_profile != raw:
         session.cc_profile = raw
-        comm_log.log(
-            session_id,
-            EVENT,
-            {"event": "session.cc_profile", "cc_profile": raw},
-        )
-
+        comm_log.log(session_id, EVENT, {'event': 'session.cc_profile', 'cc_profile': raw})
 
 class StreamableHttpHandler(BaseHTTPRequestHandler):
     """Handles a single HTTP connection for the MCP endpoint."""
-
-    protocol_version = "HTTP/1.1"
-    server_version = "xy.ai.mcpc"
+    protocol_version = 'HTTP/1.1'
+    server_version = 'xy.ai.mcpc'
 
     @property
     def config(self):
-        return self.server.config  # type: ignore[attr-defined]
+        """# type: ignore[attr-defined]"""
+        return self.server.config
 
     @property
     def protocol(self):
-        return self.server.protocol  # type: ignore[attr-defined]
+        """# type: ignore[attr-defined]"""
+        return self.server.protocol
 
     @property
     def sessions(self):
-        return self.server.sessions  # type: ignore[attr-defined]
+        """# type: ignore[attr-defined]"""
+        return self.server.sessions
 
     @property
     def comm_log(self):
-        return self.server.comm_log  # type: ignore[attr-defined]
+        """# type: ignore[attr-defined]"""
+        return self.server.comm_log
+    '# noqa: A003'
 
-    def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
-        # Route access logs through the standard logging framework instead of
-        # writing straight to stderr.
-        self.server.logger.debug("%s - %s", self.address_string(), fmt % args)  # type: ignore[attr-defined]
+    def log_message(self, fmt: str, *args: Any) -> None:
+        """# Route access logs through the standard logging framework instead of"""
+        '# writing straight to stderr.'
+        '# type: ignore[attr-defined]'
+        self.server.logger.debug('%s - %s', self.address_string(), fmt % args)
 
     def handle_one_request(self) -> None:
-        # The client may reset the connection at any point.
-        # ``BaseHTTPRequestHandler`` does not guard against this, so it would
-        # otherwise bubble up as an unhandled exception in the request thread.
+        """# The client may reset the connection at any point."""
+        '# ``BaseHTTPRequestHandler`` does not guard against this, so it would'
+        '# otherwise bubble up as an unhandled exception in the request thread.'
         try:
             super().handle_one_request()
         except ConnectionResetError as exc:
-            logger.debug("Connection reset by peer while handling request: %s", exc)
+            logger.debug('Connection reset by peer while handling request: %s', exc)
             self.close_connection = True
+    '# noqa: N802'
 
-    def do_POST(self) -> None:  # noqa: N802
-        logger.debug("Accept POST")
+    def do_POST(self) -> None:
+        logger.debug('Accept POST')
         if HookHandler(self).matches():
             HookHandler(self).handle()
             return
@@ -140,72 +128,71 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             ControlHandler(self).handle()
             return
         if not self._path_matches():
-            logger.error("Unknown endpoint %s != %s", urlparse(self.path).path, self.config.path)
-            self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+            logger.error('Unknown endpoint %s != %s', urlparse(self.path).path, self.config.path)
+            self._send_http_error(HTTPStatus.NOT_FOUND, 'Unknown endpoint')
             return
         if not self._check_origin():
-            logger.error("Origin forbidden")
+            logger.error('Origin forbidden')
             return
         session_id = self._require_session_id()
         if session_id is None:
-            logger.error("Session id missing [%s]", self.headers)
+            logger.error('Session id missing [%s]', self.headers)
             return
         if not self._check_protocol_version_header():
-            logger.error("Protocol version missing")
+            logger.error('Protocol version missing')
             return
-
         raw = self._read_body()
         if raw is None:
             return
-
         try:
             message = jsonrpc.parse_body(raw)
         except errors.JsonRpcError as exc:
-            self.comm_log.log(session_id, IN, JsonCodec.for_log(raw), http="POST", note="unparseable")
+            self.comm_log.log(session_id, IN, JsonCodec.for_log(raw), http='POST', note='unparseable')
             self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, None, exc, session_id)
             return
-
-        self.comm_log.log(session_id, IN, message, http="POST")
-
+        self.comm_log.log(session_id, IN, message, http='POST')
         try:
             kind = jsonrpc.classify(message)
             request = jsonrpc.to_request(message) if kind is not MessageKind.RESPONSE else None
         except errors.JsonRpcError as exc:
-            self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, message.get("id"), exc, session_id)
+            self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, message.get('id'), exc, session_id)
             return
-
         session, created = self.sessions.get_or_create(session_id)
         if created:
-            self.comm_log.log(session_id, EVENT, {"event": "session.created"})
+            self.comm_log.log(session_id, EVENT, {'event': 'session.created'})
         session.touch()
         self._apply_tools_header(session_id, session)
         self._apply_ccprofile_header(session_id, session)
-
         if kind is MessageKind.REQUEST:
-            self._handle_request(session_id, session, request)  # type: ignore[arg-type]
+            '# type: ignore[arg-type]'
+            self._handle_request(session_id, session, request)
         else:
-            # Notification or response: acknowledge, act on lifecycle only.
+            '# Notification or response: acknowledge, act on lifecycle only.'
             if kind is MessageKind.NOTIFICATION:
                 try:
-                    self.protocol.handle_notification(session, request)  # type: ignore[arg-type]
+                    '# type: ignore[arg-type]'
+                    self.protocol.handle_notification(session, request)
                 except errors.JsonRpcError:
-                    pass  # notifications never produce a response
+                    '# notifications never produce a response'
+                    pass
             self._send_accepted(session_id)
+    '# noqa: N802'
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if not self._path_matches():
-            self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+            self._send_http_error(HTTPStatus.NOT_FOUND, 'Unknown endpoint')
             return
-        # No server-initiated SSE stream is offered (notifications unsupported).
+        '# No server-initiated SSE stream is offered (notifications unsupported).'
         self._send_http_error(
             HTTPStatus.METHOD_NOT_ALLOWED,
-            "This endpoint does not provide a server-to-client SSE stream",
-            extra_headers={"Allow": "POST, DELETE"},
-        )
+            'This endpoint does not provide a server-to-client SSE stream',
+            extra_headers={
+                'Allow': 'POST, DELETE'})
+    '# noqa: N802'
 
-    def do_DELETE(self) -> None:  # noqa: N802
+    def do_DELETE(self) -> None:
         if not self._path_matches():
-            self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+            self._send_http_error(HTTPStatus.NOT_FOUND, 'Unknown endpoint')
             return
         if not self._check_origin():
             return
@@ -214,10 +201,10 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             return
         removed = self.sessions.remove(session_id)
         if removed:
-            self.comm_log.log(session_id, EVENT, {"event": "session.terminated"})
+            self.comm_log.log(session_id, EVENT, {'event': 'session.terminated'})
             self._send_empty(HTTPStatus.NO_CONTENT, session_id)
         else:
-            self._send_http_error(HTTPStatus.NOT_FOUND, "Unknown session", session_id=session_id)
+            self._send_http_error(HTTPStatus.NOT_FOUND, 'Unknown session', session_id=session_id)
 
     def _apply_tools_header(self, session_id: str, session) -> None:
         """Reconcile the session's active toolset with the ``X-MCPC-TOOLS`` header.
@@ -233,44 +220,44 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         """
         raw = self.headers.get(self.config.ccprofile_header)
         apply_ccprofile_header(self.comm_log, session_id, session, raw)
+    '# -- request processing -------------------------------------------------'
 
-    # -- request processing -------------------------------------------------
     def _handle_request(self, session_id: str, session, request) -> None:
-        skip_control = self.headers.get(self.config.control_header, "").lower() == "off"
-
-        control_manager = getattr(self.server.environment, "control_manager", None)  # type: ignore[attr-defined]
+        skip_control = self.headers.get(self.config.control_header, '').lower() == 'off'
+        '# type: ignore[attr-defined]'
+        control_manager = getattr(self.server.environment, 'control_manager', None)
         stop_watch = threading.Event()
         watcher: threading.Thread | None = None
         if control_manager is not None:
-            # `handle_request` may block for hours awaiting a human-in-the-loop
-            # decision while holding no socket I/O of its own; without this
-            # watchdog an aborted client connection would go unnoticed until
-            # the (up to 24h) control timeout elapses.
+            '# `handle_request` may block for hours awaiting a human-in-the-loop'
+            '# decision while holding no socket I/O of its own; without this'
+            '# watchdog an aborted client connection would go unnoticed until'
+            '# the (up to 24h) control timeout elapses.'
             watcher = threading.Thread(
                 target=self._watch_connection,
-                args=(session_id, control_manager, stop_watch),
-                name="mcpc-http-connwatch",
-                daemon=True,
-            )
+                args=(
+                    session_id,
+                    control_manager,
+                    stop_watch),
+                name='mcpc-http-connwatch',
+                daemon=True)
             watcher.start()
-
         try:
             with session.lock:
                 result = self.protocol.handle_request(session, request, skip_control=skip_control)
             response = jsonrpc.success_response(request.id, result)
         except errors.JsonRpcError as exc:
             response = jsonrpc.error_response(request.id, exc)
-        except Exception as exc:  # noqa: BLE001 - never leak a stack trace
-            self.server.logger.exception("Unhandled error processing request")  # type: ignore[attr-defined]
-            response = jsonrpc.error_response(
-                request.id, errors.internal_error(str(exc))
-            )
+        except Exception as exc:
+            '# noqa: BLE001 - never leak a stack trace'
+            '# type: ignore[attr-defined]'
+            self.server.logger.exception('Unhandled error processing request')
+            response = jsonrpc.error_response(request.id, errors.internal_error(str(exc)))
         finally:
             stop_watch.set()
             if watcher is not None:
                 watcher.join(timeout=_CONNECTION_WATCH_INTERVAL + 1.0)
-
-        self.comm_log.log(session_id, OUT, response, http="POST")
+        self.comm_log.log(session_id, OUT, response, http='POST')
         self._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id)
 
     def _watch_connection(self, session_id: str, control_manager, stop_event: threading.Event) -> None:
@@ -292,78 +279,60 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
             except BlockingIOError:
                 continue
             except OSError:
-                data = b""
-            if data == b"":
-                logger.info(
-                    "HTTP connection for session %s closed while awaiting control decision",
-                    session_id,
-                )
-                control_manager.cancel_session(session_id, reason="HTTP connection closed")
+                data = b''
+            if data == b'':
+                logger.info('HTTP connection for session %s closed while awaiting control decision', session_id)
+                control_manager.cancel_session(session_id, reason='HTTP connection closed')
                 return
+    '# -- validation helpers -------------------------------------------------'
 
-    # -- validation helpers -------------------------------------------------
     def _path_matches(self) -> bool:
         return urlparse(self.path).path == self.config.path
 
     def _check_origin(self) -> bool:
-        origin = self.headers.get("Origin")
+        origin = self.headers.get('Origin')
         if is_origin_allowed(self.config, origin):
             return True
-        self._send_http_error(HTTPStatus.FORBIDDEN, f"Origin not allowed: {origin}")
+        self._send_http_error(HTTPStatus.FORBIDDEN, f'Origin not allowed: {origin}')
         return False
 
     def _require_session_id(self) -> str | None:
         session_id = self.headers.get(self.config.session_header)
         if not session_id:
-            logger.error("Session id header not found")
-            self._send_jsonrpc_error(
-                HTTPStatus.BAD_REQUEST,
-                None,
-                errors.invalid_request(
-                    f"Missing required header: {self.config.session_header}"
-                ),
-                session_id=None,
-            )
+            logger.error('Session id header not found')
+            self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, None, errors.invalid_request(
+                f'Missing required header: {self.config.session_header}'), session_id=None)
             return None
-        if self.config.require_uuid_session and not is_valid_uuid(session_id):
-            logger.error("Session id is invalid UUID")
-            self._send_jsonrpc_error(
-                HTTPStatus.BAD_REQUEST,
-                None,
-                errors.invalid_request(
-                    f"{self.config.session_header} must be a valid UUID"
-                ),
-                session_id=session_id,
-            )
+        if self.config.require_uuid_session and (not is_valid_uuid(session_id)):
+            logger.error('Session id is invalid UUID')
+            self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, None, errors.invalid_request(
+                f'{self.config.session_header} must be a valid UUID'), session_id=session_id)
             return None
-        logger.debug("Session id: %s", session_id)
+        logger.debug('Session id: %s', session_id)
         return session_id
 
     def _check_protocol_version_header(self) -> bool:
-        version = self.headers.get("MCP-Protocol-Version")
+        version = self.headers.get('MCP-Protocol-Version')
         if version is None:
-            return True  # absent on the initial 'initialize' request
+            "# absent on the initial 'initialize' request"
+            return True
         if version in self.config.supported_protocol_versions:
             return True
-        self._send_http_error(
-            HTTPStatus.BAD_REQUEST, f"Unsupported MCP-Protocol-Version: {version}"
-        )
+        self._send_http_error(HTTPStatus.BAD_REQUEST, f'Unsupported MCP-Protocol-Version: {version}')
         return False
 
     def _read_body(self) -> bytes | None:
         try:
-            length = int(self.headers.get("Content-Length", 0))
+            length = int(self.headers.get('Content-Length', 0))
         except ValueError:
-            self._send_http_error(HTTPStatus.BAD_REQUEST, "Invalid Content-Length")
+            self._send_http_error(HTTPStatus.BAD_REQUEST, 'Invalid Content-Length')
             return None
         if length > self.config.max_body_bytes:
-            self._send_http_error(
-                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Request body too large"
-            )
+            self._send_http_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, 'Request body too large')
             return None
-        return self.rfile.read(length) if length else b""
+        return self.rfile.read(length) if length else b''
+    '# -- response helpers ---------------------------------------------------'
 
-    # -- response helpers ---------------------------------------------------
     def _base_headers(self, session_id: str | None) -> None:
         if session_id is not None:
             self.send_header(self.config.session_header, session_id)
@@ -371,51 +340,39 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
     def _send_json(self, status: HTTPStatus, body: bytes, session_id: str | None) -> None:
         try:
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
             self._base_headers(session_id)
             self.end_headers()
             self.wfile.write(body)
         except ConnectionResetError as exc:
-            logger.debug("Client disconnected before response could be sent: %s", exc)
+            logger.debug('Client disconnected before response could be sent: %s', exc)
 
     def _send_accepted(self, session_id: str | None) -> None:
         self._send_empty(HTTPStatus.ACCEPTED, session_id)
 
     def _send_empty(self, status: HTTPStatus, session_id: str | None) -> None:
         self.send_response(status)
-        self.send_header("Content-Length", "0")
+        self.send_header('Content-Length', '0')
         self._base_headers(session_id)
         self.end_headers()
 
     def _send_json_object(self, status: HTTPStatus, obj: dict[str, Any], session_id: str | None) -> None:
         self._send_json(status, jsonrpc.dumps(obj), session_id)
 
-    def _send_jsonrpc_error(
-        self,
-        status: HTTPStatus,
-        request_id,
-        error: errors.JsonRpcError,
-        session_id: str | None,
-    ) -> None:
+    def _send_jsonrpc_error(self, status: HTTPStatus, request_id, error: errors.JsonRpcError, session_id: str | None) -> None:
         response = jsonrpc.error_response(request_id, error)
         if session_id is not None:
             self.comm_log.log(session_id, OUT, response, http=self.command, status=int(status))
         self._send_json_object(status, response, session_id)
 
-    def _send_http_error(
-        self,
-        status: HTTPStatus,
-        message: str,
-        session_id: str | None = None,
-        extra_headers: dict[str, str] | None = None,
-    ) -> None:
-        # Body is a JSON-RPC error response with a null id, per the transport spec.
+    def _send_http_error(self, status: HTTPStatus, message: str, session_id: str | None=None, extra_headers: dict[str, str] | None=None) -> None:
+        """# Body is a JSON-RPC error response with a null id, per the transport spec."""
         response = jsonrpc.error_response(None, errors.JsonRpcError(-32600, message))
         body = jsonrpc.dumps(response)
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
         if extra_headers:
             for key, value in extra_headers.items():
                 self.send_header(key, value)

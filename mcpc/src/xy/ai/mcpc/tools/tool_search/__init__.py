@@ -48,9 +48,22 @@ def search_functions(functions: FunctionRegistry, keywords: str, seen: set[str])
 class ToolSearchTool(ToolDefinition):
     name = 'tool_search'
     title = 'Search function-based tools'
-    description = "Search function-based tools by space-separated English keywords, matched against each tool. Returns name + first docstring line, alphabetically sorted. Each function is only ever returned once per session."
-    input_schema = {'type': 'object', 'properties': {'keywords': {'type': 'string', 'description': 'Space-separated English keywords.'}}, 'required': ['keywords']}
-    output_schema = {'type': 'object', 'properties': {'tools': {'type': 'array', 'items': {'type': 'object', 'properties': {'name': {'type': 'string'}, 'docstring': {'type': 'string'}}, 'required': ['name']}}}, 'required': ['tools']}
+    description = 'Search function-based tools by space-separated English keywords, matched against each tool. Returns name + first docstring line, alphabetically sorted. Each function is only ever returned once per session.'
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'keywords': {
+                'type': 'string',
+                'description': 'Space-separated English keywords.'}},
+        'required': ['keywords']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'tools': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'name': {
+                            'type': 'string'}, 'docstring': {
+                                'type': 'string'}}, 'required': ['name']}}}, 'required': ['tools']}
     annotations = {'readOnlyHint': True, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:

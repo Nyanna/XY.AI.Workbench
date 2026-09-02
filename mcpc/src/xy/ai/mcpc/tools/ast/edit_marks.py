@@ -59,15 +59,59 @@ class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
     title = 'Edit AST node between markers'
     description = "In-node marker edit: replace everything strictly between and including the unique 'block_start' and 'block_end' markers, found within the node addressed by id, with 'content'. Ideal for focused in-section changes."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'block_start': {'type': 'string', 'minLength': 10, 'maxLength': 30, 'description': "Unique 10-30 char substring marking the beginning of the block, within the node's source."}, 'block_end': {'type': 'string', 'minLength': 10, 'maxLength': 30, 'description': "Unique 10-30 char substring marking the end of the block, within the node's source."}, 'content': {'type': 'string', 'description': 'Replacement source for the marked block.'}, 'exact': {'type': 'boolean', 'description': "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.", 'default': False}, **PATH_SELECTOR_PROPS}, 'required': ['path', 'block_start', 'block_end', 'content']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'id': {'type': 'string', 'description': "The node's new id, if the edit changed it."}}, 'required': ['result']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            'block_start': {
+                'type': 'string',
+                'minLength': 10,
+                'maxLength': 30,
+                'description': "Unique 10-30 char substring marking the beginning of the block, within the node's source."},
+            'block_end': {
+                'type': 'string',
+                        'minLength': 10,
+                        'maxLength': 30,
+                        'description': "Unique 10-30 char substring marking the end of the block, within the node's source."},
+            'content': {
+                'type': 'string',
+                'description': 'Replacement source for the marked block.'},
+            'exact': {
+                'type': 'boolean',
+                'description': "If true, 'block_start'/'block_end' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                'default': False},
+            **PATH_SELECTOR_PROPS},
+        'required': [
+            'path',
+            'block_start',
+            'block_end',
+            'content']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'result': {
+                'type': 'string'},
+            'id': {
+                'type': 'string',
+                'description': "The node's new id, if the edit changed it."}},
+        'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = ast_edit_marks(args['path'], args['block_start'], args['block_end'], args['content'], exact=args.get('exact', False), id=args.get('id'))
+            result = ast_edit_marks(
+                args['path'],
+                args['block_start'],
+                args['block_end'],
+                args['content'],
+                exact=args.get(
+                    'exact',
+                    False),
+                id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         content = {'result': result.result}

@@ -45,7 +45,13 @@ class ListNodesTool(ToolDefinition):
     name = 'ast_list'
     title = 'List AST nodes'
     description = "Hierarchical tree of a file's AST nodes (import/statement segments, classes, functions, sections) with id and line range – no source. Use ast_find to filter/search and get source, ast_read to read source by id."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}}, 'required': ['path']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'}},
+        'required': ['path']}
     output_schema = list_output_schema()
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 

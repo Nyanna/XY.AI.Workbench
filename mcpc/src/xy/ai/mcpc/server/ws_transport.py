@@ -44,45 +44,42 @@ never run directly on the asyncio event loop — doing so would stall every
 other WebSocket connection. Each request is therefore dispatched to a worker
 thread via ``loop.run_in_executor``.
 """
-
-
 import asyncio
 import logging
 import threading
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-
 from xy.ai.mcpc.server import errors, jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest, MessageKind
 from xy.ai.mcpc.utils.logging_utils import EVENT, IN, OUT
 from xy.ai.mcpc.server.session import Session, is_valid_uuid
 from xy.ai.mcpc.server.http_transport import apply_ccprofile_header, apply_tools_header, is_origin_allowed
-
 try:
     from websockets.asyncio.server import Server as _WsServer
     from websockets.asyncio.server import ServerConnection
     from websockets.asyncio.server import serve as ws_serve
     from websockets.exceptions import ConnectionClosed
-except ImportError:  # pragma: no cover - exercised only when the optional
-    # dependency is missing; WebSocketMcpServer() raises a clear error instead.
-    _WsServer = None  # type: ignore[assignment]
-    ServerConnection = Any  # type: ignore[assignment,misc]
-    ws_serve = None  # type: ignore[assignment]
-    ConnectionClosed = Exception  # type: ignore[assignment,misc]
-
+except ImportError:
+    '# pragma: no cover - exercised only when the optional'
+    '# dependency is missing; WebSocketMcpServer() raises a clear error instead.'
+    '# type: ignore[assignment]'
+    _WsServer = None
+    '# type: ignore[assignment,misc]'
+    ServerConnection = Any
+    '# type: ignore[assignment]'
+    ws_serve = None
+    '# type: ignore[assignment,misc]'
+    ConnectionClosed = Exception
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.utils.logging_utils import CommunicationLog
 from xy.ai.mcpc.server.mcp_protocol import McpProtocol
 from xy.ai.mcpc.server.session import SessionStore
-
-logger = logging.getLogger("xy.ai.mcpc.ws")
-
-#: WebSocket close code for "policy violation" (RFC 6455 §7.4.1), used for
-#: every handshake-time rejection (unknown endpoint, missing session id, ...).
+logger = logging.getLogger('xy.ai.mcpc.ws')
+'#: WebSocket close code for "policy violation" (RFC 6455 §7.4.1), used for'
+'#: every handshake-time rejection (unknown endpoint, missing session id, ...).'
 _POLICY_VIOLATION = 1008
-
 
 class WebSocketMcpServer:
     """Runs the MCP JSON-RPC protocol over WebSocket, next to the HTTP server.
@@ -91,39 +88,30 @@ class WebSocketMcpServer:
     transport so both interfaces operate on the same sessions and tools.
     """
 
-    def __init__(
-        self,
-        config: "ServerConfig",
-        protocol: "McpProtocol",
-        sessions: "SessionStore",
-        comm_log: "CommunicationLog",
-        environment: "AppEnvironment",
-    ) -> None:
-        if ws_serve is None:  # pragma: no cover - environment without the dep
+    def __init__(self, config: 'ServerConfig', protocol: 'McpProtocol', sessions: 'SessionStore', comm_log: 'CommunicationLog', environment: 'AppEnvironment') -> None:
+        """# pragma: no cover - environment without the dep"""
+        if ws_serve is None:
             raise RuntimeError(
-                "The 'websockets' package is required for the WebSocket "
-                "transport; install it with `pip install websockets`."
-            )
+                "The 'websockets' package is required for the WebSocket transport; install it with `pip install websockets`.")
         self.config = config
         self.protocol = protocol
         self.sessions = sessions
         self.comm_log = comm_log
         self.environment = environment
-
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
-        self._server: "_WsServer | None" = None
+        self._server: '_WsServer | None' = None
         self._ready = threading.Event()
         self._startup_error: BaseException | None = None
 
     @property
     def endpoint_url(self) -> str:
-        return f"ws://{self.config.resolved_ws_host}:{self.config.ws_port}{self.config.ws_path}"
+        return f'ws://{self.config.resolved_ws_host}:{self.config.ws_port}{self.config.ws_path}'
+    '# -- lifecycle ------------------------------------------------------------'
 
-    # -- lifecycle ------------------------------------------------------------
     def start(self) -> None:
         """Start the WebSocket server in a background thread and block until ready."""
-        self._thread = threading.Thread(target=self._run, name="mcpc-ws", daemon=True)
+        self._thread = threading.Thread(target=self._run, name='mcpc-ws', daemon=True)
         self._thread.start()
         self._ready.wait()
         if self._startup_error is not None:
@@ -139,129 +127,97 @@ class WebSocketMcpServer:
     def _run(self) -> None:
         try:
             asyncio.run(self._serve())
-        except BaseException as exc:  # noqa: BLE001 - surfaced to start()
+        except BaseException as exc:
+            '# noqa: BLE001 - surfaced to start()'
             self._startup_error = exc
             self._ready.set()
 
     async def _serve(self) -> None:
         self._loop = asyncio.get_running_loop()
-        async with ws_serve(
-            self._handle_connection,
-            self.config.resolved_ws_host,
-            self.config.ws_port,
-        ) as server:
+        async with ws_serve(self._handle_connection, self.config.resolved_ws_host, self.config.ws_port) as server:
             self._server = server
             self._ready.set()
             await server.serve_forever()
+    '# -- connection handling ---------------------------------------------------'
 
-    # -- connection handling ---------------------------------------------------
-    async def _handle_connection(self, connection: "ServerConnection") -> None:
+    async def _handle_connection(self, connection: 'ServerConnection') -> None:
         request = connection.request
         headers = request.headers
         parsed = urlparse(request.path)
         query = parse_qs(parsed.query)
-
         if parsed.path != self.config.path:
-            logger.warning("WS: unknown endpoint %s", parsed.path)
-            await connection.close(_POLICY_VIOLATION, "Unknown endpoint")
+            logger.warning('WS: unknown endpoint %s', parsed.path)
+            await connection.close(_POLICY_VIOLATION, 'Unknown endpoint')
             return
-
-        origin = headers.get("Origin")
+        origin = headers.get('Origin')
         if not is_origin_allowed(self.config, origin):
-            logger.warning("WS: origin forbidden: %s", origin)
-            await connection.close(_POLICY_VIOLATION, f"Origin not allowed: {origin}")
+            logger.warning('WS: origin forbidden: %s', origin)
+            await connection.close(_POLICY_VIOLATION, f'Origin not allowed: {origin}')
             return
-
         session_id = headers.get(self.config.session_header)
         if not session_id:
             session_id = (query.get(self.config.session_header) or [None])[0]
         if not session_id:
-            logger.warning("WS: session id missing")
-            await connection.close(
-                _POLICY_VIOLATION,
-                f"Missing required header: {self.config.session_header}",
-            )
+            logger.warning('WS: session id missing')
+            await connection.close(_POLICY_VIOLATION, f'Missing required header: {self.config.session_header}')
             return
-        if self.config.require_uuid_session and not is_valid_uuid(session_id):
-            logger.warning("WS: session id is not a valid UUID")
-            await connection.close(
-                _POLICY_VIOLATION, f"{self.config.session_header} must be a valid UUID"
-            )
+        if self.config.require_uuid_session and (not is_valid_uuid(session_id)):
+            logger.warning('WS: session id is not a valid UUID')
+            await connection.close(_POLICY_VIOLATION, f'{self.config.session_header} must be a valid UUID')
             return
-
-        skip_control = (headers.get(self.config.control_header, "") or "").lower() == "off"
-
+        skip_control = (headers.get(self.config.control_header, '') or '').lower() == 'off'
         session, created = self.sessions.get_or_create(session_id)
         if created:
-            self.comm_log.log(session_id, EVENT, {"event": "session.created", "transport": "ws"})
+            self.comm_log.log(session_id, EVENT, {'event': 'session.created', 'transport': 'ws'})
         session.touch()
-        apply_tools_header(
-            self.config, self.comm_log, session_id, session, headers.get(self.config.tools_header)
-        )
-        apply_ccprofile_header(
-            self.comm_log, session_id, session, headers.get(self.config.ccprofile_header)
-        )
-        self.comm_log.log(session_id, EVENT, {"event": "session.ws_connected"})
-
+        apply_tools_header(self.config, self.comm_log, session_id, session, headers.get(self.config.tools_header))
+        apply_ccprofile_header(self.comm_log, session_id, session, headers.get(self.config.ccprofile_header))
+        self.comm_log.log(session_id, EVENT, {'event': 'session.ws_connected'})
         try:
             async for raw in connection:
                 await self._handle_message(session_id, session, connection, raw, skip_control)
         except ConnectionClosed:
             pass
-        except Exception:  # noqa: BLE001 - never let one connection kill the loop
-            logger.exception("WS: unhandled error on connection for session %s", session_id)
+        except Exception:
+            '# noqa: BLE001 - never let one connection kill the loop'
+            logger.exception('WS: unhandled error on connection for session %s', session_id)
         finally:
-            self.comm_log.log(session_id, EVENT, {"event": "session.ws_disconnected"})
-            control_manager = getattr(self.environment, "control_manager", None) if self.environment else None
+            self.comm_log.log(session_id, EVENT, {'event': 'session.ws_disconnected'})
+            control_manager = getattr(self.environment, 'control_manager', None) if self.environment else None
             if control_manager is not None:
-                control_manager.cancel_session(session_id, reason="WebSocket connection closed")
+                control_manager.cancel_session(session_id, reason='WebSocket connection closed')
 
-    async def _handle_message(
-        self,
-        session_id: str,
-        session: Session,
-        connection: "ServerConnection",
-        raw: "str | bytes",
-        skip_control: bool,
-    ) -> None:
-        text = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else raw
+    async def _handle_message(self, session_id: str, session: Session, connection: 'ServerConnection', raw: 'str | bytes', skip_control: bool) -> None:
+        text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else raw
         try:
-            message = jsonrpc.parse_body(text.encode("utf-8"))
+            message = jsonrpc.parse_body(text.encode('utf-8'))
         except errors.JsonRpcError as exc:
-            self.comm_log.log(session_id, IN, JsonCodec.for_log(text), transport="ws", note="unparseable")
+            self.comm_log.log(session_id, IN, JsonCodec.for_log(text), transport='ws', note='unparseable')
             await self._send(connection, session_id, jsonrpc.error_response(None, exc))
             return
-
-        self.comm_log.log(session_id, IN, message, transport="ws")
-
+        self.comm_log.log(session_id, IN, message, transport='ws')
         try:
             kind = jsonrpc.classify(message)
             request = jsonrpc.to_request(message) if kind is not MessageKind.RESPONSE else None
         except errors.JsonRpcError as exc:
-            response = jsonrpc.error_response(message.get("id"), exc)
+            response = jsonrpc.error_response(message.get('id'), exc)
             await self._send(connection, session_id, response)
             return
-
         session.touch()
-
         if kind is MessageKind.REQUEST:
-            await self._handle_request(session_id, session, request, connection, skip_control)  # type: ignore[arg-type]
+            '# type: ignore[arg-type]'
+            await self._handle_request(session_id, session, request, connection, skip_control)
         elif kind is MessageKind.NOTIFICATION:
             try:
-                self.protocol.handle_notification(session, request)  # type: ignore[arg-type]
+                '# type: ignore[arg-type]'
+                self.protocol.handle_notification(session, request)
             except errors.JsonRpcError:
-                pass  # notifications never produce a response
-        # MessageKind.RESPONSE: this server issues no requests of its own,
-        # so a client-sent "response" has nothing to correlate to; ignore it.
+                '# notifications never produce a response'
+                pass
+        '# MessageKind.RESPONSE: this server issues no requests of its own,'
+        '# so a client-sent "response" has nothing to correlate to; ignore it.'
 
-    async def _handle_request(
-        self,
-        session_id: str,
-        session: Session,
-        request: JsonRpcRequest,
-        connection: "ServerConnection",
-        skip_control: bool,
-    ) -> None:
+    async def _handle_request(self, session_id: str, session: Session, request: JsonRpcRequest, connection: 'ServerConnection', skip_control: bool) -> None:
         loop = asyncio.get_running_loop()
 
         def _run() -> dict[str, Any]:
@@ -271,44 +227,36 @@ class WebSocketMcpServer:
                 return jsonrpc.success_response(request.id, result)
             except errors.JsonRpcError as exc:
                 return jsonrpc.error_response(request.id, exc)
-            except Exception as exc:  # noqa: BLE001 - never leak a stack trace
-                logger.exception("WS: unhandled error processing request")
+            except Exception as exc:
+                '# noqa: BLE001 - never leak a stack trace'
+                logger.exception('WS: unhandled error processing request')
                 return jsonrpc.error_response(request.id, errors.internal_error(str(exc)))
-
-        # Runs on a worker thread: `handle_request` blocks (session lock,
-        # human-in-the-loop approval) and must not stall the event loop.
+        '# Runs on a worker thread: `handle_request` blocks (session lock,'
+        '# human-in-the-loop approval) and must not stall the event loop.'
         request_future = loop.run_in_executor(None, _run)
-
-        control_manager = getattr(self.environment, "control_manager", None) if self.environment else None
+        control_manager = getattr(self.environment, 'control_manager', None) if self.environment else None
         if control_manager is not None:
-            # Race the (possibly hours-long) request against the connection
-            # closing so a pending approval is cancelled the moment the
-            # client disconnects, instead of only when it times out.
+            '# Race the (possibly hours-long) request against the connection'
+            '# closing so a pending approval is cancelled the moment the'
+            '# client disconnects, instead of only when it times out.'
             closed_future = asyncio.ensure_future(connection.wait_closed())
             try:
-                done, _pending = await asyncio.wait(
-                    {request_future, closed_future}, return_when=asyncio.FIRST_COMPLETED
-                )
+                done, _pending = await asyncio.wait({request_future, closed_future}, return_when=asyncio.FIRST_COMPLETED)
                 if closed_future in done and request_future not in done:
-                    control_manager.cancel_session(
-                        session_id, reason="WebSocket connection closed"
-                    )
+                    control_manager.cancel_session(session_id, reason='WebSocket connection closed')
             finally:
                 if not closed_future.done():
                     closed_future.cancel()
-            # The interceptor thread unblocks promptly once cancelled above;
-            # await it regardless so we always send/skip the final response.
+            '# The interceptor thread unblocks promptly once cancelled above;'
+            '# await it regardless so we always send/skip the final response.'
             response = await request_future
         else:
             response = await request_future
-
         await self._send(connection, session_id, response)
 
-    async def _send(
-        self, connection: "ServerConnection", session_id: str, response: dict[str, Any]
-    ) -> None:
-        self.comm_log.log(session_id, OUT, response, transport="ws")
+    async def _send(self, connection: 'ServerConnection', session_id: str, response: dict[str, Any]) -> None:
+        self.comm_log.log(session_id, OUT, response, transport='ws')
         try:
-            await connection.send(jsonrpc.dumps(response).decode("utf-8"))
+            await connection.send(jsonrpc.dumps(response).decode('utf-8'))
         except ConnectionClosed:
-            logger.debug("WS: client disconnected before response could be sent")
+            logger.debug('WS: client disconnected before response could be sent')

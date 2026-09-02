@@ -92,7 +92,20 @@ class FindNodesTool(ToolDefinition):
     name = 'ast_find'
     title = 'Find AST nodes'
     description = 'Filter the AST-node tree by type, name, id, line range, parent type, text substring or regexp. Returns matches with their full source.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, **SELECTOR_PROPS, 'text': {'type': 'string', 'description': "Case-insensitive substring the node's source must contain."}, 'regexp': {'type': 'string', 'description': "Regular expression the node's source must match (re.search)."}}, 'required': ['path']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            **SELECTOR_PROPS,
+            'text': {
+                'type': 'string',
+                'description': "Case-insensitive substring the node's source must contain."},
+            'regexp': {
+                'type': 'string',
+                        'description': "Regular expression the node's source must match (re.search)."}},
+        'required': ['path']}
     output_schema = list_output_schema()
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
@@ -101,7 +114,17 @@ class FindNodesTool(ToolDefinition):
         args: dict[str, Any] = ctx.arguments
         with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
         try:
-            result = ast_find(path=args.get('path'), id=args.get('id'), name=args.get('name'), node_type=args.get('node_type'), lineno=args.get('lineno'), end_lineno=args.get('end_lineno'), parent_type=args.get('parent_type'), text=args.get('text'), regexp=args.get('regexp'), with_lines=with_lines)
+            result = ast_find(
+                path=args.get('path'),
+                id=args.get('id'),
+                name=args.get('name'),
+                node_type=args.get('node_type'),
+                lineno=args.get('lineno'),
+                end_lineno=args.get('end_lineno'),
+                parent_type=args.get('parent_type'),
+                text=args.get('text'),
+                regexp=args.get('regexp'),
+                with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes]})

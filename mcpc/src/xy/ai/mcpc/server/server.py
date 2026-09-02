@@ -66,7 +66,10 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
     logger.debug('Initialising Session-Store')
     sessions = SessionStore()
     logger.debug('Initialising CLI-Manager')
-    cli_manager = CliSessionManager(log_dir=config.cli_log_dir, ttl_seconds=config.agent_session_ttl_seconds, response_timeout=config.agent_response_timeout_seconds)
+    cli_manager = CliSessionManager(
+        log_dir=config.cli_log_dir,
+        ttl_seconds=config.agent_session_ttl_seconds,
+        response_timeout=config.agent_response_timeout_seconds)
     control_manager: ToolControlManager | None = None
     if enable_control:
         logger.debug('Initialising Tool-Control-Manager')
@@ -77,9 +80,16 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
         registry = ToolRegistry()
     logger.debug('Initialising Function-Registry')
     functions = FunctionRegistry()
-    # The environment is built before tools are registered so registration
-    # can inject it into the handlers that need it (see register_tools()).
-    environment = AppEnvironment(config=config, registry=registry, functions=functions, sessions=sessions, cli_manager=cli_manager, profiles=profiles, control_manager=control_manager)
+    '# The environment is built before tools are registered so registration'
+    '# can inject it into the handlers that need it (see register_tools()).'
+    environment = AppEnvironment(
+        config=config,
+        registry=registry,
+        functions=functions,
+        sessions=sessions,
+        cli_manager=cli_manager,
+        profiles=profiles,
+        control_manager=control_manager)
     if not registry_given:
         register_tools(registry, environment)
     protocol = McpProtocol(config, registry, environment)

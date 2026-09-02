@@ -128,8 +128,12 @@ def read_file(path: str, min_line: int | None=None, max_line: int | None=None, m
         region_end = len(text)
     if region_end < region_start:
         raise ReadError('Resolved end position must not lie before the resolved start position.')
-    is_full_file = min_line is None and max_line is None and (min_char is None) and (max_char is None) and (start is None) and (end is None)
-    if not is_full_file and len(text) and (region_end - region_start) > 0.7 * len(text):
+    is_full_file = min_line is None and max_line is None and (
+        min_char is None) and (
+            max_char is None) and (
+                start is None) and (
+                    end is None)
+    if not is_full_file and len(text) and (region_end - region_start > 0.7 * len(text)):
         raise ReadError('The requested range selects more than 70% of the file. Read the whole file instead (omit the range parameters) and rely on the checksum-based conditional read to detect unchanged content.')
     sliced = text[region_start:region_end]
     checksum = hashlib.sha256(sliced.encode('utf-8')).hexdigest()
@@ -139,15 +143,61 @@ class ReadTool(ToolDefinition):
     name = 'read_file'
     title = 'Read file'
     description = "Read a file as text, optionally sliced to a range. Don't use to read directories."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute file path.'}, 'min_line': {'type': 'integer', 'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.', 'minimum': 1}, 'max_line': {'type': 'integer', 'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.', 'minimum': 1}, 'min_char': {'type': 'integer', 'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.', 'minimum': 0}, 'max_char': {'type': 'integer', 'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.', 'minimum': 0}, 'start': {'type': 'string', 'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'}, 'end': {'type': 'string', 'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}}, 'required': ['path']}
-    output_schema = {'type': 'object', 'properties': {'content': {'type': 'string'}, 'checksum': {'type': 'string', 'description': 'sha256 checksum of the read content.'}, 'unchanged': {'type': 'boolean', 'description': 'True if the content is identical to a previous read with the same parameters'}}, 'required': ['checksum']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute file path.'},
+            'min_line': {
+                'type': 'integer',
+                'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.',
+                'minimum': 1},
+            'max_line': {
+                'type': 'integer',
+                        'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.',
+                        'minimum': 1},
+            'min_char': {
+                'type': 'integer',
+                'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.',
+                'minimum': 0},
+            'max_char': {
+                'type': 'integer',
+                'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.',
+                'minimum': 0},
+            'start': {
+                'type': 'string',
+                'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'},
+            'end': {
+                'type': 'string',
+                'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}},
+        'required': ['path']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'content': {
+                'type': 'string'},
+            'checksum': {
+                'type': 'string',
+                'description': 'sha256 checksum of the read content.'},
+            'unchanged': {
+                'type': 'boolean',
+                        'description': 'True if the content is identical to a previous read with the same parameters'}},
+        'required': ['checksum']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`read_file`, then apply session-level change detection and MCP packing."""
         args: dict[str, Any] = ctx.arguments
         try:
-            result = read_file(path=args['path'], min_line=args.get('min_line'), max_line=args.get('max_line'), min_char=args.get('min_char'), max_char=args.get('max_char'), start=args.get('start'), end=args.get('end'))
+            result = read_file(
+                path=args['path'],
+                min_line=args.get('min_line'),
+                max_line=args.get('max_line'),
+                min_char=args.get('min_char'),
+                max_char=args.get('max_char'),
+                start=args.get('start'),
+                end=args.get('end'))
         except ReadError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         session = ctx.session

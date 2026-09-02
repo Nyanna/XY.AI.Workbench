@@ -47,8 +47,22 @@ class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'Read AST subtrees'
     description = "Recursively read the subtree of each addressed node (by id), surfacing each block's id and source so it can be handed to ast_replace/ast_edit_marks/ast_edit_block. Nodes whose body consists solely of nested classes/functions are expanded into 'children' instead of source, letting the agent descend to the innermost block that needs editing."
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute path to the file.'}, 'ids': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Node ids to read.'}}, 'required': ['ids', 'path']}
-    output_schema = {'$defs': {'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['nodes']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute path to the file.'},
+            'ids': {
+                'type': 'array',
+                'items': {
+                        'type': 'string'},
+                'description': 'Node ids to read.'}},
+        'required': [
+            'ids',
+            'path']}
+    output_schema = {'$defs': {'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {
+        'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['nodes']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

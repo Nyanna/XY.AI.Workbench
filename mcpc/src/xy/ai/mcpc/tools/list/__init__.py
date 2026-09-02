@@ -20,7 +20,23 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ListError', 'ListResult', 'list', 'ListTool', 'register_list_tool']
 _MAX_ENTRIES = 50
-_EXCLUDED_DIRS = {'.git', '.hg', '.svn', '__pycache__', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.tox', '.venv', 'venv', 'node_modules', '.idea', '.vscode', 'dist', 'build', '.cache'}
+_EXCLUDED_DIRS = {
+    '.git',
+    '.hg',
+    '.svn',
+    '__pycache__',
+    '.mypy_cache',
+    '.pytest_cache',
+    '.ruff_cache',
+    '.tox',
+    '.venv',
+    'venv',
+    'node_modules',
+    '.idea',
+    '.vscode',
+    'dist',
+    'build',
+    '.cache'}
 
 class ListError(Exception):
     """Raised when a directory listing cannot be performed."""
@@ -70,10 +86,7 @@ def list(path: str, pattern: str | None=None) -> ListResult:
             match_count += len(matched_files)
     if match_count > _MAX_ENTRIES:
         raise ListError(
-            f"Too many entries ({match_count}) exceed the limit of "
-            f"{_MAX_ENTRIES}. Narrow down the result using the "
-            "'pattern' regular expression parameter."
-        )
+            f"Too many entries ({match_count}) exceed the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter.")
     entries = []
     for rel_dir in sorted(groups):
         header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
@@ -85,8 +98,24 @@ class ListTool(ToolDefinition):
     name = 'list'
     title = 'List directory'
     description = 'List all files below an absolute directory path, recursively, as a flat list. Optionally filter the result with a regular expression.'
-    input_schema = {'type': 'object', 'properties': {'path': {'type': 'string', 'description': 'Absolute directory path.'}, 'pattern': {'type': 'string', 'description': 'Optional regular expression used to filter the result.'}}, 'required': ['path']}
-    output_schema = {'type': 'object', 'properties': {'entries': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['entries']}
+    input_schema = {
+        'type': 'object',
+        'properties': {
+            'path': {
+                'type': 'string',
+                'description': 'Absolute directory path.'},
+            'pattern': {
+                'type': 'string',
+                'description': 'Optional regular expression used to filter the result.'}},
+        'required': ['path']}
+    output_schema = {
+        'type': 'object',
+        'properties': {
+            'entries': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'}}},
+        'required': ['entries']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
