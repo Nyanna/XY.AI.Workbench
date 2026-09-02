@@ -1,6 +1,5 @@
 """File-system and shell tools for the MCPC server
 """
-
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -27,10 +26,9 @@ from xy.ai.mcpc.tools.tool_usage import register as register_tool_usage_tool
 from xy.ai.mcpc.tools.tool_call import register as register_tool_call_tool
 from xy.ai.mcpc.tools.ask_user import register_ask_user_tool
 from xy.ai.mcpc.tools.file_stats import register_file_stats_tool
-
-#: Tool-set alias grouping the function-registry discovery/usage/exec tools.
-TOOLS_ALIAS = "tools"
-_TOOLS_ALIAS_MEMBERS = ("tool_search", "tool_usage", "tool_call")
+'#: Tool-set alias grouping the function-registry discovery/usage/exec tools.'
+TOOLS_ALIAS = 'tools'
+_TOOLS_ALIAS_MEMBERS = ('tool_search', 'tool_usage', 'tool_call')
 
 def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register all built-in file-system and shell tools onto *registry*.
@@ -62,12 +60,4 @@ def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     register_tool_usage_tool(registry, functions)
     register_tool_call_tool(registry, functions)
     registry.register_alias(TOOLS_ALIAS, _TOOLS_ALIAS_MEMBERS)
-
-
-# Keep the old name available so existing call sites don't break.
-register_builtin_tools = register_tools
-
-__all__ = [
-    "register_tools",
-    "register_builtin_tools",
-]
+__all__ = ['register_tools']
