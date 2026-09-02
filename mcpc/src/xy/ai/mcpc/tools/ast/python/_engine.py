@@ -48,7 +48,7 @@ class _FormattingUnparser(ast._Unparser):
         prefix = line_so_far[len(indent):]
         if len(indent) + len(prefix) + len(text) <= self.MAX_LINE_LENGTH:
             return
-        formatted = autopep8.fix_code(prefix + text, options={'max_line_length': max(1, self.MAX_LINE_LENGTH - len(indent)), 'aggressive': 1}).rstrip('\n')
+        formatted = autopep8.fix_code(prefix + text, options={'max_line_length': max(1, self.MAX_LINE_LENGTH - len(indent)), 'indent_size': 2,'aggressive': 1}).rstrip('\n')
         first_line, _, rest = formatted.partition('\n')
         if not first_line.startswith(prefix):
             return
