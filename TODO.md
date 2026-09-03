@@ -1,4 +1,4 @@
-# TODO	
+# TODO
 ! Mehr grep xu Zeilennummern statt list, toolbeschreibungen verbessern, die kombi war optimal, also mit ast_find
 	* finding, grep war abensp 2stufig, grep durch viele dateien mit preview, zweiter call dann gezielt mit zeilennummer in datei
 
@@ -12,7 +12,7 @@
 
 ##  Workbench
 
-* ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen
+* ich möchte interaktive shell für refactoring per AST, die AI refactoring sessions waren zu ineffizient. Agent soll beim code helfen -> habe ich beim _engine umbau gehabt!
 	* micro promt in persistent cache context, vielleicht console in tandem mit editor sessions und session graph/state
 * Diff support für edit commands
 	* diff editor in Eclipse in memory aufrufen und Toolausgabe mit Action oder annotation versehen, "view as diff"
@@ -55,6 +55,6 @@
 
 ## Ideas
 
-* lokale claude code alternativre anbinden wie olama
+* lokale claude code alternativre anbinden wie olama -> deepseek auf openapisdh mit pay per token
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * weitere tools für research Semantic Scholar, arXiv API Access

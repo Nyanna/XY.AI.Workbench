@@ -9,6 +9,8 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 import re
 __all__ = ['GrepError', 'GrepMatch', 'grep', 'GrepTool', 'register_grep_tool']
 _MAX_STREAM_CHARS = 10000
+_DEFAULT_LIMIT = 15
+_MAX_LIMIT = 50
 
 class GrepError(Exception):
     """Raised when a grep search cannot be executed or its output cannot be parsed."""
@@ -33,7 +35,7 @@ def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
         matches.append(GrepMatch(directory=directory, filename=filename, match=rest))
     return matches
 
-def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None) -> ProcessResult:
+def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
     """Recursively search ``directory`` for ``pattern`` (extended regexp).
 
     Args:
@@ -41,12 +43,13 @@ def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include
         pattern: Extended regular expression (grep -E syntax).
         exclude: Glob of file names to exclude from the search, if given.
         include: Glob of file names to include in the search, if given.
+        limit: Maximum number of matching lines to return (1..``_MAX_LIMIT``).
 
     Returns:
         ProcessResult with:
             exit_code: 0 if matches were found, 1 if none were found, >=2 on grep error.
             stdout: Matching lines as 'path:line:content', with ``path`` relative to
-                ``directory``.
+                ``directory``, truncated to at most ``limit`` lines.
             stderr: Standard error output (up to 3000 chars; see stderr_file if longer).
             stdout_file: Absolute path to temp file with full stdout if to large.
             stderr_file: Absolute path to temp file with full stderr if to large.
@@ -55,6 +58,7 @@ def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include
         GrepError: If directory is not absolute.
         GrepError: If directory does not exist or is not a directory.
         GrepError: If pattern is empty.
+        GrepError: If limit is not between 1 and ``_MAX_LIMIT``.
         GrepError: If grep binary cannot be launched.
     """
     directory_path = Path(directory)
@@ -64,6 +68,8 @@ def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include
         raise GrepError('Directory not found or not a directory.')
     if not pattern:
         raise GrepError('pattern must not be empty.')
+    if not 1 <= limit <= _MAX_LIMIT:
+        raise GrepError(f'limit must be between 1 and {_MAX_LIMIT}.')
     cmd = ['grep', '--recursive', '--line-number', '--extended-regexp', '--binary-files=without-match', '--color=never']
     if include:
         cmd.append(f'--include={include}')
@@ -76,9 +82,11 @@ def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include
         raise GrepError(f'Failed to launch grep: {exc}') from exc
     prefix = str(directory_path).rstrip('/') + '/'
     stdout = re.sub(f'^{re.escape(prefix)}', '', result.stdout, flags=re.MULTILINE)
+    lines = stdout.splitlines()
+    stdout = '\n'.join(lines[:limit])
     return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
 
-def grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None) -> list[GrepMatch]:
+def grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None, limit: int=_DEFAULT_LIMIT) -> list[GrepMatch]:
     """Recursively search ``directory`` for ``pattern`` (extended regexp).
 
     Args:
@@ -86,6 +94,7 @@ def grep(directory: str, pattern: str, *, exclude: str | None=None, include: str
         pattern: Extended regular expression (grep -E syntax).
         exclude: Glob of file names to exclude from the search, if given.
         include: Glob of file names to include in the search, if given.
+        limit: Maximum number of matches to return (1..``_MAX_LIMIT``).
 
     Returns:
         List of GrepMatch objects, each with the directory (relative to ``directory``),
@@ -95,11 +104,12 @@ def grep(directory: str, pattern: str, *, exclude: str | None=None, include: str
         GrepError: If directory is not absolute.
         GrepError: If directory does not exist or is not a directory.
         GrepError: If pattern is empty.
+        GrepError: If limit is not between 1 and ``_MAX_LIMIT``.
         GrepError: If grep binary cannot be launched.
         GrepError: If grep exits with an error (exit code >= 2).
         GrepError: If the grep output cannot be parsed into directory, filename and match.
     """
-    result = _run_grep(directory, pattern, exclude=exclude, include=include)
+    result = _run_grep(directory, pattern, exclude=exclude, include=include, limit=limit)
     if result.exit_code >= 2:
         raise GrepError(f'grep failed (exit code {result.exit_code}): {result.stderr}')
     return _parse_grep_stdout(result.stdout)
@@ -122,7 +132,13 @@ class GrepTool(ToolDefinition):
                         'description': "Glob of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
             'include': {
                 'type': 'string',
-                'description': "Glob of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."}},
+                'description': "Glob of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
+            'limit': {
+                'type': 'integer',
+                'description': f'Maximum number of matching lines to return.',
+                'default': _DEFAULT_LIMIT,
+                'minimum': 1,
+                'maximum': _MAX_LIMIT}},
         'required': [
             'directory',
             'pattern']}
@@ -140,11 +156,13 @@ class GrepTool(ToolDefinition):
         """Delegate to :func:`_run_grep` and pack the result into the MCP output schema."""
         args: dict[str, Any] = ctx.arguments
         try:
+            limit = min(int(args.get('limit', _DEFAULT_LIMIT)), _MAX_LIMIT)
             result = _run_grep(
                 args['directory'],
                 args['pattern'],
                 exclude=args.get('exclude'),
-                include=args.get('include'))
+                include=args.get('include'),
+                limit=limit)
         except GrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(
