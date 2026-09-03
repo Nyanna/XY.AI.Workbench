@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 import re
 __all__ = ['GrepError', 'GrepMatch', 'grep', 'GrepTool', 'register_grep_tool']
-_MAX_STREAM_CHARS = 10000
 _DEFAULT_LIMIT = 15
 _MAX_LIMIT = 50
 
@@ -20,6 +19,7 @@ class GrepMatch:
     """A single grep match, parsed from a 'path:line:content' output line."""
     directory: str
     filename: str
+    lineno: int
     match: str
 
 def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
@@ -31,8 +31,11 @@ def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
         path, sep, rest = line.partition(':')
         if not sep:
             raise GrepError(f'Cannot parse grep output line: {line!r}')
+        lineno_str, sep, match = rest.partition(':')
+        if not sep or not lineno_str.isdigit():
+            raise GrepError(f'Cannot parse grep output line: {line!r}')
         directory, _, filename = path.rpartition('/')
-        matches.append(GrepMatch(directory=directory, filename=filename, match=rest))
+        matches.append(GrepMatch(directory=directory, filename=filename, lineno=int(lineno_str), match=match))
     return matches
 
 def _run_grep(directory: str, pattern: str, *, exclude: str | None=None, include: str | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
@@ -144,32 +147,40 @@ class GrepTool(ToolDefinition):
             'pattern']}
     output_schema = {
         'type': 'object', 'properties': {
-            'exit_code': {
-                'type': 'integer', 'description': '0 = matches found, 1 = none found'}, 'stdout': {
-                    'type': 'string'}, 'stderr': {
-                        'type': 'string'}, 'stdout_file': {
-                            'type': 'string', 'description': 'Absolute path to a file containing the full STDOUT.'}, 'stderr_file': {
-                                'type': 'string', 'description': 'Absolute path to a file containing the full STDERR.'}}, 'required': ['stdout']}
+            'matches': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'lineno': {
+                                'type': 'integer'}, 'match': {
+                                    'type': 'string'}}, 'required': [
+                                        'path', 'lineno', 'match']}}}, 'required': ['matches']}
     annotations = {'readOnlyHint': True, 'idempotentHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`_run_grep` and pack the result into the MCP output schema."""
+        """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
         try:
-            limit = min(int(args.get('limit', _DEFAULT_LIMIT)), _MAX_LIMIT)
-            result = _run_grep(
+            matches = grep(
                 args['directory'],
                 args['pattern'],
                 exclude=args.get('exclude'),
                 include=args.get('include'),
-                limit=limit)
+                limit=int(
+                    args.get(
+                        'limit',
+                        _DEFAULT_LIMIT)))
         except GrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(
-            result,
-            normalize_output=True,
-            omit_zero_exit_code=True,
-            max_stream_chars=_MAX_STREAM_CHARS)
+        return ToolResult(
+            structured_content={
+                'matches': [
+                    {
+                        'path': f'{
+                            match.directory}/{
+                                match.filename}' if match.directory else match.filename,
+                        'lineno': match.lineno,
+                        'match': match.match} for match in matches]})
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

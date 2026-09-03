@@ -1,7 +1,4 @@
 # TODO
-! Mehr grep xu Zeilennummern statt list, toolbeschreibungen verbessern, die kombi war optimal, also mit ast_find
-	* finding, grep war abensp 2stufig, grep durch viele dateien mit preview, zweiter call dann gezielt mit zeilennummer in datei
-
 * exa verbessern, outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
 	
 * ast script muss generisch werden
