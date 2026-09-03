@@ -2,8 +2,16 @@
 
 For complex reorganisation/optimisation the model can operate on the tree
 directly. The script runs with an empty ``__builtins__`` plus a small, curated
-set of safe names; the only capability handed in is the AST itself (``tree``)
-and the standard-library ``ast`` module. Any change to ``tree`` is persisted.
+set of safe names; the only capabilities handed in are ``tree`` (a
+:class:`ScriptTree` wrapping the parsed file) and the standard-library
+``ast`` module. Any change made through ``tree`` is persisted.
+
+``tree`` exposes the same locate/replace/insert/delete/append primitives the
+other ``ast_*`` tools use, so scripts work the same way for Python and
+tree-sitter files alike. ``tree.raw`` gives direct access to the engine-native
+tree (``ast.Module`` for Python, ``tree_sitter.Tree`` otherwise); only the
+Python ``ast.Module`` is safely mutable in place – tree-sitter's parse tree is
+read-only and must be edited through ``tree``'s methods instead.
 """
 import ast
 from dataclasses import dataclass
@@ -12,7 +20,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ScriptError', 'AstScriptResult', 'ast_script', 'ScriptTool', 'register']
+__all__ = ['ScriptTree', 'ScriptError', 'AstScriptResult', 'ast_script', 'ScriptTool', 'register']
 _SAFE_BUILTINS = {
     name: getattr(
         __builtins__,
@@ -50,6 +58,53 @@ _SAFE_BUILTINS = {
                 'type',
         'repr')}
 
+class ScriptTree:
+    """Engine-agnostic ``tree`` handle exposed to sandboxed scripts.
+
+    Wraps a :class:`core.Tree`, exposing the locate/replace/insert/delete/append
+    primitives the other ``ast_*`` tools use, so scripts behave identically
+    regardless of which engine parsed the file. ``raw`` gives direct access to
+    the engine-native tree; only the Python engine's ``ast.Module`` is safely
+    mutable in place, the tree-sitter engine's parse tree is read-only and
+    must be edited through the methods below.
+    """
+
+    def __init__(self, tree: core.Tree) -> None:
+        self._tree = tree
+
+    @property
+    def raw(self) -> Any:
+        return self._tree.raw
+
+    @property
+    def source(self) -> str:
+        return self._tree.source
+
+    @property
+    def path(self) -> Any:
+        return self._tree.path
+
+    def find(self, *, id: str | None=None, node_type: str | None=None, name: str | None=None, parent_type: str | None=None) -> list[core.Located]:
+        return core.find(self._tree, id=id, node_type=node_type, name=name, parent_type=parent_type)
+
+    def locate_all(self) -> list[core.Located]:
+        return core.locate_all(self._tree)
+
+    def node_code(self, loc: core.Located) -> str:
+        return core.edit_node_source(loc)
+
+    def replace(self, loc: core.Located, code: str) -> str | None:
+        return core.replace_node(loc, code)
+
+    def insert(self, loc: core.Located, code: str, position: str='after') -> int:
+        return core.insert_node(loc, code, position)
+
+    def delete(self, loc: core.Located) -> None:
+        core.delete_node(loc)
+
+    def append(self, code: str) -> int:
+        return core.append_nodes(self._tree, code)
+
 class ScriptError(Exception):
     """Raised when an AST script cannot be run to completion."""
 
@@ -66,13 +121,13 @@ class AstScriptResult:
     value: str | None = None
 
 def ast_script(path: str, code: str) -> AstScriptResult:
-    """Execute ``code`` in a restricted sandbox exposing the AST of ``path`` as ``tree``.
+    """Execute ``code`` in a restricted sandbox exposing the file's tree as ``tree``.
 
     ``code`` runs with an empty ``__builtins__`` plus a small, curated set of safe
-    names (see ``_SAFE_BUILTINS``); the only capabilities handed in are the parsed
-    tree (``tree``, an ``ast.Module``) and the standard-library ``ast`` module
-    itself. Any mutation of ``tree`` is unparsed and persisted to ``path`` on
-    success.
+    names (see ``_SAFE_BUILTINS``); the only capabilities handed in are ``tree``
+    (a :class:`ScriptTree`) and the standard-library ``ast`` module itself. Any
+    mutation made through ``tree`` is persisted to ``path`` on success, for any
+    file type the AST tools support (Python or tree-sitter).
 
     Args:
         path: Absolute path to the file whose AST is exposed as ``tree``.
@@ -89,9 +144,7 @@ def ast_script(path: str, code: str) -> AstScriptResult:
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    if tree.engine is not core.python.ENGINE:
-        raise core.AstError('ast_script operates on the Python AST; it is only available for Python files.')
-    env: dict[str, Any] = {'tree': tree.raw, 'ast': ast}
+    env: dict[str, Any] = {'tree': ScriptTree(tree), 'ast': ast}
     sandbox_globals = {'__builtins__': _SAFE_BUILTINS}
     try:
         '# noqa: S102'
@@ -108,17 +161,17 @@ def ast_script(path: str, code: str) -> AstScriptResult:
 
 class ScriptTool(ToolDefinition):
     name = 'ast_script'
-    title = 'Run AST python script'
-    description = "Run a restricted Python script code against a file's AST for complex/incremental transforms. Globals expose 'tree' (ast.Module) and 'ast'; assign 'result' to return data. Changes to 'tree' are saved. Imports are not allowed."
+    title = 'Run AST script'
+    description = "Run a restricted Python script code against a file's AST for complex/incremental transforms. Globals expose 'tree' (a ScriptTree with find/replace/insert/delete/append, plus 'tree.raw' for the engine-native ast.Module/tree_sitter.Tree) and 'ast'; assign 'result' to return data. Changes made through 'tree' are saved. Imports are not allowed."
     input_schema = {
         'type': 'object',
         'properties': {
             'path': {
                 'type': 'string',
-                'description': 'Absolute path to the Python file.'},
+                'description': 'Absolute path to the file.'},
             'code': {
                 'type': 'string',
-                'description': "Python script operating on 'tree';Environment is restricted; Don't use imports;"}},
+                'description': "Python script operating on 'tree' (find/replace/insert/delete/append); Environment is restricted; Don't use imports;"}},
         'required': [
             'path',
             'code']}

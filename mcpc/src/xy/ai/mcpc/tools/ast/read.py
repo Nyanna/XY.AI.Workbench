@@ -57,7 +57,7 @@ class ReadNodeTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                         'type': 'string'},
-                'description': 'AST node ids to read. Don\'t guess ID\'s'}},
+                'description': 'AST node ids to read. Don\'t guess ID\'s, use list or find'}},
         'required': [
             'ids',
             'path']}
