@@ -70,10 +70,12 @@ def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
-    title = 'Replace text block within AST node'
-    description = "In-node block edit: replace occurrence(s) of 'old_text' with 'new_text' within the node addressed by id. Prefer ast_edit_marks for larger, marker-delimited regions."
+    title = 'Replace short text within AST node'
+    description = "Replace occurrence of short 'old_text' with 'new_text', within the node addressed by id. Don't use for large edits, use ast_edit_marks instead."
     input_schema = {
         'type': 'object',
+        'strict': True,
+        'additionalProperties': False,
         'properties': {
             'path': {
                 'type': 'string',
@@ -82,17 +84,17 @@ class EditBlockNodeTool(ToolDefinition):
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 100,
-                'description': "Text (10-100 chars) to find within the node's source. Must occur exactly once, unless replaceAll is set."},
+                'description': "Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set."},
             'new_text': {
                 'type': 'string',
-                        'description': 'Replacement text (may be empty to delete the block).'},
+                        'description': 'Replacement text, may be empty to remove the text.'},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
                 'default': False},
             'replaceAll': {
                 'type': 'boolean',
-                'description': "If true, replace every occurrence of 'old_text' within the node instead of requiring a single unique match.",
+                'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
                 'default': False},
             **PATH_SELECTOR_PROPS},
         'required': [
@@ -106,7 +108,7 @@ class EditBlockNodeTool(ToolDefinition):
                 'type': 'string'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id, if the edit changed it."}},
+                'description': "The node's new id after changed."}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 

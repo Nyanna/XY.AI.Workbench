@@ -57,10 +57,12 @@ def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, 
 
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
-    title = 'Replace text within a AST node between markers'
-    description = "In-node marker edit: replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within the node addressed by id, with 'content'."
+    title = 'Replace large text regions within a AST node between markers'
+    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within the node addressed by id, with new 'content'."
     input_schema = {
         'type': 'object',
+        'strict': True,
+        'additionalProperties': False,
         'properties': {
             'path': {
                 'type': 'string',
