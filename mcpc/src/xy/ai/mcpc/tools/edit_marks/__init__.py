@@ -92,7 +92,7 @@ def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exac
 class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
     title = 'Replace text between two marks'
-    description = "Replace between and including the unique 'begin_marker' and 'end_marker' markers (both markers included) with 'content'. Rules: (1) 'begin_marker' and 'end_marker' must be unique. (2) 'begin_marker' must not contain 'end_marker' — they must not overlap. (3) The replaced region should be a few lines at most. (5) 'begin_marker' should mark only the prefix, 'end_marker' only the postfix."
+    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers with new 'content'."
     input_schema = {
         'type': 'object',
         'strict': True,
@@ -105,15 +105,15 @@ class EditMarksTool(ToolDefinition):
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique substring (10-30 chars) marking the beginning of the text to replace. Must occur exactly once in the file. "},
+                'description': "Unique 10-30 char substring marking the beginning of the text to replace."},
             'content': {
                 'type': 'string',
-                        'description': "Replacement text that will replace everything from the begin of 'begin_marker' to the end of 'end_marker', inclusive."},
+                        'description': "Replacement source for the marked text."},
             'end_marker': {
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique substring (10-30 chars) marking the end of the text to replace. Must occur exactly once in the file, at a position after 'begin_marker'."},
+                'description': "Unique 10-30 char substring marking the end of the text to replace"},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
