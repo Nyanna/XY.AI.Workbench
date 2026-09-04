@@ -5,10 +5,14 @@ result items, caches the full item (incl. url/text) by id, and returns only a
 trimmed overview; the matching stage-2 tool (``*_results``) resolves ids from
 that cache back to url/text.
 """
+import logging
 import random
 import string
-from typing import Any
-__all__ = ['normalize_item', 'strip_empty', 'ResultCache', 'search_cache', 'fetch_cache']
+from typing import Any, Callable
+from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError
+__all__ = ['normalize_item', 'strip_empty', 'extract_results', 'ResultCache', 'search_cache', 'fetch_cache', 'logger']
+'#: Shared logger for the whole ``exa`` tool family.'
+logger = logging.getLogger('xy.ai.mcpc.tools.mcp.exa')
 _ID_ALPHABET = string.digits + string.ascii_letters
 '#: Fields the Exa payload carries but that add no value for our tools.'
 _DROPPED_FIELDS = ('published_date', 'score', 'image', 'favicon', 'highlight_scores')
@@ -25,6 +29,63 @@ def strip_empty(value: Any) -> Any:
         return [strip_empty(v) for v in value]
     return value
 
+def extract_results(raw: dict[str, Any], remote_tool: str, *, text_parser: 'Callable[[str], list[dict[str, Any]]] | None'=None) -> list[dict[str, Any]]:
+    """Pull the ``results`` array out of a raw Exa ``CallToolResult`` payload.
+
+    ``McpBridge`` normally hands back either the remote's ``structuredContent``
+    or a dict parsed from a JSON text body. The Exa remote MCP server can
+    instead reply with a single human-readable *text* block (no
+    ``structuredContent``, not JSON) - in that case ``McpBridge`` falls back to
+    ``{"content": <raw text>}``. A bare ``raw.get('results', [])`` would read
+    that shape as "zero results" and silently return an empty, seemingly
+    successful response, discarding the actual page content and hiding the
+    real problem from both logs and the caller.
+
+    When *text_parser* is given and this fallback shape is hit, it is used to
+    parse Exa's markdown-ish plain-text format into result dicts instead of
+    immediately failing. If parsing yields nothing (or no *text_parser* was
+    given), this logs the full context (including a preview of what the
+    remote actually sent) and raises - so a genuine shape mismatch is never
+    silently mistaken for "no results found".
+
+    Raises:
+        McpBridgeError: if ``raw`` has no usable ``results`` array and the
+            text fallback (if any) did not recover any items.
+    """
+    results = raw.get('results')
+    if results is None:
+        content = raw.get('content')
+        if text_parser is not None and isinstance(content, str) and content.strip():
+            parsed = text_parser(content)
+            if parsed:
+                logger.info(
+                    "Exa '%s': remote sent unstructured text instead of structured data; recovered %d item(s) via markdown fallback parsing.",
+                    remote_tool,
+                    len(parsed))
+                return parsed
+            logger.warning(
+                "Exa '%s': remote sent unstructured text but the markdown fallback parser found no items in it (keys=%s).",
+                remote_tool,
+                sorted(
+                    raw.keys()))
+        preview = str(content if content is not None else raw)[:300]
+        logger.error(
+            "Exa '%s': response has no 'results' field (keys=%s); this usually means the remote server returned unstructured text instead of structured data. Preview: %r",
+            remote_tool,
+            sorted(
+                raw.keys()),
+            preview)
+        raise McpBridgeError(
+            f"Exa '{remote_tool}' returned an unexpected response shape (no 'results' field; keys={
+                sorted(
+                    raw.keys())}). The remote server likely sent unstructured text instead of structured data. Preview: {preview}")
+    if not isinstance(results, list):
+        logger.error("Exa '%s': 'results' field is not a list (got %s)", remote_tool, type(results).__name__)
+        raise McpBridgeError(
+            f"Exa '{remote_tool}' returned a malformed 'results' field (expected list, got {
+                type(results).__name__}).")
+    return results
+
 def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize one raw Exa result item for caching and display.
 
@@ -32,6 +93,9 @@ def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
     id, and renames ``highlights`` to ``excerpt`` - synthesizing the first and
     last 100 characters of ``text`` when no highlights were returned.
     """
+    if not isinstance(raw, dict):
+        logger.warning('Exa result item is not a dict (got %s), skipping its fields: %r', type(raw).__name__, raw)
+        raw = {}
     item = {k: v for k, v in raw.items() if k not in _DROPPED_FIELDS}
     item['id'] = item.get('id') or _random_id()
     excerpt = item.pop('highlights', None) or []

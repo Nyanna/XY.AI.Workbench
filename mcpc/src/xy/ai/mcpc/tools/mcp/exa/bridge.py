@@ -2,6 +2,7 @@
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
+from xy.ai.mcpc.tools.mcp.exa.core import logger
 __all__ = ['ExaBridge', 'init_bridge', 'get_bridge']
 
 class ExaBridge(McpBridge):
@@ -10,7 +11,9 @@ class ExaBridge(McpBridge):
     def build_client(self, config: ServerConfig) -> McpClient:
         api_key = config.exa_api_key
         if not api_key:
+            logger.error('Exa API key is not configured (MCPC_EXA_API_KEY / EXA_API_KEY unset).')
             raise McpClientError('Exa API key is not configured (set MCPC_EXA_API_KEY / EXA_API_KEY).')
+        logger.debug('Building Exa MCP client for endpoint %s', config.exa_mcp_url)
         return McpClient(config.exa_mcp_url, headers={'x-api-key': api_key})
 '#: Module-level bridge, built by :func:`~xy.ai.mcpc.tools.mcp.exa.register_exa_tools`.'
 _bridge: ExaBridge | None = None
@@ -22,5 +25,6 @@ def init_bridge(config: ServerConfig) -> None:
 def get_bridge() -> ExaBridge:
     """Return the module-level Exa bridge configured by ``register_exa_tools``."""
     if _bridge is None:
+        logger.error('Exa tools used before register_exa_tools() was called.')
         raise McpBridgeError('Exa tools used before register_exa_tools() was called.')
     return _bridge

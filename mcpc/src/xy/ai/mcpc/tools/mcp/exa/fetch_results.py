@@ -8,7 +8,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, strip_empty
+from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their url and full text.\n\nBest for: reading the full content of specific web_fetch_exa results; optionally pre-filter long pages line-wise with a regular expression.'
 _INPUT_SCHEMA: dict[str,
@@ -63,6 +63,9 @@ def web_fetch_exa_results(ids: list[str], pattern: str | None=None, context: int
         One entry per known id, with ``id``, ``url`` and ``text``.
     """
     items = fetch_cache.get_many(ids)
+    missing = [i for i in ids if i not in {item['id'] for item in items}]
+    if missing:
+        logger.warning('web_fetch_exa_results: unknown or expired id(s): %s', missing)
     results = []
     for item in items:
         text = item.get('text') or ''
@@ -89,7 +92,11 @@ class WebFetchExaResultsTool(ToolDefinition):
                     'context',
                     1))
         except re.error as exc:
+            logger.warning('web_fetch_exa_results: invalid pattern %r: %s', args.get('pattern'), exc)
             return ToolResult(content=[text_content(f'Invalid pattern: {exc}')], is_error=True)
+        except Exception as exc:
+            logger.exception('web_fetch_exa_results failed')
+            return ToolResult(content=[text_content(f'Error resolving web_fetch_exa results: {exc}')], is_error=True)
         return ToolResult(structured_content={'results': results}, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:

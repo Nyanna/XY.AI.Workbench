@@ -1,9 +1,9 @@
 """``web_search_exa_results`` - stage 2: resolve ``web_search_exa`` ids to url and text."""
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.mcp.exa.core import search_cache, strip_empty
+from xy.ai.mcpc.tools.mcp.exa.core import logger, search_cache, strip_empty
 __all__ = ['web_search_exa_results', 'WebSearchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_search_exa to their url and full text.\n\nBest for: reading the full content of specific web_search_exa results.'
 _INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {
@@ -29,6 +29,9 @@ def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
         One entry per known id, with ``id``, ``url`` and ``text``.
     """
     items = search_cache.get_many(ids)
+    missing = [i for i in ids if i not in {item['id'] for item in items}]
+    if missing:
+        logger.warning('web_search_exa_results: unknown or expired id(s): %s', missing)
     return [strip_empty({'id': item['id'], 'url': item.get('url'), 'text': item.get('text')}) for item in items]
 
 class WebSearchExaResultsTool(ToolDefinition):
@@ -40,7 +43,11 @@ class WebSearchExaResultsTool(ToolDefinition):
     annotations = _ANNOTATIONS
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        results = web_search_exa_results(ids=ctx.arguments['ids'])
+        try:
+            results = web_search_exa_results(ids=ctx.arguments['ids'])
+        except Exception as exc:
+            logger.exception('web_search_exa_results failed')
+            return ToolResult(content=[text_content(f'Error resolving web_search_exa results: {exc}')], is_error=True)
         return ToolResult(structured_content={'results': results}, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
