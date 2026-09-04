@@ -47,10 +47,18 @@ def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, 
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
+    stripped_start, stripped_end = (start_marker.strip(), end_marker.strip())
+    can_retry = not exact and (stripped_start != start_marker or stripped_end != end_marker)
     try:
         new_source = edit_marks_text(node_source, start_marker, end_marker, content, exact=exact)
     except EditMarksError as exc:
-        raise core.AstError(str(exc)) from exc
+        if not can_retry:
+            raise core.AstError(str(exc)) from exc
+        '# below, retrying with stripped markers is safe here (unlike for plain text).'
+        try:
+            new_source = edit_marks_text(node_source, stripped_start, stripped_end, content, exact=exact)
+        except EditMarksError:
+            raise core.AstError(str(exc)) from exc
     new_id = core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
     return EditMarksNodeResult(result='success', id=new_id)
@@ -94,7 +102,8 @@ class EditMarksNodeTool(ToolDefinition):
         'type': 'object',
         'properties': {
             'result': {
-                'type': 'string'},
+                'type': 'string',
+                'description': 'Result status'},
             'id': {
                 'type': 'string',
                 'description': "The node's new id."}},
@@ -116,10 +125,14 @@ class EditMarksNodeTool(ToolDefinition):
                 id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        content = {'result': result.result}
+        if result.id is not None:
+            message = f'Node {args.get('id')} was replaced with {result.id}'
+        else:
+            message = f'Node ID {args.get('id')} unchanged'
+        content = {'result': message}
         if result.id is not None:
             content['id'] = result.id
-        return ToolResult(structured_content=content, auto_approve=True)
+        return ToolResult(content=[text_content(message)], structured_content=content, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksNodeTool())

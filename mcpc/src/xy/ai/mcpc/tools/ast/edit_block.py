@@ -84,7 +84,7 @@ class EditBlockNodeTool(ToolDefinition):
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 100,
-                'description': "Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set."},
+                'description': 'Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set.'},
             'new_text': {
                 'type': 'string',
                         'description': 'Replacement text, may be empty to remove the text.'},
@@ -105,7 +105,8 @@ class EditBlockNodeTool(ToolDefinition):
         'type': 'object',
         'properties': {
             'result': {
-                'type': 'string'},
+                'type': 'string',
+                'description': 'Result status'},
             'id': {
                 'type': 'string',
                 'description': "The node's new id."}},
@@ -122,10 +123,14 @@ class EditBlockNodeTool(ToolDefinition):
                         'replaceAll', False), id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        content = {'result': result.result}
+        if result.id is not None:
+            message = f'Node {args.get('id')} was replaced with {result.id}'
+        else:
+            message = f'Node ID {args.get('id')} unchanged'
+        content = {'result': message}
         if result.id is not None:
             content['id'] = result.id
-        return ToolResult(structured_content=content, auto_approve=True)
+        return ToolResult(content=[text_content(message)], structured_content=content, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

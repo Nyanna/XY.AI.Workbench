@@ -62,7 +62,8 @@ class ReplaceNodeTool(ToolDefinition):
         'type': 'object',
         'properties': {
             'result': {
-                'type': 'string'},
+                'type': 'string',
+                'description': 'Result status'},
             'id': {
                 'type': 'string',
                 'description': "The node's new id."}},
@@ -76,10 +77,14 @@ class ReplaceNodeTool(ToolDefinition):
             result = ast_replace(args['path'], args['source'], id=args.get('id'))
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        content = {'result': result.result}
+        if result.id is not None:
+            message = f'Node {args.get('id')} was replaced with {result.id}'
+        else:
+            message = f'Node ID {args.get('id')} unchanged'
+        content = {'result': message}
         if result.id is not None:
             content['id'] = result.id
-        return ToolResult(structured_content=content, auto_approve=True)
+        return ToolResult(content=[text_content(message)], structured_content=content, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())

@@ -12,4 +12,5 @@
 * Always use build-scripts to save analyzation costs
 	* A syntax validation and postprocessing turned out to be very effectice
 * AST Editing with smaller file like semantic segmentation and edit is very efficient
-* Use parameter cache to inform nothing changed for repeated requests (Tools, Files, Retrieval) 
+* Use parameter cache to inform nothing changed for repeated requests (Tools, Files, Retrieval)
+* Agents preffer batch/bulk processing over iteration

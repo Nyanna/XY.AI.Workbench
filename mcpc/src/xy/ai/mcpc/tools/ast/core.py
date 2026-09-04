@@ -16,7 +16,7 @@ import hashlib
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, OutlineNode, OUTLINE_NODE_SCHEMA, Tree, build_outline, find, line_range, matches, most_specific, node_outline, read_subtrees, require_path
+from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, OutlineNode, OUTLINE_NODE_SCHEMA, Tree, build_outline, find, line_range, matches, most_specific, node_outline, read_subtrees, require_path, to_dict
 from xy.ai.mcpc.tools.ast import generic
 from xy.ai.mcpc.tools.ast import python
 _PYTHON_EXTENSIONS = ('.py', '.pyi')
