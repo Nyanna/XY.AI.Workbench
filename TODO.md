@@ -1,6 +1,5 @@
 # TODO
-* batch all meaningfull commands
-* exa verbessern, outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
+* open alex zweistufig optimieren
 	
 * Tests reparieren
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session

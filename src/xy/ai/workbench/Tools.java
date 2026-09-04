@@ -8,7 +8,7 @@ public class Tools {
 					+ "ast,ast_script," // python ast
 					+ "bash,python," // scripting
 					+ "markdown,markdown_format," // Dynamic code tools
-					+ "colgrep,web_search_exa,web_fetch_exa," // research cpabilities
+					+ "colgrep,exa," // research cpabilities
 					+ "context7_libraries,context7_documentation," // specialised research
 					+ "openalex_search,openalex_semantic_search,openalex_work," 
 					+ "edit_chars," // seldom used

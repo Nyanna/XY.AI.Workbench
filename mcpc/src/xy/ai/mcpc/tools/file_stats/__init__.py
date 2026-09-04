@@ -15,6 +15,8 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'FileStatsError',
     'FileStatsResult',
+    'TextStatsResult',
+    'compute_text_stats',
     'compute_file_stats',
     'file_stats',
     'FileStatsTool',
@@ -58,6 +60,47 @@ def _calculate_complexity(text: str) -> float:
     complexity = char_type_score * 0.4 + entropy_score * 0.6
     return round(complexity, 3)
 
+@dataclass(frozen=True)
+class TextStatsResult:
+    size_bytes: int
+    lines: int
+    words: int
+    complexity: float
+    line_length_max: int
+    line_length_min: int
+    line_length_avg: float
+    words_per_line_avg: float
+    checksum: str
+
+def compute_text_stats(text: str) -> TextStatsResult:
+    """Compute size/line/word/complexity metrics for *text*.
+
+    Extracted from :func:`compute_file_stats` so string content (e.g. fetched
+    web pages) can be scored the same way without touching the filesystem.
+    """
+    lines = text.splitlines()
+    size_bytes = len(text.encode('utf-8'))
+    num_lines = len(lines)
+    num_words = len(text.split())
+    complexity = _calculate_complexity(text)
+    checksum = hashlib.sha256(text.encode('utf-8')).hexdigest()
+    line_lengths = [len(line) for line in lines] if lines else [0]
+    line_length_max = max(line_lengths)
+    line_length_min = min(line_lengths)
+    line_length_avg = round(sum(line_lengths) / len(line_lengths), 2)
+    words_per_line = [len(line.split()) for line in lines]
+    words_per_line_avg = round(sum(words_per_line) / len(words_per_line), 2) if words_per_line else 0.0
+    return TextStatsResult(
+        size_bytes=size_bytes,
+        lines=num_lines,
+        words=num_words,
+        complexity=complexity,
+        line_length_max=line_length_max,
+        line_length_min=line_length_min,
+        line_length_avg=line_length_avg,
+        words_per_line_avg=words_per_line_avg,
+        checksum=checksum)
+
 def compute_file_stats(path: Path) -> FileStatsResult:
     """Compute the file-metrics block for *path* (also reused by the outline tool).
 
@@ -65,18 +108,8 @@ def compute_file_stats(path: Path) -> FileStatsResult:
     """
     raw_bytes = path.read_bytes()
     text = raw_bytes.decode('utf-8', errors='replace')
-    lines = text.splitlines()
-    size_bytes = len(raw_bytes)
-    num_lines = len(lines)
-    num_words = len(text.split())
-    complexity = _calculate_complexity(text)
-    checksum = hashlib.sha256(text.encode('utf-8')).hexdigest()
-    line_lengths = [len(line) for line in lines] if lines else [0]
-    line_length_max = max(line_lengths) if line_lengths else 0
-    line_length_min = min(line_lengths) if line_lengths else 0
-    line_length_avg = round(sum(line_lengths) / len(line_lengths), 2) if line_lengths else 0.0
-    words_per_line = [len(line.split()) for line in lines]
-    words_per_line_avg = round(sum(words_per_line) / len(words_per_line), 2) if words_per_line else 0.0
+    text_stats = asdict(compute_text_stats(text))
+    text_stats['size_bytes'] = len(raw_bytes)
     stat = path.stat()
     created = datetime.fromtimestamp(stat.st_birthtime if hasattr(stat, 'st_birthtime')
                                      else stat.st_mtime, tz=timezone.utc).isoformat()
@@ -85,18 +118,10 @@ def compute_file_stats(path: Path) -> FileStatsResult:
     return FileStatsResult(
         path=str(
             path.resolve()),
-        size_bytes=size_bytes,
-        lines=num_lines,
-        words=num_words,
-        complexity=complexity,
         created=created,
         modified=modified,
         accessed=accessed,
-        line_length_max=line_length_max,
-        line_length_min=line_length_min,
-        line_length_avg=line_length_avg,
-        words_per_line_avg=words_per_line_avg,
-        checksum=checksum)
+        **text_stats)
 
 def file_stats(path: str) -> FileStatsResult:
     """Compute file metrics for the absolute path ``path``.
