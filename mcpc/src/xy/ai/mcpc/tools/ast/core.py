@@ -16,7 +16,7 @@ import hashlib
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, OutlineNode, OUTLINE_NODE_SCHEMA, Tree, build_outline, find, line_range, matches, most_specific, node_outline, read_subtrees, require_path, to_dict
+from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, OutlineNode, OUTLINE_NODE_SCHEMA, Tree, build_outline, find, line_range, matches, most_specific, node_outline, read_subtrees, require_path
 from xy.ai.mcpc.tools.ast import generic
 from xy.ai.mcpc.tools.ast import python
 _PYTHON_EXTENSIONS = ('.py', '.pyi')
@@ -111,10 +111,10 @@ def relocate(tree: Tree, old: Located) -> Located | None:
     return candidates[0] if candidates else None
 
 def replace_node(loc: Located, code: str) -> str | None:
-    """Replace ``loc``'s node with ``code``; return its new id if the id changed."""
+    """Replace ``loc``'s node with ``code``; return its new id."""
     loc.tree.engine.replace(loc, code)
     new_loc = relocate(loc.tree, loc)
-    return new_loc.node_id if new_loc and new_loc.node_id != loc.node_id else None
+    return new_loc.node_id if new_loc and new_loc.node_id != loc.node_id else loc.node_id
 
 def insert_node(loc: Located, code: str, position: str) -> int:
     return loc.tree.engine.insert(loc, code, position)

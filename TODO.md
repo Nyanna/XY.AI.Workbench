@@ -1,4 +1,5 @@
 # TODO
+* block content hash changed from -> to formulieren in text "Node X was replaced with Y"
 * exa verbessern, outline vorstufe mit read war sehr effektiv, das gleiche mit exa machen, nur übersicht mit title und result hash id, dann bulk request nach search details (2 stufig), alle results im cache für später
 	
 * Tests reparieren

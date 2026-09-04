@@ -108,7 +108,7 @@ class EditBlockNodeTool(ToolDefinition):
                 'type': 'string'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id after changed."}},
+                'description': "The node's new id."}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 

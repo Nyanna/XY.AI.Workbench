@@ -97,7 +97,7 @@ class EditMarksNodeTool(ToolDefinition):
                 'type': 'string'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id, if the edit changed it."}},
+                'description': "The node's new id."}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 

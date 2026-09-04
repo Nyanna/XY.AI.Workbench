@@ -65,7 +65,7 @@ class ReplaceNodeTool(ToolDefinition):
                 'type': 'string'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id, if the replacement changed it."}},
+                'description': "The node's new id."}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
