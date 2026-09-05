@@ -14,3 +14,4 @@
 * AST Editing with smaller file like semantic segmentation and edit is very efficient
 * Use parameter cache to inform nothing changed for repeated requests (Tools, Files, Retrieval)
 * Agents preffer batch/bulk processing over iteration
+* Tools should be as hallucination tolerant as possible

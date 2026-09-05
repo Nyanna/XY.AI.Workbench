@@ -10,6 +10,7 @@ Verify for new tools MCP part.
 * Check input and output for technical limits; reduce input and output as much as semantically meaningfull
 * Never reflect input paramaeters, not even in error output
 * On MCP passthrough always reduce limits like results on pages
+* Tools should be as hallucination tolerant as possible and guess and correct/anticipate input
 
 For Python module direct call:
 

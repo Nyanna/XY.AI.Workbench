@@ -5,7 +5,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
-from xy.ai.mcpc.tools.edit_marks import EditMarksError, edit_marks_text
+from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['EditMarksNodeResult', 'ast_edit_marks', 'EditMarksNodeTool', 'register']
 
@@ -20,11 +20,19 @@ class EditMarksNodeResult:
     result: str
     id: str | None = None
 
+def _node_marks_guard(engine, begin_marker, end_marker):
+    """Guard for tolerant marker edits (see ``ast.edit_block._node_guard``)."""
+    if engine.validates_syntax:
+        return None
+    keep_lines = marks_line_preserving(begin_marker, end_marker)
+    return lambda begin, end, result: keep_lines(begin, end, result) and engine.validate(result) is None
+
 def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, *, exact: bool=False, id: str | None=None) -> EditMarksNodeResult:
     """Replace everything between the 'start_marker' and 'end_marker' markers inside a node addressed by id.
 
     The addressed node's source is unparsed, edited between the two markers (both
-    included) as with ``edit_marks``, re-parsed, and used to replace the node.
+    included) with escalating whitespace/escape/quote tolerance, re-parsed, and
+    used to replace the node.
 
     Args:
         path: Absolute path to the file to modify.
@@ -47,18 +55,12 @@ def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, 
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
-    stripped_start, stripped_end = (start_marker.strip(), end_marker.strip())
-    can_retry = not exact and (stripped_start != start_marker or stripped_end != end_marker)
+    begin, end = (start_marker, end_marker) if exact else (start_marker.strip(), end_marker.strip())
     try:
-        new_source = edit_marks_text(node_source, start_marker, end_marker, content, exact=exact)
-    except EditMarksError as exc:
-        if not can_retry:
-            raise core.AstError(str(exc)) from exc
-        '# below, retrying with stripped markers is safe here (unlike for plain text).'
-        try:
-            new_source = edit_marks_text(node_source, stripped_start, stripped_end, content, exact=exact)
-        except EditMarksError:
-            raise core.AstError(str(exc)) from exc
+        new_source = replace_between(node_source, begin, end, content, exact=exact, accept=_node_marks_guard(
+            tree.engine, begin, end), max_level=3 if tree.engine.validates_syntax else 2, where='node')
+    except TextMatchError as exc:
+        raise core.AstError(str(exc)) from exc
     new_id = core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
     return EditMarksNodeResult(result='success', id=new_id)

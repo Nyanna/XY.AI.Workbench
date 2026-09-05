@@ -5,7 +5,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
-from xy.ai.mcpc.tools._text_match import find as find_text, find_all as find_all_text
+from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['EditBlockNodeResult', 'ast_edit_block', 'EditBlockNodeTool', 'register']
 
@@ -20,21 +20,16 @@ class EditBlockNodeResult:
     result: str
     id: str | None = None
 
-def _replace_block(source: str, old_text: str, new_text: str, *, exact: bool, replace_all: bool) -> str:
-    if replace_all:
-        matches = find_all_text(source, old_text, exact=exact)
-        if not matches:
-            raise core.AstError('Text not found in node.')
-        result = source
-        for match in sorted(matches, key=lambda m: m.start, reverse=True):
-            result = result[:match.start] + new_text + result[match.end:]
-        return result
-    match = find_text(source, old_text, exact=exact)
-    if match.count == 0:
-        raise core.AstError('Text not found in node.')
-    if match.count > 1:
-        raise core.AstError(f'Text is ambiguous – found {match.count} occurrences in node.')
-    return source[:match.start] + new_text + source[match.end:]
+def _node_guard(engine, reference):
+    """Guard for tolerant node edits.
+
+    Engines that flag malformed edits on replace need no extra check. Others
+    (e.g. markup grammars) must not merge lines and must still re-parse cleanly.
+    """
+    if engine.validates_syntax:
+        return None
+    keep_lines = line_preserving(reference)
+    return lambda span, result: keep_lines(span, result) and engine.validate(result) is None
 
 def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False, replace_all: bool=False, id: str | None=None) -> EditBlockNodeResult:
     """Replace occurrence(s) of ``old_text`` with ``new_text`` inside a node addressed by id.
@@ -63,7 +58,20 @@ def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=id)
     node_source = core.edit_node_source(target)
-    new_source = _replace_block(node_source, old_text, new_text, exact=exact, replace_all=replace_all)
+    try:
+        new_source = replace_in_block(
+            node_source,
+            old_text,
+            new_text,
+            exact=exact,
+            replace_all=replace_all,
+            accept=_node_guard(
+                tree.engine,
+                old_text),
+            max_level=3 if tree.engine.validates_syntax else 2,
+            where='node')
+    except TextMatchError as exc:
+        raise core.AstError(str(exc)) from exc
     new_id = core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
     return EditBlockNodeResult(result='success', id=new_id)

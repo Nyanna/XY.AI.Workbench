@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._text_match import find as find_text
+from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'EditMarksError',
@@ -24,7 +24,9 @@ class EditMarksResult:
 def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str, exact: bool=False) -> str:
     """Replace everything between and including 'begin_marker' and 'end_marker' with content, in *text*.
 
-    Both markers are included in the replacement.
+    Both markers are included in the replacement. Matching escalates through
+    whitespace/escape/quote tolerance; each marker match must keep its own line
+    count, so tolerant matching never merges lines into a syntax error.
 
     Args:
         text: Source text to edit.
@@ -40,19 +42,21 @@ def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str,
         EditMarksError: If start or end markers are not found or appear more than once.
         EditMarksError: If end marker does not start after start marker ends.
     """
-    start_match = find_text(text, begin_marker, exact=exact)
-    if start_match.count == 0:
-        raise EditMarksError('Start marker not found in file.')
-    if start_match.count > 1:
-        raise EditMarksError(f'Start marker is ambiguous – found {start_match.count} occurrences in file.')
-    end_match = find_text(text, end_marker, exact=exact)
-    if end_match.count == 0:
-        raise EditMarksError('End marker not found in file.')
-    if end_match.count > 1:
-        raise EditMarksError(f'End marker is ambiguous – found {end_match.count} occurrences in file.')
-    if end_match.start < start_match.end:
-        raise EditMarksError('End marker must start after start marker ends.')
-    return text[:start_match.start] + content + text[end_match.end:]
+    begin, end = (begin_marker, end_marker) if exact else (begin_marker.strip(), end_marker.strip())
+    try:
+        return replace_between(
+            text,
+            begin,
+            end,
+            content,
+            exact=exact,
+            accept=marks_line_preserving(
+                begin,
+                end),
+            max_level=2,
+            where='file')
+    except TextMatchError as exc:
+        raise EditMarksError(str(exc)) from exc
 
 def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exact: bool=False) -> EditMarksResult:
     """Replace everything between and including 'start' and 'end' with content.
@@ -82,7 +86,7 @@ def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exac
     if not file_path.is_file():
         raise EditMarksError('Not a regular file.')
     text = file_path.read_text(encoding='utf-8')
-    result_text = edit_marks_text(text, begin_marker, end_marker, content, exact=exact)
+    result_text = edit_marks_text(text, begin_marker, content, end_marker, exact=exact)
     try:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
@@ -105,15 +109,15 @@ class EditMarksTool(ToolDefinition):
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique 10-30 char substring marking the beginning of the text to replace."},
+                'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
             'content': {
                 'type': 'string',
-                        'description': "Replacement source for the marked text."},
+                        'description': 'Replacement source for the marked text.'},
             'end_marker': {
                 'type': 'string',
                 'minLength': 10,
                 'maxLength': 30,
-                'description': "Unique 10-30 char substring marking the end of the text to replace"},
+                'description': 'Unique 10-30 char substring marking the end of the text to replace'},
             'exact': {
                 'type': 'boolean',
                 'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",

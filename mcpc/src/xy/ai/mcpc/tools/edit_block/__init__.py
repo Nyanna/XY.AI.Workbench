@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._text_match import find as find_text, find_all as find_all_text
+from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['EditBlockError', 'EditBlockResult', 'edit_block', 'EditBlockTool', 'register_edit_block_tool']
 
@@ -17,6 +17,10 @@ class EditBlockResult:
 
 def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, replace_all: bool=False) -> EditBlockResult:
     """Replace occurrence(s) of ``old_text`` in the file at ``path`` with ``new_text``.
+
+    Matching escalates through whitespace/escape/quote tolerance; a candidate is
+    only accepted when it preserves ``old_text``'s line structure, so no two lines
+    are merged into a syntax error.
 
     Args:
         path: Absolute path to file (must be a regular file).
@@ -44,20 +48,18 @@ def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, repla
     if not file_path.is_file():
         raise EditBlockError('Not a regular file.')
     text = file_path.read_text(encoding='utf-8')
-    if replace_all:
-        matches = find_all_text(text, old_text, exact=exact)
-        if not matches:
-            raise EditBlockError('Text not found in file.')
-        result_text = text
-        for match in sorted(matches, key=lambda m: m.start, reverse=True):
-            result_text = result_text[:match.start] + new_text + result_text[match.end:]
-    else:
-        match = find_text(text, old_text, exact=exact)
-        if match.count == 0:
-            raise EditBlockError('Text not found in file.')
-        if match.count > 1:
-            raise EditBlockError(f'Text is ambiguous – found {match.count} occurrences in file.')
-        result_text = text[:match.start] + new_text + text[match.end:]
+    try:
+        result_text = replace_in_block(
+            text,
+            old_text,
+            new_text,
+            exact=exact,
+            replace_all=replace_all,
+            accept=line_preserving(old_text),
+            max_level=2,
+            where='file')
+    except TextMatchError as exc:
+        raise EditBlockError(str(exc)) from exc
     try:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:

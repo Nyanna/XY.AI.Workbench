@@ -65,6 +65,7 @@ def _unparse(node: ast.AST) -> str:
 class PythonEngine(Engine):
     """``ast``-based engine: comment-preserving parse, ``unparse`` serialisation."""
     name = 'python'
+    validates_syntax = True
 
     def parse(self, source: str, path: Path | None=None) -> Tree:
         return Tree(self, self._parse_module(source), source, path)

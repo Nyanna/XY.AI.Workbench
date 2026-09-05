@@ -272,6 +272,10 @@ class Engine(ABC):
     """
     '#: Human-readable engine name (used e.g. to guard Python-only tools).'
     name: str = 'engine'
+    '#: Whether ``validate``/``replace`` reliably reject malformed edits. Only then'
+    '#: may callers rely on re-parse to catch corruption (false for markup grammars'
+    '#: whose parser accepts almost any text without reporting errors).'
+    validates_syntax: bool = False
 
     @abstractmethod
     def parse(self, source: str, path: Path | None=None) -> Tree:
