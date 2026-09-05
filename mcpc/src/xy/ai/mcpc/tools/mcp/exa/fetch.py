@@ -1,8 +1,8 @@
 """``web_fetch_exa`` - stage 1 of the two-stage Exa fetch retrieval.
 
-Fetches page content and caches each full result (incl. text and url) by id;
-returns only an overview with file_stats-style text metrics, no text/url.
-Call ``web_fetch_exa_results`` with the returned ids to resolve url and text.
+Fetches page content and caches each full result (incl. text) by id; returns
+an overview with url and file_stats-style text metrics, but no text. Call
+``web_fetch_exa_results`` with the returned ids to resolve the full text.
 """
 import re
 from dataclasses import asdict, dataclass
@@ -38,7 +38,8 @@ _METRICS_SCHEMA: dict[str,
 _ITEM_SCHEMA: dict[str,
                    Any] = {'type': 'object',
                            'properties': {'id': {'type': 'string',
-                                                 'description': 'Result id; pass to web_fetch_exa_results for url and text.'},
+                                                 'description': 'Result id; pass to web_fetch_exa_results for text.'},
+                                          'url': {'type': 'string'},
                                           'title': {'type': 'string'},
                                           'author': {'type': 'string'},
                                           'summary': {'type': 'string'},
@@ -65,7 +66,8 @@ def _web_fetch_exa_raw(urls: list[str], maxCharacters: int | None=None) -> dict[
 '#: markdown H1 title line immediately followed by a ``URL:`` line, a blank'
 "#: line, then the page's extracted markdown content; consecutive urls are"
 '#: simply concatenated with no other separator.'
-_FETCH_ITEM_RE = re.compile('^# (?P<title>[^\\n]*)\\nURL:[ \\t]*(?P<url>\\S+)\\n\\n', re.M)
+_FETCH_ITEM_RE = re.compile(
+    '^# (?P<title>[^\\n]*)\\nURL:[ \\t]*(?P<url>\\S+)\\n(?:Published:[ \\t]*[^\\n]*\\n)?\\n', re.M)
 
 def _parse_fetch_text(text: str) -> list[dict[str, Any]]:
     """Parse Exa's plain-text ``web_fetch_exa`` fallback format.
@@ -106,7 +108,7 @@ def web_fetch_exa(urls: list[str], maxCharacters: int | None=None) -> WebFetchRe
         maxCharacters: Maximum characters to extract per page (default: 3000).
 
     Returns:
-        Overview per url (file_stats-style text metrics, no text/url);
+        Overview per url (url, file_stats-style text metrics, no text);
         resolve ids via ``web_fetch_exa_results`` for the full text.
 
     Raises:
@@ -129,7 +131,7 @@ def web_fetch_exa(urls: list[str], maxCharacters: int | None=None) -> WebFetchRe
         except Exception:
             logger.exception('web_fetch_exa: failed to compute text stats for item %s', item.get('id'))
             metrics = {}
-        entry = {k: v for k, v in item.items() if k not in ('text', 'url')}
+        entry = {k: v for k, v in item.items() if k != 'text'}
         overview.append(strip_empty({**entry, **metrics}))
     return WebFetchResult(results=overview)
 

@@ -1,4 +1,4 @@
-"""``web_fetch_exa_results`` - stage 2: resolve ``web_fetch_exa`` ids to url and text.
+"""``web_fetch_exa_results`` - stage 2: resolve ``web_fetch_exa`` ids to full text.
 
 Optionally filters the text line-wise with an extended regular expression
 (``grep -E`` semantics), including a configurable amount of context lines.
@@ -10,7 +10,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
-_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their url and full text, optionally filter long pages.'
+_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their full text, optionally filter long pages.'
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'ids': {'type': 'array',
@@ -27,7 +27,6 @@ _OUTPUT_SCHEMA: dict[str,
                              'properties': {'results': {'type': 'array',
                                                         'items': {'type': 'object',
                                                                   'properties': {'id': {'type': 'string'},
-                                                                                 'url': {'type': 'string'},
                                                                                  'text': {'type': 'string'}},
                                                                   'required': ['id']}}},
                              'required': ['results']}
@@ -60,7 +59,7 @@ def web_fetch_exa_results(ids: list[str], pattern: str | None=None, context: int
         context: Context lines kept before/after each match (default: 1).
 
     Returns:
-        One entry per known id, with ``id``, ``url`` and ``text``.
+        One entry per known id, with ``id`` and ``text``.
     """
     items = fetch_cache.get_many(ids)
     missing = [i for i in ids if i not in {item['id'] for item in items}]
@@ -71,7 +70,7 @@ def web_fetch_exa_results(ids: list[str], pattern: str | None=None, context: int
         text = item.get('text') or ''
         if pattern:
             text = _grep_lines(text, pattern, context)
-        results.append(strip_empty({'id': item['id'], 'url': item.get('url'), 'text': text}))
+        results.append(strip_empty({'id': item['id'], 'text': text}))
     return results
 
 class WebFetchExaResultsTool(ToolDefinition):

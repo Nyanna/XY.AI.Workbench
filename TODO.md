@@ -1,4 +1,5 @@
 # TODO
+- escape probleme in block_replace und marks replace korrigieren "'#: line, then the page's extracted markdown content; consecutive urls are\\''"
 * open alex zweistufig optimieren
 - LC großes project repo zuerst ausbauen dann colgrep, dann abfrage
 	

@@ -11,6 +11,9 @@ logger = logging.getLogger('xy.ai.mcpc.tools.mcp.exa')
 _ID_ALPHABET = string.digits + string.ascii_letters
 '#: Fields the Exa payload carries but that add no value for our tools.'
 _DROPPED_FIELDS = ('published_date', 'score', 'image', 'favicon', 'highlight_scores')
+'#: Excerpt caps applied by ``normalize_item``.'
+_MAX_EXCERPTS = 10
+_MAX_EXCERPT_LENGTH = 100
 
 def _random_id() -> str:
     return ''.join(random.choices(_ID_ALPHABET, k=6))
@@ -86,7 +89,9 @@ def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
 
     Drops ``_DROPPED_FIELDS``, backfills a missing ``id`` with a random 6-char
     id, and renames ``highlights`` to ``excerpt`` - synthesizing the first and
-    last 100 characters of ``text`` when no highlights were returned.
+    last 100 characters of ``text`` when no highlights were returned. The
+    excerpt is capped to ``_MAX_EXCERPTS`` entries of at most
+    ``_MAX_EXCERPT_LENGTH`` characters each.
     """
     if not isinstance(raw, dict):
         logger.warning('Exa result item is not a dict (got %s), skipping its fields: %r', type(raw).__name__, raw)
@@ -96,8 +101,8 @@ def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
     excerpt = item.pop('highlights', None) or []
     text = item.get('text') or ''
     if not excerpt and text:
-        excerpt = [text[:100], text[-100:]]
-    item['excerpt'] = excerpt
+        excerpt = [text[:_MAX_EXCERPT_LENGTH], text[-_MAX_EXCERPT_LENGTH:]]
+    item['excerpt'] = [e[:_MAX_EXCERPT_LENGTH] for e in excerpt[:_MAX_EXCERPTS]]
     return item
 
 class ResultCache:
