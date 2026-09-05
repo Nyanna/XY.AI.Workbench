@@ -11,6 +11,7 @@ every helper here can dispatch to the right engine without the tools knowing
 which one is in play.
 """
 from __future__ import annotations
+import difflib
 import hashlib
 import re
 import string
@@ -216,26 +217,68 @@ def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: boo
             result.append(node_outline(t.loc, with_code=with_code, with_lines=with_lines))
     return result
 
-def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> list[OutlineNode]:
-    """Return one read subtree per ``keys`` entry, matched by ``id``.
+def _resolve_by_name(key: str, by_name: dict[str, list['_TreeNode']]) -> tuple['_TreeNode | None', str | None]:
+    """Resolve ``key`` against node names when it doesn't match an id directly.
 
-    Raises:
-        AstError: If any key matches no node.
+    Tries an exact name match first (agents commonly pass a function/class name
+    instead of its full id), then a single sufficiently close fuzzy match. The
+    fuzzy cutoff scales with ``key``'s length so short names still require a
+    near-exact match. Returns ``(None, reason)`` with a human-readable reason
+    when a match exists but is ambiguous, or ``(None, None)`` when nothing is
+    close enough.
+    """
+    exact = by_name.get(key)
+    if exact:
+        if len(exact) == 1:
+            return (exact[0], None)
+        return (None, f"'{key}' matches {len(exact)} nodes by name; use a specific id.")
+    if not by_name:
+        return (None, None)
+    cutoff = 0.5 + min(0.35, 1.4 / max(len(key), 1))
+    scored = sorted(((difflib.SequenceMatcher(None, key, name).ratio(), name) for name in by_name), reverse=True)
+    best_score, best_name = scored[0]
+    if best_score < cutoff:
+        return (None, None)
+    if len(scored) > 1 and scored[1][0] == best_score:
+        return (None, f"'{key}' is ambiguous between similarly named nodes; use a specific id.")
+    candidates = by_name[best_name]
+    if len(candidates) != 1:
+        return (None, f"'{key}' matches {len(candidates)} nodes named '{best_name}'; use a specific id.")
+    return (candidates[0], None)
+
+def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> tuple[list[OutlineNode], list[str]]:
+    """Return one read subtree per resolvable ``keys`` entry.
+
+    Each key is matched, in order, by exact id, then by exact node name, then by
+    a conservative fuzzy match on node name. Keys that cannot be resolved (or are
+    ambiguous) are reported in the returned error list instead of aborting the
+    whole read.
+
+    Returns:
+        Tuple of (subtrees for resolved keys, error messages for unresolved keys).
     """
     index: dict[str, _TreeNode] = {}
+    by_name: dict[str, list[_TreeNode]] = {}
 
     def collect(nodes: list[_TreeNode]) -> None:
         for t in nodes:
             index.setdefault(t.loc.node_id, t)
+            if t.loc.name:
+                by_name.setdefault(t.loc.name, []).append(t)
             collect(t.children)
     collect(_build_forest(located))
-    result: list[OutlineNode] = []
+    nodes: list[OutlineNode] = []
+    errors: list[str] = []
     for key in keys:
         target = index.get(key)
+        error: str | None = None
         if target is None:
-            raise AstError(f"No node matched '{key}'.")
-        result.append(_outline_nodes([target], with_code=True, with_lines=with_lines)[0])
-    return result
+            target, error = _resolve_by_name(key, by_name)
+        if target is None:
+            errors.append(error or f"No node matched '{key}'.")
+            continue
+        nodes.append(_outline_nodes([target], with_code=True, with_lines=with_lines)[0])
+    return (nodes, errors)
 
 def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, parent_type: str | None=None) -> bool:
     if id is not None and loc.node_id != id:

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from xy.ai.mcpc.tools._directories import normalize_directories
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
@@ -71,7 +72,7 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
         GrepError: If limit is not between 1 and ``_MAX_LIMIT``.
         GrepError: If grep binary cannot be launched.
     """
-    directory_paths = [Path(d) for d in _as_list(directory)]
+    directory_paths = normalize_directories([Path(d) for d in _as_list(directory)])
     if not directory_paths:
         raise GrepError('At least one directory is required.')
     for directory_path in directory_paths:
@@ -175,33 +176,33 @@ class GrepTool(ToolDefinition):
                             'type': 'string'}, 'lineno': {
                                 'type': 'integer'}, 'match': {
                                     'type': 'string'}}, 'required': [
-                                        'path', 'lineno', 'match']}}}, 'required': ['matches']}
+                                        'path', 'lineno', 'match']}}, 'warning': {
+                                            'type': 'string'}}, 'required': ['matches']}
     annotations = {'readOnlyHint': True, 'idempotentHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
+        limit = int(args.get('limit', _DEFAULT_LIMIT))
         try:
             matches = grep(
                 args['directory'],
                 args['pattern'],
                 exclude=args.get('exclude'),
                 include=args.get('include'),
-                limit=int(
-                    args.get(
-                        'limit',
-                        _DEFAULT_LIMIT)))
+                limit=limit)
         except GrepError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(
-            structured_content={
-                'matches': [
-                    {
-                        'path': f'{
-                            match.directory}/{
-                                match.filename}' if match.directory else match.filename,
-                        'lineno': match.lineno,
-                        'match': match.match} for match in matches]})
+        structured_content: dict[str,
+                                 Any] = {'matches': [{'path': f'{match.directory}/{match.filename}' if match.directory else match.filename,
+                                                      'lineno': match.lineno,
+                                                      'match': match.match} for match in matches]}
+        content = []
+        if len(matches) >= limit:
+            warning = f'Limit of {limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
+            structured_content['warning'] = warning
+            content.append(text_content(warning))
+        return ToolResult(content=content, structured_content=structured_content)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

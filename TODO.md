@@ -1,45 +1,8 @@
 # TODO
+* ast find vielleicht multifile?
 * open alex zweistufig optimieren
 - LC großes project repo zuerst ausbauen dann colgrep, dann abfrage
-- Never use node|root|*
-* grep warnung bei erreichung von limit
-* ast list/find vielleicht multifile?
-* fehlertolerant wenn ein knoden nicht gefunden, fehler liste statt alles abbrechen
-* rückfall auf node id match oder id fuzzy match, nicht dokumentiert, eingebaute toleranz
-```yaml
-id: 2753-21
-toolName: ast_read
-arguments:
-  path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/generic/__init__.py
-  ids:
-  - parse
-  - replace
-  reason: "Tree-sitter-Engine: has_error-Prüfung bei parse und replace"
-```
-/answer 2753-21 allow
-Control Request:
-```yaml
-id: 2753-22
-result:
-  content:
-  - type: text
-    text: No node matched 'parse'.
-  isError: true
-```
 
-- Bei Datei auf Verzeichnis reduzieren
-```yaml
-id: 2753-3f
-toolName: grep
-arguments:
-  pattern: import find|find\(|find_all\(|_text_match
-  directory:
-  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line
-  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/edit_marks.py
-  include:
-  - '*.py'
-  reason: "Restliche Nutzer (edit_line, ast/edit_marks) prüfen"
-```
 * Deepseek anbinden über openai SDK, vorher java AST sicherstellen
 * Tests reparieren
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session

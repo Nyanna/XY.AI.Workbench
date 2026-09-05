@@ -12,10 +12,13 @@ class ReadNodeResult:
     """Result of :func:`ast_read`.
 
     Attributes:
-        nodes: One expanded subtree per requested id, in the given order; same
+        nodes: One expanded subtree per resolved id, in the given order; same
             shape as :func:`ast_find`'s results (see :class:`core.OutlineNode`).
+        errors: One message per requested id that could not be resolved (id
+            unknown/ambiguous, and no unambiguous name/fuzzy match found).
     """
     nodes: list[core.OutlineNode]
+    errors: list[str]
 
 def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeResult:
     """Recursively read the subtree of each addressed node for block-wise edit/replace.
@@ -25,28 +28,33 @@ def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeRes
     can descend to the innermost editable block; any other node is returned whole,
     as ``code`` ready to hand back to ``ast_replace`` via its ``id``.
 
+    An id that doesn't match any node is retried as a node *name* (exact, then a
+    conservative fuzzy match) instead of failing the whole call; ids that still
+    can't be resolved are reported in ``errors``, not raised.
+
     Args:
         ids: Node ids to read. Must be non-empty.
         path: Absolute path to the file to read.
         with_lines: Whether to populate each node's line range.
 
     Returns:
-        ReadNodeResult: One subtree per entry in ``ids``.
+        ReadNodeResult: One subtree per resolved entry in ``ids``, plus errors for
+        the rest.
 
     Raises:
         core.AstError: If ``ids`` is empty, ``path`` is not absolute or not an existing
-            regular file, the source has a syntax error, or an id matches no node.
+            regular file, or the source has a syntax error.
     """
     if not ids:
         raise core.AstError("'ids' must be a non-empty list of node ids.")
     tree = core.load(path)[1]
-    nodes = core.read_subtrees(core.locate_all(tree), ids, with_lines=with_lines)
-    return ReadNodeResult(nodes=nodes)
+    nodes, errors = core.read_subtrees(core.locate_all(tree), ids, with_lines=with_lines)
+    return ReadNodeResult(nodes=nodes, errors=errors)
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'Read AST subtrees'
-    description = "Recursively read the subtree of each addressed AST node id, surfacing each node's id, children, and source."
+    description = "Recursively read the subtree of each addressed known AST node id, surfacing each node's id, children, and source."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -57,12 +65,24 @@ class ReadNodeTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                         'type': 'string'},
-                'description': 'Known AST node ids to read. Don\'t guess ID\'s, use ``ast_list`` or ``ast_find`` first.'}},
+                'description': 'Use ``ast_list`` or ``ast_find`` to get the ids. List of AST node ids to read.'}},
         'required': [
             'ids',
             'path']}
-    output_schema = {'$defs': {'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {
-        'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['nodes']}
+    output_schema = {
+        '$defs': {
+            'outline_node': core.OUTLINE_NODE_SCHEMA},
+        'type': 'object',
+        'properties': {
+                'nodes': {
+                    'type': 'array',
+                    'items': {
+                        '$ref': '#/$defs/outline_node'}},
+            'errors': {
+                    'type': 'array',
+                            'items': {
+                                'type': 'string'}}},
+        'required': ['nodes']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
@@ -73,7 +93,10 @@ class ReadNodeTool(ToolDefinition):
             result = ast_read(ids=args.get('ids') or [], path=args.get('path'), with_lines=with_lines)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in result.nodes]})
+        structured_content: dict[str, Any] = {'nodes': [core.to_dict(n) for n in result.nodes]}
+        if result.errors:
+            structured_content['errors'] = result.errors
+        return ToolResult(structured_content=structured_content)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadNodeTool())

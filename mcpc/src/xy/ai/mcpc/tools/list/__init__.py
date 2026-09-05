@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from xy.ai.mcpc.tools._directories import normalize_directory
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -66,6 +67,7 @@ def list(path: str, pattern: str | None=None) -> ListResult:
     dir_path = Path(path)
     if not dir_path.is_absolute():
         raise ListError('Path must be absolute.')
+    dir_path = normalize_directory(dir_path)
     if not dir_path.is_dir():
         raise ListError('Directory not found or not a directory.')
     try:
