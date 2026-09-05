@@ -5,7 +5,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import logger, search_cache, strip_empty
 __all__ = ['web_search_exa_results', 'WebSearchExaResultsTool', 'register']
-_DESCRIPTION = 'Resolve ids returned by web_search_exa to their url and full text.\n\nBest for: reading the full content of specific web_search_exa results.'
+_DESCRIPTION = 'Resolve ids returned by web_search_exa to their full text.'
 _INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {
     'type': 'string'}, 'description': 'Result ids returned by web_search_exa.'}}, 'required': ['ids']}
 _OUTPUT_SCHEMA: dict[str,
@@ -48,7 +48,7 @@ class WebSearchExaResultsTool(ToolDefinition):
         except Exception as exc:
             logger.exception('web_search_exa_results failed')
             return ToolResult(content=[text_content(f'Error resolving web_search_exa results: {exc}')], is_error=True)
-        return ToolResult(structured_content={'results': results}, auto_approve=True)
+        return ToolResult(structured_content={'results': results}, auto_approve=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebSearchExaResultsTool())

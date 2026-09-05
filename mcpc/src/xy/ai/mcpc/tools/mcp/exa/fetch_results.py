@@ -10,7 +10,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
-_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their url and full text.\n\nBest for: reading the full content of specific web_fetch_exa results; optionally pre-filter long pages line-wise with a regular expression.'
+_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their url and full text, optionally filter long pages.'
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'ids': {'type': 'array',
@@ -97,7 +97,7 @@ class WebFetchExaResultsTool(ToolDefinition):
         except Exception as exc:
             logger.exception('web_fetch_exa_results failed')
             return ToolResult(content=[text_content(f'Error resolving web_fetch_exa results: {exc}')], is_error=True)
-        return ToolResult(structured_content={'results': results}, auto_approve=True)
+        return ToolResult(structured_content={'results': results}, auto_approve=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebFetchExaResultsTool())

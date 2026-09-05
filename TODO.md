@@ -1,5 +1,6 @@
 # TODO
 * open alex zweistufig optimieren
+- LC großes project repo zuerst ausbauen dann colgrep, dann abfrage
 	
 * Tests reparieren
 * mcpc autostart, von eclipse gestartet wenn nicht da, pro session starten, mit custom port für session

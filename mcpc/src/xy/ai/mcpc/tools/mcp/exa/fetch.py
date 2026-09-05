@@ -15,7 +15,7 @@ from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.exa.bridge import get_bridge
 from xy.ai.mcpc.tools.mcp.exa.core import extract_results, fetch_cache, logger, normalize_item, strip_empty
 __all__ = ['WebFetchResult', 'web_fetch_exa', 'WebFetchExaTool', 'register']
-_DESCRIPTION = "Read a webpage's full content as clean markdown. Use to read any URL.\n\nBest for: Extracting full content from known URLs. Batch multiple URLs in one call.\nReturns: an overview per url (id, title, text metrics) without text/url; call web_fetch_exa_results with the ids to get url and full text."
+_DESCRIPTION = "Read a webpage's full content as clean markdown. Use to read any URL."
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'urls': {'type': 'array',

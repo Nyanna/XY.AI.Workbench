@@ -1,9 +1,4 @@
 """Shared building blocks for the two-stage ``exa`` tool family.
-
-Each stage-1 tool (``web_search_exa`` / ``web_fetch_exa``) normalizes Exa's raw
-result items, caches the full item (incl. url/text) by id, and returns only a
-trimmed overview; the matching stage-2 tool (``*_results``) resolves ids from
-that cache back to url/text.
 """
 import logging
 import random
