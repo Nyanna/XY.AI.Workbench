@@ -7,8 +7,7 @@ way.
 """
 from __future__ import annotations
 from xy.ai.mcpc.server.session import Session
-from xy.ai.mcpc.tools import register_tools
-from xy.ai.mcpc.tools.registry import ToolRegistry
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_call import STREAM_SPILL_THRESHOLD
 
@@ -17,14 +16,10 @@ def _call(registry: ToolRegistry, session: Session, tool_name: str, **arguments)
     assert tool is not None, f'tool not registered: {tool_name}'
     return tool.handler(ToolContext(session=session, arguments=arguments))
 
-def test_tools_alias_groups_the_three_tools():
-    registry = ToolRegistry()
-    register_tools(registry)
+def test_tools_alias_groups_the_three_tools(registry: ToolRegistry):
     assert registry.expand_aliases({'tools'}) == {'tool_search', 'tool_usage', 'tool_call'}
 
-def test_tool_search_to_tool_call_round_trip_with_bash():
-    registry = ToolRegistry()
-    register_tools(registry)
+def test_tool_search_to_tool_call_round_trip_with_bash(registry: ToolRegistry):
     session = Session(id='smoke-tools')
     '# 1) discover `bash` by keyword; the same search must not repeat it.'
     search_result = _call(registry, session, 'tool_search', keywords='bash working directory')
@@ -38,7 +33,12 @@ def test_tool_search_to_tool_call_round_trip_with_bash():
     usage_repeat = _call(registry, session, 'tool_usage', name='bash')
     assert 'already returned' in usage_repeat.content[0]['text']
     '# 3) call `bash` via tool_call; result and a new variable persist in the session.'
-    call1 = _call(registry, session, 'tool_call', tool_ids=['bash'], code="r = bash('/tmp', 'echo hi')\nprint(r.stdout.strip())\nkept = r.exit_code")
+    call1 = _call(
+        registry,
+        session,
+        'tool_call',
+        tool_ids=['bash'],
+        code="r = bash('/tmp', 'echo hi')\nprint(r.stdout.strip())\nkept = r.exit_code")
     assert call1.structured_content['stdout'] == 'hi\n'
     assert not call1.is_error
     '# 4) session persistence: `kept` survives into a fresh call without re-injecting tools.'
@@ -53,9 +53,7 @@ def test_tool_search_to_tool_call_round_trip_with_bash():
     call4 = _call(registry, session, 'tool_call', tool_ids=[], code=f'print(len({spill_var}))')
     assert call4.structured_content['stdout'] == f'{STREAM_SPILL_THRESHOLD + 2}\n'
 
-def test_tool_call_rejects_unknown_tool_id():
-    registry = ToolRegistry()
-    register_tools(registry)
+def test_tool_call_rejects_unknown_tool_id(registry: ToolRegistry):
     session = Session(id='smoke-tools-unknown')
     result = _call(registry, session, 'tool_call', tool_ids=['does-not-exist'], code='pass')
     assert result.is_error
