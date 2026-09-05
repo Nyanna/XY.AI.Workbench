@@ -148,6 +148,9 @@ class PythonEngine(Engine):
         walk(tree.raw, '')
         return results
 
+    def is_definition(self, node_type: str) -> bool:
+        return node_type in ('FunctionDef', 'AsyncFunctionDef', 'ClassDef')
+
     def signature(self, node: Any, limit: int=80) -> str:
         if isinstance(node, _StatementGroup):
             first_line = (self.node_code(node).splitlines() or [''])[0]

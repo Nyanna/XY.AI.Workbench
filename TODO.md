@@ -1,7 +1,6 @@
 # TODO
 * open alex zweistufig optimieren
 
-* Tests reparieren
 * Deepseek anbinden über openai SDK, vorher java AST sicherstellen
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
 
@@ -27,10 +26,6 @@
 - wie erstellt man am besten einen soft promt => forschungsergebnisse?
 	- LLMLingua und LLM selbstkompression
 	- eclipse suchprovider für caolgrep -> oder generellen RAG tool panel um kontext auszuwählen
-* AST tool augmentieren, spezifische tools, ersetze Abschnitt, ersetze Überschrift, ersetze Funktion etc.
-	# headings list/change/remove, paragraph ast-path, replace, edit, add, remove
-	* java ast bauen
-	* Project AST: project > dir > file > imports/class > global > node s, code ist immer ein baum (für planing phase)
 * Planing augmentation
 	* AI Planstrukturierung self has the ability to decide abouts it's capacilities.
 	* It can match effort, modell structure and coordination of a federated mind
