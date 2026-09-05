@@ -2,7 +2,7 @@ Implementiere folgende Verbeserungen in `/home/user/xyan/xy.ai.workbench/mcpc/sr
 
 - excerpts: Anzahl kappen bei max 10 und die jeweilige Maximallänge bei 100 Zeichen
 - URL im Result übergeben bei der Übersicht "fetch" aber nicht bei "fetch results"
-- Multi URL retrival in "fetch" erzeugt Fehler ab dem zweitem result: `2026-09-05 00:01:31,191 INFO    xy.ai.mcpc.tools.mcp.exa: Exa 'web_fetch_exa': remote sent unstructured text instead of structured data; recovered 1 item(s) via markdown fallback parsing.`. Mache hier einen Testcall und verifiziere Exa Return Markdown und Parser. (MCPC_EXA_API_KEY="0198c5a7-9cd6-40d9-bd5a-c7509b457d59")
+- Multi URL retrival in "fetch" erzeugt Fehler ab dem zweitem result: `2026-09-05 00:01:31,191 INFO    xy.ai.mcpc.tools.mcp.exa: Exa 'web_fetch_exa': remote sent unstructured text instead of structured data; recovered 1 item(s) via markdown fallback parsing.`. Mache hier einen Testcall und verifiziere Exa Return Markdown und Parser. (MCPC_EXA_API_KEY="")
 
 SystemInit:  id=f2de5d51-e26c-41ad-bbd5-498f783e4061, cwd=/home/user/xyan/xy.ai.workbench, model=claude-sonnet-5
 Control Request:
@@ -1403,7 +1403,7 @@ arguments:
     sys.path.insert(0, "/home/user/xyan/xy.ai.workbench/mcpc/src")
     from xy.ai.mcpc.tools.mcp.client import McpClient
 
-    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": "0198c5a7-9cd6-40d9-bd5a-c7509b457d59"})
+    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": ""})
     result = client.call_tool("web_fetch_exa", {"urls": ["https://example.com", "https://www.iana.org/help/example-domains"]})
     import json
     print(json.dumps(result, indent=2)[:6000])
@@ -1478,7 +1478,7 @@ arguments:
     from xy.ai.mcpc.tools.mcp.client import McpClient
     import json
 
-    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": "0198c5a7-9cd6-40d9-bd5a-c7509b457d59"})
+    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": ""})
     result = client.call_tool("web_fetch_exa", {"urls": ["https://this-domain-does-not-exist-xyz12345.com", "https://example.com"]})
     print(json.dumps(result, indent=2)[:6000])
   reason: "Testcall mit einer fehlerhaften URL, um zu prüfen, wie Exa Fehler im Text darstellt"
@@ -1539,7 +1539,7 @@ arguments:
     from xy.ai.mcpc.tools.mcp.client import McpClient
     import json
 
-    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": "0198c5a7-9cd6-40d9-bd5a-c7509b457d59"})
+    client = McpClient("https://mcp.exa.ai/mcp", headers={"x-api-key": ""})
     result = client.call_tool("web_fetch_exa", {"urls": ["https://www.wikipedia.org", "https://www.github.com"]})
     text = result["content"][0]["text"]
     print(repr(text[:3000]))
@@ -1981,7 +1981,7 @@ arguments:
 
     import os, sys
     sys.path.insert(0, "/home/user/xyan/xy.ai.workbench/mcpc/src")
-    os.environ["MCPC_EXA_API_KEY"] = "0198c5a7-9cd6-40d9-bd5a-c7509b457d59"
+    os.environ["MCPC_EXA_API_KEY"] = ""
 
     from xy.ai.mcpc.config import ServerConfig
     from xy.ai.mcpc.tools.mcp.exa.bridge import init_bridge
