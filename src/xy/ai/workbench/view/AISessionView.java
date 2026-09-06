@@ -99,423 +99,460 @@ public class AISessionView extends ViewPart {
 
 		Composite body = form.getBody();
 		body.setLayout(new GridLayout());
-		{ // upper parameters
-			Composite top = new Composite(body, SWT.NONE);
-			top.setLayout(new GridLayout(2, false));
-			top.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-			toolkit.createLabel(top, "Key:");
-			Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
-			GridData kilay = new GridData(GridData.FILL_HORIZONTAL);
-			kilay.widthHint = 10;
-			keyInput.setLayoutData(kilay);
-			keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
-			keyInput.setText(cfg.getKeys() + "");
-			keyInput.addMouseListener(MouseListener.mouseDownAdapter(m -> keyInput.setFocus()));
+		createTopParametersSection(body, cfg);
+		createInstructionSection(body, cfg, session);
+		createOutputModeSection(body, cfg);
+		createActionButtonsSection(body, cfg, session);
+		createUsageLogSection(body, session);
 
-			{
-				toolkit.createLabel(top, "Model:");
-				Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-				modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				modelSel.addSelectionListener(
-						SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
-				cfg.addEnabledModelsObs(k -> {
-					modelSel.setItems(
-							Arrays.stream(k).map((m) -> m.name()).collect(Collectors.toList()).toArray(new String[0]));
-					modelSel.setText(cfg.getModel().name());
-				}, true);
-			}
+		session.initializeInputs();
 
-			{
-				toolkit.createLabel(top, "Profile:");
-				Combo profileSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-				profileSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				profileSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg.setProfile(
-						profileSel.getText().isBlank() ? null : AgentProfile.fromName(profileSel.getText()))));
-				cfg.addEnabledProfilesObs(k -> {
-					profileSel.setItems(
-							Arrays.stream(k).map((m) -> m.name).collect(Collectors.toList()).toArray(new String[0]));
-					profileSel.setText(k.length > 0 ? k[0].name : "");
-				}, true);
-				cfg.addProfileObs(p -> {
-					profileSel.setText(p != null ? p.name : "");
-				}, true);
-			}
+		form.reflow(true);
+	}
 
-			Label maxTokenLabel = toolkit.createLabel(top, "Max Token:");
-			maxTokenLabel.setLayoutData(new GridData());
-			Text maxToken = toolkit.createText(top, "", SWT.BORDER);
-			maxToken.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			maxToken.addFocusListener(
-					FocusListener.focusLostAdapter(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText()))));
-			maxToken.addMouseListener(MouseListener.mouseDownAdapter(m -> maxToken.setFocus()));
-			cfg.addOutputTokenObs(ot -> maxToken.setText(ot + ""), true);
+	private void createTopParametersSection(Composite body, ConfigManager cfg) {
+		Composite top = new Composite(body, SWT.NONE);
+		top.setLayout(new GridLayout(2, false));
+		top.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-			Label tempLabel = toolkit.createLabel(top, "Temp:");
-			tempLabel.setLayoutData(new GridData());
-			Text temp = toolkit.createText(top, "", SWT.BORDER);
-			temp.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			temp.addFocusListener(
-					FocusListener.focusLostAdapter(e -> cfg.setTemperature(Double.parseDouble(temp.getText()))));
-			temp.addMouseListener(MouseListener.mouseDownAdapter(m -> temp.setFocus()));
-			cfg.addTemperatureObs(t -> temp.setText(t + ""), true);
+		createKeyField(top, cfg);
+		createModelCombo(top, cfg);
+		createProfileCombo(top, cfg);
 
-			Label topPLabel = toolkit.createLabel(top, "TopP:");
-			topPLabel.setLayoutData(new GridData());
-			Text topP = toolkit.createText(top, "", SWT.BORDER);
-			topP.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			topP.addFocusListener(FocusListener.focusLostAdapter(e -> cfg.setTopP(Double.parseDouble(topP.getText()))));
-			topP.addMouseListener(MouseListener.mouseDownAdapter(m -> topP.setFocus()));
-			cfg.addTopPObs(tp -> topP.setText(tp + ""), true);
+		Label maxTokenLabel = toolkit.createLabel(top, "Max Token:");
+		maxTokenLabel.setLayoutData(new GridData());
+		Text maxToken = toolkit.createText(top, "", SWT.BORDER);
+		maxToken.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		maxToken.addFocusListener(
+				FocusListener.focusLostAdapter(e -> cfg.setMaxOutputTokens(Long.parseLong(maxToken.getText()))));
+		maxToken.addMouseListener(MouseListener.mouseDownAdapter(m -> maxToken.setFocus()));
+		cfg.addOutputTokenObs(ot -> maxToken.setText(ot + ""), true);
 
-			{
-				toolkit.createLabel(top, "Reasoning:");
-				Composite secReason = new Composite(top, SWT.NONE);
-				GridLayout secRLay = new GridLayout(2, false);
-				secRLay.marginHeight = secRLay.marginWidth = 0;
-				secReason.setLayout(secRLay);
-				secReason.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		Label tempLabel = toolkit.createLabel(top, "Temp:");
+		tempLabel.setLayoutData(new GridData());
+		Text temp = toolkit.createText(top, "", SWT.BORDER);
+		temp.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		temp.addFocusListener(
+				FocusListener.focusLostAdapter(e -> cfg.setTemperature(Double.parseDouble(temp.getText()))));
+		temp.addMouseListener(MouseListener.mouseDownAdapter(m -> temp.setFocus()));
+		cfg.addTemperatureObs(t -> temp.setText(t + ""), true);
 
-				Combo reasSel = new Combo(secReason, SWT.DROP_DOWN | SWT.READ_ONLY);
-				reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				reasSel.addSelectionListener(SelectionListener
-						.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
+		Label topPLabel = toolkit.createLabel(top, "TopP:");
+		topPLabel.setLayoutData(new GridData());
+		Text topP = toolkit.createText(top, "", SWT.BORDER);
+		topP.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		topP.addFocusListener(FocusListener.focusLostAdapter(e -> cfg.setTopP(Double.parseDouble(topP.getText()))));
+		topP.addMouseListener(MouseListener.mouseDownAdapter(m -> topP.setFocus()));
+		cfg.addTopPObs(tp -> topP.setText(tp + ""), true);
 
-				Text budget = toolkit.createText(secReason, "", SWT.BORDER);
-				budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				budget.addFocusListener(FocusListener
-						.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
-				budget.addMouseListener(MouseListener.mouseDownAdapter(m -> budget.setFocus()));
-				cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
+		createReasoningSection(top, body, cfg, tempLabel, temp, topPLabel, topP, maxTokenLabel, maxToken);
+		createCacheSection(top, cfg);
+	}
 
-				cfg.addModelObs(m -> {
-					toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
-					toogleControl(topPLabel, topP, m.cap.isSupportTopP());
-					toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
+	private void createKeyField(Composite top, ConfigManager cfg) {
+		toolkit.createLabel(top, "Key:");
+		Text keyInput = toolkit.createText(top, "", SWT.BORDER | SWT.PASSWORD);
+		GridData kilay = new GridData(GridData.FILL_HORIZONTAL);
+		kilay.widthHint = 10;
+		keyInput.setLayoutData(kilay);
+		keyInput.addModifyListener(e -> cfg.setKey(keyInput.getText()));
+		keyInput.setText(cfg.getKeys() + "");
+		keyInput.addMouseListener(MouseListener.mouseDownAdapter(m -> keyInput.setFocus()));
+	}
 
-					reasSel.setItems(cfg.getReasonings());
-					reasSel.setText(cfg.getReasoning().name());
-					body.layout();
-				}, true);
-				cfg.addReasoningObs(r -> {
+	private void createModelCombo(Composite top, ConfigManager cfg) {
+		toolkit.createLabel(top, "Model:");
+		Combo modelSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+		modelSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		modelSel.addSelectionListener(
+				SelectionListener.widgetSelectedAdapter(e -> cfg.setModel(Model.valueOf(modelSel.getText()))));
+		cfg.addEnabledModelsObs(k -> {
+			modelSel.setItems(
+					Arrays.stream(k).map((m) -> m.name()).collect(Collectors.toList()).toArray(new String[0]));
+			modelSel.setText(cfg.getModel().name());
+		}, true);
+	}
 
-					boolean enabled = Reasoning.Budget.equals(r);
-					budget.setEnabled(enabled);
-					budget.setVisible(enabled);
-					((GridData) budget.getLayoutData()).exclude = !enabled;
+	private void createProfileCombo(Composite top, ConfigManager cfg) {
+		toolkit.createLabel(top, "Profile:");
+		Combo profileSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+		profileSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		profileSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg
+				.setProfile(profileSel.getText().isBlank() ? null : AgentProfile.fromName(profileSel.getText()))));
+		cfg.addEnabledProfilesObs(k -> {
+			profileSel
+					.setItems(Arrays.stream(k).map((m) -> m.name).collect(Collectors.toList()).toArray(new String[0]));
+			profileSel.setText(k.length > 0 ? k[0].name : "");
+		}, true);
+		cfg.addProfileObs(p -> {
+			profileSel.setText(p != null ? p.name : "");
+		}, true);
+	}
 
-					toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
+	private void createReasoningSection(Composite top, Composite body, ConfigManager cfg, Label tempLabel, Text temp,
+			Label topPLabel, Text topP, Label maxTokenLabel, Text maxToken) {
+		toolkit.createLabel(top, "Reasoning:");
+		Composite secReason = new Composite(top, SWT.NONE);
+		GridLayout secRLay = new GridLayout(2, false);
+		secRLay.marginHeight = secRLay.marginWidth = 0;
+		secReason.setLayout(secRLay);
+		secReason.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-					secReason.layout();
-					body.layout();
-				}, true);
-			}
-			{
-				Label cacheLabel = toolkit.createLabel(top, "Cache:");
-				cacheLabel.setLayoutData(new GridData());
-				Combo cacheSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
-				cacheSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				cacheSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg.setCacheMode(
-						cacheSel.getText().isBlank() ? CacheMode.Default : CacheMode.valueOf(cacheSel.getText()))));
-				cfg.addModelObs(m -> {
-					cacheSel.setItems(Arrays.stream(m.cap.getCacheMode()).map((c) -> c.name())
-							.collect(Collectors.toList()).toArray(new String[0]));
-					cacheSel.setText(cfg.getCacheMode() != null ? cfg.getCacheMode().name() : "");
-					toogleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
-				}, true);
-				cfg.addCacheObs(c -> {
-					cacheSel.setText(c != null ? c.name() : "");
-				}, true);
-			}
-		}
-		{ // instruction section
+		Combo reasSel = new Combo(secReason, SWT.DROP_DOWN | SWT.READ_ONLY);
+		reasSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		reasSel.addSelectionListener(
+				SelectionListener.widgetSelectedAdapter(e -> cfg.setReasoning(Reasoning.valueOf(reasSel.getText()))));
 
-			Composite middle = new Composite(body, SWT.NONE);
-			middle.setLayout(new GridLayout(1, false));
-			GridData ldat2 = new GridData(SWT.FILL, SWT.FILL, true, true);
-			ldat2.heightHint = 100;
-			middle.setLayoutData(ldat2);
+		Text budget = toolkit.createText(secReason, "", SWT.BORDER);
+		budget.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		budget.addFocusListener(
+				FocusListener.focusLostAdapter(e -> cfg.setReasoningBudget(Integer.parseInt(budget.getText()))));
+		budget.addMouseListener(MouseListener.mouseDownAdapter(m -> budget.setFocus()));
+		cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
-			toolkit.createLabel(middle, "System Prompt:");
-			Composite sashComp = new Composite(middle, SWT.NONE);
-			sashComp.setLayout(new GridLayout(1, false));
-			GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);
-			scl.heightHint = 100;
-			scl.widthHint = 1;
-			sashComp.setLayoutData(scl);
-			SashForm sash = new SashForm(sashComp, SWT.VERTICAL);
-			sash.setLayout(new GridLayout(1, false));
-			GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
-			scl2.heightHint = 100;
-			scl2.widthHint = 1;
-			sash.setLayoutData(scl2);
+		cfg.addModelObs(m -> {
+			toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
+			toogleControl(topPLabel, topP, m.cap.isSupportTopP());
+			toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
 
-			TabFolder instr = new TabFolder(sash, SWT.NONE);
-			GridData ldat1 = new GridData(SWT.FILL, SWT.FILL, true, true);
-			ldat1.heightHint = 100;
-			instr.setLayoutData(ldat1);
+			reasSel.setItems(cfg.getReasonings());
+			reasSel.setText(cfg.getReasoning().name());
+			body.layout();
+		}, true);
+		cfg.addReasoningObs(r -> {
 
-			TabItem instrSel = new TabItem(instr, SWT.NONE);
-			instrSel.setText("Select");
-			{ // instruction select
-				Composite comp = new Composite(instr, SWT.NONE);
-				comp.setLayout(new GridLayout());
-				GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
-				ldat3.heightHint = 100;
-				comp.setLayoutData(ldat3);
-				instrSel.setControl(comp);
-				instructionList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
-				cfg.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
+			boolean enabled = Reasoning.Budget.equals(r);
+			budget.setEnabled(enabled);
+			budget.setVisible(enabled);
+			((GridData) budget.getLayoutData()).exclude = !enabled;
 
-				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-				gridData.widthHint = 1;
-				gridData.heightHint = 100;
-				instructionList.setLayoutData(gridData);
-				instructionList.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionList.setFocus()));
+			toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
 
-				instructionList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
-					if (isUpdating)
-						return;
-					String[] cur = instructionList.getItems();
-					instructionSelection = new ArrayList<>(Arrays.asList(instructionList.getSelection()));
-					cfg.setSystemPrompt(updatePromptLines(cur));
-				}));
-				instructionList.addListener(SWT.MouseDown, event -> {
-					if (isUpdating)
-						return;
-					String[] clickedIndex = instructionList.getSelection();
-					LOG.info(Arrays.toString(clickedIndex));
-					if (clickedIndex.length != 1)
-						return;
+			secReason.layout();
+			body.layout();
+		}, true);
+	}
 
-					if (!instructionSelection.remove(clickedIndex[0]))
-						instructionSelection.add(clickedIndex[0]);
+	private void createCacheSection(Composite top, ConfigManager cfg) {
+		Label cacheLabel = toolkit.createLabel(top, "Cache:");
+		cacheLabel.setLayoutData(new GridData());
+		Combo cacheSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
+		cacheSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+		cacheSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg.setCacheMode(
+				cacheSel.getText().isBlank() ? CacheMode.Default : CacheMode.valueOf(cacheSel.getText()))));
+		cfg.addModelObs(m -> {
+			cacheSel.setItems(Arrays.stream(m.cap.getCacheMode()).map((c) -> c.name()).collect(Collectors.toList())
+					.toArray(new String[0]));
+			cacheSel.setText(cfg.getCacheMode() != null ? cfg.getCacheMode().name() : "");
+			toogleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
+		}, true);
+		cfg.addCacheObs(c -> {
+			cacheSel.setText(c != null ? c.name() : "");
+		}, true);
+	}
 
-					String[] cur = instructionList.getItems();
-					cfg.setSystemPrompt(updatePromptLines(cur));
-				});
-			}
+	private void createInstructionSection(Composite body, ConfigManager cfg, AISessionManager session) {
+		Composite middle = new Composite(body, SWT.NONE);
+		middle.setLayout(new GridLayout(1, false));
+		GridData ldat2 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		ldat2.heightHint = 100;
+		middle.setLayoutData(ldat2);
 
-			TabItem instrEdit = new TabItem(instr, SWT.NONE);
-			instrEdit.setText("Edit");
-			{ // instruction edit
-				Composite comp = new Composite(instr, SWT.NONE);
-				comp.setLayout(new GridLayout());
-				instrEdit.setControl(comp);
-				instructionEdit = toolkit.createText(comp, "", SWT.WRAP | SWT.V_SCROLL);
-				cfg.addSystemPromptObs(p -> {
-					if (!instructionEdit.isFocusControl())
-						updateEditList(p.systemPrompt);
-				}, true);
-				instructionEdit.addModifyListener(e -> {
-					if (isUpdating)
-						return;
-					cfg.setSystemPrompt(instructionEdit.getText().split("\n"));
-				});
-				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-				gridData.widthHint = 1;
-				gridData.heightHint = 100;
-				instructionEdit.setLayoutData(gridData);
-				instructionEdit.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionEdit.setFocus()));
-			}
+		toolkit.createLabel(middle, "System Prompt:");
+		Composite sashComp = new Composite(middle, SWT.NONE);
+		sashComp.setLayout(new GridLayout(1, false));
+		GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);
+		scl.heightHint = 100;
+		scl.widthHint = 1;
+		sashComp.setLayoutData(scl);
+		SashForm sash = new SashForm(sashComp, SWT.VERTICAL);
+		sash.setLayout(new GridLayout(1, false));
+		GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		scl2.heightHint = 100;
+		scl2.widthHint = 1;
+		sash.setLayoutData(scl2);
 
-			TabItem toolSel = new TabItem(instr, SWT.NONE);
-			toolSel.setText("Tools");
-			{ // tools select
-				Composite comp = new Composite(instr, SWT.NONE);
-				comp.setLayout(new GridLayout());
-				GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
-				ldat3.heightHint = 100;
-				comp.setLayoutData(ldat3);
-				toolSel.setControl(comp);
-				toolsList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
+		TabFolder instr = new TabFolder(sash, SWT.NONE);
+		GridData ldat1 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		ldat1.heightHint = 100;
+		instr.setLayoutData(ldat1);
 
-				GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-				gridData.widthHint = 1;
-				gridData.heightHint = 100;
-				toolsList.setLayoutData(gridData);
-				toolsList.addMouseListener(MouseListener.mouseDownAdapter(m -> toolsList.setFocus()));
-				toolsList.addSelectionListener(
-						SelectionListener.widgetSelectedAdapter(e -> cfg.setEnabledTools(toolsList.getSelection())));
-				cfg.addModelObs(m -> {
-					if (m != null)
-						toolsList.setItems(m.cap.getTools());
-				}, true);
-				toolsMultiSelect = new MultiSelectListener(toolsList);
-			}
+		createInstructionSelectTab(instr, cfg);
+		createInstructionEditTab(instr, cfg);
+		createToolsTab(instr, cfg);
+		createPresetsTab(instr, cfg);
+		createFreeTextArea(sash, cfg);
 
-			TabItem presEdit = new TabItem(instr, SWT.NONE);
-			presEdit.setText("Presets");
-			{ // instruction presets
-				Composite comp = new Composite(instr, SWT.NONE);
-				GridLayout compLay = new GridLayout(1, false);
-				comp.setLayout(compLay);
-				GridData compDat = new GridData(SWT.FILL, SWT.FILL, true, true);
-				comp.setLayoutData(compDat);
-				presEdit.setControl(comp);
+		sash.setWeights(3, 1);
+		createInputsTable(middle, cfg, session);
+	}
 
-				Composite buttons = new Composite(comp, SWT.NONE);
-				buttons.setLayout(new GridLayout(2, false));
+	private void createInstructionSelectTab(TabFolder instr, ConfigManager cfg) {
+		TabItem instrSel = new TabItem(instr, SWT.NONE);
+		instrSel.setText("Select");
 
-				Button writeButton = new Button(buttons, SWT.PUSH);
-				writeButton.setText("Save");
-				writeButton.addSelectionListener(new SelectionAdapter() {
-					@Override
-					public void widgetSelected(SelectionEvent e) {
-						PresetHandler.writePreset(cfg.getSystemPrompt(), toolsList.getSelection(), cfg.getOuputMode(),
-								getSite().getShell());
-						refreshPresetList();
-					}
-				});
+		Composite comp = new Composite(instr, SWT.NONE);
+		comp.setLayout(new GridLayout());
+		GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		ldat3.heightHint = 100;
+		comp.setLayoutData(ldat3);
+		instrSel.setControl(comp);
+		instructionList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
+		cfg.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
 
-				Button resetButton = new Button(buttons, SWT.PUSH);
-				resetButton.setText("Reset");
-				resetButton.addSelectionListener(new SelectionAdapter() {
-					@Override
-					public void widgetSelected(SelectionEvent e) {
-						String[] cur = cfg.getSystemPrompt();
-						String[] upd = new String[cur.length];
-						for (int i = 0; i < cur.length; i++) {
-							String line = cur[i];
-							upd[i] = line.startsWith("#") ? line : "#" + line;
-						}
-						instructionSelection.clear();
-						cfg.setSystemPrompt(upd);
+		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData.widthHint = 1;
+		gridData.heightHint = 100;
+		instructionList.setLayoutData(gridData);
+		instructionList.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionList.setFocus()));
 
-						toolsMultiSelect.clear();
-						cfg.setEnabledTools(new String[0]);
-					}
-				});
+		instructionList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+			if (isUpdating)
+				return;
+			String[] cur = instructionList.getItems();
+			instructionSelection = new ArrayList<>(Arrays.asList(instructionList.getSelection()));
+			cfg.setSystemPrompt(updatePromptLines(cur));
+		}));
+		instructionList.addListener(SWT.MouseDown, event -> {
+			if (isUpdating)
+				return;
+			String[] clickedIndex = instructionList.getSelection();
+			LOG.info(Arrays.toString(clickedIndex));
+			if (clickedIndex.length != 1)
+				return;
 
-				presetList = new List(comp, SWT.SINGLE | SWT.V_SCROLL | SWT.BORDER);
-				GridData presetListDat = new GridData(SWT.FILL, SWT.FILL, true, true);
-				presetListDat.heightHint = 60;
-				presetList.setLayoutData(presetListDat);
-				presetList.addMouseListener(MouseListener.mouseDownAdapter(m -> presetList.setFocus()));
-				presetList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
-					int idx = presetList.getSelectionIndex();
-					if (idx < 0 || idx >= presetFiles.size())
-						return;
-					PresetHandler.Preset preset = PresetHandler.loadPreset(presetFiles.get(idx));
-					cfg.setSystemPrompt(preset.body);
-					if (preset.tools != null) {
-						toolsMultiSelect.setSelection(preset.tools);
-						cfg.setEnabledTools(preset.tools);
-					}
-					if (preset.outputMode != null)
-						cfg.setOuputMode(preset.outputMode);
-				}));
+			if (!instructionSelection.remove(clickedIndex[0]))
+				instructionSelection.add(clickedIndex[0]);
+
+			String[] cur = instructionList.getItems();
+			cfg.setSystemPrompt(updatePromptLines(cur));
+		});
+	}
+
+	private void createInstructionEditTab(TabFolder instr, ConfigManager cfg) {
+		TabItem instrEdit = new TabItem(instr, SWT.NONE);
+		instrEdit.setText("Edit");
+
+		Composite comp = new Composite(instr, SWT.NONE);
+		comp.setLayout(new GridLayout());
+		instrEdit.setControl(comp);
+		instructionEdit = toolkit.createText(comp, "", SWT.WRAP | SWT.V_SCROLL);
+		cfg.addSystemPromptObs(p -> {
+			if (!instructionEdit.isFocusControl())
+				updateEditList(p.systemPrompt);
+		}, true);
+		instructionEdit.addModifyListener(e -> {
+			if (isUpdating)
+				return;
+			cfg.setSystemPrompt(instructionEdit.getText().split("\n"));
+		});
+		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData.widthHint = 1;
+		gridData.heightHint = 100;
+		instructionEdit.setLayoutData(gridData);
+		instructionEdit.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionEdit.setFocus()));
+	}
+
+	private void createToolsTab(TabFolder instr, ConfigManager cfg) {
+		TabItem toolSel = new TabItem(instr, SWT.NONE);
+		toolSel.setText("Tools");
+
+		Composite comp = new Composite(instr, SWT.NONE);
+		comp.setLayout(new GridLayout());
+		GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		ldat3.heightHint = 100;
+		comp.setLayoutData(ldat3);
+		toolSel.setControl(comp);
+		toolsList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
+
+		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData.widthHint = 1;
+		gridData.heightHint = 100;
+		toolsList.setLayoutData(gridData);
+		toolsList.addMouseListener(MouseListener.mouseDownAdapter(m -> toolsList.setFocus()));
+		toolsList.addSelectionListener(
+				SelectionListener.widgetSelectedAdapter(e -> cfg.setEnabledTools(toolsList.getSelection())));
+		cfg.addModelObs(m -> {
+			if (m != null)
+				toolsList.setItems(m.cap.getTools());
+		}, true);
+		toolsMultiSelect = new MultiSelectListener(toolsList);
+	}
+
+	private void createPresetsTab(TabFolder instr, ConfigManager cfg) {
+		TabItem presEdit = new TabItem(instr, SWT.NONE);
+		presEdit.setText("Presets");
+
+		Composite comp = new Composite(instr, SWT.NONE);
+		GridLayout compLay = new GridLayout(1, false);
+		comp.setLayout(compLay);
+		GridData compDat = new GridData(SWT.FILL, SWT.FILL, true, true);
+		comp.setLayoutData(compDat);
+		presEdit.setControl(comp);
+
+		Composite buttons = new Composite(comp, SWT.NONE);
+		buttons.setLayout(new GridLayout(2, false));
+
+		Button writeButton = new Button(buttons, SWT.PUSH);
+		writeButton.setText("Save");
+		writeButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				PresetHandler.writePreset(cfg.getSystemPrompt(), toolsList.getSelection(), cfg.getOuputMode(),
+						getSite().getShell());
 				refreshPresetList();
 			}
+		});
 
-			{ // Free text
-				instructionFree = toolkit.createText(sash, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
-				cfg.addSystemFreeObs(p -> {
-					if (!instructionFree.isFocusControl())
-						try {
-							isUpdating = true;
-							instructionFree.setText(p != null ? p : "");
-							form.reflow(true);
-						} finally {
-							isUpdating = false;
-						}
-				}, true);
-				instructionFree.addFocusListener(
-						FocusListener.focusLostAdapter(e -> cfg.setSystemFree(instructionFree.getText())));
-				GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
-				gridData.widthHint = 1;
-				instructionFree.setLayoutData(gridData);
-				instructionFree.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionFree.setFocus()));
-			}
-			sash.setWeights(3, 1);
-			{ // inputs section
-				Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
-				table.setHeaderVisible(true);
-				table.setLinesVisible(true);
-
-				TableColumn column1 = new TableColumn(table, SWT.NONE);
-				column1.setText("On");
-				column1.setWidth(30);
-
-				TableColumn column2 = new TableColumn(table, SWT.NONE);
-				column2.setText("Input");
-				column2.setWidth(120);
-
-				TableColumn column3 = new TableColumn(table, SWT.NONE);
-				column3.setText("Chars");
-				column3.setWidth(45);
-
-				table.addListener(SWT.Selection, e -> {
-					if (e.detail == SWT.CHECK) {
-						TableItem item = (TableItem) e.item;
-						InputMode mode = InputMode.valueOf(item.getText(1).replace(" ", "_"));
-						cfg.setInputMode(mode, !cfg.isInputEnabled(mode));
-					}
-				});
-
-				for (int i = 0; i < InputMode.values().length; i++) {
-					TableItem item = new TableItem(table, SWT.NONE);
-					InputMode mode = InputMode.values()[i];
-					session.addInputStatObs(is -> {
-						var checked = item.getChecked();
-						item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
-						item.setChecked(checked);
-					}, true);
-					cfg.addInputObs(is -> {
-						item.setChecked(is[mode.ordinal()]);
-					}, true);
+		Button resetButton = new Button(buttons, SWT.PUSH);
+		resetButton.setText("Reset");
+		resetButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				String[] cur = cfg.getSystemPrompt();
+				String[] upd = new String[cur.length];
+				for (int i = 0; i < cur.length; i++) {
+					String line = cur[i];
+					upd[i] = line.startsWith("#") ? line : "#" + line;
 				}
+				instructionSelection.clear();
+				cfg.setSystemPrompt(upd);
+
+				toolsMultiSelect.clear();
+				cfg.setEnabledTools(new String[0]);
 			}
-		}
-		{ // output mode selection
-			Composite bottom = new Composite(body, SWT.NONE);
-			bottom.setLayout(new GridLayout(2, false));
+		});
 
-			toolkit.createLabel(bottom, "Output:");
-			Combo outputMode = new Combo(bottom, SWT.DROP_DOWN | SWT.READ_ONLY);
-			String[] outputOptions = Arrays.stream(OutputMode.values()).map(e -> e.name()).collect(Collectors.toList())
-					.toArray(new String[0]);
-			outputMode.setItems(outputOptions);
-			outputMode.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> cfg.setOuputMode(OutputMode.valueOf(outputMode.getText()))));
-			cfg.addOutputModeObs(m -> outputMode.setText(m.name()), true);
+		presetList = new List(comp, SWT.SINGLE | SWT.V_SCROLL | SWT.BORDER);
+		GridData presetListDat = new GridData(SWT.FILL, SWT.FILL, true, true);
+		presetListDat.heightHint = 60;
+		presetList.setLayoutData(presetListDat);
+		presetList.addMouseListener(MouseListener.mouseDownAdapter(m -> presetList.setFocus()));
+		presetList.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+			int idx = presetList.getSelectionIndex();
+			if (idx < 0 || idx >= presetFiles.size())
+				return;
+			PresetHandler.Preset preset = PresetHandler.loadPreset(presetFiles.get(idx));
+			cfg.setSystemPrompt(preset.body);
+			if (preset.tools != null) {
+				toolsMultiSelect.setSelection(preset.tools);
+				cfg.setEnabledTools(preset.tools);
+			}
+			if (preset.outputMode != null)
+				cfg.setOuputMode(preset.outputMode);
+		}));
+		refreshPresetList();
+	}
 
-		}
-		{ // buttons
-			Composite actions = new Composite(body, SWT.NONE);
-			actions.setLayout(new GridLayout(3, false));
+	private void createFreeTextArea(SashForm sash, ConfigManager cfg) {
+		instructionFree = toolkit.createText(sash, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		cfg.addSystemFreeObs(p -> {
+			if (!instructionFree.isFocusControl())
+				try {
+					isUpdating = true;
+					instructionFree.setText(p != null ? p : "");
+					form.reflow(true);
+				} finally {
+					isUpdating = false;
+				}
+		}, true);
+		instructionFree
+				.addFocusListener(FocusListener.focusLostAdapter(e -> cfg.setSystemFree(instructionFree.getText())));
+		GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
+		gridData.widthHint = 1;
+		instructionFree.setLayoutData(gridData);
+		instructionFree.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionFree.setFocus()));
+	}
 
-			Button btn = new Button(actions, SWT.PUSH);
-			btn.setText("Prompt");
-			btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.execute(btn.getDisplay())));
+	private void createInputsTable(Composite middle, ConfigManager cfg, AISessionManager session) {
+		Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
+		table.setHeaderVisible(true);
+		table.setLinesVisible(true);
 
-			Button bbtn = new Button(actions, SWT.PUSH);
-			bbtn.setText("Enqueue");
-			bbtn.addSelectionListener(SelectionListener
-					.widgetSelectedAdapter(e -> session.queueAsync(bbtn.getDisplay(), Activator.getDefault().batch)));
+		TableColumn column1 = new TableColumn(table, SWT.NONE);
+		column1.setText("On");
+		column1.setWidth(30);
 
-			Button bsbtn = new Button(actions, SWT.PUSH);
-			bsbtn.setText("Batch");
-			bsbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(
-					e -> session.queueAndSubmit(bsbtn.getDisplay(), Activator.getDefault().batch)));
+		TableColumn column2 = new TableColumn(table, SWT.NONE);
+		column2.setText("Input");
+		column2.setWidth(120);
 
-			cfg.addModelObs(m -> {
-				bbtn.setEnabled(m.cap.isSupportBatch());
-				bsbtn.setEnabled(m.cap.isSupportBatch());
-				body.layout();
+		TableColumn column3 = new TableColumn(table, SWT.NONE);
+		column3.setText("Amount");
+		column3.setWidth(45);
+
+		table.addListener(SWT.Selection, e -> {
+			if (e.detail == SWT.CHECK) {
+				TableItem item = (TableItem) e.item;
+				InputMode mode = InputMode.valueOf(item.getText(1).replace(" ", "_"));
+				cfg.setInputMode(mode, !cfg.isInputEnabled(mode));
+			}
+		});
+
+		for (int i = 0; i < InputMode.values().length; i++) {
+			TableItem item = new TableItem(table, SWT.NONE);
+			InputMode mode = InputMode.values()[i];
+			session.addInputStatObs(is -> {
+				var checked = item.getChecked();
+				item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
+				item.setChecked(checked);
+			}, true);
+			cfg.addInputObs(is -> {
+				item.setChecked(is[mode.ordinal()]);
 			}, true);
 		}
-		{ // Free text status display
-			Composite footer = new Composite(body, SWT.NONE);
-			footer.setLayout(new GridLayout(1, false));
-			footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+	}
 
-			usageLog = toolkit.createText(footer, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
-			usageLog.setText("Total, Out, Reason, CRead, CCreate, In\n");
-			GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-			gridData.heightHint = 50;
-			usageLog.setLayoutData(gridData);
-		}
+	private void createOutputModeSection(Composite body, ConfigManager cfg) {
+		Composite bottom = new Composite(body, SWT.NONE);
+		bottom.setLayout(new GridLayout(2, false));
+
+		toolkit.createLabel(bottom, "Output:");
+		Combo outputMode = new Combo(bottom, SWT.DROP_DOWN | SWT.READ_ONLY);
+		String[] outputOptions = Arrays.stream(OutputMode.values()).map(e -> e.name()).collect(Collectors.toList())
+				.toArray(new String[0]);
+		outputMode.setItems(outputOptions);
+		outputMode.addSelectionListener(SelectionListener
+				.widgetSelectedAdapter(e -> cfg.setOuputMode(OutputMode.valueOf(outputMode.getText()))));
+		cfg.addOutputModeObs(m -> outputMode.setText(m.name()), true);
+	}
+
+	private void createActionButtonsSection(Composite body, ConfigManager cfg, AISessionManager session) {
+		Composite actions = new Composite(body, SWT.NONE);
+		actions.setLayout(new GridLayout(3, false));
+
+		Button btn = new Button(actions, SWT.PUSH);
+		btn.setText("Prompt");
+		btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.execute(btn.getDisplay())));
+
+		Button bbtn = new Button(actions, SWT.PUSH);
+		bbtn.setText("Enqueue");
+		bbtn.addSelectionListener(SelectionListener
+				.widgetSelectedAdapter(e -> session.queueAsync(bbtn.getDisplay(), Activator.getDefault().batch)));
+
+		Button bsbtn = new Button(actions, SWT.PUSH);
+		bsbtn.setText("Batch");
+		bsbtn.addSelectionListener(SelectionListener
+				.widgetSelectedAdapter(e -> session.queueAndSubmit(bsbtn.getDisplay(), Activator.getDefault().batch)));
+
+		cfg.addModelObs(m -> {
+			bbtn.setEnabled(m.cap.isSupportBatch());
+			bsbtn.setEnabled(m.cap.isSupportBatch());
+			body.layout();
+		}, true);
+	}
+
+	private void createUsageLogSection(Composite body, AISessionManager session) {
+		Composite footer = new Composite(body, SWT.NONE);
+		footer.setLayout(new GridLayout(1, false));
+		footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
+		usageLog = toolkit.createText(footer, "", SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		usageLog.setText("Total, Out, Reason, CRead, CCreate, In\n");
+		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData.heightHint = 50;
+		usageLog.setLayoutData(gridData);
 
 		session.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
@@ -524,9 +561,8 @@ public class AISessionView extends ViewPart {
 					if (text == null || text.isEmpty())
 						text = "Total, Out, Reason, CRead, CCreate, In\n";
 
-					String newtext = String.format("%6d,%6d,%5d,%6d,%6d,%6d\n", a.stats.totalToken,
-							a.stats.outputToken, a.stats.reasoningToken, a.stats.cacheRead, a.stats.cacheCreate,
-							a.stats.inputToken);
+					String newtext = String.format("%6d,%6d,%5d,%6d,%6d,%6d\n", a.stats.totalToken, a.stats.outputToken,
+							a.stats.reasoningToken, a.stats.cacheRead, a.stats.cacheCreate, a.stats.inputToken);
 					int idx = text.indexOf('\n');
 					text = text.substring(0, idx + 1) + newtext + text.substring(idx + 1);
 
@@ -534,9 +570,6 @@ public class AISessionView extends ViewPart {
 				}
 			});
 		});
-		session.initializeInputs();
-
-		form.reflow(true);
 	}
 
 	private void refreshPresetList() {

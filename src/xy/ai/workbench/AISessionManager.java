@@ -68,6 +68,7 @@ public class AISessionManager {
 		this.connector = connector;
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		cfg.addInputModeObs(i -> updateInputStat(i));
+		cfg.addEnabledToolsObs(t -> updateInputStat(InputMode.Tools), false);
 	}
 
 	public void clearObserver() {
@@ -86,8 +87,13 @@ public class AISessionManager {
 	}
 
 	public void updateInputStat(InputMode mode) {
-		String input = getInput(mode);
-		inputStats[mode.ordinal()] = input != null ? input.length() : -1;
+		if (mode == InputMode.Tools) {
+			String[] tools = cfg.getTools();
+			inputStats[mode.ordinal()] = tools != null ? tools.length : 0;
+		} else {
+			String input = getInput(mode);
+			inputStats[mode.ordinal()] = input != null ? input.length() : -1;
+		}
 		inputStatObs.forEach(c -> c.accept(inputStats));
 	}
 
@@ -372,7 +378,7 @@ public class AISessionManager {
 		if (editorListener.getLastTextEditor() == null && !batchFix)
 			throw new IllegalArgumentException("Result editor unset");
 
-		List<String> tools = List.of(cfg.getTools());
+		List<String> tools = cfg.isInputEnabled(InputMode.Tools) ? List.of(cfg.getTools()) : List.of();
 
 		if (cfg.isInputEnabled(InputMode.Files))
 			inputs.addAll(selectedFiles.stream().map(f -> {

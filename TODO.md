@@ -1,5 +1,6 @@
 # TODO
 * open alex zweistufig optimieren, split in separate files
+	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* was harness und was bietet er, cc auch mit anderem harness möglich?
