@@ -56,10 +56,12 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 
 		Builder builder = ResponseCreateParams.builder() //
 				.maxOutputTokens(cfg.getMaxOutputTokens())
-				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "").truncation(Truncation.DISABLED) //
-				.maxToolCalls(1)//
+				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "") //
+				.truncation(Truncation.DISABLED) //
+				.maxToolCalls(0)//
 				.background(isBackground)//
 				.instructions(systemPrompt)//
+				.parallelToolCalls(false)//
 				.reasoning( //
 						Reasoning.builder()//
 								.effort(ReasoningEffort.of(cfg.getReasoning().name())) //
