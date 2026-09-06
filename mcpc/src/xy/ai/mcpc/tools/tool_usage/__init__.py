@@ -1,5 +1,4 @@
-"""``tool_usage`` – full signature, docstring and type sources for one function.
-"""
+"""``tool_usage`` – full signature, docstring and type sources for one or more functions."""
 import inspect
 import typing
 from dataclasses import dataclass, field
@@ -98,21 +97,34 @@ def describe_function(functions: FunctionRegistry, function_id: str) -> ToolUsag
 class ToolUsageTool(ToolDefinition):
     name = 'tool_usage'
     title = 'Show function-based tool usage'
-    description = 'Get usage and information for one function-based tool: its signature and the source.'
+    description = 'Get usage and information for one or more function-based tools: their signatures and sources.'
     input_schema = {
         'type': 'object',
         'properties': {
-            'name': {
-                'type': 'string',
-                'description': 'Id/name of the function, as returned by tool_search.'}},
-        'required': ['name']}
+            'names': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'},
+                'description': 'Ids/names of the functions, as returned by tool_search.'}},
+        'required': ['names']}
     output_schema = {
         'type': 'object', 'properties': {
-            'signature': {
-                'type': 'string'}, 'docstring': {
-                    'type': 'string'}, 'type_sources': {
-                        'type': 'array', 'items': {
-                            'type': 'string'}}}}
+            'usages': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'name': {
+                            'type': 'string'}, 'signature': {
+                                'type': 'string'}, 'docstring': {
+                                    'type': 'string'}, 'type_sources': {
+                                        'type': 'array', 'items': {
+                                            'type': 'string'}}}, 'required': [
+                                                'name', 'signature', 'docstring']}}, 'errors': {
+                                                    'type': 'array', 'items': {
+                                                        'type': 'object', 'properties': {
+                                                            'name': {
+                                                                'type': 'string'}, 'error': {
+                                                                    'type': 'string'}}, 'required': [
+                                                                        'name', 'error']}}}, 'required': ['usages']}
     annotations = {'readOnlyHint': True, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
@@ -120,23 +132,29 @@ class ToolUsageTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args: dict[str, Any] = ctx.arguments
-        name = args['name']
+        names: list[str] = args['names']
         seen: set[str] = ctx.session.state.setdefault(_SEEN_STATE_KEY, set())
-        if name in seen:
-            return ToolResult(
-                content=[
-                    text_content(
-                        f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result.")])
-        try:
-            info = describe_function(self._functions, name)
-        except ToolUsageError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        seen.add(name)
-        return ToolResult(
-            structured_content={
-                'signature': info.signature,
-                'docstring': info.docstring,
-                'type_sources': info.type_sources})
+        usages: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+        for name in names:
+            if name in seen:
+                errors.append(
+                    {'name': name, 'error': f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result."})
+                continue
+            try:
+                info = describe_function(self._functions, name)
+            except ToolUsageError as exc:
+                errors.append({'name': name, 'error': str(exc)})
+                continue
+            seen.add(name)
+            usages.append({'name': name,
+                           'signature': info.signature,
+                           'docstring': info.docstring,
+                           'type_sources': info.type_sources})
+        structured_content: dict[str, Any] = {'usages': usages}
+        if errors:
+            structured_content['errors'] = errors
+        return ToolResult(structured_content=structured_content, is_error=bool(errors) and (not usages))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolUsageTool(functions))
