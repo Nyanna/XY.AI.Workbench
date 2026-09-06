@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IFile;
-import org.eclipse.jface.viewers.ITableLabelProvider;
-import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.FocusListener;
@@ -14,7 +12,6 @@ import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
@@ -31,7 +28,6 @@ import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IMemento;
-import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IViewSite;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PartInitException;
@@ -79,23 +75,6 @@ public class AISessionView extends ViewPart {
 	public Display display;
 
 	java.util.List<String> instructionSelection = new ArrayList<String>();
-
-	class ViewLabelProvider extends LabelProvider implements ITableLabelProvider {
-		@Override
-		public String getColumnText(Object obj, int index) {
-			return getText(obj);
-		}
-
-		@Override
-		public Image getColumnImage(Object obj, int index) {
-			return getImage(obj);
-		}
-
-		@Override
-		public Image getImage(Object obj) {
-			return workbench.getSharedImages().getImage(ISharedImages.IMG_OBJ_ELEMENT);
-		}
-	}
 
 	@Override
 	public void saveState(IMemento memento) {
@@ -625,43 +604,5 @@ public class AISessionView extends ViewPart {
 	@Override
 	public void setFocus() {
 		// form.setFocus();
-	}
-
-	private static class MultiSelectListener {
-		private ArrayList<Integer> selectedIndices = new ArrayList<>();
-		private final List component;
-
-		MultiSelectListener(List component) {
-			this.component = component;
-			component.addListener(SWT.MouseDown, event -> {
-				int clickedIndex = component.getSelectionIndex();
-
-				if (selectedIndices.contains(clickedIndex))
-					selectedIndices.remove(Integer.valueOf(clickedIndex));
-				else
-					selectedIndices.add(clickedIndex);
-
-				int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
-				component.setSelection(selection);
-			});
-		}
-
-		void setSelection(String[] items) {
-			java.util.List<String> all = Arrays.asList(component.getItems());
-			selectedIndices.clear();
-			if (items != null)
-				for (String item : items) {
-					int idx = all.indexOf(item);
-					if (idx >= 0)
-						selectedIndices.add(idx);
-				}
-			int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
-			component.setSelection(selection);
-		}
-
-		void clear() {
-			selectedIndices.clear();
-			component.deselectAll();
-		}
 	}
 }

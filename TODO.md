@@ -3,6 +3,8 @@
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* was harness und was bietet er, cc auch mit anderem harness möglich?
+	* lokale claude code alternativre anbinden wie olama -> deepseek auf openapisdh mit pay per token
+	* update alte api key model and model parameters -> fetch from models API and only report missing feature support
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
 
 ##  Workbench
@@ -19,7 +21,6 @@
 	* exten "---" grey the whole line?
 * subagenten mit Hauptsession verknüpfen, control filter per filter Parameter nach einem sessionbaum
 	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
-* update alte api key model and model parameters -> fetch from models API and only report missing feature support
 
 
 ## Agents
@@ -36,6 +37,5 @@
 
 ## Ideas
 
-* lokale claude code alternativre anbinden wie olama -> deepseek auf openapisdh mit pay per token
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * weitere tools für research Semantic Scholar, arXiv API Access
