@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import org.eclipse.ui.IMemento;
 
 import xy.ai.workbench.Model.Capabilities;
+import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.model.ModelResolverRegistry;
 
 public class ConfigManager {
 
@@ -303,14 +305,15 @@ public class ConfigManager {
 
 	private void updateEnabledModels(String[] keys) {
 		List<Model> avail = new ArrayList<Model>();
-		forModel: for (Model mod : Model.values())
-			for (String key : keys)
-				if (mod.cap.acceptsKey(key)) {
-					avail.add(mod);
-					continue forModel;
-				}
+		for (String key : keys)
+			for (KeyPattern pattern : KeyPattern.values())
+				if (pattern.matches(key))
+					for (Model mod : ModelResolverRegistry.resolve(pattern, key))
+						if (!avail.contains(mod))
+							avail.add(mod);
 
 		enabledModels = avail.toArray(new Model[0]);
+
 		if (!avail.contains(cfg.model) && !avail.isEmpty())
 			setModel(avail.get(1));
 
@@ -344,7 +347,51 @@ public class ConfigManager {
 
 	public void loadConfig(IMemento memento) {
 		try {
-			MementoConverter.loadConfig(memento, cfg);
+			MementoConverter.Snapshot snap = MementoConverter.loadConfig(memento);
+			if (snap == null)
+				return;
+
+			// Order matters: keys must be set (models resolved) before the model itself can be
+			// restored, and the model must be set before the remaining, capability-dependent
+			// settings are applied - otherwise setModel()'s own defaulting logic would clobber them.
+			if (snap.keys != null)
+				setKey(snap.keys);
+
+			if (snap.modelProvider != null) {
+				Model resolved = Arrays.stream(enabledModels)
+						.filter(m -> m.matches(KeyPattern.valueOf(snap.modelProvider), snap.modelApiName)).findFirst()
+						.orElse(null);
+				if (resolved != null)
+					setModel(resolved);
+				else
+					LOG.error("Unable to resolve persisted model " + snap.modelProvider + ":" + snap.modelApiName
+							+ ", no fallback applied");
+			}
+
+			if (snap.temperature != null)
+				setTemperature(snap.temperature);
+			if (snap.topP != null)
+				setTopP(snap.topP);
+			if (snap.maxOutputTokens != null)
+				setMaxOutputTokens(snap.maxOutputTokens);
+			if (snap.reasoningBudget != null)
+				setReasoningBudget(snap.reasoningBudget);
+			if (snap.reasoning != null)
+				setReasoning(Reasoning.valueOf(snap.reasoning));
+			if (snap.cacheMode != null)
+				setCacheMode(CacheMode.valueOf(snap.cacheMode));
+			if (snap.profile != null)
+				setProfile(AgentProfile.valueOf(snap.profile));
+			if (snap.systemPrompt != null)
+				setSystemPrompt(snap.systemPrompt);
+			if (snap.freeText != null)
+				setSystemFree(snap.freeText);
+			if (snap.outputMode != null)
+				setOuputMode(OutputMode.valueOf(snap.outputMode));
+			if (snap.inputModes != null)
+				for (InputMode mode : InputMode.values())
+					if (mode.ordinal() < snap.inputModes.length)
+						setInputMode(mode, snap.inputModes[mode.ordinal()]);
 		} catch (Exception e) {
 			LOG.error(e.getMessage(), e);
 			LOG.info("Unable to restore config");

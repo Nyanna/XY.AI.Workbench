@@ -2,136 +2,38 @@ package xy.ai.workbench;
 
 import java.util.regex.Pattern;
 
-public enum Model {
-	NONE("none", new Capabilities()//
-			.key(KeyPattern.None)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-	), //
-	GPT_5_NANO("gpt-5-nano", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.OpenAI)//
-	), //
-	GPT_5_MINI("gpt-5-mini", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.OpenAI)//
-	), //
-	GPT_5("gpt-5", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.high, Reasoning.medium, Reasoning.low)//
-	), //
-	GEMINI_25_PRO("gemini-2.5-pro", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Unlimited, Reasoning.Budget)//
-			.budget(128, 32768)//
-	), //
-	GEMINI_25_FLASH("gemini-2.5-flash", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Budgets)//
-			.budget(0, 24576)//
-	), //
-	GEMINI_25_LIGHT("gemini-2.5-flash-lite", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Budgets)//
-			.budget(512, 24576)//
-	), //
-	CLAUDE_OPUS("claude-opus-4-1", new Capabilities()//
-			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000)//
-			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
-			.budget(1024, 31999)//
-	), //
-	CLAUDE_SONNET("claude-sonnet-4-0", new Capabilities()//
-			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000)//
-			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
-			.budget(1024, 31999)//
-	), //
-	CC_HAIKU("haiku", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.agentProfiles(AgentProfile.values())//
-			.reasonings(Reasoning.ClaudeCode)//
-	), //
-	CC_SONNET("sonnet", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.agentProfiles(AgentProfile.values())//
-			.reasonings(Reasoning.ClaudeCode)//
-	), //
-	CC_OPUS("opus", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.agentProfiles(AgentProfile.values())//
-			.reasonings(Reasoning.ClaudeCode)//
-	), //
-		// MCPC Root Agents
-	CC_MCPC_HAIKU("haiku", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.tools(Tools.ALL)//
-			.agentProfiles(AgentProfile.MCPC)//
-			.reasonings(Reasoning.ClaudeCode)//
-	), //
-	CC_MCPC_SONNET("sonnet", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.tools(Tools.ALL)//
-			.agentProfiles(AgentProfile.MCPC)//
-			.reasonings(Reasoning.ClaudeCode)//
-	), //
-	CC_MCPC_OPUS("opus", new Capabilities()//
-			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.supportMaxToken(false)//
-			.supportBatch(false)//
-			.cacheMode(CacheMode.ClaudeCode)//
-			.tools(Tools.ALL)//
-			.agentProfiles(AgentProfile.MCPC)//
-			.reasonings(Reasoning.ClaudeCode)//
-	) //
-	;
+public class Model {
 
 	public final String apiName;
+	public final String displayName;
 	public final Capabilities cap;
 
-	private Model(String connectorName, Capabilities cap) {
-		this.apiName = connectorName;
+	public Model(String apiName, String displayName, Capabilities cap) {
+		this.apiName = apiName;
+		this.displayName = displayName;
 		this.cap = cap;
 	}
 
+	public Model(String apiName, Capabilities cap) {
+		this(apiName, apiName, cap);
+	}
+
+	@Override
+	public String toString() {
+		return displayName;
+	}
+
+	// Deliberately no equals()/hashCode() override: identity equality is fine since resolvers
+	// (incl. the in-memory ModelResolverRegistry cache) always hand out the same instances for the
+	// same key, and a single apiName may legitimately represent more than one model configuration
+	// (e.g. Claude Code "haiku" vs. the MCPC-root "haiku" with different tool/profile capabilities).
+	// Use matches() for explicit id-based lookups (e.g. restoring a persisted model reference).
+	public boolean matches(KeyPattern provider, String apiName) {
+		return cap.getKeyPattern() == provider && java.util.Objects.equals(this.apiName, apiName);
+	}
+
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), None("^none$"),
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), Deepseek("^sk-[a-z0-9]{32}$"), None("^none$"),
 		ClaudeCode("^(work|personal)$");
 
 		public final Pattern pattern;
@@ -144,6 +46,135 @@ public enum Model {
 			return pattern.matcher(key).matches();
 		}
 
+	}
+
+	// Default model catalog: used by the DefaultModelResolver, i.e. as long as no
+	// provider-specific resolver takes over (or as a fallback if it fails).
+	public static final Model NONE = new Model("none", new Capabilities()//
+			.key(KeyPattern.None)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+	);
+	public static final Model GPT_5_NANO = new Model("gpt-5-nano", new Capabilities()//
+			.key(KeyPattern.OpenAI)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.reasonings(Reasoning.OpenAI)//
+	);
+	public static final Model GPT_5_MINI = new Model("gpt-5-mini", new Capabilities()//
+			.key(KeyPattern.OpenAI)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.reasonings(Reasoning.OpenAI)//
+	);
+	public static final Model GPT_5 = new Model("gpt-5", new Capabilities()//
+			.key(KeyPattern.OpenAI)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.reasonings(Reasoning.high, Reasoning.medium, Reasoning.low)//
+	);
+	public static final Model GEMINI_25_PRO = new Model("gemini-2.5-pro", new Capabilities()//
+			.key(KeyPattern.Gemini)//
+			.outTokens(0, 65536)//
+			.reasonings(Reasoning.Unlimited, Reasoning.Budget)//
+			.budget(128, 32768)//
+	);
+	public static final Model GEMINI_25_FLASH = new Model("gemini-2.5-flash", new Capabilities()//
+			.key(KeyPattern.Gemini)//
+			.outTokens(0, 65536)//
+			.reasonings(Reasoning.Budgets)//
+			.budget(0, 24576)//
+	);
+	public static final Model GEMINI_25_LIGHT = new Model("gemini-2.5-flash-lite", new Capabilities()//
+			.key(KeyPattern.Gemini)//
+			.outTokens(0, 65536)//
+			.reasonings(Reasoning.Budgets)//
+			.budget(512, 24576)//
+	);
+	public static final Model CLAUDE_OPUS = new Model("claude-opus-4-1", new Capabilities()//
+			.key(KeyPattern.Claude)//
+			.outTokens(0, 32000)//
+			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
+			.budget(1024, 31999)//
+	);
+	public static final Model CLAUDE_SONNET = new Model("claude-sonnet-4-0", new Capabilities()//
+			.key(KeyPattern.Claude)//
+			.outTokens(0, 32000)//
+			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
+			.budget(1024, 31999)//
+	);
+	public static final Model CC_HAIKU = new Model("haiku", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.agentProfiles(AgentProfile.values())//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+	public static final Model CC_SONNET = new Model("sonnet", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.agentProfiles(AgentProfile.values())//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+	public static final Model CC_OPUS = new Model("opus", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.agentProfiles(AgentProfile.values())//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+	// MCPC Root Agents (displayName kept distinct from CC_* despite identical apiName)
+	public static final Model CC_MCPC_HAIKU = new Model("haiku", "haiku (mcpc)", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.tools(Tools.ALL)//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+	public static final Model CC_MCPC_SONNET = new Model("sonnet", "sonnet (mcpc)", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.tools(Tools.ALL)//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+	public static final Model CC_MCPC_OPUS = new Model("opus", "opus (mcpc)", new Capabilities()//
+			.key(KeyPattern.ClaudeCode)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.cacheMode(CacheMode.ClaudeCode)//
+			.tools(Tools.ALL)//
+			.agentProfiles(AgentProfile.MCPC)//
+			.reasonings(Reasoning.ClaudeCode)//
+	);
+
+	public static final Model[] DEFAULTS = { NONE, GPT_5_NANO, GPT_5_MINI, GPT_5, GEMINI_25_PRO, GEMINI_25_FLASH,
+			GEMINI_25_LIGHT, CLAUDE_OPUS, CLAUDE_SONNET, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
+			CC_MCPC_OPUS };
+
+	/** Default (static) catalog of models for a given provider, used by the DefaultModelResolver. */
+	public static Model[] defaultsFor(KeyPattern provider) {
+		return java.util.Arrays.stream(DEFAULTS).filter(m -> m.cap.getKeyPattern() == provider).toArray(Model[]::new);
 	}
 
 	public static class Capabilities {

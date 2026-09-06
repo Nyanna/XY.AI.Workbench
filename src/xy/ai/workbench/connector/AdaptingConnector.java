@@ -59,47 +59,32 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 		return KeyPattern.None;
 	}
 
-	private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
-		switch (model) {
-		case GPT_5:
-		case GPT_5_MINI:
-		case GPT_5_NANO:
+		private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
+		switch (model.cap.getKeyPattern()) {
+		case OpenAI:
 			return chad;
-		case GEMINI_25_PRO:
-		case GEMINI_25_FLASH:
-		case GEMINI_25_LIGHT:
+		case Gemini:
 			return gemini;
-		case CLAUDE_OPUS:
-		case CLAUDE_SONNET:
+		case Claude:
 			return claude;
-		case CC_HAIKU:
-		case CC_SONNET:
-		case CC_OPUS:
-		case CC_MCPC_HAIKU:
-		case CC_MCPC_SONNET:
-		case CC_MCPC_OPUS:
+		case ClaudeCode:
 			return claudeCode;
 		default:
 		}
-		throw new IllegalArgumentException("Model unsupported");
+		throw new IllegalArgumentException("Model unsupported: " + model.displayName);
 	}
 
 	public IAIBatchConnector getBatchConnector(Model model) {
-		switch (model) {
-		case GPT_5:
-		case GPT_5_MINI:
-		case GPT_5_NANO:
+		switch (model.cap.getKeyPattern()) {
+		case OpenAI:
 			return batchChad;
-		case GEMINI_25_PRO:
-		case GEMINI_25_FLASH:
-		case GEMINI_25_LIGHT:
+		case Gemini:
 			return batchGemini;
-		case CLAUDE_OPUS:
-		case CLAUDE_SONNET:
+		case Claude:
 			return batchClaude;
 		default:
 		}
-		throw new IllegalArgumentException("Model unsupported");
+		throw new IllegalArgumentException("Model unsupported: " + model.displayName);
 	}
 
 	@SuppressWarnings("rawtypes")

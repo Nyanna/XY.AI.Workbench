@@ -1,114 +1,80 @@
 package xy.ai.workbench;
 
+import java.io.IOException;
+
 import org.eclipse.ui.IMemento;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/**
+ * (De)serializes {@link SessionConfig} as a single JSON blob instead of mirroring its structure
+ * as a tree of {@link IMemento} children/items. This avoids duplicating the config structure and,
+ * more importantly, decouples parsing from applying: {@link #loadConfig(IMemento)} only returns a
+ * plain data snapshot, letting {@link ConfigManager} decide the (capability-dependent) order in
+ * which the values are actually applied.
+ */
 public class MementoConverter {
 
-	public static void saveConfig(IMemento memento, SessionConfig cfg) {
-		var m = memento.createChild("cfg");
+	private static final ObjectMapper MAPPER = new ObjectMapper();
 
-		if (cfg.keys != null)
-			m.putString("key", cfg.keys);
-		if (cfg.maxOutputTokens != null)
-			m.putString("maxOutputTokens", String.valueOf(cfg.maxOutputTokens));
-		if (cfg.temperature != null)
-			m.putString("temperature", String.valueOf(cfg.temperature));
-		if (cfg.topP != null)
-			m.putString("topP", String.valueOf(cfg.topP));
-		if (cfg.freeText != null)
-			m.putString("freeText", cfg.freeText);
-		if (cfg.model != null)
-			m.putString("model", cfg.model.name());
-		if (cfg.reasoning != null)
-			m.putString("reasoning", cfg.reasoning.name());
-		if (cfg.cacheMode != null)
-			m.putString("cacheMode", cfg.cacheMode.name());
-		if (cfg.profile != null)
-			m.putString("profile", cfg.profile.name());
-		if (cfg.reasoningBudget != null)
-			m.putInteger("reasoningBudget", cfg.reasoningBudget);
-		int spLen = cfg.systemPrompt != null ? cfg.systemPrompt.length : 0;
-		m.putInteger("systemPrompt.length", spLen);
-		if (spLen > 0) {
-			IMemento sp = m.createChild("systemPrompt");
-			for (int i = 0; i < spLen; i++) {
-				IMemento item = sp.createChild("item");
-				item.putInteger("index", i);
-				item.putString("value", cfg.systemPrompt[i]);
-			}
+	public static void saveConfig(IMemento memento, SessionConfig cfg) {
+		Snapshot snap = new Snapshot();
+		snap.keys = cfg.keys;
+		snap.maxOutputTokens = cfg.maxOutputTokens;
+		snap.temperature = cfg.temperature;
+		snap.topP = cfg.topP;
+		snap.freeText = cfg.freeText;
+		if (cfg.model != null) {
+			snap.modelProvider = cfg.model.cap.getKeyPattern().name();
+			snap.modelApiName = cfg.model.apiName;
 		}
-		if (cfg.ouputMode != null)
-			m.putString("outputMode", cfg.ouputMode.name());
-		int imLen = cfg.inputModes != null ? cfg.inputModes.length : 0;
-		m.putInteger("inputModes.length", imLen);
-		if (imLen > 0) {
-			IMemento im = m.createChild("inputModes");
-			for (int i = 0; i < imLen; i++) {
-				IMemento item = im.createChild("item");
-				item.putInteger("index", i);
-				item.putString("value", Boolean.toString(cfg.inputModes[i]));
-			}
+		snap.reasoning = cfg.reasoning != null ? cfg.reasoning.name() : null;
+		snap.cacheMode = cfg.cacheMode != null ? cfg.cacheMode.name() : null;
+		snap.profile = cfg.profile != null ? cfg.profile.name() : null;
+		snap.reasoningBudget = cfg.reasoningBudget;
+		snap.systemPrompt = cfg.systemPrompt;
+		snap.outputMode = cfg.ouputMode != null ? cfg.ouputMode.name() : null;
+		snap.inputModes = cfg.inputModes;
+
+		try {
+			memento.createChild("cfg").putString("json", MAPPER.writeValueAsString(snap));
+		} catch (JsonProcessingException e) {
+			LOG.error("Unable to serialize session config", e);
 		}
 	}
 
-	public static void loadConfig(IMemento memento, SessionConfig cfg) {
+	/** Returns the raw, persisted snapshot - or {@code null} if there is none. Applies nothing. */
+	public static Snapshot loadConfig(IMemento memento) {
 		if (memento == null)
-			return;
-		var m = memento.getChild("cfg");
-		if (m == null)
-			return;
+			return null;
+		IMemento m = memento.getChild("cfg");
+		String json = m != null ? m.getString("json") : null;
+		if (json == null)
+			return null;
+		try {
+			return MAPPER.readValue(json, Snapshot.class);
+		} catch (IOException e) {
+			LOG.error("Unable to deserialize session config", e);
+			return null;
+		}
+	}
 
-		cfg.keys = m.getString("key");
-		String maxTok = m.getString("maxOutputTokens");
-		cfg.maxOutputTokens = maxTok != null ? Long.valueOf(maxTok) : null;
-		String tmp = m.getString("temperature");
-		cfg.temperature = tmp != null ? Double.valueOf(tmp) : null;
-		String tp = m.getString("topP");
-		cfg.topP = tp != null ? Double.valueOf(tp) : null;
-		cfg.freeText = m.getString("freeText");
-		String mdl = m.getString("model");
-		cfg.model = mdl != null ? Model.valueOf(mdl) : null;
-		String rsn = m.getString("reasoning");
-		cfg.reasoning = rsn == null ? cfg.reasoning : Reasoning.valueOf(rsn);
-		String cm = m.getString("cacheMode");
-		cfg.cacheMode = cm == null ? cfg.cacheMode : CacheMode.valueOf(cm);
-		String profile = m.getString("profile");
-		cfg.profile = profile == null ? cfg.profile : AgentProfile.valueOf(profile);
-		Integer rsnb = m.getInteger("reasoningBudget");
-		cfg.reasoningBudget = rsnb != null ? cfg.reasoningBudget : rsnb;
-		Integer spLen = m.getInteger("systemPrompt.length");
-		int sLen = spLen != null ? spLen : 0;
-		if (sLen > 0) {
-			IMemento sp = m.getChild("systemPrompt");
-			String[] arr = new String[sLen];
-			if (sp != null) {
-				IMemento[] items = sp.getChildren("item");
-				for (IMemento it : items) {
-					Integer idx = it.getInteger("index");
-					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < sLen && idx < arr.length)
-						arr[idx] = val;
-				}
-			}
-			cfg.systemPrompt = arr;
-		}
-		String om = m.getString("outputMode");
-		cfg.ouputMode = om != null ? OutputMode.valueOf(om) : null;
-		Integer imLen = m.getInteger("inputModes.length");
-		int iLen = imLen != null ? imLen : 0;
-		if (iLen > 0) {
-			IMemento im = m.getChild("inputModes");
-			boolean[] arr = new boolean[InputMode.values().length];
-			if (im != null) {
-				IMemento[] items = im.getChildren("item");
-				for (IMemento it : items) {
-					Integer idx = it.getInteger("index");
-					String val = it.getString("value");
-					if (idx != null && idx >= 0 && idx < iLen && idx < arr.length)
-						arr[idx] = Boolean.parseBoolean(val);
-				}
-			}
-			cfg.inputModes = arr;
-		}
+	/** Plain, capability-agnostic data snapshot of a {@link SessionConfig}. */
+	public static class Snapshot {
+		public String keys;
+		public Long maxOutputTokens;
+		public Double temperature;
+		public Double topP;
+		public String freeText;
+		public String modelProvider;
+		public String modelApiName;
+		public String reasoning;
+		public String cacheMode;
+		public String profile;
+		public Integer reasoningBudget;
+		public String[] systemPrompt;
+		public String outputMode;
+		public boolean[] inputModes;
 	}
 }

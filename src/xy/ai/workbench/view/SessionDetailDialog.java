@@ -54,7 +54,7 @@ public class SessionDetailDialog extends Dialog {
 		sb.append("Session ID: ").append(s.getID()).append("\n");
 		sb.append("Title: ").append(p.getTitle()).append("\n");
 		sb.append("TTL: ").append(ttl(s)).append("\n");
-		sb.append("Model: ").append(p.model != null ? p.model.name() : "").append("\n");
+		sb.append("Model: ").append(p.model != null ? p.model.displayName : "").append("\n");
 		sb.append("Effort: ").append(p.reasoning != null ? p.reasoning.name() : "").append("\n");
 		sb.append("Tools: ").append(p.tools != null ? String.join(", ", p.tools) : "").append("\n");
 		sb.append("File: ").append(p.getFilePath() != null ? p.getFilePath() : "").append("\n");
