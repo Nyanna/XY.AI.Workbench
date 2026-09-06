@@ -53,8 +53,8 @@ def ast_read(ids: list[str], path: str, *, with_lines: bool=True) -> ReadNodeRes
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
-    title = 'Read AST subtrees'
-    description = "Recursively read the subtree of each addressed known AST node id, surfacing each node's id, children, and source. Always get node ids first by using `ast_list` or `ast_find`."
+    title = 'Read AST subtrees for known node IDs'
+    description = "Recursively read the subtree of each ID addressed known AST node, surfacing each node's children, and source. Never guess IDs and always get node ids first by using `ast_list` or `ast_find`."
     input_schema = {
         'type': 'object',
         'properties': {

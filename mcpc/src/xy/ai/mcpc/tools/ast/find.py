@@ -64,7 +64,7 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         hit = core.most_specific(candidates, start, end)
         candidates = [hit] if hit is not None else []
     if pattern is None:
-        nodes = [core.node_outline(h, with_code=True, with_lines=with_lines) for h in candidates]
+        nodes = core.build_outline(candidates, with_code=True, with_lines=with_lines)
         return FileNodesResult(path=path, nodes=nodes)
     source = tree.source
     seen: set[str] = set()
@@ -76,7 +76,7 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         if loc is not None and loc.node_id not in seen:
             seen.add(loc.node_id)
             ordered.append(loc)
-    nodes = [core.node_outline(h, with_code=True, with_lines=with_lines) for h in ordered]
+    nodes = core.build_outline(ordered, with_code=True, with_lines=with_lines)
     return FileNodesResult(path=path, nodes=nodes)
 
 def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, node_type: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None, text: str | None=None, regexp: str | None=None, with_lines: bool=True) -> FindNodesResult:
