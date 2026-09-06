@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['EditBlockNodeResult', 'ast_edit_block', 'EditBlockNodeTool', 'register']
@@ -43,20 +43,23 @@ def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False
         new_text: Replacement text (may be empty to delete the block).
         exact: If False (default), whitespace in ``old_text`` is matched tolerantly.
         replace_all: If True, replace every occurrence instead of requiring a single match.
-        id: Unique id of the target node.
+        id: Unique id of the target node. If omitted, the node is searched for by
+            ``old_text`` instead.
 
     Returns:
         EditBlockNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``id`` is not
-            given, the path matches zero or more than one node, ``old_text`` is not
-            found or (without ``replace_all``) ambiguous within the node's source, or
-            the edited source has a syntax error.
+        core.AstError: If ``path`` is invalid, ``id`` matches zero or more than
+            one node, no node contains ``old_text`` (when ``id`` is omitted),
+            ``old_text`` is not found or (without ``replace_all``) ambiguous
+            within the node's source, or the edited source has a syntax error.
+        core.AstAmbiguous: If ``id`` is omitted and several unrelated nodes
+            contain ``old_text``.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id)
+    target = select_by_text(tree, [old_text], id=id)
     node_source = core.edit_node_source(target)
     try:
         new_source = replace_in_block(
@@ -117,7 +120,12 @@ class EditBlockNodeTool(ToolDefinition):
                 'description': 'Result status'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id."}},
+                'description': "The node's new id. Preffer 'ast_find' over 'ast_list'."},
+            'candidates': {
+                'type': 'array',
+                        'items': {
+                            'type': 'string'},
+                'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
@@ -129,6 +137,14 @@ class EditBlockNodeTool(ToolDefinition):
                 args['path'], args['old_text'], args['new_text'], exact=args.get(
                     'exact', False), replace_all=args.get(
                         'replaceAll', False), id=args.get('id'))
+        except core.AstAmbiguous as exc:
+            return ToolResult(
+                content=[
+                    text_content(
+                        str(exc))],
+                structured_content={
+                    'candidates': exc.candidates},
+                is_error=True)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         if result.id is not None:

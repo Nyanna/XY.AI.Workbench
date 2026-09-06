@@ -23,6 +23,14 @@ from typing import Any
 class AstError(Exception):
     """A user-facing, path-free error raised by the AST tools."""
 
+class AstAmbiguous(AstError):
+    """Raised when a text-based node search (no id given) finds several
+    unrelated candidates instead of a single node."""
+
+    def __init__(self, message: str, candidates: list[str]) -> None:
+        super().__init__(message)
+        self.candidates = candidates
+
 @dataclass
 class Tree:
     """A parsed file/snippet plus the engine that owns it.

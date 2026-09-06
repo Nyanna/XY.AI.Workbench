@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['EditMarksNodeResult', 'ast_edit_marks', 'EditMarksNodeTool', 'register']
@@ -40,20 +40,23 @@ def ast_edit_marks(path: str, start_marker: str, end_marker: str, content: str, 
         end_marker: Unique 10-30 char substring marking the end of the block, within the node's source.
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
-        id: Unique id of the target node.
+        id: Unique id of the target node. If omitted, the node is searched for by
+            ``start_marker``/``end_marker`` instead.
 
     Returns:
         EditMarksNodeResult: Success status.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``id`` is not
-            given, the path matches zero or more than one node, the markers are not
-            found or ambiguous within the node's source, or the edited source has a
-            syntax error.
+        core.AstError: If ``path`` is invalid, ``id`` matches zero or more than
+            one node, no node contains both markers (when ``id`` is omitted),
+            the markers are not found or ambiguous within the node's source, or
+            the edited source has a syntax error.
+        core.AstAmbiguous: If ``id`` is omitted and several unrelated nodes
+            contain both markers.
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id)
+    target = select_by_text(tree, [start_marker, end_marker], id=id)
     node_source = core.edit_node_source(target)
     begin, end = (start_marker, end_marker) if exact else (start_marker.strip(), end_marker.strip())
     try:
@@ -108,7 +111,12 @@ class EditMarksNodeTool(ToolDefinition):
                 'description': 'Result status'},
             'id': {
                 'type': 'string',
-                'description': "The node's new id."}},
+                'description': "The node's new id.  Preffer 'ast_find' over 'ast_list'."},
+            'candidates': {
+                'type': 'array',
+                        'items': {
+                            'type': 'string'},
+                'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}},
         'required': ['result']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
@@ -125,6 +133,14 @@ class EditMarksNodeTool(ToolDefinition):
                     'exact',
                     False),
                 id=args.get('id'))
+        except core.AstAmbiguous as exc:
+            return ToolResult(
+                content=[
+                    text_content(
+                        str(exc))],
+                structured_content={
+                    'candidates': exc.candidates},
+                is_error=True)
         except core.AstError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         if result.id is not None:
