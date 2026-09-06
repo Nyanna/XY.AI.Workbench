@@ -154,7 +154,14 @@ def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
     title = 'Run a script against injected tools'
-    description = f'Run Python code against a restricted, session-persistent context.'
+    description = (
+        'Run Python code against a restricted, session-persistent context. '
+        'Only text sent to print() is returned to the context — variable '
+        'assignments alone (e.g. `r = tool(...)`) are persisted only. '
+        'Complex objects are not auto-formatted: inspect their structure '
+        '(e.g. via tool_usage/type_sources) and explicitly iterate/print '
+        'the fields you need (e.g. `for x in r.results: print(x["title"])`).'
+    )
     input_schema = {
         'type': 'object',
         'properties': {
@@ -165,18 +172,32 @@ class ToolCallTool(ToolDefinition):
                 'description': "Ids of functions to inject into 'code' as same-named variables."},
             'code': {
                 'type': 'string',
-                        'description': 'Python script; restricted builtins, no imports.'}},
+                'description': (
+                    'Python script; restricted builtins, no imports. '
+                    'Must explicitly print() any result you want to see — '
+                    'assignments are session-persistent. '
+                    'iterate/extract fields yourself before printing.')}},
         'required': [
             'tool_ids',
             'code']}
     output_schema = {
         'type': 'object', 'properties': {
             'stdout': {
-                'type': 'string', 'description': 'Print to STDOUT to load into the context'}, 'stderr': {
-                    'type': 'string'}, 'stdout_var': {
-                        'type': 'string', 'description': 'Namespace variable holding full STDOUT if it was spilled.'}, 'stderr_var': {
-                            'type': 'string', 'description': 'Namespace variable holding full STDERR if it was spilled.'}, 'error': {
-                                'type': 'string'}}}
+                'type': 'string',
+                'description': (
+                    'Only content written via print() during code execution.')},
+            'stderr': {
+                'type': 'string'},
+            'stdout_var': {
+                'type': 'string',
+                'description': (
+                    'Namespace variable holding full STDOUT if it was '
+                    'spilled due to size. Variable persists across calls '
+                    'in this session and can be re-printed/sliced later.')},
+            'stderr_var': {
+                'type': 'string'},
+            'error': {
+                'type': 'string'}}}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
