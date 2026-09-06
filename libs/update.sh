@@ -7,11 +7,17 @@
 # New transitive deps not in the whitelist are silently skipped; deps that
 # drop out of the graph disappear (old jars are deleted before copying).
 #
-# Usage: ./update.sh <dirname|root|all>
+# Usage:
+#   ./update.sh <dirname|root|all>
+#   ./update.sh latest   bump anthropic-java/google-genai/openai-java in
+#                        libs/pom.xml to their newest release (versions-maven-
+#                        plugin), then run this again with all/root/<dirname>
 #
 # Version bump workflow: edit libs/pom.xml (<dependencies>/<dependencyManagement>),
 # add any newly-needed artifactId to the relevant allowed-artifacts.txt, then
 # run ./update.sh all.
+
+SDK_ARTIFACTS="com.anthropic:anthropic-java,com.google.genai:google-genai,com.openai:openai-java"
 
 set -euo pipefail
 
@@ -69,6 +75,11 @@ usage() {
 [[ $# -eq 1 ]] || usage
 
 case "$1" in
+  latest)
+    "$MVN" -f "$POM" versions:use-latest-releases -Dincludes="$SDK_ARTIFACTS"
+    rm -f "$LIBS_DIR/pom.xml.versionsBackup"
+    exit 0
+    ;;
   root)
     update_dir "."
     ;;

@@ -23,7 +23,6 @@ import com.google.genai.types.Part;
 import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
 
-import autovalue.shaded.com.google.common.collect.ImmutableList;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
@@ -55,7 +54,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		int id = new Random().nextInt(Integer.MAX_VALUE);
-		ImmutableList<SafetySetting> safetySettings = ImmutableList.of(//
+		List<SafetySetting> safetySettings = List.of(//
 				SafetySetting.builder()//
 						.category(HarmCategory.Known.HARM_CATEGORY_HATE_SPEECH)//
 						.threshold(HarmBlockThreshold.Known.BLOCK_NONE).build(),
