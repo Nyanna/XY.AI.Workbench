@@ -24,3 +24,12 @@ The following table shows pricing for all Claude models:
 | Claude Haiku 4.5                     | $1    | $1.25    | $2       | $0.10     | $5     |
 | DeepSeek V4 Pro                      | $0.66 | —        | —        | $0.022    | $1.98  | (Off-Peak 1/2, 23-2, 6-8)
 | DeepSeek V4 Flash                    | $0.22 | —        | —        | $0.007    | $0.66  |
+
+| Model                                | In    | 30m>= Write         | Cache Hit | Output |
+| ------------------------------------ | ----- | ------------------- | --------- | ------ |
+| GPT-5.5 Pro                          | $30 0 | —                   | —         | $180   |
+| GPT-6 Astra                          | $10   | $12.50              | $1        | $50    |
+| GPT-5.5                              | $5    | —                   | $0.50     | $30    |
+| GPT-5.6 Sol                          | $4    | —                   | $0.40     | $20    |
+| GPT-5.6 Terra                        | $2    | —                   | $0.20     | $12    |
+| GPT-5.6 Luna                         | $0.2  | —                   | $0.02     | $1.20  |
