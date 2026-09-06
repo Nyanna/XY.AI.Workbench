@@ -9,17 +9,18 @@
 
 The following table shows pricing for all Claude models:
 
-| Model                                | In   | 5m Write | 1h Write | Cache Hit | Output |
-| ------------------------------------ | ---- | -------- | -------- | --------- | ------ |
-| Claude Fable 5                       | $10  | $12.50   | $20      | $1        | $50    |
-| Claude Mythos 5                      | $10  | $12.50   | $20      | $1        | $50    |
-| Claude Opus 4.8                      | $5   | $6.25    | $10      | $0.50     | $25    |
-| Claude Opus 4.7                      | $5   | $6.25    | $10      | $0.50     | $25    |
-| Claude Opus 4.6                      | $5   | $6.25    | $10      | $0.50     | $25    |
-| Claude Opus 4.5                      | $5   | $6.25    | $10      | $0.50     | $25    |
-| Claude Sonnet 5 [intro-pricing)      | $2   | $2.50    | $4       | $0.20     | $10    |
-| Claude Sonnet 5 start Sep 1          | $3   | $3.75    | $6       | $0.30     | $15    |
-| Claude Sonnet 4.6                    | $3   | $3.75    | $6       | $0.30     | $15    |
-| Claude Sonnet 4.5                    | $3   | $3.75    | $6       | $0.30     | $15    |
-| Claude Haiku 4.5                     | $1   | $1.25    | $2       | $0.10     | $5     |
-	
+| Model                                | In    | 5m Write | 1h Write | Cache Hit | Output |
+| ------------------------------------ | ----- | -------- | -------- | --------- | ------ |
+| Claude Fable 5                       | $10   | $12.50   | $20      | $1        | $50    |
+| Claude Mythos 5                      | $10   | $12.50   | $20      | $1        | $50    |
+| Claude Opus 4.8                      | $5    | $6.25    | $10      | $0.50     | $25    |
+| Claude Opus 4.7                      | $5    | $6.25    | $10      | $0.50     | $25    |
+| Claude Opus 4.6                      | $5    | $6.25    | $10      | $0.50     | $25    |
+| Claude Opus 4.5                      | $5    | $6.25    | $10      | $0.50     | $25    |
+| Claude Sonnet 5 [intro-pricing)      | $2    | $2.50    | $4       | $0.20     | $10    |
+| Claude Sonnet 5 start Sep 1          | $3    | $3.75    | $6       | $0.30     | $15    |
+| Claude Sonnet 4.6                    | $3    | $3.75    | $6       | $0.30     | $15    |
+| Claude Sonnet 4.5                    | $3    | $3.75    | $6       | $0.30     | $15    |
+| Claude Haiku 4.5                     | $1    | $1.25    | $2       | $0.10     | $5     |
+| DeepSeek V4 Pro                      | $0.66 | —        | —        | $0.022    | $1.98  | (Off-Peak 1/2, 23-2, 6-8)
+| DeepSeek V4 Flash                    | $0.22 | —        | —        | $0.007    | $0.66  |

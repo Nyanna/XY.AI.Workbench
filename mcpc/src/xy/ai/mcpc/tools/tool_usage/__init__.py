@@ -8,7 +8,6 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = ['ToolUsageError', 'ToolUsageInfo', 'describe_function', 'ToolUsageTool', 'register']
-'#: Per-session state key: ids already fully described by tool_usage.'
 _SEEN_STATE_KEY = 'tool_usage_seen'
 '#: Project package prefix identifying a "self-declared" (non-stdlib) type.'
 _PROJECT_PREFIX = 'xy.ai.mcpc'

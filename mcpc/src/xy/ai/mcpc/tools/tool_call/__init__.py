@@ -22,10 +22,7 @@ __all__ = [
     'run_tool_call',
     'ToolCallTool',
     'register']
-'#: Per-session state key holding the persistent exec namespace (globals dict).'
 _NAMESPACE_STATE_KEY = 'tool_call_namespace'
-'#: STDOUT/STDERR beyond this many characters is spilled into the persistent'
-'#: namespace under a dynamic variable name instead of being returned inline.'
 STREAM_SPILL_THRESHOLD = 4000
 _SAFE_BUILTINS = {
     name: getattr(
@@ -79,13 +76,11 @@ class ToolCallError(Exception):
 
 @dataclass(frozen=True)
 class ToolCallExecution:
-    """Result of :func:`run_tool_call`."""
     stdout: str
     stderr: str
     error: str | None = None
 
 def fresh_namespace() -> dict[str, Any]:
-    """Return a new, empty persistent exec namespace (globals dict)."""
     return {'__builtins__': _SAFE_BUILTINS}
 
 def _sanitize_identifier(tool_id: str) -> str:

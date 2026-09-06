@@ -1,7 +1,8 @@
 # TODO
 * open alex zweistufig optimieren
 
-* Deepseek anbinden über openai SDK, vorher java AST sicherstellen
+* Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
+	* was harness und was bietet er, cc auch mit anderem harness möglich?
 * autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
 
 ##  Workbench

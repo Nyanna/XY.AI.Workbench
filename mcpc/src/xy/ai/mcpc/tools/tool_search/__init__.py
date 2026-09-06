@@ -5,7 +5,6 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionEntry, FunctionRegistry
 __all__ = ['search_functions', 'ToolSearchTool', 'register']
-'#: Per-session state key: ids of functions already surfaced by tool_search.'
 _SEEN_STATE_KEY = 'tool_search_seen'
 
 def _first_doc_line(doc: str) -> str:
