@@ -1,6 +1,7 @@
 """``ast_find`` tool: find AST nodes by type, name, id, line range or parent type."""
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -30,8 +31,29 @@ class FindNodesResult:
     """
     files: list[FileNodesResult]
 
+def _load_tolerant(path: str) -> core.Tree:
+    """Load *path*, tolerating a forgotten filename extension.
+
+    If *path* does not exist, its parent directory is searched for a single
+    file whose name (without extension) matches the given basename; if
+    exactly one such file exists, it is loaded instead (the reported result
+    path stays unchanged). Ambiguous or empty matches fall through to the
+    original 'File not found.' error.
+    """
+    try:
+        return core.load(path)[1]
+    except core.AstError as exc:
+        if str(exc) == 'File not found.':
+            parent = Path(path).parent
+            stem = Path(path).name
+            if parent.is_dir():
+                matches = [p for p in parent.iterdir() if p.is_file() and p.stem == stem]
+                if len(matches) == 1:
+                    return core.load(str(matches[0]))[1]
+        raise
+
 def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_lineno: int | None, no_selector: bool, pattern: re.Pattern[str] | None, with_lines: bool) -> FileNodesResult:
-    tree = core.load(path)[1]
+    tree = _load_tolerant(path)
     if no_selector:
         nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines)
         return FileNodesResult(path=path, nodes=nodes)

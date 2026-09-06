@@ -1,15 +1,4 @@
 """Read tool – returns file contents, optionally sliced by line, character offset, or marker.
-
-Range: start = min_line | min_char | start-marker | file start;
-end = max_line | max_char | end-marker | file end (all inclusive).
-Markers must be unique substrings. Line and char ranges are mutually exclusive.
-
-Per-session cache (key ``_read_cache`` in ``Session.state``, keyed by the call
-arguments plus the session id): the sha256 checksum of every read is recorded.
-If a subsequent read with identical parameters yields the same checksum,
-``content`` is omitted from ``structured_content`` and replaced by an
-explanatory text content block; only the checksum is still returned.
-``structured_content`` always carries the ``checksum``.
 """
 import hashlib
 import json

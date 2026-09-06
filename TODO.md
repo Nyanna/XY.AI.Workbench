@@ -1,5 +1,5 @@
 # TODO
-* open alex zweistufig optimieren
+* open alex zweistufig optimieren, split in separate files
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* was harness und was bietet er, cc auch mit anderem harness möglich?

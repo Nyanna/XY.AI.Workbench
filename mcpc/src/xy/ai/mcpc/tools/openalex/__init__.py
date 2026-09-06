@@ -1,4 +1,4 @@
-"""Agent-facing OpenAlex tools.
+"""OpenAlex tools.
 
 Three tools sit on top of the :mod:`xy.ai.mcpc.openalex` interface package and
 apply standard assumptions so an AI agent can use OpenAlex without knowing the
@@ -40,7 +40,6 @@ __all__ = [
     'OpenalexWorkTool',
     'register_openalex_tools']
 '#: Hard caps that mirror the OpenAlex API limits.'
-'# was 200'
 _MAX_PER_PAGE = 50
 _MAX_SEMANTIC_RESULTS = 50
 _DEFAULT_SEARCH_LIMIT = 25
@@ -48,7 +47,6 @@ _DEFAULT_SEMANTIC_LIMIT = 10
 _ENTITY_NAMES = sorted(ENTITIES)
 _WORK_PRESETS = list(WORK_PRESET_NAMES)
 logger = logging.getLogger('xy.ai.mcpc.tools.openalex')
-'#: Module-level client, (re)built by :func:`register_openalex_tools`.'
 _client: OpenAlexClient | None = None
 
 def _build_client(config: ServerConfig) -> OpenAlexClient:
