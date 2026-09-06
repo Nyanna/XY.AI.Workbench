@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Reference-only POM, never built (no `mvn install/package`). Declares the four
+  vendored SDKs so Maven resolves one consistent dependency graph across all
+  of them (single version per artifact). update.sh copies filtered subsets
+  into libs/ and its subdirectories per allowed-artifacts.txt; .classpath is
+  the authoritative allow-list and stays in sync via sync-classpath.py.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>xy.ai.workbench.libs</groupId>
+  <artifactId>libs</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Unify Jackson core/databind/annotations on one version. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>2.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>2.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>3.0-rc5</version>
+      </dependency>
+
+      <!-- Floor versions: prevent transitive resolution from downgrading
+           below previously vetted versions. -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.4.8-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.api</groupId>
+        <artifactId>api-common</artifactId>
+        <version>2.53.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.41.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.auth</groupId>
+        <artifactId>google-auth-library-credentials</artifactId>
+        <version>1.38.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.auth</groupId>
+        <artifactId>google-auth-library-oauth2-http</artifactId>
+        <version>1.38.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.http-client</groupId>
+        <artifactId>google-http-client</artifactId>
+        <version>2.0.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.http-client</groupId>
+        <artifactId>google-http-client-gson</artifactId>
+        <version>2.0.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.13.1</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>5.5</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>5.3.5</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jdk8</artifactId>
+        <version>2.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jsr310</artifactId>
+        <version>2.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.module</groupId>
+        <artifactId>jackson-module-kotlin</artifactId>
+        <version>2.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-reflect</artifactId>
+        <version>2.2.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib</artifactId>
+        <version>2.2.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib-jdk8</artifactId>
+        <version>2.2.10</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okio</groupId>
+        <artifactId>okio</artifactId>
+        <version>3.16.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okio</groupId>
+        <artifactId>okio-jvm</artifactId>
+        <version>3.16.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>2.0.17</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>logging-interceptor</artifactId>
+        <version>5.1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>5.1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp-jvm</artifactId>
+        <version>5.1.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>2.6.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.genai</groupId>
+      <artifactId>google-genai</artifactId>
+      <version>1.15.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.openai</groupId>
+      <artifactId>openai-java</artifactId>
+      <version>3.4.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>2.20.0</version>
+    </dependency>
+    <!-- Not an actual openai-java transitive dependency; added explicitly to
+         keep it available (was present in the previous known-good set). -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-parameter-names</artifactId>
+      <version>2.20.0</version>
+    </dependency>
+  </dependencies>
+</project>

@@ -1,0 +1,2 @@
+jackson-dataformat-yaml
+snakeyaml

@@ -5,3 +5,4 @@
 /bin/
 /project/temp*
 /.claude/
+/lib/*/*.jar

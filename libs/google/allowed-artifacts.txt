@@ -1,0 +1,11 @@
+api-common
+auto-value
+auto-value-annotations
+error_prone_annotations
+google-auth-library-credentials
+google-auth-library-oauth2-http
+google-genai
+google-http-client
+google-http-client-gson
+gson
+guava
