@@ -8,7 +8,7 @@ REF_RE = re.compile('^#/components/([a-zA-Z]+)/(.+)$')
 COMPONENT_SECTIONS = ('schemas', 'parameters', 'requestBodies', 'responses', 'headers', 'examples')
 
 def _split_pointer(pointer: str) -> list[str]:
-    return [seg for seg in pointer.strip('/').split('/') if seg != '']
+    return [seg.replace('~1', '/').replace('~0', '~') for seg in pointer.strip('/').split('/') if seg != '']
 
 def _walk_apply(node, segments: list[str], op: str, value=None) -> None:
     if not segments:
@@ -51,6 +51,61 @@ def op_delete(spec: dict, pointer: str) -> None:
 
 def op_set(spec: dict, pointer: str, value) -> None:
     _walk_apply(spec, _split_pointer(pointer), 'set', value)
+
+def _resolve_pointer(node, segments: list[str]):
+    for seg in segments:
+        if isinstance(node, dict):
+            node = node.get(seg)
+        elif isinstance(node, list):
+            try:
+                node = node[int(seg)]
+            except (ValueError, IndexError):
+                return None
+        else:
+            return None
+    return node
+
+def op_delete_refs(spec: dict, pointer: str, values: list[str]) -> None:
+    """Entfernt Eintraege aus einer Liste (z.B. oneOf/anyOf), deren $ref-Ziel
+    (letztes Pointer-Segment) in `values` enthalten ist."""
+    node = _resolve_pointer(spec, _split_pointer(pointer))
+    if not isinstance(node, list):
+        return
+    node[:] = [item for item in node if not (isinstance(item, dict) and isinstance(
+        item.get('$ref'), str) and (item['$ref'].rsplit('/', 1)[-1] in values))]
+
+def _prune_refs(node, target: str) -> bool:
+    """Entfernt rekursiv jedes Vorkommen von {'$ref': target} aus node.
+
+    Dict-Keys, deren Wert komplett verschwindet (leer wird), werden beim
+    Elternknoten mitentfernt; Listen-Eintraege, die nur noch aus 'type: null'
+    bestehen (typisches anyOf-Optional-Pattern), gelten ebenfalls als leer.
+    Gibt True zurueck, wenn der Knoten selbst beim Aufrufer entfernt werden soll.
+    """
+    if isinstance(node, dict):
+        if node.get('$ref') == target:
+            return True
+        had_keys = bool(node)
+        for key in list(node.keys()):
+            if _prune_refs(node[key], target):
+                del node[key]
+        return had_keys and (not node)
+    if isinstance(node, list):
+        node[:] = [item for item in node if not _prune_refs(item, target)]
+        meaningful = [item for item in node if not (isinstance(item, dict) and item.get('type') == 'null')]
+        return len(meaningful) == 0
+    return False
+
+def op_strip_refs(spec: dict, values: list[str]) -> None:
+    """Entfernt alle eingehenden Referenzen auf die genannten Schemas.
+
+    Die Schemas selbst werden nicht geloescht - das erledigt im Anschluss
+    'prune-orphan-schemas', sobald sie unerreichbar geworden sind.
+    """
+    for name in values:
+        target = f'#/components/schemas/{name}'
+        _prune_refs(spec.get('paths', {}), target)
+        _prune_refs(spec.get('components', {}), target)
 
 def op_keep_paths(spec: dict, values: list[str]) -> None:
     paths = spec.get('paths', {})
@@ -96,6 +151,30 @@ def op_prune_orphan_schemas(spec: dict) -> None:
             components[section] = {name: schema for name,
                                    schema in components[section].items() if name in used[section]}
     spec['components'] = components
+
+def _strip_vendor_extensions(node) -> None:
+    if isinstance(node, dict):
+        for key in [k for k in node if isinstance(k, str) and k.startswith('x-')]:
+            del node[key]
+        for v in node.values():
+            _strip_vendor_extensions(v)
+    elif isinstance(node, list):
+        for item in node:
+            _strip_vendor_extensions(item)
+
+def op_strip_vendor_extensions(spec: dict) -> None:
+    _strip_vendor_extensions(spec)
+
+def _strip_operation_tags(node) -> None:
+    if isinstance(node, dict):
+        node.pop('tags', None)
+
+def op_strip_tags(spec: dict) -> None:
+    spec.pop('tags', None)
+    for path_item in spec.get('paths', {}).values():
+        if isinstance(path_item, dict):
+            for op in path_item.values():
+                _strip_operation_tags(op)
 OPS = {
     'keep-paths': lambda spec,
     o: op_keep_paths(
@@ -111,7 +190,20 @@ OPS = {
         o['pointer'],
         o['value']),
     'prune-orphan-schemas': lambda spec,
-    o: op_prune_orphan_schemas(spec)}
+    o: op_prune_orphan_schemas(spec),
+    'strip-tags': lambda spec,
+    o: op_strip_tags(spec),
+    'strip-vendor-extensions': lambda spec,
+    o: op_strip_vendor_extensions(spec),
+    'delete-refs': lambda spec,
+    o: op_delete_refs(
+        spec,
+        o['pointer'],
+        o['values']),
+    'strip-refs': lambda spec,
+    o: op_strip_refs(
+        spec,
+        o['values'])}
 
 def filter_spec(config_path: Path, output_path: Path) -> None:
     config = yaml.safe_load(config_path.read_text())

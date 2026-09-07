@@ -11,10 +11,12 @@ ops:
       - /responses
   - op: delete
     pointer: /webhooks
+  # Deepseek-Client nutzt kein Streaming; SSE-Content samt ResponseStreamEvent-
+  # Schemabaum entfernen, damit prune-orphan-schemas ihn nicht mitzieht.
+  - op: delete
+    pointer: /paths/~1responses/post/responses/200/content/text~1event-stream
 
   # --- CreateResponse: nicht unterstuetzte Top-Level-Parameter ---
-  - op: delete
-    pointer: /components/schemas/CreateResponse/allOf/2/properties/service_tier
   - op: delete
     pointer: /components/schemas/CreateResponse/allOf/2/properties/truncation
   - op: delete
@@ -29,6 +31,88 @@ ops:
     pointer: /components/schemas/CreateResponse/allOf/2/properties/conversation
   - op: delete
     pointer: /components/schemas/CreateResponse/allOf/2/properties/context_management
+    # --- Caching laeuft automatisch, keine Konfiguration/Diagnose noetig ---
+  - op: strip-refs
+    values:
+      - PromptCacheOptionsParam
+      - PromptCacheOptions
+      - ResponsePromptCacheOptionsParam
+      - PromptCacheDiagnostics
+      - PromptCacheBreakpointConfig
+      - PromptCacheBreakpointParam
+
+  # --- Moderation nicht implementiert ---
+  - op: strip-refs
+    values: [ModerationParam, Moderation]
+
+  # --- service_tier: von Deepseek nicht unterstuetzt ---
+  - op: strip-refs
+    values: [ServiceTierResponses]
+
+  # --- Nur Custom Tools (vom Harness definiert) und Function-Calling erlaubt;
+  #     alle eingebauten Tools und ihre Tool-Calls/ToolChoice-Varianten raus ---
+  - op: strip-refs
+    values:
+      - WebSearchTool
+      - WebSearchPreviewTool
+      - MCPTool
+      - ImageGenTool
+      - ToolChoiceMCP
+      - WebSearchToolCall
+      - ImageGenToolCall
+      - MCPToolCall
+      - MCPListTools
+      - MCPApprovalRequest
+      - MCPApprovalResponse
+      - MCPApprovalResponseResource
+      - ProgramItemParam
+      - ProgramOutputItemParam
+      - ProgramToolCallCaller
+      - ProgramToolCallCallerParam
+      - CompactionTriggerItemParam
+      - FileSearchTool
+      - ComputerTool
+      - ComputerUsePreviewTool
+      - CodeInterpreterTool
+      - ProgrammaticToolCallingParam
+      - LocalShellToolParam
+      - FunctionShellToolParam
+      - NamespaceToolParam
+      - ToolSearchToolParam
+      - ApplyPatchToolParam
+      - FileSearchToolCall
+      - ComputerToolCall
+      - ComputerToolCallOutputResource
+      - ComputerCallOutputItemParam
+      - Program
+      - ProgramOutput
+      - ToolSearchCall
+      - ToolSearchOutput
+      - ToolSearchCallItemParam
+      - ToolSearchOutputItemParam
+      - AdditionalTools
+      - AdditionalToolsItemParam
+      - CompactionBody
+      - CompactionSummaryItemParam
+      - CodeInterpreterToolCall
+      - LocalShellToolCall
+      - LocalShellToolCallOutput
+      - FunctionShellCall
+      - FunctionShellCallOutput
+      - FunctionShellCallItemParam
+      - FunctionShellCallOutputItemParam
+      - ApplyPatchToolCall
+      - ApplyPatchToolCallOutput
+      - ApplyPatchToolCallItemParam
+      - ApplyPatchToolCallOutputItemParam
+      - ResponseConfigurationUpdateItemParam
+      - ToolChoiceAllowed
+      - ToolChoiceTypes
+      - SpecificProgrammaticToolCallingParam
+      - SpecificApplyPatchParam
+      - SpecificFunctionShellParam
+
+
 
   # --- ResponseProperties: nicht unterstuetzte Top-Level-Parameter ---
   - op: delete
@@ -67,3 +151,7 @@ ops:
 
   # Alle durch obige Filter verwaisten Schemas/Parameter/Bodies entfernen.
   - op: prune-orphan-schemas
+
+  # Tags und Vendor-Extensions (x-*) werden fuer die Client-Generierung nicht benoetigt.
+  - op: strip-tags
+  - op: strip-vendor-extensions
