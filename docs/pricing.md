@@ -33,3 +33,5 @@ The following table shows pricing for all Claude models:
 | GPT-5.6 Sol                          | $4    | $5                  | $0.40     | $20    |
 | GPT-5.6 Terra                        | $2    | $2.50               | $0.20     | $12    |
 | GPT-5.6 Luna                         | $0.20 | $0.25               | $0.02     | $1.20  |
+
+It gets cheaper...

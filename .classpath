@@ -23,9 +23,9 @@
 	<classpathentry exported="true" kind="lib" path="libs/openai/jackson-datatype-jsr310-2.22.2.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/openai/jackson-module-kotlin-2.22.2.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/openai/jackson-module-parameter-names-2.20.0.jar"/>
-	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-reflect-2.4.20-RC3.jar"/>
-	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-stdlib-2.4.20-RC3.jar"/>
-	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-stdlib-jdk8-2.4.20-RC3.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-reflect-2.4.20.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-stdlib-2.4.20.jar"/>
+	<classpathentry exported="true" kind="lib" path="libs/openai/kotlin-stdlib-jdk8-2.4.20.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/openai/okhttp-5.5.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/openai/okio-3.18.2.jar"/>
 	<classpathentry exported="true" kind="lib" path="libs/openai/okio-jvm-3.18.2.jar"/>

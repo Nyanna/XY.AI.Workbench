@@ -1,0 +1,67 @@
+# Filterschema fuer den Deepseek-Client, abgeleitet aus project/deepseek.md.
+# Basis: die vollstaendige OpenAI-Spec, reduziert auf das von Deepseek
+# unterstuetzte Responses-Subset (stateless: keine Speicherung/Retrieval).
+base: openai.yaml
+
+ops:
+  # Deepseek ist stateless: nur das Erzeugen einer Response wird unterstuetzt,
+  # nicht Retrieve/Cancel/List-Input-Items/Input-Tokens/Compact.
+  - op: keep-paths
+    values:
+      - /responses
+
+  # --- CreateResponse: nicht unterstuetzte Top-Level-Parameter ---
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/service_tier
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/truncation
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/include
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/parallel_tool_calls
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/store
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/stream_options
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/conversation
+  - op: delete
+    pointer: /components/schemas/CreateResponse/allOf/2/properties/context_management
+
+  # --- ResponseProperties: nicht unterstuetzte Top-Level-Parameter ---
+  - op: delete
+    pointer: /components/schemas/ResponseProperties/properties/previous_response_id
+  - op: delete
+    pointer: /components/schemas/ResponseProperties/properties/background
+  - op: delete
+    pointer: /components/schemas/ResponseProperties/properties/max_tool_calls
+  - op: delete
+    pointer: /components/schemas/ResponseProperties/properties/prompt
+
+  # --- ModelResponseProperties: nicht unterstuetzte Top-Level-Parameter ---
+  - op: delete
+    pointer: /components/schemas/ModelResponseProperties/properties/metadata
+  - op: delete
+    pointer: /components/schemas/ModelResponseProperties/properties/safety_identifier
+  - op: delete
+    pointer: /components/schemas/ModelResponseProperties/properties/prompt_cache_key
+  - op: delete
+    pointer: /components/schemas/ModelResponseProperties/properties/prompt_cache_retention
+
+  # --- reasoning: summary wird akzeptiert, aber nie generiert ---
+  - op: delete
+    pointer: /components/schemas/Reasoning/properties/summary
+  - op: delete
+    pointer: /components/schemas/Reasoning/properties/generate_summary
+
+  # --- text.verbosity: wird akzeptiert, hat aber keine Wirkung ---
+  - op: delete
+    pointer: /components/schemas/ResponseTextParam/properties/verbosity
+
+  # --- reasoning.effort: nur low/high/max unterstuetzt ---
+  - op: set
+    pointer: /components/schemas/ReasoningEffort/anyOf/0/enum
+    value: [low, high, max]
+
+  # Alle durch obige Filter verwaisten Schemas/Parameter/Bodies entfernen.
+  - op: prune-orphan-schemas
