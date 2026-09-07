@@ -28,6 +28,7 @@ if [ -f "$FILTER_CONF" ]; then
     SPEC_FILE="$WORK_DIR/${NAME}.filtered.yaml"
     echo "Filtere Spec mit $FILTER_CONF ..."
     python3 "$SCRIPT_DIR/filter_spec.py" "$FILTER_CONF" "$SPEC_FILE"
+    cp "$SPEC_FILE" "$SCRIPT_DIR/filters/"
 fi
 
 if [ ! -f "$SPEC_FILE" ]; then
@@ -40,10 +41,13 @@ OUT_DIR="$WORK_DIR/gen"
 
 # Generator-Optionen als Dict, damit weitere Optionen leicht ergaenzt werden koennen.
 declare -A ADDITIONAL_PROPERTIES=(
-    [useJackson3]=true
+    [useJackson3]=false
     [dateLibrary]=java8
     [openApiNullable]=false
     [hideGenerationTimestamp]=true
+    [generateGeneratedAnnotation]=false
+    [useJspecify]=false
+    [useOneOfInterfaces]=false
 )
 additional_properties_arg=""
 for key in "${!ADDITIONAL_PROPERTIES[@]}"; do
@@ -56,6 +60,7 @@ java -jar "$GENERATOR_JAR" generate \
     -g java \
     --library native \
     --additional-properties="$additional_properties_arg" \
+    --template-dir "$SCRIPT_DIR/templates" \
     --api-package "${PACKAGE_BASE}.api" \
     --model-package "${PACKAGE_BASE}.model" \
     --invoker-package "${PACKAGE_BASE}" \

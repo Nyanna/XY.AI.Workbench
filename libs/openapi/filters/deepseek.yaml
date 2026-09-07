@@ -9,6 +9,8 @@ ops:
   - op: keep-paths
     values:
       - /responses
+  - op: delete
+    pointer: /webhooks
 
   # --- CreateResponse: nicht unterstuetzte Top-Level-Parameter ---
   - op: delete

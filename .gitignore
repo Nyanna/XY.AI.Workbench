@@ -6,3 +6,4 @@
 /project/temp*
 /.claude/
 /libs/**/*.jar
+/src/xy/ai/workbench/connector/openapi/**/*
