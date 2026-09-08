@@ -1,11 +1,7 @@
 # TODO
-
+* was ist https://mcp2cli.dev/
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
-	* es geht noch günstigere deepseek provider als deep seek
-	* generische custom client platform auf basis von openapi stub gen, HttpClient, Jackson
-		- openai openapi mit deepseek doku filtern
-		- eigener ordner mit openapi specs, https://api-docs.deepseek.com/guides/responses_api
 	* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 * open alex zweistufig optimieren, split in separate files
