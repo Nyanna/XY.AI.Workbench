@@ -26,6 +26,7 @@ Das Model ist vollkommen unabhängig von der verwendeten HTTP-Client/Server Bibl
 	- oneOf, anyOf, allOf, not sind eigene Knoten und erzeugen eine Klasse pro Ausprägung
 		- Beispiel oneOf Dog/Cat erzeugt die Klasse -> "OneOfDogCat"
 		- Identische Ausprägungen werden gemeinsam genutzt und kommen ins package "*.operators"
+		- WICHTIG: Semantik, Proxy-Views, Discriminator, Nullable und Benennung -> siehe Abschnitt "## Kompositionen (Proxy-Views)"
 	- Validatoren (minimum/maximum... String Format) werden aktuell nicht unterstützt
 	- Metadaten, Authorization, Server werden nicht unterstützt
 	- Dictionaries, HashMaps and Associative Arrays bilden eigene Knoten und Klassen
@@ -44,6 +45,34 @@ Das Model ist vollkommen unabhängig von der verwendeten HTTP-Client/Server Bibl
 		- Beispielweise: "*.request.users.get.json" für die Klasse "UsersRequestGet"
 	- "*.response.*" Nach einem von "Path" abgeleiteten Package, Beispiel "*.response.<PATH>.code<HTTPCODE>.<CONTENT_TYPE>*"
 		- Beispielweise: "*.response.users.code200.json" für die Klasse "UsersResponse"
+
+
+## Kompositionen (Proxy-Views)
+Präzisierung und Abgrenzung von allOf/anyOf/oneOf. Dieser Abschnitt korrigiert ein naheliegendes Missverständnis.
+
+- WICHTIG (Abgrenzung): Kompositionen werden NICHT gemerged und erzeugen KEIN polymorphes OO-Objekt.
+	- Jede Komposition ist eine eigene Klasse, die genau EINEN JSONNode hält.
+	- Jeder Zweig wird als Kind-View (Proxy) über DENSELBEN Node exponiert.
+	- Kein Merge, keine Kollisionsauflösung: ein in mehreren Zweigen gleich benanntes Property liest über jede View dasselbe JSON-Feld.
+	- Beispiel allOf[Cat, Dog] -> Klasse "AllOfCatDog" mit den Views Cat und Dog über denselben Node; beide gelten gleichzeitig.
+- Semantik je Schlüsselwort (bestimmt NUR die Zugriffs-/Prüfmethoden, nicht die Struktur):
+	- allOf = Intersection: alle Views treffen gleichzeitig zu -> einfache Getter je View (getCat(), getDog()).
+	- anyOf = mindestens eine View trifft zu -> je View eine "applies?"-Prüfung.
+	- oneOf = genau eine View trifft zu -> je View eine "applies?"-Prüfung.
+	- Schreiben teilt sich denselben Node. Bei oneOf/anyOf kann das fachlich widersprüchliches JSON erzeugen; das wird bewusst nicht geprüft (Validatoren out of scope).
+	- "not" bleibt vorerst ausdrücklich unsupported (keine sinnvolle serialisierbare View).
+- Discriminator (optimalere Abbildung):
+	- Ist im Schema "discriminator.propertyName" deklariert, wird dieser als Selektor für die zutreffende oneOf/anyOf-View verwendet (deterministisch, ohne Struktur-Sniffing).
+	- Fehlt der Discriminator, wird die "applies?"-Prüfung strukturell abgeleitet (Vorhandensein/Typ der Pflichtfelder).
+- Nullable:
+	- "anyOf: [X, null]" wird NICHT zu einem nullable X kollabiert, sondern bleibt eine eigene Klasse (z.B. "AnyOfXNull") mit den Views X und Null.
+	- Der Getter unterscheidet "absent" (Feld fehlt) und "explizit null" (JSON null).
+- Benennung:
+	- Eine benannte Schema-Definition (Key unter components.schemas) behält ihren Key als Klassennamen, auch wenn ihr Rumpf eine Komposition ist (z.B. bleibt "CreateResponse" -> "CreateResponse", nicht "AllOf...").
+	- Nur INLINE/unbenannte Kompositionen erhalten den abgeleiteten Namen "<Keyword>" + konkatenierte Zweignamen (z.B. "OneOfDogCat").
+	- Ein anonymer Inline-Zweig (z.B. "type: object" innerhalb eines allOf ohne title/$ref) erhält den deterministischen Namen "<CompositeName>Part<n>" (n = 1-basierter Zweigindex).
+		- Beispiel: das 3. allOf-Element von "CreateResponse" -> "CreateResponsePart3".
+	- Identische Ausprägungen werden weiterhin geteilt (siehe *.operators / *.objects).
 
 
 ## Generierung
@@ -75,3 +104,14 @@ Server und Client sind unabhängig von der im Model genutzten JSON Serialisierun
 	- Die Methode implementiert den Request mittels HTTPClient und verwendet die gekapselte Serialisierung der Root-Objekte
 - der Client wird Zweiteilig generiert eine Implementierung Passung zu deinem Interface
 - Das Interface übernimmt Description und Example aus dem Schema für "Path"
+
+
+## Response-Konstruktion
+Präzisierung, wie Statuscode und Content-Type in das Response-Objekt gelangen.
+
+- Statuscode und Content-Type sind Transport-Metadaten und stehen NICHT im JSON-Body.
+- Response-Codes sind mögliche Kinder des Response-Objekts und werden per "applies?"-Prüfung gelesen.
+	- Beispiel: getCode200() liefert den Subtree, getCode203() bleibt leer/null.
+- Der Statuscode ist der Discriminator für das zutreffende Code-Kind; der Content-Type-Header der Discriminator für die Content-Type-View (*Json/*Txt).
+- Der Client konstruiert das Response-Objekt daher aus body + statusCode + contentType.
+	- fromString(body) allein genügt NICHT; statusCode und contentType sind zusätzliche Konstruktions-Eingaben.
