@@ -7,6 +7,7 @@ Das ganze ist angelehnt an die SDK Generatoren von Stainless (Antropic/OpenAI).
 - Kommentare knapp und signifikant halten
 - Zu verwendendes Beispielschema: `/home/user/xyan/xy.ai.workbench/libs/openapi/filters/deepseek.filtered.yaml`
 - Ziel Rootpackage: "xy.api.codegen"
+- Template Engine ist Jinja2
 
 ## Model
 Das Python-Skript extrahiert aus dem Schema den reinen Baum udn Relationen, erzeugt jedoch niemals Code direkt.
@@ -37,6 +38,7 @@ Das Model ist vollkommen unabhängig von der verwendeten HTTP-Client/Server Bibl
 		- Beispiel: "StringList" oder abgeleitet vom Key "UserList" bei `user: schema": { $ref: #/components/schemas/user }`
 	- Objects bilden einen eigenen Knoten und Klassen
 		- gemeinsam genutzt bei identischer Ausprägung, kommen dann in das package "*.objects"
+	- Bei Namenskollision wird ein Postfix hochgezählt
 	
 - Das Package für eine Klasse
 	- ein Base-Package ist konfigurierbar
