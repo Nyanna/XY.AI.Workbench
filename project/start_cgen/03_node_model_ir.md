@@ -3,6 +3,8 @@
 **Ziel:** Rohschema → typisierte Knoten mit beschrifteten Kanten. Keine Namen, keine Java-Typen, keine Metadaten am Knoten.
 **Abhängig von:** 02
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Knotenarten (`kind`)
 - **ObjectNode:** children = benannte Properties (label = property-name), `required`-Set.
 - **ListNode:** element-Kante (label `element`) → Zieltyp. **MixedList:** mehrere Element-Typen.

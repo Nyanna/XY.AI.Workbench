@@ -3,6 +3,8 @@
 **Ziel:** Aus Fingerprint-Klassen + Knotenrollen → Java-Klassennamen, Packages, gültige Java-Identifier.
 **Abhängig von:** 04
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Namensableitung (Klassenname)
 - **Benanntes Schema** → Key als Klassenname (sanitisiert). Behält Key auch bei Kompositions-Rumpf (z.B. `CreateResponse`, nicht `AllOf...`).
 - **Inline-Komposition** → `<Keyword><Branch1><Branch2>…` (z.B. `OneOfDogCat`). Branchname = Ziel-Refname, sonst Primitive-Name (`String`/`Integer`/…), sonst bei anonymem Zweig `<Composite>Part<n>` (n 1-basiert, Zweigindex).

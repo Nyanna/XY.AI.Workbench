@@ -3,6 +3,8 @@
 **Ziel:** Pro Knoten ein Template → eine Java-Klasse, die als Proxy über JsonNode liest/schreibt.
 **Abhängig von:** 05, 06
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Klassenaufbau (pro Knoten)
 - **Feld:** Referenz auf ihren JsonNode. Für Schreiben mutable Knoten (`ObjectNode`/`ArrayNode` via `JsonNodeFactory`).
 - **Interne, generierte Kindliste:** erlaubte `(label, Zieltyp)` — statisch aus dem IR (die Transitionstabelle).
@@ -13,7 +15,7 @@
 ## Methodenarten
 - **Primitiv:** Getter liest direkt aus dem JsonNode; Setter schreibt direkt.
 - **Komplex:** Getter instanziiert die Kindklasse (gebunden an den Kindknoten); Setter/`add`/`remove`.
-- Getter/Setter tragen `description`+`example` (Edge-Metadaten) als knappes Javadoc.
+- Getter/Setter tragen `description`+`example` (Edge-Metadaten) als Javadoc.
 
 ## Templating
 - **Ein Template pro Knotenart.** Variablen: Klassenname, FQN, Kindliste (label + Typ), JSON-Feldname, Edge-Metadaten.

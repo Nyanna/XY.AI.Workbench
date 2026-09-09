@@ -4,12 +4,17 @@ Quelle: `/home/user/xyan/xy.ai.workbench/project/sttub_gen.md` + geklärte Desig
 Dieses Verzeichnis ist der **Umsetzungsplan**, kein Code. Jedes Segment ist eigenständig
 interpretierbar. Der Agent arbeitet die Segmente in numerischer Reihenfolge ab.
 
+Vor dem Start jedes Segments: `_context.md` in diesem Verzeichnis lesen (discovered Pfade,
+Repo-Layout, bereits umgesetzte API, Konventionen) — spart erneutes Discovery. Nach Abschluss
+eines Segments dort den Stand nachführen.
+
 ## Auftrag
 Eigener Codegenerator (Python) erzeugt aus OpenAPI-3.1-YAML typsicheren Java-Code.
 - Ziel-Python-Projekt: `/home/user/xyan/xy.ai.workbench/codegen`
 - Beispielschema: `/home/user/xyan/xy.ai.workbench/libs/openapi/filters/deepseek.filtered.yaml`
 - Java-Root-Package: `xy.api.codegen` (konfigurierbar)
-- Vorerst keine Tests. Kommentare knapp und signifikant.
+- Vorerst keine Tests. Kommentare knapp und signifikant (immer englisch).
+- Keine Referenzen auf den Umsetzungsplan oder direkte Anforderungen in Kommentaren
 
 ## Kernkonzept (verbindlich)
 Das generierte Model ist eine **typsichere State Engine**:

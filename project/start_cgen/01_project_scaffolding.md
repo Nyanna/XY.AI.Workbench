@@ -8,7 +8,6 @@
   ```
   codegen/
     pyproject.toml        # deps: pyyaml, jinja2
-    README.md             # knapp: Zweck, Aufruf
     cgen/
       __main__.py         # ruft cli
       cli.py              # Args: --schema, --out, --base-package

@@ -3,6 +3,8 @@
 **Ziel:** Primitive und Container auf Java-Typen abbilden.
 **Abhängig von:** 05
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Mapping (verbindlich)
 | OpenAPI | Java |
 |---|---|

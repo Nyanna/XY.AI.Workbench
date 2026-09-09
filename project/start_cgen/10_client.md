@@ -3,6 +3,8 @@
 **Ziel:** Zweiteiliger Client via `java.net.http.HttpClient`.
 **Abhängig von:** 09
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Aufbau
 - **Interface:** eine Methode je **Operation** (Path+Method). Übernimmt `description`/`example` des Path als Javadoc.
 - **Impl:** implementiert mit `java.net.http.HttpClient` gegen das Interface.

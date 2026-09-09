@@ -3,6 +3,8 @@
 **Ziel:** Pipeline zusammenführen, gegen deepseek laufen, Kompilat prüfen.
 **Abhängig von:** 01–10
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Pipeline (Reihenfolge)
 `ingest (02) → model/IR (03) → identity+dedup (04) → naming+packaging (05) → typemap (06) → emit model (07) → emit compositions (08) → emit request/response (09) → emit client (10)`
 
@@ -12,7 +14,7 @@
 - Aufruf: `python -m cgen --schema <yaml> --out <dir> --base-package xy.api.codegen`
 
 ## Verifikation (kein Test i.S. der Vorgabe)
-- Der generierte Java-Code **kompiliert** (javac oder minimales Maven-Projekt mit Jackson 2 + `java.net.http` auf dem Classpath).
+- Der generierte Java-Code **kompiliert** (javac mit Jackson 2 + `java.net.http` auf dem Classpath).
 - Der Kompilat-Check ist Akzeptanzkriterium, **keine** Unit-Tests.
 
 ## Definition of Done

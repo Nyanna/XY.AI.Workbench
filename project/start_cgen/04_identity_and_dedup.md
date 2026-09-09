@@ -3,6 +3,8 @@
 **Ziel:** Fingerprint pro Knoten; Äquivalenzklassen; geteilte Knoten. Dies ist die **Zustandsminimierung** der State Engine.
 **Abhängig von:** 03
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Kanonische Normalform (Identitätsumfang)
 **Enthalten:** `kind`; Kinder als `(label, Ziel-Fingerprint)`; `required`-Set (sortiert); Enum-Wertemenge; `discriminator` (propertyName + mapping); Primitivtyp.
 **NICHT enthalten:** `description`, `example`, `default`, `title`, `format` und alle Validatoren (I3).

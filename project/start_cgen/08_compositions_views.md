@@ -3,6 +3,8 @@
 **Ziel:** allOf/anyOf/oneOf/discriminator/null als Proxy-Views über EINEN Node abbilden.
 **Abhängig von:** 07
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Grundprinzip
 Ein CompositionNode = eine Klasse, die genau EINEN JsonNode hält. Jeder Zweig wird als **Kind-View (Proxy) über denselben Node** exponiert. **Kein Merge, keine Kollisionsauflösung**: ein in mehreren Zweigen gleich benanntes Property liest über jede View dasselbe JSON-Feld.
 

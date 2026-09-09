@@ -15,3 +15,5 @@
 * Use parameter cache to inform nothing changed for repeated requests (Tools, Files, Retrieval)
 * Agents preffer batch/bulk processing over iteration
 * Tools should be as hallucination tolerant as possible
+* 10% Rule, not more than 10 turns in cached prompts
+	* better aggregate retrieval prompt first, minimal reuse, than copy to plan and execution phase

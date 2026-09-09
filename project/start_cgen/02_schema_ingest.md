@@ -3,6 +3,8 @@
 **Ziel:** OpenAPI-3.1-YAML laden, Referenzindex bauen, Operationen extrahieren. `$ref` bleibt atomar.
 **Abhängig von:** 01
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Deliverables
 - **Loader:** YAML → Python-Struktur.
 - **RefIndex:** Map von `#/components/schemas/<Name>` und `#/components/responses/<Name>` auf Rohknoten; der **Original-Key** ist der kanonische Name.

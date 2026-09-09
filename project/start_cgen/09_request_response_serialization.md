@@ -3,6 +3,8 @@
 **Ziel:** Wurzelobjekte kapseln (De-)Serialisierung selbst.
 **Abhängig von:** 07, 08
 
+- Übersicht: `/home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md`
+
 ## Request
 - `toString()` → JSON-Body; `fromString(body)` → Instanz.
 - Der Client ruft mit dem Root-Request-Objekt; dieses serialisiert sich selbst.
