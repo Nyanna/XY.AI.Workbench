@@ -23,6 +23,11 @@ class EdgeIndex:
     def site_count(self, node: Node) -> int:
         return len(self.incoming.get(id(node), ()))
 
+    def sites(self, node: Node) -> tuple:
+        """Raw (owner, label) pairs reaching `node`, in discovery order --
+    one entry per site, duplicates (same owner/label reused) included."""
+        return self.incoming.get(id(node), ())
+
     def owners(self, node: Node) -> tuple:
         seen: dict = {}
         for owner, _ in self.incoming.get(id(node), ()):

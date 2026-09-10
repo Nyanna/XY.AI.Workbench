@@ -1,18 +1,32 @@
 """Assigns Java class names and package paths to identified IR nodes.
 
-Three name sources feed one collision-resolved result:
-- named schemas (key -> class name),
-- anonymous shared-type nodes (kind-based packages),
+Naming is strictly the last pipeline stage and works exclusively on the
+already-deduped DAG plus its edge-reverse index (see identity/optimize.py);
+it never invents or reserves names during dedup/identity itself.
+
+Two name sources feed one collision-resolved result:
+- structural class names (named schemas by key, anonymous nodes by shape --
+  see naming/names.py), refined by edge-derived names where an unambiguous
+  edge label exists (RoleEnum, TagsList, AnyOfStatus, ...);
 - per-operation transport roots (RequestNode/ResponseNode/CodeNode/ContentTypeView).
 
+Package placement: every node is private under its single owner by default
+(climbing the ownership chain up to a request/response transport root or a
+named schema's own package); only a node actually referenced from more than
+one place (`edge_index.site_count(node) > 1`) is shared -- a named top-level
+schema goes to '.components' (even when it is also a List/Enum/Dict/
+Composition), an anonymous one to its kind bucket ('.enums'/'.lists'/...).
+
 Collisions (same package + same class name from different structures) are
-resolved by canonical-fingerprint order, never discovery order.
+resolved by: (1) an edge-derived name if unambiguous, (2) climbing one
+ancestor level for semantic disambiguation, (3) a numeric suffix in
+canonical-fingerprint order -- never discovery order.
 """
 from dataclasses import dataclass, field
-from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, RefNode
+from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, RefNode
 from xy.cgen.naming.identifiers import class_identifier, content_type_short_name
-from xy.cgen.naming.names import derive_class_names
-from xy.cgen.naming.packages import Site, anonymous_package, collect_named_references, named_package, response_root_package, site_package
+from xy.cgen.naming.names import COMPOSITION_KEYWORD_NAME, KIND_SUFFIX, derive_class_names
+from xy.cgen.naming.packages import Site, anonymous_package, collect_methods_by_path, response_root_package, site_package
 
 @dataclass(frozen=True)
 class NodeName:
@@ -53,47 +67,91 @@ class _Entry:
 def assign_names(identified_model, base_package: str) -> NamedModel:
     """Derive class/package names for every named, anonymous, and transport node."""
     class_names = derive_class_names(identified_model)
-    paths_by_name, first_site, methods_by_path = collect_named_references(identified_model)
+    edge_index = identified_model.edge_index
+    methods_by_path = collect_methods_by_path(identified_model)
+    transport_owner_packages = _transport_owner_packages(identified_model, base_package, methods_by_path)
     entries: list[_Entry] = []
-    entries.extend(
-        _named_entries(
-            identified_model,
-            class_names,
-            base_package,
-            paths_by_name,
-            first_site,
-            methods_by_path))
-    edge_index = getattr(identified_model, 'edge_index', None)
-    entries.extend(_anonymous_entries(identified_model, class_names, base_package))
+    entries.extend(_schema_entries(identified_model, class_names, base_package, edge_index, transport_owner_packages))
     entries.extend(_transport_entries(identified_model, class_names, base_package, methods_by_path))
-    named_ids = {id(node) for node in identified_model.named_nodes.values()}
-    default_package = {id(entry.node): entry.package for entry in entries}
-    _apply_private_packages(entries, edge_index, default_package, named_ids)
-    _apply_enum_edge_names(entries, edge_index)
-    _resolve_collisions(entries)
+    _apply_edge_names(entries, edge_index)
+    _resolve_collisions(entries, edge_index)
     names = {id(entry.node): NodeName(package=entry.package, class_name=entry.final_name) for entry in entries}
     _mirror_content_type_view_names(identified_model, names)
     _mirror_ref_request_names(identified_model, names)
     return NamedModel(named_nodes=identified_model.named_nodes, operations=identified_model.operations,
                       fingerprints=identified_model.fingerprints, base_package=base_package, names=names)
-_KIND_BUCKETED_NAMED_TYPES = (ListNode, EnumNode, DictionaryNode, AnyDictionaryNode)
+_SHARED = object()
+"# ownership-chain cycle guard sentinel: 'currently being resolved'"
 
-def _named_entries(identified_model, class_names, base_package, paths_by_name, first_site, methods_by_path):
+def _shared_package(node, base_package: str, named_ids: set) -> str:
+    """The package a node falls back to once it counts as genuinely shared
+    (site_count > 1), or when its ownership chain is ambiguous/unreachable."""
+    if id(node) in named_ids:
+        return f'{base_package}.components'
+    return anonymous_package(node, base_package) or f'{base_package}.objects'
+
+def _resolve_package(node, edge_index, base_package: str, named_ids: set, transport_owner_packages: dict, memo: dict) -> str:
+    """Default: private under the single owner that reaches this node --
+    climbing the ownership chain up to a request/response transport root or
+    a genuinely shared ancestor. Exception: a node referenced from more than
+    one place (site_count > 1) is shared itself."""
+    key = id(node)
+    cached = memo.get(key)
+    if cached is _SHARED:
+        return _shared_package(node, base_package, named_ids)
+    if cached is not None:
+        return cached
+    if edge_index.site_count(node) > 1:
+        package = _shared_package(node, base_package, named_ids)
+        memo[key] = package
+        return package
+    owners = edge_index.owners(node)
+    if len(owners) != 1:
+        package = _shared_package(node, base_package, named_ids)
+        memo[key] = package
+        return package
+    owner = owners[0]
+    owner_id = id(owner)
+    if owner_id in transport_owner_packages:
+        package = transport_owner_packages[owner_id]
+    else:
+        memo[key] = _SHARED
+        package = _resolve_package(owner, edge_index, base_package, named_ids, transport_owner_packages, memo)
+    memo[key] = package
+    return package
+
+def _transport_owner_packages(identified_model, base_package: str, methods_by_path: dict) -> dict:
+    """id(node) -> package for every transport node that can own schema
+    children directly (RequestNode via its body, ContentTypeView via its
+    body) -- the roots the private-ownership chain climbs up to."""
+    packages: dict = {}
+    for operation_model in identified_model.operations:
+        operation = operation_model.operation
+        request_node = operation_model.request
+        if request_node is not None and request_node.body is not None:
+            site = Site(path=operation.path, side='request', method=operation.method, code=None, content_type='json')
+            packages[id(request_node)] = site_package(site, base_package, methods_by_path)
+        for code_node in operation_model.response.codes:
+            for content_type_view in code_node.content_types:
+                site = Site(
+                    path=operation.path,
+                    side='response',
+                    method=operation.method,
+                    code=code_node.status_code,
+                    content_type=content_type_short_name(
+                        content_type_view.content_type))
+                packages[id(content_type_view)] = site_package(site, base_package, methods_by_path)
+    return packages
+
+def _schema_entries(identified_model, class_names, base_package, edge_index, transport_owner_packages):
+    named_ids = {id(node) for node in identified_model.named_nodes.values()}
+    memo: dict = {}
     for key, node in identified_model.named_nodes.items():
-        '# List/Enum/Dictionary schemas are containers whose identity is purely'
-        '# structural (like their anonymous siblings): kind bucket, regardless of'
-        '# how many paths reference them. Object/Composition schemas keep the'
-        '# request/response-vs-.components rule.'
-        if isinstance(node, _KIND_BUCKETED_NAMED_TYPES):
-            package = anonymous_package(node, base_package)
-        else:
-            package = named_package(key, base_package, paths_by_name, first_site, methods_by_path)
+        package = _resolve_package(node, edge_index, base_package, named_ids, transport_owner_packages, memo)
         sort_key = identified_model.fingerprint_of(node) or key
         yield _Entry(node=node, package=package, class_name=class_names.named[key], sort_key=sort_key)
-
-def _anonymous_entries(identified_model, class_names, base_package):
     for node_id, node in class_names.anonymous_nodes.items():
-        package = anonymous_package(node, base_package)
+        package = _resolve_package(node, edge_index, base_package, named_ids, transport_owner_packages, memo)
         '# e.g. UnsupportedNode: never gets a class'
         if package is None:
             continue
@@ -152,129 +210,145 @@ def _mirror_ref_request_names(identified_model, names: dict) -> None:
             resolved = names.get(id(identified_model.named_nodes[target.name]))
             if resolved is not None:
                 names[id(request_node)] = resolved
-_PRIVATIZABLE_KINDS = (EnumNode, ListNode, ObjectNode, CompositionNode, DictionaryNode, AnyDictionaryNode)
+_MAX_CLIMB_DEPTH = 6
 
-def _resolve_private_package(node, edge_index, default_package: dict, named_ids: set):
-    """Walk up the exclusive-ownership chain: a node reached by exactly one
-    edge from exactly one owner is "private" and lives with that owner
-    instead of its kind-bucketed shared package (.enums/.objects/...).
+def _label_chain(owner, label, edge_index) -> list:
+    """Nearest-first list of meaningful (non-numeric) labels reachable by
+    climbing from a single incoming edge (owner, label): numeric/positional
+    hops (composition-branch / tuple-list-position indices) are skipped
+    silently by climbing through them, via that owner's own first incoming
+    edge -- deterministic, not requiring a uniquely-owned chain.
 
-    The chain keeps climbing through further private, kind-bucketed anonymous
-    owners, and stops at the first boundary:
-    - a named schema root -> adopt its already-resolved package.
-    - a *shared* kind-bucketed owner (referenced from more than one place) ->
-      the chain breaks here; the original node falls back to its own
-      kind-bucketed default (it is effectively shared too, just not directly).
-    - anything else (e.g. a transport wrapper, or ambiguous ownership) ->
-      same fallback.
-    Returns None when no override applies (caller keeps the default package).
+    Each further entry in the list is one more ancestor level out, used to
+    extend a name when a shorter one collides. Stops at a cycle, a node with
+    no further incoming edge, or the depth cap.
     """
-    if edge_index is None or edge_index.site_count(node) != 1:
-        return None
-    current, seen = (node, set())
-    while True:
-        seen.add(id(current))
-        owners = edge_index.owners(current)
-        if len(owners) != 1:
-            return None
-        owner = owners[0]
-        if id(owner) in seen:
-            return None
-        if id(owner) in named_ids:
-            return default_package.get(id(owner))
-        if not isinstance(owner, _PRIVATIZABLE_KINDS) or edge_index.site_count(owner) != 1:
-            return None
-        current = owner
+    chain = []
+    current_owner, current_label, seen = (owner, label, set())
+    for _ in range(_MAX_CLIMB_DEPTH):
+        if current_label is not None and (not current_label.isdigit()):
+            chain.append(current_label)
+        if id(current_owner) in seen:
+            break
+        seen.add(id(current_owner))
+        sites = edge_index.sites(current_owner)
+        if not sites:
+            break
+        current_owner, current_label = sites[0]
+    return chain
 
-def _apply_private_packages(entries: list, edge_index, default_package: dict, named_ids: set) -> None:
-    """Relocate private (exclusively-owned) Enum/List/Dict/Object/Composition
-    entries from their shared, kind-bucketed package to their owner's package."""
-    for entry in entries:
-        if isinstance(entry.node, _PRIVATIZABLE_KINDS):
-            package = _resolve_private_package(entry.node, edge_index, default_package, named_ids)
-            if package is not None:
-                entry.package = package
+def _label_chains(node, edge_index) -> list:
+    """One nearest-first label chain per site (incoming edge) reaching `node`."""
+    return [_label_chain(owner, label, edge_index) for owner, label in edge_index.sites(node)]
+_EDGE_NAMEABLE_KINDS = (EnumNode, ListNode, DictionaryNode, AnyDictionaryNode, CompositionNode)
 
-def _resolve_collisions(entries: list) -> None:
-    """Same (package, class_name) from different structures -> Name, Name2, Name3."""
-    buckets: dict = {}
-    for entry in entries:
-        buckets.setdefault((entry.package, entry.class_name), []).append(entry)
-    for group in buckets.values():
-        group.sort(key=lambda entry: entry.sort_key)
-        for index, entry in enumerate(group, 1):
-            entry.final_name = entry.class_name if index == 1 else f'{entry.class_name}{index}'
+def _build_edge_name(node, labels: list) -> str:
+    """Build a name from a chain of labels (nearest-first): farther ancestors
+    become an outer prefix, the immediate label sits right next to the
+    kind marker (AllOf/AnyOf/OneOf prefix, List/Enum/Dict/AnyDict suffix)."""
+    parts = ''.join((class_identifier(part) for part in reversed(labels)))
+    if isinstance(node, CompositionNode):
+        return COMPOSITION_KEYWORD_NAME[node.keyword] + parts
+    return parts + KIND_SUFFIX[type(node)]
 
-def _meaningful_owner_label(node, edge_index):
-    """The label of `node`'s single incoming edge, skipping meaningless
-    numeric hops (composition-branch / tuple-list-position indices) by
-    walking up to their owner instead -- a oneOf branch has no name of its
-    own, but the property that holds the oneOf usually does.
-
-    Returns (label, node_at_that_level) so a caller can climb one more level
-    from there, or (None, None) if no single unambiguous non-numeric label
-    is found along the way (multiple/zero incoming edges, or a shared
-    ancestor with more than one owner).
+def _edge_name_rounds(node, edge_index):
+    """Yield successive rounds of edge-derived name candidates, one round
+    per ancestor depth: round 1 is each site's own (digit-hops-skipped)
+    label, round 2 prepends each site's next ancestor label, etc. -- tried
+    in order by the caller, so a round is only reached once every candidate
+    from the previous, shorter round collided.
     """
-    current, seen = (node, set())
-    while True:
-        if id(current) in seen:
-            return (None, None)
-        seen.add(id(current))
-        labels = edge_index.labels(current)
-        if len(labels) != 1:
-            return (None, None)
-        label = next(iter(labels))
-        if not label.isdigit():
-            return (label, current)
-        owners = edge_index.owners(current)
-        if len(owners) != 1:
-            return (None, None)
-        current = owners[0]
+    chains = _label_chains(node, edge_index)
+    max_depth = max((len(chain) for chain in chains), default=0)
+    for depth in range(1, max_depth + 1):
+        round_names = [_build_edge_name(node, chain[:depth]) for chain in chains if len(chain) >= depth]
+        if round_names:
+            yield round_names
 
-def _enum_edge_candidates(node, edge_index) -> list:
-    """Names derived from how an Enum is *used*, most to least specific.
-
-    Only proposed when a single unambiguous, non-numeric label reaches the
-    node (e.g. all incoming edges named "role"): 'RoleEnum'. If that also
-    needs to disambiguate against the owning object's own incoming edge
-    (also unanimous), a one-level-up variant is offered too: 'OutputRoleEnum'.
-    Otherwise: no candidates, the caller keeps the structural (value-based) name.
+def _apply_edge_names(entries: list, edge_index) -> None:
+    """Prefer an edge-derived name ('RoleEnum', 'TagsList', 'AnyOfStatus', ...)
+    over the structural (value-/content-based) one: try each site's name in
+    turn; if all sites collide at one ancestor depth, climb to the next
+    depth (one more ancestor label prepended) and retry every site again.
+    Runs before `_resolve_collisions` so a genuine remaining collision still
+    falls back to ancestor-climbing/numeric disambiguation as usual.
     """
-    if edge_index is None:
-        return []
-    label, at_node = _meaningful_owner_label(node, edge_index)
-    if label is None:
-        return []
-    candidates = [f'{class_identifier(label)}Enum']
-    owners = edge_index.owners(at_node)
-    if len(owners) == 1:
-        parent_label, _ = _meaningful_owner_label(owners[0], edge_index)
-        if parent_label is not None:
-            candidates.append(f'{class_identifier(parent_label)}{class_identifier(label)}Enum')
-    return candidates
-
-def _apply_enum_edge_names(entries: list, edge_index) -> None:
-    """Prefer an edge-derived Enum name ('RoleEnum') over the value-derived
-    one, when it does not collide with any other entry's current name in the
-    same package. Runs before `_resolve_collisions` so a genuine remaining
-    collision still falls back to numeric disambiguation as usual.
-    """
-    if edge_index is None:
-        return
     by_package_name: dict = {}
     for entry in entries:
         by_package_name.setdefault((entry.package, entry.class_name), []).append(entry)
     for entry in sorted(entries, key=lambda entry: (entry.package, entry.sort_key)):
-        if not isinstance(entry.node, EnumNode):
+        if not isinstance(entry.node, _EDGE_NAMEABLE_KINDS):
             continue
-        for candidate in _enum_edge_candidates(entry.node, edge_index):
-            key = (entry.package, candidate)
-            holders = by_package_name.get(key, [])
-            if holders and holders != [entry]:
+        chosen = None
+        for round_names in _edge_name_rounds(entry.node, edge_index):
+            for candidate in round_names:
+                key = (entry.package, candidate)
+                holders = by_package_name.get(key, [])
+                if holders and holders != [entry]:
+                    continue
+                chosen = candidate
+                break
+            if chosen is not None:
+                break
+        if chosen is None:
+            continue
+        old_key = (entry.package, entry.class_name)
+        by_package_name[old_key].remove(entry)
+        entry.class_name = chosen
+        by_package_name.setdefault((entry.package, chosen), []).append(entry)
+
+def _climb_name_rounds(entry, edge_index):
+    """Yield successive rounds of ancestor-qualified name candidates for a
+    colliding entry: round 1 prepends each site's own label to the current
+    class name, round 2 prepends two ancestor levels, etc. -- same
+    iterate-then-climb algorithm as `_edge_name_rounds`, generalized to
+    every kind (not just the edge-nameable ones), since any structural name
+    can still collide.
+    """
+    chains = _label_chains(entry.node, edge_index)
+    max_depth = max((len(chain) for chain in chains), default=0)
+    for depth in range(1, max_depth + 1):
+        round_names = [
+            f'{''.join((class_identifier(part) for part in reversed(chain[:depth])))}{entry.class_name}' for chain in chains if len(chain) >= depth]
+        if round_names:
+            yield round_names
+
+def _resolve_collisions(entries: list, edge_index) -> None:
+    """Same (package, class_name) from different structures:
+    1. try climbing ancestor levels per colliding entry, one site at a time,
+       one more level for all sites once every site collided at the
+       previous, shorter level (e.g. RoleEnum -> UserRoleEnum);
+    2. anything still colliding afterward gets a numeric suffix
+       (Name, Name2, Name3...), deterministically ordered by fingerprint.
+    """
+    buckets: dict = {}
+    for entry in entries:
+        buckets.setdefault((entry.package, entry.class_name), []).append(entry)
+    for group in list(buckets.values()):
+        if len(group) <= 1:
+            continue
+        for entry in list(group):
+            chosen = None
+            for round_names in _climb_name_rounds(entry, edge_index):
+                for candidate in round_names:
+                    key = (entry.package, candidate)
+                    holders = buckets.get(key, [])
+                    if holders and holders != [entry]:
+                        continue
+                    chosen = candidate
+                    break
+                if chosen is not None:
+                    break
+            if chosen is None:
                 continue
             old_key = (entry.package, entry.class_name)
-            by_package_name[old_key].remove(entry)
-            entry.class_name = candidate
-            by_package_name.setdefault(key, []).append(entry)
-            break
+            buckets[old_key].remove(entry)
+            entry.class_name = chosen
+            buckets.setdefault((entry.package, chosen), []).append(entry)
+    final_buckets: dict = {}
+    for entry in entries:
+        final_buckets.setdefault((entry.package, entry.class_name), []).append(entry)
+    for group in final_buckets.values():
+        group.sort(key=lambda entry: entry.sort_key)
+        for index, entry in enumerate(group, 1):
+            entry.final_name = entry.class_name if index == 1 else f'{entry.class_name}{index}'

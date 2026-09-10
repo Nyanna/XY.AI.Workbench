@@ -106,7 +106,10 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
     ``stdout`` is always present; ``stderr`` is included whenever it is
     non-empty. The result carries no separate text content block —
     ``structured_content`` alone conveys STDOUT/STDERR, avoiding duplication.
-    ``is_error`` mirrors a non-zero exit code.
+
+    A non-zero ``exit_code`` is a normal outcome of running *cmd* (the tool
+    call itself succeeded), not an MCP-level failure — ``is_error`` is
+    therefore never set here.
     """
     stdout = result.stdout
     stderr = result.stderr
@@ -139,4 +142,4 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
     '# Simple success with auto_approve when exit code is 0 and both streams are empty'
     if result.exit_code == 0 and (not stdout) and (not stderr):
         return ToolResult(structured_content={'result': 'success'}, auto_approve=True)
-    return ToolResult(content=content, structured_content=structured, is_error=result.exit_code != 0 and bool(stderr))
+    return ToolResult(content=content, structured_content=structured)

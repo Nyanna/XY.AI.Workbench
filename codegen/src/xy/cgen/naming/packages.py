@@ -1,24 +1,24 @@
-"""Package assignment.
+"""Package assignment building blocks.
 
-- '.components': named schemas referenced by more than one path (or by none --
-  no single path to host them in, so they default to the shared location too).
+- '.components': a named top-level schema actually referenced from more than
+  one place in the deduped graph (`edge_index.site_count(node) > 1`).
+- kind buckets ('.enums'/'.lists'/'.objects'/'.operators'/'.dictionaries'):
+  an anonymous node referenced from more than one place.
+- everything else (site_count <= 1, i.e. privately/uniquely owned) lives
+  under its single owner's own package instead of a shared bucket -- see
+  `naming/__init__.py::_resolve_package`, which climbs the ownership chain
+  up to either a named schema's own (already resolved) package or a
+  request/response transport root.
 - '.request.<path>.<method>.<ct>': the request root of one operation.
 - '.response.<path>[.<method>].code<code>.<ct>': one status-code/content-type
   view of one operation; the method segment is dropped when the path has
   exactly one method, kept otherwise to stay unambiguous.
-- '.enums' / '.lists' / '.objects' / '.operators' / '.dictionaries': anonymous
-  nodes, bucketed by kind -- always, regardless of how many sites reference
-  them (their class name already carries the disambiguating context prefix).
-- A named schema used by exactly one path lives in that path's request/
-  response package instead of '.components'.
 """
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, RefNode
-from xy.cgen.naming.identifiers import content_type_short_name
+from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode
 from xy.cgen.naming.paths import path_to_package_segments
-from xy.cgen.naming.traverse import iter_child_edges
 ANONYMOUS_KIND_PACKAGE = {
     EnumNode: 'enums',
     ListNode: 'lists',
@@ -29,7 +29,8 @@ ANONYMOUS_KIND_PACKAGE = {
 
 @dataclass(frozen=True)
 class Site:
-    """Where a named schema was first encountered while walking an operation."""
+    """Where a transport-rooted node sits: the request/response location a
+    package can be derived from."""
     path: str
     "# 'request' | 'response'"
     side: str
@@ -46,7 +47,7 @@ def _leaf_segment_matches(path_segment: str, pattern: str) -> bool:
     return bool(re.fullmatch(pattern, leaf, re.IGNORECASE))
 
 def anonymous_package(node, base_package: str) -> str | None:
-    """Kind-based package for an anonymous node, or None if it has no class."""
+    """Kind-based package for a shared anonymous node, or None if it has no class."""
     bucket = ANONYMOUS_KIND_PACKAGE.get(type(node))
     return f'{base_package}.{bucket}' if bucket else None
 
@@ -67,67 +68,10 @@ def response_root_package(path: str, method: str, base_package: str, methods_by_
     prefix = '' if _leaf_segment_matches(path_segment, 'responses?') else 'response.'
     return f'{base_package}.{prefix}{path_segment}{method_segment}'
 
-def collect_named_references(identified_model):
-    """Walk every operation's request/response tree to find, per named schema,
-    which paths reference it (directly or transitively via other named
-    schemas) and where it was first encountered (site).
-
-    Returns (paths_by_name: dict[str, set[str]], first_site_by_name: dict[str, Site],
-    methods_by_path: dict[str, set[str]]).
-    """
-    paths_by_name: dict = defaultdict(set)
-    first_site: dict = {}
+def collect_methods_by_path(identified_model) -> dict:
+    """path -> set of HTTP methods declared for it (used to decide whether the
+    method segment is needed to keep a response package unambiguous)."""
     methods_by_path: dict = defaultdict(set)
     for operation_model in identified_model.operations:
         methods_by_path[operation_model.operation.path].add(operation_model.operation.method)
-    for operation_model in identified_model.operations:
-        operation = operation_model.operation
-        if operation_model.request is not None and operation_model.request.body is not None:
-            site = Site(path=operation.path, side='request', method=operation.method, code=None, content_type='json')
-            _walk(
-                operation_model.request.body.target,
-                operation.path,
-                site,
-                paths_by_name,
-                first_site,
-                identified_model.named_nodes,
-                frozenset())
-        for code_node in operation_model.response.codes:
-            for content_type_view in code_node.content_types:
-                site = Site(
-                    path=operation.path,
-                    side='response',
-                    method=operation.method,
-                    code=code_node.status_code,
-                    content_type=content_type_short_name(
-                        content_type_view.content_type))
-                _walk(
-                    content_type_view.body.target,
-                    operation.path,
-                    site,
-                    paths_by_name,
-                    first_site,
-                    identified_model.named_nodes,
-                    frozenset())
-    return (paths_by_name, first_site, methods_by_path)
-
-def _walk(node, path, site, paths_by_name, first_site, named_nodes, visited):
-    if isinstance(node, RefNode):
-        name = node.name
-        paths_by_name[name].add(path)
-        if name not in first_site:
-            first_site[name] = site
-        if name in visited:
-            "# cycle guard: a named schema's own subtree is walked once per chain"
-            return
-        _walk(named_nodes[name], path, site, paths_by_name, first_site, named_nodes, visited | {name})
-        return
-    for _, edge in iter_child_edges(node):
-        _walk(edge.target, path, site, paths_by_name, first_site, named_nodes, visited)
-
-def named_package(name: str, base_package: str, paths_by_name: dict, first_site: dict, methods_by_path: dict) -> str:
-    """Package for a named schema: its single referencing path's site, or '.components'."""
-    paths = paths_by_name.get(name) or set()
-    if len(paths) == 1:
-        return site_package(first_site[name], base_package, methods_by_path)
-    return f'{base_package}.components'
+    return methods_by_path

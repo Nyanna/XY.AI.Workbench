@@ -39,7 +39,12 @@ ENUM_LABEL_MAX_LEN = 48
 KIND_SUFFIX = {EnumNode: 'Enum', ListNode: 'List', DictionaryNode: 'Dict', AnyDictionaryNode: 'AnyDict'}
 
 def _with_kind_suffix(name: str, node) -> str:
-    suffix = KIND_SUFFIX.get(type(node))
+    """# CompositionNode carries its keyword-specific suffix (AllOf/AnyOf/OneOf);"""
+    '# the wrapper class itself is the composition, not its branches.'
+    if isinstance(node, CompositionNode):
+        suffix = COMPOSITION_KEYWORD_NAME[node.keyword]
+    else:
+        suffix = KIND_SUFFIX.get(type(node))
     if suffix is None or name.endswith(suffix):
         return name
     return name + suffix
@@ -109,8 +114,10 @@ def derive_class_names(identified_model) -> ClassNames:
         '# label; a numeric suffix is only added when more than one branch'
         '# actually needs one, per the composition keyword (AllOf/AnyOf/OneOf).'
         if isinstance(target, ObjectNode):
-            suffix = COMPOSITION_KEYWORD_NAME.get(keyword, 'Part')
-            forced = f'{context}{suffix}' if total_synth <= 1 else f'{context}{suffix}{index}'
+            '# the keyword (AllOf/AnyOf/OneOf) marks the composition wrapper, not'
+            "# its plain-object branch -- a neutral 'Part' marker avoids implying"
+            '# this fragment alone is the merged/composed state.'
+            forced = f'{context}Part' if total_synth <= 1 else f'{context}Part{index}'
             return resolve(target, context, index, force_name=forced)
         return resolve(target, context, index)
     for key, node in identified_model.named_nodes.items():
