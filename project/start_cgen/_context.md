@@ -400,6 +400,27 @@ Alle noch nicht umgesetzten Funktionen sind Stubs, die `NotImplementedError` wer
   `ResponsesResponse createResponse(CreateResponse)`, Impl instanziierbar über
   `new ResponsesClientImpl(String)`.
 
+## Segment-11-Ergebnis (End-to-End & Verifikation) — abgeschlossen
+- Voller Lauf `python -m cgen --schema .../deepseek.filtered.yaml --out <dir> --base-package
+  xy.api.codegen`: 176 `.java`-Dateien (unverändert ggü. Segment 10).
+- Kompilierprobe `javac` (Jackson 2.17.2, aus `~/.m2`: `jackson-databind`/`jackson-core`/
+  `jackson-annotations`) gegen alle 176 Dateien: `exit=0`, keine Fehler/Warnungen.
+- **I7** (Determinismus): zwei unabhängige Läufe in getrennte Verzeichnisse erzeugen identische
+  sortierte Dateilisten UND `diff -rq` über beide Ausgabeverzeichnisse ist leer (byte-identisch,
+  nicht nur namensgleich).
+- **I5**: `ImageDetail`/`DetailEnum` (beide benannt, gleicher Fingerprint) bleiben als getrennte
+  `.enums`-Dateien erhalten (im Lauf verifiziert, siehe Dateiliste).
+- **I3** (ad-hoc, isoliert auf `ObjectNode`/`Edge`-Ebene): zwei strukturell identische Objekte mit
+  unterschiedlicher `Edge.description` liefern denselben Fingerprint (Metadaten fließen nicht in
+  die Identität ein).
+- **I4** (ad-hoc): `RefNode`-Fingerprint ist rein `node.name` (kein Ziel-Zugriff, terminiert auch
+  bei Selbstreferenz); volle Fingerprint-Berechnung über den kompletten 85-Schema-Graph liefert
+  259 fingerprinted Knoten ohne Rekursionsfehler (bereits in Segment 04 grundlegend verifiziert,
+  hier als Teil der Segment-11-Stichprobe erneut bestätigt).
+- Kein Code in `codegen/` geändert — Segment 11 ist reine Verifikation, keine Implementierung.
+  `__pycache__` (durch die Ad-hoc-Läufe ggf. entstanden) wurde vor Abschluss entfernt.
+- **Damit ist der gesamte Plan (01–11) umgesetzt.**
+
 ## Plan
 
 /home/user/xyan/xy.ai.workbench/project/start_cgen/00_overview.md
