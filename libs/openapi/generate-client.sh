@@ -7,9 +7,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-GENERATOR_JAR="$REPO_ROOT/tools/openapi-generator-cli-7.25.0.jar"
-SRC_ROOT="$REPO_ROOT/src/xy/ai/workbench/connector/openapi"
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <spec-name>" >&2
@@ -36,6 +33,13 @@ if [ ! -f "$SPEC_FILE" ]; then
     exit 1
 fi
 
+# we use our own generator now
+echo "Done with filtering"
+exit 0
+
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+GENERATOR_JAR="$REPO_ROOT/tools/openapi-generator-cli-7.25.0.jar"
+SRC_ROOT="$REPO_ROOT/src/xy/ai/workbench/connector/openapi"
 PACKAGE_BASE="xy.ai.workbench.connector.openapi.${NAME}"
 OUT_DIR="$WORK_DIR/gen"
 
