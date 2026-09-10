@@ -1,0 +1,14 @@
+{% macro javadoc(description, example_repr, indent="    ") %}
+{% if description or example_repr %}
+{{ indent }}/**
+{% if description %}
+{% for line in description.split('\n') %}
+{{ indent }} * {{ line }}
+{% endfor %}
+{% endif %}
+{% if example_repr %}
+{{ indent }} * Example: {{ example_repr }}
+{% endif %}
+{{ indent }} */
+{% endif %}
+{% endmacro %}

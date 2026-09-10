@@ -1,0 +1,81 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
+/** Proxy over a fixed-arity JSON array node (tuple validation); holds no data of its own. */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+
+    public {{ class_name }}(JsonNode node) {
+        this.node = node;
+    }
+
+    public JsonNode node() {
+        return node;
+    }
+
+    public int size() {
+        return {{ elements|length }};
+    }
+{% for a in elements %}
+
+{{ macros.javadoc(a.description, a.example_repr) }}
+    public {{ a.java_type }} get{{ a.name }}() {
+{% if a.category == 'primitive' %}
+        JsonNode child = node.get({{ loop.index0 }});
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return child.{{ a.read_method }}();
+{% elif a.category == 'enum' %}
+        JsonNode child = node.get({{ loop.index0 }});
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return {{ a.java_type }}.fromValue(child.{{ a.read_method }}());
+{% elif a.category == 'any_dictionary' %}
+        return node.get({{ loop.index0 }});
+{% elif a.category == 'composition' %}
+        JsonNode child = node.get({{ loop.index0 }});
+        if (child == null) {
+            return null;
+        }
+        return new {{ a.java_type }}(child);
+{% else %}
+        JsonNode child = node.get({{ loop.index0 }});
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return new {{ a.java_type }}(child);
+{% endif %}
+    }
+
+{{ macros.javadoc(a.description, a.example_repr) }}
+    public void set{{ a.name }}({{ a.java_type }} value) {
+{% if a.category == 'primitive' %}
+        ((ArrayNode) node).set({{ loop.index0 }}, JsonNodeFactory.instance.{{ a.factory_method }}(value));
+{% elif a.category == 'enum' %}
+        ((ArrayNode) node).set({{ loop.index0 }}, value == null ? JsonNodeFactory.instance.nullNode() : JsonNodeFactory.instance.{{ a.factory_method }}(value.rawValue()));
+{% elif a.category == 'any_dictionary' %}
+        ((ArrayNode) node).set({{ loop.index0 }}, value);
+{% else %}
+        ((ArrayNode) node).set({{ loop.index0 }}, value == null ? null : value.node());
+{% endif %}
+    }
+{% endfor %}
+{% if is_request_root %}
+
+    @Override
+    public String toString() {
+        return {{ json_support_fqn }}.write(node);
+    }
+
+    public static {{ class_name }} fromString(String body) {
+        return new {{ class_name }}({{ json_support_fqn }}.parse(body));
+    }
+{% endif %}
+}

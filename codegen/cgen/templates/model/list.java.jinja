@@ -1,0 +1,82 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+/** Proxy over a JSON array node; holds no data of its own. */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+
+    public {{ class_name }}(JsonNode node) {
+        this.node = node;
+    }
+
+    public JsonNode node() {
+        return node;
+    }
+
+    public int size() {
+        return node.size();
+    }
+
+{{ macros.javadoc(element.description, element.example_repr) }}
+    public {{ element.java_type }} get(int index) {
+{% if element.category == 'primitive' %}
+        JsonNode child = node.get(index);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return child.{{ element.read_method }}();
+{% elif element.category == 'enum' %}
+        JsonNode child = node.get(index);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return {{ element.java_type }}.fromValue(child.{{ element.read_method }}());
+{% elif element.category == 'any_dictionary' %}
+        return node.get(index);
+{% elif element.category == 'composition' %}
+        JsonNode child = node.get(index);
+        if (child == null) {
+            return null;
+        }
+        return new {{ element.java_type }}(child);
+{% else %}
+        JsonNode child = node.get(index);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return new {{ element.java_type }}(child);
+{% endif %}
+    }
+
+{{ macros.javadoc(element.description, element.example_repr) }}
+    public void add({{ element.java_type }} value) {
+{% if element.category == 'primitive' %}
+        ((ArrayNode) node).add(value);
+{% elif element.category == 'enum' %}
+        ((ArrayNode) node).add(value == null ? null : value.rawValue());
+{% elif element.category == 'any_dictionary' %}
+        ((ArrayNode) node).add(value);
+{% else %}
+        ((ArrayNode) node).add(value == null ? null : value.node());
+{% endif %}
+    }
+
+    public void remove(int index) {
+        ((ArrayNode) node).remove(index);
+    }
+{% if is_request_root %}
+
+    @Override
+    public String toString() {
+        return {{ json_support_fqn }}.write(node);
+    }
+
+    public static {{ class_name }} fromString(String body) {
+        return new {{ class_name }}({{ json_support_fqn }}.parse(body));
+    }
+{% endif %}
+}

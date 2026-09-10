@@ -1,0 +1,52 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+/** One status-code view; the content-type header selects which typed getter applies. */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+    private final String contentType;
+
+    public {{ class_name }}(JsonNode node, String contentType) {
+        this.node = node;
+        this.contentType = contentType;
+    }
+
+    public String contentType() {
+        return contentType;
+    }
+{% for v in content_types %}
+
+    /** Whether the bound content type is "{{ v.content_type }}". */
+    public boolean is{{ v.short_name }}() {
+        return "{{ v.content_type }}".equals(contentType);
+    }
+
+{{ macros.javadoc(v.description, none) }}
+    public {{ v.java_type }} get{{ v.short_name }}() {
+        if (!is{{ v.short_name }}()) {
+            return null;
+        }
+{% if v.category == 'primitive' %}
+        if (node.isNull()) {
+            return null;
+        }
+        return node.{{ v.read_method }}();
+{% elif v.category == 'enum' %}
+        if (node.isNull()) {
+            return null;
+        }
+        return {{ v.java_type }}.fromValue(node.{{ v.read_method }}());
+{% elif v.category == 'any_dictionary' %}
+        return node;
+{% else %}
+        if (node.isNull()) {
+            return null;
+        }
+        return new {{ v.java_type }}(node);
+{% endif %}
+    }
+{% endfor %}
+}

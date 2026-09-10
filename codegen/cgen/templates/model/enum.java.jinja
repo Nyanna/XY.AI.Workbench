@@ -1,0 +1,27 @@
+package {{ package }};
+
+/** Closed value set over {{ primitive_type }}. */
+public enum {{ class_name }} {
+{% for c in constants %}
+    {{ c.constant_name }}({{ c.literal }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+
+    private final {{ raw_type }} value;
+
+    {{ class_name }}({{ raw_type }} value) {
+        this.value = value;
+    }
+
+    public {{ raw_type }} rawValue() {
+        return value;
+    }
+
+    public static {{ class_name }} fromValue({{ raw_type }} value) {
+        for ({{ class_name }} candidate : values()) {
+            if (candidate.value.equals(value)) {
+                return candidate;
+            }
+        }
+        throw new IllegalArgumentException("unknown {{ class_name }} value: " + value);
+    }
+}

@@ -1,0 +1,29 @@
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/** Shared JSON (de)serialization used by every request/response root class. */
+public final class JsonSupport {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private JsonSupport() {
+    }
+
+    public static JsonNode parse(String body) {
+        try {
+            return MAPPER.readTree(body);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("failed to parse JSON body", e);
+        }
+    }
+
+    public static String write(JsonNode node) {
+        try {
+            return MAPPER.writeValueAsString(node);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("failed to serialize JSON body", e);
+        }
+    }
+}

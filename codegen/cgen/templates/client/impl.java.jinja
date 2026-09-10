@@ -1,0 +1,66 @@
+package {{ package }};
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+/**
+ * {@code java.net.http.HttpClient}-based implementation of {@link {{ interface_fqn }}}.
+ * Base URL is a constructor parameter; extend this class and override
+ * {@link #customizeRequest} to inject Authorization or other headers --
+ * no concrete auth code lives in this class itself.
+ */
+public class {{ class_name }} implements {{ interface_fqn }} {
+
+    private final String baseUrl;
+    private final HttpClient httpClient;
+
+    public {{ class_name }}(String baseUrl) {
+        this(baseUrl, HttpClient.newHttpClient());
+    }
+
+    public {{ class_name }}(String baseUrl, HttpClient httpClient) {
+        this.baseUrl = baseUrl;
+        this.httpClient = httpClient;
+    }
+
+    /** Hook for subclasses (e.g. to set Authorization); no-op by default. */
+    protected void customizeRequest(HttpRequest.Builder builder) {
+    }
+{% for m in methods %}
+
+    @Override
+    public {{ m.response_type }} {{ m.name }}({{ m.signature }}) {
+        StringBuilder urlBuilder = new StringBuilder(baseUrl);
+        urlBuilder.append({{ m.path_url_expression }});
+{% if m.query_params %}
+        java.util.List<String> queryParts = new java.util.ArrayList<>();
+{% for p in m.query_params %}
+        if ({{ p.name }} != null) {
+            queryParts.add({{ '"' ~ p.raw_name ~ '="' }} + java.net.URLEncoder.encode(String.valueOf({{ p.name }}), java.nio.charset.StandardCharsets.UTF_8));
+        }
+{% endfor %}
+        if (!queryParts.isEmpty()) {
+            urlBuilder.append("?").append(String.join("&", queryParts));
+        }
+{% endif %}
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(urlBuilder.toString()))
+{% if m.body_param %}
+                .header("Content-Type", "application/json")
+                .method("{{ m.http_method }}", HttpRequest.BodyPublishers.ofString({{ m.body_param.name }}.toString()));
+{% else %}
+                .method("{{ m.http_method }}", HttpRequest.BodyPublishers.noBody());
+{% endif %}
+        customizeRequest(requestBuilder);
+        try {
+            HttpResponse<String> httpResponse = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+            String responseContentType = httpResponse.headers().firstValue("Content-Type").orElse(null);
+            return {{ m.response_type }}.from(httpResponse.body(), httpResponse.statusCode(), responseContentType);
+        } catch (java.io.IOException | InterruptedException e) {
+            throw new RuntimeException("request failed: {{ m.name }}", e);
+        }
+    }
+{% endfor %}
+}

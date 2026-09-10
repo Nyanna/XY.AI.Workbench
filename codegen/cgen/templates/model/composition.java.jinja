@@ -1,0 +1,62 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+/** Proxy over one JsonNode; every branch below is a view of the same {{ keyword }} node (no merge). */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+
+    public {{ class_name }}(JsonNode node) {
+        this.node = node;
+    }
+
+    public JsonNode node() {
+        return node;
+    }
+{% for b in branches %}
+{% if b.applies_expr is not none %}
+
+    /** Whether the bound node currently matches the {{ b.accessor_name }} branch. */
+    public boolean is{{ b.accessor_name }}() {
+        return {{ b.applies_expr }};
+    }
+{% endif %}
+{% if b.has_getter %}
+
+{{ macros.javadoc(b.description, b.example_repr) }}
+    public {{ b.java_type }} get{{ b.accessor_name }}() {
+{% if b.category == 'primitive' %}
+        if (node.isNull()) {
+            return null;
+        }
+        return node.{{ b.read_method }}();
+{% elif b.category == 'enum' %}
+        if (node.isNull()) {
+            return null;
+        }
+        return {{ b.java_type }}.fromValue(node.{{ b.read_method }}());
+{% elif b.category == 'any_dictionary' %}
+        return node;
+{% else %}
+        if (node.isNull()) {
+            return null;
+        }
+        return new {{ b.java_type }}(node);
+{% endif %}
+    }
+{% endif %}
+{% endfor %}
+{% if is_request_root %}
+
+    @Override
+    public String toString() {
+        return {{ json_support_fqn }}.write(node);
+    }
+
+    public static {{ class_name }} fromString(String body) {
+        return new {{ class_name }}({{ json_support_fqn }}.parse(body));
+    }
+{% endif %}
+}

@@ -1,0 +1,11 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+/** One method per operation; description/example copied from the operation (D-verbindlich). */
+public interface {{ class_name }} {
+{% for m in methods %}
+
+{{ macros.javadoc(m.description, m.example_repr) }}
+    {{ m.response_type }} {{ m.name }}({{ m.signature }});
+{% endfor %}
+}

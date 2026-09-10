@@ -1,0 +1,91 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Iterator;
+
+/** Proxy over a JSON object node used as a string-keyed map; holds no data of its own. */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+
+    public {{ class_name }}(JsonNode node) {
+        this.node = node;
+    }
+
+    public JsonNode node() {
+        return node;
+    }
+
+    public int size() {
+        return node.size();
+    }
+
+    public Iterator<String> keys() {
+        return node.fieldNames();
+    }
+
+    public boolean containsKey(String key) {
+        return node.has(key);
+    }
+
+{{ macros.javadoc(value.description, value.example_repr) }}
+    public {{ value.java_type }} get(String key) {
+{% if value.category == 'primitive' %}
+        JsonNode child = node.get(key);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return child.{{ value.read_method }}();
+{% elif value.category == 'enum' %}
+        JsonNode child = node.get(key);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return {{ value.java_type }}.fromValue(child.{{ value.read_method }}());
+{% elif value.category == 'any_dictionary' %}
+        return node.get(key);
+{% elif value.category == 'composition' %}
+        JsonNode child = node.get(key);
+        if (child == null) {
+            return null;
+        }
+        return new {{ value.java_type }}(child);
+{% else %}
+        JsonNode child = node.get(key);
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        return new {{ value.java_type }}(child);
+{% endif %}
+    }
+
+{{ macros.javadoc(value.description, value.example_repr) }}
+    public void put(String key, {{ value.java_type }} value) {
+{% if value.category == 'primitive' %}
+        ((ObjectNode) node).put(key, value);
+{% elif value.category == 'enum' %}
+        ((ObjectNode) node).put(key, value == null ? null : value.rawValue());
+{% elif value.category == 'any_dictionary' %}
+        ((ObjectNode) node).set(key, value);
+{% else %}
+        ((ObjectNode) node).set(key, value == null ? null : value.node());
+{% endif %}
+    }
+
+    public void remove(String key) {
+        ((ObjectNode) node).remove(key);
+    }
+{% if is_request_root %}
+
+    @Override
+    public String toString() {
+        return {{ json_support_fqn }}.write(node);
+    }
+
+    public static {{ class_name }} fromString(String body) {
+        return new {{ class_name }}({{ json_support_fqn }}.parse(body));
+    }
+{% endif %}
+}

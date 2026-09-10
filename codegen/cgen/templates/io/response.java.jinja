@@ -1,0 +1,39 @@
+package {{ package }};
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+/** Root response object; status code and content type are transport metadata, never part of the body. */
+public final class {{ class_name }} {
+
+    private final JsonNode node;
+    private final String statusCode;
+    private final String contentType;
+
+    private {{ class_name }}(JsonNode node, int statusCode, String contentType) {
+        this.node = node;
+        this.statusCode = String.valueOf(statusCode);
+        this.contentType = contentType;
+    }
+
+    public static {{ class_name }} from(String body, int statusCode, String contentType) {
+        return new {{ class_name }}({{ json_support_fqn }}.parse(body), statusCode, contentType);
+    }
+
+    public String statusCode() {
+        return statusCode;
+    }
+
+    public String contentType() {
+        return contentType;
+    }
+{% for c in codes %}
+
+    /** Present only if the response's status code is {{ c.status_code }}. */
+    public {{ c.java_type }} getCode{{ c.status_code }}() {
+        if (!statusCode.equals("{{ c.status_code }}")) {
+            return null;
+        }
+        return new {{ c.java_type }}(node, contentType);
+    }
+{% endfor %}
+}
