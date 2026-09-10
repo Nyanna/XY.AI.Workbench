@@ -20,33 +20,35 @@ Name derivation never depends on discovery order for a given input document:
 named_nodes/operations are walked in a fixed order, so two runs over the same
 schema produce identical names.
 """
-
+import re
 from dataclasses import dataclass, field
-
-from xy.cgen.model.nodes import (
-    AnyDictionaryNode,
-    CompositionNode,
-    DictionaryNode,
-    EnumNode,
-    ListNode,
-    ObjectNode,
-    PrimitiveNode,
-    RefNode,
-    UnsupportedNode,
-)
+from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, PrimitiveNode, RefNode, UnsupportedNode
 from xy.cgen.naming.identifiers import class_identifier, content_type_short_name, sanitize_identifier, to_pascal_case
 from xy.cgen.naming.paths import method_to_class_fragment, path_to_class_fragment
-
 PRIMITIVE_BRANCH_NAME = {
-    "string": "String",
-    "integer": "Integer",
-    "number": "Number",
-    "boolean": "Boolean",
-    "null": "Null",
-}
-COMPOSITION_KEYWORD_NAME = {"allOf": "AllOf", "anyOf": "AnyOf", "oneOf": "OneOf"}
+    'string': 'String',
+    'integer': 'Integer',
+    'number': 'Number',
+    'boolean': 'Boolean',
+    'null': 'Null'}
+COMPOSITION_KEYWORD_NAME = {'allOf': 'AllOf', 'anyOf': 'AnyOf', 'oneOf': 'OneOf'}
 ENUM_LABEL_MAX_LEN = 48
+'# kind postfix for named (components.schemas) entries whose structure is a'
+'# container/enum type, matching the postfix anonymous siblings of the same'
+'# kind already get from _derive (see doc bullet on List/Dict/Enum postfixes).'
+KIND_SUFFIX = {EnumNode: 'Enum', ListNode: 'List', DictionaryNode: 'Dict', AnyDictionaryNode: 'AnyDict'}
 
+def _with_kind_suffix(name: str, node) -> str:
+    suffix = KIND_SUFFIX.get(type(node))
+    if suffix is None or name.endswith(suffix):
+        return name
+    return name + suffix
+
+def _synth_branch_count(node) -> int:
+    """Branches of a composition that need their own synthesized class name --
+    excludes $ref (reuses the named schema) and primitive (fixed keyword name)
+    branches. Used to decide whether a branch needs a numeric suffix at all."""
+    return sum((1 for edge in node.branches if not isinstance(edge.target, (RefNode, PrimitiveNode))))
 
 @dataclass(frozen=True)
 class ClassNames:
@@ -60,24 +62,22 @@ class ClassNames:
       so identity by id() is safe and stable within one generator run).
     - `transport_nodes`: id(node) -> node object, same keys as `transport`.
     """
-
     named: dict = field(default_factory=dict)
     anonymous: dict = field(default_factory=dict)
     anonymous_nodes: dict = field(default_factory=dict)
     transport: dict = field(default_factory=dict)
     transport_nodes: dict = field(default_factory=dict)
 
-
 def derive_class_names(identified_model) -> ClassNames:
     """Assign a structural class name to every named schema, anonymous node,
     and per-operation transport root."""
-    named = {key: class_identifier(key) for key in identified_model.named_nodes}
+    named = {key: _with_kind_suffix(class_identifier(key), node) for key, node in identified_model.named_nodes.items()}
     anon_memo: dict = {}
     anon_nodes: dict = {}
     transport: dict = {}
     transport_nodes: dict = {}
 
-    def resolve(node, context, index=None, force_name=None):
+    def resolve(node, context, index=None, force_name=None, label=None):
         if isinstance(node, RefNode):
             return named[node.name]
         if isinstance(node, PrimitiveNode):
@@ -91,54 +91,64 @@ def derive_class_names(identified_model) -> ClassNames:
             anon_nodes[id(node)] = node
             _walk_children(node, name, resolve, branch_name)
             return name
-        name = _derive(node, context, index, resolve, branch_name)
+        name = _derive(node, context, index, resolve, branch_name, label)
         anon_memo[id(node)] = name
         anon_nodes[id(node)] = node
         if isinstance(node, ObjectNode):
             _walk_children(node, name, resolve, branch_name)
         return name
 
-    def branch_name(target, context, index):
+    def branch_name(target, context, index, keyword=None, total_synth=1):
         if isinstance(target, RefNode):
             return named[target.name]
         if isinstance(target, PrimitiveNode):
             return PRIMITIVE_BRANCH_NAME[target.primitive_type]
-        return resolve(target, context, index, force_name=f"{context}Part{index}")
-
+        '# List/Dictionary/Enum branches already get a proper kind-suffixed name'
+        '# from _derive on their own (FooList/FooDict/...) -- only ObjectNode'
+        '# branches need a synthesized name here, since they have no inherent'
+        '# label; a numeric suffix is only added when more than one branch'
+        '# actually needs one, per the composition keyword (AllOf/AnyOf/OneOf).'
+        if isinstance(target, ObjectNode):
+            suffix = COMPOSITION_KEYWORD_NAME.get(keyword, 'Part')
+            forced = f'{context}{suffix}' if total_synth <= 1 else f'{context}{suffix}{index}'
+            return resolve(target, context, index, force_name=forced)
+        return resolve(target, context, index)
     for key, node in identified_model.named_nodes.items():
         _walk_children(node, named[key], resolve, branch_name)
-
     for operation_model in identified_model.operations:
         _name_operation(operation_model, resolve, transport, transport_nodes)
-
     return ClassNames(
         named=named,
         anonymous=anon_memo,
         anonymous_nodes=anon_nodes,
         transport=transport,
-        transport_nodes=transport_nodes,
-    )
+        transport_nodes=transport_nodes)
 
-
-def _derive(node, context, index, resolve, branch_name):
+def _derive(node, context, index, resolve, branch_name, label=None):
     if isinstance(node, EnumNode):
         return _enum_class_name(node)
     if isinstance(node, ListNode):
         parts = [resolve(edge.target, context, i) for i, edge in enumerate(node.elements, 1)]
-        return "".join(parts) + "List"
+        return ''.join(parts) + KIND_SUFFIX[ListNode]
     if isinstance(node, DictionaryNode):
-        return resolve(node.value.target, context, 1) + "Dictionary"
+        return resolve(node.value.target, context, 1) + KIND_SUFFIX[DictionaryNode]
     if isinstance(node, AnyDictionaryNode):
-        return "AnyDictionary"
+        return KIND_SUFFIX[AnyDictionaryNode]
     if isinstance(node, CompositionNode):
-        parts = [branch_name(edge.target, context, i) for i, edge in enumerate(node.branches, 1)]
-        return COMPOSITION_KEYWORD_NAME[node.keyword] + "".join(parts)
+        total_synth = _synth_branch_count(node)
+        parts = [branch_name(edge.target, context, i, node.keyword, total_synth)
+                 for i, edge in enumerate(node.branches, 1)]
+        return COMPOSITION_KEYWORD_NAME[node.keyword] + ''.join(parts)
     if isinstance(node, ObjectNode):
-        return f"{context}Part{index}"
+        '# prefer the property/branch label ("FunctionTool" + "parameters" ->'
+        '# FunctionToolParameters) over a positional index -- a number is only'
+        '# meaningful when names truly collide, which _resolve_collisions handles.'
+        if label:
+            return f'{context}{to_pascal_case(label)}'
+        return f'{context}Part{index}'
     if isinstance(node, UnsupportedNode):
-        return "Unsupported"
-    raise TypeError(f"cannot name node kind: {node.kind!r}")
-
+        return 'Unsupported'
+    raise TypeError(f'cannot name node kind: {node.kind!r}')
 
 def _walk_children(node, context, resolve, branch_name):
     """Visit direct children needing their own name, using `context` as the new prefix.
@@ -149,66 +159,63 @@ def _walk_children(node, context, resolve, branch_name):
     """
     if isinstance(node, ObjectNode):
         for i, edge in enumerate(node.properties, 1):
-            resolve(edge.target, context, i)
+            resolve(edge.target, context, i, label=edge.label)
     elif isinstance(node, ListNode):
         for i, edge in enumerate(node.elements, 1):
-            resolve(edge.target, context, i)
+            resolve(edge.target, context, i, label=edge.label)
     elif isinstance(node, DictionaryNode):
-        resolve(node.value.target, context, 1)
+        resolve(node.value.target, context, 1, label=node.value.label)
     elif isinstance(node, CompositionNode):
+        total_synth = _synth_branch_count(node)
         for i, edge in enumerate(node.branches, 1):
-            branch_name(edge.target, context, i)
-
+            branch_name(edge.target, context, i, node.keyword, total_synth)
 
 def _name_operation(operation_model, resolve, transport: dict, transport_nodes: dict) -> None:
     operation = operation_model.operation
     path_fragment = path_to_class_fragment(operation.path)
-
     request_node = operation_model.request
     if request_node is not None and request_node.body is not None:
-        context = f"{path_fragment}Request{method_to_class_fragment(operation.method)}"
+        context = f'{path_fragment}Request{method_to_class_fragment(operation.method)}'
         target = request_node.body.target
         force = None if isinstance(target, RefNode) else context
         transport[id(request_node)] = resolve(target, context, force_name=force)
         transport_nodes[id(request_node)] = request_node
-
     response_node = operation_model.response
-    response_context = f"{path_fragment}Response"
+    response_context = path_fragment if re.fullmatch(
+        '.*responses?', path_fragment, re.IGNORECASE) else f'{path_fragment}Response'
     transport[id(response_node)] = response_context
     transport_nodes[id(response_node)] = response_node
     for code_node in response_node.codes:
         for content_type_view in code_node.content_types:
-            code_context = (
-                f"{response_context}Code{code_node.status_code}"
-                f"{to_pascal_case(content_type_short_name(content_type_view.content_type))}"
-            )
+            code_context = f'{response_context}Code{
+                code_node.status_code}{
+                    to_pascal_case(
+                        content_type_short_name(
+                            content_type_view.content_type))}'
             transport[id(code_node)] = code_context
             transport_nodes[id(code_node)] = code_node
             transport[id(content_type_view)] = code_context
             transport_nodes[id(content_type_view)] = content_type_view
             resolve(content_type_view.body.target, code_context)
 
-
 def _enum_class_name(node: EnumNode) -> str:
     tokens = _sorted_enum_tokens(node.values)
-    label = "".join(tokens) or "Empty"
+    label = ''.join(tokens) or 'Empty'
     if len(label) > ENUM_LABEL_MAX_LEN:
         label = _cap_enum_label(tokens)
-    return sanitize_identifier(label) + "Enum"
-
+    return sanitize_identifier(label) + 'Enum'
 
 def _sorted_enum_tokens(values: tuple) -> list:
     """Enum values are a set (identity), sorted by (type, repr) for determinism."""
     pairs = sorted(((type(v).__name__, v) for v in values), key=lambda pair: (pair[0], repr(pair[1])))
     return [to_pascal_case(str(value)) for _, value in pairs]
 
-
 def _cap_enum_label(tokens: list) -> str:
     """Keep leading tokens until the length budget is exhausted (deterministic cap)."""
-    kept, length = [], 0
+    kept, length = ([], 0)
     for token in tokens:
         if kept and length + len(token) > ENUM_LABEL_MAX_LEN:
             break
         kept.append(token)
         length += len(token)
-    return "".join(kept) or tokens[0][:ENUM_LABEL_MAX_LEN]
+    return ''.join(kept) or tokens[0][:ENUM_LABEL_MAX_LEN]

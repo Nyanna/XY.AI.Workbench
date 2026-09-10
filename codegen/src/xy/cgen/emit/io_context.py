@@ -6,14 +6,11 @@ class (see model_emit.py); a response root is its own small class here,
 since status code and content type are transport metadata that never live on
 a shared model type -- they only exist on this operation-specific root.
 """
-
 from dataclasses import dataclass
-
 from xy.cgen.emit.model_context import PRIMITIVE_READ_METHOD, classify
 from xy.cgen.model.nodes import RefNode
 from xy.cgen.naming.identifiers import content_type_short_name, to_pascal_case
 from xy.cgen.typemap import map_type
-
 
 def request_root_node(operation_model, named_nodes):
     """The structural node whose generated class becomes this operation's request root.
@@ -29,7 +26,6 @@ def request_root_node(operation_model, named_nodes):
     target = request_node.body.target
     return named_nodes[target.name] if isinstance(target, RefNode) else target
 
-
 def request_root_node_ids(model) -> set:
     """id() of every node that must render toString()/fromString()."""
     ids = set()
@@ -39,15 +35,12 @@ def request_root_node_ids(model) -> set:
             ids.add(id(node))
     return ids
 
-
 def json_support_fqn(base_package: str) -> str:
-    return f"{base_package}.io.JsonSupport"
-
+    return f'{base_package}.JsonSupport'
 
 @dataclass(frozen=True)
 class ContentTypeBranch:
     """One content-type view of a CodeNode: is<Ct>()/get<Ct>(), discriminated by header."""
-
     short_name: str
     content_type: str
     java_type: str
@@ -55,38 +48,36 @@ class ContentTypeBranch:
     read_method: str | None
     description: str | None
 
-
 def build_content_type_branches(code_node, named_model) -> list:
     """One branch per ContentTypeView, in declaration order."""
     branches = []
     for content_type_view in code_node.content_types:
         edge = content_type_view.body
         category, primitive_type = classify(edge.target, named_model.named_nodes)
-        if category == "unsupported":
+        if category == 'unsupported':
             continue
         branches.append(
             ContentTypeBranch(
-                short_name=to_pascal_case(content_type_short_name(content_type_view.content_type)),
+                short_name=to_pascal_case(
+                    content_type_short_name(
+                        content_type_view.content_type)),
                 content_type=content_type_view.content_type,
-                java_type=map_type(edge.target, named_model),
+                java_type=map_type(
+                    edge.target,
+                    named_model),
                 category=category,
-                read_method=PRIMITIVE_READ_METHOD.get(primitive_type) if category in ("primitive", "enum") else None,
-                description=edge.description,
-            )
-        )
+                read_method=PRIMITIVE_READ_METHOD.get(primitive_type) if category in (
+                    'primitive',
+                    'enum') else None,
+                description=edge.description))
     return branches
-
 
 @dataclass(frozen=True)
 class CodeBranch:
     """One status-code view of a ResponseNode: getCode<code>() -- null unless it matches."""
-
     status_code: str
     java_type: str
 
-
 def build_code_branches(response_node, named_model) -> list:
-    return [
-        CodeBranch(status_code=code_node.status_code, java_type=named_model.name_of(code_node).fqn)
-        for code_node in response_node.codes
-    ]
+    return [CodeBranch(status_code=code_node.status_code, java_type=named_model.name_of(code_node).fqn)
+            for code_node in response_node.codes]
