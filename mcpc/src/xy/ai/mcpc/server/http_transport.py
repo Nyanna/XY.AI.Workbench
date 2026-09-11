@@ -20,7 +20,7 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from xy.ai.mcpc.server import errors, jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.control.handler import ControlHandler
@@ -72,6 +72,20 @@ def apply_ccprofile_header(comm_log, session_id: str, session, raw: str | None) 
     if session.cc_profile != raw:
         session.cc_profile = raw
         comm_log.log(session_id, EVENT, {'event': 'session.cc_profile', 'cc_profile': raw})
+
+def apply_control_header(comm_log, session_id: str, session, raw: str | None) -> None:
+    """Reconcile *session*'s control-bypass flag with an ``X-MCPC-CONTROL`` value.
+
+    A value of ``"off"`` disables request/result approval for the session;
+    any other value re-enables it. The header is re-evaluated on every
+    request, like ``X-MCPC-TOOLS``.
+    """
+    if raw is None:
+        return
+    disabled = raw.strip().lower() == 'off'
+    if session.control_disabled != disabled:
+        session.set_control_disabled(disabled)
+        comm_log.log(session_id, EVENT, {'event': 'session.control', 'disabled': disabled})
 
 class StreamableHttpHandler(BaseHTTPRequestHandler):
     """Handles a single HTTP connection for the MCP endpoint."""
@@ -163,6 +177,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         session.touch()
         self._apply_tools_header(session_id, session)
         self._apply_ccprofile_header(session_id, session)
+        self._apply_control_header(session_id, session)
         if kind is MessageKind.REQUEST:
             '# type: ignore[arg-type]'
             self._handle_request(session_id, session, request)
@@ -206,24 +221,50 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         else:
             self._send_http_error(HTTPStatus.NOT_FOUND, 'Unknown session', session_id=session_id)
 
+    def _query_params(self) -> dict[str, str]:
+        query = parse_qs(urlparse(self.path).query)
+        return {k: v[0] for k, v in query.items() if v}
+
+    def _param(self, header_name: str, *aliases: str) -> str | None:
+        """Look up *header_name*, falling back to a URL query parameter.
+
+        Every header accepted by this endpoint may also be supplied as a URL
+        query parameter on the MCP endpoint, named after the header itself or
+        one of *aliases* (a short form, e.g. ``sessionID`` for the session
+        header).
+        """
+        value = self.headers.get(header_name)
+        if value is not None:
+            return value
+        params = self._query_params()
+        for key in (header_name, *aliases):
+            if key in params:
+                return params[key]
+        return None
+
     def _apply_tools_header(self, session_id: str, session) -> None:
         """Reconcile the session's active toolset with the ``X-MCPC-TOOLS`` header.
 
         The header carries a comma-separated list of tool names: a spawned sub-agent inherits a
         pre-configured toolset and never sends the header itself.
         """
-        raw = self.headers.get(self.config.tools_header)
+        raw = self._param(self.config.tools_header, 'tools')
         apply_tools_header(self.config, self.comm_log, session_id, session, raw)
 
     def _apply_ccprofile_header(self, session_id: str, session) -> None:
         """Reconcile the session's active CC-profile with the ``X-MCPC-CC-PROFILE`` header.
         """
-        raw = self.headers.get(self.config.ccprofile_header)
+        raw = self._param(self.config.ccprofile_header)
         apply_ccprofile_header(self.comm_log, session_id, session, raw)
+
+    def _apply_control_header(self, session_id: str, session) -> None:
+        """Reconcile the session's control-bypass flag with the ``X-MCPC-CONTROL`` header."""
+        raw = self._param(self.config.control_header, 'control')
+        apply_control_header(self.comm_log, session_id, session, raw)
     '# -- request processing -------------------------------------------------'
 
     def _handle_request(self, session_id: str, session, request) -> None:
-        skip_control = self.headers.get(self.config.control_header, '').lower() == 'off'
+        skip_control = session.control_disabled
         '# type: ignore[attr-defined]'
         control_manager = getattr(self.server.environment, 'control_manager', None)
         stop_watch = threading.Event()
@@ -297,7 +338,7 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
         return False
 
     def _require_session_id(self) -> str | None:
-        session_id = self.headers.get(self.config.session_header)
+        session_id = self._param(self.config.session_header, 'sessionID')
         if not session_id:
             logger.error('Session id header not found')
             self._send_jsonrpc_error(HTTPStatus.BAD_REQUEST, None, errors.invalid_request(

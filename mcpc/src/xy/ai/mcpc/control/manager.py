@@ -88,8 +88,8 @@ class ToolControlManager:
         ``modified_arguments``, the caller should substitute them before
         invoking the tool handler.
         """
-        if auto_approve:
-            logger.info('Auto-approving request for %s [%s] (tool-flagged)', tool_name, session.id)
+        if auto_approve or session.control_disabled:
+            logger.info('Auto-approving request for %s [%s] (tool-flagged or control disabled)', tool_name, session.id)
             return ControlDecision(approved=True)
         item = self._enqueue(session, 'request', tool_name, arguments=arguments, result=None)
         return self._wait(item)
@@ -105,8 +105,8 @@ class ToolControlManager:
         ``ToolResult.auto_approve``), not derived from the shape of the
         result.
         """
-        if auto_approve:
-            logger.info('Auto-approving result for %s [%s] (tool-flagged)', tool_name, session.id)
+        if auto_approve or session.control_disabled:
+            logger.info('Auto-approving result for %s [%s] (tool-flagged or control disabled)', tool_name, session.id)
             return ControlDecision(approved=True)
         item = self._enqueue(session, 'result', tool_name, arguments=None, result=result)
         return self._wait(item)

@@ -60,6 +60,9 @@ class Session:
     '#: Names of tools enabled for this session. An empty set means'
     '#: no tools are enabled.'
     enabled_tools: set[str] = field(default_factory=set)
+    '#: When True, request/result approval is bypassed for this session'
+    '#: (see ``X-MCPC-CONTROL`` header).'
+    control_disabled: bool = False
     '#: Selects the ``CLAUDE_CONFIG_DIR`` (``~/.claude-<profile>``) so different'
     '#: agent profiles keep isolated credentials/caches.'
     cc_profile: str = 'none'
@@ -88,6 +91,12 @@ class Session:
         logger.info('Enable tools for session %s: %s', self.id, names)
         with self.lock:
             self.enabled_tools = set() if names is None else set(names)
+
+    def set_control_disabled(self, value: bool) -> None:
+        """Turn request/result approval on or off for this session."""
+        logger.info('Set control_disabled for session %s: %s', self.id, value)
+        with self.lock:
+            self.control_disabled = value
 
     def register_agent_session(self, cli_session_id: str, *, model: str | None=None, profile: str | None=None) -> AgentSubSession:
         """Record (or refresh) a sub-agent spawned from this session."""

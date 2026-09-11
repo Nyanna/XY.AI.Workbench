@@ -202,9 +202,17 @@ class ToolRegistry:
         self._aliases.setdefault(alias, set()).update(members)
 
     def expand_aliases(self, names: 'Iterable[str]') -> set[str]:
-        """Expand any alias names in *names* to their member tool names."""
+        """Expand any alias names in *names* to their member tool names.
+
+        The alias ``"all"`` is magic: it is never registered via
+        :meth:`register_alias` but expands to every tool currently in the
+        registry.
+        """
         expanded: set[str] = set()
         for name in names:
+            if name == 'all':
+                expanded.update(self._tools)
+                continue
             members = self._aliases.get(name)
             if members is None:
                 expanded.add(name)
