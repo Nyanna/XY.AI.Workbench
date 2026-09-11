@@ -1,16 +1,8 @@
 # TODO
-* reiner ast-readonly alias
-* warum zeilennumern benutzt?
-* isError: true überall prüfen weil es den structured_content verschluckt, in prompt auch prüfen
+* wieder newline ersetzungsprobleme analysieren
+* ast_script sollte nicht in AST alias sein
+	* reiner ast-readonly alias
 * tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
-* MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
-	* per http nicht websocket
-	* option um ein yaml schema render zu erhalten? -> ja aber zurüclk in JSON konvertieren
-		* generelles preproccess und yaml blocke zu JSON Umwandeln immer
-	* mit default befüllen für die Anzeige
-	* YAML validierung in workbench
-	* Makrdown YAML script blöcke aber keine header
-	* YAML call aber JSON Output
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h

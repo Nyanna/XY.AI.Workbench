@@ -7,7 +7,7 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast.list import ast_list
 __all__ = ['ReadItem', 'ReadResult', 'ReadError', 'ReadBatchResult', 'ast_read', 'ReadNodeTool', 'register']
-_ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', ''}
+_ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', '', '*'}
 
 def _looks_like_root_intent(ids: list[str]) -> bool:
     """Whether ``ids`` is empty or consists solely of common root-id guesses."""

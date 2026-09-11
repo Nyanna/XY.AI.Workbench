@@ -34,7 +34,7 @@ public class Model {
 
 	public static enum KeyPattern {
 		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), Deepseek("^sk-[a-z0-9]{32}$"), None("^none$"),
-		ClaudeCode("^(work|personal)$");
+		ClaudeCode("^(work|personal)$"), Misc("^.*$");
 
 		public final Pattern pattern;
 
@@ -168,9 +168,18 @@ public class Model {
 			.reasonings(Reasoning.ClaudeCode)//
 	);
 
+	public static final Model MCP_TOOLS = new Model("mcp-tools", "MCP Tools", new Capabilities()//
+			.key(KeyPattern.Misc)//
+			.supportTemperature(false)//
+			.supportTopP(false)//
+			.supportMaxToken(false)//
+			.supportBatch(false)//
+			.reasonings(Reasoning.Disabled)//
+	);
+
 	public static final Model[] DEFAULTS = { NONE, GPT_5_NANO, GPT_5_MINI, GPT_5, GEMINI_25_PRO, GEMINI_25_FLASH,
 			GEMINI_25_LIGHT, CLAUDE_OPUS, CLAUDE_SONNET, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
-			CC_MCPC_OPUS };
+			CC_MCPC_OPUS, MCP_TOOLS };
 
 	/** Default (static) catalog of models for a given provider, used by the DefaultModelResolver. */
 	public static Model[] defaultsFor(KeyPattern provider) {

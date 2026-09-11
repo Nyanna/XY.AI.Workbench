@@ -19,6 +19,9 @@ import xy.ai.workbench.connector.claudecode.CCConnector;
 import xy.ai.workbench.connector.claudecode.CCRequest;
 import xy.ai.workbench.connector.claudecode.CCResponse;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
+import xy.ai.workbench.connector.mcp.MCPConnector;
+import xy.ai.workbench.connector.mcp.MCPRequest;
+import xy.ai.workbench.connector.mcp.MCPResponse;
 import xy.ai.workbench.connector.google.GeminiBatch;
 import xy.ai.workbench.connector.google.GeminiBatchConnector;
 import xy.ai.workbench.connector.google.GeminiConnector;
@@ -43,6 +46,7 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private ClaudeConnector claude;
 	private IAIBatchConnector batchClaude;
 	private CCConnector claudeCode;
+	private MCPConnector mcp;
 	private IAIBatchConnector newBatch;
 
 	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager) {
@@ -51,6 +55,7 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
 		claudeCode = new CCConnector(cfg, sessionManager);
+		mcp = new MCPConnector(cfg);
 		newBatch = new NewBatchConnector();
 	}
 
@@ -69,6 +74,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return claude;
 		case ClaudeCode:
 			return claudeCode;
+		case Misc:
+			return mcp;
 		default:
 		}
 		throw new IllegalArgumentException("Model unsupported: " + model.displayName);
@@ -97,6 +104,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return claude;
 		else if (request instanceof CCRequest)
 			return claudeCode;
+		else if (request instanceof MCPRequest)
+			return mcp;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 
@@ -110,6 +119,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return claude;
 		else if (response instanceof CCResponse)
 			return claudeCode;
+		else if (response instanceof MCPResponse)
+			return mcp;
 		throw new IllegalArgumentException("Model unsupported");
 	}
 

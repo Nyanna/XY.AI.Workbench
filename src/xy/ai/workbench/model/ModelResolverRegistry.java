@@ -26,7 +26,7 @@ public final class ModelResolverRegistry {
 		RESOLVERS.put(KeyPattern.Gemini, new GeminiModelResolver());
 		RESOLVERS.put(KeyPattern.Claude, new AnthropicModelResolver());
 		RESOLVERS.put(KeyPattern.Deepseek, new DeepseekModelResolver());
-		// ClaudeCode/None stay on the DefaultModelResolver: no provider API to discover models from.
+		// ClaudeCode/None/Misc stay on the DefaultModelResolver: no provider API to discover models from.
 	}
 
 	private ModelResolverRegistry() {
