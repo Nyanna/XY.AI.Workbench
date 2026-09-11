@@ -2,7 +2,9 @@
 
 The engine is chosen by file extension: Python files use the ``ast``-based
 :mod:`.python` engine, everything else the generic tree-sitter :mod:`.generic`
-engine. Snippets passed as raw ``code`` (no path) default to Python.
+engine, or - for extensions no grammar covers - its whole-file
+``PlainTextEngine`` fallback. Snippets passed as raw ``code`` (no path)
+default to Python.
 
 A single content-hash validated :class:`AstCache` – reused across engines –
 holds parsed :class:`~.base.Tree` objects keyed by absolute path and validated
@@ -28,7 +30,7 @@ def engine_for_path(path: Path) -> Engine:
         return python.ENGINE
     symbol = generic.language_for_extension(ext)
     if symbol is None:
-        raise AstError(f"No AST engine available for '{ext or path.name}' files.")
+        return generic.fallback_engine()
     return generic.get_engine(symbol)
 
 @dataclass

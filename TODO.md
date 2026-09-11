@@ -1,6 +1,4 @@
 # TODO
-* ast tool fallback hinter tree sitter und beliebige im ganzen lesen
-
 * MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
 	* ich breuche eine logik umtoolausgaben direkt selbst zu erzeugen
 

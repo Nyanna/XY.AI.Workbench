@@ -4,13 +4,23 @@ Split into :mod:`xy.ai.mcpc.tools.ast.generic._engine` (the universal
 :class:`TreeSitterEngine`, exposing a grammar's native structure as-is) and
 per-language overrides such as :mod:`xy.ai.mcpc.tools.ast.generic._markdown`
 (:class:`MarkdownEngine`); this module re-exports the package's public
-surface and dispatches a language symbol to its engine.
+surface, dispatches a language symbol to its engine, and hands out the
+whole-file :class:`~xy.ai.mcpc.tools.ast.generic._text.PlainTextEngine`
+fallback (via :func:`fallback_engine`) for extensions no grammar covers.
 """
 from __future__ import annotations
 from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine
 from xy.ai.mcpc.tools.ast.generic._java import JavaEngine
 from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
-__all__ = ['TreeSitterEngine', 'JavaEngine', 'MarkdownEngine', 'language_for_extension', 'get_engine']
+from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
+__all__ = [
+    'TreeSitterEngine',
+    'JavaEngine',
+    'MarkdownEngine',
+    'PlainTextEngine',
+    'language_for_extension',
+    'get_engine',
+    'fallback_engine']
 '#: File extension -> ``tree_sitter_language_pack`` language identifier.'
 EXT_LANGUAGE = {
     '.json': 'json',
@@ -69,3 +79,8 @@ def get_engine(symbol: str) -> TreeSitterEngine:
         engine = engine_cls() if engine_cls else TreeSitterEngine(symbol)
         _ENGINES[symbol] = engine
     return engine
+_FALLBACK_ENGINE = PlainTextEngine()
+
+def fallback_engine() -> PlainTextEngine:
+    """Whole-file engine used when no tree-sitter grammar claims the extension."""
+    return _FALLBACK_ENGINE
