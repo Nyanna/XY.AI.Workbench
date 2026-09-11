@@ -5,7 +5,13 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.ast.list import ast_list
 __all__ = ['ReadNodeResult', 'ast_read', 'ReadNodeTool', 'register']
+_ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', ''}
+
+def _looks_like_root_intent(ids: list[str]) -> bool:
+    """Whether ``ids`` is empty or consists solely of common root-id guesses."""
+    return not ids or all((i.strip().lower() in _ROOT_INTENT_IDS for i in ids))
 
 @dataclass(frozen=True)
 class ReadNodeResult:
@@ -86,13 +92,30 @@ class ReadNodeTool(ToolDefinition):
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API."""
+        """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API.
+
+    Falls back to :func:`ast_list` when ``ids`` looks like agents habitually mis-guessing
+    a root id (``root``/``_module_``/``module``/empty) and none of them resolve to a
+    node, or ``ids`` is empty: returns the full outline instead of an error, and notes
+    the redirect in ``errors``.
+    """
         args: dict[str, Any] = ctx.arguments
         with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
-        try:
-            result = ast_read(ids=args.get('ids') or [], path=args.get('path'), with_lines=with_lines)
-        except core.AstError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
+        ids: list[str] = args.get('ids') or []
+        path = args.get('path')
+        result: ReadNodeResult | None = None
+        if ids:
+            try:
+                result = ast_read(ids=ids, path=path, with_lines=with_lines)
+            except core.AstError as exc:
+                return ToolResult(content=[text_content(str(exc))], is_error=True)
+        if _looks_like_root_intent(ids) and (result is None or not result.nodes):
+            try:
+                list_result = ast_list(path=path, with_lines=with_lines)
+            except core.AstError as exc:
+                return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult(structured_content={'nodes': [core.to_dict(n) for n in list_result.nodes], 'errors': [
+                              f'ids {ids!r} resolved to no node; redirected to ast_list, returning the full outline instead.']})
         structured_content: dict[str, Any] = {'nodes': [core.to_dict(n) for n in result.nodes]}
         if result.errors:
             structured_content['errors'] = result.errors

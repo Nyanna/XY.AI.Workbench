@@ -1,11 +1,9 @@
 # TODO
+* auch writes batchfähig machen und lists
+	- ast_find, wenn input ein folder, alle dateien im verzeichnis suchen bis limit erreicht (dann warnung), oder dateiliste als batch
+
 * MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
 	* ich breuche eine logik umtoolausgaben direkt selbst zu erzeugen
-* versucht immernoch read mit root aufzurufen, erste toolbeschreibung am wichtigsten, wenn parameter schon zu spät
-* oder read ids waren empty
-	! intention unterstützen, bei root, _module, (leer) , zurückfallen auf List output
-* auch writes batchfähig machen und lists
-* was ist https://mcp2cli.dev/
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
 	* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
@@ -44,6 +42,7 @@
 
 ## Ideas
 
+* was ist https://mcp2cli.dev/
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * weitere tools für research Semantic Scholar, arXiv API Access
 * scripte kommentar in englich in `/home/user/xyan/xy.ai.workbench/libs/openapi` [deepseek]
