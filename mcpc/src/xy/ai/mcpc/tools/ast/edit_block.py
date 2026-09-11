@@ -1,4 +1,4 @@
-"""``ast_edit_block`` tool: exact-block (old_text -> new_text) edit within a selected node."""
+"""``ast_edit_block`` tool: exact-block (old_text -> new_text) edits within selected nodes."""
 from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -7,18 +7,74 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['EditBlockNodeResult', 'ast_edit_block', 'EditBlockNodeTool', 'register']
+__all__ = [
+    'EditBlockItem',
+    'EditBlockResult',
+    'EditBlockError',
+    'EditBlockBatchResult',
+    'ast_edit_block',
+    'EditBlockNodeTool',
+    'register']
 
 @dataclass(frozen=True)
-class EditBlockNodeResult:
+class EditBlockItem:
+    """One block edit to apply.
+
+    Attributes:
+        path: Absolute path to the file to modify.
+        old_text: Unique 10-100 char block to find within the node's source (unless ``replace_all``).
+        new_text: Replacement text (may be empty to delete the block).
+        exact: If False (default), whitespace in ``old_text`` is matched tolerantly.
+        replace_all: If True, replace every occurrence instead of requiring a single match.
+        id: Unique id of the target node. If omitted, the node is searched for by ``old_text``.
+    """
+    path: str
+    old_text: str
+    new_text: str
+    exact: bool = False
+    replace_all: bool = False
+    id: str | None = None
+
+@dataclass(frozen=True)
+class EditBlockResult:
+    """Result of applying a single block edit.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        result: Always ``"success"``.
+        new_id: The node's new id, only set if the edit changed it.
+    """
+    path: str
+    id: str | None
+    result: str
+    new_id: str | None = None
+
+@dataclass(frozen=True)
+class EditBlockError:
+    """Error applying a single block edit.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        error: The error message.
+        candidates: On ambiguity (id omitted, several nodes matched), the candidate node ids.
+    """
+    path: str
+    id: str | None
+    error: str
+    candidates: list[str] | None = None
+
+@dataclass(frozen=True)
+class EditBlockBatchResult:
     """Result of :func:`ast_edit_block`.
 
     Attributes:
-        result: Always ``"success"``.
-        id: The node's new id, only set if the edit changed it.
+        results: One :class:`EditBlockResult` per successfully applied edit.
+        errors: One :class:`EditBlockError` per edit that failed.
     """
-    result: str
-    id: str | None = None
+    results: list[EditBlockResult]
+    errors: list[EditBlockError]
 
 def _node_guard(engine, reference):
     """Guard for tolerant node edits.
@@ -31,130 +87,158 @@ def _node_guard(engine, reference):
     keep_lines = line_preserving(reference)
     return lambda span, result: keep_lines(span, result) and engine.validate(result) is None
 
-def ast_edit_block(path: str, old_text: str, new_text: str, *, exact: bool=False, replace_all: bool=False, id: str | None=None) -> EditBlockNodeResult:
-    """Replace occurrence(s) of ``old_text`` with ``new_text`` inside a node addressed by id.
-
-    The addressed node's source is unparsed, its ``old_text`` block replaced (as with
-    ``edit_block``), re-parsed, and used to replace the node.
-
-    Args:
-        path: Absolute path to the file to modify.
-        old_text: Unique 10-100 char block to find within the node's source (unless ``replace_all``).
-        new_text: Replacement text (may be empty to delete the block).
-        exact: If False (default), whitespace in ``old_text`` is matched tolerantly.
-        replace_all: If True, replace every occurrence instead of requiring a single match.
-        id: Unique id of the target node. If omitted, the node is searched for by
-            ``old_text`` instead.
-
-    Returns:
-        EditBlockNodeResult: Success status.
-
-    Raises:
-        core.AstError: If ``path`` is invalid, ``id`` matches zero or more than
-            one node, no node contains ``old_text`` (when ``id`` is omitted),
-            ``old_text`` is not found or (without ``replace_all``) ambiguous
-            within the node's source, or the edited source has a syntax error.
-        core.AstAmbiguous: If ``id`` is omitted and several unrelated nodes
-            contain ``old_text``.
-    """
-    file_path = core.require_path(path)
+def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
+    file_path = core.require_path(item.path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_text(tree, [old_text], id=id)
+    target = select_by_text(tree, [item.old_text], id=item.id)
     node_source = core.edit_node_source(target)
     try:
         new_source = replace_in_block(
             node_source,
-            old_text,
-            new_text,
-            exact=exact,
-            replace_all=replace_all,
+            item.old_text,
+            item.new_text,
+            exact=item.exact,
+            replace_all=item.replace_all,
             accept=_node_guard(
                 tree.engine,
-                old_text),
+                item.old_text),
             max_level=3 if tree.engine.validates_syntax else 2,
             where='node')
     except TextMatchError as exc:
         raise core.AstError(str(exc)) from exc
     new_id = core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
-    return EditBlockNodeResult(result='success', id=new_id)
+    return EditBlockResult(path=item.path, id=item.id, result='success', new_id=new_id)
+
+def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
+    """Replace occurrence(s) of ``old_text`` with ``new_text`` inside one or more nodes.
+
+    Each addressed node's source is unparsed, its ``old_text`` block replaced
+    (as with ``edit_block``), re-parsed, and used to replace the node.
+
+    Args:
+        items: Block edits to apply. Must be non-empty.
+
+    Returns:
+        EditBlockBatchResult: One result per successful edit, one error per failed edit.
+
+    Raises:
+        core.AstError: If ``items`` is empty.
+    """
+    if not items:
+        raise core.AstError("'items' must be a non-empty list.")
+    results: list[EditBlockResult] = []
+    errors: list[EditBlockError] = []
+    for item in items:
+        try:
+            results.append(_edit_block_one(item))
+        except core.AstAmbiguous as exc:
+            errors.append(EditBlockError(path=item.path, id=item.id, error=str(exc), candidates=exc.candidates))
+        except core.AstError as exc:
+            errors.append(EditBlockError(path=item.path, id=item.id, error=str(exc)))
+    return EditBlockBatchResult(results=results, errors=errors)
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
-    title = 'Replace short text within AST node'
-    description = "Replace occurrence of short 'old_text' with 'new_text', within the node addressed by id. Don't use for large edits, use ast_edit_marks instead."
+    title = 'Replace short text within AST nodes'
+    description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by id, for a batch of items. Don't use for large edits, use ast_edit_marks instead."
     input_schema = {
         'type': 'object',
-        'strict': True,
-        'additionalProperties': False,
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the file.'},
-            'old_text': {
-                'type': 'string',
-                'minLength': 10,
-                'maxLength': 100,
-                'description': 'Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set.'},
-            'new_text': {
-                'type': 'string',
-                        'description': 'Replacement text, may be empty to remove the text.'},
-            'exact': {
-                'type': 'boolean',
-                'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                'default': False},
-            'replaceAll': {
-                'type': 'boolean',
-                'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
-                'default': False},
-            **PATH_SELECTOR_PROPS},
-        'required': [
-            'path',
-            'old_text',
-            'new_text']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'result': {
-                'type': 'string',
-                'description': 'Result status'},
-            'id': {
-                'type': 'string',
-                'description': "The node's new id. Preffer 'ast_find' over 'ast_list'."},
-            'candidates': {
+            'items': {
                 'type': 'array',
-                        'items': {
-                            'type': 'string'},
-                'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}},
-        'required': ['result']}
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the file.'},
+                        'old_text': {
+                            'type': 'string',
+                            'minLength': 10,
+                            'maxLength': 100,
+                            'description': 'Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set.'},
+                        'new_text': {
+                            'type': 'string',
+                                    'description': 'Replacement text, may be empty to remove the text.'},
+                        'exact': {
+                            'type': 'boolean',
+                            'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                            'default': False},
+                        'replaceAll': {
+                            'type': 'boolean',
+                            'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
+                            'default': False},
+                        **PATH_SELECTOR_PROPS},
+                    'required': [
+                        'path',
+                        'old_text',
+                        'new_text']},
+                'description': 'Block edits to apply.'}},
+        'required': ['items']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'id': {
+                                'type': 'string'}, 'result': {
+                                    'type': 'string', 'description': 'Result status'}, 'new_id': {
+                                        'type': 'string', 'description': "The node's new id. Prefer 'ast_find' over 'ast_list'."}}, 'required': [
+                                            'path', 'result']}}, 'errors': {
+                                                'type': 'array', 'items': {
+                                                    'type': 'object', 'properties': {
+                                                        'path': {
+                                                            'type': 'string'}, 'id': {
+                                                                'type': 'string'}, 'error': {
+                                                                    'type': 'string'}, 'candidates': {
+                                                                        'type': 'array', 'items': {
+                                                                            'type': 'string'}, 'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}}, 'required': [
+                                                                                'path', 'error']}}}, 'required': [
+                                                                                    'results', 'errors']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = ast_edit_block(
-                args['path'], args['old_text'], args['new_text'], exact=args.get(
-                    'exact', False), replace_all=args.get(
-                        'replaceAll', False), id=args.get('id'))
-        except core.AstAmbiguous as exc:
-            return ToolResult(
-                content=[
-                    text_content(
-                        str(exc))],
-                structured_content={
-                    'candidates': exc.candidates},
-                is_error=True)
-        except core.AstError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        if result.id is not None:
-            message = f'Node {args.get('id')} was replaced with {result.id}'
-        else:
-            message = f'Node ID {args.get('id')} unchanged'
-        content = {'result': message}
-        if result.id is not None:
-            content['id'] = result.id
-        return ToolResult(content=[text_content(message)], structured_content=content, auto_approve=True)
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [
+            EditBlockItem(
+                path=it['path'],
+                old_text=it['old_text'],
+                new_text=it['new_text'],
+                exact=it.get(
+                    'exact',
+                    False),
+                replace_all=it.get(
+                    'replaceAll',
+                    False),
+                id=it.get('id')) for it in raw_items]
+        batch = ast_edit_block(items)
+        results = []
+        for r in batch.results:
+            entry = {'path': r.path, 'id': r.id, 'result': r.result}
+            if r.new_id is not None:
+                entry['new_id'] = r.new_id
+            results.append(entry)
+        errors = []
+        for e in batch.errors:
+            entry = {'path': e.path, 'id': e.id, 'error': e.error}
+            if e.candidates is not None:
+                entry['candidates'] = e.candidates
+            errors.append(entry)
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

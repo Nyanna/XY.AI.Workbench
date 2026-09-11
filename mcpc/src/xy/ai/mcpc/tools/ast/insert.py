@@ -1,4 +1,4 @@
-"""``ast_insert`` tool: insert statement(s) relative to a selected node."""
+"""``ast_insert`` tool: insert statement(s) relative to selected nodes."""
 from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -6,93 +6,184 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['InsertNodeResult', 'ast_insert', 'InsertNodeTool', 'register']
+__all__ = ['InsertItem', 'InsertResult', 'InsertError', 'InsertBatchResult', 'ast_insert', 'InsertNodeTool', 'register']
 
 @dataclass(frozen=True)
-class InsertNodeResult:
-    """Result of :func:`ast_insert`.
+class InsertItem:
+    """One insert operation.
 
     Attributes:
-        result: Always ``"success"``.
-        inserted: Number of top-level statements parsed from ``source`` and inserted.
-        ids: The newly inserted top-level node(s)' ids.
-    """
-    result: str
-    inserted: int
-    ids: list[str] | None = None
-
-def ast_insert(path: str, source: str, *, position: str='after', id: str | None=None) -> InsertNodeResult:
-    """Insert statement(s) parsed from ``source`` relative to a selected node.
-
-    Args:
         path: Absolute path to the file to modify.
         source: Source of the statement(s) to insert.
         position: ``"before"`` or ``"after"`` the selected node. Defaults to ``"after"``.
         id: Unique id of the target node.
-
-
-    Returns:
-        InsertNodeResult: Success status, the number of statements inserted, and
-            their new ids.
-
-    Raises:
-        core.AstError: If ``path`` is invalid, ``source`` has a syntax error, ``id`` is
-            not given, or it matches zero or more than one node.
     """
-    file_path = core.require_path(path)
+    path: str
+    source: str
+    position: str = 'after'
+    id: str | None = None
+
+@dataclass(frozen=True)
+class InsertResult:
+    """Result of a single insert operation.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        result: Always ``"success"``.
+        inserted: Number of top-level statements parsed from ``source`` and inserted.
+        ids: The newly inserted top-level node(s)' ids.
+    """
+    path: str
+    id: str | None
+    result: str
+    inserted: int
+    ids: list[str] | None = None
+
+@dataclass(frozen=True)
+class InsertError:
+    """Error applying a single insert operation.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        error: The error message.
+    """
+    path: str
+    id: str | None
+    error: str
+
+@dataclass(frozen=True)
+class InsertBatchResult:
+    """Result of :func:`ast_insert`.
+
+    Attributes:
+        results: One :class:`InsertResult` per successful insert.
+        errors: One :class:`InsertError` per insert that failed.
+    """
+    results: list[InsertResult]
+    errors: list[InsertError]
+
+def _insert_one(item: InsertItem) -> InsertResult:
+    file_path = core.require_path(item.path)
     tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id)
+    target = select_by_path(tree, id=item.id)
     before_ids = {loc.node_id for loc in core.locate_all(tree)}
-    inserted = core.insert_node(target, source, position)
+    inserted = core.insert_node(target, item.source, item.position)
     new_ids = [loc.node_id for loc in core.locate_all(tree) if loc.node_id not in before_ids]
     core.CACHE.save(file_path, tree)
-    return InsertNodeResult(result='success', inserted=inserted, ids=new_ids or None)
+    return InsertResult(path=item.path, id=item.id, result='success', inserted=inserted, ids=new_ids or None)
+
+def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
+    """Insert statement(s) parsed from ``source`` relative to one or more selected nodes.
+
+    Several operations may target the same path (also across several paths);
+    each item is applied in order.
+
+    Args:
+        items: Insert operations to apply. Must be non-empty.
+
+    Returns:
+        InsertBatchResult: One result per successful insert, one error per failed insert.
+
+    Raises:
+        core.AstError: If ``items`` is empty.
+    """
+    if not items:
+        raise core.AstError("'items' must be a non-empty list.")
+    results: list[InsertResult] = []
+    errors: list[InsertError] = []
+    for item in items:
+        try:
+            results.append(_insert_one(item))
+        except core.AstError as exc:
+            errors.append(InsertError(path=item.path, id=item.id, error=str(exc)))
+    return InsertBatchResult(results=results, errors=errors)
 
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
-    title = 'Insert AST node'
-    description = "Insert source relative to a selected node ('before' or 'after')."
+    title = 'Insert AST nodes'
+    description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files."
     input_schema = {
         'type': 'object',
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the file.'},
-            'source': {
-                'type': 'string',
-                'description': 'Source to insert.'},
-            'position': {
-                'type': 'string',
-                        'enum': [
-                            'before',
-                            'after'],
-                'description': 'Placement relative to the selected node.',
-                'default': 'after'},
-            **PATH_SELECTOR_PROPS},
-        'required': [
-            'path',
-            'source']}
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the file.'},
+                        'source': {
+                            'type': 'string',
+                            'description': 'Source to insert.'},
+                        'position': {
+                            'type': 'string',
+                                    'enum': [
+                                        'before',
+                                        'after'],
+                            'description': 'Placement relative to the selected node.',
+                            'default': 'after'},
+                        **PATH_SELECTOR_PROPS},
+                    'required': [
+                        'path',
+                        'source']},
+                'description': 'Insert operations to apply.'}},
+        'required': ['items']}
     output_schema = {
         'type': 'object', 'properties': {
-            'result': {
-                'type': 'string'}, 'inserted': {
-                    'type': 'integer'}, 'ids': {
-                        'type': 'array', 'items': {
-                            'type': 'string'}, 'description': 'The newly inserted node(s) ids.'}}, 'required': [
-                                'result', 'inserted']}
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'id': {
+                                'type': 'string'}, 'result': {
+                                    'type': 'string'}, 'inserted': {
+                                        'type': 'integer'}, 'ids': {
+                                            'type': 'array', 'items': {
+                                                'type': 'string'}, 'description': 'The newly inserted node(s) ids.'}}, 'required': [
+                                                    'path', 'result', 'inserted']}}, 'errors': {
+                                                        'type': 'array', 'items': {
+                                                            'type': 'object', 'properties': {
+                                                                'path': {
+                                                                    'type': 'string'}, 'id': {
+                                                                        'type': 'string'}, 'error': {
+                                                                            'type': 'string'}}, 'required': [
+                                                                                'path', 'error']}}}, 'required': [
+                                                                                    'results', 'errors']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_insert`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = ast_insert(args['path'], args['source'], position=args.get('position', 'after'), id=args.get('id'))
-        except core.AstError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        content = {'result': result.result, 'inserted': result.inserted}
-        if result.ids is not None:
-            content['ids'] = result.ids
-        return ToolResult(structured_content=content, auto_approve=True)
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [
+            InsertItem(
+                path=it['path'],
+                source=it['source'],
+                position=it.get(
+                    'position',
+                    'after'),
+                id=it.get('id')) for it in raw_items]
+        batch = ast_insert(items)
+        results = []
+        for r in batch.results:
+            entry = {'path': r.path, 'id': r.id, 'result': r.result, 'inserted': r.inserted}
+            if r.ids is not None:
+                entry['ids'] = r.ids
+            results.append(entry)
+        errors = [{'path': e.path, 'id': e.id, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(InsertNodeTool())

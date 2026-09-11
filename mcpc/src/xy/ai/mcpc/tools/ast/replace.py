@@ -1,4 +1,4 @@
-"""``ast_replace`` tool: replace the single selected node with new source."""
+"""``ast_replace`` tool: replace selected nodes with new source."""
 from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -6,85 +6,171 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ReplaceNodeResult', 'ast_replace', 'ReplaceNodeTool', 'register']
+__all__ = [
+    'ReplaceItem',
+    'ReplaceResult',
+    'ReplaceError',
+    'ReplaceBatchResult',
+    'ast_replace',
+    'ReplaceNodeTool',
+    'register']
 
 @dataclass(frozen=True)
-class ReplaceNodeResult:
-    """Result of :func:`ast_replace`.
+class ReplaceItem:
+    """One node replacement to apply.
 
     Attributes:
-        result: Always ``"success"``.
-        id: The node's new id, only set if the replacement changed it.
-    """
-    result: str
-    id: str | None = None
-
-def ast_replace(path: str, source: str, *, id: str | None=None) -> ReplaceNodeResult:
-    """Replace the single selected node with ``source``.
-
-    Args:
         path: Absolute path to the file to modify.
         source: Replacement source.
         id: Unique id of the target node.
+    """
+    path: str
+    source: str
+    id: str | None = None
+
+@dataclass(frozen=True)
+class ReplaceResult:
+    """Result of a single node replacement.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        result: Always ``"success"``.
+        new_id: The node's new id, only set if the replacement changed it.
+    """
+    path: str
+    id: str | None
+    result: str
+    new_id: str | None = None
+
+@dataclass(frozen=True)
+class ReplaceError:
+    """Error applying a single node replacement.
+
+    Attributes:
+        path: The path exactly as given in the input, for result association.
+        id: The id exactly as given in the input, for result association.
+        error: The error message.
+    """
+    path: str
+    id: str | None
+    error: str
+
+@dataclass(frozen=True)
+class ReplaceBatchResult:
+    """Result of :func:`ast_replace`.
+
+    Attributes:
+        results: One :class:`ReplaceResult` per successful replacement.
+        errors: One :class:`ReplaceError` per replacement that failed.
+    """
+    results: list[ReplaceResult]
+    errors: list[ReplaceError]
+
+def _replace_one(item: ReplaceItem) -> ReplaceResult:
+    file_path = core.require_path(item.path)
+    tree = core.CACHE.get_tree(file_path)
+    target = select_by_path(tree, id=item.id)
+    new_id = core.replace_node(target, item.source)
+    core.CACHE.save(file_path, tree)
+    return ReplaceResult(path=item.path, id=item.id, result='success', new_id=new_id)
+
+def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
+    """Replace one or more selected nodes with new source.
+
+    ``id`` and replacement ``source`` stay together per item, since replacing
+    the same node twice makes no sense; several items may target the same or
+    different files.
+
+    Args:
+        items: Node replacements to apply. Must be non-empty.
 
     Returns:
-        ReplaceNodeResult: Success status and the node's new id, if changed.
+        ReplaceBatchResult: One result per successful replacement, one error per
+        failed replacement.
 
     Raises:
-        core.AstError: If ``path`` is invalid, ``source`` has a syntax error, ``id`` is
-            not given, or it matches zero or more than one node.
+        core.AstError: If ``items`` is empty.
     """
-    file_path = core.require_path(path)
-    tree = core.CACHE.get_tree(file_path)
-    target = select_by_path(tree, id=id)
-    new_id = core.replace_node(target, source)
-    core.CACHE.save(file_path, tree)
-    return ReplaceNodeResult(result='success', id=new_id)
+    if not items:
+        raise core.AstError("'items' must be a non-empty list.")
+    results: list[ReplaceResult] = []
+    errors: list[ReplaceError] = []
+    for item in items:
+        try:
+            results.append(_replace_one(item))
+        except core.AstError as exc:
+            errors.append(ReplaceError(path=item.path, id=item.id, error=str(exc)))
+    return ReplaceBatchResult(results=results, errors=errors)
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
-    title = 'Replace AST node'
-    description = 'Replace the single selected node with source or text.'
+    title = 'Replace AST nodes'
+    description = 'Replace selected nodes with source or text, for a batch of items; several operations may target the same or different files.'
     input_schema = {
         'type': 'object',
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the file.'},
-            'source': {
-                'type': 'string',
-                'description': 'Replacement source.'},
-            **PATH_SELECTOR_PROPS},
-        'required': [
-            'path',
-            'source']}
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the file.'},
+                        'source': {
+                            'type': 'string',
+                            'description': 'Replacement source.'},
+                        **PATH_SELECTOR_PROPS},
+                    'required': [
+                        'path',
+                        'source']},
+                'description': 'Node replacements to apply.'}},
+        'required': ['items']}
     output_schema = {
-        'type': 'object',
-        'properties': {
-            'result': {
-                'type': 'string',
-                'description': 'Result status'},
-            'id': {
-                'type': 'string',
-                'description': "The node's new id."}},
-        'required': ['result']}
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'id': {
+                                'type': 'string'}, 'result': {
+                                    'type': 'string', 'description': 'Result status'}, 'new_id': {
+                                        'type': 'string', 'description': "The node's new id."}}, 'required': [
+                                            'path', 'result']}}, 'errors': {
+                                                'type': 'array', 'items': {
+                                                    'type': 'object', 'properties': {
+                                                        'path': {
+                                                            'type': 'string'}, 'id': {
+                                                                'type': 'string'}, 'error': {
+                                                                    'type': 'string'}}, 'required': [
+                                                                        'path', 'error']}}}, 'required': [
+                                                                            'results', 'errors']}
     annotations = {'readOnlyHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = ast_replace(args['path'], args['source'], id=args.get('id'))
-        except core.AstError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        if result.id is not None:
-            message = f'Node {args.get('id')} was replaced with {result.id}'
-        else:
-            message = f'Node ID {args.get('id')} unchanged'
-        content = {'result': message}
-        if result.id is not None:
-            content['id'] = result.id
-        return ToolResult(content=[text_content(message)], structured_content=content, auto_approve=True)
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [ReplaceItem(path=it['path'], source=it['source'], id=it.get('id')) for it in raw_items]
+        batch = ast_replace(items)
+        results = []
+        for r in batch.results:
+            entry = {'path': r.path, 'id': r.id, 'result': r.result}
+            if r.new_id is not None:
+                entry['new_id'] = r.new_id
+            results.append(entry)
+        errors = [{'path': e.path, 'id': e.id, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())
