@@ -1,6 +1,8 @@
 # TODO
+* MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
 * versucht immernoch read mit root aufzurufen, erste toolbeschreibung am wichtigsten, wenn parameter schon zu spät
 * oder read ids waren empty
+	! intention unterstützen, bei root, _module, (leer) , zurückfallen auf List output
 * auch writes batchfähig machen und lists
 * ich breuche eine logik umtoolausgaben direkt selbst zu erzeugen
 * was ist https://mcp2cli.dev/
@@ -8,6 +10,7 @@
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
 	* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
+* harness always use python scripts cuz of implicite knowledge in coding instead of interface description
 * open alex zweistufig optimieren, split in separate files
 
 ##  Workbench

@@ -11,6 +11,7 @@ Verify for new tools MCP part.
 * Never reflect input paramaeters, not even in error output
 * On MCP passthrough always reduce limits like results on pages
 * Tools should be as hallucination tolerant as possible and guess and correct/anticipate input
+* Verify Error returns, isError only true for MCP errors
 
 For Python module direct call:
 

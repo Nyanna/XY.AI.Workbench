@@ -17,3 +17,4 @@
 * Tools should be as hallucination tolerant as possible
 * 10% Rule, not more than 1/10 prefill versus output, on cached prompts
 	* better aggregate retrieval prompt first, minimal reuse, than copy to plan and execution phase
+* Remember cache reads count per modell call, so reduce turns and tool calls. Use batch API's.
