@@ -1,4 +1,4 @@
-"""Edit-block tool – Edits an exact block of text (old -> new) in a file."""
+"""Edit-block tool – edits an exact block of text (old -> new) in a file, for a batch of items."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -6,41 +6,63 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['EditBlockError', 'EditBlockResult', 'edit_block', 'EditBlockTool', 'register_edit_block_tool']
+__all__ = [
+    'EditBlockError',
+    'EditBlockItem',
+    'EditBlockResult',
+    'EditBlockItemError',
+    'EditBlockBatchResult',
+    'edit_block',
+    'EditBlockTool',
+    'register_edit_block_tool']
 
 class EditBlockError(Exception):
     """Raised when a edit-block operation cannot be performed."""
 
 @dataclass(frozen=True)
-class EditBlockResult:
-    result: str
+class EditBlockItem:
+    """One block edit to apply.
 
-def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, replace_all: bool=False) -> EditBlockResult:
-    """Replace occurrence(s) of ``old_text`` in the file at ``path`` with ``new_text``.
-
-    Matching escalates through whitespace/escape/quote tolerance; a candidate is
-    only accepted when it preserves ``old_text``'s line structure, so no two lines
-    are merged into a syntax error.
-
-    Args:
+    Attributes:
         path: Absolute path to file (must be a regular file).
         old_text: Unique text to find and replace (must occur exactly once, unless replace_all).
-        new_text: replacement text.
+        new_text: Replacement text (may be empty to perform a deletion).
         exact: If False (default), whitespace in old_text is matched tolerantly.
                If True, whitespace must match exactly.
         replace_all: If True, replace every occurrence of old_text instead of requiring
                      a single unique match.
-
-    Returns:
-        EditBlockResult with success status.
-
-    Raises:
-        EditBlockError: If path is not absolute, not found, or not a regular file.
-        EditBlockError: If old_text not found, or appears more than once in file (when
-                        replace_all is False).
-        EditBlockError: If write operation fails.
     """
-    file_path = Path(path)
+    path: str
+    old_text: str
+    new_text: str
+    exact: bool = False
+    replace_all: bool = False
+
+@dataclass(frozen=True)
+class EditBlockResult:
+    """Result of applying a single block edit, mirroring its input path for result association."""
+    path: str
+    result: str
+
+@dataclass(frozen=True)
+class EditBlockItemError:
+    """Error applying a single block edit, mirroring its input path for result association."""
+    path: str
+    error: str
+
+@dataclass(frozen=True)
+class EditBlockBatchResult:
+    """Result of :func:`edit_block`.
+
+    Attributes:
+        results: One :class:`EditBlockResult` per successfully applied edit.
+        errors: One :class:`EditBlockItemError` per edit that failed.
+    """
+    results: list[EditBlockResult]
+    errors: list[EditBlockItemError]
+
+def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
+    file_path = Path(item.path)
     if not file_path.is_absolute():
         raise EditBlockError('Path must be absolute.')
     if not file_path.exists():
@@ -51,11 +73,12 @@ def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, repla
     try:
         result_text = replace_in_block(
             text,
-            old_text,
-            new_text,
-            exact=exact,
-            replace_all=replace_all,
-            accept=line_preserving(old_text),
+            item.old_text,
+            item.new_text,
+            exact=item.exact,
+            replace_all=item.replace_all,
+            accept=line_preserving(
+                item.old_text),
             max_level=2,
             where='file')
     except TextMatchError as exc:
@@ -64,58 +87,119 @@ def edit_block(path: str, old_text: str, new_text: str, exact: bool=False, repla
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
         raise EditBlockError(f'Write failed: {exc}') from exc
-    return EditBlockResult(result='success')
+    return EditBlockResult(path=item.path, result='success')
+
+def edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
+    """Replace occurrence(s) of ``old_text`` with ``new_text`` in one or more files.
+
+    Matching escalates through whitespace/escape/quote tolerance; a candidate is
+    only accepted when it preserves ``old_text``'s line structure, so no two lines
+    are merged into a syntax error.
+
+    Args:
+        items: Block edits to apply. Must be non-empty.
+
+    Returns:
+        EditBlockBatchResult: one result per successfully applied edit, one error per failed edit.
+
+    Raises:
+        EditBlockError: If items is empty.
+    """
+    if not items:
+        raise EditBlockError("'items' must be a non-empty list.")
+    results: list[EditBlockResult] = []
+    errors: list[EditBlockItemError] = []
+    for item in items:
+        try:
+            results.append(_edit_block_one(item))
+        except EditBlockError as exc:
+            errors.append(EditBlockItemError(path=item.path, error=str(exc)))
+    return EditBlockBatchResult(results=results, errors=errors)
 
 class EditBlockTool(ToolDefinition):
     name = 'edit_block'
     title = 'Replace text in file'
-    description = "Replace a short text inside an file. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
+    description = "Replace a short text inside one or more files, for a batch of items. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
     input_schema = {
         'type': 'object',
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the target file.'},
-            'old_text': {
-                'type': 'string',
-                'minLength': 10,
-                'maxLength': 100,
-                'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
-            'new_text': {
-                'type': 'string',
-                        'description': "Text that replace 'old_text (empty to perform a deletion)'."},
-            'exact': {
-                'type': 'boolean',
-                'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                'default': False},
-            'replaceAll': {
-                'type': 'boolean',
-                'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
-                'default': False}},
-        'required': [
-            'path',
-            'old_text',
-            'new_text']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}}, 'required': []}
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the target file.'},
+                        'old_text': {
+                            'type': 'string',
+                            'minLength': 10,
+                            'maxLength': 100,
+                            'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
+                        'new_text': {
+                            'type': 'string',
+                                    'description': "Text that replaces 'old_text' (empty to perform a deletion)."},
+                        'exact': {
+                            'type': 'boolean',
+                            'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                            'default': False},
+                        'replaceAll': {
+                            'type': 'boolean',
+                            'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
+                            'default': False}},
+                    'required': [
+                        'path',
+                        'old_text',
+                        'new_text']},
+                'description': 'Block edits to apply.'}},
+        'required': ['items']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'result': {
+                                'type': 'string'}}, 'required': [
+                                    'path', 'result']}}, 'errors': {
+                                        'type': 'array', 'items': {
+                                            'type': 'object', 'properties': {
+                                                'path': {
+                                                    'type': 'string'}, 'error': {
+                                                        'type': 'string'}}, 'required': [
+                                                            'path', 'error']}}}, 'required': [
+                                                                'results', 'errors']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_block`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = edit_block(
-                path=args['path'],
-                old_text=args['old_text'],
-                new_text=args['new_text'],
-                exact=args.get(
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [
+            EditBlockItem(
+                path=it['path'],
+                old_text=it['old_text'],
+                new_text=it['new_text'],
+                exact=it.get(
                     'exact',
                     False),
-                replace_all=args.get(
+                replace_all=it.get(
                     'replaceAll',
-                    False))
-        except EditBlockError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'result': result.result}, auto_approve=True)
+                    False)) for it in raw_items]
+        batch = edit_block(items)
+        results = [{'path': r.path, 'result': r.result} for r in batch.results]
+        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockTool())

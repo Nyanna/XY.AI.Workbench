@@ -1,4 +1,4 @@
-"""Grep tool – recursive extended-regex search for retrieval."""
+"""Grep tool – recursive extended-regex search for retrieval, for a batch of items."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,7 +8,16 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 import re
-__all__ = ['GrepError', 'GrepMatch', 'grep', 'GrepTool', 'register_grep_tool']
+__all__ = [
+    'GrepError',
+    'GrepMatch',
+    'GrepItem',
+    'GrepResult',
+    'GrepItemError',
+    'GrepBatchResult',
+    'grep',
+    'GrepTool',
+    'register_grep_tool']
 _DEFAULT_LIMIT = 15
 _MAX_LIMIT = 50
 
@@ -22,6 +31,56 @@ class GrepMatch:
     filename: str
     lineno: int
     match: str
+
+@dataclass(frozen=True)
+class GrepItem:
+    """One independent grep search to run.
+
+    Attributes:
+        directory: Absolute paths of the directories to search recursively.
+        pattern: Extended regular expression (grep -E syntax) to search for.
+        exclude: Globs of file names to exclude from the search, if given.
+        include: Globs of file names to include in the search, if given.
+        limit: Maximum number of matches to return (1..``_MAX_LIMIT``). Applies per item, not per batch.
+    """
+    directory: list[str]
+    pattern: str
+    exclude: list[str] | None = None
+    include: list[str] | None = None
+    limit: int = _DEFAULT_LIMIT
+
+@dataclass(frozen=True)
+class GrepResult:
+    """Result of a single grep search, mirroring its input for result association.
+
+    Attributes:
+        directory: The directory list exactly as given in the input.
+        pattern: The pattern exactly as given in the input.
+        matches: The matches found (empty if none).
+        warning: Set if ``limit`` was reached and further matches may exist.
+    """
+    directory: list[str]
+    pattern: str
+    matches: list[GrepMatch]
+    warning: str | None = None
+
+@dataclass(frozen=True)
+class GrepItemError:
+    """Error running a single grep search, mirroring its input for result association."""
+    directory: list[str]
+    pattern: str
+    error: str
+
+@dataclass(frozen=True)
+class GrepBatchResult:
+    """Result of :func:`grep`.
+
+    Attributes:
+        results: One :class:`GrepResult` per successfully executed search.
+        errors: One :class:`GrepItemError` per search that failed.
+    """
+    results: list[GrepResult]
+    errors: list[GrepItemError]
 
 def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
     """Parse grep's 'path:line:content' stdout into :class:`GrepMatch` objects."""
@@ -101,108 +160,149 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
     stdout = '\n'.join(lines[:limit])
     return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
 
-def grep(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> list[GrepMatch]:
-    """Recursively search one or more directories for ``pattern`` (extended regexp).
-
-    Args:
-        directory: Absolute paths of the directories to search (each must exist and
-            be a directory).
-        pattern: Extended regular expression (grep -E syntax).
-        exclude: Globs of file names to exclude from the search, if given.
-        include: Globs of file names to include in the search, if given.
-        limit: Maximum number of matches to return (1..``_MAX_LIMIT``).
-
-    Returns:
-        List of GrepMatch objects, each with the directory (relative to whichever
-        searched directory it was found under), the filename and the match
-        ('line:content'). Empty if no matches were found.
-
-    Raises:
-        GrepError: If a directory is not absolute.
-        GrepError: If a directory does not exist or is not a directory.
-        GrepError: If no directory is given.
-        GrepError: If pattern is empty.
-        GrepError: If limit is not between 1 and ``_MAX_LIMIT``.
-        GrepError: If grep binary cannot be launched.
-        GrepError: If grep exits with an error (exit code >= 2).
-        GrepError: If the grep output cannot be parsed into directory, filename and match.
-    """
-    result = _run_grep(directory, pattern, exclude=exclude, include=include, limit=limit)
+def _grep_one(item: GrepItem) -> GrepResult:
+    result = _run_grep(item.directory, item.pattern, exclude=item.exclude, include=item.include, limit=item.limit)
     if result.exit_code >= 2:
         raise GrepError(f'grep failed (exit code {result.exit_code}): {result.stderr}')
-    return _parse_grep_stdout(result.stdout)
+    matches = _parse_grep_stdout(result.stdout)
+    warning = None
+    if len(matches) >= item.limit:
+        warning = f'Limit of {
+            item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
+    return GrepResult(directory=item.directory, pattern=item.pattern, matches=matches, warning=warning)
+
+def grep(items: list[GrepItem]) -> GrepBatchResult:
+    """Run one or more independent grep searches. Limits apply per item, not per batch.
+
+    Args:
+        items: Grep searches to run. Must be non-empty.
+
+    Returns:
+        GrepBatchResult: one result per successful search, one error per failed search.
+
+    Raises:
+        GrepError: If items is empty.
+    """
+    if not items:
+        raise GrepError("'items' must be a non-empty list.")
+    results: list[GrepResult] = []
+    errors: list[GrepItemError] = []
+    for item in items:
+        try:
+            results.append(_grep_one(item))
+        except GrepError as exc:
+            errors.append(GrepItemError(directory=item.directory, pattern=item.pattern, error=str(exc)))
+    return GrepBatchResult(results=results, errors=errors)
 
 class GrepTool(ToolDefinition):
     name = 'grep'
     title = 'Search files with grep'
-    description = f"Recursively search a directory for lines matching an extended regular expression. Always use the 'include' and 'exclude' filters."
+    description = "Run one or more independent grep searches for lines matching an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters. Limits apply per item, not per batch."
     input_schema = {
         'type': 'object',
         'properties': {
-            'directory': {
+            'items': {
                 'type': 'array',
-                'items': {
-                    'type': 'string'},
                 'minItems': 1,
-                'description': 'Absolute paths of the directories to search recursively. Always use the narrowest subtree(s) that are likely to contain the target files.'},
-            'pattern': {
-                'type': 'string',
-                        'description': 'Extended regular expression to search for. Make the pattern as specific as possible to reduce noise.'},
-            'exclude': {
-                'type': 'array',
                 'items': {
-                    'type': 'string'},
-                'description': "Globs of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
-            'include': {
-                'type': 'array',
-                'items': {
-                    'type': 'string'},
-                'description': "Globs of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
-            'limit': {
-                'type': 'integer',
-                'description': f'Maximum number of matching lines to return.',
-                'default': _DEFAULT_LIMIT,
-                'minimum': 1,
-                'maximum': _MAX_LIMIT}},
-        'required': [
-            'directory',
-            'pattern']}
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'directory': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'string'},
+                            'minItems': 1,
+                            'description': 'Absolute paths of the directories to search recursively. Always use the narrowest subtree(s) that are likely to contain the target files.'},
+                        'pattern': {
+                            'type': 'string',
+                                    'description': 'Extended regular expression to search for. Make the pattern as specific as possible to reduce noise.'},
+                        'exclude': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'string'},
+                            'description': "Globs of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
+                        'include': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'string'},
+                            'description': "Globs of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
+                        'limit': {
+                            'type': 'integer',
+                            'description': 'Maximum number of matching lines to return for this item.',
+                            'default': _DEFAULT_LIMIT,
+                            'minimum': 1,
+                            'maximum': _MAX_LIMIT}},
+                    'required': [
+                        'directory',
+                        'pattern']},
+                'description': 'Independent grep searches to run.'}},
+        'required': ['items']}
     output_schema = {
         'type': 'object', 'properties': {
-            'matches': {
+            'results': {
                 'type': 'array', 'items': {
                     'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'lineno': {
-                                'type': 'integer'}, 'match': {
-                                    'type': 'string'}}, 'required': [
-                                        'path', 'lineno', 'match']}}, 'warning': {
-                                            'type': 'string'}}, 'required': ['matches']}
+                        'directory': {
+                            'type': 'array', 'items': {
+                                'type': 'string'}}, 'pattern': {
+                                    'type': 'string'}, 'matches': {
+                                        'type': 'array', 'items': {
+                                            'type': 'object', 'properties': {
+                                                'path': {
+                                                    'type': 'string'}, 'lineno': {
+                                                        'type': 'integer'}, 'match': {
+                                                            'type': 'string'}}, 'required': [
+                                                                'path', 'lineno', 'match']}}, 'warning': {
+                                                                    'type': 'string'}}, 'required': [
+                                                                        'directory', 'pattern', 'matches']}}, 'errors': {
+                                                                            'type': 'array', 'items': {
+                                                                                'type': 'object', 'properties': {
+                                                                                    'directory': {
+                                                                                        'type': 'array', 'items': {
+                                                                                            'type': 'string'}}, 'pattern': {
+                                                                                                'type': 'string'}, 'error': {
+                                                                                                    'type': 'string'}}, 'required': [
+                                                                                                        'directory', 'pattern', 'error']}}}, 'required': [
+                                                                                                            'results', 'errors']}
     annotations = {'readOnlyHint': True, 'idempotentHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        limit = int(args.get('limit', _DEFAULT_LIMIT))
-        try:
-            matches = grep(
-                args['directory'],
-                args['pattern'],
-                exclude=args.get('exclude'),
-                include=args.get('include'),
-                limit=limit)
-        except GrepError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        structured_content: dict[str,
-                                 Any] = {'matches': [{'path': f'{match.directory}/{match.filename}' if match.directory else match.filename,
-                                                      'lineno': match.lineno,
-                                                      'match': match.match} for match in matches]}
-        content = []
-        if len(matches) >= limit:
-            warning = f'Limit of {limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
-            structured_content['warning'] = warning
-            content.append(text_content(warning))
-        return ToolResult(content=content, structured_content=structured_content)
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [
+            GrepItem(
+                directory=it['directory'],
+                pattern=it['pattern'],
+                exclude=it.get('exclude'),
+                include=it.get('include'),
+                limit=int(
+                    it.get(
+                        'limit',
+                        _DEFAULT_LIMIT))) for it in raw_items]
+        batch = grep(items)
+        results = []
+        for r in batch.results:
+            entry: dict[str,
+                        Any] = {'directory': r.directory,
+                                'pattern': r.pattern,
+                                'matches': [{'path': f'{m.directory}/{m.filename}' if m.directory else m.filename,
+                                             'lineno': m.lineno,
+                                             'match': m.match} for m in r.matches]}
+            if r.warning is not None:
+                entry['warning'] = r.warning
+            results.append(entry)
+        errors = [{'directory': e.directory, 'pattern': e.pattern, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

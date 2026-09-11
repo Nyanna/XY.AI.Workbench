@@ -1,4 +1,4 @@
-"""Edit Marks tool – replaces the text strictly including two markers."""
+"""Edit Marks tool – replaces the text strictly including two markers, for a batch of items."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,18 +8,57 @@ from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving,
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'EditMarksError',
+    'EditMarksItem',
     'EditMarksResult',
+    'EditMarksItemError',
+    'EditMarksBatchResult',
     'edit_marks',
     'edit_marks_text',
     'EditMarksTool',
-    'register_edit_mark_tool']
+    'register_edit_marks_tool']
 
 class EditMarksError(Exception):
     """Raised when a replace operation cannot be performed."""
 
 @dataclass(frozen=True)
+class EditMarksItem:
+    """One marker-based replacement to apply.
+
+    Attributes:
+        path: Absolute path to target file.
+        begin_marker: Unique substring marking the beginning of the block.
+        end_marker: Unique substring marking the end of the block.
+        content: Replacement text.
+        exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
+    """
+    path: str
+    begin_marker: str
+    end_marker: str
+    content: str
+    exact: bool = False
+
+@dataclass(frozen=True)
 class EditMarksResult:
+    """Result of applying a single marker-based replacement, mirroring its input path for result association."""
+    path: str
     result: str
+
+@dataclass(frozen=True)
+class EditMarksItemError:
+    """Error applying a single marker-based replacement, mirroring its input path for result association."""
+    path: str
+    error: str
+
+@dataclass(frozen=True)
+class EditMarksBatchResult:
+    """Result of :func:`edit_marks`.
+
+    Attributes:
+        results: One :class:`EditMarksResult` per successfully applied edit.
+        errors: One :class:`EditMarksItemError` per edit that failed.
+    """
+    results: list[EditMarksResult]
+    errors: list[EditMarksItemError]
 
 def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str, exact: bool=False) -> str:
     """Replace everything between and including 'begin_marker' and 'end_marker' with content, in *text*.
@@ -58,27 +97,8 @@ def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str,
     except TextMatchError as exc:
         raise EditMarksError(str(exc)) from exc
 
-def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exact: bool=False) -> EditMarksResult:
-    """Replace everything between and including 'start' and 'end' with content.
-
-    Both markers are included in the replacement.
-
-    Args:
-        path: Absolute path to target file.
-        start: Unique substring marking the beginning of the block.
-        end: Unique substring marking the end of the block.
-        content: Replacement text.
-        exact: If False (default), whitespace in start/end is matched tolerantly. If True, whitespace must match exactly.
-
-    Returns:
-        EditMarksResult with success status.
-
-    Raises:
-        EditMarksError: If path is not absolute, not found, or not a regular file.
-        EditMarksError: If start or end markers are not found or appear more than once.
-        EditMarksError: If end marker does not start after start marker ends.
-    """
-    file_path = Path(path)
+def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:
+    file_path = Path(item.path)
     if not file_path.is_absolute():
         raise EditMarksError('Path must be absolute.')
     if not file_path.exists():
@@ -86,71 +106,122 @@ def edit_marks(path: str, begin_marker: str, end_marker: str, content: str, exac
     if not file_path.is_file():
         raise EditMarksError('Not a regular file.')
     text = file_path.read_text(encoding='utf-8')
-    result_text = edit_marks_text(text, begin_marker, content, end_marker, exact=exact)
+    result_text = edit_marks_text(text, item.begin_marker, item.content, item.end_marker, exact=item.exact)
     try:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
         raise EditMarksError(f'Write failed: {exc}') from exc
-    return EditMarksResult(result='success')
+    return EditMarksResult(path=item.path, result='success')
+
+def edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
+    """Replace everything between and including 'begin_marker' and 'end_marker' with content, in one or more files.
+
+    Both markers are included in the replacement.
+
+    Args:
+        items: Marker-based edits to apply. Must be non-empty.
+
+    Returns:
+        EditMarksBatchResult: one result per successfully applied edit, one error per failed edit.
+
+    Raises:
+        EditMarksError: If items is empty.
+    """
+    if not items:
+        raise EditMarksError("'items' must be a non-empty list.")
+    results: list[EditMarksResult] = []
+    errors: list[EditMarksItemError] = []
+    for item in items:
+        try:
+            results.append(_edit_marks_one(item))
+        except EditMarksError as exc:
+            errors.append(EditMarksItemError(path=item.path, error=str(exc)))
+    return EditMarksBatchResult(results=results, errors=errors)
 
 class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
     title = 'Replace text between two marks'
-    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers with new 'content'."
+    description = "Replace everything between and including the unique 'begin_marker' and 'end_marker' markers, found in one or more files, with new 'content', for a batch of items."
     input_schema = {
         'type': 'object',
-        'strict': True,
-        'additionalProperties': False,
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the target file.'},
-            'begin_marker': {
-                'type': 'string',
-                'minLength': 10,
-                'maxLength': 30,
-                'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
-            'content': {
-                'type': 'string',
-                        'description': 'Replacement source for the marked text.'},
-            'end_marker': {
-                'type': 'string',
-                'minLength': 10,
-                'maxLength': 30,
-                'description': 'Unique 10-30 char substring marking the end of the text to replace'},
-            'exact': {
-                'type': 'boolean',
-                'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                'default': False}},
-        'required': [
-            'path',
-            'begin_marker',
-            'end_marker',
-            'content']}
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the target file.'},
+                        'begin_marker': {
+                            'type': 'string',
+                            'minLength': 10,
+                            'maxLength': 30,
+                            'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
+                        'content': {
+                            'type': 'string',
+                                    'description': 'Replacement source for the marked text.'},
+                        'end_marker': {
+                            'type': 'string',
+                            'minLength': 10,
+                            'maxLength': 30,
+                            'description': 'Unique 10-30 char substring marking the end of the text to replace.'},
+                        'exact': {
+                            'type': 'boolean',
+                            'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                            'default': False}},
+                    'required': [
+                        'path',
+                        'begin_marker',
+                        'end_marker',
+                        'content']},
+                'description': 'Marker-based edits to apply.'}},
+        'required': ['items']}
     output_schema = {
-        'type': 'object',
-        'properties': {
-            'result': {
-                'type': 'string',
-                'description': '``success`` on success.'}},
-        'required': []}
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'result': {
+                                'type': 'string', 'description': '``success`` on success.'}}, 'required': [
+                                    'path', 'result']}}, 'errors': {
+                                        'type': 'array', 'items': {
+                                            'type': 'object', 'properties': {
+                                                'path': {
+                                                    'type': 'string'}, 'error': {
+                                                        'type': 'string'}}, 'required': [
+                                                            'path', 'error']}}}, 'required': [
+                                                                'results', 'errors']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = edit_marks(
-                path=args['path'],
-                begin_marker=args['begin_marker'],
-                end_marker=args['end_marker'],
-                content=args['content'],
-                exact=args.get(
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [
+            EditMarksItem(
+                path=it['path'],
+                begin_marker=it['begin_marker'],
+                end_marker=it['end_marker'],
+                content=it['content'],
+                exact=it.get(
                     'exact',
-                    False))
-        except EditMarksError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'result': result.result}, auto_approve=True)
+                    False)) for it in raw_items]
+        batch = edit_marks(items)
+        results = [{'path': r.path, 'result': r.result} for r in batch.results]
+        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksTool())

@@ -1,4 +1,5 @@
 # TODO
+
 * MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
 	* per http nicht websocket
 	* option um ein yaml schema render zu erhalten? -> ja aber zurüclk in JSON konvertieren
@@ -7,7 +8,6 @@
 	* YAML validierung in workbench
 	* Makrdown YAML script blöcke aber keine header
 	* YAML call aber JSON Output
-* grep batch?
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h

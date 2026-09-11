@@ -1,86 +1,162 @@
-"""Write tool – writes a file completely or appends lines to it."""
+"""Write tool – writes files completely or appends content to them, for a batch of items."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['WriteError', 'WriteResult', 'write', 'WriteTool', 'register_write_tool']
+__all__ = [
+    'WriteError',
+    'WriteItem',
+    'WriteResult',
+    'WriteItemError',
+    'WriteBatchResult',
+    'write',
+    'WriteTool',
+    'register_write_tool']
 
 class WriteError(Exception):
     """Raised when a write operation cannot be performed."""
 
 @dataclass(frozen=True)
-class WriteResult:
-    result: str
+class WriteItem:
+    """One file to write.
 
-def write(path: str, mode: str, content: str) -> WriteResult:
-    """Write ``content`` to ``path``; ``mode`` is ``replace`` or ``append``.
-    
-    Args:
+    Attributes:
         path: Absolute path to file to write (created if not exists).
         mode: Write mode: "replace" overwrites entire file, "append" adds content at end.
         content: Text content to write.
-    
-    Returns:
-        WriteResult with success status.
-    
-    Raises:
-        WriteError: If path is not absolute.
-        WriteError: If write operation fails (permission, disk full, etc.).
     """
-    file_path = Path(path)
+    path: str
+    mode: str
+    content: str
+
+@dataclass(frozen=True)
+class WriteResult:
+    """Result of writing a single file, mirroring its input path for result association."""
+    path: str
+    result: str
+
+@dataclass(frozen=True)
+class WriteItemError:
+    """Error writing a single file, mirroring its input path for result association."""
+    path: str
+    error: str
+
+@dataclass(frozen=True)
+class WriteBatchResult:
+    """Result of :func:`write`.
+
+    Attributes:
+        results: One :class:`WriteResult` per successfully written file.
+        errors: One :class:`WriteItemError` per file that failed.
+    """
+    results: list[WriteResult]
+    errors: list[WriteItemError]
+
+def _write_one(item: WriteItem) -> WriteResult:
+    file_path = Path(item.path)
     if not file_path.is_absolute():
         raise WriteError('Path must be absolute.')
     try:
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_mode = 'a' if mode == 'append' else 'w'
+        file_mode = 'a' if item.mode == 'append' else 'w'
         with file_path.open(file_mode, encoding='utf-8') as fh:
-            fh.write(content)
+            fh.write(item.content)
     except OSError as exc:
         raise WriteError(f'Write failed: {exc}') from exc
-    return WriteResult(result='success')
+    return WriteResult(path=item.path, result='success')
+
+def write(items: list[WriteItem]) -> WriteBatchResult:
+    """Write or replace one or more target files, for a batch of items.
+
+    Args:
+        items: Files to write. Must be non-empty.
+
+    Returns:
+        WriteBatchResult: one result per successfully written file, one error per failed file.
+
+    Raises:
+        WriteError: If items is empty.
+    """
+    if not items:
+        raise WriteError("'items' must be a non-empty list.")
+    results: list[WriteResult] = []
+    errors: list[WriteItemError] = []
+    for item in items:
+        try:
+            results.append(_write_one(item))
+        except WriteError as exc:
+            errors.append(WriteItemError(path=item.path, error=str(exc)))
+    return WriteBatchResult(results=results, errors=errors)
 
 class WriteTool(ToolDefinition):
     name = 'write'
     title = 'Write file'
-    description = 'Write content to a file. In ``replace`` mode the file is overwritten with the supplied content. In ``append`` mode the content is added at the end of the existing file (the file is created if it does not yet exist).'
+    description = 'Write content to one or more files, for a batch of items. In ``replace`` mode a file is overwritten with the supplied content. In ``append`` mode the content is added at the end of the existing file (the file is created if it does not yet exist).'
     input_schema = {
         'type': 'object',
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute path to the file to write.'},
-            'mode': {
-                'type': 'string',
-                'enum': [
-                        'replace',
-                        'append'],
-                'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
-            'content': {
-                'type': 'string',
-                'description': 'Text to write to the file.'}},
-        'required': [
-            'path',
-            'mode',
-            'content']}
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the file to write.'},
+                        'mode': {
+                            'type': 'string',
+                            'enum': [
+                                    'replace',
+                                    'append'],
+                            'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
+                        'content': {
+                            'type': 'string',
+                            'description': 'Text to write to the file.'}},
+                    'required': [
+                        'path',
+                        'mode',
+                        'content']},
+                'description': 'Files to write or replace.'}},
+        'required': ['items']}
     output_schema = {
-        'type': 'object',
-        'properties': {
-            'result': {
-                'type': 'string',
-                'description': '``success`` on success.'}},
-        'required': ['result']}
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'result': {
+                                'type': 'string', 'description': '``success`` on success.'}}, 'required': [
+                                    'path', 'result']}}, 'errors': {
+                                        'type': 'array', 'items': {
+                                            'type': 'object', 'properties': {
+                                                'path': {
+                                                    'type': 'string'}, 'error': {
+                                                        'type': 'string'}}, 'required': [
+                                                            'path', 'error']}}}, 'required': [
+                                                                'results', 'errors']}
     annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = write(path=args['path'], mode=args['mode'], content=args['content'])
-        except WriteError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'result': result.result}, auto_approve=True)
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [WriteItem(path=it['path'], mode=it['mode'], content=it['content']) for it in raw_items]
+        batch = write(items)
+        results = [{'path': r.path, 'result': r.result} for r in batch.results]
+        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register_write_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WriteTool())

@@ -1,14 +1,14 @@
-"""List tool – returns files below a directory, grouped by relative subdirectory like ``ls -R``.
+"""List tool – returns files below a directory, grouped by relative subdirectory like ``ls -R``, for a batch of items.
 
-Walks the given absolute directory recursively and returns all file paths
+Walks each given absolute directory recursively and returns all file paths
 (files only, no directories), grouped by the relative directory they live in
 (e.g. ``./src/pkg:`` followed by tab-indented file names), mirroring the
 output format of ``ls -R``. An optional regular expression can be supplied to
 filter the resulting files (matched against each file's path relative to the
 requested directory). Common VCS/build/cache directories (e.g. ``.git``) are
-always excluded. To keep results manageable, the number of matched files is
-capped; use ``pattern`` to narrow down large directories instead of raising
-the limit.
+always excluded. To keep results manageable, the number of matched files per
+item is capped; use ``pattern`` to narrow down large directories instead of
+raising the limit.
 """
 import os
 import re
@@ -19,7 +19,15 @@ from xy.ai.mcpc.tools._directories import normalize_directory
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-__all__ = ['ListError', 'ListResult', 'list', 'ListTool', 'register_list_tool']
+__all__ = [
+    'ListError',
+    'ListItem',
+    'ListResult',
+    'ListItemError',
+    'ListBatchResult',
+    'list',
+    'ListTool',
+    'register_list_tool']
 _MAX_ENTRIES = 50
 _EXCLUDED_DIRS = {
     '.git',
@@ -43,35 +51,56 @@ class ListError(Exception):
     """Raised when a directory listing cannot be performed."""
 
 @dataclass(frozen=True)
-class ListResult:
-    entries: list[str]
+class ListItem:
+    """One directory to list.
 
-def list(path: str, pattern: str | None=None) -> ListResult:
-    """List all files below the absolute directory ``path``, grouped like ``ls -R``.
-
-    Args:
+    Attributes:
         path: Absolute directory path to list (must exist and be a directory).
         pattern: Optional regular expression to filter results. Only matching file paths are included.
+    """
+    path: str
+    pattern: str | None = None
 
-    Returns:
-        ListResult with:
-            entries: Lines of output, one directory header (e.g. ``./sub:``)
-                followed by its file names. Directories without matching
-                files are omitted.
+@dataclass(frozen=True)
+class ListResult:
+    """Result of listing a single directory, mirroring its input path for result association."""
+    path: str
+    entries: list[str]
+
+@dataclass(frozen=True)
+class ListItemError:
+    """Error listing a single directory, mirroring its input path for result association."""
+    path: str
+    error: str
+
+@dataclass(frozen=True)
+class ListBatchResult:
+    """Result of :func:`list`.
+
+    Attributes:
+        results: One :class:`ListResult` per successfully listed directory.
+        errors: One :class:`ListItemError` per directory that failed.
+    """
+    results: list[ListResult]
+    errors: list[ListItemError]
+
+def _list_one(item: ListItem) -> ListResult:
+    """List all files below the absolute directory ``item.path``, grouped like ``ls -R``.
 
     Raises:
         ListError: If path is not absolute.
         ListError: If path does not exist or is not a directory.
         ListError: If pattern is not a valid regular expression.
+        ListError: If more than ``_MAX_ENTRIES`` files match.
     """
-    dir_path = Path(path)
+    dir_path = Path(item.path)
     if not dir_path.is_absolute():
         raise ListError('Path must be absolute.')
     dir_path = normalize_directory(dir_path)
     if not dir_path.is_dir():
         raise ListError('Directory not found or not a directory.')
     try:
-        regex = re.compile(pattern) if pattern else None
+        regex = re.compile(item.pattern) if item.pattern else None
     except re.error as exc:
         raise ListError(f'Invalid regex pattern: {exc}') from exc
     groups: dict[str, list[str]] = {}
@@ -94,40 +123,90 @@ def list(path: str, pattern: str | None=None) -> ListResult:
         header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
         entries.append(f'{header}:')
         entries.extend(groups[rel_dir])
-    return ListResult(entries=entries)
+    return ListResult(path=item.path, entries=entries)
+
+def list(items: list[ListItem]) -> ListBatchResult:
+    """List each directory in ``items``.
+
+    Args:
+        items: Directories to list. Must be non-empty.
+
+    Returns:
+        ListBatchResult: one result per successfully listed directory, one error per failed directory.
+
+    Raises:
+        ListError: If items is empty.
+    """
+    if not items:
+        raise ListError("'items' must be a non-empty list.")
+    results: list[ListResult] = []
+    errors: list[ListItemError] = []
+    for item in items:
+        try:
+            results.append(_list_one(item))
+        except ListError as exc:
+            errors.append(ListItemError(path=item.path, error=str(exc)))
+    return ListBatchResult(results=results, errors=errors)
 
 class ListTool(ToolDefinition):
     name = 'list'
     title = 'List directory contents'
-    description = 'List all files below an absolute directory path, recursively, as a flat list. Filter the result with a regular expression.'
+    description = 'List all files below one or more absolute directory paths, recursively, as a flat list, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch.'
     input_schema = {
         'type': 'object',
         'properties': {
-            'path': {
-                'type': 'string',
-                'description': 'Absolute directory path.'},
-            'pattern': {
-                'type': 'string',
-                'description': 'Regular expression to filter the result.'}},
-        'required': ['path']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'entries': {
+            'items': {
                 'type': 'array',
+                'minItems': 1,
                 'items': {
-                    'type': 'string'}}},
-        'required': ['entries']}
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'path': {
+                            'type': 'string',
+                            'description': 'Absolute directory path.'},
+                        'pattern': {
+                            'type': 'string',
+                            'description': 'Regular expression to filter the result.'}},
+                    'required': ['path']},
+                'description': 'Directories to list.'}},
+        'required': ['items']}
+    output_schema = {
+        'type': 'object', 'properties': {
+            'results': {
+                'type': 'array', 'items': {
+                    'type': 'object', 'properties': {
+                        'path': {
+                            'type': 'string'}, 'entries': {
+                                'type': 'array', 'items': {
+                                    'type': 'string'}}}, 'required': [
+                                        'path', 'entries']}}, 'errors': {
+                                            'type': 'array', 'items': {
+                                                'type': 'object', 'properties': {
+                                                    'path': {
+                                                        'type': 'string'}, 'error': {
+                                                            'type': 'string'}}, 'required': [
+                                                                'path', 'error']}}}, 'required': [
+                                                                    'results', 'errors']}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
         args: dict[str, Any] = ctx.arguments
-        try:
-            result = list(path=args['path'], pattern=args.get('pattern'))
-        except ListError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'entries': result.entries})
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [ListItem(path=it['path'], pattern=it.get('pattern')) for it in raw_items]
+        batch = list(items)
+        results = [{'path': r.path, 'entries': r.entries} for r in batch.results]
+        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
+        is_error = bool(batch.errors) and (not batch.results)
+        return ToolResult(
+            structured_content={
+                'results': results,
+                'errors': errors},
+            is_error=is_error,
+            auto_approve=not is_error)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())
