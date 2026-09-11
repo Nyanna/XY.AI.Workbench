@@ -187,8 +187,7 @@ class ReadNodeTool(ToolDefinition):
             results.append({'path': item_result.path,
                             'nodes': [core.to_dict(n) for n in item_result.nodes],
                             'errors': item_result.errors})
-        is_error = bool(errors) and (not results)
-        return ToolResult(structured_content={'results': results, 'errors': errors}, is_error=is_error)
+        return ToolResult(structured_content={'results': results, 'errors': errors}, is_error=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadNodeTool())

@@ -146,8 +146,7 @@ class ListNodesTool(ToolDefinition):
         batch = ast_list(paths=paths, with_lines=with_lines)
         content = {'results': [{'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]} for r in batch.results], 'errors': [
             {'path': e.path, 'error': e.error} for e in batch.errors]}
-        is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(structured_content=content, is_error=is_error)
+        return ToolResult(structured_content=content, is_error=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())

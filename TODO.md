@@ -1,5 +1,8 @@
 # TODO
-
+* reiner ast-readonly alias
+* warum zeilennumern benutzt?
+* isError: true überall prüfen weil es den structured_content verschluckt, in prompt auch prüfen
+* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
 * MPC Client für Prefill selber verwenden entweder autocomplete oder /slash commands
 	* per http nicht websocket
 	* option um ein yaml schema render zu erhalten? -> ja aber zurüclk in JSON konvertieren

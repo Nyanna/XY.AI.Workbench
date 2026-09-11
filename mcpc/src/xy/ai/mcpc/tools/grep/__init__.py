@@ -296,13 +296,12 @@ class GrepTool(ToolDefinition):
                 entry['warning'] = r.warning
             results.append(entry)
         errors = [{'directory': e.directory, 'pattern': e.pattern, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
         return ToolResult(
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
-            auto_approve=not is_error)
+            is_error=False,
+            auto_approve=False)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

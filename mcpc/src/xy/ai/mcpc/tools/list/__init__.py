@@ -200,13 +200,12 @@ class ListTool(ToolDefinition):
         batch = list(items)
         results = [{'path': r.path, 'entries': r.entries} for r in batch.results]
         errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
         return ToolResult(
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
-            auto_approve=not is_error)
+            is_error=False,
+            auto_approve=False)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())

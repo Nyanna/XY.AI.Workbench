@@ -182,7 +182,7 @@ class SkillsTool(ToolDefinition):
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
+            is_error=False,
             auto_approve=not is_error)
 
 def register_skills(registry: ToolRegistry, environment: AppEnvironment) -> None:

@@ -280,7 +280,7 @@ class ReadTool(ToolDefinition):
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
+            is_error=False,
             auto_approve=not is_error and all_full_file)
 
 def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:

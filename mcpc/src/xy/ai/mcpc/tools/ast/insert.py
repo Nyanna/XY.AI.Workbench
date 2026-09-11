@@ -182,7 +182,7 @@ class InsertNodeTool(ToolDefinition):
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
+            is_error=False,
             auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:

@@ -188,7 +188,7 @@ class EditLinesTool(ToolDefinition):
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=is_error,
+            is_error=False,
             auto_approve=not is_error)
 
 def register_edit_lines_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:

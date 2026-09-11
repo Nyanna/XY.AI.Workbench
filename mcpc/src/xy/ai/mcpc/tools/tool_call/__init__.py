@@ -230,7 +230,7 @@ class ToolCallTool(ToolDefinition):
         if execution.error is not None:
             structured['error'] = execution.error
         content = [text_content(n) for n in notices]
-        return ToolResult(content=content, structured_content=structured, is_error=execution.error is not None)
+        return ToolResult(content=content, structured_content=structured, is_error=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolCallTool(functions))

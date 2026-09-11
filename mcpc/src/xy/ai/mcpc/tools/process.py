@@ -141,5 +141,5 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
             structured['stderr'] = stderr
     '# Simple success with auto_approve when exit code is 0 and both streams are empty'
     if result.exit_code == 0 and (not stdout) and (not stderr):
-        return ToolResult(structured_content={'result': 'success'}, auto_approve=True)
+        return ToolResult(structured_content={'result': 'success'}, auto_approve=False)
     return ToolResult(content=content, structured_content=structured)

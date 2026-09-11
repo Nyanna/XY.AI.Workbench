@@ -154,7 +154,7 @@ class ToolUsageTool(ToolDefinition):
         structured_content: dict[str, Any] = {'usages': usages}
         if errors:
             structured_content['errors'] = errors
-        return ToolResult(structured_content=structured_content, is_error=bool(errors) and (not usages))
+        return ToolResult(structured_content=structured_content, is_error=False)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolUsageTool(functions))
