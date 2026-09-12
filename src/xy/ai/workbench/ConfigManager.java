@@ -315,7 +315,7 @@ public class ConfigManager {
 		enabledModels = avail.toArray(new Model[0]);
 
 		if (!avail.contains(cfg.model) && !avail.isEmpty())
-			setModel(avail.get(1));
+			setModel(avail.get(0));
 
 		enabledModelsObs.forEach(c -> c.accept(enabledModels));
 

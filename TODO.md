@@ -1,10 +1,4 @@
 # TODO
-* MCP Prefill testen
-	- profile deaktivieren wenn nicht unterstützt
-	- reasoning deaktivieren wenn nur ein valider eintrag wie disabled
-	
-	
-	
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
 	* autoprompt beim cache 5min das eine warten nachricht schickt 20 sek for timeout, wie cache bei toolverarbeitung warm halten, cody gemacht, letztes wort wiederholen? ("warte kurz" random liste gegen detection, "ich prüfe das", liste von KI generieren lassen, deutsch englisch)
@@ -48,4 +42,3 @@
 * was ist https://mcp2cli.dev/
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
 * weitere tools für research Semantic Scholar, arXiv API Access
-* scripte kommentar in englich in `/home/user/xyan/xy.ai.workbench/libs/openapi` [deepseek]

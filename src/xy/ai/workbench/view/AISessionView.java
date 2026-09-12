@@ -184,7 +184,8 @@ public class AISessionView extends ViewPart {
 	}
 
 	private void createProfileCombo(Composite top, ConfigManager cfg) {
-		toolkit.createLabel(top, "Profile:");
+		Label profileLabel = toolkit.createLabel(top, "Profile:");
+		profileLabel.setLayoutData(new GridData());
 		Combo profileSel = new Combo(top, SWT.DROP_DOWN | SWT.READ_ONLY);
 		profileSel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 		profileSel.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> cfg
@@ -193,6 +194,8 @@ public class AISessionView extends ViewPart {
 			profileSel
 					.setItems(Arrays.stream(k).map((m) -> m.name).collect(Collectors.toList()).toArray(new String[0]));
 			profileSel.setText(k.length > 0 ? k[0].name : "");
+			toggleControl(profileLabel, profileSel, k.length > 0);
+			top.layout();
 		}, true);
 		cfg.addProfileObs(p -> {
 			profileSel.setText(p != null ? p.name : "");
@@ -201,7 +204,8 @@ public class AISessionView extends ViewPart {
 
 	private void createReasoningSection(Composite top, Composite body, ConfigManager cfg, Label tempLabel, Text temp,
 			Label topPLabel, Text topP, Label maxTokenLabel, Text maxToken) {
-		toolkit.createLabel(top, "Reasoning:");
+		Label reasoningLabel = toolkit.createLabel(top, "Reasoning:");
+		reasoningLabel.setLayoutData(new GridData());
 		Composite secReason = new Composite(top, SWT.NONE);
 		GridLayout secRLay = new GridLayout(2, false);
 		secRLay.marginHeight = secRLay.marginWidth = 0;
@@ -221,12 +225,16 @@ public class AISessionView extends ViewPart {
 		cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
 		cfg.addModelObs(m -> {
-			toogleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
-			toogleControl(topPLabel, topP, m.cap.isSupportTopP());
-			toogleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
+			toggleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
+			toggleControl(topPLabel, topP, m.cap.isSupportTopP());
+			toggleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
 
-			reasSel.setItems(cfg.getReasonings());
+			String[] reasonings = cfg.getReasonings();
+			reasSel.setItems(reasonings);
 			reasSel.setText(cfg.getReasoning().name());
+			boolean hasReasoning = reasonings.length > 0
+					&& !(reasonings.length == 1 && ("Default".equals(reasonings[0]) || "Disabled".equals(reasonings[0])));
+			toggleControl(reasoningLabel, secReason, hasReasoning);
 			body.layout();
 		}, true);
 		cfg.addReasoningObs(r -> {
@@ -236,7 +244,7 @@ public class AISessionView extends ViewPart {
 			budget.setVisible(enabled);
 			((GridData) budget.getLayoutData()).exclude = !enabled;
 
-			toogleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
+			toggleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
 
 			secReason.layout();
 			body.layout();
@@ -254,7 +262,7 @@ public class AISessionView extends ViewPart {
 			cacheSel.setItems(Arrays.stream(m.cap.getCacheMode()).map((c) -> c.name()).collect(Collectors.toList())
 					.toArray(new String[0]));
 			cacheSel.setText(cfg.getCacheMode() != null ? cfg.getCacheMode().name() : "");
-			toogleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
+			toggleControl(cacheLabel, cacheSel, m.cap.getCacheMode().length > 0);
 		}, true);
 		cfg.addCacheObs(c -> {
 			cacheSel.setText(c != null ? c.name() : "");
@@ -609,7 +617,7 @@ public class AISessionView extends ViewPart {
 			return m.cap.isSupportTemperature();
 	}
 
-	private void toogleControl(Label label, Control ctrl, boolean enabled) {
+	private void toggleControl(Label label, Control ctrl, boolean enabled) {
 		label.setEnabled(enabled);
 		label.setVisible(enabled);
 		ctrl.setEnabled(enabled);
