@@ -25,6 +25,7 @@ if [ -f "$FILTER_CONF" ]; then
     SPEC_FILE="$WORK_DIR/${NAME}.filtered.yaml"
     echo "Filtere Spec mit $FILTER_CONF ..."
     python3 "$SCRIPT_DIR/filter_spec.py" "$FILTER_CONF" "$SPEC_FILE"
+	yq -i '(.. | select(type == "!!str")) style="double"' "$SPEC_FILE"
     cp "$SPEC_FILE" "$SCRIPT_DIR/filters/"
 fi
 

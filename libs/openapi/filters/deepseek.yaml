@@ -143,6 +143,11 @@ ops:
   # --- text.verbosity: wird akzeptiert, hat aber keine Wirkung ---
   - op: delete
     pointer: /components/schemas/ResponseTextParam/properties/verbosity
+    
+  - op: delete
+    pointer: /components/schemas/ModelIdsResponses/anyOf/1
+  - op: delete
+    pointer: /components/schemas/ModelIdsShared/anyOf/1
 
   # --- reasoning.effort: nur low/high/max unterstuetzt ---
   - op: set

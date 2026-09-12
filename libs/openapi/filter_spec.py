@@ -38,6 +38,24 @@ def _apply_leaf(node, key: str, op: str, value) -> None:
         if isinstance(node, dict):
             for k in list(node.keys()):
                 _apply_leaf(node, k, op, value)
+        elif isinstance(node, list):
+            if op == 'delete':
+                node.clear()
+            else:
+                for i in range(len(node)):
+                    node[i] = value
+        return
+    if isinstance(node, list):
+        try:
+            idx = int(key)
+        except ValueError:
+            return
+        if op == 'delete':
+            if 0 <= idx < len(node):
+                del node[idx]
+        elif op == 'set':
+            if 0 <= idx < len(node):
+                node[idx] = value
         return
     if not isinstance(node, dict):
         return
