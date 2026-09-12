@@ -1,7 +1,5 @@
 # TODO
-* grep und list nur results wenn nicht empty sonst einfacher hinweis
 * wieder newline ersetzungsprobleme analysieren
-* warum AST script fehlgeschlagen
 
 * auto approve im harness wenn kontext in kleiner X zeichen und kein fehler
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus

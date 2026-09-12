@@ -162,7 +162,7 @@ def ast_script(path: str, code: str) -> AstScriptResult:
 class ScriptTool(ToolDefinition):
     name = 'ast_script'
     title = 'Run AST script'
-    description = "Run a restricted Python script code against a file's AST for complex/incremental transforms. Globals expose 'tree' (a ScriptTree with find/replace/insert/delete/append, plus 'tree.raw' for the engine-native ast.Module/tree_sitter.Tree) and 'ast'; assign 'result' to return data. Changes made through 'tree' are saved. Imports are not allowed."
+    description = "Run a restricted Python script against a file's AST when the single-operation ast_* tools (list/find/read/replace/insert/delete) are insufficient for a complex, multi-step, or conditional transform. Sandboxed globals: 'tree' and 'ast'; no imports; assign 'result' to return data; edits made via 'tree' are saved automatically. See the 'code' parameter for the full tree API and node-attribute reference."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -171,7 +171,7 @@ class ScriptTool(ToolDefinition):
                 'description': 'Absolute path to the file.'},
             'code': {
                 'type': 'string',
-                'description': "Python script operating on 'tree' (find/replace/insert/delete/append); Environment is restricted; Don't use imports;"}},
+                'description': "Python source executed with 'tree' and 'ast' as only globals; assign 'result' to return a value; no import statements; builtins limited to isinstance/issubclass/getattr/setattr/hasattr/delattr/len/list/dict/set/tuple/str/int/float/bool/enumerate/range/sorted/reversed/zip/map/filter/any/all/min/max/sum/type/repr. tree API: find(id=None, node_type=None, name=None, parent_type=None)->list[Located]; locate_all()->list[Located] (every addressable node, document order); node_code(loc)->str; replace(loc, code)->str|None; insert(loc, code, position='after'|'before')->int; delete(loc)->None; append(code)->int; source->str; path. Located attrs (engine-independent, mirror the id/type/lines/code fields used by ast_list/ast_find/ast_read/ast_edit_*/ast_replace/ast_insert/ast_delete): node_id (unique dotted name/hash path from root, e.g. 'MyClass.method' — the id used by every ast_* tool); node_type (reported type, e.g. 'FunctionDef'/'pair'); name (simple name or None); lineno/end_lineno (1-based inclusive span, i.e. the 'lines' field elsewhere); parent_type (enclosing node's type, None at top level); expandable (True = pure container of nested defs, i.e. what 'read' descends into instead of inlining code); node/parent (opaque node handles for use only as tree.* arguments, never introspect their internals); index (position among parent's addressable children); tree (owning Tree; use its .source/.path, nothing else). Note: 'signature'/'docstring' shown by list/find/read (one-line header / short doc, only set for definition-like nodes when code is omitted) have no direct Located field; derive via node_code(loc) if needed."}},
         'required': [
             'path',
             'code']}
