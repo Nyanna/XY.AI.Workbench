@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'FileStatsError',
@@ -208,22 +208,10 @@ class FileStatsTool(ToolDefinition):
     title = 'File stats'
     resultDescription = 'The result object contains file metadata: path, size_bytes, line and word counts, complexity score (0.0–1.0), ISO 8601 timestamps (created, modified, accessed), line length metrics (min, max, avg), average words per line, and a sha256 content checksum.'
     description = 'Get file metrics for access and processing planning, for a batch of items: complexity, timestamps, size, line/word counts, and line length statistics. ' + resultDescription
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute file path.'}},
-                    'required': ['path']},
-                'description': 'Files to compute metrics for.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {'path': {'type': 'string', 'description': 'Absolute file path.'}}
+    _ITEM_REQUIRED = ['path']
+    _ITEMS_DESCRIPTION = 'Files to compute metrics for.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""

@@ -3517,3 +3517,2293 @@ Text:
 ReasoningToken: 93
 Result Stats:  id=197ec463-3b74-4b65-9ff0-550d1070e94d, total: 0, in: 173, out: 21734, reason: 0, read: 856800, write: 80698
 Alle Batch-Tools mit Listeneingaben nutzen jetzt die generische `require_items`-Validierung und `minItems: 1` im Schema: `tool_usage` (`names`), `web_fetch_exa` (`urls`), `web_fetch_exa_results`/`web_search_exa_results` (`ids`), zusätzlich zu Grep. `github.py`, `context7.py` und `web_search_exa` haben keine Listen-/Batch-Parameter und bleiben unverändert.
+Was ist mit list?
+SystemInit:  id=197ec463-3b74-4b65-9ff0-550d1070e94d, cwd=/home/user/xyan/xy.ai.workbench, model=claude-sonnet-5
+Control Request:
+```yaml
+id: 06be-1
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/list.py
+    ids:
+    - '*'
+  reason: "ast/list.py Implementierung prüfen, um zu bewerten ob es bereits generisch optimiert ist"
+```
+/answer 06be-1 allow
+Control Request:
+```yaml
+id: 06be-2
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/list.py
+      nodes:
+      - id: gEDZs7
+        type: statements
+      - id: EhRAaP
+        type: imports
+      - id: sCHwnz
+        type: statements
+      - id: ListNodesResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListNodesResult:"
+        docstring: "Nodes of a single file. Attributes: path: The resolved path of the listed file …"
+      - id: ListNodesError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListNodesError:"
+        docstring: "Error listing a single file. Attributes: path: The resolved path that failed, f…"
+      - id: ListNodesBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListNodesBatchResult:"
+        docstring: "Result of :func:`ast_list`. Attributes: results: One :class:`ListNodesResult` p…"
+      - id: expand_path
+        type: FunctionDef
+        signature: "def _expand_path(path_str: str) -> list[str]:"
+        docstring: "Expand *path_str* to its own single-element list, unless it names a directory t…"
+      - id: list_one
+        type: FunctionDef
+        signature: "def _list_one(path: str, *, with_lines: bool) -> ListNodesResult:"
+      - id: ast_list
+        type: FunctionDef
+        signature: "def ast_list(paths: list[str], *, with_lines: bool=True) -> ListNodesBatchResult:"
+        docstring: List the hierarchical AST-node tree of one or more files. The tree is the found…
+      - id: ListNodesTool
+        type: ClassDef
+        signature: "class ListNodesTool(ToolDefinition):"
+        children:
+        - id: ListNodesTool.GRTIWl
+          type: statements
+        - id: ListNodesTool.WLS2rg
+          type: statements
+        - id: ListNodesTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."
+      - id: register
+        type: FunctionDef
+        signature: "def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+```
+/answer 06be-2 allow
+ReasoningToken: 584
+Control Request:
+```yaml
+id: 06be-3
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/list.py
+    ids:
+    - ListNodesTool.GRTIWl
+    - ListNodesTool.WLS2rg
+    - ListNodesTool.handle
+    - EhRAaP
+  reason: Schema-Definition und handle von ListNodesTool im Detail ansehen
+```
+/answer 06be-3 deny nicht AST-List sondern `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py`
+ReasoningToken: 33
+Control Request:
+```yaml
+id: 06be-4
+toolName: grep
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+    pattern: def handle
+    include:
+    - '*.py'
+    limit: 50
+  reason: "Vollständige Liste aller handle-Methoden im tools-Verzeichnis abrufen, inkl. bisher übersehener Tools wie list/"
+```
+/answer 06be-4 allow
+Control Request:
+```yaml
+id: 06be-5
+result:
+  structuredContent:
+    results:
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+      pattern: def handle
+      matches:
+      - path: mcp/github.py
+        lineno: 876
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/context7.py
+        lineno: 145
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/context7.py
+        lineno: 159
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/exa/fetch_results.py
+        lineno: 75
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/exa/fetch.py
+        lineno: 143
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/exa/search.py
+        lineno: 136
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: mcp/exa/search_results.py
+        lineno: 34
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: tool_usage/__init__.py
+        lineno: 116
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/find.py
+        lineno: 164
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/script.py
+        lineno: 179
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/replace.py
+        lineno: 122
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/list.py
+        lineno: 121
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/delete.py
+        lineno: 116
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/edit_marks.py
+        lineno: 171
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/read.py
+        lineno: 123
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/validate.py
+        lineno: 89
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/edit_block.py
+        lineno: 170
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/create.py
+        lineno: 113
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ast/insert.py
+        lineno: 126
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: edit_chars/__init__.py
+        lineno: 80
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: skills/__init__.py
+        lineno: 154
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: agent/__init__.py
+        lineno: 125
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: agent/__init__.py
+        lineno: 147
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: bash/__init__.py
+        lineno: 61
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: _tool_helpers.py
+        lineno: 49
+        match: "def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None, auto_approve: bool=False) -> ToolResult:"
+      - path: edit_lines/__init__.py
+        lineno: 155
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: tool_registry.py
+        lineno: 91
+        match: "            def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: tool_registry.py
+        lineno: 104
+        match: "    def handle(self, ctx: ToolContext) -> 'ToolResult | str | dict[str, Any]':"
+      - path: grep/__init__.py
+        lineno: 232
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: tool_search/__init__.py
+        lineno: 62
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: tool_call/__init__.py
+        lineno: 187
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: edit_block/__init__.py
+        lineno: 160
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: openalex/__init__.py
+        lineno: 274
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: openalex/__init__.py
+        lineno: 300
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: openalex/__init__.py
+        lineno: 318
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: colgrep/__init__.py
+        lineno: 241
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: ask_user/__init__.py
+        lineno: 55
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: file_stats/__init__.py
+        lineno: 228
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: markdown/__init__.py
+        lineno: 81
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: python/__init__.py
+        lineno: 47
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: edit_marks/__init__.py
+        lineno: 184
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: list/__init__.py
+        lineno: 176
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: edit_line/__init__.py
+        lineno: 144
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: write/__init__.py
+        lineno: 127
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+      - path: read/__init__.py
+        lineno: 261
+        match: "    def handle(self, ctx: ToolContext) -> ToolResult:"
+```
+/answer 06be-5 allow
+ReasoningToken: 164
+Control Request:
+```yaml
+id: 06be-6
+toolName: ast_list
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+  reason: "Struktur des Filesystem-list-Tools ansehen, um Batch-Optimierungsbedarf zu bewerten"
+```
+/answer 06be-6 allow
+Control Request:
+```yaml
+id: 06be-7
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+      nodes:
+      - id: ISKZu0
+        type: statements
+      - id: vHOP6y
+        type: imports
+      - id: rTmMVq
+        type: statements
+      - id: ListError
+        type: ClassDef
+        signature: "class ListError(Exception):"
+        docstring: Raised when a directory listing cannot be performed.
+      - id: ListItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListItem:"
+        docstring: "One directory to list. Attributes: path: Absolute directory path to list (must …"
+      - id: ListResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListResult:"
+        docstring: "Result of listing a single directory, mirroring its input path for result assoc…"
+      - id: ListItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListItemError:"
+        docstring: "Error listing a single directory, mirroring its input path for result associati…"
+      - id: ListBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ListBatchResult:"
+        docstring: "Result of :func:`list`. Attributes: results: One :class:`ListResult` per succes…"
+      - id: list_one
+        type: FunctionDef
+        signature: "def _list_one(item: ListItem) -> ListResult:"
+        docstring: "List all files below the absolute directory ``item.path``, grouped like ``ls -R…"
+      - id: list
+        type: FunctionDef
+        signature: "def list(items: list[ListItem]) -> ListBatchResult:"
+        docstring: "List each directory in ``items``. Args: items: Directories to list. Must be non…"
+      - id: ListTool
+        type: ClassDef
+        signature: "class ListTool(ToolDefinition):"
+        children:
+        - id: ListTool.3xW2xR
+          type: statements
+        - id: ListTool.WNr7HQ
+          type: statements
+        - id: ListTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`list`, translating the MCP schema to/from the Python API."
+      - id: register_list_tool
+        type: FunctionDef
+        signature: "def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+```
+/answer 06be-7 allow
+ReasoningToken: 598
+Control Request:
+```yaml
+id: 06be-8
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+    ids:
+    - vHOP6y
+    - ListTool.3xW2xR
+    - ListTool.WNr7HQ
+    - ListTool.handle
+  reason: Input Schema und handle-Implementierung des list-Tools im Detail ansehen
+```
+/answer 06be-8 allow
+Control Request:
+```yaml
+id: 06be-9
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+      nodes:
+      - id: vHOP6y
+        type: imports
+        code: |-
+          import os
+          import re
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools._directories import normalize_directory
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+      - id: ListTool.3xW2xR
+        type: statements
+        code: |-
+          name = 'list'
+          title = 'List directory contents'
+          description = 'List all files below one or more absolute directory paths, recursively, as a flat list, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch.'
+      - id: ListTool.WNr7HQ
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute directory path.'},
+                              'pattern': {
+                                  'type': 'string',
+                                  'description': 'Regular expression to filter the result.'}},
+                          'required': ['path']},
+                      'description': 'Directories to list.'}},
+              'required': ['items']}
+      - id: ListTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> ListItem:
+                  return ListItem(path=it['path'], pattern=it.get('pattern'))
+              result_serializer = lambda r: {'path': r.path, 'entries': r.entries}
+              return handle_batch_tool(ctx, item_factory, list, ListError, result_serializer)
+```
+/answer 06be-9 allow
+ReasoningToken: 63
+Control Request:
+```yaml
+id: 06be-a
+toolName: grep
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+    pattern: "input_schema = \\{"
+    include:
+    - '*.py'
+    exclude:
+    - ast/*
+    limit: 50
+  reason: Alle hand-geschriebenen input_schema-Definitionen außerhalb ast/ finden
+```
+/answer 06be-a allow
+Control Request:
+```yaml
+id: 06be-b
+result:
+  structuredContent:
+    results:
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+      pattern: "input_schema = \\{"
+      matches:
+      - path: tool_usage/__init__.py
+        lineno: 102
+        match: "    input_schema = {"
+      - path: ast/find.py
+        lineno: 147
+        match: "    input_schema = {"
+      - path: ast/script.py
+        lineno: 166
+        match: "    input_schema = {"
+      - path: ast/list.py
+        lineno: 110
+        match: "    input_schema = {"
+      - path: ast/validate.py
+        lineno: 79
+        match: "    input_schema = {"
+      - path: edit_chars/__init__.py
+        lineno: 57
+        match: "    input_schema = {"
+      - path: skills/__init__.py
+        lineno: 131
+        match: "    input_schema = {"
+      - path: agent/__init__.py
+        lineno: 116
+        match: "    input_schema = {"
+      - path: agent/__init__.py
+        lineno: 141
+        match: "        self.input_schema = {"
+      - path: bash/__init__.py
+        lineno: 48
+        match: "    input_schema = {"
+      - path: edit_lines/__init__.py
+        lineno: 123
+        match: "    input_schema = {"
+      - path: tool_registry.py
+        lineno: 89
+        match: "            input_schema = {...}"
+      - path: tool_search/__init__.py
+        lineno: 51
+        match: "    input_schema = {"
+      - path: tool_call/__init__.py
+        lineno: 165
+        match: "    input_schema = {"
+      - path: edit_block/__init__.py
+        lineno: 124
+        match: "    input_schema = {"
+      - path: colgrep/__init__.py
+        lineno: 199
+        match: "    input_schema = {"
+      - path: ask_user/__init__.py
+        lineno: 47
+        match: "    input_schema = {"
+      - path: file_stats/__init__.py
+        lineno: 211
+        match: "    input_schema = {"
+      - path: markdown/__init__.py
+        lineno: 68
+        match: "    input_schema = {"
+      - path: python/__init__.py
+        lineno: 39
+        match: "    input_schema = {"
+      - path: edit_marks/__init__.py
+        lineno: 146
+        match: "    input_schema = {"
+      - path: list/__init__.py
+        lineno: 156
+        match: "    input_schema = {"
+      - path: edit_line/__init__.py
+        lineno: 110
+        match: "    input_schema = {"
+      - path: write/__init__.py
+        lineno: 98
+        match: "    input_schema = {"
+      - path: read/__init__.py
+        lineno: 222
+        match: "    input_schema = {"
+```
+/answer 06be-b allow
+ReasoningToken: 306
+Control Request:
+```yaml
+id: 06be-c
+toolName: grep
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+    pattern: batch_schema
+    include:
+    - '*.py'
+    limit: 50
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+    pattern: "'items':"
+    include:
+    - '*.py'
+    exclude:
+    - ast/*
+    limit: 50
+  reason: Bestehende batch_schema-Verwendungen und alle 'items'-Array-Schemata außerhalb ast/ finden
+```
+/answer 06be-c allow
+Control Request:
+```yaml
+id: 06be-d
+result:
+  structuredContent:
+    results:
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+      pattern: batch_schema
+      matches:
+      - path: ast/replace.py
+        lineno: 8
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/replace.py
+        lineno: 120
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)"
+      - path: ast/delete.py
+        lineno: 8
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/delete.py
+        lineno: 114
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)"
+      - path: ast/edit_marks.py
+        lineno: 8
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/edit_marks.py
+        lineno: 169
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)"
+      - path: ast/read.py
+        lineno: 10
+        match: "from xy.ai.mcpc.tools._tool_helpers import require_items, batch_schema"
+      - path: ast/read.py
+        lineno: 121
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)"
+      - path: ast/edit_block.py
+        lineno: 8
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/edit_block.py
+        lineno: 168
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)"
+      - path: ast/create.py
+        lineno: 7
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/create.py
+        lineno: 111
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)"
+      - path: ast/insert.py
+        lineno: 8
+        match: from xy.ai.mcpc.tools._tool_helpers import batch_schema
+      - path: ast/insert.py
+        lineno: 124
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)"
+      - path: _tool_helpers.py
+        lineno: 7
+        match: "def batch_schema(item_properties: dict[str, Any], required: list[str], description: str, *, additional_properties: bool | None=None) -> dict[str, Any]:"
+      - path: _tool_helpers.py
+        lineno: 28
+        match: "__all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result', 'batch_schema']"
+      - path: grep/__init__.py
+        lineno: 10
+        match: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+      - path: grep/__init__.py
+        lineno: 230
+        match: "    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)"
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools
+      pattern: "'items':"
+      matches:
+      - path: mcp/github.py
+        lineno: 133
+        match: "                                                            'items': {'type': 'string'},"
+      - path: mcp/github.py
+        lineno: 390
+        match: "                'items': {"
+      - path: mcp/github.py
+        lineno: 424
+        match: "                'items': {"
+      - path: mcp/exa/fetch_results.py
+        lineno: 18
+        match: "                                                   'items': {'type': 'string'},"
+      - path: mcp/exa/fetch.py
+        lineno: 23
+        match: "                                                    'items': {'type': 'string'},"
+      - path: mcp/exa/fetch.py
+        lineno: 49
+        match: "                                                      'items': {'type': 'string'},"
+      - path: mcp/exa/search.py
+        lineno: 33
+        match: "                                                      'items': {'type': 'string'},"
+      - path: mcp/exa/search_results.py
+        lineno: 10
+        match: "_INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {"
+      - path: tool_usage/__init__.py
+        lineno: 107
+        match: "                'items': {"
+      - path: ast/find.py
+        lineno: 152
+        match: "                'items': {"
+      - path: ast/list.py
+        lineno: 116
+        match: "                'items': {"
+      - path: ast/read.py
+        lineno: 116
+        match: "            'items': {"
+      - path: ast/validate.py
+        lineno: 84
+        match: "                'items': {"
+      - path: skills/__init__.py
+        lineno: 134
+        match: "            'items': {"
+      - path: skills/__init__.py
+        lineno: 137
+        match: "                'items': {"
+      - path: _tool_helpers.py
+        lineno: 22
+        match: "            'items': {"
+      - path: _tool_helpers.py
+        lineno: 25
+        match: "                'items': item_schema,"
+      - path: edit_lines/__init__.py
+        lineno: 126
+        match: "            'items': {"
+      - path: edit_lines/__init__.py
+        lineno: 129
+        match: "                'items': {"
+      - path: grep/__init__.py
+        lineno: 205
+        match: "            'items': {"
+      - path: grep/__init__.py
+        lineno: 214
+        match: "            'items': {"
+      - path: grep/__init__.py
+        lineno: 219
+        match: "            'items': {"
+      - path: tool_call/__init__.py
+        lineno: 170
+        match: "                'items': {"
+      - path: edit_block/__init__.py
+        lineno: 127
+        match: "            'items': {"
+      - path: edit_block/__init__.py
+        lineno: 130
+        match: "                'items': {"
+      - path: colgrep/__init__.py
+        lineno: 224
+        match: "                'items': {"
+      - path: colgrep/__init__.py
+        lineno: 229
+        match: "                'items': {"
+      - path: colgrep/__init__.py
+        lineno: 234
+        match: "                'items': {"
+      - path: file_stats/__init__.py
+        lineno: 214
+        match: "            'items': {"
+      - path: file_stats/__init__.py
+        lineno: 217
+        match: "                'items': {"
+      - path: edit_marks/__init__.py
+        lineno: 149
+        match: "            'items': {"
+      - path: edit_marks/__init__.py
+        lineno: 152
+        match: "                'items': {"
+      - path: list/__init__.py
+        lineno: 159
+        match: "            'items': {"
+      - path: list/__init__.py
+        lineno: 162
+        match: "                'items': {"
+      - path: edit_line/__init__.py
+        lineno: 113
+        match: "            'items': {"
+      - path: edit_line/__init__.py
+        lineno: 116
+        match: "                'items': {"
+      - path: write/__init__.py
+        lineno: 101
+        match: "            'items': {"
+      - path: write/__init__.py
+        lineno: 104
+        match: "                'items': {"
+      - path: read/__init__.py
+        lineno: 225
+        match: "            'items': {"
+      - path: read/__init__.py
+        lineno: 228
+        match: "                'items': {"
+```
+/answer 06be-d allow
+ReasoningToken: 74
+Control Request:
+```yaml
+id: 06be-e
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/colgrep/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_call/__init__.py
+    ids:
+    - '*'
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_chars/__init__.py
+    ids:
+    - '*'
+  reason: "Alle Kandidatentools mit items-Array-Schemas vollständig lesen, um batch_schema-Anwendung zu bewerten"
+```
+/answer 06be-e allow
+Control Request:
+```yaml
+id: 06be-f
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+      nodes:
+      - id: eYdgDd
+        type: statements
+      - id: cLCK6C
+        type: imports
+      - id: 5yXHtR
+        type: statements
+      - id: EditLinesError
+        type: ClassDef
+        signature: "class EditLinesError(Exception):"
+        docstring: Raised when a edit-lines operation cannot be performed.
+      - id: EditLinesItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLinesItem:"
+        docstring: "One line-range replacement to apply. Attributes: path: Absolute path to file (m…"
+      - id: EditLinesResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLinesResult:"
+        docstring: "Result of applying a single line-range replacement, mirroring its input path fo…"
+      - id: EditLinesItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLinesItemError:"
+        docstring: "Error applying a single line-range replacement, mirroring its input path for re…"
+      - id: EditLinesBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLinesBatchResult:"
+        docstring: "Result of :func:`edit_lines`. Attributes: results: One :class:`EditLinesResult`…"
+      - id: edit_lines_one
+        type: FunctionDef
+        signature: "def _edit_lines_one(item: EditLinesItem) -> EditLinesResult:"
+      - id: edit_lines
+        type: FunctionDef
+        signature: "def edit_lines(items: list[EditLinesItem]) -> EditLinesBatchResult:"
+        docstring: "Replace a range of lines in one or more files, for a batch of items. A given pa…"
+      - id: EditLinesTool
+        type: ClassDef
+        signature: "class EditLinesTool(ToolDefinition):"
+        children:
+        - id: EditLinesTool.GewBq1
+          type: statements
+        - id: EditLinesTool.wbgB4n
+          type: statements
+        - id: EditLinesTool.P2efWj
+          type: statements
+        - id: EditLinesTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`edit_lines`, translating the MCP schema to/from the Python A…"
+      - id: register_edit_lines_tool
+        type: FunctionDef
+        signature: "def register_edit_lines_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+      nodes:
+      - id: MYFItt
+        type: statements
+      - id: kljyTw
+        type: imports
+      - id: Bp4ypK
+        type: statements
+      - id: EditBlockError
+        type: ClassDef
+        signature: "class EditBlockError(Exception):"
+        docstring: Raised when a edit-block operation cannot be performed.
+      - id: EditBlockItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditBlockItem:"
+        docstring: "One block edit to apply. Attributes: path: Absolute path to file (must be a reg…"
+      - id: EditBlockResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditBlockResult:"
+        docstring: "Result of applying a single block edit, mirroring its input path for result ass…"
+      - id: EditBlockItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditBlockItemError:"
+        docstring: "Error applying a single block edit, mirroring its input path for result associa…"
+      - id: EditBlockBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditBlockBatchResult:"
+        docstring: "Result of :func:`edit_block`. Attributes: results: One :class:`EditBlockResult`…"
+      - id: edit_block_one
+        type: FunctionDef
+        signature: "def _edit_block_one(item: EditBlockItem) -> EditBlockResult:"
+      - id: edit_block
+        type: FunctionDef
+        signature: "def edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:"
+        docstring: Replace occurrence(s) of ``old_text`` with ``new_text`` in one or more files. M…
+      - id: EditBlockTool
+        type: ClassDef
+        signature: "class EditBlockTool(ToolDefinition):"
+        children:
+        - id: EditBlockTool.7FjLjq
+          type: statements
+        - id: EditBlockTool.Yug4y1
+          type: statements
+        - id: EditBlockTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`edit_block`, translating the MCP schema to/from the Python A…"
+      - id: register_edit_block_tool
+        type: FunctionDef
+        signature: "def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/colgrep/__init__.py
+      nodes:
+      - id: Bxq3oz
+        type: statements
+      - id: 9QNnqo
+        type: imports
+      - id: v1roGc
+        type: statements
+      - id: wH5kmw
+        type: statements
+      - id: ColgrepError
+        type: ClassDef
+        signature: "class ColgrepError(Exception):"
+        docstring: Raised when a colgrep search cannot be performed.
+      - id: ColgrepResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ColgrepResult:"
+      - id: find_index_root
+        type: FunctionDef
+        signature: "def _find_index_root(start: Path) -> Path | None:"
+        docstring: Climb from *start* up to the filesystem root looking for a colgrep index. A dir…
+      - id: clean_result
+        type: FunctionDef
+        signature: "def _clean_result(value: Any) -> Any:"
+        docstring: "Recursively drop empty components (``False``, ``\"\"``, ``None``, ``[]``) and unw…"
+      - id: search_mode_for_query
+        type: FunctionDef
+        signature: "def _search_mode_for_query(query: str) -> tuple[bool, float | None]:"
+        docstring: "Derive (semantic_only, alpha) from the query length. <= _SEMANTIC_ONLY_MAX_LEN …"
+      - id: colgrep
+        type: FunctionDef
+        signature: "def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: bool=False, files_only: bool=False, include: list[str] | None=None, exclude: list[str] | None=None, exclude_dir: list[str] | None=None) -> ColgrepResult:"
+        docstring: Search colgrep index for code matching query. Searches the colgrep index coveri…
+      - id: ColgrepTool
+        type: ClassDef
+        signature: "class ColgrepTool(ToolDefinition):"
+        children:
+        - id: ColgrepTool.FPOj9u
+          type: statements
+        - id: ColgrepTool.4d8mO7
+          type: statements
+        - id: ColgrepTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."
+      - id: register_colgrep_tool
+        type: FunctionDef
+        signature: "def register_colgrep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+      nodes:
+      - id: REf7JM
+        type: statements
+      - id: Ra3auf
+        type: imports
+      - id: CGQQFJ
+        type: statements
+      - id: FileStatsError
+        type: ClassDef
+        signature: "class FileStatsError(Exception):"
+        docstring: Raised when file metrics cannot be computed.
+      - id: FileStatsItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class FileStatsItem:"
+        docstring: "One file to compute metrics for. Attributes: path: Absolute path to file (must …"
+      - id: FileStatsResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class FileStatsResult:"
+      - id: FileStatsItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class FileStatsItemError:"
+        docstring: "Error computing metrics for a single file, mirroring its input path for result …"
+      - id: FileStatsBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class FileStatsBatchResult:"
+        docstring: "Result of :func:`file_stats`. Attributes: results: One :class:`FileStatsResult`…"
+      - id: calculate_complexity
+        type: FunctionDef
+        signature: "def _calculate_complexity(text: str) -> float:"
+        docstring: Calculate data structure complexity (0.0 to 1.0). Based on character set divers…
+      - id: TextStatsResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class TextStatsResult:"
+      - id: compute_text_stats
+        type: FunctionDef
+        signature: "def compute_text_stats(text: str) -> TextStatsResult:"
+        docstring: Compute size/line/word/complexity metrics for *text*. Extracted from :func:`com…
+      - id: compute_file_stats
+        type: FunctionDef
+        signature: "def compute_file_stats(path: Path) -> FileStatsResult:"
+        docstring: Compute the file-metrics block for *path* (also reused by the outline tool). As…
+      - id: file_stats_one
+        type: FunctionDef
+        signature: "def _file_stats_one(item: FileStatsItem) -> FileStatsResult:"
+      - id: file_stats
+        type: FunctionDef
+        signature: "def file_stats(items: list[FileStatsItem]) -> FileStatsBatchResult:"
+        docstring: "Compute file metrics for each absolute path in ``items``. Args: items: Files to…"
+      - id: FileStatsTool
+        type: ClassDef
+        signature: "class FileStatsTool(ToolDefinition):"
+        children:
+        - id: FileStatsTool.gJH1I2
+          type: statements
+        - id: FileStatsTool.CebIGK
+          type: statements
+        - id: FileStatsTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`file_stats`, translating the MCP schema to/from the Python A…"
+      - id: register_file_stats_tool
+        type: FunctionDef
+        signature: "def register_file_stats_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+      nodes:
+      - id: H2OCmq
+        type: statements
+      - id: WesCns
+        type: imports
+      - id: hbtM97
+        type: statements
+      - id: EditMarksError
+        type: ClassDef
+        signature: "class EditMarksError(Exception):"
+        docstring: Raised when a replace operation cannot be performed.
+      - id: EditMarksItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditMarksItem:"
+        docstring: "One marker-based replacement to apply. Attributes: path: Absolute path to targe…"
+      - id: EditMarksResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditMarksResult:"
+        docstring: "Result of applying a single marker-based replacement, mirroring its input path …"
+      - id: EditMarksItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditMarksItemError:"
+        docstring: "Error applying a single marker-based replacement, mirroring its input path for …"
+      - id: EditMarksBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditMarksBatchResult:"
+        docstring: "Result of :func:`edit_marks`. Attributes: results: One :class:`EditMarksResult`…"
+      - id: edit_marks_text
+        type: FunctionDef
+        signature: "def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str, exact: bool=False) -> str:"
+        docstring: Replace everything between and including 'begin_marker' and 'end_marker' with c…
+      - id: edit_marks_one
+        type: FunctionDef
+        signature: "def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:"
+      - id: edit_marks
+        type: FunctionDef
+        signature: "def edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:"
+        docstring: Replace everything between and including 'begin_marker' and 'end_marker' with c…
+      - id: EditMarksTool
+        type: ClassDef
+        signature: "class EditMarksTool(ToolDefinition):"
+        children:
+        - id: EditMarksTool.fQt7nq
+          type: statements
+        - id: EditMarksTool.nwuMMe
+          type: statements
+        - id: EditMarksTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python A…"
+      - id: register_edit_marks_tool
+        type: FunctionDef
+        signature: "def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+      nodes:
+      - id: SnH9wF
+        type: statements
+      - id: jOZ28H
+        type: imports
+      - id: C1PXrB
+        type: statements
+      - id: EditLineError
+        type: ClassDef
+        signature: "class EditLineError(Exception):"
+        docstring: Raised when an edit-line operation cannot be performed.
+      - id: EditLineItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLineItem:"
+        docstring: "One single-line edit to apply. Attributes: path: Absolute path to file (must be…"
+      - id: EditLineResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLineResult:"
+        docstring: "Result of applying a single line edit, mirroring its input path for result asso…"
+      - id: EditLineItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLineItemError:"
+        docstring: "Error applying a single line edit, mirroring its input path for result associat…"
+      - id: EditLineBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditLineBatchResult:"
+        docstring: "Result of :func:`edit_line`. Attributes: results: One :class:`EditLineResult` p…"
+      - id: edit_line_one
+        type: FunctionDef
+        signature: "def _edit_line_one(item: EditLineItem) -> EditLineResult:"
+      - id: edit_line
+        type: FunctionDef
+        signature: "def edit_line(items: list[EditLineItem]) -> EditLineBatchResult:"
+        docstring: "Replace a single line with one or more lines, in one or more files. Delegates t…"
+      - id: EditLineTool
+        type: ClassDef
+        signature: "class EditLineTool(ToolDefinition):"
+        children:
+        - id: EditLineTool.SvWeSl
+          type: statements
+        - id: EditLineTool.EK3r6W
+          type: statements
+        - id: EditLineTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`edit_line`, translating the MCP schema to/from the Python AP…"
+      - id: register_edit_line_tool
+        type: FunctionDef
+        signature: "def register_edit_line_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+      nodes:
+      - id: mQ94sx
+        type: statements
+      - id: U3ZrxH
+        type: imports
+      - id: Ep3OAb
+        type: statements
+      - id: WriteError
+        type: ClassDef
+        signature: "class WriteError(Exception):"
+        docstring: Raised when a write operation cannot be performed.
+      - id: WriteItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class WriteItem:"
+        docstring: "One file to write. Attributes: path: Absolute path to file to write (created if…"
+      - id: WriteResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class WriteResult:"
+        docstring: "Result of writing a single file, mirroring its input path for result associatio…"
+      - id: WriteItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class WriteItemError:"
+        docstring: "Error writing a single file, mirroring its input path for result association."
+      - id: WriteBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class WriteBatchResult:"
+        docstring: "Result of :func:`write`. Attributes: results: One :class:`WriteResult` per succ…"
+      - id: write_one
+        type: FunctionDef
+        signature: "def _write_one(item: WriteItem) -> WriteResult:"
+      - id: write
+        type: FunctionDef
+        signature: "def write(items: list[WriteItem]) -> WriteBatchResult:"
+        docstring: "Write or replace one or more target files, for a batch of items. Args: items: F…"
+      - id: WriteTool
+        type: ClassDef
+        signature: "class WriteTool(ToolDefinition):"
+        children:
+        - id: WriteTool.QjWlF5
+          type: statements
+        - id: WriteTool.Gixly0
+          type: statements
+        - id: WriteTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`write`, translating the MCP schema to/from the Python API."
+      - id: register_write_tool
+        type: FunctionDef
+        signature: "def register_write_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+      nodes:
+      - id: xNQxjQ
+        type: statements
+      - id: qhtmsO
+        type: imports
+      - id: BU27Ci
+        type: statements
+      - id: ReadError
+        type: ClassDef
+        signature: "class ReadError(Exception):"
+        docstring: Raised when a file cannot be read or the requested range is invalid.
+      - id: ReadItem
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ReadItem:"
+        docstring: "One file (optionally sliced to a range) to read. Attributes: path: Absolute pat…"
+      - id: ReadResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ReadResult:"
+        docstring: "Result of reading a single file, mirroring its input path for result associatio…"
+      - id: ReadItemError
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ReadItemError:"
+        docstring: "Error reading a single file, mirroring its input path for result association."
+      - id: ReadBatchResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ReadBatchResult:"
+        docstring: "Result of :func:`read_file`. Attributes: results: One :class:`ReadResult` per s…"
+      - id: cache_key
+        type: FunctionDef
+        signature: "def _cache_key(session_id: str, item: ReadItem) -> str:"
+      - id: read_one
+        type: FunctionDef
+        signature: "def _read_one(item: ReadItem) -> ReadResult:"
+      - id: read_file
+        type: FunctionDef
+        signature: "def read_file(items: list[ReadItem]) -> ReadBatchResult:"
+        docstring: "Read one or more files, each optionally sliced to a range. Args: items: Files t…"
+      - id: read_file_cached
+        type: FunctionDef
+        signature: "def _read_file_cached(items: list[ReadItem], session: Session) -> ReadBatchResult:"
+        docstring: Wrap :func:`read_file`'s per-item logic with session-scoped change detection. K…
+      - id: serialize_read_result
+        type: FunctionDef
+        signature: "def _serialize_read_result(result: ReadResult) -> dict[str, Any]:"
+      - id: ReadTool
+        type: ClassDef
+        signature: "class ReadTool(ToolDefinition):"
+        children:
+        - id: ReadTool.F2kfm5
+          type: statements
+        - id: ReadTool.bowSJW
+          type: statements
+        - id: ReadTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the P…"
+      - id: register_read_tool
+        type: FunctionDef
+        signature: "def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_call/__init__.py
+      nodes:
+      - id: KoQDTY
+        type: statements
+      - id: YBqeOe
+        type: imports
+      - id: ozT4qG
+        type: statements
+      - id: BTFIw1
+        type: statements
+      - id: ToolCallError
+        type: ClassDef
+        signature: "class ToolCallError(Exception):"
+        docstring: Raised when *tool_ids* cannot be resolved/injected.
+      - id: ToolCallExecution
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class ToolCallExecution:"
+      - id: fresh_namespace
+        type: FunctionDef
+        signature: "def fresh_namespace() -> dict[str, Any]:"
+      - id: sanitize_identifier
+        type: FunctionDef
+        signature: "def _sanitize_identifier(tool_id: str) -> str:"
+      - id: inject_tools
+        type: FunctionDef
+        signature: "def inject_tools(functions: FunctionRegistry, namespace: dict[str, Any], tool_ids: list[str]) -> dict[str, str]:"
+        docstring: "Bind every id in *tool_ids* into *namespace* under a valid identifier. Args: fu…"
+      - id: spill
+        type: FunctionDef
+        signature: "def _spill(namespace: dict[str, Any], text: str, label: str) -> str:"
+        docstring: Store *text* under a fresh variable name in *namespace*; return that name.
+      - id: run_tool_call
+        type: FunctionDef
+        signature: "def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:"
+        docstring: "Execute *code* against the persistent *namespace*, capturing STDOUT/STDERR. *na…"
+      - id: ToolCallTool
+        type: ClassDef
+        signature: "class ToolCallTool(ToolDefinition):"
+        children:
+        - id: ToolCallTool.XrVKYI
+          type: statements
+        - id: ToolCallTool.BwbXB1
+          type: statements
+        - id: ToolCallTool.init
+          type: FunctionDef
+          signature: "def __init__(self, functions: FunctionRegistry) -> None:"
+        - id: ToolCallTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+      - id: register
+        type: FunctionDef
+        signature: "def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_chars/__init__.py
+      nodes:
+      - id: NiBcvd
+        type: statements
+      - id: WIeTDO
+        type: imports
+      - id: fROhJL
+        type: statements
+      - id: EditCharsError
+        type: ClassDef
+        signature: "class EditCharsError(Exception):"
+        docstring: Raised when a edit-chars operation cannot be performed.
+      - id: EditCharsResult
+        type: ClassDef
+        signature: "@dataclass(frozen=True) class EditCharsResult:"
+      - id: edit_chars
+        type: FunctionDef
+        signature: "def edit_chars(path: str, offset: int, length: int, content: str) -> EditCharsResult:"
+        docstring: Replace ``length`` characters starting at ``offset`` in the file at ``path`` wi…
+      - id: EditCharsTool
+        type: ClassDef
+        signature: "class EditCharsTool(ToolDefinition):"
+        children:
+        - id: EditCharsTool.SODkm5
+          type: statements
+        - id: EditCharsTool.Lx8JhB
+          type: statements
+        - id: EditCharsTool.handle
+          type: FunctionDef
+          signature: "def handle(self, ctx: ToolContext) -> ToolResult:"
+          docstring: "Delegate to :func:`edit_chars`, translating the MCP schema to/from the Python A…"
+      - id: register_edit_chars_tool
+        type: FunctionDef
+        signature: "def register_edit_chars_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:"
+      errors:
+      - "ids ['*'] resolved to no node; redirected to ast_list, returning the full outline instead."
+```
+/answer 06be-f allow
+ReasoningToken: 140
+Control Request:
+```yaml
+id: 06be-10
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+    ids:
+    - cLCK6C
+    - EditLinesTool.GewBq1
+    - EditLinesTool.wbgB4n
+    - EditLinesTool.P2efWj
+    - EditLinesTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+    ids:
+    - kljyTw
+    - EditBlockTool.7FjLjq
+    - EditBlockTool.Yug4y1
+    - EditBlockTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+    ids:
+    - Ra3auf
+    - FileStatsTool.gJH1I2
+    - FileStatsTool.CebIGK
+    - FileStatsTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+    ids:
+    - WesCns
+    - EditMarksTool.fQt7nq
+    - EditMarksTool.nwuMMe
+    - EditMarksTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+    ids:
+    - jOZ28H
+    - EditLineTool.SvWeSl
+    - EditLineTool.EK3r6W
+    - EditLineTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+    ids:
+    - U3ZrxH
+    - WriteTool.QjWlF5
+    - WriteTool.Gixly0
+    - WriteTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+    ids:
+    - qhtmsO
+    - ReadTool.F2kfm5
+    - ReadTool.bowSJW
+    - ReadTool.handle
+  reason: Vollständige Schema-Definitionen und handle-Implementierungen der batch-basierten Filesystem-Tools lesen
+```
+/answer 06be-10 allow
+Control Request:
+```yaml
+id: 06be-11
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+      nodes:
+      - id: cLCK6C
+        type: imports
+        code: |-
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+      - id: EditLinesTool.GewBq1
+        type: statements
+        code: |-
+          name = 'edit_lines'
+          title = 'Replace lines in file by line offsets'
+      - id: EditLinesTool.wbgB4n
+        type: statements
+        code: "description = 'Replace a range of lines inside one or more existing files with new content, for a batch of items. The range is defined by a zero-based line ``offset`` and an ``amount`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted. A given path may only be edited once per batch, since offsets can shift after a prior edit.'"
+      - id: EditLinesTool.P2efWj
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute path to the file to modify.'},
+                              'offset': {
+                                  'type': 'integer',
+                                  'description': 'Zero-based line offset of the first line to replace.',
+                                  'minimum': 0},
+                              'amount': {
+                                  'type': 'integer',
+                                          'description': 'Number of lines to remove starting at ``offset``.',
+                                          'minimum': 0},
+                              'content': {
+                                  'type': 'string',
+                                  'description': 'Replacement text (may be empty to perform a pure deletion).'}},
+                          'required': [
+                              'path',
+                              'offset',
+                              'amount',
+                              'content']},
+                      'description': 'Line-range replacements to apply. A given path may only appear once.'}},
+              'required': ['items']}
+      - id: EditLinesTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`edit_lines`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> EditLinesItem:
+                  return EditLinesItem(path=it['path'], offset=it['offset'], amount=it['amount'], content=it['content'])
+              return handle_batch_tool(ctx, item_factory, edit_lines, EditLinesError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+      nodes:
+      - id: kljyTw
+        type: imports
+        code: |-
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+          from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+      - id: EditBlockTool.7FjLjq
+        type: statements
+        code: |-
+          name = 'edit_block'
+          title = 'Replace text in file'
+          description = "Replace a short text inside one or more files, for a batch of items. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
+      - id: EditBlockTool.Yug4y1
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute path to the target file.'},
+                              'old_text': {
+                                  'type': 'string',
+                                  'minLength': 10,
+                                  'maxLength': 100,
+                                  'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
+                              'new_text': {
+                                  'type': 'string',
+                                          'description': "Text that replaces 'old_text' (empty to perform a deletion)."},
+                              'exact': {
+                                  'type': 'boolean',
+                                  'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                                  'default': False},
+                              'replaceAll': {
+                                  'type': 'boolean',
+                                  'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
+                                  'default': False}},
+                          'required': [
+                              'path',
+                              'old_text',
+                              'new_text']},
+                      'description': 'Block edits to apply.'}},
+              'required': ['items']}
+      - id: EditBlockTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`edit_block`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> EditBlockItem:
+                  return EditBlockItem(
+                      path=it['path'],
+                      old_text=it['old_text'],
+                      new_text=it['new_text'],
+                      exact=it.get(
+                          'exact',
+                          False),
+                      replace_all=it.get(
+                          'replaceAll',
+                          False))
+              return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+      nodes:
+      - id: Ra3auf
+        type: imports
+        code: |-
+          import hashlib
+          import re
+          from dataclasses import asdict, dataclass
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+      - id: FileStatsTool.gJH1I2
+        type: statements
+        code: |-
+          name = 'file_stats'
+          title = 'File stats'
+          resultDescription = 'The result object contains file metadata: path, size_bytes, line and word counts, complexity score (0.0–1.0), ISO 8601 timestamps (created, modified, accessed), line length metrics (min, max, avg), average words per line, and a sha256 content checksum.'
+          description = 'Get file metrics for access and processing planning, for a batch of items: complexity, timestamps, size, line/word counts, and line length statistics. ' + resultDescription
+      - id: FileStatsTool.CebIGK
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute file path.'}},
+                          'required': ['path']},
+                      'description': 'Files to compute metrics for.'}},
+              'required': ['items']}
+      - id: FileStatsTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> FileStatsItem:
+                  return FileStatsItem(path=it['path'])
+              return handle_batch_tool(ctx, item_factory, file_stats, FileStatsError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+      nodes:
+      - id: WesCns
+        type: imports
+        code: |-
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+          from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+      - id: EditMarksTool.fQt7nq
+        type: statements
+        code: |-
+          name = 'edit_marks'
+          title = 'Replace text between two marks'
+          description = "Replace everything between and including the unique 'begin_marker' and 'end_marker' markers, found in one or more files, with new 'content', for a batch of items."
+      - id: EditMarksTool.nwuMMe
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute path to the target file.'},
+                              'begin_marker': {
+                                  'type': 'string',
+                                  'minLength': 10,
+                                  'maxLength': 30,
+                                  'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
+                              'content': {
+                                  'type': 'string',
+                                          'description': 'Replacement source for the marked text.'},
+                              'end_marker': {
+                                  'type': 'string',
+                                  'minLength': 10,
+                                  'maxLength': 30,
+                                  'description': 'Unique 10-30 char substring marking the end of the text to replace.'},
+                              'exact': {
+                                  'type': 'boolean',
+                                  'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                                  'default': False}},
+                          'required': [
+                              'path',
+                              'begin_marker',
+                              'end_marker',
+                              'content']},
+                      'description': 'Marker-based edits to apply.'}},
+              'required': ['items']}
+      - id: EditMarksTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> EditMarksItem:
+                  return EditMarksItem(
+                      path=it['path'],
+                      begin_marker=it['begin_marker'],
+                      end_marker=it['end_marker'],
+                      content=it['content'],
+                      exact=it.get(
+                          'exact',
+                          False))
+              return handle_batch_tool(ctx, item_factory, edit_marks, EditMarksError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+      nodes:
+      - id: jOZ28H
+        type: imports
+        code: |-
+          from dataclasses import dataclass
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+          from xy.ai.mcpc.tools.edit_block import EditBlockItem, edit_block
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+      - id: EditLineTool.SvWeSl
+        type: statements
+        code: |-
+          name = 'edit_line'
+          title = 'Replace a single line in file'
+          description = "Replace exactly one line inside one or more files with one or more lines, for a batch of items. 'old_line' must be a single line without a newline character. Choose 'old_line' to be unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
+      - id: EditLineTool.EK3r6W
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute path to the target file.'},
+                              'old_line': {
+                                  'type': 'string',
+                                  'description': 'A single line to find and replace without a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Never pass multiple lines here.'},
+                              'new_lines': {
+                                  'type': 'string',
+                                          'description': "Replacement content for 'old_line', may be empty to delete the line."},
+                              'exact': {
+                                  'type': 'boolean',
+                                  'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                                  'default': False},
+                              'replaceAll': {
+                                  'type': 'boolean',
+                                  'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.",
+                                  'default': False}},
+                          'required': [
+                              'path',
+                              'old_line',
+                              'new_lines']},
+                      'description': 'Single-line edits to apply.'}},
+              'required': ['items']}
+      - id: EditLineTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> EditLineItem:
+                  return EditLineItem(
+                      path=it['path'],
+                      old_line=it['old_line'],
+                      new_lines=it['new_lines'],
+                      exact=it.get(
+                          'exact',
+                          False),
+                      replace_all=it.get(
+                          'replaceAll',
+                          False))
+              return handle_batch_tool(ctx, item_factory, edit_line, EditLineError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+      nodes:
+      - id: U3ZrxH
+        type: imports
+        code: |-
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+          from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+      - id: WriteTool.QjWlF5
+        type: statements
+        code: |-
+          name = 'write'
+          title = 'Write file'
+          description = 'Write content to one or more files, for a batch of items. In ``replace`` mode a file is overwritten with the supplied content. In ``append`` mode the content is added at the end of the existing file (the file is created if it does not yet exist).'
+      - id: WriteTool.Gixly0
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute path to the file to write.'},
+                              'mode': {
+                                  'type': 'string',
+                                  'enum': [
+                                          'replace',
+                                          'append'],
+                                  'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
+                              'content': {
+                                  'type': 'string',
+                                  'description': 'Text to write to the file.'}},
+                          'required': [
+                              'path',
+                              'mode',
+                              'content']},
+                      'description': 'Files to write or replace.'}},
+              'required': ['items']}
+      - id: WriteTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""
+
+              def item_factory(it: dict[str, Any]) -> WriteItem:
+                  return WriteItem(path=it['path'], mode=it['mode'], content=it['content'])
+              return handle_batch_tool(ctx, item_factory, write, WriteError, auto_approve=True)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+      nodes:
+      - id: qhtmsO
+        type: imports
+        code: |-
+          import hashlib
+          import json
+          from dataclasses import dataclass
+          from pathlib import Path
+          from typing import Any
+          from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+          from xy.ai.mcpc.tools.tool_context import ToolContext
+          from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+          from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
+          from xy.ai.mcpc.server.session import Session
+      - id: ReadTool.F2kfm5
+        type: statements
+        code: |-
+          name = 'read_file'
+          title = 'Read file content'
+          description = 'Read one or more files as text, optionally sliced to a range, for a batch of items.'
+      - id: ReadTool.bowSJW
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'items': {
+                      'type': 'array',
+                      'minItems': 1,
+                      'items': {
+                          'type': 'object',
+                          'additionalProperties': False,
+                          'properties': {
+                              'path': {
+                                  'type': 'string',
+                                  'description': 'Absolute file path.'},
+                              'min_line': {
+                                  'type': 'integer',
+                                  'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.',
+                                  'minimum': 1},
+                              'max_line': {
+                                  'type': 'integer',
+                                          'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.',
+                                          'minimum': 1},
+                              'min_char': {
+                                  'type': 'integer',
+                                  'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.',
+                                  'minimum': 0},
+                              'max_char': {
+                                  'type': 'integer',
+                                  'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.',
+                                  'minimum': 0},
+                              'start': {
+                                  'type': 'string',
+                                  'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'},
+                              'end': {
+                                  'type': 'string',
+                                  'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}},
+                          'required': ['path']},
+                      'description': 'Files to read.'}},
+              'required': ['items']}
+      - id: ReadTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the Python API."""
+              raw_items, error = require_items(ctx)
+              if error is not None:
+                  return error
+              items = [
+                  ReadItem(
+                      path=it['path'],
+                      min_line=it.get('min_line'),
+                      max_line=it.get('max_line'),
+                      min_char=it.get('min_char'),
+                      max_char=it.get('max_char'),
+                      start=it.get('start'),
+                      end=it.get('end')) for it in raw_items]
+              batch = _read_file_cached(items, ctx.session)
+              structured_content = serialize_batch_result(batch, result_serializer=_serialize_read_result)
+              has_error = bool(batch.errors)
+              all_full_file = all((r.is_full_file for r in batch.results))
+              return ToolResult(structured_content=structured_content, auto_approve=not has_error and all_full_file)
+```
+/answer 06be-11 allow
+ReasoningToken: 215
+Control Request:
+```yaml
+id: 06be-12
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_call/__init__.py
+    ids:
+    - ToolCallTool.XrVKYI
+    - ToolCallTool.BwbXB1
+    - ToolCallTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/colgrep/__init__.py
+    ids:
+    - ColgrepTool.FPOj9u
+    - ColgrepTool.4d8mO7
+    - ColgrepTool.handle
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_chars/__init__.py
+    ids:
+    - EditCharsTool.SODkm5
+    - EditCharsTool.Lx8JhB
+    - EditCharsTool.handle
+  reason: "Prüfen ob tool_call, colgrep, edit_chars ebenfalls dem items-Batch-Muster entsprechen"
+```
+/answer 06be-12 allow
+Control Request:
+```yaml
+id: 06be-13
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_call/__init__.py
+      nodes:
+      - id: ToolCallTool.XrVKYI
+        type: statements
+        code: |-
+          name = 'tool_call'
+          title = 'Run a script against injected tools'
+          description = 'Run Python code against a restricted, session-persistent context. Only text sent to print() is returned to the context — variable assignments alone (e.g. `r = tool(...)`) are persisted only. Complex objects are not auto-formatted: inspect their structure (e.g. via tool_usage/type_sources) and explicitly iterate/print the fields you need (e.g. `for x in r.results: print(x["title"])`).'
+      - id: ToolCallTool.BwbXB1
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'tool_ids': {
+                      'type': 'array',
+                      'items': {
+                          'type': 'string'},
+                      'description': "Ids of functions to inject into 'code' as same-named variables."},
+                  'code': {
+                      'type': 'string',
+                              'description': 'Python script; restricted builtins, no imports. Must explicitly print() any result you want to see — assignments are session-persistent. iterate/extract fields yourself before printing.'}},
+              'required': [
+                  'tool_ids',
+                  'code']}
+      - id: ToolCallTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              args: dict[str, Any] = ctx.arguments
+              namespace: dict[str, Any] = ctx.session.state.setdefault(_NAMESPACE_STATE_KEY, fresh_namespace())
+              try:
+                  inject_tools(self._functions, namespace, list(args.get('tool_ids', [])))
+              except ToolCallError as exc:
+                  return ToolResult(content=[text_content(str(exc))], is_error=True)
+              execution = run_tool_call(namespace, args['code'])
+              structured: dict[str, Any] = {}
+              notices: list[str] = []
+              if len(execution.stdout) > STREAM_SPILL_THRESHOLD:
+                  var_name = _spill(namespace, execution.stdout, 'stdout')
+                  structured['stdout_var'] = var_name
+                  notices.append(f"STDOUT exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it (e.g. slicing, splitlines(), grep-like logic) and print only what's needed via a follow-up tool_call using '{var_name}'.")
+              else:
+                  structured['stdout'] = execution.stdout
+              if execution.stderr:
+                  if len(execution.stderr) > STREAM_SPILL_THRESHOLD:
+                      var_name = _spill(namespace, execution.stderr, 'stderr')
+                      structured['stderr_var'] = var_name
+                      notices.append(
+                          f"STDERR exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it and re-print via a follow-up tool_call using '{var_name}'.")
+                  else:
+                      structured['stderr'] = execution.stderr
+              if execution.error is not None:
+                  structured['error'] = execution.error
+              content = [text_content(n) for n in notices]
+              return ToolResult(content=content, structured_content=structured)
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/colgrep/__init__.py
+      nodes:
+      - id: ColgrepTool.FPOj9u
+        type: statements
+        code: |-
+          name = 'colgrep'
+          title = 'Project vector DB.'
+          description = 'Search a project with a multi-vector DB.'
+      - id: ColgrepTool.4d8mO7
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'path': {
+                      'type': 'string',
+                      'description': 'Absolute directory to search in.'},
+                  'query': {
+                      'type': 'string',
+                      'description': 'Search query: natural language and/or identifiers/keywords.'},
+                  'results': {
+                      'type': 'integer',
+                              'minimum': 1,
+                              'maximum': _MAX_RESULTS,
+                              'default': _DEFAULT_RESULTS,
+                              'description': 'Maximum number of results to return.'},
+                  'code_only': {
+                      'type': 'boolean',
+                      'default': False,
+                      'description': 'Skip documentation/config files; search source code only.'},
+                  'files_only': {
+                      'type': 'boolean',
+                      'default': False,
+                      'description': 'Return matching file paths only, without snippets.'},
+                  'include': {
+                      'type': 'array',
+                      'items': {
+                          'type': 'string'},
+                      'description': 'Glob patterns a file must match, e.g. "*.py", "src/**/*.rs".'},
+                  'exclude': {
+                      'type': 'array',
+                      'items': {
+                          'type': 'string'},
+                      'description': 'Glob patterns of files to exclude, e.g. "*.test.ts".'},
+                  'exclude_dir': {
+                      'type': 'array',
+                      'items': {
+                          'type': 'string'},
+                      'description': 'Directory names to exclude, e.g. "vendor", "node_modules".'}},
+              'required': [
+                  'path',
+                  'query']}
+      - id: ColgrepTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""
+              args: dict[str, Any] = ctx.arguments
+              try:
+                  result = colgrep(
+                      path=args['path'],
+                      query=args['query'],
+                      results=args.get(
+                          'results',
+                          _DEFAULT_RESULTS),
+                      code_only=args.get(
+                          'code_only',
+                          False),
+                      files_only=args.get(
+                          'files_only',
+                          False),
+                      include=args.get('include') or [],
+                      exclude=args.get('exclude') or [],
+                      exclude_dir=args.get('exclude_dir') or [])
+              except ColgrepError as exc:
+                  return ToolResult(content=[text_content(str(exc))], is_error=True)
+              return ToolResult(structured_content={'results': result.results})
+    - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_chars/__init__.py
+      nodes:
+      - id: EditCharsTool.SODkm5
+        type: statements
+        code: |-
+          name = 'edit_chars'
+          title = 'Replace characters in file'
+          description = 'Replace a range of characters inside an file with new content. The range is defined by a zero-based character ``offset`` and a ``length`` (number of characters to remove starting at the offset). The supplied ``content`` is written in place of the removed range.'
+      - id: EditCharsTool.Lx8JhB
+        type: statements
+        code: |-
+          input_schema = {
+              'type': 'object',
+              'properties': {
+                  'path': {
+                      'type': 'string',
+                      'description': 'Absolute path to the file to modify.'},
+                  'offset': {
+                      'type': 'integer',
+                      'description': 'Zero-based character offset of the first character to replace.',
+                      'minimum': 0},
+                  'length': {
+                      'type': 'integer',
+                              'description': 'Number of characters to remove starting at ``offset``.',
+                              'minimum': 0},
+                  'content': {
+                      'type': 'string',
+                      'description': 'Replacement text (may be empty to perform a pure deletion).'}},
+              'required': [
+                  'path',
+                  'offset',
+                  'length',
+                  'content']}
+      - id: EditCharsTool.handle
+        type: FunctionDef
+        code: |-
+          def handle(self, ctx: ToolContext) -> ToolResult:
+              """Delegate to :func:`edit_chars`, translating the MCP schema to/from the Python API."""
+              args: dict[str, Any] = ctx.arguments
+              try:
+                  result = edit_chars(path=args['path'], offset=args['offset'], length=args['length'], content=args['content'])
+              except EditCharsError as exc:
+                  return ToolResult(content=[text_content(str(exc))], is_error=True)
+              return ToolResult(structured_content={'result': result.result}, auto_approve=True)
+```
+/answer 06be-13 allow
+ReasoningToken: 318
+Control Request:
+```yaml
+id: 06be-14
+toolName: ast_edit_block
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+    id: vHOP6y
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+    id: cLCK6C
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+    id: kljyTw
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+    id: Ra3auf
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+    id: WesCns
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+    id: jOZ28H
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+    id: U3ZrxH
+    old_text: from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema"
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+    id: qhtmsO
+    old_text: "from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result"
+    new_text: "from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result, batch_schema"
+  reason: batch_schema-Import in allen betroffenen Filesystem-Batch-Tools ergänzen
+```
+/answer 06be-14 allow
+ReasoningToken: 811
+Text:
+ Nun die Schema-Definitionen selbst ersetzen.
+Control Request:
+```yaml
+id: 06be-15
+toolName: ast_replace
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+    id: ListTool.WNr7HQ
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute directory path.'},
+          'pattern': {
+              'type': 'string',
+              'description': 'Regular expression to filter the result.'}}
+      _ITEM_REQUIRED = ['path']
+      _ITEMS_DESCRIPTION = 'Directories to list.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+    id: EditLinesTool.P2efWj
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute path to the file to modify.'},
+          'offset': {
+              'type': 'integer',
+              'description': 'Zero-based line offset of the first line to replace.',
+              'minimum': 0},
+          'amount': {
+              'type': 'integer',
+              'description': 'Number of lines to remove starting at ``offset``.',
+              'minimum': 0},
+          'content': {
+              'type': 'string',
+              'description': 'Replacement text (may be empty to perform a pure deletion).'}}
+      _ITEM_REQUIRED = ['path', 'offset', 'amount', 'content']
+      _ITEMS_DESCRIPTION = 'Line-range replacements to apply. A given path may only appear once.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+    id: EditBlockTool.Yug4y1
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute path to the target file.'},
+          'old_text': {
+              'type': 'string',
+              'minLength': 10,
+              'maxLength': 100,
+              'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
+          'new_text': {
+              'type': 'string',
+              'description': "Text that replaces 'old_text' (empty to perform a deletion)."},
+          'exact': {
+              'type': 'boolean',
+              'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+              'default': False},
+          'replaceAll': {
+              'type': 'boolean',
+              'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
+              'default': False}}
+      _ITEM_REQUIRED = ['path', 'old_text', 'new_text']
+      _ITEMS_DESCRIPTION = 'Block edits to apply.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+    id: FileStatsTool.CebIGK
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute file path.'}}
+      _ITEM_REQUIRED = ['path']
+      _ITEMS_DESCRIPTION = 'Files to compute metrics for.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+    id: EditMarksTool.nwuMMe
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute path to the target file.'},
+          'begin_marker': {
+              'type': 'string',
+              'minLength': 10,
+              'maxLength': 30,
+              'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
+          'content': {
+              'type': 'string',
+              'description': 'Replacement source for the marked text.'},
+          'end_marker': {
+              'type': 'string',
+              'minLength': 10,
+              'maxLength': 30,
+              'description': 'Unique 10-30 char substring marking the end of the text to replace.'},
+          'exact': {
+              'type': 'boolean',
+              'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+              'default': False}}
+      _ITEM_REQUIRED = ['path', 'begin_marker', 'end_marker', 'content']
+      _ITEMS_DESCRIPTION = 'Marker-based edits to apply.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+    id: EditLineTool.EK3r6W
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute path to the target file.'},
+          'old_line': {
+              'type': 'string',
+              'description': 'A single line to find and replace without a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Never pass multiple lines here.'},
+          'new_lines': {
+              'type': 'string',
+              'description': "Replacement content for 'old_line', may be empty to delete the line."},
+          'exact': {
+              'type': 'boolean',
+              'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+              'default': False},
+          'replaceAll': {
+              'type': 'boolean',
+              'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.",
+              'default': False}}
+      _ITEM_REQUIRED = ['path', 'old_line', 'new_lines']
+      _ITEMS_DESCRIPTION = 'Single-line edits to apply.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+    id: WriteTool.Gixly0
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute path to the file to write.'},
+          'mode': {
+              'type': 'string',
+              'enum': ['replace', 'append'],
+              'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
+          'content': {
+              'type': 'string',
+              'description': 'Text to write to the file.'}}
+      _ITEM_REQUIRED = ['path', 'mode', 'content']
+      _ITEMS_DESCRIPTION = 'Files to write or replace.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  - path: /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+    id: ReadTool.bowSJW
+    source: |-
+      _ITEM_PROPERTIES = {
+          'path': {
+              'type': 'string',
+              'description': 'Absolute file path.'},
+          'min_line': {
+              'type': 'integer',
+              'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.',
+              'minimum': 1},
+          'max_line': {
+              'type': 'integer',
+              'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.',
+              'minimum': 1},
+          'min_char': {
+              'type': 'integer',
+              'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.',
+              'minimum': 0},
+          'max_char': {
+              'type': 'integer',
+              'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.',
+              'minimum': 0},
+          'start': {
+              'type': 'string',
+              'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'},
+          'end': {
+              'type': 'string',
+              'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}}
+      _ITEM_REQUIRED = ['path']
+      _ITEMS_DESCRIPTION = 'Files to read.'
+      input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+  reason: Alle acht Filesystem-Batch-Tool-Schemas auf den generischen batch_schema-Helfer umstellen
+```
+/answer 06be-15 allow
+Control Request:
+```yaml
+id: 06be-16
+toolName: ast_validate
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/list/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_lines/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_block/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/file_stats/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_marks/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/edit_line/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/write/__init__.py
+  - /home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/read/__init__.py
+  reason: Alle acht geänderten Dateien auf Syntaxfehler prüfen
+```
+/answer 06be-16 allow
+Text:
+ Nun alles validieren.
+Result Stats:  id=197ec463-3b74-4b65-9ff0-550d1070e94d, total: 0, in: 201, out: 34476, reason: 0, read: 2208307, write: 125534
+Alle acht Filesystem-Batch-Tools (`list`, `edit_lines`, `edit_block`, `file_stats`, `edit_marks`, `edit_line`, `write`, `read`) nutzen jetzt ebenfalls `batch_schema` aus `_tool_helpers.py` statt handgeschriebener Schemas – wie zuvor bei `ast_read`/`grep`. `tool_call`, `colgrep`, `edit_chars`, `github`, `context7`, `web_search_exa` sind Einzelaufruf-Tools ohne `items`-Batch und daher unverändert.

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
@@ -143,43 +143,30 @@ class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
     title = 'Replace text between two marks'
     description = "Replace everything between and including the unique 'begin_marker' and 'end_marker' markers, found in one or more files, with new 'content', for a batch of items."
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the target file.'},
-                        'begin_marker': {
-                            'type': 'string',
-                            'minLength': 10,
-                            'maxLength': 30,
-                            'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
-                        'content': {
-                            'type': 'string',
-                                    'description': 'Replacement source for the marked text.'},
-                        'end_marker': {
-                            'type': 'string',
-                            'minLength': 10,
-                            'maxLength': 30,
-                            'description': 'Unique 10-30 char substring marking the end of the text to replace.'},
-                        'exact': {
-                            'type': 'boolean',
-                            'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                            'default': False}},
-                    'required': [
-                        'path',
-                        'begin_marker',
-                        'end_marker',
-                        'content']},
-                'description': 'Marker-based edits to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute path to the target file.'},
+        'begin_marker': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 30,
+            'description': 'Unique 10-30 char substring marking the beginning of the text to replace.'},
+        'content': {
+            'type': 'string',
+                    'description': 'Replacement source for the marked text.'},
+        'end_marker': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 30,
+            'description': 'Unique 10-30 char substring marking the end of the text to replace.'},
+        'exact': {
+            'type': 'boolean',
+            'description': "If true, 'begin_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+            'default': False}}
+    _ITEM_REQUIRED = ['path', 'begin_marker', 'end_marker', 'content']
+    _ITEMS_DESCRIPTION = 'Marker-based edits to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python API."""

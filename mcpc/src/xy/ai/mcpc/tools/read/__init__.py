@@ -7,7 +7,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
+from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result, batch_schema
 from xy.ai.mcpc.server.session import Session
 __all__ = [
     'ReadError',
@@ -219,44 +219,35 @@ class ReadTool(ToolDefinition):
     name = 'read_file'
     title = 'Read file content'
     description = 'Read one or more files as text, optionally sliced to a range, for a batch of items.'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute file path.'},
-                        'min_line': {
-                            'type': 'integer',
-                            'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.',
-                            'minimum': 1},
-                        'max_line': {
-                            'type': 'integer',
-                                    'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.',
-                                    'minimum': 1},
-                        'min_char': {
-                            'type': 'integer',
-                            'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.',
-                            'minimum': 0},
-                        'max_char': {
-                            'type': 'integer',
-                            'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.',
-                            'minimum': 0},
-                        'start': {
-                            'type': 'string',
-                            'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'},
-                        'end': {
-                            'type': 'string',
-                            'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}},
-                    'required': ['path']},
-                'description': 'Files to read.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute file path.'},
+        'min_line': {
+            'type': 'integer',
+            'description': 'Range start: line number, inclusive, 1-based. Excludes start and min_char.',
+            'minimum': 1},
+        'max_line': {
+            'type': 'integer',
+                    'description': 'Range end: line number, inclusive, 1-based. Excludes end and max_char.',
+                    'minimum': 1},
+        'min_char': {
+            'type': 'integer',
+            'description': 'Range start: character offset, inclusive, 0-based. Excludes min_line.',
+            'minimum': 0},
+        'max_char': {
+            'type': 'integer',
+            'description': 'Range end: character offset, exclusive, 0-based. Excludes max_line.',
+            'minimum': 0},
+        'start': {
+            'type': 'string',
+            'description': 'Range start: unique marker substring, inclusive. Excludes min_line and min_char.'},
+        'end': {
+            'type': 'string',
+            'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}}
+    _ITEM_REQUIRED = ['path']
+    _ITEMS_DESCRIPTION = 'Files to read.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the Python API."""

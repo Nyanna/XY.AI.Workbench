@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.edit_block import EditBlockItem, edit_block
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
@@ -107,39 +107,27 @@ class EditLineTool(ToolDefinition):
     name = 'edit_line'
     title = 'Replace a single line in file'
     description = "Replace exactly one line inside one or more files with one or more lines, for a batch of items. 'old_line' must be a single line without a newline character. Choose 'old_line' to be unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the target file.'},
-                        'old_line': {
-                            'type': 'string',
-                            'description': 'A single line to find and replace without a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Never pass multiple lines here.'},
-                        'new_lines': {
-                            'type': 'string',
-                                    'description': "Replacement content for 'old_line', may be empty to delete the line."},
-                        'exact': {
-                            'type': 'boolean',
-                            'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                            'default': False},
-                        'replaceAll': {
-                            'type': 'boolean',
-                            'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.",
-                            'default': False}},
-                    'required': [
-                        'path',
-                        'old_line',
-                        'new_lines']},
-                'description': 'Single-line edits to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute path to the target file.'},
+        'old_line': {
+            'type': 'string',
+            'description': 'A single line to find and replace without a newline character. Keep it short and distinct enough to match uniquely. Must occur exactly once unless replaceAll is set. Never pass multiple lines here.'},
+        'new_lines': {
+            'type': 'string',
+                    'description': "Replacement content for 'old_line', may be empty to delete the line."},
+        'exact': {
+            'type': 'boolean',
+            'description': "If true, 'old_line' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+            'default': False},
+        'replaceAll': {
+            'type': 'boolean',
+            'description': "If true, replace every occurrence of 'old_line' instead of requiring a single unique match. Defaults to false.",
+            'default': False}}
+    _ITEM_REQUIRED = ['path', 'old_line', 'new_lines']
+    _ITEMS_DESCRIPTION = 'Single-line edits to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
@@ -121,41 +121,29 @@ class EditBlockTool(ToolDefinition):
     name = 'edit_block'
     title = 'Replace text in file'
     description = "Replace a short text inside one or more files, for a batch of items. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the target file.'},
-                        'old_text': {
-                            'type': 'string',
-                            'minLength': 10,
-                            'maxLength': 100,
-                            'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
-                        'new_text': {
-                            'type': 'string',
-                                    'description': "Text that replaces 'old_text' (empty to perform a deletion)."},
-                        'exact': {
-                            'type': 'boolean',
-                            'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                            'default': False},
-                        'replaceAll': {
-                            'type': 'boolean',
-                            'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
-                            'default': False}},
-                    'required': [
-                        'path',
-                        'old_text',
-                        'new_text']},
-                'description': 'Block edits to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute path to the target file.'},
+        'old_text': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 100,
+            'description': 'Text (10-100 chars) to find and replace. Must occur exactly once, unless replaceAll is set.'},
+        'new_text': {
+            'type': 'string',
+                    'description': "Text that replaces 'old_text' (empty to perform a deletion)."},
+        'exact': {
+            'type': 'boolean',
+            'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+            'default': False},
+        'replaceAll': {
+            'type': 'boolean',
+            'description': "If true, replace every occurrence of 'old_text' instead of requiring a single unique match. Defaults to false.",
+            'default': False}}
+    _ITEM_REQUIRED = ['path', 'old_text', 'new_text']
+    _ITEMS_DESCRIPTION = 'Block edits to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_block`, translating the MCP schema to/from the Python API."""

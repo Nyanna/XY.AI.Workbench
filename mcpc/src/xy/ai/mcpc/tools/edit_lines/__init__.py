@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'EditLinesError',
@@ -120,37 +120,24 @@ class EditLinesTool(ToolDefinition):
     name = 'edit_lines'
     title = 'Replace lines in file by line offsets'
     description = 'Replace a range of lines inside one or more existing files with new content, for a batch of items. The range is defined by a zero-based line ``offset`` and an ``amount`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted. A given path may only be edited once per batch, since offsets can shift after a prior edit.'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file to modify.'},
-                        'offset': {
-                            'type': 'integer',
-                            'description': 'Zero-based line offset of the first line to replace.',
-                            'minimum': 0},
-                        'amount': {
-                            'type': 'integer',
-                                    'description': 'Number of lines to remove starting at ``offset``.',
-                                    'minimum': 0},
-                        'content': {
-                            'type': 'string',
-                            'description': 'Replacement text (may be empty to perform a pure deletion).'}},
-                    'required': [
-                        'path',
-                        'offset',
-                        'amount',
-                        'content']},
-                'description': 'Line-range replacements to apply. A given path may only appear once.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute path to the file to modify.'},
+        'offset': {
+            'type': 'integer',
+            'description': 'Zero-based line offset of the first line to replace.',
+            'minimum': 0},
+        'amount': {
+            'type': 'integer',
+                    'description': 'Number of lines to remove starting at ``offset``.',
+                    'minimum': 0},
+        'content': {
+            'type': 'string',
+            'description': 'Replacement text (may be empty to perform a pure deletion).'}}
+    _ITEM_REQUIRED = ['path', 'offset', 'amount', 'content']
+    _ITEMS_DESCRIPTION = 'Line-range replacements to apply. A given path may only appear once.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_lines`, translating the MCP schema to/from the Python API."""

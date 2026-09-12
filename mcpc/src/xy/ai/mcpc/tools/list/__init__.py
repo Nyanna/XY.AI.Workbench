@@ -19,7 +19,7 @@ from xy.ai.mcpc.tools._directories import normalize_directory
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 __all__ = [
     'ListError',
     'ListItem',
@@ -153,25 +153,11 @@ class ListTool(ToolDefinition):
     name = 'list'
     title = 'List directory contents'
     description = 'List all files below one or more absolute directory paths, recursively, as a flat list, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch.'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute directory path.'},
-                        'pattern': {
-                            'type': 'string',
-                            'description': 'Regular expression to filter the result.'}},
-                    'required': ['path']},
-                'description': 'Directories to list.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {'path': {'type': 'string', 'description': 'Absolute directory path.'},
+                        'pattern': {'type': 'string', 'description': 'Regular expression to filter the result.'}}
+    _ITEM_REQUIRED = ['path']
+    _ITEMS_DESCRIPTION = 'Directories to list.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""

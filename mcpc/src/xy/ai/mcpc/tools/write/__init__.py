@@ -5,7 +5,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 __all__ = [
     'WriteError',
     'WriteItem',
@@ -95,34 +95,22 @@ class WriteTool(ToolDefinition):
     name = 'write'
     title = 'Write file'
     description = 'Write content to one or more files, for a batch of items. In ``replace`` mode a file is overwritten with the supplied content. In ``append`` mode the content is added at the end of the existing file (the file is created if it does not yet exist).'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file to write.'},
-                        'mode': {
-                            'type': 'string',
-                            'enum': [
-                                    'replace',
-                                    'append'],
-                            'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
-                        'content': {
-                            'type': 'string',
-                            'description': 'Text to write to the file.'}},
-                    'required': [
-                        'path',
-                        'mode',
-                        'content']},
-                'description': 'Files to write or replace.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string',
+            'description': 'Absolute path to the file to write.'},
+        'mode': {
+            'type': 'string',
+            'enum': [
+                    'replace',
+                    'append'],
+            'description': '``replace`` – overwrite the file with the new content. ``append`` – add the new content after the existing content.'},
+        'content': {
+            'type': 'string',
+            'description': 'Text to write to the file.'}}
+    _ITEM_REQUIRED = ['path', 'mode', 'content']
+    _ITEMS_DESCRIPTION = 'Files to write or replace.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""
