@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, batch_schema, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = [
@@ -108,27 +108,15 @@ class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
     title = 'Replace AST nodes'
     description = 'Replace selected nodes with source or text, for a batch of items; several operations may target the same or different files. Returns changed IDs in the result.'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file.'},
-                        'source': {
-                            'type': 'string',
-                            'description': 'Replacement source.'},
-                        **PATH_SELECTOR_PROPS},
-                    'required': [
-                        'path',
-                        'source']},
-                'description': 'Node replacements to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': PATH_PROP,
+        'source': {
+            'type': 'string',
+            'description': 'Replacement source.'},
+        **PATH_SELECTOR_PROPS}
+    _ITEM_REQUIRED = ['path', 'source']
+    _ITEMS_DESCRIPTION = 'Node replacements to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""
@@ -144,7 +132,14 @@ class ReplaceNodeTool(ToolDefinition):
 
         def error_serializer(e: ReplaceError) -> dict[str, Any]:
             return {'path': e.path, 'id': e.id, 'error': e.error}
-        return handle_batch_tool(ctx, item_factory, ast_replace, core.AstError, result_serializer, error_serializer, auto_approve=True)
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            ast_replace,
+            core.AstError,
+            result_serializer,
+            error_serializer,
+            auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())

@@ -4,6 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.ast.common import PATH_PROP, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast.list import ast_list
 from xy.ai.mcpc.tools._tool_helpers import require_items
@@ -108,28 +109,16 @@ class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'After using `ast_list` or `ast_find`, read AST subtrees for known node IDs'
     description = "After using `ast_list` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source. " + core.OUTLINE_NODE_DESCRIPTION
-    input_schema = {
-        'type': 'object',
-        'properties': {
+    _ITEM_PROPERTIES = {
+        'path': PATH_PROP,
+        'ids': {
+            'type': 'array',
             'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file.'},
-                        'ids': {
-                            'type': 'array',
-                            'items': {
-                                    'type': 'string'},
-                            'description': 'List of AST node ids to read.'}},
-                    'required': [
-                        'path',
-                        'ids']},
-                'description': 'Per-file node ids to read.'}},
-        'required': ['items']}
+                'type': 'string'},
+            'description': 'List of AST node ids to read.'}}
+    _ITEM_REQUIRED = ['path', 'ids']
+    _ITEMS_DESCRIPTION = 'Per-file node ids to read.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API.

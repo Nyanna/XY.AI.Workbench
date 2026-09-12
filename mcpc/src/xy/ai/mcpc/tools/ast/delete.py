@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, batch_schema, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = ['DeleteItem', 'DeleteResult', 'DeleteError', 'DeleteBatchResult', 'ast_delete', 'DeleteTool', 'register']
@@ -107,22 +107,10 @@ class DeleteTool(ToolDefinition):
     name = 'ast_delete'
     title = 'Delete AST nodes or files'
     description = 'Delete selected nodes from files, or whole files if no selector is given, for a batch of items.'
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file.'},
-                        **PATH_SELECTOR_PROPS},
-                    'required': ['path']},
-                'description': 'Nodes/files to delete.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {'path': PATH_PROP, **PATH_SELECTOR_PROPS}
+    _ITEM_REQUIRED = ['path']
+    _ITEMS_DESCRIPTION = 'Nodes/files to delete.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_delete`, translating the MCP schema to/from the Python API."""

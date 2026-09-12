@@ -4,6 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
+from xy.ai.mcpc.tools.ast.common import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = [
@@ -100,16 +101,14 @@ class CreateFileTool(ToolDefinition):
     name = 'ast_create'
     title = 'Create files'
     description = 'Create one or more files from source.'
-    input_schema = {
-        'type': 'object', 'properties': {
-            'items': {
-                'type': 'array', 'minItems': 1, 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string', 'description': 'Absolute path of the file to create.'}, 'source': {
-                                'type': 'string', 'description': 'Source for the new file.'}, 'overwrite': {
-                                    'type': 'boolean', 'description': 'Allow replacing an existing file.', 'default': False}}, 'required': [
-                                        'path', 'source']}, 'description': 'Files to create.'}}, 'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string', 'description': 'Absolute path of the file to create.'}, 'source': {
+                'type': 'string', 'description': 'Source for the new file.'}, 'overwrite': {
+                    'type': 'boolean', 'description': 'Allow replacing an existing file.', 'default': False}}
+    _ITEM_REQUIRED = ['path', 'source']
+    _ITEMS_DESCRIPTION = 'Files to create.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_create`, translating the MCP schema to/from the Python API."""

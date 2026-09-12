@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, batch_schema, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
@@ -143,42 +143,28 @@ class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
     title = 'Replace short text within AST nodes'
     description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by id, for a batch of items. Don't use for large edits, use ast_edit_marks instead. Returns changed IDs in the result."
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file.'},
-                        'old_text': {
-                            'type': 'string',
-                            'minLength': 10,
-                            'maxLength': 100,
-                            'description': 'Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set.'},
-                        'new_text': {
-                            'type': 'string',
-                                    'description': 'Replacement text, may be empty to remove the text.'},
-                        'exact': {
-                            'type': 'boolean',
-                            'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                            'default': False},
-                        'replaceAll': {
-                            'type': 'boolean',
-                            'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
-                            'default': False},
-                        **PATH_SELECTOR_PROPS},
-                    'required': [
-                        'path',
-                        'old_text',
-                        'new_text']},
-                'description': 'Block edits to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': PATH_PROP,
+        'old_text': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 100,
+            'description': 'Short text (10-100 chars) to replace within the node. Must occur exactly once, or replaceAll is set.'},
+        'new_text': {
+            'type': 'string',
+            'description': 'Replacement text, may be empty to remove the text.'},
+        'exact': {
+            'type': 'boolean',
+                    'description': "If true, 'old_text' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+                    'default': False},
+        'replaceAll': {
+            'type': 'boolean',
+            'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
+            'default': False},
+        **PATH_SELECTOR_PROPS}
+    _ITEM_REQUIRED = ['path', 'old_text', 'new_text']
+    _ITEMS_DESCRIPTION = 'Block edits to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""
@@ -207,7 +193,14 @@ class EditBlockNodeTool(ToolDefinition):
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
             return entry
-        return handle_batch_tool(ctx, item_factory, ast_edit_block, core.AstError, result_serializer, error_serializer, auto_approve=True)
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            ast_edit_block,
+            core.AstError,
+            result_serializer,
+            error_serializer,
+            auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

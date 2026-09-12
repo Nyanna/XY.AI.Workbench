@@ -4,7 +4,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, batch_schema, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
@@ -143,44 +143,29 @@ class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
     title = 'Replace large text regions within AST nodes between markers'
     description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by id, with new 'content', for a batch of items. Returns changed IDs in the result."
-    input_schema = {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute path to the file.'},
-                        'start_marker': {
-                            'type': 'string',
-                            'minLength': 10,
-                            'maxLength': 30,
-                            'description': "Unique 10-30 char substring marking the beginning of the text to replace, within the node's source."},
-                        'end_marker': {
-                            'type': 'string',
-                                    'minLength': 10,
-                                    'maxLength': 30,
-                                    'description': "Unique 10-30 char substring marking the end of the text to replace, within the node's source."},
-                        'content': {
-                            'type': 'string',
-                            'description': 'Replacement source for the marked text.'},
-                        'exact': {
-                            'type': 'boolean',
-                            'description': "If true, 'start_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
-                            'default': False},
-                        **PATH_SELECTOR_PROPS},
-                    'required': [
-                        'path',
-                        'start_marker',
-                        'end_marker',
-                        'content']},
-                'description': 'Marker-based edits to apply.'}},
-        'required': ['items']}
+    _ITEM_PROPERTIES = {
+        'path': PATH_PROP,
+        'start_marker': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 30,
+            'description': "Unique 10-30 char substring marking the beginning of the text to replace, within the node's source."},
+        'end_marker': {
+            'type': 'string',
+            'minLength': 10,
+            'maxLength': 30,
+            'description': "Unique 10-30 char substring marking the end of the text to replace, within the node's source."},
+        'content': {
+            'type': 'string',
+                    'description': 'Replacement source for the marked text.'},
+        'exact': {
+            'type': 'boolean',
+            'description': "If true, 'start_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
+            'default': False},
+        **PATH_SELECTOR_PROPS}
+    _ITEM_REQUIRED = ['path', 'start_marker', 'end_marker', 'content']
+    _ITEMS_DESCRIPTION = 'Marker-based edits to apply.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""
@@ -207,7 +192,14 @@ class EditMarksNodeTool(ToolDefinition):
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
             return entry
-        return handle_batch_tool(ctx, item_factory, ast_edit_marks, core.AstError, result_serializer, error_serializer, auto_approve=True)
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            ast_edit_marks,
+            core.AstError,
+            result_serializer,
+            error_serializer,
+            auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksNodeTool())
