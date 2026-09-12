@@ -105,7 +105,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		String userId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
 		ModelResponseProperties modelProps = requestBody.getCreateModelResponsePropertiesAllOf()
 				.getModelResponseProperties();
-		modelProps.setUser(userId);
+		// don't set User ID, segmentation prevents caching
+		//modelProps.setUser(userId);
 
 		if (cfg.getCapabilities().isSupportTemperature())
 			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(cfg.getTemperature())));
