@@ -22,6 +22,9 @@ import xy.ai.workbench.connector.claudecode.CCSessionManager;
 import xy.ai.workbench.connector.mcp.MCPConnector;
 import xy.ai.workbench.connector.mcp.MCPRequest;
 import xy.ai.workbench.connector.mcp.MCPResponse;
+import xy.ai.workbench.connector.deepseek.DeepSeekConnector;
+import xy.ai.workbench.connector.deepseek.DeepSeekRequest;
+import xy.ai.workbench.connector.deepseek.DeepSeekResponse;
 import xy.ai.workbench.connector.google.GeminiBatch;
 import xy.ai.workbench.connector.google.GeminiBatchConnector;
 import xy.ai.workbench.connector.google.GeminiConnector;
@@ -46,14 +49,16 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private ClaudeConnector claude;
 	private IAIBatchConnector batchClaude;
 	private CCConnector claudeCode;
+	private DeepSeekConnector deepseek;
 	private MCPConnector mcp;
 	private IAIBatchConnector newBatch;
-
-	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager) {
+	
+public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager) {
 		this.cfg = cfg;
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg));
+		deepseek = new DeepSeekConnector(cfg);
 		claudeCode = new CCConnector(cfg, sessionManager);
 		mcp = new MCPConnector(cfg);
 		newBatch = new NewBatchConnector();
@@ -72,6 +77,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return gemini;
 		case Claude:
 			return claude;
+		case Deepseek:
+			return deepseek;
 		case ClaudeCode:
 			return claudeCode;
 		case Misc:
@@ -102,6 +109,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return chad;
 		else if (request instanceof ClaudeRequest)
 			return claude;
+		else if (request instanceof DeepSeekRequest)
+			return deepseek;
 		else if (request instanceof CCRequest)
 			return claudeCode;
 		else if (request instanceof MCPRequest)
@@ -117,6 +126,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 			return chad;
 		else if (response instanceof ClaudeResponse)
 			return claude;
+		else if (response instanceof DeepSeekResponse)
+			return deepseek;
 		else if (response instanceof CCResponse)
 			return claudeCode;
 		else if (response instanceof MCPResponse)
