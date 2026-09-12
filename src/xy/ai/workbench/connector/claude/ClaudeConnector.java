@@ -39,6 +39,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 		return KeyPattern.Claude;
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public ClaudeRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {

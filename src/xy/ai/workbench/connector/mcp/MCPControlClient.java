@@ -1,9 +1,7 @@
 package xy.ai.workbench.connector.mcp;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,6 +25,7 @@ public class MCPControlClient {
 	 * required for the call is bare YAML; descriptions and constraints are
 	 * comments; defaults are pre-filled.
 	 */
+	@SuppressWarnings("deprecation")
 	public String renderSchema(JsonNode tool) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("```yaml\n");
@@ -162,6 +161,7 @@ public class MCPControlClient {
 	 * the array's item schema when it is an object with properties, instead of
 	 * just an empty "[]" — so the user sees the expected item shape directly.
 	 */
+	@SuppressWarnings("deprecation")
 	private String renderArrayValue(JsonNode prop, String indent) {
 		JsonNode itemProps = prop.path("items").path("properties");
 		if (!itemProps.isObject() || itemProps.size() == 0)

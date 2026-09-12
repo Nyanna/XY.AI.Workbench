@@ -215,6 +215,8 @@ public class AISessionManager {
 				return lines.length() > 0 ? lines : null;
 			}
 			break;
+		case Tools:
+			throw new UnsupportedOperationException();
 		}
 		return null;
 	}

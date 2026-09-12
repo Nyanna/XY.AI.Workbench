@@ -48,6 +48,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		return KeyPattern.OpenAI;
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public OpenAIRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
 			IProgressMonitor mon) {

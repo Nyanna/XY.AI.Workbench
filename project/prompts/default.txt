@@ -4,7 +4,7 @@ tools:
 - "context7_documentation"
 outputMode: "Append"
 ---
-#Answer very short and precise
+Answer very short and precise
 #Be objective and neutral
 #Don't repeat the input
 #Don't ask follow-up questions
