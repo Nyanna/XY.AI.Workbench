@@ -153,7 +153,7 @@ class DeleteTool(ToolDefinition):
         content = {'results': [{'path': r.path, 'id': r.id, 'result': r.result} for r in batch.results], 'errors': [
             {'path': e.path, 'id': e.id, 'error': e.error} for e in batch.errors]}
         is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(structured_content=content, is_error=False, auto_approve=not is_error)
+        return ToolResult(structured_content=content, auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(DeleteTool())

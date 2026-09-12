@@ -186,8 +186,7 @@ class ListTool(ToolDefinition):
                                                     'path': {
                                                         'type': 'string'}, 'error': {
                                                             'type': 'string'}}, 'required': [
-                                                                'path', 'error']}}}, 'required': [
-                                                                    'results', 'errors']}
+                                                                'path', 'error']}}}}
     annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
@@ -200,10 +199,15 @@ class ListTool(ToolDefinition):
         batch = list(items)
         results = [{'path': r.path, 'entries': r.entries} for r in batch.results]
         errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
+        
+        structured_content = {}
+        if results:
+            structured_content['results'] = results
+        if errors:
+            structured_content['errors'] = errors
+
         return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
+            structured_content=structured_content,
             is_error=False,
             auto_approve=False)
 

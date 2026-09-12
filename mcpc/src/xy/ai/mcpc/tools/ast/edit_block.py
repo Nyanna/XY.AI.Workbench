@@ -232,12 +232,16 @@ class EditBlockNodeTool(ToolDefinition):
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
             errors.append(entry)
+            
+        structured_content = {}
+        if results:
+            structured_content['results'] = results
+        if errors:
+            structured_content['errors'] = errors
+
         is_error = bool(batch.errors) and (not batch.results)
         return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            is_error=False,
+            structured_content=structured_content,
             auto_approve=not is_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:

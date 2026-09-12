@@ -1,0 +1,3 @@
+- `is_error=False` entfernen da es das Default ist.
+- 'results' und 'errors' sollen nicht mehr required sein und nur vorhanden wenn sie Inhalt haben
+- Die `handle` function vereinheitlichen und wo möglich gemeinsamen code verwenden (enthält aktuell viel duplicated code).
