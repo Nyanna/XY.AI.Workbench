@@ -26,8 +26,12 @@ _ALIAS_MEMBERS = (
     'ast_replace',
     'ast_delete',
     'ast_create',
-    'ast_script',
     'ast_validate')
+ALIAS_READ = 'ast-read'
+_ALIAS_READ_MEMBERS = (
+    'ast_list',
+    'ast_find',
+    'ast_read')
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``ast_*`` tool and the ``ast`` alias."""
@@ -43,3 +47,4 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     script.register(registry, functions)
     validate.register(registry, functions)
     registry.register_alias(ALIAS, _ALIAS_MEMBERS)
+    registry.register_alias(ALIAS_READ, _ALIAS_READ_MEMBERS)
