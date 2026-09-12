@@ -83,7 +83,6 @@ class EditCharsTool(ToolDefinition):
                 'type': 'string',
                 'description': '``success`` on success.'}},
         'required': ['result']}
-    annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_chars`, translating the MCP schema to/from the Python API."""

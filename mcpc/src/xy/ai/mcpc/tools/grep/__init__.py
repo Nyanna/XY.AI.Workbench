@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, serialize_batch_result
 import re
 __all__ = [
     'GrepError',
@@ -263,18 +264,13 @@ class GrepTool(ToolDefinition):
                                                                                             'type': 'string'}}, 'pattern': {
                                                                                                 'type': 'string'}, 'error': {
                                                                                                     'type': 'string'}}, 'required': [
-                                                                                                        'directory', 'pattern', 'error']}}}, 'required': [
-                                                                                                            'results', 'errors']}
-    annotations = {'readOnlyHint': True, 'idempotentHint': True, 'openWorldHint': False}
+                                                                                                        'directory', 'pattern', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [
-            GrepItem(
+
+        def item_factory(it: dict[str, Any]) -> GrepItem:
+            return GrepItem(
                 directory=it['directory'],
                 pattern=it['pattern'],
                 exclude=it.get('exclude'),
@@ -282,10 +278,9 @@ class GrepTool(ToolDefinition):
                 limit=int(
                     it.get(
                         'limit',
-                        _DEFAULT_LIMIT))) for it in raw_items]
-        batch = grep(items)
-        results = []
-        for r in batch.results:
+                        _DEFAULT_LIMIT)))
+
+        def result_serializer(r: GrepResult) -> dict[str, Any]:
             entry: dict[str,
                         Any] = {'directory': r.directory,
                                 'pattern': r.pattern,
@@ -294,14 +289,17 @@ class GrepTool(ToolDefinition):
                                              'match': m.match} for m in r.matches]}
             if r.warning is not None:
                 entry['warning'] = r.warning
-            results.append(entry)
-        errors = [{'directory': e.directory, 'pattern': e.pattern, 'error': e.error} for e in batch.errors]
-        return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            is_error=False,
-            auto_approve=False)
+            return entry
+        args: dict[str, Any] = ctx.arguments
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [item_factory(it) for it in raw_items]
+        batch = grep(items)
+        error_serializer = lambda e: {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
+        content = serialize_batch_result(batch, result_serializer, error_serializer)
+        has_error = bool(batch.errors)
+        return ToolResult(structured_content=content, auto_approve=not has_error)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

@@ -195,7 +195,6 @@ class EditMarksTool(ToolDefinition):
                                                         'type': 'string'}}, 'required': [
                                                             'path', 'error']}}}, 'required': [
                                                                 'results', 'errors']}
-    annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_marks`, translating the MCP schema to/from the Python API."""
@@ -215,13 +214,12 @@ class EditMarksTool(ToolDefinition):
         batch = edit_marks(items)
         results = [{'path': r.path, 'result': r.result} for r in batch.results]
         errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
+        has_error = bool(batch.errors)
         return ToolResult(
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=False,
-            auto_approve=not is_error)
+            auto_approve=not has_error)
 
 def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksTool())

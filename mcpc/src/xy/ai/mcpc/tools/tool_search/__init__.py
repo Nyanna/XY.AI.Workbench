@@ -63,7 +63,6 @@ class ToolSearchTool(ToolDefinition):
                         'name': {
                             'type': 'string'}, 'docstring': {
                                 'type': 'string'}}, 'required': ['name']}}}, 'required': ['tools']}
-    annotations = {'readOnlyHint': True, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions

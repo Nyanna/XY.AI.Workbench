@@ -161,7 +161,6 @@ class SkillsTool(ToolDefinition):
                                                         'type': 'string'}}, 'required': [
                                                             'name', 'error']}}}, 'required': [
                                                                 'results', 'errors']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def __init__(self) -> None:
         catalog = '\n'.join((f'- {skill.name}: {skill.description}' for skill in SKILLS))
@@ -177,13 +176,12 @@ class SkillsTool(ToolDefinition):
         batch = get_skills(items)
         results = [{'name': r.name, 'instructions': r.instructions} for r in batch.results]
         errors = [{'name': e.name, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
+        has_error = bool(batch.errors)
         return ToolResult(
             structured_content={
                 'results': results,
                 'errors': errors},
-            is_error=False,
-            auto_approve=not is_error)
+            auto_approve=not has_error)
 
 def register_skills(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the batching skills tool and each skill's backing function."""

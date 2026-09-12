@@ -5,6 +5,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = [
     'CreateFileItem',
     'CreateFileResult',
@@ -123,28 +124,14 @@ class CreateFileTool(ToolDefinition):
                                                 'path': {
                                                     'type': 'string'}, 'error': {
                                                         'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}, 'required': [
-                                                                'results', 'errors']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': False}
+                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_create`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [
-            CreateFileItem(
-                path=it['path'],
-                source=it['source'],
-                overwrite=it.get(
-                    'overwrite',
-                    False)) for it in raw_items]
-        batch = ast_create(items)
-        content = {'results': [{'path': r.path, 'result': r.result} for r in batch.results],
-                   'errors': [{'path': e.path, 'error': e.error} for e in batch.errors]}
-        is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(structured_content=content, auto_approve=not is_error)
+
+        def item_factory(it: dict[str, Any]) -> CreateFileItem:
+            return CreateFileItem(path=it['path'], source=it['source'], overwrite=it.get('overwrite', False))
+        return handle_batch_tool(ctx, item_factory, ast_create, core.AstError)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(CreateFileTool())

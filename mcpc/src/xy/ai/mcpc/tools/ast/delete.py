@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = ['DeleteItem', 'DeleteResult', 'DeleteError', 'DeleteBatchResult', 'ast_delete', 'DeleteTool', 'register']
 
 @dataclass(frozen=True)
@@ -138,22 +139,14 @@ class DeleteTool(ToolDefinition):
                                                         'type': 'string'}, 'id': {
                                                             'type': 'string'}, 'error': {
                                                                 'type': 'string'}}, 'required': [
-                                                                    'path', 'error']}}}, 'required': [
-                                                                        'results', 'errors']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': False}
+                                                                    'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_delete`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [DeleteItem(path=it['path'], id=it.get('id')) for it in raw_items]
-        batch = ast_delete(items)
-        content = {'results': [{'path': r.path, 'id': r.id, 'result': r.result} for r in batch.results], 'errors': [
-            {'path': e.path, 'id': e.id, 'error': e.error} for e in batch.errors]}
-        is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(structured_content=content, auto_approve=not is_error)
+
+        def item_factory(it: dict[str, Any]) -> DeleteItem:
+            return DeleteItem(path=it['path'], id=it.get('id'))
+        return handle_batch_tool(ctx, item_factory, ast_delete, core.AstError)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(DeleteTool())

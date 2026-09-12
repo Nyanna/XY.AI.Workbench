@@ -12,7 +12,6 @@ from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
 __all__ = ['GitHubBridge', 'GitHubTool', 'register_github_tools']
 _CONTENT_OUTPUT: dict[str, Any] = {'type': 'object', 'properties': {'content': {
     'type': 'string', 'description': 'Response content from the GitHub MCP server.'}}, 'required': ['content']}
-_RO: dict[str, Any] = {'readOnlyHint': True, 'openWorldHint': True}
 _GET_FILE_SCHEMA: dict[str,
                        Any] = {'type': 'object',
                                'properties': {'owner': {'type': 'string',
@@ -875,7 +874,6 @@ class GitHubTool(ToolDefinition):
         self.description = description
         self.input_schema = input_schema
         self.output_schema = _CONTENT_OUTPUT
-        self.annotations = _RO
         self._core = core
 
     def handle(self, ctx: ToolContext) -> ToolResult:

@@ -52,7 +52,6 @@ class AskUserTool(ToolDefinition):
                 'description': "The question to ask the user."}},
         'required': ['question']}
     output_schema = {'type': 'object', 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ask_user`, translating the MCP schema to/from the Python API."""

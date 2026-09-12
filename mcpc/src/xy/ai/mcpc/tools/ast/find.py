@@ -179,7 +179,6 @@ class FindNodesTool(ToolDefinition):
                             'path',
                             'nodes']}}},
         'required': ['files']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_find`, translating the MCP schema to/from the AST API."""

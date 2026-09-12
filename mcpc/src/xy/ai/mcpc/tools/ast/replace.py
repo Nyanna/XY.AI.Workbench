@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, serialize_batch_result
 __all__ = [
     'ReplaceItem',
     'ReplaceResult',
@@ -145,32 +146,29 @@ class ReplaceNodeTool(ToolDefinition):
                                                             'type': 'string'}, 'id': {
                                                                 'type': 'string'}, 'error': {
                                                                     'type': 'string'}}, 'required': [
-                                                                        'path', 'error']}}}, 'required': [
-                                                                            'results', 'errors']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': False}
+                                                                        'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""
+
+        def item_factory(it: dict[str, Any]) -> ReplaceItem:
+            return ReplaceItem(path=it['path'], source=it['source'], id=it.get('id'))
+
+        def result_serializer(r: ReplaceResult) -> dict[str, Any]:
+            entry = {'path': r.path, 'id': r.id, 'result': r.result}
+            if r.new_id is not None:
+                entry['new_id'] = r.new_id
+            return entry
         args: dict[str, Any] = ctx.arguments
         raw_items = args.get('items') or []
         if not raw_items:
             return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [ReplaceItem(path=it['path'], source=it['source'], id=it.get('id')) for it in raw_items]
+        items = [item_factory(it) for it in raw_items]
         batch = ast_replace(items)
-        results = []
-        for r in batch.results:
-            entry = {'path': r.path, 'id': r.id, 'result': r.result}
-            if r.new_id is not None:
-                entry['new_id'] = r.new_id
-            results.append(entry)
-        errors = [{'path': e.path, 'id': e.id, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            is_error=False,
-            auto_approve=not is_error)
+        error_serializer = lambda e: {'path': e.path, 'id': e.id, 'error': e.error}
+        content = serialize_batch_result(batch, result_serializer, error_serializer)
+        has_error = bool(batch.errors)
+        return ToolResult(structured_content=content, auto_approve=not has_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())

@@ -124,7 +124,6 @@ class AgentTool(ToolDefinition):
                 'type': 'string'}, 'session_id': {
                     'type': 'string'}}, 'required': [
                         'response', 'session_id']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': True}
 
     def __init__(self, environment: AppEnvironment) -> None:
         self.environment = environment
@@ -143,7 +142,6 @@ class AgentProfileTool(ToolDefinition):
                 'type': 'string'}, 'session_id': {
                     'type': 'string'}}, 'required': [
                         'response', 'session_id']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': True}
 
     def __init__(self, environment: AppEnvironment, profile: AgentProfile) -> None:
         self.environment = environment

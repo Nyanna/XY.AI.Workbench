@@ -7,6 +7,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import serialize_batch_result
 __all__ = [
     'ReadError',
     'ReadItem',
@@ -232,9 +233,7 @@ class ReadTool(ToolDefinition):
                                                         'path': {
                                                             'type': 'string'}, 'error': {
                                                                 'type': 'string'}}, 'required': [
-                                                                    'path', 'error']}}}, 'required': [
-                                                                        'results', 'errors']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
+                                                                    'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`read_file`, then apply session-level change detection and MCP packing."""
@@ -273,15 +272,15 @@ class ReadTool(ToolDefinition):
                 if not result.is_full_file:
                     all_full_file = False
                 results.append(entry)
-        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        is_error = bool(batch.errors) and (not batch.results)
+        error_serializer = lambda e: {'path': e.path, 'error': e.error}
+        structured_content = serialize_batch_result(batch, result_serializer=None, error_serializer=error_serializer)
+        if results:
+            structured_content['results'] = results
+        has_error = bool(batch.errors)
         return ToolResult(
             content=content,
-            structured_content={
-                'results': results,
-                'errors': errors},
-            is_error=False,
-            auto_approve=not is_error and all_full_file)
+            structured_content=structured_content,
+            auto_approve=not has_error and all_full_file)
 
 def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadTool())

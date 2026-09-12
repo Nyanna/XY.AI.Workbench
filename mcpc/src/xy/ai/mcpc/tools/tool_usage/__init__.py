@@ -125,7 +125,6 @@ class ToolUsageTool(ToolDefinition):
                                                                 'type': 'string'}, 'error': {
                                                                     'type': 'string'}}, 'required': [
                                                                         'name', 'error']}}}, 'required': ['usages']}
-    annotations = {'readOnlyHint': True, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions
@@ -154,7 +153,7 @@ class ToolUsageTool(ToolDefinition):
         structured_content: dict[str, Any] = {'usages': usages}
         if errors:
             structured_content['errors'] = errors
-        return ToolResult(structured_content=structured_content, is_error=False)
+        return ToolResult(structured_content=structured_content)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolUsageTool(functions))

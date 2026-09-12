@@ -44,7 +44,7 @@ def bash(cwd: str, script: str) -> ProcessResult:
 class BashTool(ToolDefinition):
     name = 'bash'
     title = 'Run Bash script'
-    description = f"Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file."
+    description = f'Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -73,7 +73,6 @@ class BashTool(ToolDefinition):
                 'type': 'string',
                 'description': 'Absolute path to a file containing the full STDERR, if STDERR exceeded the safety limit.'}},
         'required': ['stdout']}
-    annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`bash` and pack the result into the MCP output schema."""

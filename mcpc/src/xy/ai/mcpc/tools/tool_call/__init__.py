@@ -198,7 +198,6 @@ class ToolCallTool(ToolDefinition):
                 'type': 'string'},
             'error': {
                 'type': 'string'}}}
-    annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': False}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions
@@ -230,7 +229,7 @@ class ToolCallTool(ToolDefinition):
         if execution.error is not None:
             structured['error'] = execution.error
         content = [text_content(n) for n in notices]
-        return ToolResult(content=content, structured_content=structured, is_error=False)
+        return ToolResult(content=content, structured_content=structured)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolCallTool(functions))

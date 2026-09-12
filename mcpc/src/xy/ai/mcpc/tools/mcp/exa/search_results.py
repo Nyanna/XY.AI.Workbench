@@ -17,7 +17,6 @@ _OUTPUT_SCHEMA: dict[str,
                                                                                  'text': {'type': 'string'}},
                                                                   'required': ['id']}}},
                              'required': ['results']}
-_ANNOTATIONS = {'readOnlyHint': True, 'openWorldHint': False}
 
 def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
     """Resolve ids from a prior ``web_search_exa`` call to url and full text.
@@ -40,7 +39,6 @@ class WebSearchExaResultsTool(ToolDefinition):
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
     output_schema = _OUTPUT_SCHEMA
-    annotations = _ANNOTATIONS
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         try:

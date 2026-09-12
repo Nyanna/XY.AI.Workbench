@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, serialize_batch_result
 __all__ = [
     'EditBlockItem',
     'EditBlockResult',
@@ -197,18 +198,13 @@ class EditBlockNodeTool(ToolDefinition):
                                                                     'type': 'string'}, 'candidates': {
                                                                         'type': 'array', 'items': {
                                                                             'type': 'string'}, 'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}}, 'required': [
-                                                                                'path', 'error']}}}, 'required': [
-                                                                                    'results', 'errors']}
-    annotations = {'readOnlyHint': False, 'openWorldHint': False}
+                                                                                'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [
-            EditBlockItem(
+
+        def item_factory(it: dict[str, Any]) -> EditBlockItem:
+            return EditBlockItem(
                 path=it['path'],
                 old_text=it['old_text'],
                 new_text=it['new_text'],
@@ -218,31 +214,28 @@ class EditBlockNodeTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False),
-                id=it.get('id')) for it in raw_items]
-        batch = ast_edit_block(items)
-        results = []
-        for r in batch.results:
+                id=it.get('id'))
+
+        def result_serializer(r: EditBlockResult) -> dict[str, Any]:
             entry = {'path': r.path, 'id': r.id, 'result': r.result}
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
-            results.append(entry)
-        errors = []
-        for e in batch.errors:
+            return entry
+
+        def error_serializer(e: EditBlockError) -> dict[str, Any]:
             entry = {'path': e.path, 'id': e.id, 'error': e.error}
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
-            errors.append(entry)
-            
-        structured_content = {}
-        if results:
-            structured_content['results'] = results
-        if errors:
-            structured_content['errors'] = errors
-
-        is_error = bool(batch.errors) and (not batch.results)
-        return ToolResult(
-            structured_content=structured_content,
-            auto_approve=not is_error)
+            return entry
+        args: dict[str, Any] = ctx.arguments
+        raw_items = args.get('items') or []
+        if not raw_items:
+            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        items = [item_factory(it) for it in raw_items]
+        batch = ast_edit_block(items)
+        content = serialize_batch_result(batch, result_serializer, error_serializer)
+        has_error = bool(batch.errors)
+        return ToolResult(structured_content=content, auto_approve=not has_error)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

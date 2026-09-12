@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = ['ValidateError', 'FileCheck', 'ValidateResult', 'ast_validate', 'ValidateTool', 'register']
 
 class ValidateError(Exception):
@@ -95,9 +96,8 @@ class ValidateTool(ToolDefinition):
                                     'type': 'boolean'}, 'error': {
                                         'type': [
                                             'string', 'null']}}, 'required': [
-                                                'path', 'ok', 'error']}}}, 'required': [
+                                                'path', 'ok']}}}, 'required': [
                                                     'all_ok', 'files']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_validate`, translating the MCP schema to/from the AST API."""

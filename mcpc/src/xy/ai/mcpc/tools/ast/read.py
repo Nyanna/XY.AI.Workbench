@@ -149,7 +149,6 @@ class ReadNodeTool(ToolDefinition):
                                                                         'type': 'string'}}, 'required': [
                                                                             'path', 'error']}}}, 'required': [
                                                                                 'results', 'errors']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API.
@@ -187,7 +186,7 @@ class ReadNodeTool(ToolDefinition):
             results.append({'path': item_result.path,
                             'nodes': [core.to_dict(n) for n in item_result.nodes],
                             'errors': item_result.errors})
-        return ToolResult(structured_content={'results': results, 'errors': errors}, is_error=False)
+        return ToolResult(structured_content={'results': results, 'errors': errors})
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadNodeTool())

@@ -48,9 +48,7 @@ class PythonTool(ToolDefinition):
             'exit_code': {
                 'type': 'integer'}, 'stdout': {
                     'type': 'string'}, 'stderr': {
-                        'type': 'string'}}, 'required': [
-                            'exit_code', 'stdout']}
-    annotations = {'readOnlyHint': False, 'idempotentHint': False, 'openWorldHint': True}
+                        'type': 'string'}}, 'required': ['stdout']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`python` and pack the result into the MCP output schema."""

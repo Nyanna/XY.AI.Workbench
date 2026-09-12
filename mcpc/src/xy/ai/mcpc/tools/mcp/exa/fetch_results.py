@@ -30,7 +30,6 @@ _OUTPUT_SCHEMA: dict[str,
                                                                                  'text': {'type': 'string'}},
                                                                   'required': ['id']}}},
                              'required': ['results']}
-_ANNOTATIONS = {'readOnlyHint': True, 'openWorldHint': False}
 
 def _grep_lines(text: str, pattern: str, context: int) -> str:
     """Keep lines matching *pattern* plus *context* lines around each match ('grep -E' style)."""

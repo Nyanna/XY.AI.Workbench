@@ -19,6 +19,7 @@ from xy.ai.mcpc.tools._directories import normalize_directory
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import serialize_batch_result
 __all__ = [
     'ListError',
     'ListItem',
@@ -187,7 +188,6 @@ class ListTool(ToolDefinition):
                                                         'type': 'string'}, 'error': {
                                                             'type': 'string'}}, 'required': [
                                                                 'path', 'error']}}}}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
@@ -197,19 +197,11 @@ class ListTool(ToolDefinition):
             return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
         items = [ListItem(path=it['path'], pattern=it.get('pattern')) for it in raw_items]
         batch = list(items)
-        results = [{'path': r.path, 'entries': r.entries} for r in batch.results]
-        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        
-        structured_content = {}
-        if results:
-            structured_content['results'] = results
-        if errors:
-            structured_content['errors'] = errors
-
-        return ToolResult(
-            structured_content=structured_content,
-            is_error=False,
-            auto_approve=False)
+        result_serializer = lambda r: {'path': r.path, 'entries': r.entries}
+        error_serializer = lambda e: {'path': e.path, 'error': e.error}
+        content = serialize_batch_result(batch, result_serializer, error_serializer)
+        has_error = bool(batch.errors)
+        return ToolResult(structured_content=content, auto_approve=not has_error)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())

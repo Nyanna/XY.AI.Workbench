@@ -57,7 +57,6 @@ _QUERY_DOCS_OUTPUT: dict[str,
                                                                        'properties': {'content': {'type': 'string'}},
                                                                        'required': ['content']}}},
                                  'required': ['sections']}
-_RO: dict[str, Any] = {'readOnlyHint': True, 'openWorldHint': True}
 _NOT_FOUND_TRIGGER = 'No documentation found for library'
 _BLOCK_SEPARATOR = re.compile('(?m)^-{3,}\\s*$')
 _LIBRARY_FIELD = re.compile('(?m)^-\\s*(.+?):\\s*(.*)$')
@@ -159,7 +158,6 @@ class Context7LibrariesTool(ToolDefinition):
     description = _RESOLVE_DESCRIPTION
     input_schema = _RESOLVE_SCHEMA
     output_schema = _RESOLVE_OUTPUT
-    annotations = _RO
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -175,7 +173,6 @@ class Context7DocumentationTool(ToolDefinition):
     description = _QUERY_DOCS_DESCRIPTION
     input_schema = _QUERY_DOCS_SCHEMA
     output_schema = _QUERY_DOCS_OUTPUT
-    annotations = _RO
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

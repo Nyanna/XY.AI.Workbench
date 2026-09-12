@@ -218,7 +218,6 @@ def openalex_work(id: str, fields: str | None=None) -> WorkResult:
     """
     structured = _openalex_work_raw(id, fields=fields)
     return WorkResult(work=parse_entity('works', structured['work']))
-_RO: dict[str, Any] = {'readOnlyHint': True, 'openWorldHint': True}
 _LIST_OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'count': {'type': 'integer'}, 'returned': {
     'type': 'integer'}, 'results': {'type': 'array', 'items': {'type': 'object'}}}}
 _SEARCH_DESCRIPTION = 'Keyword and boolean full-text search across OpenAlex scholarly entities (works by default). Searches titles, abstracts and full text for works; names for authors, sources and institutions.\n\nQuery syntax: use uppercase AND / OR / NOT and double-quoted phrases, e.g. ("machine learning" OR "deep learning") NOT survey. Set exact=true for unstemmed matching and wildcards (machin*). Results are sorted by relevance and limited to the first page.'
@@ -275,7 +274,6 @@ class OpenalexSearchTool(ToolDefinition):
     description = _SEARCH_DESCRIPTION
     input_schema = _SEARCH_INPUT_SCHEMA
     output_schema = _LIST_OUTPUT_SCHEMA
-    annotations = _RO
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -303,7 +301,6 @@ class OpenalexSemanticSearchTool(ToolDefinition):
     description = _SEMANTIC_SEARCH_DESCRIPTION
     input_schema = _SEMANTIC_INPUT_SCHEMA
     output_schema = _LIST_OUTPUT_SCHEMA
-    annotations = _RO
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -323,7 +320,6 @@ class OpenalexWorkTool(ToolDefinition):
     description = _WORK_DESCRIPTION
     input_schema = _WORK_INPUT_SCHEMA
     output_schema = _WORK_OUTPUT_SCHEMA
-    annotations = _RO
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

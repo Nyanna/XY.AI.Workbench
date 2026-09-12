@@ -35,7 +35,6 @@ _ITEM_SCHEMA: dict[str,
                            'required': ['id']}
 _OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'results': {
     'type': 'array', 'items': _ITEM_SCHEMA}, 'autoprompt_string': {'type': 'string'}}, 'required': ['results']}
-_ANNOTATIONS = {'readOnlyHint': True, 'openWorldHint': True}
 
 @dataclass(frozen=True, slots=True)
 class WebSearchResult:
@@ -136,7 +135,6 @@ class WebSearchExaTool(ToolDefinition):
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
     output_schema = _OUTPUT_SCHEMA
-    annotations = _ANNOTATIONS
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

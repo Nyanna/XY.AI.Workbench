@@ -134,7 +134,6 @@ class ListNodesTool(ToolDefinition):
                                                                 'type': 'string'}}, 'required': [
                                                                     'path', 'error']}}}, 'required': [
                                                                         'results', 'errors']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""
@@ -146,7 +145,7 @@ class ListNodesTool(ToolDefinition):
         batch = ast_list(paths=paths, with_lines=with_lines)
         content = {'results': [{'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]} for r in batch.results], 'errors': [
             {'path': e.path, 'error': e.error} for e in batch.errors]}
-        return ToolResult(structured_content=content, is_error=False)
+        return ToolResult(structured_content=content)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListNodesTool())

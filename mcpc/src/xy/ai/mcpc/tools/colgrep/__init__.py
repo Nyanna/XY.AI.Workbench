@@ -195,7 +195,7 @@ def colgrep(path: str, query: str, results: int=_DEFAULT_RESULTS, code_only: boo
 class ColgrepTool(ToolDefinition):
     name = 'colgrep'
     title = 'Project vector DB.'
-    description = "Search a project with a multi-vector DB."
+    description = 'Search a project with a multi-vector DB.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -244,9 +244,7 @@ class ColgrepTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                     'type': 'object'},
-                'description': 'Result objects'}},
-        'required': ['results']}
-    annotations = {'readOnlyHint': True, 'openWorldHint': False}
+                'description': 'Result objects'}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""
