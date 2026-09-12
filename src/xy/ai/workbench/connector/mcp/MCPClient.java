@@ -24,7 +24,7 @@ import xy.ai.workbench.connector.claudecode.JsonUtil;
  * and tool cache live 1:1 in this instance; no shared manager.
  */
 public class MCPClient {
-	private static final String SERVER_URL = "http://localhost:9094/mcp";
+	private static final String SERVER_URL = "http://localhost:9093/mcp";
 	private static final String PROTOCOL_VERSION = "2025-06-18";
 	private static final Duration TIMEOUT = Duration.ofSeconds(300);
 
@@ -61,7 +61,24 @@ public class MCPClient {
 		ObjectNode params = mapper.createObjectNode();
 		params.put("name", name);
 		params.set("arguments", arguments != null && arguments.isObject() ? arguments : mapper.createObjectNode());
-		return send(request("tools/call", params), true);
+		JsonNode result = send(request("tools/call", params), true);
+		if (result.path("isError").asBoolean(false))
+			throw new IllegalArgumentException("MCP Error: " + extractErrorText(result));
+		return result;
+	}
+
+	/** Concatenates the "text" entries of an MCP "content" array for an error message. */
+	private String extractErrorText(JsonNode result) {
+		JsonNode content = result.path("content");
+		if (!content.isArray())
+			return result.toString();
+		StringBuilder sb = new StringBuilder();
+		for (JsonNode c : content) {
+			if (sb.length() > 0)
+				sb.append("\n");
+			sb.append(c.path("text").asText(""));
+		}
+		return sb.toString();
 	}
 
 	public synchronized void close() {

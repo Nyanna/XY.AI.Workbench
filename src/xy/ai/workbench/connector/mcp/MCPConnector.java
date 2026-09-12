@@ -56,7 +56,9 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 			String name = call.path("tool").asText(null);
 			if (name == null || name.isBlank())
 				throw new IllegalArgumentException("Tool call is missing the 'tool' field");
-			JsonNode result = client.callTool(name, call.path("arguments"));
+			JsonNode tool = client.findTool(name);
+			JsonNode arguments = control.fillReason(tool, call.path("arguments"));
+			JsonNode result = client.callTool(name, arguments);
 			return new MCPResponse(req.id, control.prettyResult(result));
 		}
 		default:
