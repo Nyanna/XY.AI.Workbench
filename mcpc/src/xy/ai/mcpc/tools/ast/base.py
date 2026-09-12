@@ -31,6 +31,24 @@ class AstAmbiguous(AstError):
         super().__init__(message)
         self.candidates = candidates
 
+class AstTextError(AstError):
+    """Raised when a text/marker-based edit's search text could not be applied.
+
+    Carries the shared-matcher's diagnosis (see ``tools._text_match``): ``reason``
+    classifies the cause (e.g. ``whitespace_mismatch``, ``content_changed``,
+    ``guard_rejected``, ``marker_order``, ``ambiguous``, ``not_found``);
+    ``corrected_text`` is a verified fix (whitespace-only difference), ``guess``
+    an unverified single-candidate heuristic, ``next_step`` a fallback instruction.
+    """
+
+    def __init__(self, message: str, *, reason: str | None=None, position: str | None=None, corrected_text: str | None=None, guess: str | None=None, next_step: str | None=None) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.position = position
+        self.corrected_text = corrected_text
+        self.guess = guess
+        self.next_step = next_step
+
 @dataclass
 class Tree:
     """A parsed file/snippet plus the engine that owns it.

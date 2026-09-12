@@ -61,11 +61,20 @@ class EditBlockError:
         id: The id exactly as given in the input, for result association.
         error: The error message.
         candidates: On ambiguity (id omitted, several nodes matched), the candidate node ids.
+        reason: Machine-readable cause, e.g. 'whitespace_mismatch', 'content_changed',
+            'guard_rejected', 'ambiguous', 'not_found'.
+        corrected_text: Verified fix for old_text (whitespace-only difference), if any.
+        guess: Unverified single-candidate guess at old_text's current form, if any.
+        next_step: Fallback instruction (e.g. 'reread_node') when no fix could be determined.
     """
     path: str
     id: str | None
     error: str
     candidates: list[str] | None = None
+    reason: str | None = None
+    corrected_text: str | None = None
+    guess: str | None = None
+    next_step: str | None = None
 
 @dataclass(frozen=True)
 class EditBlockBatchResult:
@@ -107,7 +116,13 @@ def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
             max_level=3 if tree.engine.validates_syntax else 2,
             where='node')
     except TextMatchError as exc:
-        raise core.AstError(str(exc)) from exc
+        raise core.AstTextError(
+            str(exc), reason=getattr(
+                exc, 'reason', None), position=getattr(
+                    exc, 'position', None), corrected_text=getattr(
+                        exc, 'corrected_text', None), guess=getattr(
+                            exc, 'guess', None), next_step=getattr(
+                                exc, 'next_step', None)) from exc
     new_id = core.replace_node(target, new_source)
     core.CACHE.save(file_path, tree)
     return EditBlockResult(path=item.path, id=item.id, result='success', new_id=new_id)
@@ -137,7 +152,13 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
         except core.AstAmbiguous as exc:
             errors.append(EditBlockError(path=item.path, id=item.id, error=str(exc), candidates=exc.candidates))
         except core.AstError as exc:
-            errors.append(EditBlockError(path=item.path, id=item.id, error=str(exc)))
+            errors.append(
+                EditBlockError(
+                    path=item.path, id=item.id, error=str(exc), reason=getattr(
+                        exc, 'reason', None), corrected_text=getattr(
+                            exc, 'corrected_text', None), guess=getattr(
+                                exc, 'guess', None), next_step=getattr(
+                                    exc, 'next_step', None)))
     return EditBlockBatchResult(results=results, errors=errors)
 
 class EditBlockNodeTool(ToolDefinition):
@@ -191,8 +212,10 @@ class EditBlockNodeTool(ToolDefinition):
 
         def error_serializer(e: EditBlockError) -> dict[str, Any]:
             entry = {'path': e.path, 'id': e.id, 'error': e.error}
-            if e.candidates is not None:
-                entry['candidates'] = e.candidates
+            for field in ('candidates', 'reason', 'corrected_text', 'guess', 'next_step'):
+                value = getattr(e, field)
+                if value is not None:
+                    entry[field] = value
             return entry
         return handle_batch_tool(
             ctx,

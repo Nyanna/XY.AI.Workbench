@@ -1,5 +1,5 @@
 """Edit-block tool – edits an exact block of text (old -> new) in a file, for a batch of items."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
@@ -19,6 +19,14 @@ __all__ = [
 
 class EditBlockError(Exception):
     """Raised when a edit-block operation cannot be performed."""
+
+    def __init__(self, message: str, *, reason: str | None=None, position: str | None=None, corrected_text: str | None=None, guess: str | None=None, next_step: str | None=None) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.position = position
+        self.corrected_text = corrected_text
+        self.guess = guess
+        self.next_step = next_step
 
 @dataclass(frozen=True)
 class EditBlockItem:
@@ -50,6 +58,10 @@ class EditBlockItemError:
     """Error applying a single block edit, mirroring its input path for result association."""
     path: str
     error: str
+    reason: str | None = None
+    corrected_text: str | None = None
+    guess: str | None = None
+    next_step: str | None = None
 
 @dataclass(frozen=True)
 class EditBlockBatchResult:
@@ -83,7 +95,13 @@ def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
             max_level=2,
             where='file')
     except TextMatchError as exc:
-        raise EditBlockError(str(exc)) from exc
+        raise EditBlockError(
+            str(exc), reason=getattr(
+                exc, 'reason', None), position=getattr(
+                    exc, 'position', None), corrected_text=getattr(
+                        exc, 'corrected_text', None), guess=getattr(
+                            exc, 'guess', None), next_step=getattr(
+                                exc, 'next_step', None)) from exc
     try:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
@@ -114,7 +132,14 @@ def edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
         try:
             results.append(_edit_block_one(item))
         except EditBlockError as exc:
-            errors.append(EditBlockItemError(path=item.path, error=str(exc)))
+            errors.append(
+                EditBlockItemError(
+                    path=item.path,
+                    error=str(exc),
+                    reason=exc.reason,
+                    corrected_text=exc.corrected_text,
+                    guess=exc.guess,
+                    next_step=exc.next_step))
     return EditBlockBatchResult(results=results, errors=errors)
 
 class EditBlockTool(ToolDefinition):
@@ -159,7 +184,16 @@ class EditBlockTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False))
-        return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError, auto_approve=True)
+
+        def error_serializer(e: EditBlockItemError) -> dict[str, Any]:
+            return {k: v for k, v in asdict(e).items() if v is not None}
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            edit_block,
+            EditBlockError,
+            error_serializer=error_serializer,
+            auto_approve=True)
 
 def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockTool())

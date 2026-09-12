@@ -1,6 +1,4 @@
 # TODO
-* wieder newline ersetzungsprobleme analysieren
-
 * auto approve im harness wenn kontext in kleiner X zeichen und kein fehler
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h

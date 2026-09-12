@@ -1,5 +1,5 @@
 """Edit Marks tool – replaces the text strictly including two markers, for a batch of items."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
@@ -20,6 +20,14 @@ __all__ = [
 
 class EditMarksError(Exception):
     """Raised when a replace operation cannot be performed."""
+
+    def __init__(self, message: str, *, reason: str | None=None, position: str | None=None, corrected_text: str | None=None, guess: str | None=None, next_step: str | None=None) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.position = position
+        self.corrected_text = corrected_text
+        self.guess = guess
+        self.next_step = next_step
 
 @dataclass(frozen=True)
 class EditMarksItem:
@@ -49,6 +57,11 @@ class EditMarksItemError:
     """Error applying a single marker-based replacement, mirroring its input path for result association."""
     path: str
     error: str
+    reason: str | None = None
+    position: str | None = None
+    corrected_text: str | None = None
+    guess: str | None = None
+    next_step: str | None = None
 
 @dataclass(frozen=True)
 class EditMarksBatchResult:
@@ -96,7 +109,13 @@ def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str,
             max_level=2,
             where='file')
     except TextMatchError as exc:
-        raise EditMarksError(str(exc)) from exc
+        raise EditMarksError(
+            str(exc), reason=getattr(
+                exc, 'reason', None), position=getattr(
+                    exc, 'position', None), corrected_text=getattr(
+                        exc, 'corrected_text', None), guess=getattr(
+                            exc, 'guess', None), next_step=getattr(
+                                exc, 'next_step', None)) from exc
 
 def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:
     file_path = Path(item.path)
@@ -136,7 +155,15 @@ def edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
         try:
             results.append(_edit_marks_one(item))
         except EditMarksError as exc:
-            errors.append(EditMarksItemError(path=item.path, error=str(exc)))
+            errors.append(
+                EditMarksItemError(
+                    path=item.path,
+                    error=str(exc),
+                    reason=exc.reason,
+                    position=exc.position,
+                    corrected_text=exc.corrected_text,
+                    guess=exc.guess,
+                    next_step=exc.next_step))
     return EditMarksBatchResult(results=results, errors=errors)
 
 class EditMarksTool(ToolDefinition):
@@ -180,7 +207,16 @@ class EditMarksTool(ToolDefinition):
                 exact=it.get(
                     'exact',
                     False))
-        return handle_batch_tool(ctx, item_factory, edit_marks, EditMarksError, auto_approve=True)
+
+        def error_serializer(e: EditMarksItemError) -> dict[str, Any]:
+            return {k: v for k, v in asdict(e).items() if v is not None}
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            edit_marks,
+            EditMarksError,
+            error_serializer=error_serializer,
+            auto_approve=True)
 
 def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksTool())
