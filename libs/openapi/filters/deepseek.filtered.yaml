@@ -565,6 +565,7 @@ components:
       anyOf:
         - type: "string"
           enum:
+            - "none"
             - "low"
             - "high"
             - "max"

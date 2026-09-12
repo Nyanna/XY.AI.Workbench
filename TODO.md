@@ -1,5 +1,13 @@
 # TODO
 
+* deepseek
+	- Checking Cache Hit Status - https://api-docs.deepseek.com/api/create-response
+		In the response from the DeepSeek API, we have added two fields in the usage section to reflect the cache hit status of the request:
+		prompt_cache_hit_tokens: The number of tokens in the input of this request that resulted in a cache hit.
+		prompt_cache_miss_tokens: The number of tokens in the input of this request that did not result in a cache hit.
+	- temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
+
+
 * Harness
 	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei

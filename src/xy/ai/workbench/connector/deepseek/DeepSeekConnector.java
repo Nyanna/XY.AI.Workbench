@@ -21,7 +21,7 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.openapi.deepseek.ResponsesClientImpl;
-import xy.ai.workbench.connector.openapi.deepseek.components.AnyOfModel;
+import xy.ai.workbench.connector.openapi.deepseek.components.AnyOfBodyModel;
 import xy.ai.workbench.connector.openapi.deepseek.components.InputElementContentList;
 import xy.ai.workbench.connector.openapi.deepseek.components.ModelResponseProperties;
 import xy.ai.workbench.connector.openapi.deepseek.components.OneOfContentElement;
@@ -93,7 +93,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		ObjectNode root = mapper.createObjectNode();
 		AllOfBody requestBody = new AllOfBody(root);
 
-		requestBody.getResponseProperties().setModel(new AnyOfModel(TextNode.valueOf(cfg.getModel().apiName)));
+		requestBody.getResponseProperties().setModel(new AnyOfBodyModel(TextNode.valueOf(cfg.getModel().apiName)));
 
 		CreateResponseAllOfPart part = requestBody.getCreateResponseAllOfPart();
 		part.setMaxOutputTokens(new AnyOfMaxOutputTokens(LongNode.valueOf(cfg.getMaxOutputTokens())));
@@ -109,9 +109,11 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		//modelProps.setUser(userId);
 
 		if (cfg.getCapabilities().isSupportTemperature())
+			// ignored when thinking, 0-2
 			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(cfg.getTemperature())));
 
 		if (cfg.getCapabilities().isSupportTopP())
+			// onl yused when thinking 0.95-1
 			modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(cfg.getTopP())));
 
 		EffortEnum effort = toEffort(cfg.getReasoning());
@@ -158,17 +160,16 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		if (reasoning == null)
 			return null;
 		switch (reasoning) {
-		case minimal:
+		case Disabled:
+			return EffortEnum.NONE;
 		case low:
 			return EffortEnum.LOW;
-		case medium:
 		case high:
 			return EffortEnum.HIGH;
-		case xhigh:
 		case max:
 			return EffortEnum.MAX;
 		default:
-			return null;
+			throw new UnsupportedOperationException("Unsupported reasoning");
 		}
 	}
 

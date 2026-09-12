@@ -16,6 +16,7 @@ import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.Reasoning;
 
 /**
  * Resolves mainstream chat models currently available for a Deepseek API key.
@@ -35,6 +36,7 @@ public class DeepseekModelResolver implements ModelResolver {
 					continue;
 				JsonNode node = ModelsDevCatalog.get().findModel("deepseek", id);
 				Capabilities cap = ModelsDevCatalog.get().toCapabilities(KeyPattern.Deepseek, node);
+				cap.reasonings(Reasoning.Disabled, Reasoning.low, Reasoning.high, Reasoning.max);
 				result.add(new Model(id, id, cap));
 			}
 			if (result.isEmpty())

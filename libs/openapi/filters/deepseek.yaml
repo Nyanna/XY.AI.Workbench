@@ -152,7 +152,7 @@ ops:
   # --- reasoning.effort: nur low/high/max unterstuetzt ---
   - op: set
     pointer: /components/schemas/ReasoningEffort/anyOf/0/enum
-    value: [low, high, max]
+    value: [none, low, high, max]
 
   # Alle durch obige Filter verwaisten Schemas/Parameter/Bodies entfernen.
   - op: prune-orphan-schemas
