@@ -104,7 +104,7 @@ def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
     title = 'Insert AST nodes'
-    description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files."
+    description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files. Returns changed IDs in the result."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -133,26 +133,6 @@ class InsertNodeTool(ToolDefinition):
                         'source']},
                 'description': 'Insert operations to apply.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'id': {
-                                'type': 'string'}, 'result': {
-                                    'type': 'string'}, 'inserted': {
-                                        'type': 'integer'}, 'ids': {
-                                            'type': 'array', 'items': {
-                                                'type': 'string'}, 'description': 'The newly inserted node(s) ids.'}}, 'required': [
-                                                    'path', 'result', 'inserted']}}, 'errors': {
-                                                        'type': 'array', 'items': {
-                                                            'type': 'object', 'properties': {
-                                                                'path': {
-                                                                    'type': 'string'}, 'id': {
-                                                                        'type': 'string'}, 'error': {
-                                                                            'type': 'string'}}, 'required': [
-                                                                                'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_insert`, translating the MCP schema to/from the AST API."""

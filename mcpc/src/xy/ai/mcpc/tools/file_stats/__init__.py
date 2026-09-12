@@ -206,7 +206,8 @@ def file_stats(items: list[FileStatsItem]) -> FileStatsBatchResult:
 class FileStatsTool(ToolDefinition):
     name = 'file_stats'
     title = 'File stats'
-    description = 'Get file metrics for access and processing planning, for a batch of items: complexity, timestamps, size, line/word counts, and line length statistics.'
+    resultDescription = 'The result object contains file metadata: path, size_bytes, line and word counts, complexity score (0.0–1.0), ISO 8601 timestamps (created, modified, accessed), line length metrics (min, max, avg), average words per line, and a sha256 content checksum.'
+    description = 'Get file metrics for access and processing planning, for a batch of items: complexity, timestamps, size, line/word counts, and line length statistics. ' + resultDescription
     input_schema = {
         'type': 'object',
         'properties': {
@@ -223,79 +224,6 @@ class FileStatsTool(ToolDefinition):
                     'required': ['path']},
                 'description': 'Files to compute metrics for.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'results': {
-                'type': 'array',
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string',
-                            'description': 'Absolute file path.'},
-                        'size_bytes': {
-                            'type': 'integer',
-                            'description': 'File size in bytes.'},
-                        'lines': {
-                            'type': 'integer',
-                                    'description': 'Total number of lines.'},
-                        'words': {
-                            'type': 'integer',
-                            'description': 'Total number of words.'},
-                        'complexity': {
-                            'type': 'number',
-                            'description': 'Data structure complexity (0.0 to 1.0).'},
-                        'created': {
-                            'type': 'string',
-                            'description': 'Creation timestamp (ISO 8601).'},
-                        'modified': {
-                            'type': 'string',
-                            'description': 'Last modification timestamp (ISO 8601).'},
-                        'accessed': {
-                            'type': 'string',
-                            'description': 'Last access timestamp (ISO 8601).'},
-                        'line_length_max': {
-                            'type': 'integer',
-                            'description': 'Maximum line length in characters.'},
-                        'line_length_min': {
-                            'type': 'integer',
-                            'description': 'Minimum line length in characters.'},
-                        'line_length_avg': {
-                            'type': 'number',
-                            'description': 'Average line length in characters.'},
-                        'words_per_line_avg': {
-                            'type': 'number',
-                            'description': 'Average number of words per line.'},
-                        'checksum': {
-                            'type': 'string',
-                            'description': 'sha256 checksum of the file content.'}},
-                    'required': [
-                        'path',
-                        'size_bytes',
-                        'lines',
-                        'words',
-                        'complexity',
-                        'created',
-                        'modified',
-                        'accessed',
-                        'line_length_max',
-                        'line_length_min',
-                        'line_length_avg',
-                        'words_per_line_avg',
-                        'checksum']}},
-            'errors': {
-                'type': 'array',
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string'},
-                        'error': {
-                            'type': 'string'}},
-                    'required': [
-                        'path',
-                        'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""

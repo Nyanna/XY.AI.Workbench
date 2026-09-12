@@ -172,22 +172,6 @@ class ListTool(ToolDefinition):
                     'required': ['path']},
                 'description': 'Directories to list.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'entries': {
-                                'type': 'array', 'items': {
-                                    'type': 'string'}}}, 'required': [
-                                        'path', 'entries']}}, 'errors': {
-                                            'type': 'array', 'items': {
-                                                'type': 'object', 'properties': {
-                                                    'path': {
-                                                        'type': 'string'}, 'error': {
-                                                            'type': 'string'}}, 'required': [
-                                                                'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""

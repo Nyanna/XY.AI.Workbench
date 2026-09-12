@@ -8,15 +8,6 @@ __all__ = ['web_search_exa_results', 'WebSearchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_search_exa to their full text.'
 _INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {
     'type': 'string'}, 'description': 'Result ids returned by web_search_exa.'}}, 'required': ['ids']}
-_OUTPUT_SCHEMA: dict[str,
-                     Any] = {'type': 'object',
-                             'properties': {'results': {'type': 'array',
-                                                        'items': {'type': 'object',
-                                                                  'properties': {'id': {'type': 'string'},
-                                                                                 'url': {'type': 'string'},
-                                                                                 'text': {'type': 'string'}},
-                                                                  'required': ['id']}}},
-                             'required': ['results']}
 
 def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
     """Resolve ids from a prior ``web_search_exa`` call to url and full text.
@@ -38,7 +29,6 @@ class WebSearchExaResultsTool(ToolDefinition):
     title = 'Exa web search results'
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
-    output_schema = _OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         try:

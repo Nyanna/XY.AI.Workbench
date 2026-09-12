@@ -237,14 +237,6 @@ class ColgrepTool(ToolDefinition):
         'required': [
             'path',
             'query']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'results': {
-                'type': 'array',
-                'items': {
-                    'type': 'object'},
-                'description': 'Result objects'}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`colgrep`, translating the MCP schema to/from the Python API."""

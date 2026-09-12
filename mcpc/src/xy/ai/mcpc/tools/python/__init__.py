@@ -43,12 +43,6 @@ class PythonTool(ToolDefinition):
                 'type': 'string',
                 'description': 'Python script content to execute.'}},
         'required': ['script']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'exit_code': {
-                'type': 'integer'}, 'stdout': {
-                    'type': 'string'}, 'stderr': {
-                        'type': 'string'}}, 'required': ['stdout']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`python` and pack the result into the MCP output schema."""

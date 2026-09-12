@@ -396,30 +396,4 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
             raise AstError('Not a regular file.')
     return path
 '#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
-OUTLINE_NODE_SCHEMA = {
-    'type': 'object',
-    'properties': {
-        'id': {
-            'type': 'string',
-            'description': 'Unique, primarily name-based node id (numeric fallback for nameless segments); the sole address for every tool.'},
-        'type': {
-            'type': 'string'},
-        'lines': {
-            'type': 'string',
-                    'description': "Line number, or 'start-end' if the node spans multiple lines; omitted unless the 'tools' or 'edit-lines' tool is enabled in the session."},
-        'signature': {
-            'type': 'string',
-            'description': 'One-line header for class/function nodes; omitted when code is included.'},
-        'docstring': {
-            'type': 'string',
-            'description': 'Omitted when code is included.'},
-        'code': {
-            'type': 'string',
-            'description': 'Full node source; populated by find/read, omitted in list.'},
-        'children': {
-            'type': 'array',
-            'items': {
-                '$ref': '#/$defs/outline_node'}}},
-    'required': [
-        'id',
-        'type']}
+OUTLINE_NODE_DESCRIPTION = 'The result object represents an outline node with mandatory properties id, serving as the unique address for tools, and type, specifying the node type. Optional properties include lines for line numbers or ranges when edit tools are enabled, signature for single-line headers, docstring for documentation, code for full source text populated by find or read commands, and children for an array of nested child nodes. Signature and docstring are omitted when code is included, and code is omitted in list mode.'

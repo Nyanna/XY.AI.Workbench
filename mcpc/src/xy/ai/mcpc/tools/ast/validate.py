@@ -85,19 +85,6 @@ class ValidateTool(ToolDefinition):
                     'type': 'string'},
                 'description': 'Absolute paths of files to validate.'}},
         'required': ['paths']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'all_ok': {
-                'type': 'boolean'}, 'files': {
-                    'type': 'array', 'items': {
-                        'type': 'object', 'properties': {
-                            'path': {
-                                'type': 'string'}, 'ok': {
-                                    'type': 'boolean'}, 'error': {
-                                        'type': [
-                                            'string', 'null']}}, 'required': [
-                                                'path', 'ok']}}}, 'required': [
-                                                    'all_ok', 'files']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_validate`, translating the MCP schema to/from the AST API."""

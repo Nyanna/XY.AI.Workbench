@@ -57,22 +57,6 @@ class BashTool(ToolDefinition):
         'required': [
             'cwd',
             'script']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'exit_code': {
-                'type': 'integer'},
-            'stdout': {
-                'type': 'string'},
-            'stderr': {
-                'type': 'string'},
-            'stdout_file': {
-                'type': 'string',
-                'description': 'Absolute path to a file containing the full STDOUT, if STDOUT exceeded the safety limit.'},
-            'stderr_file': {
-                'type': 'string',
-                'description': 'Absolute path to a file containing the full STDERR, if STDERR exceeded the safety limit.'}},
-        'required': ['stdout']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`bash` and pack the result into the MCP output schema."""

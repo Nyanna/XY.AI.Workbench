@@ -107,24 +107,6 @@ class ToolUsageTool(ToolDefinition):
                     'type': 'string'},
                 'description': 'Ids/names of the functions, as returned by tool_search.'}},
         'required': ['names']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'usages': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'name': {
-                            'type': 'string'}, 'signature': {
-                                'type': 'string'}, 'docstring': {
-                                    'type': 'string'}, 'type_sources': {
-                                        'type': 'array', 'items': {
-                                            'type': 'string'}}}, 'required': [
-                                                'name', 'signature', 'docstring']}}, 'errors': {
-                                                    'type': 'array', 'items': {
-                                                        'type': 'object', 'properties': {
-                                                            'name': {
-                                                                'type': 'string'}, 'error': {
-                                                                    'type': 'string'}}, 'required': [
-                                                                        'name', 'error']}}}, 'required': ['usages']}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions

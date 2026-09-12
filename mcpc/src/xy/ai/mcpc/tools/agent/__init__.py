@@ -118,12 +118,6 @@ class AgentTool(ToolDefinition):
         'properties': _base_properties(
             include_system_prompt=True),
         'required': ['prompt']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'response': {
-                'type': 'string'}, 'session_id': {
-                    'type': 'string'}}, 'required': [
-                        'response', 'session_id']}
 
     def __init__(self, environment: AppEnvironment) -> None:
         self.environment = environment
@@ -136,12 +130,6 @@ class AgentTool(ToolDefinition):
 
 class AgentProfileTool(ToolDefinition):
     """Wrapper tool binding a single :class:`AgentProfile` to the agent tool."""
-    output_schema = {
-        'type': 'object', 'properties': {
-            'response': {
-                'type': 'string'}, 'session_id': {
-                    'type': 'string'}}, 'required': [
-                        'response', 'session_id']}
 
     def __init__(self, environment: AppEnvironment, profile: AgentProfile) -> None:
         self.environment = environment

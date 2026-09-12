@@ -33,8 +33,6 @@ _ITEM_SCHEMA: dict[str,
                                                       'items': {'type': 'string'},
                                                       'description': 'Short excerpt(s) of the page text.'}},
                            'required': ['id']}
-_OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'results': {
-    'type': 'array', 'items': _ITEM_SCHEMA}, 'autoprompt_string': {'type': 'string'}}, 'required': ['results']}
 
 @dataclass(frozen=True, slots=True)
 class WebSearchResult:
@@ -134,7 +132,6 @@ class WebSearchExaTool(ToolDefinition):
     title = 'Exa web search'
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
-    output_schema = _OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -146,7 +143,7 @@ class WebSearchExaTool(ToolDefinition):
         except Exception as exc:
             logger.exception('web_search_exa: unexpected error')
             return ToolResult(content=[text_content(f'Unexpected error in web_search_exa: {exc}')], is_error=True)
-        "# Keep 'results' present even when empty: it is a required output_schema"
+        "# Keep 'results' present even when empty:"
         '# field, and strip_empty()-ing the whole dict here previously dropped it'
         '# entirely on empty results, producing a schema-violating, effectively'
         '# content-less ToolResult.'

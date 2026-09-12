@@ -218,8 +218,6 @@ def openalex_work(id: str, fields: str | None=None) -> WorkResult:
     """
     structured = _openalex_work_raw(id, fields=fields)
     return WorkResult(work=parse_entity('works', structured['work']))
-_LIST_OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'count': {'type': 'integer'}, 'returned': {
-    'type': 'integer'}, 'results': {'type': 'array', 'items': {'type': 'object'}}}}
 _SEARCH_DESCRIPTION = 'Keyword and boolean full-text search across OpenAlex scholarly entities (works by default). Searches titles, abstracts and full text for works; names for authors, sources and institutions.\n\nQuery syntax: use uppercase AND / OR / NOT and double-quoted phrases, e.g. ("machine learning" OR "deep learning") NOT survey. Set exact=true for unstemmed matching and wildcards (machin*). Results are sorted by relevance and limited to the first page.'
 _SEARCH_INPUT_SCHEMA: dict[str,
                            Any] = {'type': 'object',
@@ -266,14 +264,12 @@ _WORK_INPUT_SCHEMA: dict[str,
                                                            'enum': _WORK_PRESETS,
                                                            'description': 'Field preset (default: full). Use a narrower preset such as bibliographic or abstract to reduce size.'}},
                                  'required': ['id']}
-_WORK_OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'work': {'type': 'object'}}}
 
 class OpenalexSearchTool(ToolDefinition):
     name = 'openalex_search'
     title = 'OpenAlex search'
     description = _SEARCH_DESCRIPTION
     input_schema = _SEARCH_INPUT_SCHEMA
-    output_schema = _LIST_OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -300,7 +296,6 @@ class OpenalexSemanticSearchTool(ToolDefinition):
     title = 'OpenAlex semantic search'
     description = _SEMANTIC_SEARCH_DESCRIPTION
     input_schema = _SEMANTIC_INPUT_SCHEMA
-    output_schema = _LIST_OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -319,7 +314,6 @@ class OpenalexWorkTool(ToolDefinition):
     title = 'OpenAlex work'
     description = _WORK_DESCRIPTION
     input_schema = _WORK_INPUT_SCHEMA
-    output_schema = _WORK_OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

@@ -22,14 +22,6 @@ _INPUT_SCHEMA: dict[str,
                                                        'description': 'Context lines kept before/after each match (default: 1); only used with pattern.',
                                                        'minimum': 0}},
                             'required': ['ids']}
-_OUTPUT_SCHEMA: dict[str,
-                     Any] = {'type': 'object',
-                             'properties': {'results': {'type': 'array',
-                                                        'items': {'type': 'object',
-                                                                  'properties': {'id': {'type': 'string'},
-                                                                                 'text': {'type': 'string'}},
-                                                                  'required': ['id']}}},
-                             'required': ['results']}
 
 def _grep_lines(text: str, pattern: str, context: int) -> str:
     """Keep lines matching *pattern* plus *context* lines around each match ('grep -E' style)."""
@@ -77,7 +69,6 @@ class WebFetchExaResultsTool(ToolDefinition):
     title = 'Exa web fetch results'
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
-    output_schema = _OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

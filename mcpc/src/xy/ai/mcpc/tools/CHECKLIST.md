@@ -12,6 +12,7 @@ Verify for new tools MCP part.
 * On MCP passthrough always reduce limits like results on pages
 * Tools should be as hallucination tolerant as possible and guess and correct/anticipate input
 * Verify Error returns, isError only true for MCP errors
+* Don't use output scheme, never used by LLM
 
 For Python module direct call:
 

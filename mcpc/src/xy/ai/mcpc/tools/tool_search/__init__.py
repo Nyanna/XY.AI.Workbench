@@ -55,14 +55,6 @@ class ToolSearchTool(ToolDefinition):
                 'type': 'string',
                 'description': 'Space-separated English keywords.'}},
         'required': ['keywords']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'tools': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'name': {
-                            'type': 'string'}, 'docstring': {
-                                'type': 'string'}}, 'required': ['name']}}}, 'required': ['tools']}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions

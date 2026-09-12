@@ -76,13 +76,6 @@ class EditCharsTool(ToolDefinition):
             'offset',
             'length',
             'content']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'result': {
-                'type': 'string',
-                'description': '``success`` on success.'}},
-        'required': ['result']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_chars`, translating the MCP schema to/from the Python API."""

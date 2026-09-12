@@ -123,23 +123,6 @@ class DeleteTool(ToolDefinition):
                     'required': ['path']},
                 'description': 'Nodes/files to delete.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'id': {
-                                'type': 'string'}, 'result': {
-                                    'type': 'string'}}, 'required': [
-                                        'path', 'result']}}, 'errors': {
-                                            'type': 'array', 'items': {
-                                                'type': 'object', 'properties': {
-                                                    'path': {
-                                                        'type': 'string'}, 'id': {
-                                                            'type': 'string'}, 'error': {
-                                                                'type': 'string'}}, 'required': [
-                                                                    'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_delete`, translating the MCP schema to/from the Python API."""

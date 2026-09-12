@@ -72,12 +72,6 @@ class MarkdownTool(ToolDefinition):
                 'type': 'string',
                 'description': 'TypeScript (ESM) script content to execute against the remark environment.'}},
         'required': ['script']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'exit_code': {
-                'type': 'integer'}, 'stdout': {
-                    'type': 'string'}, 'stderr': {
-                        'type': 'string'}}, 'required': ['stdout']}
 
     def __init__(self, env_dir: Path | None=None) -> None:
         """# The runner is bound once, at registration; MarkdownTool itself"""

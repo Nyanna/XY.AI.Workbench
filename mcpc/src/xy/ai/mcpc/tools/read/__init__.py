@@ -257,39 +257,6 @@ class ReadTool(ToolDefinition):
                     'required': ['path']},
                 'description': 'Files to read.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object',
-        'properties': {
-            'results': {
-                'type': 'array',
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string'},
-                        'content': {
-                            'type': 'string'},
-                        'checksum': {
-                            'type': 'string',
-                                    'description': 'sha256 checksum of the read content.'},
-                        'unchanged': {
-                            'type': 'string',
-                            'description': 'Present instead of content if identical to a previous read with the same parameters; explains that fact.'}},
-                    'required': [
-                        'path',
-                        'checksum']}},
-            'errors': {
-                'type': 'array',
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'path': {
-                            'type': 'string'},
-                        'error': {
-                            'type': 'string'}},
-                    'required': [
-                        'path',
-                        'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the Python API."""

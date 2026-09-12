@@ -106,7 +106,7 @@ def ast_list(paths: list[str], *, with_lines: bool=True) -> ListNodesBatchResult
 class ListNodesTool(ToolDefinition):
     name = 'ast_list'
     title = 'List AST nodes'
-    description = "Hierarchical tree of one or more files' AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source. A directory without subdirectories and with at most 5 files is transparently expanded to those files."
+    description = "Hierarchical tree of one or more files' AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source. A directory without subdirectories and with at most 5 files is transparently expanded to those files. " + core.OUTLINE_NODE_DESCRIPTION
     input_schema = {
         'type': 'object',
         'properties': {
@@ -117,24 +117,6 @@ class ListNodesTool(ToolDefinition):
                     'type': 'string'},
                 'description': 'Absolute paths of the files to list.'}},
         'required': ['paths']}
-    output_schema = {
-        '$defs': {
-            'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {
-                'results': {
-                    'type': 'array', 'items': {
-                        'type': 'object', 'properties': {
-                            'path': {
-                                'type': 'string'}, 'nodes': {
-                                    'type': 'array', 'items': {
-                                        '$ref': '#/$defs/outline_node'}}}, 'required': [
-                                            'path', 'nodes']}}, 'errors': {
-                                                'type': 'array', 'items': {
-                                                    'type': 'object', 'properties': {
-                                                        'path': {
-                                                            'type': 'string'}, 'error': {
-                                                                'type': 'string'}}, 'required': [
-                                                                    'path', 'error']}}}, 'required': [
-                                                                        'results', 'errors']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""

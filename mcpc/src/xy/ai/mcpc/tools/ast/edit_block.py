@@ -142,7 +142,7 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
     title = 'Replace short text within AST nodes'
-    description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by id, for a batch of items. Don't use for large edits, use ast_edit_marks instead."
+    description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by id, for a batch of items. Don't use for large edits, use ast_edit_marks instead. Returns changed IDs in the result."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -179,26 +179,6 @@ class EditBlockNodeTool(ToolDefinition):
                         'new_text']},
                 'description': 'Block edits to apply.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'id': {
-                                'type': 'string'}, 'result': {
-                                    'type': 'string', 'description': 'Result status'}, 'new_id': {
-                                        'type': 'string', 'description': "The node's new id. Prefer 'ast_find' over 'ast_list'."}}, 'required': [
-                                            'path', 'result']}}, 'errors': {
-                                                'type': 'array', 'items': {
-                                                    'type': 'object', 'properties': {
-                                                        'path': {
-                                                            'type': 'string'}, 'id': {
-                                                                'type': 'string'}, 'error': {
-                                                                    'type': 'string'}, 'candidates': {
-                                                                        'type': 'array', 'items': {
-                                                                            'type': 'string'}, 'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}}, 'required': [
-                                                                                'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""

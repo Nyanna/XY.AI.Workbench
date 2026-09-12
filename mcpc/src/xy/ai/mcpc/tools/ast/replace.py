@@ -107,7 +107,7 @@ def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
     title = 'Replace AST nodes'
-    description = 'Replace selected nodes with source or text, for a batch of items; several operations may target the same or different files.'
+    description = 'Replace selected nodes with source or text, for a batch of items; several operations may target the same or different files. Returns changed IDs in the result.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -129,24 +129,6 @@ class ReplaceNodeTool(ToolDefinition):
                         'source']},
                 'description': 'Node replacements to apply.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'id': {
-                                'type': 'string'}, 'result': {
-                                    'type': 'string', 'description': 'Result status'}, 'new_id': {
-                                        'type': 'string', 'description': "The node's new id."}}, 'required': [
-                                            'path', 'result']}}, 'errors': {
-                                                'type': 'array', 'items': {
-                                                    'type': 'object', 'properties': {
-                                                        'path': {
-                                                            'type': 'string'}, 'id': {
-                                                                'type': 'string'}, 'error': {
-                                                                    'type': 'string'}}, 'required': [
-                                                                        'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""

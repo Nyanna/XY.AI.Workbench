@@ -160,26 +160,6 @@ class FindNodesTool(ToolDefinition):
                 'type': 'string',
                 'description': "Regular expression the node's source must match (re.search)."}},
         'required': ['paths']}
-    output_schema = {
-        '$defs': {
-            'outline_node': core.OUTLINE_NODE_SCHEMA},
-        'type': 'object',
-        'properties': {
-                'files': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'path': {
-                                'type': 'string'},
-                            'nodes': {
-                                'type': 'array',
-                                'items': {
-                                        '$ref': '#/$defs/outline_node'}}},
-                        'required': [
-                            'path',
-                            'nodes']}}},
-        'required': ['files']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_find`, translating the MCP schema to/from the AST API."""

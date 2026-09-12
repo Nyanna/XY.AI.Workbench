@@ -180,24 +180,6 @@ class ToolCallTool(ToolDefinition):
         'required': [
             'tool_ids',
             'code']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'stdout': {
-                'type': 'string',
-                'description': (
-                    'Only content written via print() during code execution.')},
-            'stderr': {
-                'type': 'string'},
-            'stdout_var': {
-                'type': 'string',
-                'description': (
-                    'Namespace variable holding full STDOUT if it was '
-                    'spilled due to size. Variable persists across calls '
-                    'in this session and can be re-printed/sliced later.')},
-            'stderr_var': {
-                'type': 'string'},
-            'error': {
-                'type': 'string'}}}
 
     def __init__(self, functions: FunctionRegistry) -> None:
         self._functions = functions

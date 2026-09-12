@@ -11,8 +11,7 @@ __all__ = [
     'PATH_SELECTOR_PROPS',
     'select_one',
     'select_by_path',
-    'select_by_text',
-    'list_output_schema']
+    'select_by_text']
 '#: Full node selectors – only ``ast_find`` may restrict on node properties.'
 SELECTOR_PROPS = {
     'id': {
@@ -80,7 +79,3 @@ def select_by_text(tree, texts: list[str], *, id: str | None=None) -> core.Locat
             'Multiple target nodes found; specify a node selector (id).', [
                 c.node_id for c in candidates])
     return candidates[0]
-
-def list_output_schema() -> dict[str, Any]:
-    return {'$defs': {'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {
-        'nodes': {'type': 'array', 'items': {'$ref': '#/$defs/outline_node'}}}, 'required': ['nodes']}

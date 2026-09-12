@@ -140,21 +140,6 @@ class EditLineTool(ToolDefinition):
                         'new_lines']},
                 'description': 'Single-line edits to apply.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'result': {
-                                'type': 'string'}}, 'required': [
-                                    'path', 'result']}}, 'errors': {
-                                        'type': 'array', 'items': {
-                                            'type': 'object', 'properties': {
-                                                'path': {
-                                                    'type': 'string'}, 'error': {
-                                                        'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""

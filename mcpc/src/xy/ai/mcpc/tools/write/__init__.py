@@ -123,21 +123,6 @@ class WriteTool(ToolDefinition):
                         'content']},
                 'description': 'Files to write or replace.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'result': {
-                                'type': 'string', 'description': '``success`` on success.'}}, 'required': [
-                                    'path', 'result']}}, 'errors': {
-                                        'type': 'array', 'items': {
-                                            'type': 'object', 'properties': {
-                                                'path': {
-                                                    'type': 'string'}, 'error': {
-                                                        'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""

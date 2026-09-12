@@ -107,7 +107,7 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'After using `ast_list` or `ast_find`, read AST subtrees for known node IDs'
-    description = "After using `ast_list` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source."
+    description = "After using `ast_list` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source. " + core.OUTLINE_NODE_DESCRIPTION
     input_schema = {
         'type': 'object',
         'properties': {
@@ -130,26 +130,6 @@ class ReadNodeTool(ToolDefinition):
                         'ids']},
                 'description': 'Per-file node ids to read.'}},
         'required': ['items']}
-    output_schema = {
-        '$defs': {
-            'outline_node': core.OUTLINE_NODE_SCHEMA}, 'type': 'object', 'properties': {
-                'results': {
-                    'type': 'array', 'items': {
-                        'type': 'object', 'properties': {
-                            'path': {
-                                'type': 'string'}, 'nodes': {
-                                    'type': 'array', 'items': {
-                                        '$ref': '#/$defs/outline_node'}}, 'errors': {
-                                            'type': 'array', 'items': {
-                                                'type': 'string'}}}, 'required': [
-                                                    'path', 'nodes']}}, 'errors': {
-                                                        'type': 'array', 'items': {
-                                                            'type': 'object', 'properties': {
-                                                                'path': {
-                                                                    'type': 'string'}, 'error': {
-                                                                        'type': 'string'}}, 'required': [
-                                                                            'path', 'error']}}}, 'required': [
-                                                                                'results', 'errors']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API.

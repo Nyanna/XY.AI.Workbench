@@ -146,21 +146,6 @@ class SkillsTool(ToolDefinition):
                     'required': ['name']},
                 'description': 'Skills to load.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'name': {
-                            'type': 'string'}, 'instructions': {
-                                'type': 'string'}}, 'required': [
-                                    'name', 'instructions']}}, 'errors': {
-                                        'type': 'array', 'items': {
-                                            'type': 'object', 'properties': {
-                                                'name': {
-                                                    'type': 'string'}, 'error': {
-                                                        'type': 'string'}}, 'required': [
-                                                            'name', 'error']}}}}
 
     def __init__(self) -> None:
         catalog = '\n'.join((f'- {skill.name}: {skill.description}' for skill in SKILLS))

@@ -175,13 +175,6 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
         'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.',
         required=True)
 
-def _with_optional_message(schema: dict[str, Any]) -> dict[str, Any]:
-    return _inject_property(
-        schema,
-        MESSAGE_PROPERTY,
-        'Optional message or hint or question from the authorizing user',
-        required=False)
-
 class ToolRegistry:
     """Process-wide registry of available tools."""
 
@@ -231,7 +224,7 @@ class ToolRegistry:
         '# to *any* result regardless of whether the tool declared an'
         '# outputSchema, so the schema must always document it too.'
         base_output_schema = tool.output_schema or {'type': 'object', 'properties': {}}
-        tool.output_schema = _with_optional_message(base_output_schema)
+        tool.output_schema = base_output_schema
         meta: dict[str, Any] = {'anthropic/maxResultSizeChars': ANTHROPIC_MAX_RESULT_SIZE_CHARS}
         tool.meta = meta
         self._tools[tool.name] = tool

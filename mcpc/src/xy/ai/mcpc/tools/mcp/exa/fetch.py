@@ -48,8 +48,6 @@ _ITEM_SCHEMA: dict[str,
                                                       'description': 'Short excerpt(s) of the page text.'},
                                           **_METRICS_SCHEMA},
                            'required': ['id']}
-_OUTPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {
-    'results': {'type': 'array', 'items': _ITEM_SCHEMA}}, 'required': ['results']}
 
 @dataclass(frozen=True, slots=True)
 class WebFetchResult:
@@ -139,7 +137,6 @@ class WebFetchExaTool(ToolDefinition):
     title = 'Exa web fetch'
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
-    output_schema = _OUTPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

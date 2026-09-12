@@ -142,7 +142,7 @@ def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
     title = 'Replace large text regions within AST nodes between markers'
-    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by id, with new 'content', for a batch of items."
+    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by id, with new 'content', for a batch of items. Returns changed IDs in the result."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -181,26 +181,6 @@ class EditMarksNodeTool(ToolDefinition):
                         'content']},
                 'description': 'Marker-based edits to apply.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'id': {
-                                'type': 'string'}, 'result': {
-                                    'type': 'string', 'description': 'Result status'}, 'new_id': {
-                                        'type': 'string', 'description': "The node's new id. Prefer 'ast_find' over 'ast_list'."}}, 'required': [
-                                            'path', 'result']}}, 'errors': {
-                                                'type': 'array', 'items': {
-                                                    'type': 'object', 'properties': {
-                                                        'path': {
-                                                            'type': 'string'}, 'id': {
-                                                                'type': 'string'}, 'error': {
-                                                                    'type': 'string'}, 'candidates': {
-                                                                        'type': 'array', 'items': {
-                                                                            'type': 'string'}, 'description': 'On ambiguity (id omitted, several nodes matched), the candidate node ids.'}}, 'required': [
-                                                                                'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""

@@ -110,21 +110,6 @@ class CreateFileTool(ToolDefinition):
                                 'type': 'string', 'description': 'Source for the new file.'}, 'overwrite': {
                                     'type': 'boolean', 'description': 'Allow replacing an existing file.', 'default': False}}, 'required': [
                                         'path', 'source']}, 'description': 'Files to create.'}}, 'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'path': {
-                            'type': 'string'}, 'result': {
-                                'type': 'string'}}, 'required': [
-                                    'path', 'result']}}, 'errors': {
-                                        'type': 'array', 'items': {
-                                            'type': 'object', 'properties': {
-                                                'path': {
-                                                    'type': 'string'}, 'error': {
-                                                        'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_create`, translating the MCP schema to/from the Python API."""

@@ -30,16 +30,7 @@ _RESOLVE_SCHEMA: dict[str,
                                                        'description': "User's original question or task – used for relevance ranking (e.g. 'How to manage state with hooks')."}},
                               'required': ['libraryName',
                                            'query']}
-_RESOLVE_OUTPUT: dict[str,
-                      Any] = {'type': 'object',
-                              'properties': {'libraries': {'type': 'array',
-                                                           'description': 'Ranked list of matching libraries.',
-                                                           'items': {'type': 'object',
-                                                                     'properties': {'title': {'type': 'string'},
-                                                                                    'library_id': {'type': 'string',
-                                                                                                   'description': 'Context7-compatible library ID.'},
-                                                                                    'description': {'type': 'string'}}}}},
-                              'required': ['libraries']}
+
 _QUERY_DOCS_DESCRIPTION = 'Fetch documentation and code examples for a library from Context7.\n\nBest for: Retrieving accurate API docs, usage examples, and configuration guides for any library or framework.\nUse context7_libraries first to obtain the correct libraryId.\nReturns: Documentation snippets and code examples relevant to the query.\n\nKeep each query scoped to a single concept. For multi-concept questions, make separate calls per concept unless the question is about how the concepts interact.\n'
 _QUERY_DOCS_SCHEMA: dict[str,
                          Any] = {'type': 'object',
@@ -49,14 +40,7 @@ _QUERY_DOCS_SCHEMA: dict[str,
                                                           'description': "The question or task to find documentation for, scoped to a single concept. Be specific and include relevant details (e.g. 'React useEffect cleanup function examples')."}},
                                  'required': ['libraryId',
                                               'query']}
-_QUERY_DOCS_OUTPUT: dict[str,
-                         Any] = {'type': 'object',
-                                 'properties': {'sections': {'type': 'array',
-                                                             'description': 'Documentation sections',
-                                                             'items': {'type': 'object',
-                                                                       'properties': {'content': {'type': 'string'}},
-                                                                       'required': ['content']}}},
-                                 'required': ['sections']}
+
 _NOT_FOUND_TRIGGER = 'No documentation found for library'
 _BLOCK_SEPARATOR = re.compile('(?m)^-{3,}\\s*$')
 _LIBRARY_FIELD = re.compile('(?m)^-\\s*(.+?):\\s*(.*)$')
@@ -157,7 +141,6 @@ class Context7LibrariesTool(ToolDefinition):
     title = 'Context7 resolve library ID'
     description = _RESOLVE_DESCRIPTION
     input_schema = _RESOLVE_SCHEMA
-    output_schema = _RESOLVE_OUTPUT
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
@@ -172,7 +155,6 @@ class Context7DocumentationTool(ToolDefinition):
     title = 'Context7 query docs'
     description = _QUERY_DOCS_DESCRIPTION
     input_schema = _QUERY_DOCS_SCHEMA
-    output_schema = _QUERY_DOCS_OUTPUT
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

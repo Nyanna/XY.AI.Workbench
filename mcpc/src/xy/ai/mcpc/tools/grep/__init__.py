@@ -239,32 +239,6 @@ class GrepTool(ToolDefinition):
                         'pattern']},
                 'description': 'Independent grep searches to run.'}},
         'required': ['items']}
-    output_schema = {
-        'type': 'object', 'properties': {
-            'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
-                        'directory': {
-                            'type': 'array', 'items': {
-                                'type': 'string'}}, 'pattern': {
-                                    'type': 'string'}, 'matches': {
-                                        'type': 'array', 'items': {
-                                            'type': 'object', 'properties': {
-                                                'path': {
-                                                    'type': 'string'}, 'lineno': {
-                                                        'type': 'integer'}, 'match': {
-                                                            'type': 'string'}}, 'required': [
-                                                                'path', 'lineno', 'match']}}, 'warning': {
-                                                                    'type': 'string'}}, 'required': [
-                                                                        'directory', 'pattern', 'matches']}}, 'errors': {
-                                                                            'type': 'array', 'items': {
-                                                                                'type': 'object', 'properties': {
-                                                                                    'directory': {
-                                                                                        'type': 'array', 'items': {
-                                                                                            'type': 'string'}}, 'pattern': {
-                                                                                                'type': 'string'}, 'error': {
-                                                                                                    'type': 'string'}}, 'required': [
-                                                                                                        'directory', 'pattern', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""

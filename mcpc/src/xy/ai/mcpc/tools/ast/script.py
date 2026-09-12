@@ -175,8 +175,6 @@ class ScriptTool(ToolDefinition):
         'required': [
             'path',
             'code']}
-    output_schema = {'type': 'object', 'properties': {'result': {'type': 'string'}, 'value': {
-        'description': "Repr of the script's 'result' variable, if set."}}, 'required': ['result']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_script`, translating the MCP schema to/from the Python API."""
