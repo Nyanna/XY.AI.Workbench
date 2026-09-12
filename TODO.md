@@ -1,17 +1,29 @@
 # TODO
 
-* deepseek
-	- Checking Cache Hit Status - https://api-docs.deepseek.com/api/create-response
-		In the response from the DeepSeek API, we have added two fields in the usage section to reflect the cache hit status of the request:
-		prompt_cache_hit_tokens: The number of tokens in the input of this request that resulted in a cache hit.
-		prompt_cache_miss_tokens: The number of tokens in the input of this request that did not result in a cache hit.
-	- temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
+* tools, erstmal mit reingeben aus MCP connector
+	* MCP connector als profider für tool in tools liste?
+	* Selektieren und liste mit reinreichen
+		* claude code, liste für header
+		* andere umwandeln in schema mit reinreichen in prompt creation
+		* tools paramter und tools input trennen
+	* model function call erstmal mit in answer ausgeben als YAML? wie control client?
+	/ das ist der einfache loop, tool rein bis call
+	
+	* Editor wäre dann session
+		* Controlltoken und zeilen wieder als hint benutzen und zurück umwandeln
+			* Markdown wäre dann effektive session
+		* Inputmode müsste dann wieder ganzer editor sein wegen prefix cache
+	* oder backed by memorry modell oder beides?, mit session ID analog zu Claude Code?
+	
+	* backed by layer oder hook?
+
 
 
 * Harness
 	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 	* harness always use python scripts cuz of implicite knowledge in coding instead of interface description
+* deepseek, temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
 * open alex zweistufig optimieren, split in separate files
 * tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
 * auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
