@@ -170,7 +170,7 @@ class EditLineTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False))
-        return handle_batch_tool(ctx, item_factory, edit_line, EditLineError)
+        return handle_batch_tool(ctx, item_factory, edit_line, EditLineError, auto_approve=True)
 
 def register_edit_line_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditLineTool())

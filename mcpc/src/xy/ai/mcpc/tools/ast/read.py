@@ -183,9 +183,10 @@ class ReadNodeTool(ToolDefinition):
                 for le in list_batch.errors:
                     errors.append({'path': le.path, 'error': le.error})
                 continue
-            results.append({'path': item_result.path,
-                            'nodes': [core.to_dict(n) for n in item_result.nodes],
-                            'errors': item_result.errors})
+            pathResult = {'path': item_result.path, 'nodes': [core.to_dict(n) for n in item_result.nodes]}
+            if item_result.errors:
+                pathResult['errors'] = item_result.errors
+            results.append(pathResult)
         structured_content: dict[str, Any] = {}
         if results:
             structured_content['results'] = results

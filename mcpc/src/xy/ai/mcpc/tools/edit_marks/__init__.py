@@ -208,7 +208,7 @@ class EditMarksTool(ToolDefinition):
                 exact=it.get(
                     'exact',
                     False))
-        return handle_batch_tool(ctx, item_factory, edit_marks, EditMarksError)
+        return handle_batch_tool(ctx, item_factory, edit_marks, EditMarksError, auto_approve=True)
 
 def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksTool())

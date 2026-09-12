@@ -302,7 +302,7 @@ class FileStatsTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> FileStatsItem:
             return FileStatsItem(path=it['path'])
-        return handle_batch_tool(ctx, item_factory, file_stats, FileStatsError)
+        return handle_batch_tool(ctx, item_factory, file_stats, FileStatsError, auto_approve=True)
 
 def register_file_stats_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FileStatsTool())

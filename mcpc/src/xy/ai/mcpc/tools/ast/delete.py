@@ -146,7 +146,7 @@ class DeleteTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> DeleteItem:
             return DeleteItem(path=it['path'], id=it.get('id'))
-        return handle_batch_tool(ctx, item_factory, ast_delete, core.AstError)
+        return handle_batch_tool(ctx, item_factory, ast_delete, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(DeleteTool())

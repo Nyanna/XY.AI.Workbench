@@ -162,7 +162,7 @@ class ReplaceNodeTool(ToolDefinition):
 
         def error_serializer(e: ReplaceError) -> dict[str, Any]:
             return {'path': e.path, 'id': e.id, 'error': e.error}
-        return handle_batch_tool(ctx, item_factory, ast_replace, core.AstError, result_serializer, error_serializer)
+        return handle_batch_tool(ctx, item_factory, ast_replace, core.AstError, result_serializer, error_serializer, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())

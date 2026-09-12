@@ -186,7 +186,7 @@ class EditBlockTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False))
-        return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError)
+        return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError, auto_approve=True)
 
 def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockTool())

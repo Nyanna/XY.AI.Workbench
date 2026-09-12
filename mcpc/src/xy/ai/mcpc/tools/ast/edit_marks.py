@@ -227,7 +227,7 @@ class EditMarksNodeTool(ToolDefinition):
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
             return entry
-        return handle_batch_tool(ctx, item_factory, ast_edit_marks, core.AstError, result_serializer, error_serializer)
+        return handle_batch_tool(ctx, item_factory, ast_edit_marks, core.AstError, result_serializer, error_serializer, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksNodeTool())

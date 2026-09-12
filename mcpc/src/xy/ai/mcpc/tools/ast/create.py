@@ -131,7 +131,7 @@ class CreateFileTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> CreateFileItem:
             return CreateFileItem(path=it['path'], source=it['source'], overwrite=it.get('overwrite', False))
-        return handle_batch_tool(ctx, item_factory, ast_create, core.AstError)
+        return handle_batch_tool(ctx, item_factory, ast_create, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(CreateFileTool())

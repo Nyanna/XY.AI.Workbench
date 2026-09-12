@@ -174,7 +174,7 @@ class InsertNodeTool(ToolDefinition):
 
         def error_serializer(e: InsertError) -> dict[str, Any]:
             return {'path': e.path, 'id': e.id, 'error': e.error}
-        return handle_batch_tool(ctx, item_factory, ast_insert, core.AstError, result_serializer, error_serializer)
+        return handle_batch_tool(ctx, item_factory, ast_insert, core.AstError, result_serializer, error_serializer, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(InsertNodeTool())

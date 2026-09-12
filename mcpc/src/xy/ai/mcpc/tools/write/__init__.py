@@ -144,7 +144,7 @@ class WriteTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> WriteItem:
             return WriteItem(path=it['path'], mode=it['mode'], content=it['content'])
-        return handle_batch_tool(ctx, item_factory, write, WriteError)
+        return handle_batch_tool(ctx, item_factory, write, WriteError, auto_approve=True)
 
 def register_write_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WriteTool())

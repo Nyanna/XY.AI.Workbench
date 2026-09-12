@@ -172,7 +172,7 @@ class EditLinesTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> EditLinesItem:
             return EditLinesItem(path=it['path'], offset=it['offset'], amount=it['amount'], content=it['content'])
-        return handle_batch_tool(ctx, item_factory, edit_lines, EditLinesError)
+        return handle_batch_tool(ctx, item_factory, edit_lines, EditLinesError, auto_approve=True)
 
 def register_edit_lines_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditLinesTool())

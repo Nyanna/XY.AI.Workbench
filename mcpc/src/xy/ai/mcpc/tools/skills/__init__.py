@@ -171,7 +171,7 @@ class SkillsTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> SkillsItem:
             return SkillsItem(name=it['name'])
-        return handle_batch_tool(ctx, item_factory, get_skills, SkillsError)
+        return handle_batch_tool(ctx, item_factory, get_skills, SkillsError, auto_approve=True)
 
 def register_skills(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the batching skills tool and each skill's backing function."""

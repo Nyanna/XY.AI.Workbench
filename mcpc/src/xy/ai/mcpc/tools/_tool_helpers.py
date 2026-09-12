@@ -24,7 +24,7 @@ def require_items(ctx: ToolContext, key: str='items') -> 'tuple[list[Any], ToolR
         return ([], ToolResult(content=[text_content(f"'{key}' must be a non-empty list.")], is_error=True))
     return (values, None)
 
-def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None) -> ToolResult:
+def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None, auto_approve: bool = False) -> ToolResult:
     """Common handler for batch-processing tools.
 
     Args:
@@ -56,7 +56,7 @@ def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]],
         result_serializer=result_serializer,
         error_serializer=error_serializer)
     has_error = hasattr(batch_result, 'errors') and batch_result.errors
-    return ToolResult(structured_content=content, auto_approve=not has_error)
+    return ToolResult(structured_content=content, auto_approve=not has_error and auto_approve)
 
 def serialize_batch_result(batch_result: Any, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None) -> dict[str, Any]:
     """Serialize a batch result, only including non-empty result/error lists.

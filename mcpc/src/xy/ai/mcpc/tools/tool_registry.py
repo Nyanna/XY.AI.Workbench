@@ -97,7 +97,7 @@ class ToolDefinition(ABC):
     description: str
     input_schema: dict[str, Any]
     title: str | None = None
-    output_schema: dict[str, Any] | None = None
+    output_schema: dict[str, Any] | None = { 'type': 'object' }
     annotations: dict[str, Any] | None = None
 
     @abstractmethod
