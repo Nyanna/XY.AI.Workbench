@@ -9,12 +9,14 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their full text, optionally filter long pages.'
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'ids': {'type': 'array',
                                                    'items': {'type': 'string'},
+                                                   'minItems': 1,
                                                    'description': 'Result ids returned by web_fetch_exa.'},
                                            'pattern': {'type': 'string',
                                                        'description': 'Extended regular expression (grep -E semantics) to filter text lines.'},
@@ -72,13 +74,11 @@ class WebFetchExaResultsTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
+        ids, error = require_items(ctx, key='ids')
+        if error is not None:
+            return error
         try:
-            results = web_fetch_exa_results(
-                ids=args['ids'],
-                pattern=args.get('pattern'),
-                context=args.get(
-                    'context',
-                    1))
+            results = web_fetch_exa_results(ids=ids, pattern=args.get('pattern'), context=args.get('context', 1))
         except re.error as exc:
             logger.warning('web_fetch_exa_results: invalid pattern %r: %s', args.get('pattern'), exc)
             return ToolResult(content=[text_content(f'Invalid pattern: {exc}')], is_error=True)

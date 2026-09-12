@@ -7,7 +7,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 import re
 __all__ = [
     'GrepError',
@@ -199,46 +199,35 @@ class GrepTool(ToolDefinition):
     name = 'grep'
     title = 'Search files with grep'
     description = "Run one or more independent grep searches for lines matching an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters. Limits apply per item, not per batch."
-    input_schema = {
-        'type': 'object',
-        'properties': {
+    _ITEM_PROPERTIES = {
+        'directory': {
+            'type': 'array',
             'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'directory': {
-                            'type': 'array',
-                            'items': {
-                                'type': 'string'},
-                            'minItems': 1,
-                            'description': 'Absolute paths of the directories to search recursively. Always use the narrowest subtree(s) that are likely to contain the target files.'},
-                        'pattern': {
-                            'type': 'string',
-                                    'description': 'Extended regular expression to search for. Make the pattern as specific as possible to reduce noise.'},
-                        'exclude': {
-                            'type': 'array',
-                            'items': {
-                                'type': 'string'},
-                            'description': "Globs of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
-                        'include': {
-                            'type': 'array',
-                            'items': {
-                                'type': 'string'},
-                            'description': "Globs of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
-                        'limit': {
-                            'type': 'integer',
-                            'description': 'Maximum number of matching lines to return for this item.',
-                            'default': _DEFAULT_LIMIT,
-                            'minimum': 1,
-                            'maximum': _MAX_LIMIT}},
-                    'required': [
-                        'directory',
-                        'pattern']},
-                'description': 'Independent grep searches to run.'}},
-        'required': ['items']}
+                'type': 'string'},
+            'minItems': 1,
+            'description': 'Absolute paths of the directories to search recursively. Always use the narrowest subtree(s) that are likely to contain the target files.'},
+        'pattern': {
+            'type': 'string',
+                    'description': 'Extended regular expression to search for. Make the pattern as specific as possible to reduce noise.'},
+        'exclude': {
+            'type': 'array',
+            'items': {
+                'type': 'string'},
+            'description': "Globs of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
+        'include': {
+            'type': 'array',
+            'items': {
+                'type': 'string'},
+            'description': "Globs of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
+        'limit': {
+            'type': 'integer',
+            'description': 'Maximum number of matching lines to return for this item.',
+            'default': _DEFAULT_LIMIT,
+            'minimum': 1,
+            'maximum': _MAX_LIMIT}}
+    _ITEM_REQUIRED = ['directory', 'pattern']
+    _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""

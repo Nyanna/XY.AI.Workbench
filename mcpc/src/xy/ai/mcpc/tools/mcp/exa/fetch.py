@@ -14,12 +14,14 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.exa.bridge import get_bridge
 from xy.ai.mcpc.tools.mcp.exa.core import extract_results, fetch_cache, logger, normalize_item, strip_empty
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['WebFetchResult', 'web_fetch_exa', 'WebFetchExaTool', 'register']
 _DESCRIPTION = "Read a webpage's full content as clean markdown. Use to read any URL."
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'urls': {'type': 'array',
                                                     'items': {'type': 'string'},
+                                                    'minItems': 1,
                                                     'description': 'URLs to fetch. Batch multiple URLs in one call.'},
                                            'maxCharacters': {'type': 'integer',
                                                              'description': 'Maximum characters to extract per page (default: 3000).',
@@ -140,8 +142,11 @@ class WebFetchExaTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
+        urls, error = require_items(ctx, key='urls')
+        if error is not None:
+            return error
         try:
-            result = web_fetch_exa(urls=args['urls'], maxCharacters=args.get('maxCharacters'))
+            result = web_fetch_exa(urls=urls, maxCharacters=args.get('maxCharacters'))
         except McpBridgeError as exc:
             logger.warning('web_fetch_exa failed: %s', exc)
             return ToolResult(content=[text_content(str(exc))], is_error=True)

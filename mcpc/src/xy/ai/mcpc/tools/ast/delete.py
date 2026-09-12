@@ -4,7 +4,8 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, batch_schema, select_by_path
+from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, select_by_path
+from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = ['DeleteItem', 'DeleteResult', 'DeleteError', 'DeleteBatchResult', 'ast_delete', 'DeleteTool', 'register']

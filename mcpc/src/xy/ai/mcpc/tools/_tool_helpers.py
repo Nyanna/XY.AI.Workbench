@@ -3,7 +3,29 @@ from dataclasses import dataclass, asdict
 from typing import Any, Callable, TypeVar
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-__all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result']
+
+def batch_schema(item_properties: dict[str, Any], required: list[str], description: str, *, additional_properties: bool | None=None) -> dict[str, Any]:
+    """Build the standard ``{items: [...]}`` input schema shared by all batch tools.
+
+    Args:
+        item_properties: The ``properties`` of a single item.
+        required: The ``required`` keys of a single item.
+        description: Description of the ``items`` array.
+        additional_properties: If set, forwarded as the item's ``additionalProperties``.
+    """
+    item_schema: dict[str, Any] = {'type': 'object', 'properties': item_properties, 'required': required}
+    if additional_properties is not None:
+        item_schema['additionalProperties'] = additional_properties
+    return {
+        'type': 'object',
+        'properties': {
+            'items': {
+                'type': 'array',
+                'minItems': 1,
+                'items': item_schema,
+                'description': description}},
+        'required': ['items']}
+__all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result', 'batch_schema']
 
 @dataclass
 class BatchError:
@@ -24,7 +46,7 @@ def require_items(ctx: ToolContext, key: str='items') -> 'tuple[list[Any], ToolR
         return ([], ToolResult(content=[text_content(f"'{key}' must be a non-empty list.")], is_error=True))
     return (values, None)
 
-def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None, auto_approve: bool = False) -> ToolResult:
+def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None, auto_approve: bool=False) -> ToolResult:
     """Common handler for batch-processing tools.
 
     Args:

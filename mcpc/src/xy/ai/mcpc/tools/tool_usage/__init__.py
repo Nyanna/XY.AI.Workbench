@@ -6,6 +6,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['ToolUsageError', 'ToolUsageInfo', 'describe_function', 'ToolUsageTool', 'register']
 _SEEN_STATE_KEY = 'tool_usage_seen'
 '#: Project package prefix identifying a "self-declared" (non-stdlib) type.'
@@ -105,6 +106,7 @@ class ToolUsageTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                     'type': 'string'},
+                'minItems': 1,
                 'description': 'Ids/names of the functions, as returned by tool_search.'}},
         'required': ['names']}
 
@@ -112,8 +114,9 @@ class ToolUsageTool(ToolDefinition):
         self._functions = functions
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        args: dict[str, Any] = ctx.arguments
-        names: list[str] = args['names']
+        names, error = require_items(ctx, key='names')
+        if error is not None:
+            return error
         seen: set[str] = ctx.session.state.setdefault(_SEEN_STATE_KEY, set())
         usages: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []

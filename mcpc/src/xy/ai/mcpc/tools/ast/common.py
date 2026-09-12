@@ -6,14 +6,7 @@ by its unique ``id`` and uses the reduced :data:`PATH_SELECTOR_PROPS`.
 """
 from typing import Any
 from xy.ai.mcpc.tools.ast import core
-__all__ = [
-    'SELECTOR_PROPS',
-    'PATH_SELECTOR_PROPS',
-    'PATH_PROP',
-    'batch_schema',
-    'select_one',
-    'select_by_path',
-    'select_by_text']
+__all__ = ['SELECTOR_PROPS', 'PATH_SELECTOR_PROPS', 'PATH_PROP', 'select_one', 'select_by_path', 'select_by_text']
 '#: Full node selectors – only ``ast_find`` may restrict on node properties.'
 SELECTOR_PROPS = {
     'id': {
@@ -27,28 +20,6 @@ SELECTOR_PROPS = {
 PATH_SELECTOR_PROPS = {'id': SELECTOR_PROPS['id']}
 "#: Absolute-path property shared by every batch tool's item schema."
 PATH_PROP = {'type': 'string', 'description': 'Absolute path to the file.'}
-
-def batch_schema(item_properties: dict[str, Any], required: list[str], description: str, *, additional_properties: bool | None=None) -> dict[str, Any]:
-    """Build the standard ``{items: [...]}`` input schema shared by all batch tools.
-
-    Args:
-        item_properties: The ``properties`` of a single item.
-        required: The ``required`` keys of a single item.
-        description: Description of the ``items`` array.
-        additional_properties: If set, forwarded as the item's ``additionalProperties``.
-    """
-    item_schema: dict[str, Any] = {'type': 'object', 'properties': item_properties, 'required': required}
-    if additional_properties is not None:
-        item_schema['additionalProperties'] = additional_properties
-    return {
-        'type': 'object',
-        'properties': {
-            'items': {
-                'type': 'array',
-                'minItems': 1,
-                'items': item_schema,
-                'description': description}},
-        'required': ['items']}
 
 def select_one(tree, **selectors: Any) -> core.Located:
     """Return the single node in *tree* matching *selectors*.

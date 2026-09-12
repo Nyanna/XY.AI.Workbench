@@ -4,10 +4,11 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import logger, search_cache, strip_empty
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['web_search_exa_results', 'WebSearchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_search_exa to their full text.'
 _INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {
-    'type': 'string'}, 'description': 'Result ids returned by web_search_exa.'}}, 'required': ['ids']}
+    'type': 'string'}, 'minItems': 1, 'description': 'Result ids returned by web_search_exa.'}}, 'required': ['ids']}
 
 def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
     """Resolve ids from a prior ``web_search_exa`` call to url and full text.
@@ -31,8 +32,11 @@ class WebSearchExaResultsTool(ToolDefinition):
     input_schema = _INPUT_SCHEMA
 
     def handle(self, ctx: ToolContext) -> ToolResult:
+        ids, error = require_items(ctx, key='ids')
+        if error is not None:
+            return error
         try:
-            results = web_search_exa_results(ids=ctx.arguments['ids'])
+            results = web_search_exa_results(ids=ids)
         except Exception as exc:
             logger.exception('web_search_exa_results failed')
             return ToolResult(content=[text_content(f'Error resolving web_search_exa results: {exc}')], is_error=True)
