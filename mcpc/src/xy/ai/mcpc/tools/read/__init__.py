@@ -4,10 +4,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
+from xy.ai.mcpc.server.session import Session
 __all__ = [
     'ReadError',
     'ReadItem',
@@ -56,6 +57,8 @@ class ReadResult:
     content: str
     checksum: str
     is_full_file: bool
+    unchanged: str | None = None
+    'Explanatory message if identical to a previous read with the same parameters, else None (set by :class:`ReadTool`, never by :func:`read_file`).'
 
 @dataclass(frozen=True)
 class ReadItemError:
@@ -175,6 +178,43 @@ def read_file(items: list[ReadItem]) -> ReadBatchResult:
             errors.append(ReadItemError(path=item.path, error=str(exc)))
     return ReadBatchResult(results=results, errors=errors)
 
+def _read_file_cached(items: list[ReadItem], session: Session) -> ReadBatchResult:
+    """Wrap :func:`read_file`'s per-item logic with session-scoped change detection.
+
+    Kept in the MCP layer (needs ``session``); :func:`read_file` itself stays
+    session-agnostic and never sets :attr:`ReadResult.unchanged`.
+    """
+    results: list[ReadResult] = []
+    errors: list[ReadItemError] = []
+    with session.lock:
+        cache: dict[str, str] = session.state.setdefault(_CACHE_STATE_KEY, {})
+        for item in items:
+            try:
+                result = _read_one(item)
+            except ReadError as exc:
+                errors.append(ReadItemError(path=item.path, error=str(exc)))
+                continue
+            key = _cache_key(session.id, item)
+            unchanged = cache.get(key) == result.checksum
+            cache[key] = result.checksum
+            if unchanged:
+                result = ReadResult(
+                    path=result.path,
+                    content=result.content,
+                    checksum=result.checksum,
+                    is_full_file=result.is_full_file,
+                    unchanged='Content unchanged since the last identical read. Use the former read result.')
+            results.append(result)
+    return ReadBatchResult(results=results, errors=errors)
+
+def _serialize_read_result(result: ReadResult) -> dict[str, Any]:
+    entry: dict[str, Any] = {'path': result.path, 'checksum': result.checksum}
+    if result.unchanged:
+        entry['unchanged'] = result.unchanged
+    else:
+        entry['content'] = result.content
+    return entry
+
 class ReadTool(ToolDefinition):
     name = 'read_file'
     title = 'Read file content'
@@ -218,25 +258,41 @@ class ReadTool(ToolDefinition):
                 'description': 'Files to read.'}},
         'required': ['items']}
     output_schema = {
-        'type': 'object', 'properties': {
+        'type': 'object',
+        'properties': {
             'results': {
-                'type': 'array', 'items': {
-                    'type': 'object', 'properties': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
                         'path': {
-                            'type': 'string'}, 'content': {
-                                'type': 'string'}, 'checksum': {
-                                    'type': 'string', 'description': 'sha256 checksum of the read content.'}, 'unchanged': {
-                                        'type': 'boolean', 'description': 'True if the content is identical to a previous read with the same parameters.'}}, 'required': [
-                                            'path', 'checksum']}}, 'errors': {
-                                                'type': 'array', 'items': {
-                                                    'type': 'object', 'properties': {
-                                                        'path': {
-                                                            'type': 'string'}, 'error': {
-                                                                'type': 'string'}}, 'required': [
-                                                                    'path', 'error']}}}}
+                            'type': 'string'},
+                        'content': {
+                            'type': 'string'},
+                        'checksum': {
+                            'type': 'string',
+                                    'description': 'sha256 checksum of the read content.'},
+                        'unchanged': {
+                            'type': 'string',
+                            'description': 'Present instead of content if identical to a previous read with the same parameters; explains that fact.'}},
+                    'required': [
+                        'path',
+                        'checksum']}},
+            'errors': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'path': {
+                            'type': 'string'},
+                        'error': {
+                            'type': 'string'}},
+                    'required': [
+                        'path',
+                        'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`read_file`, then apply session-level change detection and MCP packing."""
+        """Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the Python API."""
         raw_items, error = require_items(ctx)
         if error is not None:
             return error
@@ -249,37 +305,11 @@ class ReadTool(ToolDefinition):
                 max_char=it.get('max_char'),
                 start=it.get('start'),
                 end=it.get('end')) for it in raw_items]
-        batch = read_file(items)
-        session = ctx.session
-        results: list[dict[str, Any]] = []
-        content: list[dict[str, Any]] = []
-        all_full_file = True
-        with session.lock:
-            cache: dict[str, str] = session.state.setdefault(_CACHE_STATE_KEY, {})
-            for item, result in zip(items, batch.results):
-                key = _cache_key(session.id, item)
-                previous_checksum = cache.get(key)
-                cache[key] = result.checksum
-                unchanged = previous_checksum == result.checksum
-                entry: dict[str, Any] = {'path': result.path, 'checksum': result.checksum}
-                if unchanged:
-                    entry['unchanged'] = True
-                    content.append(text_content(
-                        f'{result.path}: content unchanged since the last identical read. Use the former read result.'))
-                else:
-                    entry['content'] = result.content
-                if not result.is_full_file:
-                    all_full_file = False
-                results.append(entry)
-        error_serializer = lambda e: {'path': e.path, 'error': e.error}
-        structured_content = serialize_batch_result(batch, result_serializer=None, error_serializer=error_serializer)
-        if results:
-            structured_content['results'] = results
+        batch = _read_file_cached(items, ctx.session)
+        structured_content = serialize_batch_result(batch, result_serializer=_serialize_read_result)
         has_error = bool(batch.errors)
-        return ToolResult(
-            content=content,
-            structured_content=structured_content,
-            auto_approve=not has_error and all_full_file)
+        all_full_file = all((r.is_full_file for r in batch.results))
+        return ToolResult(structured_content=structured_content, auto_approve=not has_error and all_full_file)
 
 def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadTool())
