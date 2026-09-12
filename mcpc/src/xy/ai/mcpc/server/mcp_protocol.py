@@ -12,7 +12,7 @@ from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolResult, text_content, CONTROL_HINT_PROPERTY
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolResult, text_content, MESSAGE_PROPERTY
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.ask_user import TOOLNAME_ASK_USER
@@ -161,7 +161,7 @@ class McpProtocol:
             if decision.modified_result is not None:
                 result_dict = dict(decision.modified_result)
             else:
-                result.control_hint = combined_hint
+                result.message = combined_hint
                 result_dict = result.to_dict()
             if combined_hint and name == TOOLNAME_ASK_USER:
                 '# Same exception as in the request phase: for ask_user the'
@@ -172,7 +172,7 @@ class McpProtocol:
                 '# MCP clients only forward content/structuredContent/isError'
                 '# to the model, dropping unknown top-level fields silently.'
                 structured = dict(result_dict.get('structuredContent') or {})
-                structured[CONTROL_HINT_PROPERTY] = combined_hint
+                structured[MESSAGE_PROPERTY] = combined_hint
                 result_dict['structuredContent'] = structured
             return result_dict
         return result.to_dict()

@@ -23,16 +23,15 @@ class ToolResult:
     structured_content: dict[str, Any] | None = None
     is_error: bool = False
     auto_approve: bool = False
-    control_hint: str | None = None
-    'Optional hint attached by the controller on approval (``/allow <id> <hint>``).\n\n    Embedded as :data:`CONTROL_HINT_PROPERTY` *inside* ``structuredContent``\n    (see :meth:`to_dict`) rather than as a top-level ``CallToolResult`` field:\n    MCP clients only surface ``content``/``structuredContent``/``isError`` to\n    the model, so a sibling top-level key would silently be dropped before\n    ever reaching the agent.\n    '
+    message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         if self.content:
             result['content'] = list(self.content)
         structured = dict(self.structured_content) if self.structured_content else {}
-        if self.control_hint:
-            structured[CONTROL_HINT_PROPERTY] = self.control_hint
+        if self.message:
+            structured[MESSAGE_PROPERTY] = self.message
         if structured:
             result['structuredContent'] = structured
         if self.is_error:
@@ -138,7 +137,7 @@ REASON_PROPERTY = 'reason'
 "#: schema and, at call time, into the result's ``structuredContent`` (see"
 '#: :meth:`ToolResult.to_dict`) — must live there, not top-level, since MCP'
 '#: clients drop unknown top-level ``CallToolResult`` fields silently.'
-CONTROL_HINT_PROPERTY = 'controlHint'
+MESSAGE_PROPERTY = 'userMessage'
 
 def _inject_property(schema: dict[str, Any], name: str, description: str, *, required: bool) -> dict[str, Any]:
     """Return *schema* with an additional property generically injected.
@@ -172,16 +171,11 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
         'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.',
         required=True)
 
-def _with_optional_control_hint(schema: dict[str, Any]) -> dict[str, Any]:
-    """Return *schema* with the optional ``controlHint`` output property injected.
-
-    Documents the field that may appear inside ``structuredContent`` when the
-    authorizing user attached a hint to an ``/allow`` decision.
-    """
+def _with_optional_message(schema: dict[str, Any]) -> dict[str, Any]:
     return _inject_property(
         schema,
-        CONTROL_HINT_PROPERTY,
-        'Optional hint or question from the authorizing user',
+        MESSAGE_PROPERTY,
+        'Optional message or hint or question from the authorizing user',
         required=False)
 
 class ToolRegistry:
@@ -233,7 +227,7 @@ class ToolRegistry:
         '# to *any* result regardless of whether the tool declared an'
         '# outputSchema, so the schema must always document it too.'
         base_output_schema = tool.output_schema or {'type': 'object', 'properties': {}}
-        tool.output_schema = _with_optional_control_hint(base_output_schema)
+        tool.output_schema = _with_optional_message(base_output_schema)
         meta: dict[str, Any] = {'anthropic/maxResultSizeChars': ANTHROPIC_MAX_RESULT_SIZE_CHARS}
         tool.meta = meta
         self._tools[tool.name] = tool

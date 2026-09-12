@@ -1,8 +1,6 @@
 # TODO
 * wieder newline ersetzungsprobleme analysieren
-* ast_script sollte nicht in AST alias sein
-	* reiner ast-readonly alias
-* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
+* warum AST script fehlgeschlagen
 
 * Deepseek anbinden über openai SDK, als chat tool mit caching und standalone modus
 	* harnisch mit keep alive prompt für session, max limit bei 5m max eine stunde, bei 1h max 2h
@@ -10,6 +8,7 @@
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 	* harness always use python scripts cuz of implicite knowledge in coding instead of interface description
 * open alex zweistufig optimieren, split in separate files
+* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
 
 ##  Workbench
 
