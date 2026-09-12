@@ -8,6 +8,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['FileNodesResult', 'FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
 
 @dataclass(frozen=True)
@@ -183,9 +184,9 @@ class FindNodesTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_find`, translating the MCP schema to/from the AST API."""
         args: dict[str, Any] = ctx.arguments
-        paths = args.get('paths')
-        if not isinstance(paths, list):
-            return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
+        paths, error = require_items(ctx, key='paths')
+        if error is not None:
+            return error
         with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
         try:
             result = ast_find(

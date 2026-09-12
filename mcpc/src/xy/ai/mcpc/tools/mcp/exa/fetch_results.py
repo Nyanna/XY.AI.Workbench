@@ -78,7 +78,6 @@ class WebFetchExaResultsTool(ToolDefinition):
     description = _DESCRIPTION
     input_schema = _INPUT_SCHEMA
     output_schema = _OUTPUT_SCHEMA
-    annotations = _ANNOTATIONS
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments

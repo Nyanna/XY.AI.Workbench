@@ -1,8 +1,9 @@
 """Edit-line tool – replaces a single line with one or more lines in a file, for a batch of items."""
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 from xy.ai.mcpc.tools.edit_block import EditBlockItem, edit_block
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
@@ -153,17 +154,13 @@ class EditLineTool(ToolDefinition):
                                                 'path': {
                                                     'type': 'string'}, 'error': {
                                                         'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}, 'required': [
-                                                                'results', 'errors']}
+                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [
-            EditLineItem(
+
+        def item_factory(it: dict[str, Any]) -> EditLineItem:
+            return EditLineItem(
                 path=it['path'],
                 old_line=it['old_line'],
                 new_lines=it['new_lines'],
@@ -172,16 +169,8 @@ class EditLineTool(ToolDefinition):
                     False),
                 replace_all=it.get(
                     'replaceAll',
-                    False)) for it in raw_items]
-        batch = edit_line(items)
-        results = [{'path': r.path, 'result': r.result} for r in batch.results]
-        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        has_error = bool(batch.errors)
-        return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            auto_approve=not has_error)
+                    False))
+        return handle_batch_tool(ctx, item_factory, edit_line, EditLineError)
 
 def register_edit_line_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditLineTool())

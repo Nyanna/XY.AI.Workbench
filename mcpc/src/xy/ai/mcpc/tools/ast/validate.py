@@ -6,7 +6,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['ValidateError', 'FileCheck', 'ValidateResult', 'ast_validate', 'ValidateTool', 'register']
 
 class ValidateError(Exception):
@@ -101,9 +101,9 @@ class ValidateTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_validate`, translating the MCP schema to/from the AST API."""
-        paths = ctx.arguments['paths']
-        if not isinstance(paths, list):
-            return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
+        paths, error = require_items(ctx, key='paths')
+        if error is not None:
+            return error
         try:
             result = ast_validate(paths)
         except ValidateError as exc:

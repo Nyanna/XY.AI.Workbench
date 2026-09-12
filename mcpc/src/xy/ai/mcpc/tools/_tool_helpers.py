@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Callable, TypeVar
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
-__all__ = ['BatchError', 'handle_batch_tool', 'serialize_batch_result']
+__all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result']
 
 @dataclass
 class BatchError:
@@ -12,31 +12,45 @@ class BatchError:
 T = TypeVar('T')
 R = TypeVar('R')
 
+def require_items(ctx: ToolContext, key: str='items') -> 'tuple[list[Any], ToolResult | None]':
+    """Return the non-empty list at *key* in ``ctx.arguments``, or an error result.
+
+    Returns:
+        ``(values, None)`` on success, or ``([], error_result)`` if *key* is missing or
+        empty; callers must return ``error_result`` immediately in that case.
+    """
+    values = ctx.arguments.get(key) or []
+    if not values:
+        return ([], ToolResult(content=[text_content(f"'{key}' must be a non-empty list.")], is_error=True))
+    return (values, None)
+
 def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None) -> ToolResult:
     """Common handler for batch-processing tools.
-    
+
     Args:
         ctx: Tool context with arguments.
         item_factory: Function to convert raw dict to typed item.
         batch_fn: Function to process list of items, returning batch result.
-        error_class: Exception class that indicates an error.
+        error_class: Exception class raised by `batch_fn` for whole-batch failures.
         result_serializer: Optional custom serializer for result items (default: asdict).
         error_serializer: Optional custom serializer for error items (default: asdict).
-    
+
     Returns:
         ToolResult with serialized batch result.
     """
-    args: dict[str, Any] = ctx.arguments
-    raw_items = args.get('items') or []
-    if not raw_items:
-        return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+    raw_items, error = require_items(ctx)
+    if error is not None:
+        return error
     items: list[T] = []
     for it in raw_items:
         try:
             items.append(item_factory(it))
         except (KeyError, ValueError, TypeError) as exc:
             return ToolResult(content=[text_content(f'Invalid item: {exc}')], is_error=True)
-    batch_result = batch_fn(items)
+    try:
+        batch_result = batch_fn(items)
+    except error_class as exc:
+        return ToolResult(content=[text_content(str(exc))], is_error=True)
     content = serialize_batch_result(
         batch_result,
         result_serializer=result_serializer,

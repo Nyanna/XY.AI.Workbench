@@ -9,8 +9,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'FileStatsError',
@@ -294,28 +295,14 @@ class FileStatsTool(ToolDefinition):
                             'type': 'string'}},
                     'required': [
                         'path',
-                        'error']}}},
-        'required': [
-            'results',
-            'errors']}
+                        'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [FileStatsItem(path=it['path']) for it in raw_items]
-        batch = file_stats(items)
-        results = [asdict(r) for r in batch.results]
-        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        has_error = bool(batch.errors)
-        return ToolResult(
-            content=[],
-            structured_content={
-                'results': results,
-                'errors': errors},
-            auto_approve=not has_error)
+
+        def item_factory(it: dict[str, Any]) -> FileStatsItem:
+            return FileStatsItem(path=it['path'])
+        return handle_batch_tool(ctx, item_factory, file_stats, FileStatsError)
 
 def register_file_stats_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FileStatsTool())

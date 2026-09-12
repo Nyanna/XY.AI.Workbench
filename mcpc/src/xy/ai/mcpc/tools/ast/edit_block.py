@@ -1,13 +1,13 @@
 """``ast_edit_block`` tool: exact-block (old_text -> new_text) edits within selected nodes."""
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_text
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, serialize_batch_result
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 __all__ = [
     'EditBlockItem',
     'EditBlockResult',
@@ -227,15 +227,7 @@ class EditBlockNodeTool(ToolDefinition):
             if e.candidates is not None:
                 entry['candidates'] = e.candidates
             return entry
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [item_factory(it) for it in raw_items]
-        batch = ast_edit_block(items)
-        content = serialize_batch_result(batch, result_serializer, error_serializer)
-        has_error = bool(batch.errors)
-        return ToolResult(structured_content=content, auto_approve=not has_error)
+        return handle_batch_tool(ctx, item_factory, ast_edit_block, core.AstError, result_serializer, error_serializer)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

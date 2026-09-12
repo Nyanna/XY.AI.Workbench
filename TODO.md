@@ -1,5 +1,4 @@
 # TODO
-* autoapprove fals wenn auch nur ein fehler überball
 * grep und list nur results wenn nicht empty sonst einfacher hinweis
 * wieder newline ersetzungsprobleme analysieren
 * warum AST script fehlgeschlagen

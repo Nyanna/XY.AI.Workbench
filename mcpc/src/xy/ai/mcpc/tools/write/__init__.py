@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
@@ -144,18 +144,7 @@ class WriteTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> WriteItem:
             return WriteItem(path=it['path'], mode=it['mode'], content=it['content'])
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [item_factory(it) for it in raw_items]
-        batch = write(items)
-        result_serializer = lambda r: {'path': r.path, 'result': r.result}
-        error_serializer = lambda e: {'path': e.path, 'error': e.error}
-        from xy.ai.mcpc.tools._tool_helpers import serialize_batch_result
-        content = serialize_batch_result(batch, result_serializer, error_serializer)
-        has_error = bool(batch.errors)
-        return ToolResult(structured_content=content, auto_approve=not has_error)
+        return handle_batch_tool(ctx, item_factory, write, WriteError)
 
 def register_write_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WriteTool())

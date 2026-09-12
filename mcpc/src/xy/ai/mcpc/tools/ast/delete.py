@@ -1,7 +1,7 @@
 """``ast_delete`` tool: delete selected nodes, or whole files if none selected."""
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, select_by_path

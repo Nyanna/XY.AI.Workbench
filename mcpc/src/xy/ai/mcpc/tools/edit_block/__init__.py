@@ -2,8 +2,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
@@ -169,17 +170,13 @@ class EditBlockTool(ToolDefinition):
                                                 'path': {
                                                     'type': 'string'}, 'error': {
                                                         'type': 'string'}}, 'required': [
-                                                            'path', 'error']}}}, 'required': [
-                                                                'results', 'errors']}
+                                                            'path', 'error']}}}}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_block`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [
-            EditBlockItem(
+
+        def item_factory(it: dict[str, Any]) -> EditBlockItem:
+            return EditBlockItem(
                 path=it['path'],
                 old_text=it['old_text'],
                 new_text=it['new_text'],
@@ -188,16 +185,8 @@ class EditBlockTool(ToolDefinition):
                     False),
                 replace_all=it.get(
                     'replaceAll',
-                    False)) for it in raw_items]
-        batch = edit_block(items)
-        results = [{'path': r.path, 'result': r.result} for r in batch.results]
-        errors = [{'path': e.path, 'error': e.error} for e in batch.errors]
-        has_error = bool(batch.errors)
-        return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            auto_approve=not has_error)
+                    False))
+        return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError)
 
 def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockTool())

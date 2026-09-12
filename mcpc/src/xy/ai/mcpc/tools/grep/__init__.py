@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools._directories import normalize_directories
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, serialize_batch_result
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 import re
 __all__ = [
     'GrepError',
@@ -290,16 +290,10 @@ class GrepTool(ToolDefinition):
             if r.warning is not None:
                 entry['warning'] = r.warning
             return entry
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [item_factory(it) for it in raw_items]
-        batch = grep(items)
-        error_serializer = lambda e: {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
-        content = serialize_batch_result(batch, result_serializer, error_serializer)
-        has_error = bool(batch.errors)
-        return ToolResult(structured_content=content, auto_approve=not has_error)
+
+        def error_serializer(e: GrepError) -> dict[str, Any]:
+            return {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
+        return handle_batch_tool(ctx, item_factory, grep, GrepError, result_serializer, error_serializer)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())

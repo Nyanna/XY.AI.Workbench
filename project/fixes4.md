@@ -1,0 +1,1 @@
+- `input_schema` und `output_schema` in Elemente zerlegen und ebenfalls die Reusage erhöhen durch gemeinsam genütze Konstanten. Lieber mehrere falcher kleinere Objekte als ein großer Baum.

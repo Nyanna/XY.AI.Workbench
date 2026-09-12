@@ -25,6 +25,10 @@ class ToolResult:
     auto_approve: bool = False
     message: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.is_error and self.structured_content:
+            raise ValueError('ToolResult: structured_content must not be set when is_error is True.')
+
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         if self.content:

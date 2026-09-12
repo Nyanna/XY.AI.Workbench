@@ -1,11 +1,12 @@
 """``ast_read`` tool: read one or more node subtrees (with source) by id, across files."""
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast.list import ast_list
+from xy.ai.mcpc.tools._tool_helpers import require_items
 __all__ = ['ReadItem', 'ReadResult', 'ReadError', 'ReadBatchResult', 'ast_read', 'ReadNodeTool', 'register']
 _ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', '', '*'}
 
@@ -158,11 +159,10 @@ class ReadNodeTool(ToolDefinition):
         and none of them resolve to a node: returns that file's full outline
         instead of an error, and notes the redirect in the item's ``errors``.
         """
-        args: dict[str, Any] = ctx.arguments
         with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        raw_items, error = require_items(ctx)
+        if error is not None:
+            return error
         results: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
         for raw in raw_items:
@@ -186,7 +186,12 @@ class ReadNodeTool(ToolDefinition):
             results.append({'path': item_result.path,
                             'nodes': [core.to_dict(n) for n in item_result.nodes],
                             'errors': item_result.errors})
-        return ToolResult(structured_content={'results': results, 'errors': errors})
+        structured_content: dict[str, Any] = {}
+        if results:
+            structured_content['results'] = results
+        if errors:
+            structured_content['errors'] = errors
+        return ToolResult(structured_content=structured_content)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadNodeTool())

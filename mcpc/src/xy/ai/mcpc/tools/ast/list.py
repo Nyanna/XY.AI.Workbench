@@ -2,10 +2,11 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
 __all__ = ['ListNodesResult', 'ListNodesError', 'ListNodesBatchResult', 'ast_list', 'ListNodesTool', 'register']
 _MAX_DIR_EXPANSION = 5
 
@@ -137,14 +138,14 @@ class ListNodesTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""
-        args: dict[str, Any] = ctx.arguments
+        paths, error = require_items(ctx, key='paths')
+        if error is not None:
+            return error
         with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
-        paths = args.get('paths') or []
-        if not paths:
-            return ToolResult(content=[text_content("'paths' must be a non-empty list.")], is_error=True)
         batch = ast_list(paths=paths, with_lines=with_lines)
-        content = {'results': [{'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]} for r in batch.results], 'errors': [
-            {'path': e.path, 'error': e.error} for e in batch.errors]}
+        result_serializer = lambda r: {'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]}
+        error_serializer = lambda e: {'path': e.path, 'error': e.error}
+        content = serialize_batch_result(batch, result_serializer, error_serializer)
         return ToolResult(structured_content=content)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:

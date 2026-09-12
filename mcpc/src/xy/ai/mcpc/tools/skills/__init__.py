@@ -9,8 +9,9 @@ tool so several skills can be fetched in one call.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
+from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 __all__ = [
     'Skill',
@@ -159,8 +160,7 @@ class SkillsTool(ToolDefinition):
                                                 'name': {
                                                     'type': 'string'}, 'error': {
                                                         'type': 'string'}}, 'required': [
-                                                            'name', 'error']}}}, 'required': [
-                                                                'results', 'errors']}
+                                                            'name', 'error']}}}}
 
     def __init__(self) -> None:
         catalog = '\n'.join((f'- {skill.name}: {skill.description}' for skill in SKILLS))
@@ -168,20 +168,10 @@ class SkillsTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`get_skills`, translating the MCP schema to/from the Python API."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
-        items = [SkillsItem(name=it['name']) for it in raw_items]
-        batch = get_skills(items)
-        results = [{'name': r.name, 'instructions': r.instructions} for r in batch.results]
-        errors = [{'name': e.name, 'error': e.error} for e in batch.errors]
-        has_error = bool(batch.errors)
-        return ToolResult(
-            structured_content={
-                'results': results,
-                'errors': errors},
-            auto_approve=not has_error)
+
+        def item_factory(it: dict[str, Any]) -> SkillsItem:
+            return SkillsItem(name=it['name'])
+        return handle_batch_tool(ctx, item_factory, get_skills, SkillsError)
 
 def register_skills(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the batching skills tool and each skill's backing function."""

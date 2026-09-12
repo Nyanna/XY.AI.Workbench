@@ -1,2 +1,0 @@
-- in `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/tool_registry.py` in ToolResult eine Exception einbauen is_error auf True gesetzt wird structured_content vorhanden ist
-- in/out schema reusage, for allem batch

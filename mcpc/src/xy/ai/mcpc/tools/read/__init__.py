@@ -7,7 +7,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import serialize_batch_result
+from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
 __all__ = [
     'ReadError',
     'ReadItem',
@@ -237,10 +237,9 @@ class ReadTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`read_file`, then apply session-level change detection and MCP packing."""
-        args: dict[str, Any] = ctx.arguments
-        raw_items = args.get('items') or []
-        if not raw_items:
-            return ToolResult(content=[text_content("'items' must be a non-empty list.")], is_error=True)
+        raw_items, error = require_items(ctx)
+        if error is not None:
+            return error
         items = [
             ReadItem(
                 path=it['path'],
