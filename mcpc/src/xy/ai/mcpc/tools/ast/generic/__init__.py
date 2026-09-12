@@ -13,11 +13,13 @@ from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine
 from xy.ai.mcpc.tools.ast.generic._java import JavaEngine
 from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
+from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
 __all__ = [
     'TreeSitterEngine',
     'JavaEngine',
     'MarkdownEngine',
     'PlainTextEngine',
+    'YamlEngine',
     'language_for_extension',
     'get_engine',
     'fallback_engine']
@@ -69,7 +71,8 @@ def language_for_extension(ext: str) -> str | None:
     return EXT_LANGUAGE.get(ext.lower())
 '#: Language symbol -> dedicated Engine subclass; anything absent here falls'
 '#: back to the universal :class:`TreeSitterEngine`.'
-_ENGINE_CLASSES: dict[str, type[TreeSitterEngine]] = {'markdown': MarkdownEngine, 'java': JavaEngine}
+_ENGINE_CLASSES: dict[str, type[TreeSitterEngine]] = {
+    'markdown': MarkdownEngine, 'java': JavaEngine, 'yaml': YamlEngine}
 _ENGINES: dict[str, TreeSitterEngine] = {}
 
 def get_engine(symbol: str) -> TreeSitterEngine:
