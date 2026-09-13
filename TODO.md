@@ -19,11 +19,19 @@
 	
 	1. Chatverlauf
 	2. Separate Datei und view
-	3- Separate Dateien für branching
+	3. Separate Dateien für branching
+	4. Über MCP Client, Subagent call in MCPC mit Deepseek backend
+! MCP CLient /call <ID>, tool call mit ID Versenen
 
 
-
+! tool control anders, tool use nur für langwierige teure operationen, sonst immer den output abwarten und zusammen approven
+	- Dann nur ein approval call + ergebnis notwendig
+	- dann muss reaspon auch in die response gespiegelt werden, immer als letztes, zusammen mit stats wie Zeichen und ob modifizierend
+	- request approval categorie mit auto approval pro cat und argument
+		- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit), Viel Kontext(Zeichen Threshold) -> per flag togglebar
+* omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
 * Harness
+	* autolauf modus
 	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 	* harness always use python scripts cuz of implicite knowledge in coding instead of interface description

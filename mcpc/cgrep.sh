@@ -28,7 +28,7 @@ init() {
 	export RAYON_NUM_THREADS=8
 	export TOKENIZERS_PARALLELISM=true
 	export ORT_DYLIB_PATH="/home/user/xyan/xy.ai.workbench/tools/onnxruntime-linux-x64-gpu_cuda13-1.30.0/lib/libonnxruntime.so"
-	export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/x86_64-linux/lib
 
     # Base set of always-ignored paths.
     local ignore_args=(--ignore .colgrep)
@@ -83,11 +83,13 @@ init() {
     colgrep-cuda settings "${ignore_args[@]}"
     # maybe use lightonai/mLateOn for language
     colgrep-cuda set-model lightonai/mLateOn
-    colgrep-cuda settings --batch-size 1
+    # colgrep-cuda set-model lightonai/GTE-ModernColBERT-v1
+    colgrep-cuda settings --batch-size 32
     colgrep-cuda settings --int8
     colgrep-cuda settings --parallel 1
     colgrep-cuda settings --relative-paths
-    colgrep-cuda init --force-gpu "$project_dir" -y
+    # colgrep-cuda init --force-gpu "$project_dir" -y
+    colgrep-cuda init --force-cpu "$project_dir" -y
 }
 
 # --- query: run any colgrep subcommand/query against $PWD/.colgrep ---------
