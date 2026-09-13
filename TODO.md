@@ -1,5 +1,12 @@
 # TODO
 
+- Die bisherigen Toolinputs für Search/Files werden abgegrenzt
+	- inputmodes entfernen context,files,search
+		- statdessen hacken für Tagersetzung <search>
+	- durch meta syntax im Body ersetzen
+		- <search mode="all|selected|asFiles">
+		- <files mode="selected|list"> - auch mit Zeilenbereichen
+- anzeige für geschätzen cache read/write(neuen input)
 * tools, erstmal mit reingeben aus MCP connector
 	* MCP connector als profider für tool in tools liste?
 	* Selektieren und liste mit reinreichen

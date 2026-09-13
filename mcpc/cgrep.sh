@@ -84,7 +84,7 @@ init() {
     # maybe use lightonai/mLateOn for language
     colgrep-cuda set-model lightonai/mLateOn
     # colgrep-cuda set-model lightonai/GTE-ModernColBERT-v1
-    colgrep-cuda settings --batch-size 32
+    colgrep-cuda settings --batch-size 1
     colgrep-cuda settings --int8
     colgrep-cuda settings --parallel 1
     colgrep-cuda settings --relative-paths
