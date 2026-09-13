@@ -84,17 +84,17 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 			if (!batchFix)
 				config.systemInstruction(systemInstruction);
 			else
-				proccessedInputs.add(systemInstruction);
+				proccessedInputs.add(systemInstruction.toBuilder().role("model").build());
 		}
 
 		if (inputs != null && !inputs.isEmpty())
 			for (String input : inputs)
 				if (input != null && !input.isBlank())
-					proccessedInputs.add(Content.fromParts(Part.fromText(input)));
+					proccessedInputs.add(Content.builder().parts(Part.fromText(input)).role("model").build());
 
 		if (tools != null && !tools.isEmpty())
 			for (String tool : tools)
-				proccessedInputs.add(Content.fromParts(Part.fromText(tool)));
+				proccessedInputs.add(Content.builder().parts(Part.fromText(tool)).role("model").build());
 
 		GenerateContentConfig contentConfig = config.build();
 		sub.worked(1);

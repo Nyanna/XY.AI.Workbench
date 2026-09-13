@@ -102,9 +102,9 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			part.setInstructions(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
 					TextNode.valueOf(systemPrompt)));
 
-		String userId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
 		ModelResponseProperties modelProps = requestBody.getCreateModelResponsePropertiesAllOf()
 				.getModelResponseProperties();
+		String reqId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
 		// don't set User ID, segmentation prevents caching
 		//modelProps.setUser(userId);
 
@@ -128,7 +128,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		if (inputs != null)
 			for (String in : inputs)
 				if (in != null && !in.isBlank())
-					input.add(createMessage(mapper, RoleEnum.USER, in));
+					input.add(createMessage(mapper, RoleEnum.SYSTEM, in));
 
 		if (tools != null && !tools.isEmpty())
 			input.add(createToolOutputMessage(mapper, tools));
@@ -137,7 +137,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			part.setInput(new OneOfInput(input));
 
 		sub.worked(1);
-		return new DeepSeekRequest(requestBody, userId);
+		return new DeepSeekRequest(requestBody, reqId);
 	}
 
 	private ObjectNode createMessage(ObjectMapper mapper, RoleEnum role, String text) {

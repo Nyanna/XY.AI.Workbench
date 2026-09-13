@@ -65,7 +65,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 		if (inputs != null && !inputs.isEmpty())
 			for (String input : inputs)
 				if (input != null && !input.isBlank())
-					builder.addUserMessage(input);
+					builder.addSystemMessage(input);
 
 		MessageCreateParams createParams = builder.build();
 		sub.worked(1);

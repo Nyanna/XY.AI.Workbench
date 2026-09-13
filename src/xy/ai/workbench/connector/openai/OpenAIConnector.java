@@ -84,7 +84,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 							.text(input) //
 							.build();
 					ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
-							.role(ResponseInputItem.Message.Role.USER)//
+							.role(ResponseInputItem.Message.Role.DEVELOPER)//
 							.addContent(inputText).build());
 					respInputs.add(inputItem);
 					builder.inputOfResponse(respInputs);
