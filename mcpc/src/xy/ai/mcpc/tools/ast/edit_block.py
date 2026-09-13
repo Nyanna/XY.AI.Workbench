@@ -205,13 +205,17 @@ class EditBlockNodeTool(ToolDefinition):
                 id=it.get('id'))
 
         def result_serializer(r: EditBlockResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'id': r.id, 'result': r.result}
+            entry = {'path': r.path, 'result': r.result}
+            if r.id is not None:
+                entry['id'] = r.id
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
             return entry
 
         def error_serializer(e: EditBlockError) -> dict[str, Any]:
-            entry = {'path': e.path, 'id': e.id, 'error': e.error}
+            entry = {'path': e.path, 'error': e.error}
+            if e.id is not None:
+                entry['id'] = e.id
             for field in ('candidates', 'reason', 'corrected_text', 'guess', 'next_step'):
                 value = getattr(e, field)
                 if value is not None:

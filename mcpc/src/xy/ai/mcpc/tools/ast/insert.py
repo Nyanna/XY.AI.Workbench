@@ -136,13 +136,18 @@ class InsertNodeTool(ToolDefinition):
                 id=it.get('id'))
 
         def result_serializer(r: InsertResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'id': r.id, 'result': r.result, 'inserted': r.inserted}
+            entry = {'path': r.path, 'result': r.result, 'inserted': r.inserted}
+            if r.id is not None:
+                entry['id'] = r.id
             if r.ids is not None:
                 entry['ids'] = r.ids
             return entry
 
         def error_serializer(e: InsertError) -> dict[str, Any]:
-            return {'path': e.path, 'id': e.id, 'error': e.error}
+            entry = {'path': e.path, 'error': e.error}
+            if e.id is not None:
+                entry['id'] = e.id
+            return entry
         return handle_batch_tool(
             ctx,
             item_factory,

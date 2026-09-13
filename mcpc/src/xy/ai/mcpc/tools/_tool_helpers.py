@@ -4,6 +4,14 @@ from typing import Any, Callable, TypeVar
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 
+def _compact(value: Any) -> Any:
+    """Recursively drop ``None`` values and empty lists from a dataclass-derived structure."""
+    if isinstance(value, dict):
+        return {k: _compact(v) for k, v in value.items() if v is not None and v != []}
+    if isinstance(value, list):
+        return [_compact(v) for v in value]
+    return value
+
 def batch_schema(item_properties: dict[str, Any], required: list[str], description: str, *, additional_properties: bool | None=None) -> dict[str, Any]:
     """Build the standard ``{items: [...]}`` input schema shared by all batch tools.
 
@@ -92,9 +100,9 @@ def serialize_batch_result(batch_result: Any, result_serializer: Callable[[Any],
         Dict with only populated fields.
     """
     if result_serializer is None:
-        result_serializer = lambda r: asdict(r) if hasattr(r, '__dataclass_fields__') else r
+        result_serializer = lambda r: _compact(asdict(r)) if hasattr(r, '__dataclass_fields__') else r
     if error_serializer is None:
-        error_serializer = lambda e: asdict(e) if hasattr(e, '__dataclass_fields__') else e
+        error_serializer = lambda e: _compact(asdict(e)) if hasattr(e, '__dataclass_fields__') else e
     content: dict[str, Any] = {}
     if hasattr(batch_result, 'results') and batch_result.results:
         content['results'] = [result_serializer(r) for r in batch_result.results]

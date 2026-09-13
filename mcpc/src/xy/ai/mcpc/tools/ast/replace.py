@@ -126,13 +126,18 @@ class ReplaceNodeTool(ToolDefinition):
             return ReplaceItem(path=it['path'], source=it['source'], id=it.get('id'))
 
         def result_serializer(r: ReplaceResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'id': r.id, 'result': r.result}
+            entry = {'path': r.path, 'result': r.result}
+            if r.id is not None:
+                entry['id'] = r.id
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
             return entry
 
         def error_serializer(e: ReplaceError) -> dict[str, Any]:
-            return {'path': e.path, 'id': e.id, 'error': e.error}
+            entry = {'path': e.path, 'error': e.error}
+            if e.id is not None:
+                entry['id'] = e.id
+            return entry
         return handle_batch_tool(
             ctx,
             item_factory,
