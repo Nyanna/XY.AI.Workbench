@@ -277,20 +277,17 @@ public class AISessionView extends ViewPart {
 		middle.setLayoutData(ldat2);
 
 		toolkit.createLabel(middle, "System Prompt:");
-		Composite sashComp = new Composite(middle, SWT.NONE);
-		sashComp.setLayout(new GridLayout(1, false));
+		
+		
+		Composite contComp = new Composite(middle, SWT.NONE);
+		contComp.setLayout(new GridLayout(1, false));
 		GridData scl = new GridData(SWT.FILL, SWT.FILL, true, true);
 		scl.heightHint = 100;
 		scl.widthHint = 1;
-		sashComp.setLayoutData(scl);
-		SashForm sash = new SashForm(sashComp, SWT.VERTICAL);
-		sash.setLayout(new GridLayout(1, false));
-		GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
-		scl2.heightHint = 100;
-		scl2.widthHint = 1;
-		sash.setLayoutData(scl2);
+		contComp.setLayoutData(scl);
+		
 
-		TabFolder instr = new TabFolder(sash, SWT.NONE);
+		TabFolder instr = new TabFolder(contComp, SWT.NONE);
 		GridData ldat1 = new GridData(SWT.FILL, SWT.FILL, true, true);
 		ldat1.heightHint = 100;
 		instr.setLayoutData(ldat1);
@@ -299,22 +296,27 @@ public class AISessionView extends ViewPart {
 		createInstructionEditTab(instr, cfg);
 		createToolsTab(instr, cfg);
 		createPresetsTab(instr, cfg);
-		createFreeTextArea(sash, cfg);
 
-		sash.setWeights(3, 1);
 		createInputsTable(middle, cfg, session);
 	}
 
 	private void createInstructionSelectTab(TabFolder instr, ConfigManager cfg) {
 		TabItem instrSel = new TabItem(instr, SWT.NONE);
 		instrSel.setText("Select");
+		
+		SashForm sash = new SashForm(instr, SWT.VERTICAL);
+		sash.setLayout(new GridLayout(1, false));
+		GridData scl2 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		scl2.heightHint = 100;
+		scl2.widthHint = 1;
+		sash.setLayoutData(scl2);
 
-		Composite comp = new Composite(instr, SWT.NONE);
+		Composite comp = new Composite(sash, SWT.NONE);
 		comp.setLayout(new GridLayout());
 		GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
 		ldat3.heightHint = 100;
 		comp.setLayoutData(ldat3);
-		instrSel.setControl(comp);
+		instrSel.setControl(sash);
 		instructionList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
 		cfg.addSystemPromptObs(p -> updateInstructionList(p.systemPrompt), true);
 
@@ -345,6 +347,8 @@ public class AISessionView extends ViewPart {
 			String[] cur = instructionList.getItems();
 			cfg.setSystemPrompt(updatePromptLines(cur));
 		});
+
+		createFreeTextArea(sash, cfg);
 	}
 
 	private void createInstructionEditTab(TabFolder instr, ConfigManager cfg) {
@@ -480,6 +484,7 @@ public class AISessionView extends ViewPart {
 		gridData.widthHint = 1;
 		instructionFree.setLayoutData(gridData);
 		instructionFree.addMouseListener(MouseListener.mouseDownAdapter(m -> instructionFree.setFocus()));
+		sash.setWeights(3, 1);
 	}
 
 	private void createInputsTable(Composite middle, ConfigManager cfg, AISessionManager session) {

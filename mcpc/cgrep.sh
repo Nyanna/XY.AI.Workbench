@@ -8,6 +8,7 @@
 #   cgrep.sh <query-args...>            Run "colgrep <query-args...>" against
 #                                        the index rooted at $PWD/.colgrep
 export PYTHONDONTWRITEBYTECODE=1
+export PATH="$PATH:/home/user/xyan/xy.ai.workbench/tools"
 
 set -euo pipefail
 
@@ -23,6 +24,11 @@ init() {
 
     export XDG_DATA_HOME="$project_dir/.colgrep"
     export XDG_CONFIG_HOME="$project_dir/.colgrep"
+    export OMP_NUM_THREADS=8
+	export RAYON_NUM_THREADS=8
+	export TOKENIZERS_PARALLELISM=true
+	export ORT_DYLIB_PATH="/home/user/xyan/xy.ai.workbench/tools/onnxruntime-linux-x64-gpu_cuda13-1.30.0/lib/libonnxruntime.so"
+	export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
 
     # Base set of always-ignored paths.
     local ignore_args=(--ignore .colgrep)
@@ -74,12 +80,14 @@ init() {
         -type f -name .gitignore -print0 | sort -z)
 
     # -y: auto-confirm indexing of large codebases (non-interactive setup).
-    colgrep settings "${ignore_args[@]}"
+    colgrep-cuda settings "${ignore_args[@]}"
     # maybe use lightonai/mLateOn for language
-    colgrep set-model lightonai/mLateOn
-    colgrep settings --parallel 1
-    colgrep settings --relative-paths
-    colgrep init "$project_dir" -y
+    colgrep-cuda set-model lightonai/mLateOn
+    colgrep-cuda settings --batch-size 1
+    colgrep-cuda settings --int8
+    colgrep-cuda settings --parallel 1
+    colgrep-cuda settings --relative-paths
+    colgrep-cuda init --force-gpu "$project_dir" -y
 }
 
 # --- query: run any colgrep subcommand/query against $PWD/.colgrep ---------
@@ -90,7 +98,7 @@ query() {
     export XDG_DATA_HOME="$project_dir/.colgrep"
     export XDG_CONFIG_HOME="$project_dir/.colgrep"
 
-    colgrep "$@"
+    colgrep-cuda --force-gpu "$@"
 }
 
 if [[ "${1:-}" == "init" ]]; then

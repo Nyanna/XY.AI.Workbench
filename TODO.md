@@ -1,8 +1,5 @@
 # TODO
 
-* Systemprompt feld mit in systemprompt tab
-* warum prompt template nicht angezeigt?
-
 * tools, erstmal mit reingeben aus MCP connector
 	* MCP connector als profider für tool in tools liste?
 	* Selektieren und liste mit reinreichen
