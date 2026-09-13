@@ -14,14 +14,15 @@ import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
-	private final MCPClient client = new MCPClient();
+	private final MCPClient client;
 	private final MCPControlClient control = new MCPControlClient();
 
 	@SuppressWarnings("unused")
 	private final ConfigManager cfg;
 
-	public MCPConnector(ConfigManager cfg) {
+	public MCPConnector(ConfigManager cfg, MCPClient client) {
 		this.cfg = cfg;
+		this.client = client;
 	}
 
 	@Override

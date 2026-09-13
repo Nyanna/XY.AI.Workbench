@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.connector.claudecode.JsonUtil;
+import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
  * Minimal MCP client over the Streamable-HTTP transport. Connection, session id
@@ -29,6 +30,7 @@ public class MCPClient {
 	private static final Duration TIMEOUT = Duration.ofSeconds(300);
 
 	private final ObjectMapper mapper = JsonUtil.mapper();
+	private final YamlRenderer yaml = new YamlRenderer();
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
 	/** Instance-stable session id sent as X-MCPC-SESSION-ID. */
@@ -54,6 +56,17 @@ public class MCPClient {
 		JsonNode tools = result.path("tools");
 		toolCache = tools.isArray() ? (ArrayNode) tools : mapper.createArrayNode();
 		return toolCache;
+	}
+
+	/**
+	 * Renders a model-issued tool call as a fenced ```yaml block, in the same
+	 * shape used for MCPC tool call round-trips ({@code tool}/{@code arguments}).
+	 */
+	public String renderToolCall(String name, JsonNode arguments) {
+		ObjectNode call = mapper.createObjectNode();
+		call.put("tool", name);
+		call.set("arguments", arguments != null && arguments.isObject() ? arguments : mapper.createObjectNode());
+		return yaml.toYamlBlock(call);
 	}
 
 	public synchronized JsonNode callTool(String name, JsonNode arguments) {

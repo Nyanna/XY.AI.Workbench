@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -40,8 +42,11 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -55,6 +60,7 @@ public class AISessionManager {
 
 	private final ConfigManager cfg;
 	private final AdaptingConnector connector;
+	private final MCPClient mcpClient;
 	public final EditorInterface editIfc;
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
@@ -63,12 +69,33 @@ public class AISessionManager {
 	private List<IFile> selectedFiles = List.of();
 	private ISearchResult result = null;
 
-	public AISessionManager(ConfigManager cfg, AdaptingConnector connector) {
+	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, MCPClient mcpClient) {
 		this.cfg = cfg;
 		this.connector = connector;
+		this.mcpClient = mcpClient;
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		cfg.addInputModeObs(i -> updateInputStat(i));
 		cfg.addEnabledToolsObs(t -> updateInputStat(InputMode.Tools), false);
+		cfg.addModelObs(this::discoverTools, false);
+	}
+
+	private void discoverTools(Model model) {
+		if (model == null)
+			return;
+		List<String> discovered = new ArrayList<>();
+		for (JsonNode tool : mcpClient.listTools())
+			discovered.add(tool.path("name").asText());
+		model.cap.tools(sortByToolOrder(discovered));
+	}
+
+	private String[] sortByToolOrder(Collection<String> names) {
+		LinkedHashSet<String> remaining = new LinkedHashSet<>(names);
+		List<String> ordered = new ArrayList<>();
+		for (String known : Tools.ALL)
+			if (remaining.remove(known))
+				ordered.add(known);
+		ordered.addAll(remaining);
+		return ordered.toArray(new String[0]);
 	}
 
 	public void clearObserver() {

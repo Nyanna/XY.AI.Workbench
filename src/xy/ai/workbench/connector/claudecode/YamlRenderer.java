@@ -52,6 +52,10 @@ public class YamlRenderer {
 		}
 	}
 
+	public String toYamlBlock(JsonNode node) {
+		return "```yaml\n" + toYaml(node) + "\n```";
+	}
+
 	private JsonNode sanitizeWhitespace(JsonNode node) {
 		if (node.isTextual())
 			return TextNode.valueOf(stripTrailingPerLine(node.textValue()));

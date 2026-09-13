@@ -2,6 +2,7 @@ package xy.ai.workbench.connector.openai;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -10,10 +11,12 @@ import org.eclipse.core.runtime.jobs.Job;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.core.http.HttpResponseFor;
 import com.openai.models.ChatModel;
 import com.openai.models.Reasoning;
 import com.openai.models.ReasoningEffort;
+import com.openai.models.responses.FunctionTool;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.Response.Instructions;
 import com.openai.models.responses.ResponseCreateParams;
@@ -24,19 +27,25 @@ import com.openai.models.responses.ResponseInputItem;
 import com.openai.models.responses.ResponseInputText;
 import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.models.AIAnswer;
 
 public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
 	private ConfigManager cfg;
 	private OpenAIClient client;
+	private final MCPClient mcpClient;
+	private final ObjectMapper mapper = new ObjectMapper();
 
-	public OpenAIConnector(ConfigManager cfg) {
+	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
+		this.mcpClient = mcpClient;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = OpenAIOkHttpClient.builder().apiKey(k).build();
@@ -163,6 +172,17 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 							LOG.error("Refusal: " + cnt.asRefusal().refusal());
 						}
 					}
+				} else if (out.isFunctionCall()) {
+					var fc = out.functionCall().get();
+					JsonNode args;
+					try {
+						args = mapper.readTree(fc.arguments());
+					} catch (Exception e) {
+						args = mapper.createObjectNode();
+					}
+					if (!res.answer.isEmpty())
+						res.answer += "\n\n";
+					res.answer += mcpClient.renderToolCall(fc.name(), args);
 				} else if (out.isReasoning()) {
 					for (var cnt : out.asReasoning().summary()) {
 						LOG.info("Reasoning summary: " + cnt.text());
@@ -180,19 +200,27 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 	}
 
 	private Builder appendTools(Builder builder, List<String> tools) {
-		List<ResponseInputItem> inputs = new ArrayList<ResponseInputItem>();
-
-		StringBuffer out = new StringBuffer("~~~\nTool output:\n");
-		tools.forEach(t -> out.append(t));
-		out.append("\n~~~");
-
-		ResponseInputText inputFile = ResponseInputText.builder() //
-				.text(out.toString()) //
-				.build();
-		ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
-				.role(ResponseInputItem.Message.Role.DEVELOPER)//
-				.addContent(inputFile).build());
-		inputs.add(inputItem);
-		return builder.inputOfResponse(inputs);
+		for (String toolName : tools) {
+			JsonNode tool = mcpClient.findTool(toolName);
+			if (tool == null)
+				continue;
+			JsonNode schema = tool.path("inputSchema");
+			JsonNode propsNode = schema.path("properties");
+			Object properties = propsNode.isObject() ? mapper.convertValue(propsNode, Object.class) : Map.of();
+			List<String> required = new ArrayList<>();
+			schema.path("required").forEach(r -> required.add(r.asText()));
+			FunctionTool functionTool = FunctionTool.builder()//
+					.name(tool.path("name").asText(toolName))//
+					.description(tool.path("description").asText(""))//
+					.parameters(FunctionTool.Parameters.builder()//
+							.putAdditionalProperty("type", JsonValue.from("object"))//
+							.putAdditionalProperty("properties", JsonValue.from(properties))//
+							.putAdditionalProperty("required", JsonValue.from(required))//
+							.build())//
+					.strict(false)//
+					.build();
+			builder.addTool(functionTool);
+		}
+		return builder;
 	}
 }

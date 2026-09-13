@@ -1,21 +1,14 @@
 # TODO
-
+- modell von dopplung durch kindknoten verwirrt
 - Die bisherigen Toolinputs für Search/Files werden abgegrenzt
 	- inputmodes entfernen context,files,search
 		- statdessen hacken für Tagersetzung <search>
 	- durch meta syntax im Body ersetzen
 		- <search mode="all|selected|asFiles">
 		- <files mode="selected|list"> - auch mit Zeilenbereichen
+	- analog den MCP tool schema aber von eclipse als input deklariert, harness tool schicht
 - anzeige für geschätzen cache read/write(neuen input)
-* tools, erstmal mit reingeben aus MCP connector
-	* MCP connector als profider für tool in tools liste?
-	* Selektieren und liste mit reinreichen
-		* claude code, liste für header
-		* andere umwandeln in schema mit reinreichen in prompt creation
-		* tools paramter und tools input trennen
-	* model function call erstmal mit in answer ausgeben als YAML? wie control client?
-	/ das ist der einfache loop, tool rein bis call
-	
+- harness	
 	* Editor wäre dann session
 		* Controlltoken und zeilen wieder als hint benutzen und zurück umwandeln
 			* Markdown wäre dann effektive session

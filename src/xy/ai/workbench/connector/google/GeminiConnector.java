@@ -6,14 +6,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
 import com.google.genai.Client;
 import com.google.genai.types.Content;
+import com.google.genai.types.FunctionCall;
+import com.google.genai.types.FunctionDeclaration;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentConfig.Builder;
+import com.google.genai.types.Tool;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.GenerateContentResponseUsageMetadata;
 import com.google.genai.types.HarmBlockThreshold;
@@ -25,16 +29,23 @@ import com.google.genai.types.ThinkingConfig;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.models.AIAnswer;
 
 public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
 	private ConfigManager cfg;
 	private Client client;
+	private final MCPClient mcpClient;
+	private final ObjectMapper mapper = new ObjectMapper();
 
-	public GeminiConnector(ConfigManager cfg) {
+	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
+		this.mcpClient = mcpClient;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = Client.builder()//
@@ -93,12 +104,29 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 					proccessedInputs.add(Content.builder().parts(Part.fromText(input)).role("model").build());
 
 		if (tools != null && !tools.isEmpty())
-			for (String tool : tools)
-				proccessedInputs.add(Content.builder().parts(Part.fromText(tool)).role("model").build());
+			appendTools(config, tools);
 
 		GenerateContentConfig contentConfig = config.build();
 		sub.worked(1);
 		return new GeminiRequest(cfg.getModel(), proccessedInputs, contentConfig, id + "");
+	}
+
+	private void appendTools(Builder config, List<String> tools) {
+		List<FunctionDeclaration> declarations = new ArrayList<>();
+		for (String toolName : tools) {
+			JsonNode tool = mcpClient.findTool(toolName);
+			if (tool == null)
+				continue;
+			JsonNode inputSchema = tool.path("inputSchema");
+			Object schema = inputSchema.isObject() ? mapper.convertValue(inputSchema, Object.class) : Map.of();
+			declarations.add(FunctionDeclaration.builder()//
+					.name(tool.path("name").asText(toolName))//
+					.description(tool.path("description").asText(""))//
+					.parametersJsonSchema(schema)//
+					.build());
+		}
+		if (!declarations.isEmpty())
+			config.tools(List.of(Tool.builder().functionDeclarations(declarations).build()));
 	}
 
 	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
@@ -130,6 +158,15 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 
 		AIAnswer res = new AIAnswer(resp.id);
 		res.answer = cresp.text();
+
+		List<FunctionCall> calls = cresp.functionCalls();
+		if (calls != null)
+			for (FunctionCall call : calls) {
+				JsonNode args = call.args().isPresent() ? mapper.valueToTree(call.args().get()) : mapper.createObjectNode();
+				if (res.answer != null && !res.answer.isEmpty())
+					res.answer += "\n\n";
+				res.answer += mcpClient.renderToolCall(call.name().orElse("unknown"), args);
+			}
 
 		if (cresp.usageMetadata().isPresent()) {
 			GenerateContentResponseUsageMetadata usage = cresp.usageMetadata().get();

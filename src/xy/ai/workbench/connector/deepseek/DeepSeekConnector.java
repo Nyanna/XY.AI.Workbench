@@ -8,6 +8,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
@@ -20,8 +21,15 @@ import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.connector.openapi.deepseek.ResponsesClientImpl;
 import xy.ai.workbench.connector.openapi.deepseek.components.AnyOfBodyModel;
+import xy.ai.workbench.connector.openapi.deepseek.components.FunctionTool;
+import xy.ai.workbench.connector.openapi.deepseek.components.FunctionToolCall;
+import xy.ai.workbench.connector.openapi.deepseek.components.OneOfToolsElement;
+import xy.ai.workbench.connector.openapi.deepseek.components.ToolsList;
+import xy.ai.workbench.connector.openapi.deepseek.enums.BodyToolChoiceTypeEnum;
+import xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfParameters;
 import xy.ai.workbench.connector.openapi.deepseek.components.InputElementContentList;
 import xy.ai.workbench.connector.openapi.deepseek.components.ModelResponseProperties;
 import xy.ai.workbench.connector.openapi.deepseek.components.OneOfContentElement;
@@ -65,9 +73,11 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 	private ConfigManager cfg;
 	private ResponsesClientImpl client;
+	private final MCPClient mcpClient;
 
-	public DeepSeekConnector(ConfigManager cfg) {
+	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
+		this.mcpClient = mcpClient;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = new ResponsesClientImpl(BASE_URL) {
@@ -131,13 +141,32 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 					input.add(createMessage(mapper, RoleEnum.SYSTEM, in));
 
 		if (tools != null && !tools.isEmpty())
-			input.add(createToolOutputMessage(mapper, tools));
+			appendTools(mapper, requestBody, tools);
 
 		if (input.size() > 0)
 			part.setInput(new OneOfInput(input));
 
 		sub.worked(1);
 		return new DeepSeekRequest(requestBody, reqId);
+	}
+
+	private void appendTools(ObjectMapper mapper, AllOfBody requestBody, List<String> tools) {
+		ToolsList toolsList = new ToolsList(mapper.createArrayNode());
+		for (String toolName : tools) {
+			JsonNode tool = mcpClient.findTool(toolName);
+			if (tool == null)
+				continue;
+			ObjectNode toolNode = mapper.createObjectNode();
+			FunctionTool ft = new FunctionTool(toolNode);
+			ft.setType(BodyToolChoiceTypeEnum.FUNCTION);
+			ft.setName(tool.path("name").asText(toolName));
+			ft.setDescription(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
+					TextNode.valueOf(tool.path("description").asText(""))));
+			ft.setParameters(new AnyOfParameters(tool.path("inputSchema")));
+			toolsList.add(new OneOfToolsElement(toolNode));
+		}
+		if (toolsList.size() > 0)
+			requestBody.getResponseProperties().setTools(toolsList);
 	}
 
 	private ObjectNode createMessage(ObjectMapper mapper, RoleEnum role, String text) {
@@ -149,12 +178,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		return node;
 	}
 
-	private ObjectNode createToolOutputMessage(ObjectMapper mapper, List<String> tools) {
-		StringBuffer out = new StringBuffer("~~~\nTool output:\n");
-		tools.forEach(t -> out.append(t));
-		out.append("\n~~~");
-		return createMessage(mapper, RoleEnum.DEVELOPER, out.toString());
-	}
+	
 
 	private EffortEnum toEffort(Reasoning reasoning) {
 		if (reasoning == null)
@@ -237,6 +261,17 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 							else if (c.isRefusalContent())
 								LOG.error("Refusal: " + c.getRefusalContent().getRefusal());
 						}
+					} else if (el.isFunctionToolCall()) {
+						FunctionToolCall call = el.getFunctionToolCall();
+						JsonNode args;
+						try {
+							args = new ObjectMapper().readTree(call.getArguments());
+						} catch (Exception e) {
+							args = new ObjectMapper().createObjectNode();
+						}
+						if (!res.answer.isEmpty())
+							res.answer += "\n\n";
+						res.answer += mcpClient.renderToolCall(call.getName(), args);
 					} else if (el.isReasoningItem()) {
 						ReasoningItem reasoning = el.getReasoningItem();
 						SummaryList summary = reasoning.getSummary();

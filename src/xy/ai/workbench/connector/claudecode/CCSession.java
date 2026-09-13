@@ -77,6 +77,7 @@ public class CCSession {
 				return Math.max(0, 5 - elapsed);
 			case Default:
 			case Hours_1:
+			case Minutes_30:
 			}
 		return Math.max(0, 60 - elapsed);
 	}
@@ -108,8 +109,7 @@ public class CCSession {
 			case Minutes_5:
 				totalSeconds = 5 * 60;
 				break;
-			case Default:
-			case Hours_1:
+			default:
 			}
 		return Math.max(0, totalSeconds - elapsed);
 	}
@@ -297,8 +297,7 @@ public class CCSession {
 				return true;
 			case Minutes_5:
 				return Instant.now().isAfter(lastSentAt.plus(5, ChronoUnit.MINUTES));
-			case Default:
-			case Hours_1:
+			default:
 			}
 		return Instant.now().isAfter(lastSentAt.plus(1, ChronoUnit.HOURS));
 	}
