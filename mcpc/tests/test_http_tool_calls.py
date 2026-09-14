@@ -87,9 +87,9 @@ def _first_text(result: dict) -> str:
 def test_http_list_tool(http_client, tmp_path):
     (tmp_path / 'a.txt').write_text('a')
     (tmp_path / 'b.txt').write_text('b')
-    result = http_client.call_tool('list', {'path': str(tmp_path)})
+    result = http_client.call_tool('list', {'items': [{'path': str(tmp_path)}]})
     assert result.get('isError') is not True
-    entries = result['structuredContent']['entries']
+    entries = result['structuredContent']['results'][0]['entries']
     assert sorted(entries) == ['.:', 'a.txt', 'b.txt']
 
 def test_http_bash_tool(http_client, tmp_path):
@@ -101,9 +101,9 @@ def test_http_ast_list_tool(http_client, tmp_path):
     source = tmp_path / 'sample.py'
     source.write_text(textwrap.dedent(
         '\n            """Module docstring."""\n            import os\n\n\n            def greet(name: str) -> str:\n                """Say hello."""\n                return f"hello {name}"\n\n\n            class Greeter:\n                """A greeter."""\n\n                def greet(self) -> None:\n                    """Greet."""\n                    pass\n            '))
-    result = http_client.call_tool('ast_list', {'path': str(source)})
+    result = http_client.call_tool('ast_list', {'paths': [str(source)]})
     assert result.get('isError') is not True
-    nodes = result['structuredContent']['nodes']
+    nodes = result['structuredContent']['results'][0]['nodes']
     top_level = {n['id']: n for n in nodes}
     assert 'greet' in top_level
     assert top_level['greet']['type'] == 'FunctionDef'

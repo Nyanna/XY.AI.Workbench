@@ -28,10 +28,10 @@ def test_tool_search_to_tool_call_round_trip_with_bash(registry: ToolRegistry):
     repeat = _call(registry, session, 'tool_search', keywords='bash working directory')
     assert repeat.structured_content['tools'] == []
     '# 2) inspect its usage; repeating the same request yields a hint, not the info again.'
-    usage = _call(registry, session, 'tool_usage', name='bash')
-    assert usage.structured_content['signature'].startswith('bash(')
-    usage_repeat = _call(registry, session, 'tool_usage', name='bash')
-    assert 'already returned' in usage_repeat.content[0]['text']
+    usage = _call(registry, session, 'tool_usage', names=['bash'])
+    assert usage.structured_content['usages'][0]['signature'].startswith('bash(')
+    usage_repeat = _call(registry, session, 'tool_usage', names=['bash'])
+    assert 'already returned' in usage_repeat.structured_content['errors'][0]['error']
     '# 3) call `bash` via tool_call; result and a new variable persist in the session.'
     call1 = _call(
         registry,

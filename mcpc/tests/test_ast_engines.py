@@ -15,21 +15,21 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast import core
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.create import ast_create
+from xy.ai.mcpc.tools.ast.create import CreateFileItem, ast_create
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.delete import ast_delete
+from xy.ai.mcpc.tools.ast.delete import DeleteItem, ast_delete
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.edit_marks import ast_edit_marks
+from xy.ai.mcpc.tools.ast.edit_marks import EditMarksItem, ast_edit_marks
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast.find import ast_find
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.insert import ast_insert
+from xy.ai.mcpc.tools.ast.insert import InsertItem, ast_insert
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast.list import ast_list
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.read import ast_read
+from xy.ai.mcpc.tools.ast.read import ReadItem, ast_read
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.replace import ast_replace
+from xy.ai.mcpc.tools.ast.replace import ReplaceItem, ast_replace
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast.validate import ast_validate
 PY_SOURCE = 'import os\n\nclass A:\n    def foo(self):\n        x = 1\n        return x\n\ndef bar():\n    return 2\n'
@@ -57,8 +57,10 @@ def test_engine_selection_by_extension(tmp_path: Path):
     assert core.engine_for_path(tmp_path / 'x.yaml').name == 'tree-sitter:yaml'
 
 def test_engine_selection_unsupported_extension(tmp_path: Path):
-    with pytest.raises(core.AstError):
-        core.engine_for_path(tmp_path / 'x.unknownext')
+    """Unknown extensions no longer raise; they fall back to the whole-file
+    plain-text engine."""
+    engine = core.engine_for_path(tmp_path / 'x.unknownext')
+    assert engine.name == 'text'
 
 def test_snippet_defaults_to_python():
     tree = core.parse_source('def f():\n    return 1\n')
@@ -68,7 +70,7 @@ def test_snippet_defaults_to_python():
 '# --------------------------------------------------------------------------- #'
 
 def test_python_outline(py_file):
-    nodes = ast_list(py_file).nodes
+    nodes = ast_list(paths=[py_file]).results[0].nodes
     kinds = [(n.type, n.id) for n in nodes]
     assert ('ClassDef', 'A') in kinds
     assert ('FunctionDef', 'bar') in kinds
@@ -80,18 +82,18 @@ def test_python_find_by_name_and_type(py_file):
     assert [h.id for h in hits] == ['bar']
 
 def test_python_read_returns_source(py_file):
-    result = ast_read(ids=['A.foo'], path=py_file)
+    result = ast_read(items=[ReadItem(path=py_file, ids=['A.foo'])])
     assert not result.errors
-    node = result.nodes[0]
+    node = result.results[0].nodes[0]
     assert node.code is not None
     assert 'return x' in node.code
 
 def test_python_full_crud_roundtrip(py_file):
-    ast_replace(py_file, 'def bar():\n    return 42', id='bar')
-    ast_edit_marks(py_file, 'x = 1', 'return x', 'return 99', id='A.foo')
-    ast_insert(py_file, 'z = 5', id='bar', position='after')
+    ast_replace(items=[ReplaceItem(path=py_file, source='def bar():\n    return 42', id='bar')])
+    ast_edit_marks(items=[EditMarksItem(path=py_file, start_marker='x = 1', end_marker='return x', content='return 99', id='A.foo')])
+    ast_insert(items=[InsertItem(path=py_file, source='z = 5', id='bar', position='after')])
     import_id = ast_find(paths=[py_file], node_type='imports').files[0].nodes[0].id
-    ast_delete(py_file, id=import_id)
+    ast_delete(items=[DeleteItem(path=py_file, id=import_id)])
     assert ast_validate([py_file]).all_ok
     text = Path(py_file).read_text()
     assert 'return 42' in text
@@ -107,24 +109,24 @@ def test_generic_uses_treesitter_engine(json_file):
     assert tree.engine.name == 'tree-sitter:json'
 
 def test_generic_qualified_names(json_file):
-    """# Nested pairs smaller than SEGMENT_MAX_CHARS are reached through their"""
-    '# parent, not addressable in their own right; only the top-level value is.'
+    """# The generic tree-sitter engine addresses every named child; the"""
+    '# top-level value is always the first located node.'
     _, tree = core.load(json_file)
     locs = core.locate_all(tree)
-    assert len(locs) == 1
+    assert len(locs) > 1
     assert locs[0].node_type == 'object'
 
 def test_generic_replace_by_qualified_name(json_file):
     _, tree = core.load(json_file)
     obj_id = core.locate_all(tree)[0].node_id
-    ast_replace(json_file, '{"a": 111}', id=obj_id)
+    ast_replace(items=[ReplaceItem(path=json_file, source='{"a": 111}', id=obj_id)])
     assert '"a": 111' in Path(json_file).read_text()
     assert ast_validate([json_file]).all_ok
 
 def test_generic_edit_between_markers(json_file):
     _, tree = core.load(json_file)
     obj_id = core.locate_all(tree)[0].node_id
-    ast_edit_marks(json_file, '"a": 1', '"b": 2', '"a": 10,\n    "b": 20', id=obj_id)
+    ast_edit_marks(items=[EditMarksItem(path=json_file, start_marker='"a": 1', end_marker='"b": 2', content='"a": 10,\n    "b": 20', id=obj_id)])
     text = Path(json_file).read_text()
     assert '"a": 10' in text and '"b": 20' in text
     assert ast_validate([json_file]).all_ok
@@ -181,7 +183,7 @@ def test_cache_is_shared_across_engines(py_file, json_file):
 
 def test_create_file_typescript(tmp_path: Path):
     ts = tmp_path / 'app.ts'
-    ast_create(str(ts), 'function greet(name: string): string {\n  return name;\n}\n')
+    ast_create(items=[CreateFileItem(path=str(ts), source='function greet(name: string): string {\n  return name;\n}\n')])
     hits = ast_find(paths=[str(ts)], node_type='function_declaration').files[0].nodes
     assert hits and hits[0].id == 'greet'
     assert ast_validate([str(ts)]).all_ok

@@ -16,10 +16,10 @@ from pathlib import Path
 import pytest
 from xy.ai.mcpc.tools import _text_match as tm
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.edit_block import ast_edit_block
-from xy.ai.mcpc.tools.ast.edit_marks import ast_edit_marks
-from xy.ai.mcpc.tools.edit_block import EditBlockError, edit_block
-from xy.ai.mcpc.tools.edit_marks import EditMarksError, edit_marks, edit_marks_text
+from xy.ai.mcpc.tools.ast.edit_block import EditBlockItem as AstEditBlockItem, ast_edit_block
+from xy.ai.mcpc.tools.ast.edit_marks import EditMarksItem as AstEditMarksItem, ast_edit_marks
+from xy.ai.mcpc.tools.edit_block import EditBlockError, EditBlockItem, edit_block
+from xy.ai.mcpc.tools.edit_marks import EditMarksError, EditMarksItem, edit_marks, edit_marks_text
 '# --------------------------------------------------------------------------- #'
 '# _text_match: tolerance levels'
 '# --------------------------------------------------------------------------- #'
@@ -123,22 +123,34 @@ def _write(tmp_path: Path, name: str, text: str) -> str:
 
 def test_edit_block_whitespace_tolerant(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'value   =    1\n')
-    edit_block(path, 'value = 1', 'value = 2')
+    edit_block(items=[EditBlockItem(path=path, old_text='value = 1', new_text='value = 2')])
     assert Path(path).read_text(encoding='utf-8') == 'value = 2\n'
 
 def test_edit_block_ambiguous_raises(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'a = 1\na = 1\n')
-    with pytest.raises(EditBlockError):
-        edit_block(path, 'a = 1', 'a = 9')
+    result = edit_block(items=[EditBlockItem(path=path, old_text='a = 1', new_text='a = 9')])
+    assert not result.results
+    assert len(result.errors) == 1
+    error = result.errors[0]
+    assert error.path == path
+    assert error.reason == 'ambiguous'
+    assert '2 occurrences' in error.error
+    assert Path(path).read_text(encoding='utf-8') == 'a = 1\na = 1\n'
 
 def test_edit_block_not_found_raises(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'a = 1\n')
-    with pytest.raises(EditBlockError):
-        edit_block(path, 'nope', 'x')
+    result = edit_block(items=[EditBlockItem(path=path, old_text='nope', new_text='x')])
+    assert not result.results
+    assert len(result.errors) == 1
+    error = result.errors[0]
+    assert error.path == path
+    assert error.reason == 'not_found'
+    assert error.error == 'Text not found in file.'
+    assert Path(path).read_text(encoding='utf-8') == 'a = 1\n'
 
 def test_edit_block_replace_all(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'a = 1\na = 1\n')
-    edit_block(path, 'a = 1', 'a = 9', replace_all=True)
+    edit_block(items=[EditBlockItem(path=path, old_text='a = 1', new_text='a = 9', replace_all=True)])
     assert Path(path).read_text(encoding='utf-8') == 'a = 9\na = 9\n'
 
 def test_edit_marks_text_parameter_order():
@@ -149,13 +161,20 @@ def test_edit_marks_text_parameter_order():
 
 def test_edit_marks_end_to_end(tmp_path: Path):
     path = _write(tmp_path, 'm.txt', 'keep <<A>> drop <<B>> keep\n')
-    edit_marks(path, '<<A>>', '<<B>>', 'X')
+    edit_marks(items=[EditMarksItem(path=path, begin_marker='<<A>>', end_marker='<<B>>', content='X')])
     assert Path(path).read_text(encoding='utf-8') == 'keep X keep\n'
 
 def test_edit_marks_missing_marker_raises(tmp_path: Path):
     path = _write(tmp_path, 'm.txt', 'only <<A>> here\n')
-    with pytest.raises(EditMarksError):
-        edit_marks(path, '<<A>>', '<<MISSING>>', 'X')
+    result = edit_marks(items=[EditMarksItem(path=path, begin_marker='<<A>>', end_marker='<<MISSING>>', content='X')])
+    assert not result.results
+    assert len(result.errors) == 1
+    error = result.errors[0]
+    assert error.path == path
+    assert error.reason == 'not_found'
+    assert error.position == 'end'
+    assert error.error == 'End marker not found in file.'
+    assert Path(path).read_text(encoding='utf-8') == 'only <<A>> here\n'
 '# --------------------------------------------------------------------------- #'
 '# AST tools: the two motivating failure cases, live'
 '# --------------------------------------------------------------------------- #'
@@ -169,12 +188,13 @@ def _node_id(path: str, needle: str) -> str:
 def test_ast_edit_block_case1_escaped_docstring(tmp_path: Path):
     path = _write(tmp_path, 'probe.py', _PROBE_SOURCE)
     node_id = _node_id(path, 'web_fetch_exa')
-    res = ast_edit_block(
-        path,
-        'Fetches page content and caches each full result (incl. text and url) by id;\nreturns only an overview with file_stats-style text metrics, no text/url.',
-        'Fetches page content and caches each full result (incl. text) by id; returns\nan overview with url and file_stats-style text metrics, but no text.',
-        id=node_id)
-    assert res.result == 'success'
+    batch = ast_edit_block(items=[AstEditBlockItem(
+        path=path,
+        old_text='Fetches page content and caches each full result (incl. text and url) by id;\nreturns only an overview with file_stats-style text metrics, no text/url.',
+        new_text='Fetches page content and caches each full result (incl. text) by id; returns\nan overview with url and file_stats-style text metrics, but no text.',
+        id=node_id)])
+    assert not batch.errors
+    assert batch.results[0].result == 'success'
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'incl. text) by id; returns' in text
@@ -182,30 +202,37 @@ def test_ast_edit_block_case1_escaped_docstring(tmp_path: Path):
 def test_ast_edit_block_case2_hallucinated_quotes(tmp_path: Path):
     path = _write(tmp_path, 'probe.py', _PROBE_SOURCE)
     node_id = _node_id(path, 'consecutive urls are')
-    res = ast_edit_block(
-        path,
-        "'#: line, then the page's extracted markdown content; consecutive urls are\\''",
-        '"#: line (optionally preceded by a \'Published:\' line); consecutive urls are"',
-        id=node_id)
-    assert res.result == 'success'
+    batch = ast_edit_block(items=[AstEditBlockItem(
+        path=path,
+        old_text="'#: line, then the page's extracted markdown content; consecutive urls are\\''",
+        new_text='"#: line (optionally preceded by a \'Published:\' line); consecutive urls are"',
+        id=node_id)])
+    assert not batch.errors
+    assert batch.results[0].result == 'success'
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'Published:' in text
 
 def test_ast_edit_block_rejects_corrupting_edit(tmp_path: Path):
     """# Even when a tolerant match succeeds, an edit that cannot re-parse must fail"""
-    '# loudly instead of writing broken source.'
+    '# loudly (as a batch error) instead of writing broken source.'
     path = _write(tmp_path, 'm.py', 'value = 1\n')
     node_id = _node_id(path, 'value = 1')
-    with pytest.raises(core.AstError):
-        ast_edit_block(path, 'value = 1', 'value = (', id=node_id)
+    batch = ast_edit_block(items=[AstEditBlockItem(path=path, old_text='value = 1', new_text='value = (', id=node_id)])
+    assert not batch.results
+    assert len(batch.errors) == 1
+    error = batch.errors[0]
+    assert error.path == path
+    assert error.id == node_id
+    assert 'was never closed' in error.error
     assert Path(path).read_text(encoding='utf-8') == 'value = 1\n'
 
 def test_ast_edit_marks_between_markers(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'A = 1\nB = 2\nC = 3\n')
     node_id = _node_id(path, 'A = 1')
-    res = ast_edit_marks(path, 'A = 1', 'C = 3', 'A = 99', id=node_id)
-    assert res.result == 'success'
+    batch = ast_edit_marks(items=[AstEditMarksItem(path=path, start_marker='A = 1', end_marker='C = 3', content='A = 99', id=node_id)])
+    assert not batch.errors
+    assert batch.results[0].result == 'success'
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'A = 99' in text

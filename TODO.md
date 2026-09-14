@@ -29,7 +29,7 @@
 	- Dann nur ein approval call + ergebnis notwendig
 	- dann muss reaspon auch in die response gespiegelt werden, immer als letztes, zusammen mit stats wie Zeichen und ob modifizierend
 	- request approval categorie mit auto approval pro cat und argument
-		- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit), Viel Kontext(Zeichen Threshold) -> per flag togglebar
+		- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit), Viel Kontext(Zeichen Threshold), viele turns/cache read hoch -> per flag togglebar
 * omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
 * Harness
 	* autolauf modus

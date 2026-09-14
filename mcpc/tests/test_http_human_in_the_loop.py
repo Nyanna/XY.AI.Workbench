@@ -8,7 +8,7 @@ real HTTP: fire a ``bash`` tool call from a background thread, poll the
 control endpoint until the pending request-phase item shows up, approve it,
 then do the same for the result-phase item (attaching a human hint), and
 finally check that the original call unblocks with the expected result and
-that the hint landed in ``structuredContent.controlHint``.
+that the hint landed in ``structuredContent.userMessage``.
 """
 from __future__ import annotations
 
@@ -136,7 +136,7 @@ def test_http_tool_call_awaits_human_approval(hitl_server, tmp_path):
     assert result.get("isError") is not True
     structured = result["structuredContent"]
     assert "hitl-ok" in structured.get("stdout", "")
-    assert structured.get("controlHint") == "looks fine"
+    assert structured.get("userMessage") == "looks fine"
 
 
 def test_http_tool_call_rejected_by_human(hitl_server, tmp_path):
