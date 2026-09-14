@@ -1,28 +1,29 @@
 # TODO
-- modell von dopplung durch kindknoten verwirrt
+- modell von dopplung durch kindknoten verwirrt - `/home/user/xyan/xy.ai.workbench/project/done/tools_provider.md`
 - Die bisherigen Toolinputs für Search/Files werden abgegrenzt
 	- inputmodes entfernen context,files,search
-		- statdessen hacken für Tagersetzung <search>
+		- statdessen haken für Tagersetzung <search>
 	- durch meta syntax im Body ersetzen
 		- <search mode="all|selected|asFiles">
 		- <files mode="selected|list"> - auch mit Zeilenbereichen
-	- analog den MCP tool schema aber von eclipse als input deklariert, harness tool schicht
+		- analog den MCP tool schema aber von eclipse als input deklariert, harness tool schicht
 - anzeige für geschätzen cache read/write(neuen input)
-- harness	
+- harness loop
 	* Editor wäre dann session
 		* Controlltoken und zeilen wieder als hint benutzen und zurück umwandeln
 			* Markdown wäre dann effektive session
 		* Inputmode müsste dann wieder ganzer editor sein wegen prefix cache
-	* oder backed by memorry modell oder beides?, mit session ID analog zu Claude Code?
+		* oder backed by memorry modell oder beides?, mit session ID analog zu Claude Code?
 	
 	* backed by layer oder hook?
-	
 	1. Chatverlauf
 	2. Separate Datei und view
 	3. Separate Dateien für branching
 	4. Über MCP Client, Subagent call in MCPC mit Deepseek backend
-! MCP CLient /call <ID>, tool call mit ID Versenen
-
+! MCP CLient /call <ID> (statt /answer), tool call mit ID Versenen, direkt nach call schreiben, direkten block davor parsen
+	* bei openai cache breakpoint marker mit in editor schreiben
+	* zurückgehen zum letzten ^```yaml$ und result JSON block parsen
+		* in SDK nachrichtentypen packen, alles andere wird developer/system
 
 ! tool control anders, tool use nur für langwierige teure operationen, sonst immer den output abwarten und zusammen approven
 	- Dann nur ein approval call + ergebnis notwendig
