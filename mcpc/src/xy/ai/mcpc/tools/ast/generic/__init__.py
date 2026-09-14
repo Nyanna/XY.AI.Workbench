@@ -9,14 +9,20 @@ whole-file :class:`~xy.ai.mcpc.tools.ast.generic._text.PlainTextEngine`
 fallback (via :func:`fallback_engine`) for extensions no grammar covers.
 """
 from __future__ import annotations
+from xy.ai.mcpc.tools.ast.generic._css import CssEngine
 from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine
+from xy.ai.mcpc.tools.ast.generic._html import HtmlEngine
 from xy.ai.mcpc.tools.ast.generic._java import JavaEngine
+from xy.ai.mcpc.tools.ast.generic._javascript import JavaScriptEngine
 from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
 from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
 __all__ = [
     'TreeSitterEngine',
+    'CssEngine',
+    'HtmlEngine',
     'JavaEngine',
+    'JavaScriptEngine',
     'MarkdownEngine',
     'PlainTextEngine',
     'YamlEngine',
@@ -71,8 +77,13 @@ def language_for_extension(ext: str) -> str | None:
     return EXT_LANGUAGE.get(ext.lower())
 '#: Language symbol -> dedicated Engine subclass; anything absent here falls'
 '#: back to the universal :class:`TreeSitterEngine`.'
-_ENGINE_CLASSES: dict[str, type[TreeSitterEngine]] = {
-    'markdown': MarkdownEngine, 'java': JavaEngine, 'yaml': YamlEngine}
+_ENGINE_CLASSES: dict[str,
+                      type[TreeSitterEngine]] = {'markdown': MarkdownEngine,
+                                                 'java': JavaEngine,
+                                                 'yaml': YamlEngine,
+                                                 'css': CssEngine,
+                                                 'html': HtmlEngine,
+                                                 'javascript': JavaScriptEngine}
 _ENGINES: dict[str, TreeSitterEngine] = {}
 
 def get_engine(symbol: str) -> TreeSitterEngine:
