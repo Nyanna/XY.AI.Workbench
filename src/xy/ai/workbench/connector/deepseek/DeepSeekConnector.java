@@ -84,11 +84,12 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	private ConfigManager cfg;
 	private ResponsesClientImpl client;
 	private final MCPClient mcpClient;
-	private final SessionProcessor sessionProcessor = new SessionProcessor();
+	private final SessionProcessor sessionProcessor;
 
-	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient) {
+	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		this.mcpClient = mcpClient;
+		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = new ResponsesClientImpl(BASE_URL) {

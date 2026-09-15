@@ -19,6 +19,7 @@ import xy.ai.workbench.connector.claudecode.CCConnector;
 import xy.ai.workbench.connector.claudecode.CCRequest;
 import xy.ai.workbench.connector.claudecode.CCResponse;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.connector.mcp.MCPConnector;
 import xy.ai.workbench.connector.mcp.MCPRequest;
@@ -54,12 +55,13 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private MCPConnector mcp;
 	private IAIBatchConnector newBatch;
 	
-public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient) {
+public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
+			SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
-		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg, mcpClient));
-		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg, mcpClient));
-		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg, mcpClient));
-		deepseek = new DeepSeekConnector(cfg, mcpClient);
+		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg, mcpClient, sessionProcessor));
+		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg, mcpClient, sessionProcessor));
+		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg, mcpClient, sessionProcessor));
+		deepseek = new DeepSeekConnector(cfg, mcpClient, sessionProcessor);
 		claudeCode = new CCConnector(cfg, sessionManager);
 		mcp = new MCPConnector(cfg, mcpClient);
 		newBatch = new NewBatchConnector();

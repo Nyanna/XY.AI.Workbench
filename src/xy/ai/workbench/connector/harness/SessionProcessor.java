@@ -23,6 +23,13 @@ import xy.ai.workbench.connector.claudecode.YamlRenderer;
  * ordered sequence of {@link SessionCallbacks} invocations.
  *
  * <p>
+ * Besides the generic {@code [include](path)} form, a handful of typed
+ * include kinds delegate to an injected {@link IIncludeAdapter}, keeping this
+ * class free of any host-specific (e.g. Eclipse) retrieval logic:
+ * {@code [include contextprompt](dir)}, {@code [include files](selected|dir)},
+ * {@code [include file](path)} and {@code [include search](files|matches)}.
+ *
+ * <p>
  * Recognized markers, each starting a line of their own
  * ({@link EditorInterface#USER}/{@link EditorInterface#AGENT} switch the
  * current role, {@link EditorInterface#THINKING}/{@link EditorInterface#TEXT}
@@ -31,23 +38,37 @@ import xy.ai.workbench.connector.claudecode.YamlRenderer;
  * Unmarked paragraphs become a plain {@link SessionCallbacks#message}.
  *
  * <p>
- * When {@link #SessionProcessor(boolean) disabled}, the whole input is
- * passed through {@link SessionCallbacks#message(Role, String)} verbatim -
- * the previous, simple behaviour.
+ * A single instance is shared by all connectors (see {@code Activator}); it
+ * is stateless besides the injected {@link IIncludeAdapter}.
  */
 public final class SessionProcessor {
 
-	private static final Pattern INCLUDE_LINE = Pattern.compile("^(\\s*\\[include\\]\\([^)]+\\)\\s*)+$");
-	private static final Pattern INCLUDE_TAG = Pattern.compile("\\[include\\]\\(([^)]+)\\)");
+	private static final Pattern INCLUDE_LINE = Pattern
+			.compile("^(\\s*\\[include(?:\\s+\\w+)?\\]\\([^)]+\\)\\s*)+$");
+	private static final Pattern INCLUDE_TAG = Pattern.compile("\\[include(?:\\s+(\\w+))?\\]\\(([^)]+)\\)");
 
-	private final boolean enabled;
 	private final YamlRenderer yaml = new YamlRenderer();
+	private volatile boolean enabled = true;
+	private volatile IIncludeAdapter adapter;
 
 	public SessionProcessor() {
-		this(true);
 	}
 
-	public SessionProcessor(boolean enabled) {
+	public SessionProcessor(IIncludeAdapter adapter) {
+		this.adapter = adapter;
+	}
+
+	/** Injects the host-specific {@link IIncludeAdapter}, once the host environment is available. */
+	public void setAdapter(IIncludeAdapter adapter) {
+		this.adapter = adapter;
+	}
+
+	/**
+	 * Activates/deactivates full session parsing (see {@code InputMode.Converter}). While
+	 * disabled, every {@code process} call turns its whole input into a single plain message via
+	 * {@link SessionCallbacks#message(Role, String)} - the connector's plain callback.
+	 */
+	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
 
@@ -57,9 +78,10 @@ public final class SessionProcessor {
 		if (inputs == null)
 			return out;
 		if (!enabled) {
-			for (String input : inputs)
-				if (input != null && !input.isBlank())
-					out.add(callbacks.message(Role.User, input));
+			String joined = inputs.stream().filter(i -> i != null && !i.isBlank())
+					.collect(java.util.stream.Collectors.joining("\n"));
+			if (!joined.isBlank())
+				out.add(callbacks.message(Role.User, joined));
 			return out;
 		}
 		for (String input : inputs)
@@ -108,7 +130,7 @@ public final class SessionProcessor {
 					flush();
 					Matcher m = INCLUDE_TAG.matcher(line);
 					while (m.find())
-						include(m.group(1).strip(), chain);
+						include(m.group(1), m.group(2).strip(), chain);
 					i++;
 					continue;
 				}
@@ -245,7 +267,31 @@ public final class SessionProcessor {
 			}
 		}
 
-		private void include(String pathText, List<Path> chain) {
+		private void include(String kind, String arg, List<Path> chain) {
+			if (kind == null) {
+				includePath(arg, chain);
+				return;
+			}
+			switch (kind) {
+			case "contextprompt":
+				includeContextPrompt(arg);
+				return;
+			case "files":
+				includeFiles(arg);
+				return;
+			case "file":
+				includeFile(arg);
+				return;
+			case "search":
+				includeSearch(arg);
+				return;
+			default:
+				throw new IllegalStateException("Unknown include kind: " + kind);
+			}
+		}
+
+		/** Generic {@code [include](path)}: parses the target file as a nested, independent document. */
+		private void includePath(String pathText, List<Path> chain) {
 			Path path = Paths.get(pathText).toAbsolutePath().normalize();
 			if (chain.contains(path))
 				throw new IncludeCycleException(path.toString());
@@ -258,6 +304,53 @@ public final class SessionProcessor {
 			List<Path> nested = new ArrayList<>(chain);
 			nested.add(path);
 			new Run<>(callbacks, out).run(content, nested);
+		}
+
+		private void includeContextPrompt(String dir) {
+			String text = requireAdapter().contextPrompt(dir);
+			if (text != null && !text.isBlank())
+				out.add(callbacks.message(Role.User, text.strip()));
+		}
+
+		private void includeFiles(String arg) {
+			for (IIncludeAdapter.Entry entry : requireAdapter().files(arg))
+				out.add(callbacks.toolResult(new ToolResult(entry.id, entry.content)));
+		}
+
+		private void includeFile(String path) {
+			String content = requireAdapter().file(path);
+			if (content != null)
+				out.add(callbacks.toolResult(new ToolResult(path, content)));
+		}
+
+		private void includeSearch(String arg) {
+			IIncludeAdapter a = requireAdapter();
+			if ("files".equals(arg)) {
+				for (IIncludeAdapter.Entry entry : a.searchFiles())
+					out.add(callbacks.toolResult(new ToolResult(entry.id, entry.content)));
+			} else if ("matches".equals(arg)) {
+				List<IIncludeAdapter.Match> matches = a.searchMatches();
+				out.add(callbacks.toolResult(new ToolResult("search-matches", renderMatches(matches))));
+			} else
+				throw new IllegalStateException("Unknown search include argument: " + arg);
+		}
+
+		private String renderMatches(List<IIncludeAdapter.Match> matches) {
+			com.fasterxml.jackson.databind.node.ArrayNode arr = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance
+					.arrayNode();
+			for (IIncludeAdapter.Match match : matches) {
+				com.fasterxml.jackson.databind.node.ObjectNode node = arr.addObject();
+				node.put("file", match.file);
+				node.put("line", match.line);
+				node.put("text", match.text);
+			}
+			return yaml.toYaml(arr);
+		}
+
+		private IIncludeAdapter requireAdapter() {
+			if (adapter == null)
+				throw new IllegalStateException("No IIncludeAdapter configured for this SessionProcessor");
+			return adapter;
 		}
 	}
 }

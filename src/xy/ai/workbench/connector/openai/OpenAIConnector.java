@@ -45,11 +45,12 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 	private OpenAIClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor = new SessionProcessor();
+	private final SessionProcessor sessionProcessor;
 
-	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient) {
+	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		this.mcpClient = mcpClient;
+		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = OpenAIOkHttpClient.builder().apiKey(k).build();

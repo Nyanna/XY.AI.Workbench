@@ -8,6 +8,7 @@ import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 
@@ -25,9 +26,10 @@ public class Activator extends AbstractUIPlugin {
 	public ConfigManager cfg = new ConfigManager();
 	public CCSessionManager cliSessionManager = new CCSessionManager();
 	public MCPClient mcpClient = new MCPClient();
-	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager, mcpClient);
+	public SessionProcessor sessionProcessor = new SessionProcessor();
+	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager, mcpClient, sessionProcessor);
 
-	public AISessionManager session = new AISessionManager(cfg, connector, mcpClient);
+	public AISessionManager session = new AISessionManager(cfg, connector, mcpClient, sessionProcessor);
 	public EditorInterface editIfc = session.editIfc;
 
 	public AIBatchManager batch = new AIBatchManager(connector);

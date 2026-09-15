@@ -45,11 +45,12 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	private Client client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor = new SessionProcessor();
+	private final SessionProcessor sessionProcessor;
 
-	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient) {
+	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		this.mcpClient = mcpClient;
+		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = Client.builder()//

@@ -300,6 +300,15 @@ public class ConfigManager {
 
 	public void setInputMode(InputMode mode, boolean enable) {
 		cfg.setInputMode(mode, enable);
+		// Converter and Selection are mutually exclusive: enabling one disables the other.
+		if (enable && (mode == InputMode.Converter || mode == InputMode.Selection)) {
+			InputMode other = mode == InputMode.Converter ? InputMode.Selection : InputMode.Converter;
+			if (cfg.isInputEnabled(other)) {
+				cfg.setInputMode(other, false);
+				inputObs.forEach(c -> c.accept(cfg.inputModes));
+				inputModeObs.forEach(c -> c.accept(other));
+			}
+		}
 		inputObs.forEach(c -> c.accept(cfg.inputModes));
 		inputModeObs.forEach(c -> c.accept(mode));
 	}

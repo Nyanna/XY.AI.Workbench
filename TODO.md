@@ -7,19 +7,6 @@
 	* wenn nciht offen wird default verändert, persistier wird default
 	* über frontmatter in editor aktuelle config ändern aber auch zurückspiegeln
 	* session processor soll frontmatter ignorieren
-- Prompt Input
-	-Die bisherigen Toolinputs für Search/Files werden abgegrenzt
-	- inputmodes entfernen context,files,search
-		- statdessen haken für Tagersetzung <search>
-	* Controlltoken und zeilen wieder als hint benutzen und zurück umwandeln
-		* Markdown wäre dann effektive session
-	* Inputmode müsste dann wieder ganzer editor sein wegen prefix cache
-		* oder backed by memorry modell oder beides?, mit session ID analog zu Claude Code?
-	- durch meta syntax im Body ersetzen
-		- [include search mode](all|selected|asFiles)
-		- [include files](selected|list) - auch mit Zeilenbereichen
-		- analog den MCP tool schema aber von eclipse als input deklariert, harness tool schicht
-	* bei openai cache breakpoint marker mit in editor schreiben
 	
 - MCP CLient 
 	* /call <ID> (statt /answer), tool call mit ID Versenen, direkt nach call schreiben, direkten block davor parsen
@@ -42,7 +29,8 @@
 
 ## Other
 * Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
-- anzeige für geschätzen cache read/write(neuen input), anzeige für zeichenanzahl in datei
+	* bei openai cache breakpoint marker mit in editor/processor schreiben
+- anzeige für geschätzen cache read/write(neuen input)
 * approval tool control anders, tool use nur für langwierige teure operationen,
 	- sonst immer den output abwarten und zusammen approven
 	- Dann nur ein approval call + ergebnis notwendig

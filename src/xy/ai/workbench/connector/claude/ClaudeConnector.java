@@ -38,11 +38,12 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 	private AnthropicClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor = new SessionProcessor();
+	private final SessionProcessor sessionProcessor;
 
-	public ClaudeConnector(ConfigManager cfg, MCPClient mcpClient) {
+	public ClaudeConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		this.mcpClient = mcpClient;
+		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
 			if (getSupportedKeyPattern().matches(k))
 				this.client = AnthropicOkHttpClient.builder().apiKey(k).build();

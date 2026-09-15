@@ -1,82 +1,64 @@
 package xy.ai.workbench;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
-import org.eclipse.jface.viewers.TreeSelection;
-import org.eclipse.search.ui.ISearchQuery;
-import org.eclipse.search.ui.ISearchResult;
-import org.eclipse.search.ui.ISearchResultListener;
-import org.eclipse.search.ui.NewSearchUI;
-import org.eclipse.search.ui.SearchResultEvent;
-import org.eclipse.search.ui.text.AbstractTextSearchResult;
-import org.eclipse.search.ui.text.Match;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.IWorkbenchWindow;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
-import xy.ai.workbench.tools.AbstractQueryListener;
 
 public class AISessionManager {
 	public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
 
 	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
+	private IncludeAdapter includeAdapter;
 
 	private final ConfigManager cfg;
 	private final AdaptingConnector connector;
 	private final MCPClient mcpClient;
+	private final SessionProcessor sessionProcessor;
 	public final EditorInterface editIfc;
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
 
-	private List<IFile> selectedFiles = List.of();
-	private ISearchResult result = null;
-
-	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, MCPClient mcpClient) {
+	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, MCPClient mcpClient,
+			SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		this.connector = connector;
 		this.mcpClient = mcpClient;
+		this.sessionProcessor = sessionProcessor;
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		cfg.addInputModeObs(i -> updateInputStat(i));
 		cfg.addEnabledToolsObs(t -> updateInputStat(InputMode.Tools), false);
 		cfg.addModelObs(this::discoverTools, false);
+		includeAdapter = new IncludeAdapter(editorListener);
+		sessionProcessor.setAdapter(includeAdapter);
 	}
 
 	private void discoverTools(Model model) {
@@ -127,41 +109,9 @@ public class AISessionManager {
 	public void initializeInputs() {
 		for (var mode : InputMode.values())
 			updateInputStat(mode);
-
-		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-		if (window != null) {
-
-			SearchResultListener resObs = new SearchResultListener();
-			NewSearchUI.addQueryListener(new AbstractQueryListener() {
-				@Override
-				public void queryAdded(ISearchQuery query) {
-					query.getSearchResult().addListener(resObs);
-				}
-			});
-
-			IWorkbenchPage activePage = window.getActivePage();
-			if (activePage != null) {
-				activePage.addPartListener(editorListener);
-
-				activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", (part, selection) -> {
-					if (selection instanceof TreeSelection) {
-						selectedFiles = ((TreeSelection) selection).stream().filter(o -> o instanceof IFile)
-								.map(obj -> (IFile) obj).collect(Collectors.toList());
-						updateInputStat(InputMode.Files);
-					}
-				});
-			}
-		}
+		includeAdapter.initializeInputs();
 	}
 
-	public class SearchResultListener implements ISearchResultListener {
-		@Override
-		public void searchResultChanged(SearchResultEvent e) {
-			result = e.getSearchResult();
-			LOG.info("Searchresult changed: " + result.getLabel());
-			Display.getDefault().asyncExec(() -> updateInputStat(InputMode.Search));
-		}
-	}
 
 	private String getInput(InputMode mode) {
 		ITextEditor textEditor = editorListener.getLastTextEditor();
@@ -198,48 +148,11 @@ public class AISessionManager {
 				}
 			}
 			break;
-		case Context_prompt:
+		case Converter:
 			if (textEditor != null) {
-				IEditorInput input = textEditor.getEditorInput();
-				if (input instanceof IFileEditorInput) {
-					IResource promptResource = ((IFileEditorInput) input).getFile().getParent()
-							.findMember(CONTEXT_PROMPT_TXT);
-
-					if (promptResource instanceof IFile) {
-						IFile promptFile = (IFile) promptResource;
-						try (InputStream is = promptFile.getContents()) {
-							return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-						} catch (IOException | CoreException e) {
-							throw new IllegalStateException(e);
-						}
-					}
-				}
-			}
-			break;
-		case Files:
-			return getFilsAsString(selectedFiles);
-		case Search:
-			if (result instanceof AbstractTextSearchResult) {
-				AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
-				List<IFile> files = Arrays.stream(textRes.getElements()) //
-						.filter(e -> e instanceof IFile) //
-						.map(e -> (IFile) e)//
-						.collect(Collectors.toList());
-
-				List<Match> matches = files.stream() //
-						.flatMap(f -> Arrays.stream(textRes.getMatches(f))) //
-						.collect(Collectors.toList());
-
-				String lines = matches.stream().map(m -> {
-					try {
-						return getLineFromFileMatch(m);
-					} catch (BadLocationException | CoreException e1) {
-						LOG.error("Exception", e1);
-						return "";
-					}
-				}).collect(Collectors.joining("\n"));
-
-				return lines.length() > 0 ? lines : null;
+				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+				if (doc != null)
+					return doc.get();
 			}
 			break;
 		case Tools:
@@ -260,31 +173,7 @@ public class AISessionManager {
 				result.append(line).append(System.lineSeparator());
 
 		return result.toString();
-	}
-
-	private String getLineFromFileMatch(Match match) throws BadLocationException, CoreException {
-		IFile file = (IFile) match.getElement();
-		String fileContent = file.readString();
-
-		IDocument doc = new Document(fileContent);
-		int lineNumber = doc.getLineOfOffset(match.getOffset());
-		int lineOffset = doc.getLineOffset(lineNumber);
-		int lineLength = doc.getLineLength(lineNumber);
-		return doc.get(lineOffset, lineLength);
-	}
-
-	private String getFilsAsString(List<IFile> files) {
-		StringBuilder fullContent = new StringBuilder();
-		for (IFile file : files) {
-			try {
-				String content = file.readString();
-				fullContent.append(content).append("\n");
-			} catch (CoreException e) {
-				LOG.error("Error on reading " + file.getName(), e);
-			}
-		}
-		return fullContent.length() > 0 ? fullContent.toString() : null;
-	}
+	}	
 
 	public void execute(Display display) {
 		new PromptJob("Starting Prompt", display).schedule();
@@ -381,6 +270,8 @@ public class AISessionManager {
 			String input = null;
 			if (cfg.isInputEnabled(InputMode.Selection))
 				input = getInput(InputMode.Selection);
+			else if (cfg.isInputEnabled(InputMode.Converter))
+				input = getInput(InputMode.Converter);
 			if (input != null)
 				inputs.add(input);
 		});
@@ -392,14 +283,6 @@ public class AISessionManager {
 				throw new IllegalArgumentException("Systemprompt is selected but null");
 			systemPrompt.append(input);
 		}
-		if (cfg.isInputEnabled(InputMode.Context_prompt)) {
-			if (systemPrompt.length() > 0)
-				systemPrompt.append("\n");
-			String input = getInput(InputMode.Context_prompt);
-			if (input == null)
-				throw new IllegalArgumentException("Context prompt is selected but null");
-			systemPrompt.append(input);
-		}
 
 		if ((inputs == null || inputs.isEmpty()) && systemPrompt.length() == 0)
 			throw new IllegalArgumentException("Input and System Prompt Empty");
@@ -409,25 +292,11 @@ public class AISessionManager {
 
 		List<String> tools = cfg.isInputEnabled(InputMode.Tools) ? List.of(cfg.getTools()) : List.of();
 
-		if (cfg.isInputEnabled(InputMode.Files))
-			inputs.addAll(selectedFiles.stream().map(f -> {
-				try {
-					return f.readString();
-				} catch (CoreException e) {
-					LOG.error(e.getMessage(), e);
-					return "";
-				}
-			}).collect(Collectors.toList()));
-
-		if (cfg.isInputEnabled(InputMode.Search)) {
-			String search = getInput(InputMode.Search);
-			if (search != null && !search.isBlank())
-				inputs.add(search);
-			else
-				throw new IllegalArgumentException("Search prompt is selected but null");
-		}
-
 		sub.subTask("Input prepared");
+
+		// InputMode.Converter also toggles the shared SessionProcessor itself: while off, all
+		// connectors turn the whole input into a single plain message via their message callback.
+		sessionProcessor.setEnabled(cfg.isInputEnabled(InputMode.Converter));
 
 		IModelRequest req = connector.createRequest(//
 				inputs, //

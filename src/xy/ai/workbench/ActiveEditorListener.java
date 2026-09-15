@@ -75,7 +75,7 @@ public class ActiveEditorListener implements IPartListener2 {
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
 					manager.updateInputStat(InputMode.Selection);
-					manager.updateInputStat(InputMode.Context_prompt);
+					manager.updateInputStat(InputMode.Converter);
 				});
 			}).schedule(300);
 
@@ -157,7 +157,10 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void documentChanged(DocumentEvent event) {
 			Job.create("Update Input Stats", (mon) -> {
-				Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
+				Display.getDefault().asyncExec(() -> {
+					manager.updateInputStat(InputMode.Selection);
+					manager.updateInputStat(InputMode.Converter);
+				});
 			}).schedule(1000);
 
 		}
@@ -173,7 +176,10 @@ public class ActiveEditorListener implements IPartListener2 {
 	public class TextChangeListener implements ITextListener {
 		@Override
 		public void textChanged(TextEvent event) {
-			Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
+			Display.getDefault().asyncExec(() -> {
+				manager.updateInputStat(InputMode.Selection);
+				manager.updateInputStat(InputMode.Converter);
+			});
 		}
 	}
 
