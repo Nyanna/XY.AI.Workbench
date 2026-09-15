@@ -58,6 +58,16 @@ import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.Respons
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponseErrorAnyOfPart;
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponseUsage;
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponsesCode200Json;
+import xy.ai.workbench.connector.harness.Role;
+import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
+import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.connector.harness.SessionProcessor;
+import xy.ai.workbench.connector.harness.ToolCall;
+import xy.ai.workbench.connector.harness.ToolResult;
+import xy.ai.workbench.connector.openapi.deepseek.components.FunctionCallEnum;
+import xy.ai.workbench.connector.openapi.deepseek.enums.InputElementTypeEnum;
+import xy.ai.workbench.connector.openapi.deepseek.lists.FunctionCallOutputItemParam;
+import xy.ai.workbench.connector.openapi.deepseek.lists.OneOfOutput;
 import xy.ai.workbench.models.AIAnswer;
 
 /**
@@ -74,6 +84,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	private ConfigManager cfg;
 	private ResponsesClientImpl client;
 	private final MCPClient mcpClient;
+	private final SessionProcessor sessionProcessor = new SessionProcessor();
 
 	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
@@ -136,9 +147,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 		ArrayNode input = mapper.createArrayNode();
 		if (inputs != null)
-			for (String in : inputs)
-				if (in != null && !in.isBlank())
-					input.add(createMessage(mapper, RoleEnum.SYSTEM, in));
+			for (ObjectNode item : sessionProcessor.process(inputs, new SessionRequestCallbacks(mapper)))
+				input.add(item);
 
 		if (tools != null && !tools.isEmpty())
 			appendTools(mapper, requestBody, tools);
@@ -176,6 +186,42 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		msg.setRole(role);
 		msg.setContent(new OneOfContent(TextNode.valueOf(text)));
 		return node;
+	}
+/** Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input items (full SDK-based implementation). */
+	private final class SessionRequestCallbacks implements SessionCallbacks<ObjectNode> {
+		private final ObjectMapper mapper;
+
+		private SessionRequestCallbacks(ObjectMapper mapper) {
+			this.mapper = mapper;
+		}
+
+		@Override
+		public ObjectNode message(Role role, String text) {
+			return createMessage(mapper, role == Role.Agent ? RoleEnum.ASSISTANT : RoleEnum.USER, text);
+		}
+
+		@Override
+		public ObjectNode toolCall(ToolCall call) {
+			ObjectNode node = mapper.createObjectNode();
+			FunctionToolCall ftc = new FunctionToolCall(node);
+			ftc.setType(FunctionCallEnum.FUNCTION_CALL);
+			ftc.setId(call.id);
+			ftc.setCallId(call.id);
+			ftc.setName(call.name);
+			ftc.setArguments(call.arguments == null ? "{}" : call.arguments.toString());
+			return node;
+		}
+
+		@Override
+		public ObjectNode toolResult(ToolResult result) {
+			ObjectNode node = mapper.createObjectNode();
+			FunctionCallOutputItemParam out = new FunctionCallOutputItemParam(node);
+			out.setType(InputElementTypeEnum.FUNCTION_CALL_OUTPUT);
+			out.setCallId(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
+					TextNode.valueOf(result.id == null ? "" : result.id)));
+			out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
+			return node;
+		}
 	}
 
 	
@@ -247,6 +293,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			res.answer = err.getCode().rawValue() + ": " + err.getMessage();
 			LOG.error("Error: " + err.getCode().rawValue() + " " + err.getMessage());
 		} else {
+			SessionAnswerBuilder answer = new SessionAnswerBuilder();
 			OutputList output = part.getOutput();
 			if (output != null)
 				for (int i = 0; i < output.size(); i++) {
@@ -254,13 +301,15 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 					if (el.isOutputMessage()) {
 						OutputMessage msg = el.getOutputMessage();
 						InputElementContentList content = msg.getContent();
+						StringBuilder text = new StringBuilder();
 						for (int j = 0; content != null && j < content.size(); j++) {
 							OneOfContentElement c = content.get(j);
 							if (c.isOutputTextContent())
-								res.answer += c.getOutputTextContent().getText();
+								text.append(c.getOutputTextContent().getText());
 							else if (c.isRefusalContent())
 								LOG.error("Refusal: " + c.getRefusalContent().getRefusal());
 						}
+						answer.text(text.toString());
 					} else if (el.isFunctionToolCall()) {
 						FunctionToolCall call = el.getFunctionToolCall();
 						JsonNode args;
@@ -269,20 +318,21 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 						} catch (Exception e) {
 							args = new ObjectMapper().createObjectNode();
 						}
-						if (!res.answer.isEmpty())
-							res.answer += "\n\n";
-						res.answer += mcpClient.renderToolCall(call.getName(), args);
+						answer.toolCall(call.getCallId(), call.getName(), args);
 					} else if (el.isReasoningItem()) {
+						// Reasoning is emitted directly as text (round-trippable via the THINKING
+						// marker); the API itself ignores replayed reasoning_content on the next turn.
 						ReasoningItem reasoning = el.getReasoningItem();
 						SummaryList summary = reasoning.getSummary();
 						for (int j = 0; summary != null && j < summary.size(); j++) {
 							SummaryTextContent txt = summary.get(j);
-							LOG.info("Reasoning summary: " + txt.getText());
+							answer.reasoning(txt.getText());
 						}
 					} else {
 						LOG.info("Other output!");
 					}
 				}
+			res.answer = answer.toString();
 		}
 		sub.worked(1);
 		return res;

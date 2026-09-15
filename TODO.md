@@ -1,15 +1,5 @@
 # TODO
 
-- Include im Harness,  wie wurde man einen Include realisieren vielleicht ein script block ```script und dann metacode -> [include/tool_read](datei.md)
-	- muss am anfang beginnen dann eine oder mehrere pro zeile, ersetzt zeile komplett und trennt an der stelle
-	- rekursionsschutz, liste führen wenn zielinclude zu datei höher im baum auflöst
-	- [Label] erlaubt metadaten
-* einen processor, unabhängiges parsing mit callbacks
-	- wird ein Callback nicht angegeben wird auf ein generisches text Only callback zurückgefallen
-* umgekehrt für den output wird ein Modellanwort in bestandteile zerlegt die der processor, symetrisch in entsprechenden ouput umwandelt
-* Der session processor garantiert symetrisches encoding, text rein -> message struktur raus
-* der connector extrahiert aus der modellanwort die structur -> gibt sie dem session processor -> dieser wandelt wieder um in Text, Thinking und Tool Calls
-
 ## Harness
 * eine AI SessionConfig pro datei, bei neuem editor aktuelle kopieren
 	* Overlay mechanismus, initial eine Default config, bei neuem editor wird default verwendet,
@@ -51,7 +41,8 @@
 !! SUbagenten nachden
 
 ## Other
-- anzeige für geschätzen cache read/write(neuen input)
+* Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
+- anzeige für geschätzen cache read/write(neuen input), anzeige für zeichenanzahl in datei
 * approval tool control anders, tool use nur für langwierige teure operationen,
 	- sonst immer den output abwarten und zusammen approven
 	- Dann nur ein approval call + ergebnis notwendig

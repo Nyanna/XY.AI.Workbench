@@ -38,6 +38,12 @@ public class EditorInterface {
 	public static final String USER = "User:";
 	public static final String AGENT = "Agent:";
 
+	/** Session block markers recognized by {@code connector.harness.SessionProcessor}. */
+	public static final String TEXT = "Text:";
+	public static final String THINKING = "Thinking:";
+	public static final String TOOLUSE = "Tool:";
+	public static final String TOOLRESULT = "ToolResult:";
+
 	private final ActiveEditorListener editorListener;
 	private final AdaptingConnector connector;
 	private final ConfigManager cfg;

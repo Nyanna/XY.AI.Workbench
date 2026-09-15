@@ -43,10 +43,10 @@ public class Elements {
 	}
 
 	public static class Agent {
-		public static final PrefixBlock THINKING = new PrefixBlock(ProtocolParser.THINKING);
-		public static final LineSection TEXT = new LineSection(ProtocolParser.TEXT, false, of(Basics.PARAGRAPH),
+		public static final PrefixBlock THINKING = new PrefixBlock(EditorInterface.THINKING);
+		public static final LineSection TEXT = new LineSection(EditorInterface.TEXT, false, of(Basics.PARAGRAPH),
 				of(NONE)); // replaced
-		public static final PrefixBlock TOOLUSE = new PrefixBlock(ProtocolParser.TOOLUSE);
+		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE);
 		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
 		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);

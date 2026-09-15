@@ -34,6 +34,9 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
+import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.models.AIAnswer;
 
@@ -42,6 +45,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 	private OpenAIClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
+	private final SessionProcessor sessionProcessor = new SessionProcessor();
 
 	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
@@ -85,19 +89,19 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		if (cfg.getCapabilities().isSupportTopP())
 			builder.topP(cfg.getTopP());
 
-		if (inputs != null && !inputs.isEmpty())
-			for (String input : inputs)
-				if (input != null && !input.isBlank()) {
-					List<ResponseInputItem> respInputs = new ArrayList<ResponseInputItem>();
-					ResponseInputText inputText = ResponseInputText.builder() //
-							.text(input) //
-							.build();
-					ResponseInputItem inputItem = ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
-							.role(ResponseInputItem.Message.Role.DEVELOPER)//
-							.addContent(inputText).build());
-					respInputs.add(inputItem);
-					builder.inputOfResponse(respInputs);
-				}
+		if (inputs != null && !inputs.isEmpty()) {
+			List<ResponseInputItem> respInputs = new ArrayList<>();
+			SessionCallbacks<Void> cb = (role, text) -> {
+				ResponseInputText inputText = ResponseInputText.builder().text(text).build();
+				respInputs.add(ResponseInputItem.ofMessage(ResponseInputItem.Message.builder() //
+						.role(ResponseInputItem.Message.Role.DEVELOPER)//
+						.addContent(inputText).build()));
+				return null;
+			};
+			sessionProcessor.process(inputs, cb);
+			if (!respInputs.isEmpty())
+				builder.inputOfResponse(respInputs);
+		}
 
 		if (tools != null && !tools.isEmpty())
 			appendTools(builder, tools);
@@ -160,18 +164,19 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 			res.answer = error.code() + ": " + error.message();
 			LOG.error("Error: " + error.code() + " " + error.message());
 
-		} else
+		} else {
+			SessionAnswerBuilder answer = new SessionAnswerBuilder();
 			for (var out : resp.output()) {
 				if (out.isMessage()) {
 					var msg = out.message().get();
+					StringBuilder text = new StringBuilder();
 					for (var cnt : msg.content()) {
-						if (cnt.isOutputText()) {
-							String answer = cnt.asOutputText().text();
-							res.answer += answer;
-						} else if (cnt.isRefusal()) {
+						if (cnt.isOutputText())
+							text.append(cnt.asOutputText().text());
+						else if (cnt.isRefusal())
 							LOG.error("Refusal: " + cnt.asRefusal().refusal());
-						}
 					}
+					answer.text(text.toString());
 				} else if (out.isFunctionCall()) {
 					var fc = out.functionCall().get();
 					JsonNode args;
@@ -180,21 +185,19 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 					} catch (Exception e) {
 						args = mapper.createObjectNode();
 					}
-					if (!res.answer.isEmpty())
-						res.answer += "\n\n";
-					res.answer += mcpClient.renderToolCall(fc.name(), args);
+					answer.toolCall(fc.callId(), fc.name(), args);
 				} else if (out.isReasoning()) {
-					for (var cnt : out.asReasoning().summary()) {
-						LOG.info("Reasoning summary: " + cnt.text());
-					}
+					for (var cnt : out.asReasoning().summary())
+						answer.reasoning(cnt.text());
 					if (out.asReasoning().content().isPresent())
-						for (var cnt : out.asReasoning().content().get()) {
-							LOG.info("Reasoning content: " + cnt.text());
-						}
+						for (var cnt : out.asReasoning().content().get())
+							answer.reasoning(cnt.text());
 				} else {
 					LOG.info("Other output!");
 				}
 			}
+			res.answer = answer.toString();
+		}
 		sub.worked(1);
 		return res;
 	}

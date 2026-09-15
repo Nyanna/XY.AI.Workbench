@@ -124,9 +124,9 @@ public class AIRuleScanner implements ITokenScanner {
 		register(Elements.Tools.CONTROL_REQUEST, new LineMatchRule(CCControlClient.CONTROL_REQUEST, agentToken));
 
 		// block: protocol prefix lines, each tied 1:1 to its own AST element
-		register(Elements.Agent.THINKING, new PrefixLineRule(ProtocolParser.THINKING, agentToken));
-		register(Elements.Agent.TEXT, new PrefixLineRule(ProtocolParser.TEXT, agentToken));
-		register(Elements.Agent.TOOLUSE, new PrefixLineRule(ProtocolParser.TOOLUSE, agentToken));
+		register(Elements.Agent.THINKING, new PrefixLineRule(EditorInterface.THINKING, agentToken));
+		register(Elements.Agent.TEXT, new PrefixLineRule(EditorInterface.TEXT, agentToken));
+		register(Elements.Agent.TOOLUSE, new PrefixLineRule(EditorInterface.TOOLUSE, agentToken));
 		register(Elements.Tools.ANSWER, new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
 		register(Elements.Agent.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
 		register(Elements.Agent.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));

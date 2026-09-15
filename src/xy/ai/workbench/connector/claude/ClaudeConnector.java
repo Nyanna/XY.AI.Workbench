@@ -28,6 +28,9 @@ import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
+import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeResponse> {
@@ -35,6 +38,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 	private AnthropicClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
+	private final SessionProcessor sessionProcessor = new SessionProcessor();
 
 	public ClaudeConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
@@ -73,10 +77,15 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 		if (systemPrompt != null && !systemPrompt.isBlank())
 			builder.system(systemPrompt);
 
-		if (inputs != null && !inputs.isEmpty())
-			for (String input : inputs)
-				if (input != null && !input.isBlank())
-					builder.addSystemMessage(input);
+		if (inputs != null && !inputs.isEmpty()) {
+			// Session text (markers/includes) is parsed deterministically; unmarked plain
+			// text still ends up as one system message per input, same as before.
+			SessionCallbacks<Void> cb = (role, text) -> {
+				builder.addSystemMessage(text);
+				return null;
+			};
+			sessionProcessor.process(inputs, cb);
+		}
 
 		if (tools != null && !tools.isEmpty())
 			appendTools(builder, tools);
@@ -128,10 +137,10 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 //		resp.usage().cacheReadInputTokens();
 		res.stats.totalToken = res.stats.inputToken + res.stats.outputToken;
 
-		StringBuffer answer = new StringBuffer();
+		SessionAnswerBuilder answer = new SessionAnswerBuilder();
 		for (ContentBlock content : msg.content())
 			if (content.isText())
-				answer.append(content.asText().text());
+				answer.text(content.asText().text());
 			else if (content.isToolUse()) {
 				ToolUseBlock toolUse = content.asToolUse();
 				JsonNode args;
@@ -140,9 +149,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 				} catch (Exception e) {
 					args = mapper.createObjectNode();
 				}
-				if (answer.length() > 0)
-					answer.append("\n\n");
-				answer.append(mcpClient.renderToolCall(toolUse.name(), args));
+				answer.toolCall(toolUse.id(), toolUse.name(), args);
 			}
 
 		res.answer = answer.toString();

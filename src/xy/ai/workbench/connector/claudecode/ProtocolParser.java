@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.workbench.AgentProfile;
+import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.models.TokenStats;
 
@@ -20,10 +21,7 @@ public class ProtocolParser {
 	public static final String SYSTEM_INIT = "SystemInit: ";
 	public static final String RESULT = "Result Stats: ";
 	public static final String REASONING_TOKEN = "ReasoningToken: ";
-	public static final String THINKING = "Thinking:";
 	public static final String TOKEN_STATS = "Token Usage: ";
-	public static final String TEXT = "Text:";
-	public static final String TOOLUSE = "Tool:";
 	private static final String TEXT_CACHE_PREEFIX = "text\0";
 	private static final int TOOL_INPUT_MAX_LENGTH = 120;
 
@@ -164,12 +162,12 @@ public class ProtocolParser {
 					if (text.isEmpty())
 						text = block.path("text").asText("");
 					if (!text.isEmpty())
-						resp.events.putIfAbsent("thinking\0" + text, THINKING + "\n" + text);
+						resp.events.putIfAbsent("thinking\0" + text, EditorInterface.THINKING + "\n" + text);
 					sub.subTask("Claude is thinking");
 				} else if (recordText && "text".equals(blockType)) {
 					String text = block.path("text").asText("");
 					if (!text.isEmpty())
-						resp.events.putIfAbsent(TEXT_CACHE_PREEFIX + text, TEXT + "\n " + text);
+						resp.events.putIfAbsent(TEXT_CACHE_PREEFIX + text, EditorInterface.TEXT + "\n " + text);
 				} else if (recordToolUse && "tool_use".equals(blockType)) {
 					String toolName = block.path("name").asText("");
 					String text = " " + toolName + "\n";
@@ -185,7 +183,7 @@ public class ProtocolParser {
 						}
 					}
 					if (!text.isEmpty()) {
-						resp.events.putIfAbsent("tool\0" + text, TOOLUSE + text);
+						resp.events.putIfAbsent("tool\0" + text, EditorInterface.TOOLUSE + text);
 						sub.subTask("Claude uses tool: " + toolName);
 					}
 				}

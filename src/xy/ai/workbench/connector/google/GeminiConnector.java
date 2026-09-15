@@ -35,6 +35,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
+import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
@@ -42,6 +45,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	private Client client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
+	private final SessionProcessor sessionProcessor = new SessionProcessor();
 
 	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient) {
 		this.cfg = cfg;
@@ -98,10 +102,13 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 				proccessedInputs.add(systemInstruction.toBuilder().role("model").build());
 		}
 
-		if (inputs != null && !inputs.isEmpty())
-			for (String input : inputs)
-				if (input != null && !input.isBlank())
-					proccessedInputs.add(Content.builder().parts(Part.fromText(input)).role("model").build());
+		if (inputs != null && !inputs.isEmpty()) {
+			SessionCallbacks<Void> cb = (role, text) -> {
+				proccessedInputs.add(Content.builder().parts(Part.fromText(text)).role("model").build());
+				return null;
+			};
+			sessionProcessor.process(inputs, cb);
+		}
 
 		if (tools != null && !tools.isEmpty())
 			appendTools(config, tools);
@@ -157,16 +164,16 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer(resp.id);
-		res.answer = cresp.text();
+		SessionAnswerBuilder answer = new SessionAnswerBuilder();
+		answer.text(cresp.text());
 
 		List<FunctionCall> calls = cresp.functionCalls();
 		if (calls != null)
 			for (FunctionCall call : calls) {
 				JsonNode args = call.args().isPresent() ? mapper.valueToTree(call.args().get()) : mapper.createObjectNode();
-				if (res.answer != null && !res.answer.isEmpty())
-					res.answer += "\n\n";
-				res.answer += mcpClient.renderToolCall(call.name().orElse("unknown"), args);
+				answer.toolCall("", call.name().orElse("unknown"), args);
 			}
+		res.answer = answer.toString();
 
 		if (cresp.usageMetadata().isPresent()) {
 			GenerateContentResponseUsageMetadata usage = cresp.usageMetadata().get();
