@@ -108,7 +108,7 @@ class OutlineNode:
     Serialization drops ``None``/empty fields, see :func:`to_dict`.
     """
     id: str
-    type: str
+    type: str | None
     lines: str | None
     signature: str | None
     docstring: str | None
@@ -165,7 +165,7 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
 '#: definition across engines, the only nodes a "signature" makes sense for.'
 _SIGNATURE_TYPE_RE = re.compile('class|function|method|constructor|interface|enum|record', re.IGNORECASE)
 
-def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
+def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, with_type: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
     """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``).
 
     ``signature``/``docstring`` are only computed when ``code`` is not, since the
@@ -181,7 +181,7 @@ def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, 
         code = None
     return OutlineNode(
         id=loc.node_id,
-        type=loc.node_type,
+        type=loc.node_type if with_type else None,
         lines=line_range(loc) if with_lines else None,
         signature=signature,
         docstring=docstring,
@@ -217,15 +217,15 @@ def _build_forest(located: list[Located]) -> list[_TreeNode]:
         stack.append(node)
     return roots
 
-def build_outline(located: list[Located], *, with_code: bool=False, with_lines: bool=True) -> list[OutlineNode]:
+def build_outline(located: list[Located], *, with_code: bool=False, with_lines: bool=True, with_type: bool=True) -> list[OutlineNode]:
     """Build the nested outline of ``located`` (source only if ``with_code``, lines only if ``with_lines``).
 
     Non-expandable nodes (no nested defs worth descending into) are rendered with
     their full source instead of being fragmented into ``children``.
     """
-    return _outline_nodes(_build_forest(located), with_code=with_code, with_lines=with_lines)
+    return _outline_nodes(_build_forest(located), with_code=with_code, with_lines=with_lines, with_type=with_type)
 
-def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: bool=True) -> list[OutlineNode]:
+def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: bool=True, with_type: bool=True) -> list[OutlineNode]:
     """Convert a forest into OutlineNodes, collapsing non-expandable nodes to full source instead of ``children``."""
     result: list[OutlineNode] = []
     for t in nodes:
@@ -235,12 +235,14 @@ def _outline_nodes(nodes: list['_TreeNode'], *, with_code: bool, with_lines: boo
                     t.loc,
                     with_code=False,
                     with_lines=with_lines,
+                    with_type=with_type,
                     children=_outline_nodes(
                         t.children,
                         with_code=with_code,
-                        with_lines=with_lines)))
+                        with_lines=with_lines,
+                        with_type=with_type)))
         else:
-            result.append(node_outline(t.loc, with_code=with_code, with_lines=with_lines))
+            result.append(node_outline(t.loc, with_code=with_code, with_lines=with_lines, with_type=with_type))
     return result
 
 def _resolve_by_name(key: str, by_name: dict[str, list['_TreeNode']]) -> tuple['_TreeNode | None', str | None]:
@@ -309,7 +311,7 @@ def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=T
 def matches(loc: Located, *, id: str | None=None, node_type: str | None=None, name: str | None=None, parent_type: str | None=None) -> bool:
     if id is not None and loc.node_id != id:
         return False
-    if node_type is not None and loc.node_type.lower() != node_type.lower():
+    if node_type is not None and (not re.search(node_type, loc.node_type, re.IGNORECASE)):
         return False
     if name is not None and loc.name != name:
         return False

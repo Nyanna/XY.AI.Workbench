@@ -105,7 +105,7 @@ def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
         if key not in grouped:
             grouped[key] = []
             order.append(key)
-        grouped[key].append(GrepLineMatch(lineno=int(lineno_str), match=match))
+        grouped[key].append(GrepLineMatch(lineno=int(lineno_str), match=match.strip()))
     return [GrepMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
 def _as_list(value: list[str] | None) -> list[str]:

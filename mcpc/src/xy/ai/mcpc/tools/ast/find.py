@@ -53,10 +53,10 @@ def _load_tolerant(path: str) -> core.Tree:
                     return core.load(str(matches[0]))[1]
         raise
 
-def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_lineno: int | None, no_selector: bool, pattern: re.Pattern[str] | None, with_lines: bool) -> FileNodesResult:
+def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_lineno: int | None, no_selector: bool, pattern: re.Pattern[str] | None, with_lines: bool, with_type: bool) -> FileNodesResult:
     tree = _load_tolerant(path)
     if no_selector:
-        nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines)
+        nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines, with_type=with_type)
         return FileNodesResult(path=path, nodes=nodes)
     candidates = core.find(tree, **exact)
     if lineno is not None or end_lineno is not None:
@@ -65,7 +65,7 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         hit = core.most_specific(candidates, start, end)
         candidates = [hit] if hit is not None else []
     if pattern is None:
-        nodes = core.build_outline(candidates, with_code=True, with_lines=with_lines)
+        nodes = core.build_outline(candidates, with_code=True, with_lines=with_lines, with_type=with_type)
         return FileNodesResult(path=path, nodes=nodes)
     source = tree.source
     seen: set[str] = set()
@@ -77,7 +77,7 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         if loc is not None and loc.node_id not in seen:
             seen.add(loc.node_id)
             ordered.append(loc)
-    nodes = core.build_outline(ordered, with_code=True, with_lines=with_lines)
+    nodes = core.build_outline(ordered, with_code=True, with_lines=with_lines, with_type=with_type)
     return FileNodesResult(path=path, nodes=nodes)
 
 def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, node_type: str | None=None, lineno: int | None=None, end_lineno: int | None=None, parent_type: str | None=None, text: str | None=None, regexp: str | None=None, with_lines: bool=True) -> FindNodesResult:
@@ -95,7 +95,8 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
         paths: Absolute paths of the files to search. Must be non-empty.
         id: Engine-independent unique node id (primarily name-based path).
         name: Exact simple name a node's ``name`` must equal.
-        node_type: Node type name a node must match (case-insensitive).
+        node_type: Regular expression (case-insensitive, ``re.search``) a
+            node's type name must match.
         lineno: Line the target node must contain; selects the most specific
             (smallest) matching node. Combined with ``end_lineno``, selects the
             most specific node fully covering ``[lineno, end_lineno]``.
@@ -117,6 +118,11 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
     """
     if not paths:
         raise core.AstError("'paths' must be a non-empty list.")
+    if node_type is not None:
+        try:
+            re.compile(node_type)
+        except re.error as exc:
+            raise core.AstError(f'Invalid regexp: {exc}') from exc
     exact = dict(id=id, name=name, node_type=node_type, parent_type=parent_type)
     structural = dict(exact, lineno=lineno, end_lineno=end_lineno)
     no_selector = not any(structural.values()) and text is None and (regexp is None)
@@ -129,6 +135,7 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
                 raise core.AstError(f'Invalid regexp: {exc}') from exc
         else:
             pattern = re.compile(re.escape(text), re.IGNORECASE)
+    with_type = node_type is not None
     files = [
         _find_in_file(
             p,
@@ -137,7 +144,8 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
             end_lineno=end_lineno,
             no_selector=no_selector,
             pattern=pattern,
-            with_lines=with_lines) for p in paths]
+            with_lines=with_lines,
+            with_type=with_type) for p in paths]
     return FindNodesResult(files=files)
 
 class FindNodesTool(ToolDefinition):

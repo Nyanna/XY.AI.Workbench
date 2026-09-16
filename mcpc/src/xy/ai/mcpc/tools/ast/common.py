@@ -10,12 +10,23 @@ __all__ = ['SELECTOR_PROPS', 'PATH_SELECTOR_PROPS', 'PATH_PROP', 'select_one', '
 '#: Full node selectors – only ``ast_find`` may restrict on node properties.'
 SELECTOR_PROPS = {
     'id': {
-        'type': 'string', 'description': 'Unique node id'}, 'name': {
-            'type': 'string', 'description': 'Simple node name.'}, 'node_type': {
-                'type': 'string', 'description': "Node type name, e.g. 'FunctionDef' or 'pair'."}, 'lineno': {
-                    'type': 'integer', 'description': 'Line in the target node.'}, 'end_lineno': {
-                        'type': 'integer', 'description': 'End line of a range to get all nodes touching the lines.'}, 'parent_type': {
-                            'type': 'string', 'description': 'Node type name of the container.'}}
+        'type': 'string',
+        'description': 'Unique node id'},
+    'name': {
+        'type': 'string',
+        'description': 'Simple node name.'},
+    'node_type': {
+        'type': 'string',
+                'description': "Regular expression (case-insensitive) a node type name must match, e.g. 'FunctionDef' or 'pair'."},
+    'lineno': {
+        'type': 'integer',
+        'description': 'Line in the target node.'},
+    'end_lineno': {
+        'type': 'integer',
+        'description': 'End line of a range to get all nodes touching the lines.'},
+    'parent_type': {
+        'type': 'string',
+        'description': 'Node type name of the container.'}}
 '#: Path-only selectors used by every mutation tool (replace/insert/delete/edit_*).'
 PATH_SELECTOR_PROPS = {'id': SELECTOR_PROPS['id']}
 "#: Absolute-path property shared by every batch tool's item schema."

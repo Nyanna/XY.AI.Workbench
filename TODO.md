@@ -1,5 +1,8 @@
 # TODO
-!grep macth und match splitten mehrere matches pro datei anzeigen können aber zählen zum limit
+andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 bytes
+
+! in java AST method java signature auf ausdehen auf ganze method signature @Override
+
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
 	alle includes
 	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht

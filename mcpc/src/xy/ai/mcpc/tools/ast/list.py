@@ -66,7 +66,7 @@ def _expand_path(path_str: str) -> list[str]:
 
 def _list_one(path: str, *, with_lines: bool) -> ListNodesResult:
     tree = core.load(path)[1]
-    nodes = core.build_outline(core.locate_all(tree), with_lines=with_lines)
+    nodes = core.build_outline(core.locate_all(tree), with_lines=with_lines, with_type=False)
     return ListNodesResult(path=path, nodes=nodes)
 
 def ast_list(paths: list[str], *, with_lines: bool=True) -> ListNodesBatchResult:
