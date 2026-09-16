@@ -40,15 +40,16 @@ Beispielweise parsed er bei einem `/call` Kommando den davor liegenden YAML bloc
 ### Prompt Object
 
 Das Prompt-Objekt generiert eine Session ID auf Basis eine Hash der folgenden Parameter
-- Absoluter Dateipfad der Datei in der, der Prompt initiiert wurden (Auf einem analogen Mechanismus basiert der Session Parameter Hash in `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/claudecode/SessionParameters.java`)
+- Absoluter Dateipfad der Datei in der, der Prompt initiiert wurden (Auf einem analogen Mechanismus basiert der Session Parameter Hash in `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/claudecode/ClaudeSessionParameters.java`)
 - Batch, 
 - Einer Hash der eingefrorenen Konfiguration mit den Bestandteilen:
 	- Model, Profile, Reasoning, Tools, Systemprompt, TopP, Temperature, Max Tokens
+- Der Implementierungsanteil soll aus `ClaudeSessionParameters` gelöst in ein neues Objekt `SessionParameters` extrahiert werden.
+- `ClaudeSessionParameters` soll eine Ableitung von `SessionParameters` werden
 
 Alle Verwendungen der Konfiguration direkt in den Connectoren soll auf das Prompt-Objekt geändert werden.
 - Statt einzelner Parameter, soll das Prompt Objekt in die Connectoren gereicht werden.
 - Connectors: `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/claude/ClaudeConnector.java`, `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/deepseek/DeepSeekConnector.java`, `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/google/GeminiConnector.java`, `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/openai/OpenAIConnector.java`
-
 
 ## How to handle full editor mode and selection input mode?
 
@@ -60,20 +61,6 @@ Der PromptHandler erkennt ein Kommando im Input wie folgt:
 	- on whole file input ("Processor" Mode), first check current cursor line for command
 		- Than check if the last line of the file starts with a command
 		- commands everywhere else in a whole file input are assumed to be just sessions context
-
-
-- Tool Results sind ohnehin embedded
-
-! how to freeze includes and command?
-	1. replace back into Editor?
-	2. don't replace, keep as template?
-		- whats when input files changes?
-	- expands includes?
-Thtas for automatic multi background loops, what happens if system config changes?
-	-> not all modells support context amending so it alwys destroxs caching and session
-		-> make a config under prompt  readonly
-		-> use attribute to cache include in subfolder/memory/main.sub.file?
-			-> session subfolder automaticaly invalid when session changes
 
 ## MCP Call Command
 Der MCP Client soll künftig einem zurückgegebenen Tool Call Template ein "/call" Kommando anstellen.
