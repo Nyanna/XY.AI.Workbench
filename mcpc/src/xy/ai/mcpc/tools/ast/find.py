@@ -59,6 +59,9 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         nodes = core.build_outline(core.locate_all(tree), with_code=True, with_lines=with_lines, with_type=with_type)
         return FileNodesResult(path=path, nodes=nodes)
     candidates = core.find(tree, **exact)
+    if not candidates and exact.get('id') and (not any((v for k, v in exact.items() if k != 'id'))):
+        fallback = core.resolve_by_prefix(core.locate_all(tree), exact['id'])
+        candidates = [fallback] if fallback is not None else []
     if lineno is not None or end_lineno is not None:
         start = lineno if lineno is not None else end_lineno
         end = end_lineno if end_lineno is not None else lineno

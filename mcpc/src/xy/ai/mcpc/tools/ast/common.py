@@ -39,6 +39,9 @@ def select_one(tree, **selectors: Any) -> core.Located:
         core.AstError: If no node matches, or more than one node matches.
     """
     hits = core.find(tree, **selectors)
+    if not hits and set(selectors) == {'id'}:
+        fallback = core.resolve_by_prefix(core.locate_all(tree), selectors['id'])
+        hits = [fallback] if fallback is not None else []
     if not hits:
         raise core.AstError('No node matched the selector.')
     if len(hits) > 1:

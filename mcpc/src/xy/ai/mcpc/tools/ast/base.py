@@ -129,9 +129,9 @@ def _hash(name: str, length: int) -> str:
     return hashlib.sha1(name.encode('utf-8')).hexdigest()[:length]
 _ID_HASH_ALPHABET = string.digits + string.ascii_letters
 
-def _content_hash(content: str, length: int=6) -> str:
-    """Base62 (0-9a-zA-Z) digest of ``content``, stable across unrelated tree edits."""
-    digest = int.from_bytes(hashlib.sha1(content.encode('utf-8')).digest(), 'big')
+def _base62_hash(text: str, length: int) -> str:
+    """Base62 (0-9a-zA-Z) digest of ``text``."""
+    digest = int.from_bytes(hashlib.sha1(text.encode('utf-8')).digest(), 'big')
     base = len(_ID_HASH_ALPHABET)
     chars = []
     for _ in range(length):
@@ -139,13 +139,53 @@ def _content_hash(content: str, length: int=6) -> str:
         chars.append(_ID_HASH_ALPHABET[rem])
     return ''.join(chars)
 
+def _content_hash(content: str, length: int=6) -> str:
+    """Base62 digest of ``content``, stable across unrelated tree edits."""
+    return _base62_hash(content, length)
+
+def _content_prefix_hash(content: str, length: int=6) -> str:
+    """Base62 digest of ``content``'s whitespace-stripped first/last 20 chars.
+
+    Forms an anonymous id segment's stable prefix: it only depends on the
+    node's outer shape, so it survives edits that shift the node's interior
+    (and with it ``_content_hash``) while leaving its boundaries intact.
+    """
+    stripped = re.sub('\\s+', '', content)
+    return _base62_hash(stripped[:20] + stripped[-20:], length)
+_ID_SUFFIX_RE = re.compile('_\\d+$')
+
+def _id_prefix(segment: str) -> str | None:
+    """An anonymous id segment's stable prefix (before ``'|'``), if any."""
+    segment = _ID_SUFFIX_RE.sub('', segment)
+    prefix, sep, _hash = segment.partition('|')
+    return prefix if sep else None
+
+def resolve_by_prefix(located: list['Located'], target_id: str) -> 'Located | None':
+    """Fallback selector for a ``target_id`` that matches no node exactly.
+
+    Used when an anonymous node's id has gone stale (its content hash shifted
+    due to edits elsewhere in the file) while its stable prefix hash and
+    ancestor path have not. Returns the single node sharing both, or ``None``
+    if ``target_id`` carries no prefix or several/no nodes match.
+    """
+    parent, _, last = target_id.rpartition('.')
+    prefix = _id_prefix(last)
+    if prefix is None:
+        return None
+    hits = [loc for loc in located if loc.node_id.rpartition(
+        '.')[0] == parent and _id_prefix(loc.node_id.rpartition('.')[2]) == prefix]
+    return hits[0] if len(hits) == 1 else None
+
 def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only: bool=False, content: str | None=None) -> str:
     """Return a unique-within-siblings id segment, name-based when feasible.
 
     A clean, short name becomes the segment verbatim; a long/awkward name collapses
-    to a short hash; a nameless node falls back to a 6-char content hash (derived
-    from ``content``, stable across edits made elsewhere in the file) or, lacking
-    that, its numeric ``index``. With ``hash_only`` the name is *always* reduced to
+    to a short hash; a nameless node falls back to a
+    ``"<prefix>|<hash>"`` content hash (both 6 chars, base62) or, lacking
+    ``content``, its numeric ``index``. The prefix, hashed from the node's
+    whitespace-stripped first/last 20 chars, stays put even when unrelated
+    edits shift the trailing hash, letting :func:`resolve_by_prefix` recover a
+    stale id. With ``hash_only`` the name is *always* reduced to
     a 6-char hex hash (used for Markdown headings, whose id must never be the
     literal heading text). Collisions among siblings get a numeric suffix.
     """
@@ -157,7 +197,7 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
             cleaned = _ID_CLEAN_RE.sub('_', name).strip('_')
             seg = cleaned if cleaned and len(cleaned) <= 40 else 'h' + _hash(name, 8)
     if not seg:
-        seg = _content_hash(content, 6) if content else str(index)
+        seg = f'{_content_prefix_hash(content)}|{_content_hash(content)}' if content else str(index)
     count = used.get(seg, 0)
     used[seg] = count + 1
     return seg if count == 0 else f'{seg}_{count}'
@@ -277,8 +317,9 @@ def _resolve_by_name(key: str, by_name: dict[str, list['_TreeNode']]) -> tuple['
 def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=True) -> tuple[list[OutlineNode], list[str]]:
     """Return one read subtree per resolvable ``keys`` entry.
 
-    Each key is matched, in order, by exact id, then by exact node name, then by
-    a conservative fuzzy match on node name. Keys that cannot be resolved (or are
+    Each key is matched, in order, by exact id, by exact node name, by a
+    conservative fuzzy match on node name, then, for a stale anonymous id, by
+    its stable prefix (see :func:`resolve_by_prefix`). Keys that cannot be resolved (or are
     ambiguous) are reported in the returned error list instead of aborting the
     whole read.
 
@@ -302,6 +343,10 @@ def read_subtrees(located: list[Located], keys: list[str], *, with_lines: bool=T
         error: str | None = None
         if target is None:
             target, error = _resolve_by_name(key, by_name)
+        if target is None:
+            fallback = resolve_by_prefix(located, key)
+            if fallback is not None:
+                target = index.get(fallback.node_id)
         if target is None:
             errors.append(error or f"No node matched '{key}'.")
             continue

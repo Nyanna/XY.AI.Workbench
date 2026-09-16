@@ -1,5 +1,6 @@
 # TODO
 andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 bytes
+	vielleicht prefix postfix nicht whitespace
 
 !include file tool muss absoluten dateinamen mit in das toolresult geben
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
@@ -16,11 +17,6 @@ andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 by
 	* wenn nciht offen wird default verändert, persistier wird default
 	* über frontmatter in editor aktuelle config ändern aber auch zurückspiegeln
 	* session processor soll frontmatter ignorieren
-	
-- MCP CLient 
-	* /call <ID> (statt /answer), tool call mit ID Versenen, direkt nach call schreiben, direkten block davor parsen
-	* zurückgehen zum letzten ^```yaml$ und result JSON block parsen
-		* in SDK nachrichtentypen packen, alles andere wird developer/system
 		
 * Harness
 	* autolauf modus
