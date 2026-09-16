@@ -73,9 +73,9 @@ import xy.ai.workbench.models.AIAnswer;
 /**
  * Connector for Deepseek's OpenAI-Responses-compatible API, based on the
  * generated SDK in {@code connector.openapi.deepseek}. Deepseek has no
- * safetyIdentifier field, so - analogous to {@code ClaudeConnector} - a
- * random id is generated per request and threaded through to the response
- * instead of relying on an echoed server-side identifier.
+ * safetyIdentifier field, so - analogous to {@code ClaudeConnector} - a random
+ * id is generated per request and threaded through to the response instead of
+ * relying on an echoed server-side identifier.
  */
 public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeekResponse> {
 
@@ -107,8 +107,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	}
 
 	@Override
-	public DeepSeekRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools,
-			boolean batchFix, IProgressMonitor mon) {
+	public DeepSeekRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
+			IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
 
 		ObjectMapper mapper = new ObjectMapper();
@@ -128,7 +128,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 				.getModelResponseProperties();
 		String reqId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
 		// don't set User ID, segmentation prevents caching
-		//modelProps.setUser(userId);
+		// modelProps.setUser(userId);
 
 		if (cfg.getCapabilities().isSupportTemperature())
 			// ignored when thinking, 0-2
@@ -188,7 +188,11 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		msg.setContent(new OneOfContent(TextNode.valueOf(text)));
 		return node;
 	}
-/** Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input items (full SDK-based implementation). */
+
+	/**
+	 * Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input
+	 * items (full SDK-based implementation).
+	 */
 	private final class SessionRequestCallbacks implements SessionCallbacks<ObjectNode> {
 		private final ObjectMapper mapper;
 
@@ -224,8 +228,6 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			return node;
 		}
 	}
-
-	
 
 	private EffortEnum toEffort(Reasoning reasoning) {
 		if (reasoning == null)
@@ -266,7 +268,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 		ResponsesCode200Json code200 = resp.getCode200();
 		if (code200 == null || !code200.isJson()) {
-			LOG.error("Unexpected Deepseek response content type: " + (code200 == null ? "none" : code200.contentType()));
+			LOG.error(
+					"Unexpected Deepseek response content type: " + (code200 == null ? "none" : code200.contentType()));
 			sub.worked(1);
 			return res;
 		}

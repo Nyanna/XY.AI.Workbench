@@ -47,11 +47,12 @@ public class Elements {
 		public static final LineSection TEXT = new LineSection(EditorInterface.TEXT, false, of(Basics.PARAGRAPH),
 				of(NONE)); // replaced
 		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE);
+		public static final PrefixBlock TOOLRESULT = new PrefixBlock(EditorInterface.TOOLRESULT);
 		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
 		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
 		public static final PrefixBlock RESULT = new PrefixBlock(ProtocolParser.RESULT);
-		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
+		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
 	}
 
 	public static class Tools {
@@ -98,6 +99,7 @@ public class Elements {
 				Agent.THINKING, //
 				Agent.TEXT, //
 				Agent.TOOLUSE, //
+				Agent.TOOLRESULT, //
 				Agent.REASONING_TOKEN, //
 				Agent.TOKEN_STATS, //
 				Agent.SYSTEM_INIT, //
@@ -121,6 +123,7 @@ public class Elements {
 					of(Agent.THINKING, //
 							Agent.TEXT, //
 							Agent.TOOLUSE, //
+							Agent.TOOLRESULT, //
 							Agent.REASONING_TOKEN, //
 							Agent.TOKEN_STATS, //
 							Agent.SYSTEM_INIT, //

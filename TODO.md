@@ -1,4 +1,7 @@
 # TODO
+! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie?
+! connector bei think usage format prüfen, inkompatibles think schema -> auf message (nur text) zurückfallen (return false im callback)
+	* wenn tool aktiviert wird deepseek exception http 400
 
 ## Harness
 * eine AI SessionConfig pro datei, bei neuem editor aktuelle kopieren
@@ -10,6 +13,7 @@
 	
 - MCP CLient 
 	* /call <ID> (statt /answer), tool call mit ID Versenen, direkt nach call schreiben, direkten block davor parsen
+		* wie call id aus datei lesen?
 	* zurückgehen zum letzten ^```yaml$ und result JSON block parsen
 		* in SDK nachrichtentypen packen, alles andere wird developer/system
 		
@@ -19,18 +23,11 @@
 	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 
 * harness always use python scripts cuz of implicite knowledge in coding instead of interface description
-	
-- harness loop
-	1. Chatverlauf
-	2. Separate Datei und view
-	3. Separate Dateien für branching
-	4. Über MCP Client, Subagent call in MCPC mit Deepseek backend
-!! SUbagenten nachden
 
 ## Other
+* deepseek codegen tostring auf Node für debugging
 * Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
 	* bei openai cache breakpoint marker mit in editor/processor schreiben
-- anzeige für geschätzen cache read/write(neuen input)
 * approval tool control anders, tool use nur für langwierige teure operationen,
 	- sonst immer den output abwarten und zusammen approven
 	- Dann nur ein approval call + ergebnis notwendig
@@ -47,6 +44,7 @@
 * auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
 
 - F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
+	- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert)
 - Schema doku notieren
 	- "Label:" -> Segmente mit Metadaten
 	- "``yaml" -> komplexe aufrufe unt metadaten

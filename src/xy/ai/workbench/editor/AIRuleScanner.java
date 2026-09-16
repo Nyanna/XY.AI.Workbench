@@ -127,6 +127,7 @@ public class AIRuleScanner implements ITokenScanner {
 		register(Elements.Agent.THINKING, new PrefixLineRule(EditorInterface.THINKING, agentToken));
 		register(Elements.Agent.TEXT, new PrefixLineRule(EditorInterface.TEXT, agentToken));
 		register(Elements.Agent.TOOLUSE, new PrefixLineRule(EditorInterface.TOOLUSE, agentToken));
+		register(Elements.Agent.TOOLRESULT, new PrefixLineRule(EditorInterface.TOOLRESULT, agentToken));
 		register(Elements.Tools.ANSWER, new PrefixLineRule(CCControlClient.ANSWER, commentDarkToken));
 		register(Elements.Agent.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
 		register(Elements.Agent.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
