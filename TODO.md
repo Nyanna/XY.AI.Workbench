@@ -1,4 +1,5 @@
 # TODO
+!grep macth und match splitten mehrere matches pro datei anzeigen können aber zählen zum limit
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
 	alle includes
 	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht

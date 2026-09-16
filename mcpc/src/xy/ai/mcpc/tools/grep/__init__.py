@@ -11,6 +11,7 @@ from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 import re
 __all__ = [
     'GrepError',
+    'GrepLineMatch',
     'GrepMatch',
     'GrepItem',
     'GrepResult',
@@ -26,12 +27,17 @@ class GrepError(Exception):
     """Raised when a grep search cannot be executed or its output cannot be parsed."""
 
 @dataclass(frozen=True)
-class GrepMatch:
-    """A single grep match, parsed from a 'path:line:content' output line."""
-    directory: str
-    filename: str
+class GrepLineMatch:
+    """A single matching line within a file."""
     lineno: int
     match: str
+
+@dataclass(frozen=True)
+class GrepMatch:
+    """All matches found within a single file."""
+    directory: str
+    filename: str
+    matches: list[GrepLineMatch]
 
 @dataclass(frozen=True)
 class GrepItem:
@@ -52,16 +58,14 @@ class GrepItem:
 
 @dataclass(frozen=True)
 class GrepResult:
-    """Result of a single grep search, mirroring its input for result association.
+    """Result of a single grep search.
 
     Attributes:
         directory: The directory list exactly as given in the input.
-        pattern: The pattern exactly as given in the input.
-        matches: The matches found (empty if none).
+        matches: The matches found, grouped by file (empty if none).
         warning: Set if ``limit`` was reached and further matches may exist.
     """
     directory: list[str]
-    pattern: str
     matches: list[GrepMatch]
     warning: str | None = None
 
@@ -84,8 +88,9 @@ class GrepBatchResult:
     errors: list[GrepItemError]
 
 def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
-    """Parse grep's 'path:line:content' stdout into :class:`GrepMatch` objects."""
-    matches: list[GrepMatch] = []
+    """Parse grep's 'path:line:content' stdout into :class:`GrepMatch` objects, grouped by file."""
+    grouped: dict[tuple[str, str], list[GrepLineMatch]] = {}
+    order: list[tuple[str, str]] = []
     for line in stdout.splitlines():
         if not line:
             continue
@@ -96,8 +101,12 @@ def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
         if not sep or not lineno_str.isdigit():
             raise GrepError(f'Cannot parse grep output line: {line!r}')
         directory, _, filename = path.rpartition('/')
-        matches.append(GrepMatch(directory=directory, filename=filename, lineno=int(lineno_str), match=match))
-    return matches
+        key = (directory, filename)
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(GrepLineMatch(lineno=int(lineno_str), match=match))
+    return [GrepMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
 def _as_list(value: list[str] | None) -> list[str]:
     """Normalize an optional list into a list (empty if ``None``)."""
@@ -166,11 +175,12 @@ def _grep_one(item: GrepItem) -> GrepResult:
     if result.exit_code >= 2:
         raise GrepError(f'grep failed (exit code {result.exit_code}): {result.stderr}')
     matches = _parse_grep_stdout(result.stdout)
+    total_matches = sum((len(m.matches) for m in matches))
     warning = None
-    if len(matches) >= item.limit:
+    if total_matches >= item.limit:
         warning = f'Limit of {
             item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
-    return GrepResult(directory=item.directory, pattern=item.pattern, matches=matches, warning=warning)
+    return GrepResult(directory=item.directory, matches=matches, warning=warning)
 
 def grep(items: list[GrepItem]) -> GrepBatchResult:
     """Run one or more independent grep searches. Limits apply per item, not per batch.
@@ -246,10 +256,9 @@ class GrepTool(ToolDefinition):
         def result_serializer(r: GrepResult) -> dict[str, Any]:
             entry: dict[str,
                         Any] = {'directory': r.directory,
-                                'pattern': r.pattern,
                                 'matches': [{'path': f'{m.directory}/{m.filename}' if m.directory else m.filename,
-                                             'lineno': m.lineno,
-                                             'match': m.match} for m in r.matches]}
+                                             'matches': [{'lineno': lm.lineno,
+                                                          'match': lm.match} for lm in m.matches]} for m in r.matches]}
             if r.warning is not None:
                 entry['warning'] = r.warning
             return entry
