@@ -5,6 +5,7 @@ else collapses into 'imports'/'statements' segments capped at
 expression/identifier addressable) is far too fine-grained to be useful.
 """
 from __future__ import annotations
+import re
 from typing import Any
 from xy.ai.mcpc.tools.ast.base import SEGMENT_MAX_CHARS, Located, Tree, id_segment
 from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine, _SynthNode
@@ -18,6 +19,8 @@ _TYPE_DEF_TYPES = {
     'annotation_type_declaration'}
 _DEF_TYPES = _TYPE_DEF_TYPES | {'method_declaration', 'constructor_declaration'}
 _IMPORT_TYPES = {'package_declaration', 'import_declaration'}
+'#: A single-line annotation (e.g. \'@Override\', \'@SuppressWarnings("x")\'), to skip when hunting for a definition\'s actual header line.'
+_ANNOTATION_LINE = re.compile('^@[A-Za-z_][\\w.]*(\\([^)]*\\))?$')
 "#: A type declaration's own body-container child, whose children are its members."
 _BODY_TYPES = {'class_body', 'interface_body', 'annotation_type_body'}
 
@@ -36,6 +39,15 @@ class JavaEngine(TreeSitterEngine):
 
     def is_definition(self, node_type: str) -> bool:
         return node_type in _DEF_TYPES
+
+    def signature(self, node: Any, limit: int=80) -> str:
+        """Like the base heading, but skips leading annotation-only lines
+    (e.g. a bare "@Override") to find the actual declaration header; if
+    none turns up, falls back to the first line and the char limit."""
+        text = node.text.decode('utf-8', 'replace') if node.text else ''
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        first_line = next((line for line in lines if not _ANNOTATION_LINE.match(line)), lines[0] if lines else '')
+        return first_line if len(first_line) <= limit else first_line[:limit - 1] + '…'
 
     def locate_all(self, tree: Tree) -> list[Located]:
         results: list[Located] = []

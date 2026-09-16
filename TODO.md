@@ -1,8 +1,7 @@
 # TODO
 andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 bytes
 
-! in java AST method java signature auf ausdehen auf ganze method signature @Override
-
+!include file tool muss absoluten dateinamen mit in das toolresult geben
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
 	alle includes
 	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
