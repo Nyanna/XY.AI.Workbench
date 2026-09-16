@@ -21,7 +21,7 @@ public class CCSession {
 	 * first time (or until a UUID is pre-assigned via {@link #assignUuid}).
 	 */
 	private final String uuid;
-	private final SessionParameters parameters;
+	private final ClaudeSessionParameters parameters;
 
 	private Process process;
 	private PrintWriter stdin;
@@ -46,15 +46,15 @@ public class CCSession {
 
 	private final CCSessionManager manager;
 
-	public CCSession(CCSessionManager manager, SessionParameters parameters) {
+	public CCSession(CCSessionManager manager, ClaudeSessionParameters parameters) {
 		this(UUID.randomUUID().toString(), false, manager, parameters);
 	}
 
-	public CCSession(String sessionUuid, CCSessionManager manager, SessionParameters parameters) {
+	public CCSession(String sessionUuid, CCSessionManager manager, ClaudeSessionParameters parameters) {
 		this(sessionUuid, true, manager, parameters);
 	}
 
-	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, SessionParameters parameters) {
+	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, ClaudeSessionParameters parameters) {
 		if (sessionUuid == null || sessionUuid.isBlank())
 			throw new IllegalArgumentException("Session UUID must not be null or blank");
 		Objects.requireNonNull(parameters, "session parameters must not be null");
@@ -313,7 +313,7 @@ public class CCSession {
 		notifyChanged();
 	}
 
-	public SessionParameters getParameters() {
+	public ClaudeSessionParameters getParameters() {
 		return parameters;
 	}
 

@@ -45,7 +45,7 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.claudecode.CCSession;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
-import xy.ai.workbench.connector.claudecode.SessionParameters;
+import xy.ai.workbench.connector.claudecode.ClaudeSessionParameters;
 import xy.ai.workbench.connector.claudecode.SessionState;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
 
@@ -90,7 +90,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	/** Periodic TTL refresh interval in milliseconds. */
 	private static final int TTL_REFRESH_INTERVAL_MS = 1_000;
 	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null,
-			new SessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
+			new ClaudeSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
 					CacheMode.Default) {
 				public String getHash() {
 					return "Create new session";
@@ -262,11 +262,11 @@ public class ClaudeCodeSessionView extends ViewPart {
 			syncSelectionToCurrentFile();
 	}
 
-	private SessionParameters currentParameters() {
+	private ClaudeSessionParameters currentParameters() {
 		if (currentProjectPath == null || cfg == null)
 			return null;
 		try {
-			return SessionParameters.fromConfig(cfg, currentProjectPath, currentRelativeFilePath, "",
+			return ClaudeSessionParameters.fromConfig(cfg, currentProjectPath, currentRelativeFilePath, "",
 					Arrays.asList(cfg.getTools()));
 		} catch (RuntimeException e) {
 			return null;
@@ -274,14 +274,14 @@ public class ClaudeCodeSessionView extends ViewPart {
 	}
 
 	private CCSession findAssociatedSession(List<CCSession> sessions) {
-		SessionParameters current = currentParameters();
+		ClaudeSessionParameters current = currentParameters();
 		if (current == null)
 			return null;
 		String hash = current.getHash();
 		for (CCSession s : sessions) {
 			if (!s.isValid())
 				continue;
-			SessionParameters p = s.getParameters();
+			ClaudeSessionParameters p = s.getParameters();
 			if (p != null && hash.equals(p.getHash()))
 				return s;
 		}

@@ -14,7 +14,7 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 
-public class SessionParameters {
+public class ClaudeSessionParameters {
 	private static final String SCRIPT = System.getProperty("user.home")
 			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
 	private static final String COMMAND = "claude";
@@ -32,12 +32,12 @@ public class SessionParameters {
 	private String hash;
 	private String title;
 
-	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
+	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode) {
 		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, null);
 	}
 
-	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
+	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
 		if (cwd == null)
 			throw new IllegalStateException("Work directory (cwd) not set");
@@ -59,9 +59,9 @@ public class SessionParameters {
 		this.cacheMode = cacheMode;
 	}
 
-	public static SessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
+	public static ClaudeSessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
 			List<String> tools) {
-		return new SessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(), cfg.getProfile(),
+		return new ClaudeSessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(), cfg.getProfile(),
 				cfg.getKeys(), cfg.getCacheMode(), filePath);
 	}
 

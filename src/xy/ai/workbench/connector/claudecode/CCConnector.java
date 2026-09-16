@@ -92,7 +92,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		CCSession session = null;
 
 		EditorLocation loc = getEditorLocation();
-		SessionParameters params = SessionParameters.fromConfig(cfg, loc.projectPath, loc.relativeFilePath,
+		ClaudeSessionParameters params = ClaudeSessionParameters.fromConfig(cfg, loc.projectPath, loc.relativeFilePath,
 				req.systemPrompt, req.tools);
 		params.setTitle(req.title);
 

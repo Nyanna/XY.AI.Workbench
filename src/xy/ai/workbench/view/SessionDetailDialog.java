@@ -11,7 +11,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
 import xy.ai.workbench.connector.claudecode.CCSession;
-import xy.ai.workbench.connector.claudecode.SessionParameters;
+import xy.ai.workbench.connector.claudecode.ClaudeSessionParameters;
 
 public class SessionDetailDialog extends Dialog {
 	private final CCSession session;
@@ -49,7 +49,7 @@ public class SessionDetailDialog extends Dialog {
 	}
 
 	private static String buildDetailText(CCSession s) {
-		SessionParameters p = s.getParameters();
+		ClaudeSessionParameters p = s.getParameters();
 		StringBuilder sb = new StringBuilder();
 		sb.append("Session ID: ").append(s.getID()).append("\n");
 		sb.append("Title: ").append(p.getTitle()).append("\n");

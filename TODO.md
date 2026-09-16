@@ -1,4 +1,7 @@
 # TODO
+!ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
+	alle includes
+	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
 ! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie?
 ! connector bei think usage format prüfen, inkompatibles think schema -> auf message (nur text) zurückfallen (return false im callback)
 	* wenn tool aktiviert wird deepseek exception http 400
@@ -13,7 +16,6 @@
 	
 - MCP CLient 
 	* /call <ID> (statt /answer), tool call mit ID Versenen, direkt nach call schreiben, direkten block davor parsen
-		* wie call id aus datei lesen?
 	* zurückgehen zum letzten ^```yaml$ und result JSON block parsen
 		* in SDK nachrichtentypen packen, alles andere wird developer/system
 		
