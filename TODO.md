@@ -1,7 +1,4 @@
 # TODO
-andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 bytes
-	vielleicht prefix postfix nicht whitespace
-
 !include file tool muss absoluten dateinamen mit in das toolresult geben
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
 	alle includes
@@ -37,12 +34,12 @@ andere verfahren für content hash -> ziel ist nur kolisionsvermeidung, min 3 by
 	- request approval categorie mit auto approval pro cat und argument
 		- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit),
 		- Viel Kontext(Zeichen Threshold), viele turns/cache read hoch -> per flag togglebar
+	* auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
 * anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
 * deepseek, temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
 * open alex zweistufig optimieren, split in separate files
 * modell von dopplung durch kindknoten verwirrt - `/home/user/xyan/xy.ai.workbench/project/done/tools_provider.md`
-* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern
-* auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
+* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern -> richtiger java validator formatter
 
 - F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
 	- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert)
