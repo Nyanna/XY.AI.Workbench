@@ -2448,14 +2448,14 @@ result:
           import xy.ai.workbench.ConfigManager;
           import xy.ai.workbench.LOG;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.AnswerCommand;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.AnswerCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
       - id: uzcHjn|xTUMCd
         type: imports
         code: |-
           import xy.ai.workbench.connector.IAIConnector;
-          import xy.ai.workbench.connector.ResumeCommand;
+          import xy.ai.workbench.commands.ResumeCommand;
           import xy.ai.workbench.connector.claudecode.CCRequest.Command;
           import xy.ai.workbench.models.AIAnswer;
 ```
@@ -2481,10 +2481,10 @@ arguments:
     id: uzcHjn|xTUMCd
     old_text: |-
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ResumeCommand;
+      import xy.ai.workbench.commands.ResumeCommand;
     new_text: |-
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ResumeCommand;
+      import xy.ai.workbench.commands.ResumeCommand;
       import xy.ai.workbench.connector.harness.FrozenConfig;
       import xy.ai.workbench.connector.harness.Prompt;
   reason: "Update CCConnector imports: drop ConfigManager, add FrozenConfig/Prompt"
@@ -2560,14 +2560,14 @@ result:
           import xy.ai.workbench.AgentProfile;
           import xy.ai.workbench.LOG;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.AnswerCommand;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.AnswerCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
           import xy.ai.workbench.connector.IAIConnector;
       - id: uzcHjn|E9x5D4
         type: imports
         code: |-
-          import xy.ai.workbench.connector.ResumeCommand;
+          import xy.ai.workbench.commands.ResumeCommand;
           import xy.ai.workbench.connector.claudecode.CCRequest.Command;
           import xy.ai.workbench.models.AIAnswer;
 ```
@@ -2583,10 +2583,10 @@ arguments:
   - path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connector/claudecode/CCConnector.java
     id: uzcHjn|E9x5D4
     old_text: |-
-      import xy.ai.workbench.connector.ResumeCommand;
+      import xy.ai.workbench.commands.ResumeCommand;
       import xy.ai.workbench.connector.claudecode.CCRequest.Command;
     new_text: |-
-      import xy.ai.workbench.connector.ResumeCommand;
+      import xy.ai.workbench.commands.ResumeCommand;
       import xy.ai.workbench.connector.harness.FrozenConfig;
       import xy.ai.workbench.connector.harness.Prompt;
       import xy.ai.workbench.connector.claudecode.CCRequest.Command;
@@ -2759,10 +2759,10 @@ result:
 
           import xy.ai.workbench.ConfigManager;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
           import xy.ai.workbench.connector.IAIConnector;
-          import xy.ai.workbench.connector.ToolCommand;
+          import xy.ai.workbench.commands.ToolCommand;
       - id: uzcHjn|N8UB8W
         type: imports
         code: import xy.ai.workbench.models.AIAnswer;
@@ -2813,10 +2813,10 @@ arguments:
     id: 7MAfda|VWDx0H
     old_text: |-
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ToolCommand;
+      import xy.ai.workbench.commands.ToolCommand;
     new_text: |-
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ToolCommand;
+      import xy.ai.workbench.commands.ToolCommand;
       import xy.ai.workbench.connector.harness.Prompt;
   reason: Add Prompt import to MCPConnector
 ```

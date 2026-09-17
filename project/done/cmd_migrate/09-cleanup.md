@@ -1123,9 +1123,9 @@ result:
           import xy.ai.workbench.AgentProfile;
           import xy.ai.workbench.LOG;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.AnswerCommand;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.AnswerCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
           import xy.ai.workbench.connector.IAIConnector;
       - id: CCConnector.createRequest
         type: method_declaration
@@ -1150,10 +1150,10 @@ result:
 
           import xy.ai.workbench.ConfigManager;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
           import xy.ai.workbench.connector.IAIConnector;
-          import xy.ai.workbench.connector.ToolCommand;
+          import xy.ai.workbench.commands.ToolCommand;
       - id: MCPConnector.createRequest
         type: method_declaration
         code: "@Override\n\tpublic MCPRequest createRequest(Prompt prompt, IProgressMonitor mon) {\n\t\tMCPCommand cmd = prompt.command == Prompt.Command.CALL ? new MCPCommand(MCPCommandType.Call, prompt.yamlBlock)\n\t\t\t\t: preprocess(prompt.inputs);\n\t\treturn new MCPRequest(UUID.randomUUID().toString(), prompt.config.systemPrompt, prompt.config.tools, cmd);\n\t}"
@@ -1516,7 +1516,7 @@ arguments:
       /**
        * Protokoll-interner Command-Typ für den Claude-Code-Kontrollkanal (Wire-Payload in
        * {@link CCRequest.Command}). Bewusst getrennt von der globalen {@code connector.Command}-
-       * Hierarchie: {@link xy.ai.workbench.connector.CommandHandler#detect(String)} liefert generische
+       * Hierarchie: {@link xy.ai.workbench.commands.CommandHandler#detect(String)} liefert generische
        * Zeilen-Kommandos, die in {@code CCConnector.preprocessInput} auf diese protokollspezifischen
        * Typen abgebildet werden (u.a. Allow/Deny-Unterscheidung, gemergter Prompt-Text).
   reason: "Mapping-Schicht zwischen globaler Command-Hierarchie und CommandType dokumentieren (Task 2, Nicht-Konsolidierung begründen)."
@@ -1548,7 +1548,7 @@ arguments:
       /**
        * Protokoll-interner Command-Typ für den MCP-Kontrollkanal (Wire-Payload in {@link MCPCommand}).
        * Bewusst getrennt von der globalen {@code connector.Command}-Hierarchie:
-       * {@link xy.ai.workbench.connector.CommandHandler#detect(String)} liefert generische
+       * {@link xy.ai.workbench.commands.CommandHandler#detect(String)} liefert generische
        * Zeilen-Kommandos, die in {@code MCPConnector.preprocess} auf diese protokollspezifischen
        * Typen abgebildet werden (u.a. Call mit Yaml-Block, gemergter Prompt-Text).
   reason: Mapping-Schicht zwischen globaler Command-Hierarchie und MCPCommandType dokumentieren.
@@ -1578,7 +1578,7 @@ arguments:
       /**
        * Protokoll-interner Command-Typ fuer den Claude-Code-Kontrollkanal (Wire-Payload in
        * {@link CCRequest.Command}). Bewusst getrennt von der globalen {@code connector.Command}-
-       * Hierarchie: {@link xy.ai.workbench.connector.CommandHandler#detect(String)} liefert generische
+       * Hierarchie: {@link xy.ai.workbench.commands.CommandHandler#detect(String)} liefert generische
        * Zeilen-Kommandos, die in {@code CCConnector.preprocessInput} auf diese protokollspezifischen
        * Typen abgebildet werden (u.a. Allow/Deny-Unterscheidung, gemergter Prompt-Text).
        */
@@ -1589,7 +1589,7 @@ arguments:
       /**
        * Protokoll-interner Command-Typ fuer den MCP-Kontrollkanal (Wire-Payload in {@link MCPCommand}).
        * Bewusst getrennt von der globalen {@code connector.Command}-Hierarchie:
-       * {@link xy.ai.workbench.connector.CommandHandler#detect(String)} liefert generische
+       * {@link xy.ai.workbench.commands.CommandHandler#detect(String)} liefert generische
        * Zeilen-Kommandos, die in {@code MCPConnector.preprocess} auf diese protokollspezifischen
        * Typen abgebildet werden (u.a. Call mit Yaml-Block, gemergter Prompt-Text).
        */

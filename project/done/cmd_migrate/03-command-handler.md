@@ -1244,11 +1244,11 @@ arguments:
       import xy.ai.workbench.connector.IAIConnector;
       import xy.ai.workbench.connector.claudecode.CCRequest.Command;
     new_text: |-
-      import xy.ai.workbench.connector.AnswerCommand;
-      import xy.ai.workbench.connector.CommandHandler;
-      import xy.ai.workbench.connector.ExitCommand;
+      import xy.ai.workbench.commands.AnswerCommand;
+      import xy.ai.workbench.commands.CommandHandler;
+      import xy.ai.workbench.commands.ExitCommand;
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ResumeCommand;
+      import xy.ai.workbench.commands.ResumeCommand;
       import xy.ai.workbench.connector.claudecode.CCRequest.Command;
   reason: Imports für CommandHandler und Command-Subtypen in CCConnector ergänzen
 ```
@@ -1278,10 +1278,10 @@ arguments:
       import xy.ai.workbench.connector.IAIConnector;
       import xy.ai.workbench.models.AIAnswer;
     new_text: |-
-      import xy.ai.workbench.connector.CommandHandler;
-      import xy.ai.workbench.connector.ExitCommand;
+      import xy.ai.workbench.commands.CommandHandler;
+      import xy.ai.workbench.commands.ExitCommand;
       import xy.ai.workbench.connector.IAIConnector;
-      import xy.ai.workbench.connector.ToolCommand;
+      import xy.ai.workbench.commands.ToolCommand;
       import xy.ai.workbench.models.AIAnswer;
   reason: Imports für CommandHandler und Command-Subtypen in MCPConnector ergänzen
 ```

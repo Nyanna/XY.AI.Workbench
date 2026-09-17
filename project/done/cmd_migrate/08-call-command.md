@@ -1147,7 +1147,7 @@ result:
       - path: xy/ai/workbench/connector/harness/PromptHandler.java
         matches:
         - lineno: 37
-          match: import xy.ai.workbench.connector.CallCommand;
+          match: import xy.ai.workbench.commands.CallCommand;
         - lineno: 299
           match: "if (detected[0] instanceof CallCommand)"
         - lineno: 374
@@ -1323,10 +1323,10 @@ result:
 
           import xy.ai.workbench.ConfigManager;
           import xy.ai.workbench.Model.KeyPattern;
-          import xy.ai.workbench.connector.CommandHandler;
-          import xy.ai.workbench.connector.ExitCommand;
+          import xy.ai.workbench.commands.CommandHandler;
+          import xy.ai.workbench.commands.ExitCommand;
           import xy.ai.workbench.connector.IAIConnector;
-          import xy.ai.workbench.connector.ToolCommand;
+          import xy.ai.workbench.commands.ToolCommand;
       - id: uzcHjn|BNLYpl
         type: imports
         code: |-

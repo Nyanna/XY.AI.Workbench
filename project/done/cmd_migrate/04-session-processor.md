@@ -1126,8 +1126,8 @@ arguments:
       import xy.ai.workbench.connector.claudecode.YamlRenderer;
     new_text: |-
       import xy.ai.workbench.EditorInterface;
-      import xy.ai.workbench.connector.Command;
-      import xy.ai.workbench.connector.CommandHandler;
+      import xy.ai.workbench.commands.Command;
+      import xy.ai.workbench.commands.CommandHandler;
       import xy.ai.workbench.connector.claudecode.YamlRenderer;
   reason: "Imports für Optional, Command und CommandHandler ergänzen"
 ```
@@ -1161,8 +1161,8 @@ arguments:
       import xy.ai.workbench.connector.claudecode.YamlRenderer;
     new_text: |-
       import xy.ai.workbench.EditorInterface;
-      import xy.ai.workbench.connector.Command;
-      import xy.ai.workbench.connector.CommandHandler;
+      import xy.ai.workbench.commands.Command;
+      import xy.ai.workbench.commands.CommandHandler;
       import xy.ai.workbench.connector.claudecode.YamlRenderer;
   reason: Restliche Imports für Command und CommandHandler ergänzen
 ```
