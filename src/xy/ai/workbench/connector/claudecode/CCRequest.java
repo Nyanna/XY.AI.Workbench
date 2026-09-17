@@ -1,9 +1,8 @@
 package xy.ai.workbench.connector.claudecode;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
+import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.models.IModelRequest;
 
 public class CCRequest implements IModelRequest {
@@ -11,16 +10,14 @@ public class CCRequest implements IModelRequest {
 	public final String id;
 	public final String title;
 
-	public final String systemPrompt;
-	public final List<String> tools;
+	public final FrozenConfig config;
 	public final Command cmd;
 
-	public CCRequest(String id, String title, String systemPrompt, List<String> tools, Command cmd) {
+	public CCRequest(String id, String title, FrozenConfig config, Command cmd) {
 		Objects.requireNonNull(cmd, "Command can't be null");
 		this.id = id;
 		this.title = title;
-		this.systemPrompt = systemPrompt;
-		this.tools = tools != null ? tools : Collections.emptyList();
+		this.config = config;
 		this.cmd = cmd;
 	}
 

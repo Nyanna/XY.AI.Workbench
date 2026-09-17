@@ -4,20 +4,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.models.IModelRequest;
 
 public class MCPRequest implements IModelRequest {
 	public final String id;
 	public final String systemPrompt;
 	public final List<String> tools;
-	public final MCPCommand cmd;
+	public final Command command;
+	public final String yamlBlock;
 
-	public MCPRequest(String id, String systemPrompt, List<String> tools, MCPCommand cmd) {
-		Objects.requireNonNull(cmd, "Command can't be null");
+	public MCPRequest(String id, String systemPrompt, List<String> tools, Command command, String yamlBlock) {
+		Objects.requireNonNull(command, "Command can't be null");
 		this.id = id;
 		this.systemPrompt = systemPrompt;
 		this.tools = tools != null ? tools : Collections.emptyList();
-		this.cmd = cmd;
+		this.command = command;
+		this.yamlBlock = yamlBlock;
 	}
 
 	@Override

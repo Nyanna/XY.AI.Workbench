@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +14,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 
 import xy.ai.workbench.EditorInterface;
+import xy.ai.workbench.commands.Command;
+import xy.ai.workbench.commands.CommandHandler;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
@@ -48,32 +51,14 @@ public final class SessionProcessor {
 	private static final Pattern INCLUDE_TAG = Pattern.compile("\\[include(?:\\s+(\\w+))?\\]\\(([^)]+)\\)");
 
 	private final YamlRenderer yaml = new YamlRenderer();
-	private volatile boolean enabled = true;
-	private volatile IIncludeAdapter adapter;
+	private IIncludeAdapter adapter;
 
-	public SessionProcessor() {
-	}
-
-	public SessionProcessor(IIncludeAdapter adapter) {
-		this.adapter = adapter;
-	}
-
-	/** Injects the host-specific {@link IIncludeAdapter}, once the host environment is available. */
 	public void setAdapter(IIncludeAdapter adapter) {
 		this.adapter = adapter;
 	}
 
-	/**
-	 * Activates/deactivates full session parsing (see {@code InputMode.Converter}). While
-	 * disabled, every {@code process} call turns its whole input into a single plain message via
-	 * {@link SessionCallbacks#message(Role, String)} - the connector's plain callback.
-	 */
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	}
-
 	/** Processes each list entry as an independent root document (matches the {@code inputs} lists connectors build requests from). */
-	public <M> List<M> process(List<String> inputs, SessionCallbacks<M> callbacks) {
+	public <M> List<M> process(List<String> inputs, boolean enabled, SessionCallbacks<M> callbacks) {
 		List<M> out = new ArrayList<>();
 		if (inputs == null)
 			return out;
@@ -91,7 +76,7 @@ public final class SessionProcessor {
 	}
 
 	/** Processes a single root document, optionally anchored at {@code rootPath} for include-cycle detection against itself. */
-	public <M> List<M> process(String input, Path rootPath, SessionCallbacks<M> callbacks) {
+	public <M> List<M> process(String input, boolean enabled, Path rootPath, SessionCallbacks<M> callbacks) {
 		List<M> out = new ArrayList<>();
 		if (!enabled) {
 			if (input != null && !input.isBlank())
@@ -101,10 +86,6 @@ public final class SessionProcessor {
 		List<Path> chain = rootPath == null ? List.of() : List.of(rootPath.toAbsolutePath().normalize());
 		new Run<>(callbacks, out).run(input, chain);
 		return out;
-	}
-
-	public <M> List<M> process(String input, SessionCallbacks<M> callbacks) {
-		return process(input, null, callbacks);
 	}
 
 	/** One recursive parse: a stateful pass producing callback-built messages in document order. */
@@ -125,6 +106,36 @@ public final class SessionProcessor {
 			while (i < lines.length) {
 				String line = lines[i];
 				String stripped = line.strip();
+
+				Optional<Command> command = CommandHandler.detect(line);
+				if (command.isPresent()) {
+					switch (command.get().processorAction()) {
+					case IGNORE_BLOCK: {
+						flush();
+						int[] range = fenceRange(lines, i + 1);
+						i = range != null ? range[1] + 1 : i + 1;
+						continue;
+					}
+					case TRANSFORM: {
+						flush();
+						String rest = command.get().parameter(2);
+						if (rest != null && !rest.isBlank()) {
+							if (buffer.length() > 0)
+								buffer.append("\n");
+							buffer.append(rest);
+						}
+						i++;
+						continue;
+					}
+					case REMOVE: {
+						flush();
+						i++;
+						continue;
+					}
+					default:
+						break;
+					}
+				}
 
 				if (INCLUDE_LINE.matcher(line).matches()) {
 					flush();
@@ -187,7 +198,8 @@ public final class SessionProcessor {
 			return INCLUDE_LINE.matcher(line).matches() //
 					|| s.equals(EditorInterface.USER) || s.equals(EditorInterface.AGENT) //
 					|| s.equals(EditorInterface.THINKING) || s.equals(EditorInterface.TEXT) //
-					|| s.equals(EditorInterface.TOOLUSE) || s.equals(EditorInterface.TOOLRESULT);
+					|| s.equals(EditorInterface.TOOLUSE) || s.equals(EditorInterface.TOOLRESULT) //
+					|| CommandHandler.detect(s).isPresent();
 		}
 
 		private int consumeReasoning(String[] lines, int start) {
