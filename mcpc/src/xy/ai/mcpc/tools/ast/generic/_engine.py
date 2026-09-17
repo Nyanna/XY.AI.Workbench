@@ -167,9 +167,7 @@ class TreeSitterEngine(Engine):
         return results
 
     def signature(self, node: Any, limit: int=80) -> str:
-        first_line = node.text.decode('utf-8', 'replace').splitlines()[0] if node.text else ''
-        first_line = first_line.strip()
-        return first_line if len(first_line) <= limit else first_line[:limit - 1] + '…'
+        return self.default_signature(node, limit)
 
     def docstring(self, node: Any) -> str | None:
         return None

@@ -56,8 +56,7 @@ class PlainTextEngine(Engine):
                 expandable=False)]
 
     def signature(self, node: Any, limit: int=80) -> str:
-        first_line = node.splitlines()[0].strip() if node else ''
-        return first_line if len(first_line) <= limit else first_line[:limit - 1] + '…'
+        return self.default_signature(node, limit)
 
     def docstring(self, node: Any) -> str | None:
         return None

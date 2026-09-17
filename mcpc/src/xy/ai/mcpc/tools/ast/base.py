@@ -213,7 +213,10 @@ def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, 
         signature = docstring = None
         code = engine.node_code(loc.node)
     else:
-        signature = engine.signature(loc.node) if engine.is_definition(loc.node_type) else None
+        signature = engine.signature(
+            loc.node) if engine.is_definition(
+                loc.node_type) else engine.default_signature(
+                    loc.node)
         docstring = engine.docstring(loc.node)
         code = None
     return OutlineNode(
@@ -422,6 +425,12 @@ class Engine(ABC):
     @abstractmethod
     def signature(self, node: Any) -> str:
         """One-line rendering of ``node``'s header (or the node itself)."""
+
+    def default_signature(self, node: Any, limit: int=80) -> str:
+        """Fallback used when ``is_definition`` is False: the first non-blank
+    line of the node's source, trimmed to ``limit`` chars."""
+        first_line = next((line.strip() for line in self.node_code(node).splitlines() if line.strip()), '')
+        return first_line if len(first_line) <= limit else first_line[:limit - 1] + '…'
 
     @abstractmethod
     def docstring(self, node: Any) -> str | None:
