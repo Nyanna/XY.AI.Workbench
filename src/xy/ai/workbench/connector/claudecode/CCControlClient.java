@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.commands.AnswerCommand;
 
 /**
  * Minimal HTTP client for the MCPC human-in-the-loop tool-control endpoint
@@ -45,7 +46,7 @@ public class CCControlClient {
 		ProtocolParser.appendEvents(resp.events, res);
 
 		JsonNode first = pending.get(0);
-		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first), EditorInterface.CMD_ANSWER,
+		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first), AnswerCommand.CMD_ANSWER,
 				first.path("id").asText()));
 		resp.resultText = res.toString();
 	}

@@ -20,6 +20,7 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.EditorInterface;
+import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.connector.claudecode.ProtocolParser;
 import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.editor.md.BlockRule;
@@ -127,7 +128,7 @@ public class AIRuleScanner implements ITokenScanner {
 		register(Elements.Agent.TEXT, new PrefixLineRule(EditorInterface.TEXT, agentToken));
 		register(Elements.Agent.TOOLUSE, new PrefixLineRule(EditorInterface.TOOLUSE, agentToken));
 		register(Elements.Agent.TOOLRESULT, new PrefixLineRule(EditorInterface.TOOLRESULT, agentToken));
-		register(Elements.Tools.ANSWER, new PrefixLineRule(EditorInterface.CMD_ANSWER, commentDarkToken));
+		register(Elements.Tools.ANSWER, new PrefixLineRule(AnswerCommand.CMD_ANSWER, commentDarkToken));
 		register(Elements.Agent.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
 		register(Elements.Agent.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
 		register(Elements.Agent.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));

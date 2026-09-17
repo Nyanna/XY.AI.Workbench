@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.EditorInterface;
+import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.connector.claudecode.JsonUtil;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
@@ -52,7 +53,7 @@ public class MCPControlClient {
 			sb.append("arguments: {}\n");
 		}
 		sb.append("```\n");
-		sb.append(EditorInterface.CMD_CALL);
+		sb.append(CallCommand.CMD_CALL);
 		return sb.toString();
 	}
 
