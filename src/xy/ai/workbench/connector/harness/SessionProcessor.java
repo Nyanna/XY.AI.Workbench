@@ -6,16 +6,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.commands.Command;
-import xy.ai.workbench.commands.CommandHandler;
+import xy.ai.workbench.commands.CommandRegistry;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
@@ -107,9 +108,9 @@ public final class SessionProcessor {
 				String line = lines[i];
 				String stripped = line.strip();
 
-				Optional<Command> command = CommandHandler.detect(line);
-				if (command.isPresent()) {
-					switch (command.get().processorAction()) {
+				Command command = CommandRegistry.detect(line);
+				if (command != null) {
+					switch (command.processorAction()) {
 					case IGNORE_BLOCK: {
 						flush();
 						int[] range = fenceRange(lines, i + 1);
@@ -118,7 +119,7 @@ public final class SessionProcessor {
 					}
 					case TRANSFORM: {
 						flush();
-						String rest = command.get().parameter(2);
+						String rest = command.parameter(2);
 						if (rest != null && !rest.isBlank()) {
 							if (buffer.length() > 0)
 								buffer.append("\n");
@@ -199,7 +200,7 @@ public final class SessionProcessor {
 					|| s.equals(EditorInterface.USER) || s.equals(EditorInterface.AGENT) //
 					|| s.equals(EditorInterface.THINKING) || s.equals(EditorInterface.TEXT) //
 					|| s.equals(EditorInterface.TOOLUSE) || s.equals(EditorInterface.TOOLRESULT) //
-					|| CommandHandler.detect(s).isPresent();
+					|| CommandRegistry.detect(s) != null;
 		}
 
 		private int consumeReasoning(String[] lines, int start) {
@@ -348,7 +349,7 @@ public final class SessionProcessor {
 		}
 
 		private String renderMatches(List<IIncludeAdapter.Match> matches) {
-			com.fasterxml.jackson.databind.node.ArrayNode arr = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance
+			ArrayNode arr = JsonNodeFactory.instance
 					.arrayNode();
 			for (IIncludeAdapter.Match match : matches) {
 				com.fasterxml.jackson.databind.node.ObjectNode node = arr.addObject();

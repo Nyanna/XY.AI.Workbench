@@ -1,7 +1,9 @@
 package xy.ai.workbench.connector.claudecode;
 
+import java.nio.file.Path;
 import java.util.Objects;
 
+import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.models.IModelRequest;
 
@@ -11,31 +13,25 @@ public class CCRequest implements IModelRequest {
 	public final String title;
 
 	public final FrozenConfig config;
-	public final Command cmd;
+	public final Command command;
+	public final String yamlBlock;
+	public final String absoluteFilePath;
+	public final Path projectPath;
 
-	public CCRequest(String id, String title, FrozenConfig config, Command cmd) {
-		Objects.requireNonNull(cmd, "Command can't be null");
+	public CCRequest(String id, String title, FrozenConfig config, Command command, String yamlBlock,
+			String absoluteFilePath, Path projectPath) {
+		Objects.requireNonNull(command, "Command can't be null");
 		this.id = id;
 		this.title = title;
 		this.config = config;
-		this.cmd = cmd;
+		this.command = command;
+		this.yamlBlock = yamlBlock;
+		this.absoluteFilePath = absoluteFilePath;
+		this.projectPath = projectPath;
 	}
 
 	@Override
 	public String getID() {
 		return id;
-	}
-
-	public static class Command {
-		public final CommandType type;
-		public final String parameter;
-		public final String[] parameters;
-
-		public Command(CommandType type, String... parameters) {
-			Objects.requireNonNull(type, "Type can't be null");
-			this.type = type;
-			this.parameter = parameters[0];
-			this.parameters = parameters;
-		}
 	}
 }

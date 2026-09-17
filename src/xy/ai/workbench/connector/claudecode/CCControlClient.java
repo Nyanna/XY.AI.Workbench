@@ -79,16 +79,13 @@ public class CCControlClient {
 		return submit(approvalNode(id, null, null, reason == null ? "" : reason, null));
 	}
 
-	public boolean submitEdit(String rawText) {
-		if (rawText == null)
-			return false;
-		String block = extractYamlBlock(rawText.strip());
-		if (block == null)
+	public boolean submitEdit(String yamlBlock) {
+		if (yamlBlock == null || yamlBlock.isBlank())
 			return false;
 
 		JsonNode edited;
 		try {
-			edited = fromYaml(block);
+			edited = fromYaml(yamlBlock);
 		} catch (Exception e) {
 			throw new IllegalArgumentException("YAML Error", e);
 		}
@@ -98,16 +95,7 @@ public class CCControlClient {
 		return true;
 	}
 
-	private String extractYamlBlock(String text) {
-		int start = text.indexOf("```yaml");
-		if (start != 0)
-			return null;
-		int contentStart = start + "```yaml".length();
-		int end = text.indexOf("```", contentStart);
-		if (end == -1)
-			return null;
-		return text.substring(contentStart, end).strip();
-	}
+	
 
 	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason,
 			String hint) {
