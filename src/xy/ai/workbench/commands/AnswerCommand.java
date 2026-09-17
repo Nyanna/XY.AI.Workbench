@@ -20,7 +20,8 @@ public class AnswerCommand extends Command {
 
 	@Override
 	public boolean matches(String line) {
-		return line != null && line.strip().matches("(?i)" + prefix() + "\\s+\\S+\\s+(allow|deny)(\\s+.*)?");
+		// "s" (DOTALL) allows a block-selected multi-line reason/hint after allow|deny.
+		return line != null && line.strip().matches("(?is)" + prefix() + "\\s+\\S+\\s+(allow|deny)(\\s+.*)?");
 	}
 
 	@Override

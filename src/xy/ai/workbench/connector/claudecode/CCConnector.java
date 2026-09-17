@@ -1,31 +1,27 @@
 package xy.ai.workbench.connector.claudecode;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.IWorkbenchWindow;
-import org.eclipse.ui.PlatformUI;
 
 import xy.ai.workbench.AgentProfile;
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.commands.AnswerCommand;
+import xy.ai.workbench.commands.CallCommand;
+import xy.ai.workbench.commands.CallEditCommand;
+import xy.ai.workbench.commands.Command;
+import xy.ai.workbench.commands.ExitCommand;
+import xy.ai.workbench.commands.ResumeCommand;
 import xy.ai.workbench.connector.IAIConnector;
-import xy.ai.workbench.connector.claudecode.CCRequest.Command;
+import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.models.AIAnswer;
 
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
@@ -35,10 +31,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	private final CCControlClient controlClient = new CCControlClient();
 	private final CCSessionManager sessionManager;
 
-	private ConfigManager cfg;
-
-	public CCConnector(ConfigManager cfg, CCSessionManager sessionManager) {
-		this.cfg = cfg;
+	public CCConnector(CCSessionManager sessionManager) {
 		this.sessionManager = sessionManager;
 	}
 
@@ -48,42 +41,22 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	}
 
 	@Override
-	public CCRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Create request", 2);
-		String id = UUID.randomUUID().toString();
+	public CCRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+		SubMonitor sub = SubMonitor.convert(mon, "Create request", 1);
 
-		// Preprocessing: extract Allow/Deny/exit/resume lines
-		String title = null;
-		Command command = null;
-		StringBuilder merged = null;
-
-		{ // Preprocess
-			sub.subTask("Preprocess input");
-			for (Command cmd : preprocessInput(inputs))
-				if (CommandType.Prompt.equals(cmd.type)) {
-					if (title == null)
-						title = cmd.parameter.substring(0, Math.min(100, cmd.parameter.length())).replace('\n', ' ');
-
-					if (merged != null)
-						merged.append("\n");
-					else
-						merged = new StringBuilder();
-					merged.append(cmd.parameter);
-				} else {
-					command = cmd;
-					break;
-				}
-			sub.worked(1);
+		Command command = prompt.command;
+		String promptText = null;
+		if (command == null) {
+			promptText = prompt.inputs.stream().map(String::strip).filter(s -> !s.isBlank())
+					.collect(Collectors.joining("\n"));
+			if (promptText.isEmpty())
+				throw new IllegalStateException("No commands in inputs");
 		}
+		sub.worked(1);
 
-		if (command == null && merged != null) {
-			sub.subTask("Build prompt");
-			command = new Command(CommandType.Prompt, requestBuilder.buildPromptJson(merged.toString().trim()));
-			sub.worked(1);
-		}
-
-		return new CCRequest(id, title, systemPrompt, tools, command);
+		String title = promptText == null ? null : promptText.substring(0, Math.min(100, promptText.length())).replace('\n', ' ');
+		return new CCRequest(UUID.randomUUID().toString(), title, prompt.config, command, promptText, prompt.yamlBlock,
+				prompt.absoluteFilePath, prompt.projectPath);
 	}
 
 	@Override
@@ -91,53 +64,55 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		CCSession session = null;
 
-		EditorLocation loc = getEditorLocation();
-		ClaudeSessionParameters params = ClaudeSessionParameters.fromConfig(cfg, loc.projectPath, loc.relativeFilePath,
-				req.systemPrompt, req.tools);
+		String relativeFilePath = req.projectPath.relativize(Paths.get(req.absoluteFilePath)).toString();
+		FrozenConfig fc = req.config;
+		ClaudeSessionParameters params = new ClaudeSessionParameters(req.projectPath, fc.systemPrompt, fc.tools,
+				fc.model, fc.reasoning, fc.profile, fc.cliProfile, fc.cacheMode, relativeFilePath);
 		params.setTitle(req.title);
 
-		switch (req.cmd.type) {
-		case Resume:
+		Command command = req.command;
+		if (command instanceof ResumeCommand rc) {
 			sub.subTask("Importing session");
-			sessionManager.importSession(req.cmd.parameter, params);
+			sessionManager.importSession(rc.parameter(0), params);
 			return new CCResponse(req.id, "Session created");
-		case Exit:
+		}
+		if (command instanceof ExitCommand) {
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 			sub.subTask("Terminating CLI process");
 			session.terminate();
 			return new CCResponse(req.id, "Session closed!");
-		case Allow:
-		case Deny:
-		case Modification:
-			switch (req.cmd.type) {
-			case Allow:
-				controlClient.approve(req.cmd.parameters[0],
-						req.cmd.parameters.length > 1 ? req.cmd.parameters[1] : null);
-				break;
-			case Deny:
-				controlClient.deny(req.cmd.parameters[0], req.cmd.parameters[1]);
-				break;
-			case Modification:
-				break; // allready sent
-			default:
-				throw new UnsupportedOperationException();
-			}
+		}
+		if (command instanceof AnswerCommand ac) {
+			if (ac.action() == AnswerCommand.Action.Allow)
+				controlClient.approve(ac.parameter(0), ac.parameter(2));
+			else
+				controlClient.deny(ac.parameter(0), ac.parameter(2));
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
-			break;
-		case Prompt:
+		} else if (command instanceof CallEditCommand cec) {
+			if (!controlClient.submitEdit(cec.yaml()))
+				throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
+			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
+		} else if (command instanceof CallCommand) {
+			if (req.yamlBlock == null || req.yamlBlock.isBlank())
+				throw new IllegalArgumentException("No preceding ```yaml block found before /call");
+			if (!controlClient.submitEdit(req.yamlBlock))
+				throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
+			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
+		} else if (command == null) {
 			sub.subTask("Acquiring session");
 			session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
-			break;
+		} else {
+			throw new UnsupportedOperationException("Unsupported command: " + command.prefix());
 		}
 
 		try {
 			session.setInPrompt(true);
-			if (CommandType.Prompt.equals(req.cmd.type)) {
+			if (command == null) {
 				if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !controlClient.isMCPCAvailable())
 					throw new IllegalStateException("MCPC not reachable for AgentProfile");
 
 				sub.subTask("Sending prompt");
-				session.writeLine(req.cmd.parameter);
+				session.writeLine(requestBuilder.buildPromptJson(req.promptText));
 			}
 
 			sub.subTask("Waiting for answer");
@@ -197,32 +172,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		return String.format("Prompting... (%d/%d)", s.length(), crc.getValue());
 	}
 
-	private List<Command> preprocessInput(List<String> inputs) {
-		List<Command> commands = new ArrayList<Command>();
-		String clean;
-		for (String input : inputs)
-			if (!(clean = input != null ? input.strip() : "").isBlank())
-				if ("/exit".equalsIgnoreCase(clean))
-					commands.add(new Command(CommandType.Exit, ""));
-				else if (clean.matches("(?i)/resume\\s+\\S+"))
-					commands.add(new Command(CommandType.Resume, clean.split("\\s+", 2)[1].strip()));
-				else if (clean.matches("(?i)" + CCControlClient.ANSWER + "\\s+\\S+\\s+(allow|deny)(\\s+.*)?")) {
-					String[] parts = clean.split("\\s+", 4);
-					String id = parts[1];
-					String action = parts[2].toLowerCase();
-					String reason = parts.length > 3 ? parts[3].strip() : "";
-					if ("allow".equals(action))
-						commands.add(new Command(CommandType.Allow, id, reason));
-					else
-						commands.add(new Command(CommandType.Deny, id, reason));
-				} else if (controlClient.submitEdit(clean))
-					commands.add(new Command(CommandType.Modification, ""));
-				else
-					commands.add(new Command(CommandType.Prompt, clean));
-		if (commands.isEmpty())
-			throw new IllegalStateException("No commands in inputs");
-		return commands;
-	}
+	
 
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
@@ -237,34 +187,5 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		return answer;
 	}
 
-	private EditorLocation getEditorLocation() {
-		EditorLocation result = new EditorLocation();
-		Display.getDefault().syncExec(() -> {
-			try {
-				IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-				if (window == null)
-					return;
-				IWorkbenchPage page = window.getActivePage();
-				if (page == null)
-					return;
-				IEditorPart editor = page.getActiveEditor();
-				if (editor == null)
-					return;
-				IEditorInput editorInput = editor.getEditorInput();
-				if (!(editorInput instanceof IFileEditorInput))
-					throw new IllegalArgumentException("Connector does not support external files");
-
-				IFileEditorInput fileInput = (IFileEditorInput) editorInput;
-				IProject project = fileInput.getFile().getProject();
-				Path projectPath = Paths.get(project.getLocation().toOSString());
-				String relativeFilePath = fileInput.getFile().getProjectRelativePath().toString();
-				result.set(projectPath, relativeFilePath);
-			} catch (Exception e) {
-				LOG.error("Failed to resolve editor paths", e);
-			}
-		});
-		if (result.projectPath == null)
-			throw new IllegalStateException("Failed to resolve editor paths");
-		return result;
-	}
+	
 }
