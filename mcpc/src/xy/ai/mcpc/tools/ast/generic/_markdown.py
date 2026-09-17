@@ -102,3 +102,11 @@ class MarkdownEngine(TreeSitterEngine):
     @staticmethod
     def _addressable(child: Any, depth: int) -> bool:
         return depth == 0 or child.type in _MD_ADDRESSABLE_TYPES
+
+    def signature(self, node: Any, limit: int=30) -> str:
+        if node.type == 'section':
+            for child in node.named_children:
+                if child.type.endswith('heading'):
+                    return self._clean_heading(child.text)
+        text = node.text.decode('utf-8', 'replace').strip()
+        return text if len(text) <= limit else text[:limit - 1] + '…'

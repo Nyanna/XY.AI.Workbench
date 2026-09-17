@@ -201,9 +201,6 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
     count = used.get(seg, 0)
     used[seg] = count + 1
     return seg if count == 0 else f'{seg}_{count}'
-'#: Node-type substrings (case-insensitive) that identify a class/function'
-'#: definition across engines, the only nodes a "signature" makes sense for.'
-_SIGNATURE_TYPE_RE = re.compile('class|function|method|constructor|interface|enum|record', re.IGNORECASE)
 
 def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, with_type: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
     """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``).
@@ -415,11 +412,12 @@ class Engine(ABC):
 
     def is_definition(self, node_type: str) -> bool:
         """Whether ``node_type`` is "def-like" enough for a ``signature`` to make
-        sense (as opposed to e.g. a statement/import segment or a Markdown
-        paragraph). Engines with a precise, known node-type set (see
+        sense. Defaults to ``True`` so every node falls back to a signature
+        (via ``signature``'s own trimmed-content fallback) unless an engine
+        narrows this down; engines with a precise, known node-type set (see
         :class:`xy.ai.mcpc.tools.ast.generic._java.JavaEngine`) should override
-        this instead of relying on the substring-matching default."""
-        return bool(_SIGNATURE_TYPE_RE.search(node_type))
+        this to exclude statements/imports/etc. where a signature makes no sense."""
+        return True
 
     @abstractmethod
     def signature(self, node: Any) -> str:
