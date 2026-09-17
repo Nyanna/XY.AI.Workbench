@@ -1,11 +1,7 @@
 package xy.ai.workbench.connector.claudecode;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import xy.ai.workbench.AgentProfile;
@@ -13,50 +9,17 @@ import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.connector.SessionParameters;
 
-public class ClaudeSessionParameters {
+public class ClaudeSessionParameters extends SessionParameters {
 	private static final String SCRIPT = System.getProperty("user.home")
 			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
 	private static final String COMMAND = "claude";
-
-	/** Deterministic hash of the session parameters. Immutable. */
-	public final Path cwd;
-	public final String systemPrompt;
-	public final List<String> tools;
-	public final Model model;
-	public final Reasoning reasoning;
-	public final AgentProfile agentProfile;
-	public final String cliProfile;
-	public final String filePath;
-	public final CacheMode cacheMode;
-	private String hash;
 	private String title;
 
 	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
-			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode) {
-		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, null);
-	}
-
-	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
-		if (cwd == null)
-			throw new IllegalStateException("Work directory (cwd) not set");
-		if (model == null)
-			throw new IllegalArgumentException("Model must not be null");
-		if (model.apiName == null || model.apiName.isBlank())
-			throw new IllegalArgumentException("Model apiName must not be null or blank");
-		if (reasoning == null)
-			throw new IllegalArgumentException("Reasoning must not be null");
-
-		this.cwd = cwd;
-		this.systemPrompt = systemPrompt != null ? systemPrompt : "";
-		this.tools = tools != null ? tools : Collections.emptyList();
-		this.model = model;
-		this.reasoning = reasoning;
-		this.agentProfile = agentProfile;
-		this.cliProfile = cliProfile;
-		this.filePath = filePath;
-		this.cacheMode = cacheMode;
+		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, filePath);
 	}
 
 	public static ClaudeSessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
@@ -65,9 +28,7 @@ public class ClaudeSessionParameters {
 				cfg.getKeys(), cfg.getCacheMode(), filePath);
 	}
 
-	public String getFilePath() {
-		return filePath;
-	}
+	
 
 	public List<String> buildBaseCommand() {
 		List<String> cmd = new ArrayList<>();
@@ -226,31 +187,9 @@ public class ClaudeSessionParameters {
 		pb.environment().put("CLAUDE_CODE_DISABLE_ADVISOR_TOOL", "1");
 	}
 
-	public String getHash() {
-		if (hash == null)
-			hash = computeHash();
-		return hash;
-	}
+	
 
-	private String computeHash() {
-		String input = String.join(",", tools) + "|" + cwd.toString() + "|"
-				+ model.apiName + "|" + reasoning.name() + "|" + (agentProfile != null ? agentProfile.name : "") + "|"
-				+ cliProfile + "|" + (filePath != null ? filePath : "");
-		try {
-			MessageDigest md = MessageDigest.getInstance("MD5");
-			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder();
-			for (byte b : bytes)
-				sb.append(String.format("%02x", b));
-			return sb.substring(0, 8);
-		} catch (NoSuchAlgorithmException e) {
-			// Stable fallback (no external dependency)
-			long h = 0;
-			for (char c : input.toCharArray())
-				h = h * 31L + c;
-			return String.format("%08x", h & 0xFFFFFFFFL);
-		}
-	}
+	
 
 	public void setTitle(String title) {
 		if (this.title == null)
