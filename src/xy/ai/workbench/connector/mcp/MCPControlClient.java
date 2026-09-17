@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.connector.claudecode.JsonUtil;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
@@ -28,6 +29,7 @@ public class MCPControlClient {
 	@SuppressWarnings("deprecation")
 	public String renderSchema(JsonNode tool) {
 		StringBuilder sb = new StringBuilder();
+		sb.append(EditorInterface.TOOLUSE).append("\n");
 		sb.append("```yaml\n");
 		sb.append("tool: ").append(tool.path("name").asText()).append("\n");
 
@@ -49,7 +51,8 @@ public class MCPControlClient {
 		} else {
 			sb.append("arguments: {}\n");
 		}
-		sb.append("```");
+		sb.append("```\n");
+		sb.append(EditorInterface.CMD_CALL);
 		return sb.toString();
 	}
 

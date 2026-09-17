@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.LOG;
 
 /**
@@ -29,8 +30,6 @@ import xy.ai.workbench.LOG;
  * Response body: {@code {"pending":[...]}}.
  */
 public class CCControlClient {
-	public static final String ANSWER = "/answer";
-	public static final String CONTROL_REQUEST = "Control Request:";
 	private static final String CONTROL_URL = "http://localhost:9093/control/tool";
 	private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
@@ -46,7 +45,7 @@ public class CCControlClient {
 		ProtocolParser.appendEvents(resp.events, res);
 
 		JsonNode first = pending.get(0);
-		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", CONTROL_REQUEST, toYaml(first), ANSWER,
+		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first), EditorInterface.CMD_ANSWER,
 				first.path("id").asText()));
 		resp.resultText = res.toString();
 	}
