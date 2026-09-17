@@ -34,6 +34,8 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
 import xy.ai.workbench.connector.harness.SessionProcessor;
@@ -41,14 +43,12 @@ import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.models.AIAnswer;
 
 public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
-	private ConfigManager cfg;
 	private OpenAIClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
 	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
-		this.cfg = cfg;
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
@@ -64,33 +64,33 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public OpenAIRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
+	public OpenAIRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		boolean isBackground = false;
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+		FrozenConfig fc = prompt.config;
 
 		Builder builder = ResponseCreateParams.builder() //
-				.maxOutputTokens(cfg.getMaxOutputTokens())
+				.maxOutputTokens(fc.maxOutputTokens)
 				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "") //
 				.truncation(Truncation.DISABLED) //
 				.maxToolCalls(0)//
 				.background(isBackground)//
-				.instructions(systemPrompt)//
+				.instructions(fc.systemPrompt)//
 				.parallelToolCalls(false)//
 				.reasoning( //
 						Reasoning.builder()//
-								.effort(ReasoningEffort.of(cfg.getReasoning().name())) //
+								.effort(ReasoningEffort.of(fc.reasoning.name())) //
 								.summary(Reasoning.Summary.AUTO)//
 								.build())
-				.model(ChatModel.of(cfg.getModel().apiName)); //
+				.model(ChatModel.of(fc.model.apiName)); //
 
-		if (cfg.getCapabilities().isSupportTemperature())
-			builder.temperature(cfg.getTemperature());
+		if (fc.model.cap.isSupportTemperature())
+			builder.temperature(fc.temperature);
 
-		if (cfg.getCapabilities().isSupportTopP())
-			builder.topP(cfg.getTopP());
+		if (fc.model.cap.isSupportTopP())
+			builder.topP(fc.topP);
 
-		if (inputs != null && !inputs.isEmpty()) {
+		if (prompt.inputs != null && !prompt.inputs.isEmpty()) {
 			List<ResponseInputItem> respInputs = new ArrayList<>();
 			SessionCallbacks<Void> cb = (role, text) -> {
 				ResponseInputText inputText = ResponseInputText.builder().text(text).build();
@@ -99,13 +99,13 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 						.addContent(inputText).build()));
 				return null;
 			};
-			sessionProcessor.process(inputs, cb);
+			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
 			if (!respInputs.isEmpty())
 				builder.inputOfResponse(respInputs);
 		}
 
-		if (tools != null && !tools.isEmpty())
-			appendTools(builder, tools);
+		if (fc.tools != null && !fc.tools.isEmpty())
+			appendTools(builder, fc.tools);
 
 		ResponseCreateParams params = builder.build();
 		sub.worked(1);
@@ -118,8 +118,6 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
-//		int statusCode = rwResponse.statusCode();
-//		Headers headers = rwResponse.headers();
 		Response resp = rwResponse.parse();
 
 		// for background mode

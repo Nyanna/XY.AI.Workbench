@@ -33,6 +33,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
@@ -41,14 +43,12 @@ import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
-	private ConfigManager cfg;
 	private Client client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
 	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
-		this.cfg = cfg;
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
@@ -65,9 +65,10 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	}
 
 	@Override
-	public GeminiRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
+	public GeminiRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+		FrozenConfig fc = prompt.config;
+		boolean batchFix = prompt.batch;
 
 		int id = new Random().nextInt(Integer.MAX_VALUE);
 		List<SafetySetting> safetySettings = List.of(//
@@ -85,38 +86,38 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		Builder config = GenerateContentConfig.builder()//
 				.seed(id)//
 				.thinkingConfig(ThinkingConfig.builder()//
-						.thinkingBudget(getThinkingBudget(cfg.getReasoning(), cfg)))//
+						.thinkingBudget(getThinkingBudget(fc.reasoning, fc)))//
 				.candidateCount(1) //
-				.temperature(cfg.getTemperature().floatValue())//
-				.topP(cfg.getTopP().floatValue()) //
+				.temperature(fc.temperature.floatValue())//
+				.topP(fc.topP.floatValue()) //
 				// .labels(labels) // not supported
-				.maxOutputTokens(cfg.getMaxOutputTokens().intValue());
+				.maxOutputTokens(fc.maxOutputTokens.intValue());
 		if (!batchFix)
 			config.safetySettings(safetySettings);
 
 		List<Content> proccessedInputs = new ArrayList<>();
-		if (systemPrompt != null && !systemPrompt.isBlank()) {
-			Content systemInstruction = Content.fromParts(Part.fromText(systemPrompt));
+		if (fc.systemPrompt != null && !fc.systemPrompt.isBlank()) {
+			Content systemInstruction = Content.fromParts(Part.fromText(fc.systemPrompt));
 			if (!batchFix)
 				config.systemInstruction(systemInstruction);
 			else
 				proccessedInputs.add(systemInstruction.toBuilder().role("model").build());
 		}
 
-		if (inputs != null && !inputs.isEmpty()) {
+		if (prompt.inputs != null && !prompt.inputs.isEmpty()) {
 			SessionCallbacks<Void> cb = (role, text) -> {
 				proccessedInputs.add(Content.builder().parts(Part.fromText(text)).role("model").build());
 				return null;
 			};
-			sessionProcessor.process(inputs, cb);
+			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
 		}
 
-		if (tools != null && !tools.isEmpty())
-			appendTools(config, tools);
+		if (fc.tools != null && !fc.tools.isEmpty())
+			appendTools(config, fc.tools);
 
 		GenerateContentConfig contentConfig = config.build();
 		sub.worked(1);
-		return new GeminiRequest(cfg.getModel(), proccessedInputs, contentConfig, id + "");
+		return new GeminiRequest(fc.model, proccessedInputs, contentConfig, id + "");
 	}
 
 	private void appendTools(Builder config, List<String> tools) {
@@ -137,10 +138,10 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 			config.tools(List.of(Tool.builder().functionDeclarations(declarations).build()));
 	}
 
-	private Integer getThinkingBudget(Reasoning reasoning, ConfigManager cfg2) {
+	private Integer getThinkingBudget(Reasoning reasoning, FrozenConfig fc) {
 		switch (reasoning) {
 		case Budget:
-			return cfg.getReasoningBudget();
+			return fc.reasoningBudget;
 		case Unlimited:
 			return -1;
 		case Disabled:

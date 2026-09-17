@@ -91,7 +91,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private static final int TTL_REFRESH_INTERVAL_MS = 1_000;
 	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null,
 			new ClaudeSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
-					CacheMode.Default) {
+					CacheMode.Default, "none") {
 				public String getHash() {
 					return "Create new session";
 				};

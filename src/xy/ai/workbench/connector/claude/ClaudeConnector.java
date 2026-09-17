@@ -26,6 +26,8 @@ import com.anthropic.models.messages.ThinkingConfigEnabled;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
@@ -34,14 +36,12 @@ import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeResponse> {
-	private ConfigManager cfg;
 	private AnthropicClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
 	public ClaudeConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
-		this.cfg = cfg;
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
@@ -57,39 +57,39 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public ClaudeRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
+	public ClaudeRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+		FrozenConfig fc = prompt.config;
 
 		Builder builder = MessageCreateParams.builder();
 
 		builder.metadata(Metadata.builder().userId(new Random().nextInt(Integer.MAX_VALUE) + "").build());
 
-		if (Reasoning.Disabled.equals(cfg.getReasoning())) {
-			builder.temperature(cfg.getTemperature());
-			builder.topP(cfg.getTopP());
+		if (Reasoning.Disabled.equals(fc.reasoning)) {
+			builder.temperature(fc.temperature);
+			builder.topP(fc.topP);
 		} else
 			builder.thinking(ThinkingConfigEnabled.builder()//
-					.budgetTokens(cfg.getReasoningBudget()).build());
+					.budgetTokens(fc.reasoningBudget).build());
 
-		builder.model(cfg.getModel().apiName);
-		builder.maxTokens(cfg.getMaxOutputTokens());
+		builder.model(fc.model.apiName);
+		builder.maxTokens(fc.maxOutputTokens);
 
-		if (systemPrompt != null && !systemPrompt.isBlank())
-			builder.system(systemPrompt);
+		if (fc.systemPrompt != null && !fc.systemPrompt.isBlank())
+			builder.system(fc.systemPrompt);
 
-		if (inputs != null && !inputs.isEmpty()) {
+		if (prompt.inputs != null && !prompt.inputs.isEmpty()) {
 			// Session text (markers/includes) is parsed deterministically; unmarked plain
 			// text still ends up as one system message per input, same as before.
 			SessionCallbacks<Void> cb = (role, text) -> {
 				builder.addSystemMessage(text);
 				return null;
 			};
-			sessionProcessor.process(inputs, cb);
+			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
 		}
 
-		if (tools != null && !tools.isEmpty())
-			appendTools(builder, tools);
+		if (fc.tools != null && !fc.tools.isEmpty())
+			appendTools(builder, fc.tools);
 
 		MessageCreateParams createParams = builder.build();
 		sub.worked(1);

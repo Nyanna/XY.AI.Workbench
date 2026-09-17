@@ -3,7 +3,6 @@ package xy.ai.workbench.editor.mdast.nodes;
 import java.util.stream.Stream;
 
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.connector.claudecode.CCControlClient;
 import xy.ai.workbench.connector.claudecode.ProtocolParser;
 import xy.ai.workbench.editor.md.AbstractRule;
 
@@ -56,8 +55,8 @@ public class Elements {
 	}
 
 	public static class Tools {
-		public static final PrefixBlock ANSWER = new PrefixBlock(CCControlClient.ANSWER);
-		public static final LineSection CONTROL_REQUEST = new LineSection(CCControlClient.CONTROL_REQUEST, false, of(//
+		public static final PrefixBlock ANSWER = new PrefixBlock(EditorInterface.CMD_ANSWER);
+		public static final LineSection CONTROL_REQUEST = new LineSection(EditorInterface.CONTROL_REQUEST, false, of(//
 				ANSWER, //
 				Basics.SCRIPTBLOCK), //
 				NONE// replaced later

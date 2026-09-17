@@ -19,6 +19,7 @@ import xy.ai.workbench.connector.claudecode.CCConnector;
 import xy.ai.workbench.connector.claudecode.CCRequest;
 import xy.ai.workbench.connector.claudecode.CCResponse;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.connector.mcp.MCPConnector;
@@ -62,7 +63,7 @@ public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCP
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg, mcpClient, sessionProcessor));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg, mcpClient, sessionProcessor));
 		deepseek = new DeepSeekConnector(cfg, mcpClient, sessionProcessor);
-		claudeCode = new CCConnector(cfg, sessionManager);
+		claudeCode = new CCConnector(sessionManager);
 		mcp = new MCPConnector(cfg, mcpClient);
 		newBatch = new NewBatchConnector();
 	}
@@ -161,10 +162,12 @@ public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCP
 	}
 
 	@Override
-	public IModelRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
-		return getConnector(cfg.getModel()).createRequest(inputs, systemPrompt, tools, batchFix, mon);
+	public IModelRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+		return getConnector(prompt.config.model).createRequest(prompt, mon);
 	}
+
+	
+	
 
 	@Override
 	public List<IAIBatch> updateBatches(IProgressMonitor mon) {

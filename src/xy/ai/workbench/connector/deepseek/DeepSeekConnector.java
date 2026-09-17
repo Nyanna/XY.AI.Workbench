@@ -21,6 +21,8 @@ import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.IAIConnector;
+import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.connector.openapi.deepseek.ResponsesClientImpl;
 import xy.ai.workbench.connector.openapi.deepseek.components.AnyOfBodyModel;
@@ -81,13 +83,11 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 	private static final String BASE_URL = "https://api.deepseek.com";
 
-	private ConfigManager cfg;
 	private ResponsesClientImpl client;
 	private final MCPClient mcpClient;
 	private final SessionProcessor sessionProcessor;
 
 	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
-		this.cfg = cfg;
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 		cfg.addKeyObs(k -> {
@@ -107,22 +107,22 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	}
 
 	@Override
-	public DeepSeekRequest createRequest(List<String> inputs, String systemPrompt, List<String> tools, boolean batchFix,
-			IProgressMonitor mon) {
+	public DeepSeekRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+		FrozenConfig fc = prompt.config;
 
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode root = mapper.createObjectNode();
 		AllOfBody requestBody = new AllOfBody(root);
 
-		requestBody.getResponseProperties().setModel(new AnyOfBodyModel(TextNode.valueOf(cfg.getModel().apiName)));
+		requestBody.getResponseProperties().setModel(new AnyOfBodyModel(TextNode.valueOf(fc.model.apiName)));
 
 		CreateResponseAllOfPart part = requestBody.getCreateResponseAllOfPart();
-		part.setMaxOutputTokens(new AnyOfMaxOutputTokens(LongNode.valueOf(cfg.getMaxOutputTokens())));
+		part.setMaxOutputTokens(new AnyOfMaxOutputTokens(LongNode.valueOf(fc.maxOutputTokens)));
 
-		if (systemPrompt != null && !systemPrompt.isBlank())
+		if (fc.systemPrompt != null && !fc.systemPrompt.isBlank())
 			part.setInstructions(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(systemPrompt)));
+					TextNode.valueOf(fc.systemPrompt)));
 
 		ModelResponseProperties modelProps = requestBody.getCreateModelResponsePropertiesAllOf()
 				.getModelResponseProperties();
@@ -130,15 +130,15 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		// don't set User ID, segmentation prevents caching
 		// modelProps.setUser(userId);
 
-		if (cfg.getCapabilities().isSupportTemperature())
+		if (fc.model.cap.isSupportTemperature())
 			// ignored when thinking, 0-2
-			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(cfg.getTemperature())));
+			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(fc.temperature)));
 
-		if (cfg.getCapabilities().isSupportTopP())
+		if (fc.model.cap.isSupportTopP())
 			// onl yused when thinking 0.95-1
-			modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(cfg.getTopP())));
+			modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(fc.topP)));
 
-		EffortEnum effort = toEffort(cfg.getReasoning());
+		EffortEnum effort = toEffort(fc.reasoning);
 		if (effort != null) {
 			ObjectNode reasoningNode = mapper.createObjectNode();
 			new xy.ai.workbench.connector.openapi.deepseek.operators.Reasoning(reasoningNode)
@@ -147,12 +147,13 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		}
 
 		ArrayNode input = mapper.createArrayNode();
-		if (inputs != null)
-			for (ObjectNode item : sessionProcessor.process(inputs, new SessionRequestCallbacks(mapper)))
+		if (prompt.inputs != null)
+			for (ObjectNode item : sessionProcessor.process(prompt.inputs, prompt.processorEnabled,
+					new SessionRequestCallbacks(mapper)))
 				input.add(item);
 
-		if (tools != null && !tools.isEmpty())
-			appendTools(mapper, requestBody, tools);
+		if (fc.tools != null && !fc.tools.isEmpty())
+			appendTools(mapper, requestBody, fc.tools);
 
 		if (input.size() > 0)
 			part.setInput(new OneOfInput(input));
