@@ -11,6 +11,12 @@ public class AIAnswer {
 	private static final Pattern ID_PATTERN = Pattern.compile("id=([^,]*), ");
 
 	public final String id;
+	/**
+	 * Id printed in the Result Stats line. Defaults to the request {@link #id};
+	 * connectors backed by a real, independent session (e.g. ClaudeCode) override
+	 * it with that session's own id.
+	 */
+	public String sessionId;
 	public final TokenStats stats = new TokenStats();
 	public String answer = "";
 	public String instructions = "";
@@ -19,6 +25,7 @@ public class AIAnswer {
 
 	public AIAnswer(String id) {
 		this.id = id;
+		this.sessionId = id;
 	}
 
 	@Override
@@ -27,7 +34,7 @@ public class AIAnswer {
 	}
 
 	public String print() {
-		return String.format("%sid=%s, %s", RESULT, id, stats.print());
+		return String.format("%sid=%s, %s", RESULT, sessionId, stats.print());
 	}
 
 	public static AIAnswer fromString(String line) {
