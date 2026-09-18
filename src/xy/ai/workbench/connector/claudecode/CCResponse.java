@@ -8,6 +8,7 @@ import xy.ai.workbench.models.TokenStats;
 public class CCResponse implements IModelResponse {
 
 	public final String id;
+	public String sessionId;
 	public String resultText;
 	public boolean isError;
 	/**

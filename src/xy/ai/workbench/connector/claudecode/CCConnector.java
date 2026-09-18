@@ -156,6 +156,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				controlClient.checkControlEndpoint(resp);
 
 			if (resp.isReady()) {
+				resp.sessionId = session.getID();
 				session.stats.add(resp.stats);
 				session.stats.totalToken = session.stats.inputToken + session.stats.cacheCreate;
 				return resp;
@@ -177,6 +178,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
+		answer.sessionId = resp.sessionId;
 		answer.stats.inputToken = resp.stats.inputToken;
 		answer.stats.outputToken = resp.stats.outputToken;
 		answer.stats.reasoningToken = resp.stats.reasoningToken;

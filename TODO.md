@@ -1,19 +1,19 @@
 # TODO
+* deepseek nach tool call rendering /call kommando und call kommando immer auf MCPConnector leiten
 
 ## Harness
 		
 * Harness
 	* autolauf modus
-	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
-	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
-! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
-	- result zeile muss serialisieren/deserialisieren für sicheren zugriff statt parsing
+	* statt controll request, direkt aufruf und result modifizieren
 * eine AI SessionConfig pro datei, bei neuem editor aktuelle kopieren
 	* Overlay mechanismus, initial eine Default config, bei neuem editor wird default verwendet,
 	* wenn diese verändert -> clonen
 	* wenn nciht offen wird default verändert, persistier wird default
 	* über frontmatter in editor aktuelle config ändern aber auch zurückspiegeln
 	* session processor soll frontmatter ignorieren
+! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
+	- result zeile muss serialisieren/deserialisieren für sicheren zugriff statt parsing
 
 
 ## Other
@@ -54,6 +54,7 @@
 	- "``yaml" -> komplexe aufrufe unt metadaten
 	- "/command" -> Slash kommadnos
 	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
+- claude code: keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
 
 ##  Workbench
 
