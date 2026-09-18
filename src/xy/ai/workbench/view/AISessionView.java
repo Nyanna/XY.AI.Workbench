@@ -37,7 +37,6 @@ import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
-import xy.ai.workbench.AISessionManager;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
@@ -48,6 +47,7 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.connector.harness.PromptHandler;
 
 public class AISessionView extends ViewPart {
 
@@ -96,18 +96,18 @@ public class AISessionView extends ViewPart {
 		toolkit = new FormToolkit(parent.getDisplay());
 		form = toolkit.createScrolledForm(parent);
 		ConfigManager cfg = Activator.getDefault().cfg;
-		AISessionManager session = Activator.getDefault().session;
+		PromptHandler promptHandler = Activator.getDefault().session.getPromptHandler();
 
 		Composite body = form.getBody();
 		body.setLayout(new GridLayout());
 
 		createTopParametersSection(body, cfg);
-		createInstructionSection(body, cfg, session);
+		createInstructionSection(body, cfg, promptHandler);
 		createOutputModeSection(body, cfg);
-		createActionButtonsSection(body, cfg, session);
-		createUsageLogSection(body, session);
+		createActionButtonsSection(body, cfg, promptHandler);
+		createUsageLogSection(body, promptHandler);
 
-		session.initializeInputs();
+		promptHandler.initializeInputs();
 
 		form.reflow(true);
 	}
@@ -269,7 +269,7 @@ public class AISessionView extends ViewPart {
 		}, true);
 	}
 
-	private void createInstructionSection(Composite body, ConfigManager cfg, AISessionManager session) {
+	private void createInstructionSection(Composite body, ConfigManager cfg, PromptHandler prompt) {
 		Composite middle = new Composite(body, SWT.NONE);
 		middle.setLayout(new GridLayout(1, false));
 		GridData ldat2 = new GridData(SWT.FILL, SWT.FILL, true, true);
@@ -297,7 +297,7 @@ public class AISessionView extends ViewPart {
 		createToolsTab(instr, cfg);
 		createPresetsTab(instr, cfg);
 
-		createInputsTable(middle, cfg, session);
+		createInputsTable(middle, cfg, prompt);
 	}
 
 	private void createInstructionSelectTab(TabFolder instr, ConfigManager cfg) {
@@ -487,7 +487,7 @@ public class AISessionView extends ViewPart {
 		sash.setWeights(3, 1);
 	}
 
-	private void createInputsTable(Composite middle, ConfigManager cfg, AISessionManager session) {
+	private void createInputsTable(Composite middle, ConfigManager cfg, PromptHandler prompt) {
 		Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
 		table.setHeaderVisible(true);
 		table.setLinesVisible(true);
@@ -515,7 +515,7 @@ public class AISessionView extends ViewPart {
 		for (int i = 0; i < InputMode.values().length; i++) {
 			TableItem item = new TableItem(table, SWT.NONE);
 			InputMode mode = InputMode.values()[i];
-			session.addInputStatObs(is -> {
+			prompt.addInputStatObs(is -> {
 				var checked = item.getChecked();
 				item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
 				item.setChecked(checked);
@@ -540,23 +540,23 @@ public class AISessionView extends ViewPart {
 		cfg.addOutputModeObs(m -> outputMode.setText(m.name()), true);
 	}
 
-	private void createActionButtonsSection(Composite body, ConfigManager cfg, AISessionManager session) {
+	private void createActionButtonsSection(Composite body, ConfigManager cfg, PromptHandler prompt) {
 		Composite actions = new Composite(body, SWT.NONE);
 		actions.setLayout(new GridLayout(3, false));
 
 		Button btn = new Button(actions, SWT.PUSH);
 		btn.setText("Prompt");
-		btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> session.execute(btn.getDisplay())));
+		btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> prompt.execute(btn.getDisplay())));
 
 		Button bbtn = new Button(actions, SWT.PUSH);
 		bbtn.setText("Enqueue");
 		bbtn.addSelectionListener(SelectionListener
-				.widgetSelectedAdapter(e -> session.queueAsync(bbtn.getDisplay(), Activator.getDefault().batch)));
+				.widgetSelectedAdapter(e -> prompt.queueAsync(bbtn.getDisplay())));
 
 		Button bsbtn = new Button(actions, SWT.PUSH);
 		bsbtn.setText("Batch");
 		bsbtn.addSelectionListener(SelectionListener
-				.widgetSelectedAdapter(e -> session.queueAndSubmit(bsbtn.getDisplay(), Activator.getDefault().batch)));
+				.widgetSelectedAdapter(e -> prompt.queueAndSubmit(bsbtn.getDisplay())));
 
 		cfg.addModelObs(m -> {
 			bbtn.setEnabled(m.cap.isSupportBatch());
@@ -565,7 +565,7 @@ public class AISessionView extends ViewPart {
 		}, true);
 	}
 
-	private void createUsageLogSection(Composite body, AISessionManager session) {
+	private void createUsageLogSection(Composite body, PromptHandler prompt) {
 		Composite footer = new Composite(body, SWT.NONE);
 		footer.setLayout(new GridLayout(1, false));
 		footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -576,7 +576,7 @@ public class AISessionView extends ViewPart {
 		gridData.heightHint = 50;
 		usageLog.setLayoutData(gridData);
 
-		session.addAnswerObs(a -> {
+		prompt.addAnswerObs(a -> {
 			form.getDisplay().asyncExec(() -> {
 				if (a != null && a.stats.inputToken > 0) {
 					String text = usageLog.getText();

@@ -4,39 +4,34 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.function.Consumer;
-
-import org.eclipse.swt.widgets.Display;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
-import xy.ai.workbench.models.AIAnswer;
-
 
 public class AISessionManager {
 	public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
 
-	private ActiveEditorListener editorListener = new ActiveEditorListener(this);
-	private IncludeAdapter includeAdapter;
+	private final ActiveEditorListener editorListener;
+	private final IncludeAdapter includeAdapter;
 	private final MCPClient mcpClient;
 	public final EditorInterface editIfc;
-	private final PromptHandler promptHandler;
-	
+	private final PromptHandler prompt;
 
 	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, MCPClient mcpClient,
 			SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
+		editorListener = new ActiveEditorListener();
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		includeAdapter = new IncludeAdapter(editorListener);
-		promptHandler = new PromptHandler(cfg, connector, editorListener, editIfc, includeAdapter);
+		prompt = new PromptHandler(cfg, connector, editorListener, editIfc, includeAdapter);
+		editorListener.setPrompt(prompt);
 		sessionProcessor.setAdapter(includeAdapter);
-		cfg.addInputModeObs(i -> updateInputStat(i));
-		cfg.addEnabledToolsObs(t -> updateInputStat(InputMode.Tools), false);
+		cfg.addInputModeObs(i -> prompt.updateInputStat(i));
+		cfg.addEnabledToolsObs(t -> prompt.updateInputStat(InputMode.Tools), false);
 		cfg.addModelObs(this::discoverTools, false);
 	}
 
@@ -59,31 +54,7 @@ public class AISessionManager {
 		return ordered.toArray(new String[0]);
 	}
 
-	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
-		promptHandler.addInputStatObs(obs, initialize);
-	}
-
-	public void addAnswerObs(Consumer<AIAnswer> obs) {
-		promptHandler.addAnswerObs(obs);
-	}
-
-	public void updateInputStat(InputMode mode) {
-		promptHandler.updateInputStat(mode);
-	}
-
-	public void initializeInputs() {
-		promptHandler.initializeInputs();
-	}
-
-	public void execute(Display display) {
-		promptHandler.execute(display);
-	}
-
-	public void queueAsync(Display display, AIBatchManager batch) {
-		promptHandler.queueAsync(display, batch);
-	}
-
-	public void queueAndSubmit(Display display, AIBatchManager batch) {
-		promptHandler.queueAndSubmit(display, batch);
+	public PromptHandler getPromptHandler() {
+		return prompt;
 	}
 }

@@ -24,16 +24,17 @@ import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.editor.AISessionEditor;
 
 public class ActiveEditorListener implements IPartListener2 {
 	private EditorChangeListener editorListener = new EditorChangeListener();
 
 	private ITextEditor lastTextEditor;
-	private AISessionManager manager;
-
-	public ActiveEditorListener(AISessionManager manager) {
-		this.manager = manager;
+	private PromptHandler prompt;
+	
+	public void setPrompt(PromptHandler prompt) {
+		this.prompt = prompt;
 	}
 
 	public ITextEditor getLastTextEditor() {
@@ -74,8 +75,8 @@ public class ActiveEditorListener implements IPartListener2 {
 
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
-					manager.updateInputStat(InputMode.Selection);
-					manager.updateInputStat(InputMode.Converter);
+					prompt.updateInputStat(InputMode.Selection);
+					prompt.updateInputStat(InputMode.Converter);
 				});
 			}).schedule(300);
 
@@ -148,7 +149,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Selection);
+				prompt.updateInputStat(InputMode.Selection);
 			});
 		}
 	}
@@ -158,8 +159,8 @@ public class ActiveEditorListener implements IPartListener2 {
 		public void documentChanged(DocumentEvent event) {
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
-					manager.updateInputStat(InputMode.Selection);
-					manager.updateInputStat(InputMode.Converter);
+					prompt.updateInputStat(InputMode.Selection);
+					prompt.updateInputStat(InputMode.Converter);
 				});
 			}).schedule(1000);
 
@@ -169,7 +170,7 @@ public class ActiveEditorListener implements IPartListener2 {
 	public class SelectionListener implements ISelectionChangedListener {
 		@Override
 		public void selectionChanged(SelectionChangedEvent event) {
-			Display.getDefault().asyncExec(() -> manager.updateInputStat(InputMode.Selection));
+			Display.getDefault().asyncExec(() -> prompt.updateInputStat(InputMode.Selection));
 		}
 	}
 
@@ -177,8 +178,8 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void textChanged(TextEvent event) {
 			Display.getDefault().asyncExec(() -> {
-				manager.updateInputStat(InputMode.Selection);
-				manager.updateInputStat(InputMode.Converter);
+				prompt.updateInputStat(InputMode.Selection);
+				prompt.updateInputStat(InputMode.Converter);
 			});
 		}
 	}
