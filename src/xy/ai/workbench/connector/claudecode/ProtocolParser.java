@@ -19,7 +19,6 @@ import xy.ai.workbench.models.TokenStats;
 
 public class ProtocolParser {
 	public static final String SYSTEM_INIT = "SystemInit: ";
-	public static final String RESULT = "Result Stats: ";
 	public static final String REASONING_TOKEN = "ReasoningToken: ";
 	public static final String TOKEN_STATS = "Token Usage: ";
 	private static final String TEXT_CACHE_PREEFIX = "text\0";
@@ -41,7 +40,7 @@ public class ProtocolParser {
 		try {
 			if ("result".equals(type)) {
 				sub.subTask("Received final result");
-				parseResult(resp, node, session);
+				parseResult(resp, node);
 			} else if ("tool_use".equals(type)) {
 				sub.subTask("Received tool use request");
 				parseToolUse(resp, node);
@@ -81,7 +80,7 @@ public class ProtocolParser {
 		}
 	}
 
-	private void parseResult(CCResponse resp, JsonNode node, CCSession session) {
+	private void parseResult(CCResponse resp, JsonNode node) {
 		boolean isError = node.path("is_error").asBoolean(false) || "error".equals(node.path("subtype").asText());
 		StringBuilder res = new StringBuilder();
 
@@ -89,7 +88,7 @@ public class ProtocolParser {
 		// (and handles a structured result node), instead of a bare asText().
 		String resultText = postProcessor.process(JsonUtil.plainText(node.path("result")));
 		resp.events.remove(TEXT_CACHE_PREEFIX + resultText);
-		extractUsage(resp, node, session);
+		extractUsage(resp, node);
 
 		appendEvents(resp.events, res);
 
@@ -106,7 +105,7 @@ public class ProtocolParser {
 		resp.isError = isError;
 	}
 
-	private void extractUsage(CCResponse resp, JsonNode node, CCSession session) {
+	private void extractUsage(CCResponse resp, JsonNode node) {
 		// Extract token usage information
 		JsonNode modelUsage = node.path("modelUsage");
 		if (modelUsage.isObject()) {
@@ -121,8 +120,6 @@ public class ProtocolParser {
 				stats.cacheCreate += usage.path("cacheCreationInputTokens").asLong(0);
 			});
 			resp.stats.add(stats);
-			String metadata = String.format("%s id=%s, %s", RESULT, session.getID(), stats.print());
-			resp.events.putIfAbsent("result\0metadata", metadata);
 		}
 	}
 

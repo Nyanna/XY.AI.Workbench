@@ -34,6 +34,7 @@ import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
+import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.tools.RegionList;
 
 /**
@@ -133,7 +134,7 @@ public class AIRuleScanner implements ITokenScanner {
 		register(Elements.Agent.REASONING_TOKEN, new PrefixLineRule(ProtocolParser.REASONING_TOKEN, commentDarkToken));
 		register(Elements.Agent.TOKEN_STATS, new PrefixLineRule(ProtocolParser.TOKEN_STATS, commentDarkToken));
 		register(Elements.Agent.SYSTEM_INIT, new PrefixLineRule(ProtocolParser.SYSTEM_INIT, agentToken));
-		register(Elements.Agent.RESULT, new PrefixLineRule(ProtocolParser.RESULT, agentToken));
+		register(Elements.Agent.RESULT, new PrefixLineRule(AIAnswer.RESULT, agentToken));
 		register(Elements.Basics.LINE_COMMENT, new PrefixLineRule(AbstractRule.LINE_COMMENT, commentToken));
 
 		// block: fenced code, only valid inside a ScriptBlock

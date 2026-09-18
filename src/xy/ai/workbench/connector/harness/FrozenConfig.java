@@ -11,6 +11,7 @@ import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.Model;
+import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.Reasoning;
 
 /**
@@ -31,12 +32,13 @@ public class FrozenConfig {
 	public final Integer reasoningBudget;
 	public final CacheMode cacheMode;
 	public final String cliProfile;
+	public final OutputMode outputMode;
 
 	private String hash;
 
 	private FrozenConfig(Model model, AgentProfile profile, Reasoning reasoning, List<String> tools,
 			String systemPrompt, Double topP, Double temperature, Long maxOutputTokens, Integer reasoningBudget,
-			CacheMode cacheMode, String cliProfile) {
+			CacheMode cacheMode, String cliProfile, OutputMode outputMode) {
 		this.model = model;
 		this.profile = profile;
 		this.reasoning = reasoning;
@@ -48,6 +50,7 @@ public class FrozenConfig {
 		this.reasoningBudget = reasoningBudget;
 		this.cacheMode = cacheMode;
 		this.cliProfile = cliProfile;
+		this.outputMode = outputMode;
 	}
 
 	/**
@@ -72,7 +75,7 @@ public class FrozenConfig {
 
 		return new FrozenConfig(cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt,
 				cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
-				cfg.getCacheMode(), cfg.getKeys());
+				cfg.getCacheMode(), cfg.getKeys(), cfg.getOuputMode());
 	}
 
 	/**

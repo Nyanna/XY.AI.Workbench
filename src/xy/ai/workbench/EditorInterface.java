@@ -148,6 +148,9 @@ public class EditorInterface {
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
 		ITextEditor hint = ans.prompt != null ? ans.prompt.lastTextEditor : null;
+		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
+		if (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode))
+			ans.answer = ans.print() + "\n" + ans.answer;
 		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans, hint))
 			LOG.info("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}

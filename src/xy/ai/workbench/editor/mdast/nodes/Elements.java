@@ -6,6 +6,7 @@ import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.connector.claudecode.ProtocolParser;
 import xy.ai.workbench.editor.md.AbstractRule;
+import xy.ai.workbench.models.AIAnswer;
 
 /*
  * Sorting must be inverted, root on bottom contains all 
@@ -52,7 +53,7 @@ public class Elements {
 		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN, false);
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS, false);
 		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT, false);
-		public static final PrefixBlock RESULT = new PrefixBlock(ProtocolParser.RESULT, true);
+		public static final PrefixBlock RESULT = new PrefixBlock(AIAnswer.RESULT, true);
 		public static final AbstractNode[] ALL = of(THINKING_META, THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
 	}
 
