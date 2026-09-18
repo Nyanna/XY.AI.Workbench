@@ -37,6 +37,7 @@ public class DeepseekModelResolver implements ModelResolver {
 				JsonNode node = ModelsDevCatalog.get().findModel("deepseek", id);
 				Capabilities cap = ModelsDevCatalog.get().toCapabilities(KeyPattern.Deepseek, node);
 				cap.reasonings(Reasoning.Disabled, Reasoning.low, Reasoning.high, Reasoning.max);
+				cap.supportBatch(false);
 				result.add(new Model(id, id, cap));
 			}
 			if (result.isEmpty())

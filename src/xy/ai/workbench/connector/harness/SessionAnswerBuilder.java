@@ -16,7 +16,7 @@ public final class SessionAnswerBuilder {
 
 	private SessionAnswerBuilder separate() {
 		if (out.length() > 0)
-			out.append("\n\n");
+			out.append("\n");
 		return this;
 	}
 

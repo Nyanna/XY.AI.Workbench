@@ -1,34 +1,33 @@
 # TODO
-* die grep funktionen auf dateien + AST funktionieren besser als jeder LSP
-* besserer shortcuts für datei erstellen
-	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
-!keine absoluten pfade mehr sondern relative oder ein baseverzeichnis setzen um ddas nvironment stärker zu begrenzen
-	- wieder idee von virtuellem environment mit pfad alias, alles unter root, dann noch temp folder, funktioniert nicht mit bash oder python
-	- eigentlich brauche ich nur alles außerhalb project path oder filterliste unsichtbar machen
-!include file tool muss absoluten dateinamen mit in das toolresult geben
-!ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
-	alle includes
-	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
-! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie?
-! connector bei think usage format prüfen, inkompatibles think schema -> auf message (nur text) zurückfallen (return false im callback)
-	* wenn tool aktiviert wird deepseek exception http 400
 
 ## Harness
+		
+* Harness
+	* autolauf modus
+	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
+	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
+! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
+	- result zeile muss serialisieren/deserialisieren für sicheren zugriff statt parsing
 * eine AI SessionConfig pro datei, bei neuem editor aktuelle kopieren
 	* Overlay mechanismus, initial eine Default config, bei neuem editor wird default verwendet,
 	* wenn diese verändert -> clonen
 	* wenn nciht offen wird default verändert, persistier wird default
 	* über frontmatter in editor aktuelle config ändern aber auch zurückspiegeln
 	* session processor soll frontmatter ignorieren
-		
-* Harness
-	* autolauf modus
-	* keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
-	* statt controll request, direkt aufruf und result modifizieren, ein /allow liest dann aus der textdatei
 
-* harness always use python scripts cuz of implicite knowledge in coding instead of interface description
 
 ## Other
+!include file tool muss absoluten dateinamen mit in das toolresult geben
+!ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
+	alle includes
+	- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
+* harness always use python scripts cuz of implicite knowledge in coding instead of interface description
+!keine absoluten pfade mehr sondern relative oder ein baseverzeichnis setzen um ddas nvironment stärker zu begrenzen
+	- wieder idee von virtuellem environment mit pfad alias, alles unter root, dann noch temp folder, funktioniert nicht mit bash oder python
+	- eigentlich brauche ich nur alles außerhalb project path oder filterliste unsichtbar machen
+* die grep funktionen auf dateien + AST funktionieren besser als jeder LSP
+* besserer shortcuts für datei erstellen
+	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
 * NUL byte fehler in AST filter
 * deepseek codegen tostring auf Node für debugging
 * Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen

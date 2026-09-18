@@ -23,6 +23,7 @@ public abstract class Command {
 	public abstract ProcessorAction processorAction();
 
 	public String parameter(int i) {
-		return parameters[i];
+		return parameters.length > i ? parameters[i] : null;
+
 	}
 }

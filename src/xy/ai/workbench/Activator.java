@@ -28,12 +28,13 @@ public class Activator extends AbstractUIPlugin {
 	public MCPClient mcpClient = new MCPClient();
 	public SessionProcessor sessionProcessor = new SessionProcessor();
 	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager, mcpClient, sessionProcessor);
-
-	public AISessionManager session = new AISessionManager(cfg, connector, mcpClient, sessionProcessor);
-	public EditorInterface editIfc = session.editIfc;
-
+	
 	public AIBatchManager batch = new AIBatchManager(connector);
 	public AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
+
+	public AISessionManager session = new AISessionManager(cfg, connector, batch, mcpClient, sessionProcessor);
+	public EditorInterface editIfc = session.editIfc;
+
 
 	public MarkerRessourceScanner markerScanner;
 

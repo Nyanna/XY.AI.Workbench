@@ -8,8 +8,10 @@ import org.eclipse.core.runtime.jobs.Job;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.commands.CallCommand;
+import xy.ai.workbench.commands.CallEditCommand;
 import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.commands.ExitCommand;
 import xy.ai.workbench.commands.ToolCommand;
@@ -37,10 +39,10 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	@Override
 	public MCPRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		Command command = prompt.command;
-		if (!(command instanceof ExitCommand) && !(command instanceof ToolCommand)
-				&& !(command instanceof CallCommand))
-			throw new IllegalArgumentException(
-					"No command detected. Use \"/exit\", \"/tool <id>\" or \"/call\".");
+		if (!(command instanceof ExitCommand) && !(command instanceof ToolCommand) && !(command instanceof CallCommand)
+				&& !(command instanceof CallEditCommand))
+			throw new IllegalArgumentException(String.format("No command detected. [%s]",
+					command == null ? "none" : command.getClass().getSimpleName()));
 		return new MCPRequest(UUID.randomUUID().toString(), prompt.config.systemPrompt, prompt.config.tools, command,
 				prompt.yamlBlock);
 	}
@@ -62,6 +64,11 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 				throw new IllegalArgumentException("No preceding ```yaml tool call block found before /call");
 			return invokeCall(req.id, control.parseYaml(req.yamlBlock));
 		}
+		if (req.command instanceof CallEditCommand) {
+			if (req.command.parameter(0) == null || req.command.parameter(0).isBlank())
+				throw new IllegalArgumentException("No ```yaml tool call block found");
+			return invokeCall(req.id, control.parseYaml(req.command.parameter(0)));
+		}
 		throw new UnsupportedOperationException("Unsupported command: " + req.command.prefix());
 	}
 
@@ -72,7 +79,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 		JsonNode tool = client.findTool(name);
 		JsonNode arguments = control.fillReason(tool, call.path("arguments"));
 		JsonNode result = client.callTool(name, arguments);
-		return new MCPResponse(id, control.prettyResult(result));
+		return new MCPResponse(id, EditorInterface.TOOLRESULT + "\n" + control.prettyResult(result));
 	}
 
 	@Override
@@ -82,5 +89,4 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 		return answer;
 	}
 
-	
 }

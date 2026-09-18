@@ -15,8 +15,8 @@ import xy.ai.workbench.Reasoning;
 
 /**
  * Immutable snapshot of the {@link ConfigManager} state, taken once when a
- * {@link Prompt} is frozen. The system prompt is rendered eagerly so that
- * later changes to the live config do not affect already-frozen sessions.
+ * {@link Prompt} is frozen. The system prompt is rendered eagerly so that later
+ * changes to the live config do not affect already-frozen sessions.
  */
 public class FrozenConfig {
 
@@ -50,20 +50,27 @@ public class FrozenConfig {
 		this.cliProfile = cliProfile;
 	}
 
-	/** Reads all relevant values from {@code cfg} once and renders the system prompt. */
+	/**
+	 * Reads all relevant values from {@code cfg} once and renders the system
+	 * prompt.
+	 */
 	public static FrozenConfig from(ConfigManager cfg) {
-		String[] rawPrompt = cfg.getSystemPrompt();
-		StringBuilder sb = new StringBuilder();
-		Arrays.stream(rawPrompt != null ? rawPrompt : new String[0]).filter(e -> !e.startsWith("#"))
-				.forEach(e -> sb.append("* ").append(e).append(".\n"));
-		String freeText = cfg.getFreeText();
-		if (freeText != null && !freeText.isBlank())
-			sb.append(".\n").append(freeText).append(".\n");
+		String systemPrompt = null;
+		if (cfg.isInputEnabled(InputMode.SystemPrompt)) {
+			String[] rawPrompt = cfg.getSystemPrompt();
+			StringBuilder sb = new StringBuilder();
+			Arrays.stream(rawPrompt != null ? rawPrompt : new String[0]).filter(e -> !e.startsWith("#"))
+					.forEach(e -> sb.append("- ").append(e).append("\n"));
+			String freeText = cfg.getFreeText();
+			if (freeText != null && !freeText.isBlank())
+				sb.append("\n- ").append(freeText).append("\n");
+			systemPrompt = sb.toString();
+		}
 
 		String[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getTools() : null;
 		List<String> tools = List.of(rawTools != null ? rawTools : new String[0]);
 
-		return new FrozenConfig(cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, sb.toString(),
+		return new FrozenConfig(cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt,
 				cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
 				cfg.getCacheMode(), cfg.getKeys());
 	}
@@ -80,8 +87,8 @@ public class FrozenConfig {
 
 	private String computeHash() {
 		String input = (model != null ? model.apiName : "") + "|" + (profile != null ? profile.name : "") + "|"
-				+ (reasoning != null ? reasoning.name() : "") + "|" + String.join(",", tools) + "|" + systemPrompt
-				+ "|" + topP + "|" + temperature + "|" + maxOutputTokens + "|" + reasoningBudget;
+				+ (reasoning != null ? reasoning.name() : "") + "|" + String.join(",", tools) + "|" + systemPrompt + "|"
+				+ topP + "|" + temperature + "|" + maxOutputTokens + "|" + reasoningBudget;
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

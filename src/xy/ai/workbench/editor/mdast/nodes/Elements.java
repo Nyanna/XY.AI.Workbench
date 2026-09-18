@@ -43,20 +43,21 @@ public class Elements {
 	}
 
 	public static class Agent {
-		public static final PrefixBlock THINKING = new PrefixBlock(EditorInterface.THINKING);
+		public static final PrefixBlock THINKING_META = new PrefixBlock(EditorInterface.THINKING_META, false);
+		public static final LineSection THINKING = new LineSection(EditorInterface.THINKING, false, of(Basics.PARAGRAPH), of(THINKING_META));
 		public static final LineSection TEXT = new LineSection(EditorInterface.TEXT, false, of(Basics.PARAGRAPH),
 				of(NONE)); // replaced
-		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE);
-		public static final PrefixBlock TOOLRESULT = new PrefixBlock(EditorInterface.TOOLRESULT);
-		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN);
-		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS);
-		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT);
-		public static final PrefixBlock RESULT = new PrefixBlock(ProtocolParser.RESULT);
-		public static final AbstractNode[] ALL = of(THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
+		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE, false);
+		public static final PrefixBlock TOOLRESULT = new PrefixBlock(EditorInterface.TOOLRESULT, false);
+		public static final PrefixBlock REASONING_TOKEN = new PrefixBlock(ProtocolParser.REASONING_TOKEN, false);
+		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS, false);
+		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT, false);
+		public static final PrefixBlock RESULT = new PrefixBlock(ProtocolParser.RESULT, true);
+		public static final AbstractNode[] ALL = of(THINKING_META, THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
 	}
 
 	public static class Tools {
-		public static final PrefixBlock ANSWER = new PrefixBlock(AnswerCommand.CMD_ANSWER);
+		public static final PrefixBlock ANSWER = new PrefixBlock(AnswerCommand.CMD_ANSWER, true);
 		public static final LineSection CONTROL_REQUEST = new LineSection(EditorInterface.CONTROL_REQUEST, false, of(//
 				ANSWER, //
 				Basics.SCRIPTBLOCK), //
@@ -96,6 +97,7 @@ public class Elements {
 
 		private static final AbstractNode[] AGENT_ONLY = of( //
 				Tools.CONTROL_REQUEST, //
+				Agent.THINKING_META, //
 				Agent.THINKING, //
 				Agent.TEXT, //
 				Agent.TOOLUSE, //

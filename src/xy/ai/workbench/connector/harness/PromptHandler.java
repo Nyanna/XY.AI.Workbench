@@ -11,7 +11,6 @@ import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 
-import xy.ai.workbench.Activator;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.IncludeAdapter;
@@ -37,11 +36,11 @@ public final class PromptHandler {
 
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 
-	public PromptHandler(ConfigManager cfg, AdaptingConnector connector, EditorInterface editIfc,
+	public PromptHandler(ConfigManager cfg, AdaptingConnector connector, AIBatchManager batch, EditorInterface editIfc,
 			IncludeAdapter includeAdapter) {
 		this.connector = connector;
 		this.editIfc = editIfc;
-		this.batch = Activator.getDefault().batch;
+		this.batch = batch;
 		this.input = new PromptInputHandler(cfg, includeAdapter);
 	}
 

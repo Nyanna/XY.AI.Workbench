@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.connector.harness.SessionProcessor;
@@ -21,13 +22,13 @@ public class AISessionManager {
 	public final EditorInterface editIfc;
 	private final PromptHandler prompt;
 
-	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, MCPClient mcpClient,
+	public AISessionManager(ConfigManager cfg, AdaptingConnector connector, AIBatchManager batch, MCPClient mcpClient,
 			SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		editorListener = new ActiveEditorListener();
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		includeAdapter = new IncludeAdapter(editorListener);
-		prompt = new PromptHandler(cfg, connector, editIfc, includeAdapter);
+		prompt = new PromptHandler(cfg, connector, batch, editIfc, includeAdapter);
 		editorListener.setPrompt(prompt);
 		sessionProcessor.setAdapter(includeAdapter);
 		cfg.addInputModeObs(i -> prompt.updateInputStat(i));

@@ -3,6 +3,7 @@ package xy.ai.workbench.connector.deepseek;
 import java.net.http.HttpRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -205,7 +206,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 		@Override
 		public ObjectNode message(Role role, String text) {
-			return createMessage(mapper, role == Role.Agent ? RoleEnum.ASSISTANT : RoleEnum.USER, text);
+			RoleEnum roleEnum = role == Role.Agent ? RoleEnum.ASSISTANT : RoleEnum.USER;
+			return createMessage(mapper, roleEnum, text);
 		}
 
 		@Override
@@ -298,7 +300,17 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 				res.stats.outputToken = usage.getOutputTokens();
 			if (usage.getTotalTokens() != null)
 				res.stats.totalToken = usage.getTotalTokens();
+			var ind = usage.getInputTokensDetails();
+			if (ind != null) {
+				res.stats.cacheRead = Optional.ofNullable(ind.getCachedTokens()).orElse(0L);
+				res.stats.cacheCreate = Optional.ofNullable(ind.getCacheWriteTokens()).orElse(0L);
+			}
+			var outd = usage.getOutputTokensDetails();
+			if (outd != null)
+				res.stats.reasoningToken = Optional.ofNullable(outd.getReasoningTokens()).orElse(0L);
 		}
+		// tokens show upt in both, input and read from cache
+		res.stats.inputToken -= res.stats.cacheRead;
 
 		AnyOfInstructions instructions = part.getInstructions();
 		if (instructions != null && !instructions.isNull() && instructions.getOneOfInstructions() != null

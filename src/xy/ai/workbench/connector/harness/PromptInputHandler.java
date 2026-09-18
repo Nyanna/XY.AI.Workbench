@@ -167,8 +167,8 @@ public class PromptInputHandler {
 
 		FrozenConfig frozen = FrozenConfig.from(cfg);
 
-		if (inputs.isEmpty() && (frozen.systemPrompt == null || frozen.systemPrompt.isBlank()))
-			throw new IllegalArgumentException("Input and System Prompt Empty");
+		if (inputs.isEmpty() && (frozen.systemPrompt == null || frozen.systemPrompt.isBlank()) && detected[0] == null)
+			throw new IllegalArgumentException("Input and System Prompt and Command Empty");
 
 		if (lastTextEditor[0] == null && !batch)
 			throw new IllegalArgumentException("Result editor unset");
