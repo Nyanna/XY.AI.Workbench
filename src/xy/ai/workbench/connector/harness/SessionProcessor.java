@@ -334,7 +334,8 @@ public class SessionProcessor {
 			int[] range = fenceRange(lines, start);
 			if (range == null)
 				return start;
-			JsonNode node = readYaml(lines, range);
+			JsonNode node = "json".equalsIgnoreCase(fenceSpecifier(lines, range)) ? readJson(lines, range)
+					: readYaml(lines, range);
 			out.add(callbacks.toolResult(new ToolResult(node.path("id").asText(""), node.path("result").asText(""))));
 			return range[1] + 1;
 		}
@@ -367,6 +368,23 @@ public class SessionProcessor {
 				return node == null ? NullNode.getInstance() : node;
 			} catch (Exception e) {
 				throw new IllegalStateException("Invalid YAML block: " + e.getMessage(), e);
+			}
+		}
+
+		private String fenceSpecifier(String[] lines, int[] range) {
+			String head = lines[range[0]].strip();
+			return head.length() > 3 ? head.substring(3).strip() : "";
+		}
+
+		private JsonNode readJson(String[] lines, int[] range) {
+			StringBuilder body = new StringBuilder();
+			for (int j = range[0] + 1; j < range[1]; j++)
+				body.append(lines[j]).append("\n");
+			try {
+				JsonNode node = JSON.readTree(body.toString());
+				return node == null ? NullNode.getInstance() : node;
+			} catch (Exception e) {
+				throw new IllegalStateException("Invalid JSON block: " + e.getMessage(), e);
 			}
 		}
 

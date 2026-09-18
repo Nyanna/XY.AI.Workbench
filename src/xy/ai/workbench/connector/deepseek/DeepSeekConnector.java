@@ -199,6 +199,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	 */
 	private final class SessionRequestCallbacks implements SessionCallbacks<ObjectNode> {
 		private final ObjectMapper mapper;
+		private String lastCallId;
 
 		private SessionRequestCallbacks(ObjectMapper mapper) {
 			this.mapper = mapper;
@@ -215,7 +216,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			ObjectNode node = mapper.createObjectNode();
 			FunctionToolCall ftc = new FunctionToolCall(node);
 			ftc.setType(FunctionCallEnum.FUNCTION_CALL);
-			ftc.setId(call.id);
+			ftc.setId(lastCallId = call.id);
 			ftc.setCallId(call.id);
 			ftc.setName(call.name);
 			ftc.setArguments(call.arguments == null ? "{}" : call.arguments.toString());
@@ -228,7 +229,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			FunctionCallOutputItemParam out = new FunctionCallOutputItemParam(node);
 			out.setType(InputElementTypeEnum.FUNCTION_CALL_OUTPUT);
 			out.setCallId(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(result.id == null ? "" : result.id)));
+					TextNode.valueOf(result.id != null ?  result.id : lastCallId != null ? lastCallId : "")));
 			out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
 			return node;
 		}
