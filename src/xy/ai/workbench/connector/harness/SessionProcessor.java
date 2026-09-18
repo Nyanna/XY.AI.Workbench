@@ -336,8 +336,20 @@ public class SessionProcessor {
 				return start;
 			JsonNode node = "json".equalsIgnoreCase(fenceSpecifier(lines, range)) ? readJson(lines, range)
 					: readYaml(lines, range);
-			out.add(callbacks.toolResult(new ToolResult(node.path("id").asText(""), node.path("result").asText(""))));
+			out.add(callbacks.toolResult(new ToolResult(node.path("id").asText(""), compact(node.path("result")))));
 			return range[1] + 1;
+		}
+
+		private String compact(JsonNode result) {
+			if (result.isTextual())
+				return result.asText("");
+			if (result.isMissingNode() || result.isNull())
+				return "";
+			try {
+				return JSON.writeValueAsString(result);
+			} catch (Exception e) {
+				return result.toString();
+			}
 		}
 
 		/**

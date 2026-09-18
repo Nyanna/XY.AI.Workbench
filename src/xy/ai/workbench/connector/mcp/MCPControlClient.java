@@ -8,6 +8,7 @@ import java.util.Set;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.commands.CallCommand;
@@ -83,19 +84,28 @@ public class MCPControlClient {
 		}
 	}
 
-	public String prettyResult(JsonNode result) {
+	public String prettyToolResult(JsonNode id, JsonNode result) {
+		ObjectNode out = JsonUtil.mapper().createObjectNode();
+		out.set("id", id);
+		out.set("result", resultNode(result));
+		return "```json\n" + JsonUtil.pretty(out) + "\n```";
+	}
+
+	private JsonNode resultNode(JsonNode result) {
 		JsonNode structured = result.path("structuredContent");
 		if (!structured.isMissingNode() && !structured.isNull())
-			return "```json\n" + JsonUtil.pretty(structured) + "\n```";
+			return structured;
 
 		JsonNode content = result.path("content");
 		if (content.isArray())
-			return extractText(content);
+			return TextNode.valueOf(extractText(content));
 
-		return "```json\n" + JsonUtil.pretty(result) + "\n```";
+		return result;
 	}
 
-	/** Concatenates the "text" entries of an MCP "content" array (plain, unfenced). */
+	/**
+	 * Concatenates the "text" entries of an MCP "content" array (plain, unfenced).
+	 */
 	public String extractText(JsonNode content) {
 		StringBuilder sb = new StringBuilder();
 		for (JsonNode c : content) {
@@ -108,8 +118,8 @@ public class MCPControlClient {
 
 	/**
 	 * Ensures a "reason" argument is present when the tool's schema declares one,
-	 * since it is filtered out of the rendered template and never filled in by
-	 * the user.
+	 * since it is filtered out of the rendered template and never filled in by the
+	 * user.
 	 */
 	public JsonNode fillReason(JsonNode tool, JsonNode arguments) {
 		ObjectNode args = arguments != null && arguments.isObject() ? (ObjectNode) arguments
@@ -156,14 +166,14 @@ public class MCPControlClient {
 	}
 
 	/**
-	 * Renders an array value. Generically pre-fills a single example entry when
-	 * the array's item schema is an object with a "path" property, since that is
-	 * by far the most common list-of-paths shape (e.g. "- path: /path").
+	 * Renders an array value. Generically pre-fills a single example entry when the
+	 * array's item schema is an object with a "path" property, since that is by far
+	 * the most common list-of-paths shape (e.g. "- path: /path").
 	 */
 	/**
-	 * Renders an array value. Generically pre-fills a single example entry from
-	 * the array's item schema when it is an object with properties, instead of
-	 * just an empty "[]" — so the user sees the expected item shape directly.
+	 * Renders an array value. Generically pre-fills a single example entry from the
+	 * array's item schema when it is an object with properties, instead of just an
+	 * empty "[]" — so the user sees the expected item shape directly.
 	 */
 	@SuppressWarnings("deprecation")
 	private String renderArrayValue(JsonNode prop, String indent) {

@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.connector.claudecode.JsonUtil;
@@ -59,8 +60,8 @@ public class MCPClient {
 	}
 
 	/**
-	 * Renders a model-issued tool call as a fenced ```yaml block, in the same
-	 * shape used for MCPC tool call round-trips ({@code tool}/{@code arguments}).
+	 * Renders a model-issued tool call as a fenced ```yaml block, in the same shape
+	 * used for MCPC tool call round-trips ({@code tool}/{@code arguments}).
 	 */
 	public String renderToolCall(String name, JsonNode arguments) {
 		ObjectNode call = mapper.createObjectNode();
@@ -69,18 +70,45 @@ public class MCPClient {
 		return yaml.toYamlBlock(call);
 	}
 
-	public synchronized JsonNode callTool(String name, JsonNode arguments) {
+	public synchronized JsonNode callTool(String name, JsonNode arguments, JsonNode toolCallId) {
 		ensureConnected();
 		ObjectNode params = mapper.createObjectNode();
 		params.put("name", name);
 		params.set("arguments", arguments != null && arguments.isObject() ? arguments : mapper.createObjectNode());
 		JsonNode result = send(request("tools/call", params), true);
-		if (result.path("isError").asBoolean(false))
+
+		boolean hasToolCallId = toolCallId != null && !toolCallId.isMissingNode() && !toolCallId.isNull();
+		boolean isError = result.path("isError").asBoolean(false);
+		if (!hasToolCallId && isError)
 			throw new IllegalArgumentException("MCP Error: " + extractErrorText(result));
+
+		JsonNode id = hasToolCallId ? toolCallId : TextNode.valueOf("call_" + UUID.randomUUID());
+		return withId(isError ? result : unwrapPayload(result), id);
+	}
+
+	private JsonNode unwrapPayload(JsonNode result) {
+		JsonNode structured = result.path("structuredContent");
+		if (structured.isObject())
+			return structured;
+		JsonNode content = result.path("content");
+		if (content.isArray()) {
+			ObjectNode wrapped = mapper.createObjectNode();
+			wrapped.set("content", content);
+			return wrapped;
+		}
 		return result;
 	}
 
-	/** Concatenates the "text" entries of an MCP "content" array for an error message. */
+	private JsonNode withId(JsonNode payload, JsonNode id) {
+		ObjectNode out = mapper.createObjectNode();
+		out.set("id", id);
+		if (payload.isObject())
+			out.setAll((ObjectNode) payload);
+		else
+			out.set("value", payload);
+		return out;
+	}
+
 	private String extractErrorText(JsonNode result) {
 		JsonNode content = result.path("content");
 		if (!content.isArray())
@@ -123,10 +151,8 @@ public class MCPClient {
 		try {
 			String body = mapper.writeValueAsString(rpc);
 			HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(SERVER_URL)).timeout(TIMEOUT)
-					.header("Content-Type", "application/json")
-					.header("Accept", "application/json, text/event-stream")
-					.header("X-MCPC-TOOLS", "all")
-					.header("X-MCPC-CONTROL", "off")
+					.header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream")
+					.header("X-MCPC-TOOLS", "all").header("X-MCPC-CONTROL", "off")
 					.header("X-MCPC-SESSION-ID", sessionId);
 			if (mcpSessionId != null)
 				builder.header("Mcp-Session-Id", mcpSessionId);

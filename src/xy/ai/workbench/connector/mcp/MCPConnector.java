@@ -6,6 +6,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
@@ -78,8 +79,11 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 			throw new IllegalArgumentException("Tool call is missing the 'tool' field");
 		JsonNode tool = client.findTool(name);
 		JsonNode arguments = control.fillReason(tool, call.path("arguments"));
-		JsonNode result = client.callTool(name, arguments);
-		return new MCPResponse(id, EditorInterface.TOOLRESULT + "\n" + control.prettyResult(result));
+		JsonNode result = client.callTool(name, arguments, call.path("id"));
+
+		ObjectNode payload = ((ObjectNode) result).deepCopy();
+		JsonNode toolCallId = payload.remove("id");
+		return new MCPResponse(id, EditorInterface.TOOLRESULT + "\n" + control.prettyToolResult(toolCallId, payload));
 	}
 
 	@Override
