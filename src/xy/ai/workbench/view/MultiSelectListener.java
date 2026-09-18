@@ -6,11 +6,13 @@ import java.util.Arrays;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.List;
 
-public class MultiSelectListener {
+import xy.ai.workbench.view.session.Clearable;
+
+public class MultiSelectListener implements Clearable {
 	private ArrayList<Integer> selectedIndices = new ArrayList<>();
 	private final List component;
 
-	MultiSelectListener(List component) {
+	public MultiSelectListener(List component) {
 		this.component = component;
 		component.addListener(SWT.MouseDown, event -> {
 			int clickedIndex = component.getSelectionIndex();
@@ -25,7 +27,7 @@ public class MultiSelectListener {
 		});
 	}
 
-	void setSelection(String[] items) {
+	public void setSelection(String[] items) {
 		java.util.List<String> all = Arrays.asList(component.getItems());
 		selectedIndices.clear();
 		if (items != null)
@@ -38,7 +40,8 @@ public class MultiSelectListener {
 		component.setSelection(selection);
 	}
 
-	void clear() {
+	@Override
+	public void clear() {
 		selectedIndices.clear();
 		component.deselectAll();
 	}

@@ -1,4 +1,6 @@
 # TODO
+* besserer shortcuts für datei erstellen
+	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
 !keine absoluten pfade mehr sondern relative oder ein baseverzeichnis setzen um ddas nvironment stärker zu begrenzen
 !include file tool muss absoluten dateinamen mit in das toolresult geben
 !ja brauche session und inlcude persist um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
