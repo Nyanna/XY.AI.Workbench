@@ -1,4 +1,5 @@
 # TODO
+* die grep funktionen auf dateien + AST funktionieren besser als jeder LSP
 * besserer shortcuts für datei erstellen
 	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
 !keine absoluten pfade mehr sondern relative oder ein baseverzeichnis setzen um ddas nvironment stärker zu begrenzen

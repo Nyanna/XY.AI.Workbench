@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Objects;
 
 import xy.ai.workbench.commands.Command;
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.AbstractModelRequest;
 
-public class MCPRequest implements IModelRequest {
+public class MCPRequest extends AbstractModelRequest {
 	public final String id;
 	public final String systemPrompt;
 	public final List<String> tools;

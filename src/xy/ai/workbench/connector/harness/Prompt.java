@@ -6,6 +6,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
+import org.eclipse.ui.texteditor.ITextEditor;
+
 import xy.ai.workbench.commands.Command;
 
 /**
@@ -22,11 +24,13 @@ public class Prompt {
 	public final Path projectPath;
 	public final Command command;
 	public final String yamlBlock;
+	/** Editor active when the prompt was built; used as a hint for tag replacement. */
+	public final ITextEditor lastTextEditor;
 
 	private String sessionId;
 
 	public Prompt(List<String> inputs, boolean batch, FrozenConfig config, boolean processorEnabled,
-			String absoluteFilePath, Path projectPath, Command command, String yamlBlock) {
+			String absoluteFilePath, Path projectPath, Command command, String yamlBlock, ITextEditor lastTextEditor) {
 		if (config == null)
 			throw new IllegalArgumentException("config must not be null");
 		if (absoluteFilePath == null || absoluteFilePath.isBlank())
@@ -41,6 +45,7 @@ public class Prompt {
 		this.projectPath = projectPath;
 		this.command = command;
 		this.yamlBlock = yamlBlock;
+		this.lastTextEditor = lastTextEditor;
 	}
 
 	/** Deterministic session id: hash(absoluteFilePath, batch, config.getHash()). */

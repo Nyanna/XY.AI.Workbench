@@ -4,9 +4,9 @@ import java.nio.file.Path;
 
 import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.connector.harness.FrozenConfig;
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.AbstractModelRequest;
 
-public class CCRequest implements IModelRequest {
+public class CCRequest extends AbstractModelRequest {
 
 	public final String id;
 	public final String title;

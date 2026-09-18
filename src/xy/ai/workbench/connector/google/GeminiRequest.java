@@ -6,9 +6,9 @@ import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
 
 import xy.ai.workbench.Model;
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.AbstractModelRequest;
 
-public class GeminiRequest implements IModelRequest {
+public class GeminiRequest extends AbstractModelRequest {
 	public static final String CUSTOM_ID = "customId";
 	Model model;
 	List<Content> prompt;

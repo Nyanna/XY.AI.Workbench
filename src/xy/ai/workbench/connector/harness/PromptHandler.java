@@ -12,7 +12,6 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.IncludeAdapter;
@@ -38,12 +37,12 @@ public final class PromptHandler {
 
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 
-	public PromptHandler(ConfigManager cfg, AdaptingConnector connector, ActiveEditorListener editorListener,
-			EditorInterface editIfc, IncludeAdapter includeAdapter) {
+	public PromptHandler(ConfigManager cfg, AdaptingConnector connector, EditorInterface editIfc,
+			IncludeAdapter includeAdapter) {
 		this.connector = connector;
 		this.editIfc = editIfc;
 		this.batch = Activator.getDefault().batch;
-		this.input = new PromptInputHandler(cfg, editorListener, includeAdapter);
+		this.input = new PromptInputHandler(cfg, includeAdapter);
 	}
 
 	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
@@ -153,6 +152,7 @@ public final class PromptHandler {
 		sub.subTask("Preparing Call");
 		Prompt prompt = input.buildPrompt(display, batchFix);
 		IModelRequest req = connector.createRequest(prompt, sub);
+		req.setPrompt(prompt);
 		sub.worked(1);
 		return req;
 	}
@@ -161,6 +161,7 @@ public final class PromptHandler {
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
 		IModelResponse resp = connector.executeRequest(req, mon, job);
 		AIAnswer res = connector.convertResponse(resp, mon);
+		res.prompt = req.getPrompt();
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
 		return res;
 	}

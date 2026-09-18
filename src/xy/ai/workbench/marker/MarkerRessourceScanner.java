@@ -126,7 +126,10 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	 * @return true when at least one marker was displayed and the AI answer is
 	 *         persisted
 	 */
-	public boolean findAndReplaceMarkers(AIAnswer ans) {
+	public boolean findAndReplaceMarkers(AIAnswer ans, ITextEditor hint) {
+		if (hint != null && tryReplaceInEditor(ans, hint))
+			return true;
+
 		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
 		boolean res = false;
 		try {
@@ -255,6 +258,39 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	 * directly in the editor's doc. The editor is intentionally not saved so
 	 * that a parallel edit by the user is not disturbed.
 	 */
+	/** Tries to replace the tag directly in the given (hint) editor, e.g. the one active when the prompt was built. */
+	private boolean tryReplaceInEditor(AIAnswer ans, ITextEditor editor) {
+		boolean[] res = { false };
+		Display.getDefault().syncExec(() -> {
+			try {
+				IDocument doc = editor.getDocumentProvider() != null
+						? editor.getDocumentProvider().getDocument(editor.getEditorInput())
+						: null;
+				if (doc != null)
+					res[0] = replaceInDocument(ans, editor, doc);
+			} catch (RuntimeException e) {
+				// hint editor may have been closed/disposed in the meantime
+			}
+		});
+		return res[0];
+	}
+
+	private boolean replaceInDocument(AIAnswer ans, ITextEditor editor, IDocument doc) {
+		int[] range = findTagInDocument(doc, ans.id);
+		if (range == null)
+			return false;
+		try {
+			boolean autoFollow = isAutoFollowModeEnabled() && shouldAutoFollow(editor, doc);
+			doc.replace(range[0], range[1], ans.answer);
+			if (autoFollow)
+				moveCursorToLastLineStart(editor, doc);
+			return true;
+		} catch (BadLocationException e) {
+			LOG.error(e.getMessage(), e);
+			return false;
+		}
+	}
+
 	private boolean findAndReplaceInOpenEditors(AIAnswer ans) {
 		boolean[] res = { false };
 		Display.getDefault().syncExec(() -> {
@@ -263,19 +299,9 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 				if (doc == null)
 					continue;
 
-				int[] range = findTagInDocument(doc, ans.id);
-				if (range == null)
-					continue;
-
-				try {
-					boolean autoFollow = isAutoFollowModeEnabled() && shouldAutoFollow(editor, doc);
-					doc.replace(range[0], range[1], ans.answer);
+				if (replaceInDocument(ans, editor, doc)) {
 					res[0] = true;
-					if (autoFollow)
-						moveCursorToLastLineStart(editor, doc);
 					break;
-				} catch (BadLocationException e) {
-					LOG.error(e.getMessage(), e);
 				}
 			}
 		});

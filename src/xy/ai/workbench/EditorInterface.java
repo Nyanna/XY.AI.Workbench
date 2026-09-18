@@ -146,7 +146,8 @@ public class EditorInterface {
 	}
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
-		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans))
+		ITextEditor hint = ans.prompt != null ? ans.prompt.lastTextEditor : null;
+		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans, hint))
 			LOG.info("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}
 }

@@ -23,7 +23,6 @@ import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.InputMode;
@@ -47,15 +46,13 @@ public class PromptInputHandler {
 			Pattern.MULTILINE | Pattern.DOTALL);
 
 	private final ConfigManager cfg;
-	private final ActiveEditorListener editorListener;
 	private final IncludeAdapter includeAdapter;
 
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
 
-	public PromptInputHandler(ConfigManager cfg, ActiveEditorListener editorListener, IncludeAdapter includeAdapter) {
+	public PromptInputHandler(ConfigManager cfg, IncludeAdapter includeAdapter) {
 		this.cfg = cfg;
-		this.editorListener = editorListener;
 		this.includeAdapter = includeAdapter;
 	}
 
@@ -83,7 +80,7 @@ public class PromptInputHandler {
 	}
 
 	private String getInput(InputMode mode) {
-		ITextEditor textEditor = editorListener.getLastTextEditor();
+		ITextEditor textEditor = includeAdapter.getCurrentEditor();
 
 		switch (mode) {
 		case SystemPrompt:
@@ -154,9 +151,11 @@ public class PromptInputHandler {
 		Path[] projectPath = new Path[1];
 		Command[] detected = new Command[1];
 		String[] yamlBlock = new String[1];
+		ITextEditor[] lastTextEditor = new ITextEditor[1];
 
 		display.syncExec(() -> {
-			ITextEditor textEditor = editorListener.getLastTextEditor();
+			ITextEditor textEditor = includeAdapter.getCurrentEditor();
+			lastTextEditor[0] = textEditor;
 			absoluteFilePath[0] = resolveAbsoluteFilePath(textEditor);
 			projectPath[0] = resolveProjectPath(textEditor);
 
@@ -171,11 +170,11 @@ public class PromptInputHandler {
 		if (inputs.isEmpty() && (frozen.systemPrompt == null || frozen.systemPrompt.isBlank()))
 			throw new IllegalArgumentException("Input and System Prompt Empty");
 
-		if (editorListener.getLastTextEditor() == null && !batch)
+		if (lastTextEditor[0] == null && !batch)
 			throw new IllegalArgumentException("Result editor unset");
 
 		return new Prompt(inputs, batch, frozen, cfg.isInputEnabled(InputMode.Converter), absoluteFilePath[0],
-				projectPath[0], detected[0], yamlBlock[0]);
+				projectPath[0], detected[0], yamlBlock[0], lastTextEditor[0]);
 	}
 
 	// Selection mode: a real (multi-char) selection is a BlockSelection, an

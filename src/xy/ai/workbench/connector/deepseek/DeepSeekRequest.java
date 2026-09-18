@@ -1,9 +1,9 @@
 package xy.ai.workbench.connector.deepseek;
 
 import xy.ai.workbench.connector.openapi.deepseek.request.responses.post.json.AllOfBody;
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.AbstractModelRequest;
 
-public class DeepSeekRequest implements IModelRequest {
+public class DeepSeekRequest extends AbstractModelRequest {
 	public AllOfBody request;
 	private final String id;
 

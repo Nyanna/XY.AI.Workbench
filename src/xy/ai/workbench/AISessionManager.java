@@ -27,7 +27,7 @@ public class AISessionManager {
 		editorListener = new ActiveEditorListener();
 		editIfc = new EditorInterface(editorListener, connector, cfg);
 		includeAdapter = new IncludeAdapter(editorListener);
-		prompt = new PromptHandler(cfg, connector, editorListener, editIfc, includeAdapter);
+		prompt = new PromptHandler(cfg, connector, editIfc, includeAdapter);
 		editorListener.setPrompt(prompt);
 		sessionProcessor.setAdapter(includeAdapter);
 		cfg.addInputModeObs(i -> prompt.updateInputStat(i));

@@ -50,6 +50,10 @@ public class IncludeAdapter implements IIncludeAdapter {
 		this.editorListener = editorListener;
 	}
 
+	public ITextEditor getCurrentEditor() {
+		return editorListener.getLastTextEditor();
+	}
+
 	@Override
 	public String contextPrompt(String dir) {
 		IContainer container = resolveContainer(dir);
@@ -191,7 +195,7 @@ public class IncludeAdapter implements IIncludeAdapter {
 	}
 
 	private IContainer baseContainer() {
-		ITextEditor textEditor = editorListener.getLastTextEditor();
+		ITextEditor textEditor = getCurrentEditor();
 		if (textEditor != null) {
 			IEditorInput input = textEditor.getEditorInput();
 			if (input instanceof IFileEditorInput)

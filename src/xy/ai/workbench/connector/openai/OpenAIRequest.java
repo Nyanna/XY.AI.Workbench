@@ -2,9 +2,9 @@ package xy.ai.workbench.connector.openai;
 
 import com.openai.models.responses.ResponseCreateParams;
 
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.workbench.models.AbstractModelRequest;
 
-public class OpenAIRequest implements IModelRequest {
+public class OpenAIRequest extends AbstractModelRequest {
 	public ResponseCreateParams reqquest;
 
 	public OpenAIRequest(ResponseCreateParams params) {
