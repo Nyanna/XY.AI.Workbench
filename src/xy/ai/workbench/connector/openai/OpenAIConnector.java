@@ -187,10 +187,10 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 					answer.toolCall(fc.callId(), fc.name(), args);
 				} else if (out.isReasoning()) {
 					for (var cnt : out.asReasoning().summary())
-						answer.reasoning(cnt.text());
+						answer.reasoning(List.of(cnt.text()), "{}");
 					if (out.asReasoning().content().isPresent())
 						for (var cnt : out.asReasoning().content().get())
-							answer.reasoning(cnt.text());
+							answer.reasoning(List.of(cnt.text()), "{}");
 				} else {
 					LOG.info("Other output!");
 				}

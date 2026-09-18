@@ -5,13 +5,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 
 import xy.ai.workbench.EditorInterface;
@@ -20,16 +25,16 @@ import xy.ai.workbench.commands.CommandRegistry;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
- * Deterministic, symmetric text &lt;-&gt; message-list translator shared by
- * all connectors. Recursively resolves {@code [include](path)} directives
- * (removed as a line-level separator; the target is parsed independently
- * and spliced in at that point) and turns the resulting markdown into an
- * ordered sequence of {@link SessionCallbacks} invocations.
+ * Deterministic, symmetric text &lt;-&gt; message-list translator shared by all
+ * connectors. Recursively resolves {@code [include](path)} directives (removed
+ * as a line-level separator; the target is parsed independently and spliced in
+ * at that point) and turns the resulting markdown into an ordered sequence of
+ * {@link SessionCallbacks} invocations.
  *
  * <p>
- * Besides the generic {@code [include](path)} form, a handful of typed
- * include kinds delegate to an injected {@link IIncludeAdapter}, keeping this
- * class free of any host-specific (e.g. Eclipse) retrieval logic:
+ * Besides the generic {@code [include](path)} form, a handful of typed include
+ * kinds delegate to an injected {@link IIncludeAdapter}, keeping this class
+ * free of any host-specific (e.g. Eclipse) retrieval logic:
  * {@code [include contextprompt](dir)}, {@code [include files](selected|dir)},
  * {@code [include file](path)} and {@code [include search](files|matches)}.
  *
@@ -42,15 +47,15 @@ import xy.ai.workbench.connector.claudecode.YamlRenderer;
  * Unmarked paragraphs become a plain {@link SessionCallbacks#message}.
  *
  * <p>
- * A single instance is shared by all connectors (see {@code Activator}); it
- * is stateless besides the injected {@link IIncludeAdapter}.
+ * A single instance is shared by all connectors (see {@code Activator}); it is
+ * stateless besides the injected {@link IIncludeAdapter}.
  */
-public final class SessionProcessor {
+public class SessionProcessor {
 
-	private static final Pattern INCLUDE_LINE = Pattern
-			.compile("^(\\s*\\[include(?:\\s+\\w+)?\\]\\([^)]+\\)\\s*)+$");
+	private static final Pattern INCLUDE_LINE = Pattern.compile("^(\\s*\\[include(?:\\s+\\w+)?\\]\\([^)]+\\)\\s*)+$");
 	private static final Pattern INCLUDE_TAG = Pattern.compile("\\[include(?:\\s+(\\w+))?\\]\\(([^)]+)\\)");
 
+	private static final ObjectMapper JSON = new ObjectMapper();
 	private final YamlRenderer yaml = new YamlRenderer();
 	private IIncludeAdapter adapter;
 
@@ -58,7 +63,10 @@ public final class SessionProcessor {
 		this.adapter = adapter;
 	}
 
-	/** Processes each list entry as an independent root document (matches the {@code inputs} lists connectors build requests from). */
+	/**
+	 * Processes each list entry as an independent root document (matches the
+	 * {@code inputs} lists connectors build requests from).
+	 */
 	public <M> List<M> process(List<String> inputs, boolean enabled, SessionCallbacks<M> callbacks) {
 		List<M> out = new ArrayList<>();
 		if (inputs == null)
@@ -76,7 +84,10 @@ public final class SessionProcessor {
 		return out;
 	}
 
-	/** Processes a single root document, optionally anchored at {@code rootPath} for include-cycle detection against itself. */
+	/**
+	 * Processes a single root document, optionally anchored at {@code rootPath} for
+	 * include-cycle detection against itself.
+	 */
 	public <M> List<M> process(String input, boolean enabled, Path rootPath, SessionCallbacks<M> callbacks) {
 		List<M> out = new ArrayList<>();
 		if (!enabled) {
@@ -89,7 +100,10 @@ public final class SessionProcessor {
 		return out;
 	}
 
-	/** One recursive parse: a stateful pass producing callback-built messages in document order. */
+	/**
+	 * One recursive parse: a stateful pass producing callback-built messages in
+	 * document order.
+	 */
 	private final class Run<M> {
 		private final SessionCallbacks<M> callbacks;
 		private final List<M> out;
@@ -203,19 +217,92 @@ public final class SessionProcessor {
 					|| CommandRegistry.detect(s) != null;
 		}
 
+		/**
+		 * A reasoning block is delimited only by its own markers - repeated Thinking:
+		 * lines continue it, Thinking Meta: mandatorily ends it - so its end is never
+		 * inferred from an unrelated marker.
+		 */
 		private int consumeReasoning(String[] lines, int start) {
-			StringBuilder body = new StringBuilder();
+			List<String> texts = new ArrayList<>();
+			String meta = null;
 			int i = start;
-			while (i < lines.length && !isMarkerLine(lines[i])) {
-				if (body.length() > 0)
-					body.append("\n");
-				body.append(lines[i]);
+			while (i < lines.length) {
+				StringBuilder body = new StringBuilder();
+				while (i < lines.length) {
+					String stripped = lines[i].strip();
+					if (stripped.equals(EditorInterface.THINKING) || stripped.startsWith(EditorInterface.THINKING_META))
+						break;
+					if (body.length() > 0)
+						body.append("\n");
+					body.append(lines[i]);
+					i++;
+				}
+				texts.add(body.toString().strip());
+				if (i >= lines.length)
+					break; // malformed: missing the mandatory Thinking Meta terminator
+				String stripped = lines[i].strip();
 				i++;
+				if (stripped.startsWith(EditorInterface.THINKING_META)) {
+					meta = stripped.substring(EditorInterface.THINKING_META.length()).strip();
+					break;
+				}
+				// else: another Thinking: line starts the next text entry
 			}
-			String text = body.toString().strip();
-			if (!text.isEmpty())
-				out.add(callbacks.reasoning(role, text));
+			if (meta != null)
+				meta = substituteReasoningPlaceholders(meta, texts);
+			boolean hasText = texts.stream().anyMatch(t -> !t.isEmpty());
+			if (hasText || meta != null)
+				out.add(callbacks.reasoning(role, texts, meta));
 			return i;
+		}
+
+		/**
+		 * Parses {@code meta} as JSON, walks it generically (no schema knowledge
+		 * needed) and replaces every string node whose value exactly matches
+		 * {@link SessionRenderer#reasoningPlaceholder(int)} with the corresponding
+		 * entry of {@code texts}, then serializes the result back to a string.
+		 */
+		private String substituteReasoningPlaceholders(String meta, List<String> texts) {
+			try {
+				JsonNode node = JSON.readTree(meta);
+				substituteInPlace(node, texts);
+				return node.toString();
+			} catch (Exception e) {
+				throw new IllegalStateException("Invalid Thinking Meta JSON: " + e.getMessage(), e);
+			}
+		}
+
+		private void substituteInPlace(JsonNode node, List<String> texts) {
+			if (node.isObject()) {
+				ObjectNode obj = (ObjectNode) node;
+				for (@SuppressWarnings("deprecation")
+				Iterator<Map.Entry<String, JsonNode>> it = obj.fields(); it.hasNext();) {
+					Map.Entry<String, JsonNode> entry = it.next();
+					int idx = placeholderIndex(entry.getValue(), texts);
+					if (idx >= 0)
+						obj.put(entry.getKey(), texts.get(idx));
+					else
+						substituteInPlace(entry.getValue(), texts);
+				}
+			} else if (node.isArray()) {
+				ArrayNode arr = (ArrayNode) node;
+				for (int j = 0; j < arr.size(); j++) {
+					int idx = placeholderIndex(arr.get(j), texts);
+					if (idx >= 0)
+						arr.set(j, TextNode.valueOf(texts.get(idx)));
+					else
+						substituteInPlace(arr.get(j), texts);
+				}
+			}
+		}
+
+		private int placeholderIndex(JsonNode value, List<String> texts) {
+			if (!value.isTextual())
+				return -1;
+			for (int idx = 0; idx < texts.size(); idx++)
+				if (SessionRenderer.reasoningPlaceholder(idx).equals(value.asText()))
+					return idx;
+			return -1;
 		}
 
 		private int consumeText(String[] lines, int start) {
@@ -252,7 +339,10 @@ public final class SessionProcessor {
 			return range[1] + 1;
 		}
 
-		/** Finds the fenced ``` block immediately following a marker line; returns [startLine, endLine] (both fence delimiters), or null. */
+		/**
+		 * Finds the fenced ``` block immediately following a marker line; returns
+		 * [startLine, endLine] (both fence delimiters), or null.
+		 */
 		private int[] fenceRange(String[] lines, int from) {
 			int i = from;
 			while (i < lines.length && lines[i].isBlank())
@@ -303,7 +393,10 @@ public final class SessionProcessor {
 			}
 		}
 
-		/** Generic {@code [include](path)}: parses the target file as a nested, independent document. */
+		/**
+		 * Generic {@code [include](path)}: parses the target file as a nested,
+		 * independent document.
+		 */
 		private void includePath(String pathText, List<Path> chain) {
 			Path path = Paths.get(pathText).toAbsolutePath().normalize();
 			if (chain.contains(path))
@@ -349,8 +442,7 @@ public final class SessionProcessor {
 		}
 
 		private String renderMatches(List<IIncludeAdapter.Match> matches) {
-			ArrayNode arr = JsonNodeFactory.instance
-					.arrayNode();
+			ArrayNode arr = JsonNodeFactory.instance.arrayNode();
 			for (IIncludeAdapter.Match match : matches) {
 				com.fasterxml.jackson.databind.node.ObjectNode node = arr.addObject();
 				node.put("file", match.file);

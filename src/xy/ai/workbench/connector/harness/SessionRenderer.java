@@ -1,5 +1,7 @@
 package xy.ai.workbench.connector.harness;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -7,25 +9,34 @@ import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
- * Deterministic, symmetric text encoding for session messages: the markers
- * and fenced YAML blocks produced here are exactly what {@link SessionProcessor}
- * recognizes on the way back in, so a model answer inserted into the document
- * and reprocessed yields byte-identical messages (stable prefix caching).
+ * Renders {@link SessionCallbacks} turns back into the plain-text session format
+ * consumed by {@link SessionProcessor}.
  */
-public final class SessionRenderer {
-
+public class SessionRenderer {
 	private static final ObjectMapper MAPPER = new ObjectMapper();
 	private static final YamlRenderer YAML = new YamlRenderer();
+	private static final String REASONING_TEXT_PLACEHOLDER = "{{reasoning-text-";
 
-	private SessionRenderer() {
+	public static String reasoningPlaceholder(int index) {
+		return REASONING_TEXT_PLACEHOLDER + index + "}}";
 	}
 
 	public static String text(String text) {
 		return text == null ? "" : text.strip();
 	}
 
-	public static String reasoning(String text) {
-		return EditorInterface.THINKING + "\n" + (text == null ? "" : text.strip());
+	public static String reasoning(List<String> texts, String meta) {
+		List<String> use = texts == null || texts.isEmpty() ? List.of("") : texts;
+		StringBuilder sb = new StringBuilder();
+		for (String text : use) {
+			if (sb.length() > 0)
+				sb.append("\n");
+			sb.append(EditorInterface.THINKING).append("\n").append(text == null ? "" : text.strip());
+		}
+		sb.append("\n").append(EditorInterface.THINKING_META);
+		if (meta != null && !meta.isBlank())
+			sb.append(" ").append(meta);
+		return sb.toString();
 	}
 
 	public static String toolCall(ToolCall call) {

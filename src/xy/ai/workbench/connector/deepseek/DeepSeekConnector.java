@@ -1,6 +1,7 @@
 package xy.ai.workbench.connector.deepseek;
 
 import java.net.http.HttpRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -36,9 +37,9 @@ import xy.ai.workbench.connector.openapi.deepseek.components.InputElementContent
 import xy.ai.workbench.connector.openapi.deepseek.components.ModelResponseProperties;
 import xy.ai.workbench.connector.openapi.deepseek.components.OneOfContentElement;
 import xy.ai.workbench.connector.openapi.deepseek.components.OutputMessage;
+import xy.ai.workbench.connector.openapi.deepseek.components.ElementContentList;
 import xy.ai.workbench.connector.openapi.deepseek.components.ReasoningItem;
-import xy.ai.workbench.connector.openapi.deepseek.components.SummaryList;
-import xy.ai.workbench.connector.openapi.deepseek.components.SummaryTextContent;
+import xy.ai.workbench.connector.openapi.deepseek.components.ReasoningTextContent;
 import xy.ai.workbench.connector.openapi.deepseek.enums.TypeEnum;
 import xy.ai.workbench.connector.openapi.deepseek.lists.EasyInputMessage;
 import xy.ai.workbench.connector.openapi.deepseek.lists.OneOfContent;
@@ -64,6 +65,7 @@ import xy.ai.workbench.connector.harness.Role;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
 import xy.ai.workbench.connector.harness.SessionProcessor;
+import xy.ai.workbench.connector.harness.SessionRenderer;
 import xy.ai.workbench.connector.harness.ToolCall;
 import xy.ai.workbench.connector.harness.ToolResult;
 import xy.ai.workbench.connector.openapi.deepseek.components.FunctionCallEnum;
@@ -228,6 +230,17 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
 			return node;
 		}
+
+		@Override
+		public ObjectNode reasoning(Role role, List<String> texts, String meta) {
+			if (meta != null && !meta.isBlank())
+				try {
+					return (ObjectNode) mapper.readTree(meta);
+				} catch (Exception e) {
+					LOG.error("Invalid Thinking Meta JSON, falling back to plain text: " + e.getMessage());
+				}
+			return message(role, SessionRenderer.reasoning(texts, null));
+		}
 	}
 
 	private EffortEnum toEffort(Reasoning reasoning) {
@@ -325,14 +338,15 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 						}
 						answer.toolCall(call.getCallId(), call.getName(), args);
 					} else if (el.isReasoningItem()) {
-						// Reasoning is emitted directly as text (round-trippable via the THINKING
-						// marker); the API itself ignores replayed reasoning_content on the next turn.
 						ReasoningItem reasoning = el.getReasoningItem();
-						SummaryList summary = reasoning.getSummary();
-						for (int j = 0; summary != null && j < summary.size(); j++) {
-							SummaryTextContent txt = summary.get(j);
-							answer.reasoning(txt.getText());
+						ElementContentList content = reasoning.getContent();
+						List<String> texts = new ArrayList<>();
+						for (int j = 0; content != null && j < content.size(); j++) {
+							ReasoningTextContent txt = content.get(j);
+							texts.add(txt.getText() == null ? "" : txt.getText());
+							txt.setText(SessionRenderer.reasoningPlaceholder(j));
 						}
+						answer.reasoning(texts, reasoning.node().toString());
 					} else {
 						LOG.info("Other output!");
 					}

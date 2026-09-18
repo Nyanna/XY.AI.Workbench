@@ -40,6 +40,7 @@ public class EditorInterface {
 
 	public static final String TEXT = "Text:";
 	public static final String THINKING = "Thinking:";
+	public static final String THINKING_META = "Thinking Meta:";
 	public static final String TOOLUSE = "Tool:";
 	public static final String TOOLRESULT = "ToolResult:";
 	public static final String CONTROL_REQUEST = "Control Request:";

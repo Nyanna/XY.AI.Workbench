@@ -1,5 +1,7 @@
 package xy.ai.workbench.connector.harness;
 
+import java.util.List;
+
 /**
  * Connector callback set invoked by {@link SessionProcessor}, in document
  * order, while turning session text into connector-native message objects
@@ -14,9 +16,15 @@ public interface SessionCallbacks<M> {
 	/** Plain text turn: normal user input or ordinary agent text. */
 	M message(Role role, String text);
 
-	/** Reasoning/thinking text emitted by a previous agent turn. */
-	default M reasoning(Role role, String text) {
-		return message(role, SessionRenderer.reasoning(text));
+	/**
+	 * A list of reasoning text entries (typically one) together with opaque,
+	 * connector-specific metadata required to replay them byte-exact; each entry
+	 * corresponds to a {@link SessionRenderer#reasoningPlaceholder(int)} occurring
+	 * exactly once in {@code meta}. A connector without such a schema may ignore
+	 * {@code meta} and fall back to {@link #reasoning(Role, String)}.
+	 */
+	default M reasoning(Role role, List<String> texts, String meta) {
+		return message(role, SessionRenderer.reasoning(texts, "{}"));
 	}
 
 	/** A tool invocation, freshly requested or replayed from a previous turn. */

@@ -1,5 +1,7 @@
 package xy.ai.workbench.connector.harness;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
@@ -24,10 +26,11 @@ public final class SessionAnswerBuilder {
 		return separate().appendRaw(SessionRenderer.text(text));
 	}
 
-	public SessionAnswerBuilder reasoning(String text) {
-		if (text == null || text.isBlank())
+	public SessionAnswerBuilder reasoning(List<String> texts, String meta) {
+		boolean noText = texts == null || texts.stream().allMatch(t -> t == null || t.isBlank());
+		if (noText && (meta == null || meta.isBlank()))
 			return this;
-		return separate().appendRaw(SessionRenderer.reasoning(text));
+		return separate().appendRaw(SessionRenderer.reasoning(texts, meta));
 	}
 
 	public SessionAnswerBuilder toolCall(String id, String name, JsonNode arguments) {
