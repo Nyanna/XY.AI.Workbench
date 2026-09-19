@@ -21,6 +21,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IURIEditorInput;
+import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.ConfigManager;
@@ -113,9 +114,12 @@ public class PromptInputHandler {
 			break;
 		case Converter:
 			if (textEditor != null) {
-				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-				if (doc != null)
-					return doc.get();
+				IDocumentProvider provider = textEditor.getDocumentProvider();
+				if (provider != null) {
+					IDocument doc = provider.getDocument(textEditor.getEditorInput());
+					if (doc != null)
+						return doc.get();
+				}
 			}
 			break;
 		case Tools:
