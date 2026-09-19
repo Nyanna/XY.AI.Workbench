@@ -1,5 +1,6 @@
 package xy.ai.workbench;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class Model {
@@ -32,7 +33,7 @@ public class Model {
 	 * for explicit id-based lookups (e.g. restoring a persisted model reference)
 	 */
 	public boolean matches(KeyPattern provider, String apiName) {
-		return cap.getKeyPattern() == provider && java.util.Objects.equals(this.apiName, apiName);
+		return cap.getKeyPattern() == provider && Objects.equals(this.apiName, apiName);
 	}
 
 	public static enum KeyPattern {

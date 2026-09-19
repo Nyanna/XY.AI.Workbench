@@ -26,7 +26,7 @@ public class AISessionManager {
 			SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		editorListener = new ActiveEditorListener();
-		editIfc = new EditorInterface(editorListener, connector, cfg);
+		editIfc = new EditorInterface(editorListener, connector);
 		includeAdapter = new IncludeAdapter(editorListener);
 		prompt = new PromptHandler(cfg, connector, batch, editIfc, includeAdapter);
 		editorListener.setPrompt(prompt);

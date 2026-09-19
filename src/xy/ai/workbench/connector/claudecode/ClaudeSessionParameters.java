@@ -1,6 +1,9 @@
 package xy.ai.workbench.connector.claudecode;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,17 +19,45 @@ public class ClaudeSessionParameters extends SessionParameters {
 			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
 	private static final String COMMAND = "claude";
 	private String title;
+	public final String cliProfile;
+	private String hash;
 
 	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
-		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, filePath, null, null,
-				null);
+		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cacheMode, filePath, null, null, null);
+		this.cliProfile = cliProfile;
 	}
 
 	public static ClaudeSessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
 			List<String> tools) {
+		// hashcode cliProfile
 		return new ClaudeSessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(),
 				cfg.getProfile(), cfg.getKeys(), cfg.getCacheMode(), filePath);
+	}
+
+	@Override
+	public String getHash() {
+		if (hash == null)
+			hash = computeHash();
+		return hash;
+	}
+
+	protected String computeHash() {
+		String input = cliProfile + "|" + super.computeHash();
+		try {
+			MessageDigest md = MessageDigest.getInstance("MD5");
+			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
+			StringBuilder sb = new StringBuilder();
+			for (byte b : bytes)
+				sb.append(String.format("%02x", b));
+			return sb.substring(0, 8);
+		} catch (NoSuchAlgorithmException e) {
+			// Stable fallback (no external dependency)
+			long h = 0;
+			for (char c : input.toCharArray())
+				h = h * 31L + c;
+			return String.format("%08x", h & 0xFFFFFFFFL);
+		}
 	}
 
 	public List<String> buildBaseCommand() {

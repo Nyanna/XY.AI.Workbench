@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
@@ -83,25 +82,14 @@ import xy.ai.workbench.models.AIAnswer;
  * relying on an echoed server-side identifier.
  */
 public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeekResponse> {
-
 	private static final String BASE_URL = "https://api.deepseek.com";
 
-	private ResponsesClientImpl client;
 	private final MCPClient mcpClient;
 	private final SessionProcessor sessionProcessor;
 
-	public DeepSeekConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public DeepSeekConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
-		cfg.addKeyObs(k -> {
-			if (getSupportedKeyPattern().matches(k))
-				this.client = new ResponsesClientImpl(BASE_URL) {
-					@Override
-					protected void customizeRequest(HttpRequest.Builder builder) {
-						builder.header("Authorization", "Bearer " + k);
-					}
-				};
-		}, true);
 	}
 
 	@Override
@@ -265,6 +253,12 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 	@Override
 	public DeepSeekResponse executeRequest(DeepSeekRequest req, IProgressMonitor mon, Job job) {
+		var client = new ResponsesClientImpl(BASE_URL) {
+			@Override
+			protected void customizeRequest(HttpRequest.Builder builder) {
+				builder.header("Authorization", "Bearer " + req.getPrompt().config.keys);
+			}
+		};
 		Responses resp = client.createResponse(req.request);
 		return new DeepSeekResponse(resp, req.getID());
 	}

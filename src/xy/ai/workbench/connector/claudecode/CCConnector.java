@@ -67,7 +67,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		String relativeFilePath = req.arg.project.relativize(Paths.get(req.arg.absoluteFilePath)).toString();
 		FrozenConfig fc = req.config;
 		ClaudeSessionParameters params = new ClaudeSessionParameters(req.arg.project, fc.systemPrompt, fc.tools,
-				fc.model, fc.reasoning, fc.profile, fc.cliProfile, fc.cacheMode, relativeFilePath);
+				fc.model, fc.reasoning, fc.profile, fc.keys, fc.cacheMode, relativeFilePath);
 		params.setTitle(req.title);
 
 		Command command = req.arg.command;

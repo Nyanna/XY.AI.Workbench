@@ -9,7 +9,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
-import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.models.messages.ContentBlock;
@@ -23,7 +22,6 @@ import com.anthropic.models.messages.MessageCreateParams.Builder;
 import com.anthropic.models.messages.Metadata;
 import com.anthropic.models.messages.ThinkingConfigEnabled;
 
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
@@ -36,18 +34,13 @@ import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeResponse> {
-	private AnthropicClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
-	public ClaudeConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public ClaudeConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
-		cfg.addKeyObs(k -> {
-			if (getSupportedKeyPattern().matches(k))
-				this.client = AnthropicOkHttpClient.builder().apiKey(k).build();
-		}, true);
 	}
 
 	@Override
@@ -121,6 +114,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 
 	@Override
 	public ClaudeResponse executeRequest(ClaudeRequest req, IProgressMonitor mon, Job job) {
+		var client = AnthropicOkHttpClient.builder().apiKey(req.getPrompt().config.keys).build();
 		Message message = client.messages().create(req.params);
 		return new ClaudeResponse(message, req.getID());
 	}

@@ -20,7 +20,6 @@ public class SessionParameters {
 	public final Model model;
 	public final Reasoning reasoning;
 	public final AgentProfile agentProfile;
-	public final String cliProfile;
 	public final String filePath;
 	public final CacheMode cacheMode;
 	public final Double topP;
@@ -29,8 +28,8 @@ public class SessionParameters {
 	private String hash;
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
-			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath, Double topP,
-			Double temperature, Integer maxOutputTokens) {
+			AgentProfile agentProfile, CacheMode cacheMode, String filePath, Double topP, Double temperature,
+			Integer maxOutputTokens) {
 		if (cwd == null)
 			throw new IllegalStateException("Work directory (cwd) not set");
 		if (model == null)
@@ -46,7 +45,6 @@ public class SessionParameters {
 		this.model = model;
 		this.reasoning = reasoning;
 		this.agentProfile = agentProfile;
-		this.cliProfile = cliProfile;
 		this.filePath = filePath;
 		this.cacheMode = cacheMode;
 		this.topP = topP;
@@ -60,11 +58,11 @@ public class SessionParameters {
 		return hash;
 	}
 
-	private String computeHash() {
+	protected String computeHash() {
 		String input = String.join(",", tools) + "|" + cwd.toString() + "|" + model.apiName + "|" + reasoning.name()
-				+ "|" + (agentProfile != null ? agentProfile.name : "") + "|" + cliProfile + "|"
-				+ (filePath != null ? filePath : "") + (topP != null ? topP : "")
-				+ (temperature != null ? temperature : "") + (maxOutputTokens != null ? maxOutputTokens : "");
+				+ "|" + (agentProfile != null ? agentProfile.name : "") + "|" + (filePath != null ? filePath : "")
+				+ (topP != null ? topP : "") + (temperature != null ? temperature : "")
+				+ (maxOutputTokens != null ? maxOutputTokens : "");
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

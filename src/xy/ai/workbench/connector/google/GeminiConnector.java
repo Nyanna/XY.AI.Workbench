@@ -26,7 +26,6 @@ import com.google.genai.types.Part;
 import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
 
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model.KeyPattern;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,20 +41,13 @@ import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.models.AIAnswer;
 
 public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
-	private Client client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
-	public GeminiConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public GeminiConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
-		cfg.addKeyObs(k -> {
-			if (getSupportedKeyPattern().matches(k))
-				this.client = Client.builder()//
-						.apiKey(k)//
-						.build();
-		}, true);
 	}
 
 	@Override
@@ -152,6 +144,9 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 
 	@Override
 	public GeminiResponse executeRequest(GeminiRequest req, IProgressMonitor mon, Job job) {
+		var client = Client.builder()//
+				.apiKey(req.getPrompt().config.keys)//
+				.build();
 		GenerateContentResponse res = client.models.generateContent( //
 				req.model.apiName, //
 				req.prompt, //

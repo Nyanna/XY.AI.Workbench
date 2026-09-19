@@ -9,7 +9,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
-import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
 import com.openai.core.http.HttpResponseFor;
@@ -30,7 +29,6 @@ import com.openai.models.responses.ResponseUsage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
@@ -43,18 +41,13 @@ import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.models.AIAnswer;
 
 public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
-	private OpenAIClient client;
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final SessionProcessor sessionProcessor;
 
-	public OpenAIConnector(ConfigManager cfg, MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public OpenAIConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
-		cfg.addKeyObs(k -> {
-			if (getSupportedKeyPattern().matches(k))
-				this.client = OpenAIOkHttpClient.builder().apiKey(k).build();
-		}, true);
 	}
 
 	@Override
@@ -116,6 +109,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		ResponseCreateParams params = ((OpenAIRequest) req).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
+		var client = OpenAIOkHttpClient.builder().apiKey(req.getPrompt().config.keys).build();
 		HttpResponseFor<Response> rwResponse = client.responses().withRawResponse().create(params);
 		Response resp = rwResponse.parse();
 

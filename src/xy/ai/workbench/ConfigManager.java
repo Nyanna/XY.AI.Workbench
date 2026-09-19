@@ -300,8 +300,9 @@ public class ConfigManager {
 
 	public void addKeyObs(Consumer<String> obs, boolean initialize) {
 		keyObs.add(obs);
-		if (initialize)
-			obs.accept(cfg.keys);
+		if (initialize && cfg.keys != null)
+			for (String key : cfg.keys.split(","))
+				obs.accept(key);
 	}
 
 	public void addModelObs(Consumer<Model> obs, boolean initialize) {

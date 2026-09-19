@@ -47,18 +47,17 @@ public class EditorInterface {
 
 	private final ActiveEditorListener editorListener;
 	private final AdaptingConnector connector;
-	private final ConfigManager cfg;
 
-	public EditorInterface(ActiveEditorListener editorListener, AdaptingConnector connector, ConfigManager cfg) {
+	public EditorInterface(ActiveEditorListener editorListener, AdaptingConnector connector) {
 		this.editorListener = editorListener;
 		this.connector = connector;
-		this.cfg = cfg;
 	}
 
 	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
 		display.syncExec(() -> {
 			ITextEditor textEditor = editorListener.getLastTextEditor();
-			if (OutputMode.New_File.equals(cfg.getOuputMode())) {
+			OutputMode outputMode = req.getPrompt().config.outputMode;
+			if (OutputMode.New_File.equals(outputMode)) {
 
 				IEditorInput editorInput = textEditor.getEditorInput();
 				IFile currentFile;
@@ -112,7 +111,7 @@ public class EditorInterface {
 
 				try {
 					String tag = generateTag(req);
-					switch (cfg.getOuputMode()) {
+					switch (outputMode) {
 					case Chat:
 						String replace = String.format("\n%s\n%s\n%s\n", AGENT, tag, USER);
 						doc.replace(doc.getLength(), 0, replace);

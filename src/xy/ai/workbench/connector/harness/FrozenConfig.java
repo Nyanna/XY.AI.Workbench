@@ -22,6 +22,7 @@ import xy.ai.workbench.Reasoning;
 public class FrozenConfig {
 
 	public Model model;
+	public String keys;
 	public final AgentProfile profile;
 	public final Reasoning reasoning;
 	public final List<String> tools;
@@ -31,14 +32,14 @@ public class FrozenConfig {
 	public final Long maxOutputTokens;
 	public final Integer reasoningBudget;
 	public final CacheMode cacheMode;
-	public final String cliProfile;
 	public final OutputMode outputMode;
 
 	private String hash;
 
-	private FrozenConfig(Model model, AgentProfile profile, Reasoning reasoning, List<String> tools,
+	private FrozenConfig(String keys, Model model, AgentProfile profile, Reasoning reasoning, List<String> tools,
 			String systemPrompt, Double topP, Double temperature, Long maxOutputTokens, Integer reasoningBudget,
-			CacheMode cacheMode, String cliProfile, OutputMode outputMode) {
+			CacheMode cacheMode, OutputMode outputMode) {
+		this.keys = keys;
 		this.model = model;
 		this.profile = profile;
 		this.reasoning = reasoning;
@@ -49,7 +50,6 @@ public class FrozenConfig {
 		this.maxOutputTokens = maxOutputTokens;
 		this.reasoningBudget = reasoningBudget;
 		this.cacheMode = cacheMode;
-		this.cliProfile = cliProfile;
 		this.outputMode = outputMode;
 	}
 
@@ -73,9 +73,9 @@ public class FrozenConfig {
 		String[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getTools() : null;
 		List<String> tools = List.of(rawTools != null ? rawTools : new String[0]);
 
-		return new FrozenConfig(cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt,
-				cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
-				cfg.getCacheMode(), cfg.getKeys(), cfg.getOuputMode());
+		return new FrozenConfig(cfg.getKeys(), cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools,
+				systemPrompt, cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
+				cfg.getCacheMode(), cfg.getOuputMode());
 	}
 
 	/**

@@ -152,14 +152,17 @@ public final class PromptHandler {
 		SubMonitor sub = SubMonitor.convert(mon, "Preparing Call", 1);
 		sub.subTask("Preparing Call");
 		Prompt prompt = input.buildPrompt(display, batchFix);
-		preprocessCommands(prompt);
+		preprocessPrompt(prompt);
 		IModelRequest req = connector.createRequest(prompt, sub);
 		req.setPrompt(prompt);
 		sub.worked(1);
 		return req;
 	}
 
-	private void preprocessCommands(Prompt prompt) {
+	private void preprocessPrompt(Prompt prompt) {
+		for (String key : prompt.config.keys.split(","))
+			if (prompt.config.model.cap.acceptsKey(key))
+				prompt.config.keys = key;
 		if (prompt.arg.command instanceof CallCommand)
 			prompt.config.model = Model.MCP_TOOLS;
 	}

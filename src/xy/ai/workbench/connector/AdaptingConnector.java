@@ -59,12 +59,12 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
 			SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
-		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg, mcpClient, sessionProcessor));
-		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(cfg, mcpClient, sessionProcessor));
-		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(cfg, mcpClient, sessionProcessor));
-		deepseek = new DeepSeekConnector(cfg, mcpClient, sessionProcessor);
+		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(mcpClient, sessionProcessor));
+		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(mcpClient, sessionProcessor));
+		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(mcpClient, sessionProcessor));
+		deepseek = new DeepSeekConnector(mcpClient, sessionProcessor);
 		claudeCode = new CCConnector(sessionManager);
-		mcp = new MCPConnector(cfg, mcpClient);
+		mcp = new MCPConnector(mcpClient);
 		newBatch = new NewBatchConnector();
 	}
 

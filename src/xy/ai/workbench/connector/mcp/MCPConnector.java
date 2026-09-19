@@ -8,7 +8,6 @@ import org.eclipse.core.runtime.jobs.Job;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.commands.CallCommand;
@@ -24,11 +23,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	private final MCPClient client;
 	private final MCPControlClient control = new MCPControlClient();
 
-	@SuppressWarnings("unused")
-	private final ConfigManager cfg;
-
-	public MCPConnector(ConfigManager cfg, MCPClient client) {
-		this.cfg = cfg;
+	public MCPConnector(MCPClient client) {
 		this.client = client;
 	}
 
