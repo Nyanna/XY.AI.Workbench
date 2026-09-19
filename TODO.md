@@ -18,7 +18,7 @@
 	* session processor soll frontmatter ignorieren
 ! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
 	- result zeile muss serialisieren/deserialisieren für sicheren zugriff statt parsing
-
+* JavaParser für java AST
 
 ## Other
 !include file tool muss absoluten dateinamen mit in das toolresult geben
