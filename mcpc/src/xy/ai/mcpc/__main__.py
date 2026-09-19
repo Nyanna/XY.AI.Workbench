@@ -2,6 +2,7 @@
 import argparse
 import dataclasses
 import logging
+import sys
 from pathlib import Path
 from xy.ai import mcpc
 from xy.ai.mcpc.config import ServerConfig
@@ -30,10 +31,33 @@ def build_parser() -> argparse.ArgumentParser:
         help='Disable the WebSocket transport')
     return parser
 
+class _MaxLevelFilter(logging.Filter):
+
+    def __init__(self, max_level: int) -> None:
+        super().__init__()
+        self.max_level = max_level
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < self.max_level
+
+def _configure_logging(level: int) -> None:
+    formatter = logging.Formatter('%(asctime)s %(levelname)-7s %(name)s: %(message)s')
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.addFilter(_MaxLevelFilter(logging.WARNING))
+    stdout_handler.setFormatter(formatter)
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(formatter)
+    root = logging.getLogger()
+    root.setLevel(level)
+    root.handlers.clear()
+    root.addHandler(stdout_handler)
+    root.addHandler(stderr_handler)
+
 def main(argv: list[str] | None=None) -> None:
     args = build_parser().parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO),
-                        format='%(asctime)s %(levelname)-7s %(name)s: %(message)s')
+    _configure_logging(getattr(logging, args.log_level.upper(), logging.INFO))
     config = ServerConfig.from_env()
     valid_fields = {f.name for f in dataclasses.fields(ServerConfig)}
     overrides = {k: v for k, v in vars(args).items() if v is not None and k in valid_fields}
