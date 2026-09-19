@@ -3,11 +3,16 @@ package xy.ai.workbench;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IFile;
+import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IMemento;
+import org.eclipse.ui.ide.ResourceUtil;
 
 import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
@@ -15,7 +20,10 @@ import xy.ai.workbench.model.ModelResolverRegistry;
 
 public class ConfigManager {
 
-	private SessionConfig cfg = new SessionConfig();
+	private SessionConfig defaultCfg = new SessionConfig();
+	private SessionConfig cfg = defaultCfg;
+	private String activeEditorKey;
+	private Map<String, SessionConfig> editorConfigs = new HashMap<>();
 	private Model[] enabledModels = new Model[0];
 	private AgentProfile[] enabledProfiles = new AgentProfile[0];
 	private String[] enabledTools = new String[0];
@@ -57,9 +65,55 @@ public class ConfigManager {
 		enabledToolsObs.clear();
 	}
 
+	public void activateEditor(IEditorPart editor) {
+		String key = resolveKey(editor);
+		if (Objects.equals(activeEditorKey, key))
+			return;
+		activeEditorKey = key;
+		SessionConfig target = key == null ? defaultCfg : editorConfigs.getOrDefault(key, cfg);
+		applyConfig(target);
+	}
+
+	private static String resolveKey(IEditorPart editor) {
+		if (editor == null)
+			return null;
+		IFile file = ResourceUtil.getFile(editor.getEditorInput());
+		return file != null ? file.getFullPath().toString() : null;
+	}
+
+	private void ensureOwnConfig() {
+		if (activeEditorKey == null || editorConfigs.containsKey(activeEditorKey))
+			return;
+		cfg = new SessionConfig(cfg);
+		editorConfigs.put(activeEditorKey, cfg);
+	}
+
+	private void applyConfig(SessionConfig target) {
+		if (target == cfg)
+			return;
+		cfg = target;
+		systemPromptObs.forEach(c -> c.accept(cfg));
+		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
+		inputObs.forEach(c -> c.accept(cfg.inputModes));
+		if (cfg.keys != null)
+			for (String key : cfg.keys.split(","))
+				keyObs.forEach(c -> c.accept(key));
+		modelObs.forEach(c -> c.accept(cfg.model));
+		profileObs.forEach(c -> c.accept(cfg.profile));
+		outTokenObs.forEach(c -> c.accept(cfg.maxOutputTokens));
+		budgetObs.forEach(c -> c.accept(cfg.reasoningBudget));
+		reasonObs.forEach(c -> c.accept(cfg.reasoning));
+		cacheObs.forEach(c -> c.accept(cfg.cacheMode));
+		temperatureObs.forEach(c -> c.accept(cfg.temperature));
+		topPObs.forEach(c -> c.accept(cfg.topP));
+		outputModeObs.forEach(c -> c.accept(cfg.ouputMode));
+		updateEnabledModels(cfg.keys != null ? cfg.keys.split(",") : new String[0]);
+	}
+
 	public void setKey(String keys) {
 		if (Objects.equals(cfg.getKeys(), keys))
 			return;
+		ensureOwnConfig();
 		cfg.setKeys(keys);
 
 		String[] keysa = cfg.keys.split(",");
@@ -72,6 +126,7 @@ public class ConfigManager {
 		maxOutputTokens = (long) getCapabilities().alignOutpuTokens(maxOutputTokens.intValue());
 		if (Objects.equals(cfg.getMaxOutputTokens(), maxOutputTokens))
 			return;
+		ensureOwnConfig();
 		cfg.setMaxOutputTokens(maxOutputTokens);
 		outTokenObs.forEach(c -> c.accept(cfg.maxOutputTokens));
 	}
@@ -81,6 +136,7 @@ public class ConfigManager {
 		var old = cfg.getTemperature();
 		if (Objects.equals(temp, old) || (temp != null && old != null && Math.abs(temp - old) < 0.01))
 			return;
+		ensureOwnConfig();
 		cfg.setTemperature(temp);
 		temperatureObs.forEach(c -> c.accept(cfg.temperature));
 	}
@@ -90,6 +146,7 @@ public class ConfigManager {
 		var old = cfg.getTopP();
 		if (Objects.equals(topP, old) || (topP != null && old != null && Math.abs(topP - old) < 0.01))
 			return;
+		ensureOwnConfig();
 		cfg.setTopP(topP);
 		topPObs.forEach(c -> c.accept(cfg.topP));
 	}
@@ -97,6 +154,7 @@ public class ConfigManager {
 	public void setModel(Model model) {
 		if (Objects.equals(cfg.getModel(), model))
 			return;
+		ensureOwnConfig();
 		cfg.setModel(model);
 
 		if (Arrays.asList(getCapabilities().getReasonings()).indexOf(cfg.reasoning) == -1)
@@ -119,6 +177,7 @@ public class ConfigManager {
 		reasoningBudget = getCapabilities().alignBudget(reasoningBudget);
 		if (Objects.equals(cfg.getReasoningBudget(), reasoningBudget))
 			return;
+		ensureOwnConfig();
 		cfg.setReasoningBudget(reasoningBudget);
 		budgetObs.forEach(c -> c.accept(cfg.reasoningBudget));
 	}
@@ -126,6 +185,7 @@ public class ConfigManager {
 	public void setReasoning(Reasoning reasoning) {
 		if (Objects.equals(cfg.getReasoning(), reasoning))
 			return;
+		ensureOwnConfig();
 		cfg.setReasoning(reasoning);
 		reasonObs.forEach(c -> c.accept(cfg.reasoning));
 	}
@@ -133,6 +193,7 @@ public class ConfigManager {
 	public void setCacheMode(CacheMode cacheMode) {
 		if (Objects.equals(cfg.getCacheMode(), cacheMode))
 			return;
+		ensureOwnConfig();
 		cfg.setCacheMode(cacheMode);
 		cacheObs.forEach(c -> c.accept(cfg.cacheMode));
 	}
@@ -140,6 +201,7 @@ public class ConfigManager {
 	public void setProfile(AgentProfile profile) {
 		if (Objects.equals(cfg.getProfile(), profile))
 			return;
+		ensureOwnConfig();
 		cfg.setProfile(profile);
 		profileObs.forEach(c -> c.accept(cfg.profile));
 	}
@@ -147,6 +209,7 @@ public class ConfigManager {
 	public void setSystemPrompt(String[] systemPrompt) {
 		if (Arrays.equals(this.getSystemPrompt(), systemPrompt))
 			return;
+		ensureOwnConfig();
 		cfg.setSystemPrompt(systemPrompt);
 		systemPromptObs.forEach(c -> c.accept(cfg));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
@@ -155,6 +218,7 @@ public class ConfigManager {
 	public void setSystemFree(String freeText) {
 		if (Objects.equals(cfg.getFreeText(), freeText))
 			return;
+		ensureOwnConfig();
 		cfg.setFreeText(freeText);
 		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
@@ -170,6 +234,7 @@ public class ConfigManager {
 	public void setOuputMode(OutputMode ouputMode) {
 		if (Objects.equals(cfg.ouputMode, ouputMode))
 			return;
+		ensureOwnConfig();
 		cfg.ouputMode = ouputMode;
 		outputModeObs.forEach(c -> c.accept(cfg.ouputMode));
 	}
@@ -177,6 +242,7 @@ public class ConfigManager {
 	public void setInputMode(InputMode mode, boolean enable) {
 		if (enable && cfg.isInputEnabled(mode) || !enable && !cfg.isInputEnabled(mode))
 			return;
+		ensureOwnConfig();
 		cfg.setInputMode(mode, enable);
 		// Converter and Selection are mutually exclusive: enabling one disables the
 		// other.
@@ -390,6 +456,9 @@ public class ConfigManager {
 	}
 
 	public void loadConfig(IMemento memento) {
+		String savedKey = activeEditorKey;
+		activeEditorKey = null;
+		cfg = defaultCfg;
 		try {
 			MementoConverter.Snapshot snap = MementoConverter.loadConfig(memento);
 			if (snap == null)
@@ -442,6 +511,9 @@ public class ConfigManager {
 		} catch (Exception e) {
 			LOG.error(e.getMessage(), e);
 			LOG.info("Unable to restore config");
+		} finally {
+			activeEditorKey = savedKey;
+			cfg = savedKey == null ? defaultCfg : editorConfigs.getOrDefault(savedKey, defaultCfg);
 		}
 	}
 

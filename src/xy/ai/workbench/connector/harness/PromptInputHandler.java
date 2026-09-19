@@ -1,6 +1,7 @@
 package xy.ai.workbench.connector.harness;
 
 import java.io.File;
+import java.lang.ref.WeakReference;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -149,9 +150,9 @@ public class PromptInputHandler {
 	public Prompt buildPrompt(Display display, boolean batch) {
 		PromptArguments arg = new PromptArguments();
 		display.syncExec(() -> {
-			arg.editor = includeAdapter.getCurrentEditor();
-			arg.absoluteFilePath = resolveAbsoluteFilePath(arg.editor);
-			arg.project = resolveProjectPath(arg.editor);
+			arg.setEditor(includeAdapter.getCurrentEditor());
+			arg.absoluteFilePath = resolveAbsoluteFilePath(arg.getEditor());
+			arg.project = resolveProjectPath(arg.getEditor());
 
 			if (cfg.isInputEnabled(InputMode.Selection))
 				detectSelection(arg);
@@ -165,7 +166,7 @@ public class PromptInputHandler {
 				&& arg.command == null)
 			throw new IllegalArgumentException("Input and System Prompt and Command Empty");
 
-		if (arg.editor == null && !batch)
+		if (arg.getEditor() == null && !batch)
 			throw new IllegalArgumentException("Result editor unset");
 
 		return new Prompt(arg.inputs, batch, frozen, arg);
@@ -178,8 +179,16 @@ public class PromptInputHandler {
 		public Command command;
 		public String yaml;
 		// Editor active when the prompt was built; used as a hint for tag replacement.
-		public ITextEditor editor;
+		private WeakReference<ITextEditor> editor;
 		public boolean processorEnabled;
+
+		public void setEditor(ITextEditor editor) {
+			this.editor = editor != null ? new WeakReference<>(editor) : null;
+		}
+
+		public ITextEditor getEditor() {
+			return editor != null ? editor.get() : null;
+		}
 	}
 
 	/**
@@ -189,14 +198,15 @@ public class PromptInputHandler {
 	 * @param arg
 	 */
 	private void detectSelection(PromptArguments arg) {
-		if (arg.editor == null)
+		ITextEditor editor = arg.getEditor();
+		if (editor == null)
 			return;
 
-		IDocument doc = arg.editor.getDocumentProvider().getDocument(arg.editor.getEditorInput());
+		IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
 		if (doc == null)
 			return;
 
-		ITextSelection tsel = getSeletion(arg.editor);
+		ITextSelection tsel = getSeletion(editor);
 		if (tsel != null) {
 			if (!tsel.isEmpty() && tsel.getLength() > 1) {
 				// selection solely of a YAML block
@@ -235,15 +245,16 @@ public class PromptInputHandler {
 	 * line of the file, matching a command appended after the generated content.
 	 */
 	private void detectFullFile(PromptArguments arg) {
-		if (arg.editor == null)
+		ITextEditor editor = arg.getEditor();
+		if (editor == null)
 			return;
 
-		IDocument doc = arg.editor.getDocumentProvider().getDocument(arg.editor.getEditorInput());
+		IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
 		if (doc == null)
 			return;
 		arg.inputs.add(doc.get());
 
-		ITextSelection tsel = getSeletion(arg.editor);
+		ITextSelection tsel = getSeletion(editor);
 		if (tsel != null && detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg))
 			return;
 

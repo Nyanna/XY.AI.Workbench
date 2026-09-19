@@ -1,5 +1,5 @@
 # TODO
-
+key anpassen für from config in CC
 ## Harness
 ! deepseek kann gleichzeit mehrere toolcalls schicken, das muss als ein block ausgegeben werden mit nur einem call kommando und zwei(x) YAML blöcken
 * autorunner
@@ -8,14 +8,7 @@
 		* abbruch bei exception
 		* nach tool result eine neues /prompt kommando
 		* statt controll request, direkt aufruf und result modifizieren
-		
-* eine AI SessionConfig pro datei, bei neuem editor aktuelle kopieren
-	* Overlay mechanismus, initial eine Default config, bei neuem editor wird default verwendet,
-	* wenn diese verändert -> clonen
-	* wenn nciht offen wird default verändert, persistier wird default
-	* über frontmatter in editor aktuelle config ändern aber auch zurückspiegeln
-	* session processor soll frontmatter ignorieren
-! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
+- warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
 
 ## Other
 * Toolliste beim editieren scrolll reset fixen

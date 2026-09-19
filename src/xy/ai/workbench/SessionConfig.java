@@ -29,6 +29,22 @@ public class SessionConfig {
 		setInputMode(InputMode.Tools, true);
 	}
 
+	public SessionConfig(SessionConfig other) {
+		this.keys = other.keys;
+		this.maxOutputTokens = other.maxOutputTokens;
+		this.temperature = other.temperature;
+		this.topP = other.topP;
+		this.model = other.model;
+		this.profile = other.profile;
+		this.systemPrompt = other.systemPrompt != null ? other.systemPrompt.clone() : null;
+		this.ouputMode = other.ouputMode;
+		this.inputModes = other.inputModes.clone();
+		this.reasoning = other.reasoning;
+		this.cacheMode = other.cacheMode;
+		this.reasoningBudget = other.reasoningBudget;
+		this.freeText = other.freeText;
+	}
+
 	public String getKeys() {
 		return keys;
 	}

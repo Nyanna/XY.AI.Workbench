@@ -1,5 +1,7 @@
 package xy.ai.workbench;
 
+import java.lang.ref.WeakReference;
+
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
@@ -30,7 +32,7 @@ import xy.ai.workbench.editor.AISessionEditor;
 public class ActiveEditorListener implements IPartListener2 {
 	private EditorChangeListener editorListener = new EditorChangeListener();
 
-	private ITextEditor lastTextEditor;
+	private WeakReference<ITextEditor> lastTextEditor;
 	private PromptHandler prompt;
 
 	public void setPrompt(PromptHandler prompt) {
@@ -38,7 +40,7 @@ public class ActiveEditorListener implements IPartListener2 {
 	}
 
 	public ITextEditor getLastTextEditor() {
-		return lastTextEditor;
+		return lastTextEditor != null ? lastTextEditor.get() : null;
 	}
 
 	@Override
@@ -51,6 +53,9 @@ public class ActiveEditorListener implements IPartListener2 {
 			editor = (IEditorPart) part;
 
 		editorListener.editorChanged(editor instanceof ITextEditor ? (ITextEditor) editor : null);
+
+		if (editor != null)
+			Activator.getDefault().cfg.activateEditor(editor);
 	}
 
 	public class EditorChangeListener {
@@ -63,7 +68,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		private void setTextEditor(ITextEditor textEditor) {
 			this.textEditor = textEditor;
 			if (textEditor != null)
-				lastTextEditor = textEditor;
+				lastTextEditor = new WeakReference<>(textEditor);
 		}
 
 		private ITextEditor getTextEditor() {
