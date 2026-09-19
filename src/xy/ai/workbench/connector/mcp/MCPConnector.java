@@ -39,13 +39,13 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 
 	@Override
 	public MCPRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-		Command command = prompt.command;
+		Command command = prompt.arg.command;
 		if (!(command instanceof ExitCommand) && !(command instanceof ToolCommand) && !(command instanceof CallCommand)
 				&& !(command instanceof CallEditCommand))
 			throw new IllegalArgumentException(String.format("No command detected. [%s]",
 					command == null ? "none" : command.getClass().getSimpleName()));
 		return new MCPRequest(UUID.randomUUID().toString(), prompt.config.systemPrompt, prompt.config.tools, command,
-				prompt.yamlBlock);
+				prompt.arg.yaml);
 	}
 
 	@Override

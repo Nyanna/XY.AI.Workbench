@@ -6,11 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.EditorInterface;
+import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
 
 /**
- * Renders {@link SessionCallbacks} turns back into the plain-text session format
- * consumed by {@link SessionProcessor}.
+ * Renders {@link SessionCallbacks} turns back into the plain-text session
+ * format consumed by {@link SessionProcessor}.
  */
 public class SessionRenderer {
 	private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -45,7 +46,8 @@ public class SessionRenderer {
 		node.put("tool", call.name == null ? "" : call.name);
 		node.set("arguments",
 				call.arguments != null && call.arguments.isObject() ? call.arguments : MAPPER.createObjectNode());
-		return EditorInterface.TOOLUSE + "\n" + YAML.toYamlBlock(node);
+		return String.format("%s\n%s\n%s %s", EditorInterface.TOOLUSE, YAML.toYamlBlock(node), CallCommand.CMD_CALL,
+				call.id);
 	}
 
 	public static String toolResult(ToolResult result) {

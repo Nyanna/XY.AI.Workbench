@@ -21,7 +21,7 @@ public class PrefixLineRule extends AbstractRule {
 		boolean nl = false;
 		while (s.getReadCount() <= MAX_READ && s.readNext() && !(nl = s.isNewLine()))
 			; // consume
-		if(nl)
+		if (nl)
 			s.unread();
 		return true;
 	}

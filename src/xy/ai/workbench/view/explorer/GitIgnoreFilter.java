@@ -15,11 +15,10 @@ import org.eclipse.core.runtime.Path;
 
 /**
  * Determines whether a workspace resource is excluded by one or more
- * ".gitignore" files located between the project root and the resource
- * itself, applying the same precedence rules as Git (rules of a
- * ".gitignore" file closer to the resource, respectively lines further down
- * within a file, take precedence over earlier ones; "!" negates a
- * previous match).
+ * ".gitignore" files located between the project root and the resource itself,
+ * applying the same precedence rules as Git (rules of a ".gitignore" file
+ * closer to the resource, respectively lines further down within a file, take
+ * precedence over earlier ones; "!" negates a previous match).
  */
 public final class GitIgnoreFilter {
 

@@ -9,10 +9,11 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 
 /**
- * Central, pluggable registry mapping a provider ({@link KeyPattern}) to its {@link ModelResolver}.
- * Provider-specific (HTTP based) resolvers kick in as soon as a matching key is detected; results
- * are cached in memory for the lifetime of the application (once per key, no repeated HTTP calls
- * on every settings/session restore).
+ * Central, pluggable registry mapping a provider ({@link KeyPattern}) to its
+ * {@link ModelResolver}. Provider-specific (HTTP based) resolvers kick in as
+ * soon as a matching key is detected; results are cached in memory for the
+ * lifetime of the application (once per key, no repeated HTTP calls on every
+ * settings/session restore).
  */
 public final class ModelResolverRegistry {
 
@@ -26,13 +27,12 @@ public final class ModelResolverRegistry {
 		RESOLVERS.put(KeyPattern.Gemini, new GeminiModelResolver());
 		RESOLVERS.put(KeyPattern.Claude, new AnthropicModelResolver());
 		RESOLVERS.put(KeyPattern.Deepseek, new DeepseekModelResolver());
-		// ClaudeCode/None/Misc stay on the DefaultModelResolver: no provider API to discover models from.
+		// ClaudeCode/None/Misc stay on the DefaultModelResolver
 	}
 
 	private ModelResolverRegistry() {
 	}
 
-	/** Resolves the models available for the given key, using the resolver registered for its provider. */
 	public static List<Model> resolve(KeyPattern provider, String apiKey) {
 		return CACHE.computeIfAbsent(provider + ":" + apiKey, k -> RESOLVERS.get(provider).resolve(apiKey));
 	}

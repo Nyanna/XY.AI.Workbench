@@ -147,7 +147,7 @@ public class EditorInterface {
 	}
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
-		ITextEditor hint = ans.prompt != null ? ans.prompt.lastTextEditor : null;
+		ITextEditor hint = ans.prompt != null ? ans.prompt.arg.editor : null;
 		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
 		if (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode))
 			ans.answer = ans.print() + "\n" + ans.answer;

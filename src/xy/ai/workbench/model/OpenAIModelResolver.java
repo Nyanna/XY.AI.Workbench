@@ -17,7 +17,6 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 
-/** Resolves mainstream chat models currently available for an OpenAI API key. */
 public class OpenAIModelResolver implements ModelResolver {
 
 	@Override

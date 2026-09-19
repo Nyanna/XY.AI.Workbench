@@ -39,9 +39,6 @@ import xy.ai.workbench.editor.md.AbstractRule;
  * substitution / detection) needed to build a {@link Prompt}.
  */
 public class PromptInputHandler {
-
-	// Captures the last (i.e. closest preceding) ```yaml ... ``` fenced block
-	// before a command line.
 	private static final Pattern YAML_BLOCK = Pattern.compile("^```yaml\\R(.*?)^```$",
 			Pattern.MULTILINE | Pattern.DOTALL);
 
@@ -146,125 +143,127 @@ public class PromptInputHandler {
 	 * detection (see class doc).
 	 */
 	public Prompt buildPrompt(Display display, boolean batch) {
-		List<String> inputs = new ArrayList<>();
-		String[] absoluteFilePath = new String[1];
-		Path[] projectPath = new Path[1];
-		Command[] detected = new Command[1];
-		String[] yamlBlock = new String[1];
-		ITextEditor[] lastTextEditor = new ITextEditor[1];
-
+		PromptArguments arg = new PromptArguments();
 		display.syncExec(() -> {
-			ITextEditor textEditor = includeAdapter.getCurrentEditor();
-			lastTextEditor[0] = textEditor;
-			absoluteFilePath[0] = resolveAbsoluteFilePath(textEditor);
-			projectPath[0] = resolveProjectPath(textEditor);
+			arg.editor = includeAdapter.getCurrentEditor();
+			arg.absoluteFilePath = resolveAbsoluteFilePath(arg.editor);
+			arg.project = resolveProjectPath(arg.editor);
 
 			if (cfg.isInputEnabled(InputMode.Selection))
-				detectSelection(textEditor, inputs, detected, yamlBlock);
+				detectSelection(arg);
 			else if (cfg.isInputEnabled(InputMode.Converter))
-				detectFullFile(textEditor, inputs, detected, yamlBlock);
+				detectFullFile(arg);
 		});
-
 		FrozenConfig frozen = FrozenConfig.from(cfg);
+		arg.processorEnabled = cfg.isInputEnabled(InputMode.Converter);
 
-		if (inputs.isEmpty() && (frozen.systemPrompt == null || frozen.systemPrompt.isBlank()) && detected[0] == null)
+		if (arg.inputs.isEmpty() && (frozen.systemPrompt == null || frozen.systemPrompt.isBlank())
+				&& arg.command == null)
 			throw new IllegalArgumentException("Input and System Prompt and Command Empty");
 
-		if (lastTextEditor[0] == null && !batch)
+		if (arg.editor == null && !batch)
 			throw new IllegalArgumentException("Result editor unset");
 
-		return new Prompt(inputs, batch, frozen, cfg.isInputEnabled(InputMode.Converter), absoluteFilePath[0],
-				projectPath[0], detected[0], yamlBlock[0], lastTextEditor[0]);
+		return new Prompt(arg.inputs, batch, frozen, arg);
 	}
 
-	// Selection mode: a real (multi-char) selection is a BlockSelection, an
-	// empty/caret selection
-	// falls back to the current cursor line (LineInput).
-	private void detectSelection(ITextEditor textEditor, List<String> inputs, Command[] detected,
-			String[] yamlBlock) {
-		if (textEditor == null)
+	public static class PromptArguments {
+		public List<String> inputs = new ArrayList<>();
+		public String absoluteFilePath;
+		public Path project;
+		public Command command;
+		public String yaml;
+		// Editor active when the prompt was built; used as a hint for tag replacement.
+		public ITextEditor editor;
+		public boolean processorEnabled;
+	}
+
+	/**
+	 * Selection mode: a real (multi-char) selection is a BlockSelection, an
+	 * empty/caret selection falls back to the current cursor line (LineInput).
+	 * 
+	 * @param arg
+	 */
+	private void detectSelection(PromptArguments arg) {
+		if (arg.editor == null)
 			return;
 
-		ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
-		ISelection selection = selectionProvider != null ? selectionProvider.getSelection() : null;
-		ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-		IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+		IDocument doc = arg.editor.getDocumentProvider().getDocument(arg.editor.getEditorInput());
 		if (doc == null)
 			return;
 
-		if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1) {
-			// A selection consisting solely of a ```yaml block is itself a command
-			// (CallEditCommand).
-			Command block = CommandRegistry.detect(tsel.getText());
-			if (block instanceof CallEditCommand) {
-				detected[0] = block;
+		ITextSelection tsel = getSeletion(arg.editor);
+		if (tsel != null) {
+			if (!tsel.isEmpty() && tsel.getLength() > 1) {
+				// selection solely of a YAML block
+				Command blockCmd = CommandRegistry.detect(tsel.getText());
+				if (blockCmd instanceof CallEditCommand) {
+					arg.command = blockCmd;
+					return;
+				}
+
+				arg.inputs.add(removeCommentLines(tsel.getText()));
+				// An /answer command starting at the beginning of the block spans the
+				// whole selection, allowing a multi-line reason/hint for
+				// allow and deny alike.
+				if (blockCmd instanceof AnswerCommand) {
+					arg.command = blockCmd;
+					arg.yaml = captureYamlBlock(doc, tsel.getStartLine());
+				}
+				// multi-line command takes precedence over a trailing command
+				else if (!detectedCmd(getLine(doc, tsel.getStartLine()), doc, tsel.getStartLine(), arg))
+					detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg);
 				return;
 			}
 
-			inputs.add(removeCommentLines(tsel.getText()));
-			// An /answer command starting at the very beginning of the block spans the
-			// whole
-			// selection, allowing a multi-line (better formatted) reason/hint for allow and
-			// deny alike.
-			if (block instanceof AnswerCommand) {
-				detected[0] = block;
-				yamlBlock[0] = captureYamlBlock(doc, tsel.getStartLine());
-			}
-			// Block start (multi-line command) takes precedence over a trailing command
-			// line.
-			else if (!applyDetected(CommandRegistry.detect(lineText(doc, tsel.getStartLine())), doc,
-					tsel.getStartLine(), detected, yamlBlock))
-				applyDetected(CommandRegistry.detect(lineText(doc, tsel.getEndLine())), doc, tsel.getEndLine(),
-						detected, yamlBlock);
-			return;
-		}
-
-		if (tsel != null) {
 			try {
 				IRegion lineInfo = doc.getLineInformation(tsel.getEndLine());
-				inputs.add(doc.get(lineInfo.getOffset(), lineInfo.getLength()));
+				arg.inputs.add(doc.get(lineInfo.getOffset(), lineInfo.getLength()));
 			} catch (BadLocationException e) {
-				LOG.error("Exception", e);
+				LOG.error("Can't get selection", e);
 			}
-			applyDetected(CommandRegistry.detect(lineText(doc, tsel.getEndLine())), doc, tsel.getEndLine(), detected,
-					yamlBlock);
+			detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg);
 		}
 	}
 
-	// Processor (full file) mode: the caret line is checked first, then the last
-	// line of the file,
-	// matching a command appended after the generated content.
-	private void detectFullFile(ITextEditor textEditor, List<String> inputs, Command[] detected,
-			String[] yamlBlock) {
-		if (textEditor == null)
+	/*
+	 * Processor (full file) mode: the caret line is checked first, then the last
+	 * line of the file, matching a command appended after the generated content.
+	 */
+	private void detectFullFile(PromptArguments arg) {
+		if (arg.editor == null)
 			return;
 
-		IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+		IDocument doc = arg.editor.getDocumentProvider().getDocument(arg.editor.getEditorInput());
 		if (doc == null)
 			return;
-		inputs.add(doc.get());
+		arg.inputs.add(doc.get());
 
-		ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
-		ISelection selection = selectionProvider != null ? selectionProvider.getSelection() : null;
-		ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-		if (tsel != null && applyDetected(CommandRegistry.detect(lineText(doc, tsel.getEndLine())), doc,
-				tsel.getEndLine(), detected, yamlBlock))
+		ITextSelection tsel = getSeletion(arg.editor);
+		if (tsel != null && detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg))
 			return;
 
 		int lastLine = doc.getNumberOfLines() - 1;
-		applyDetected(CommandRegistry.detect(lineText(doc, lastLine)), doc, lastLine, detected, yamlBlock);
+		detectedCmd(getLine(doc, lastLine), doc, lastLine, arg);
 		return;
 	}
 
-	private boolean applyDetected(Command cmd, IDocument doc, int lineIndex, Command[] detected, String[] yamlBlock) {
+	private ITextSelection getSeletion(ITextEditor editor) {
+		ISelectionProvider prv = editor.getSelectionProvider();
+		ISelection sel = prv != null ? prv.getSelection() : null;
+		return sel instanceof ITextSelection ? (ITextSelection) sel : null;
+	}
+
+	private boolean detectedCmd(String line, IDocument doc, int lineIndex, PromptArguments arg) {
+		Command cmd = CommandRegistry.detect(line);
 		if (cmd == null)
 			return false;
-		detected[0] = cmd;
-		yamlBlock[0] = captureYamlBlock(doc, lineIndex);
+		arg.command = cmd;
+		arg.yaml = captureYamlBlock(doc, lineIndex);
 		return true;
 	}
 
-	private String lineText(IDocument doc, int lineIndex) {
+	private String getLine(IDocument doc, int lineIndex) {
 		try {
 			IRegion info = doc.getLineInformation(lineIndex);
 			return doc.get(info.getOffset(), info.getLength());
@@ -274,8 +273,10 @@ public class PromptInputHandler {
 		}
 	}
 
-	// Walks backwards from the command line and keeps the closest preceding ```yaml
-	// block.
+	/*
+	 * Walks backwards from the command line and keeps the closest preceding ```yaml
+	 * block.
+	 */
 	private String captureYamlBlock(IDocument doc, int lineIndex) {
 		try {
 			String prefix = doc.get(0, doc.getLineOffset(lineIndex));
@@ -285,7 +286,7 @@ public class PromptInputHandler {
 				last = m.group(1);
 			return last;
 		} catch (BadLocationException e) {
-			LOG.error("Exception", e);
+			LOG.error("Can't capture YAML block", e);
 			return null;
 		}
 	}

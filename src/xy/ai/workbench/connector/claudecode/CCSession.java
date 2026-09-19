@@ -54,7 +54,8 @@ public class CCSession {
 		this(sessionUuid, true, manager, parameters);
 	}
 
-	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, ClaudeSessionParameters parameters) {
+	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager,
+			ClaudeSessionParameters parameters) {
 		if (sessionUuid == null || sessionUuid.isBlank())
 			throw new IllegalArgumentException("Session UUID must not be null or blank");
 		Objects.requireNonNull(parameters, "session parameters must not be null");
@@ -115,9 +116,9 @@ public class CCSession {
 	}
 
 	/**
-	 * @return {@code true} unless the session is {@link SessionState#Expired}.
-	 *         Used to filter out no-longer-usable sessions from automatic
-	 *         selection logic.
+	 * @return {@code true} unless the session is {@link SessionState#Expired}. Used
+	 *         to filter out no-longer-usable sessions from automatic selection
+	 *         logic.
 	 */
 	public boolean isValid() {
 		return getState() != SessionState.Expired;

@@ -214,9 +214,9 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 
 	/**
 	 * Verifies that the given offset/length still points at the tag belonging to
-	 * the given request id. If it does not (e.g. because the doc was edited in
-	 * the meantime and the marker position is stale) the whole doc is searched
-	 * for the tag instead.
+	 * the given request id. If it does not (e.g. because the doc was edited in the
+	 * meantime and the marker position is stale) the whole doc is searched for the
+	 * tag instead.
 	 *
 	 * @return an {offset, length} pair pointing at the current location of the tag
 	 *         in the doc, or {@code null} if the tag can no longer be found.
@@ -236,8 +236,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	/**
-	 * Scans the full doc content for the tag belonging to the given request
-	 * id.
+	 * Scans the full doc content for the tag belonging to the given request id.
 	 *
 	 * @return an {offset, length} pair, or {@code null} if not found.
 	 */
@@ -255,10 +254,10 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	 * marker's stored offset is no longer in sync with the (still dirty) editor
 	 * content, or no marker exists at all yet. Searches all currently open text
 	 * editors for the tag belonging to the given request id and replaces it
-	 * directly in the editor's doc. The editor is intentionally not saved so
-	 * that a parallel edit by the user is not disturbed.
+	 * directly in the editor's doc. The editor is intentionally not saved so that a
+	 * parallel edit by the user is not disturbed. Tries to replace the tag directly
+	 * in the given (hint) editor, e.g. the one active when the prompt was built.
 	 */
-	/** Tries to replace the tag directly in the given (hint) editor, e.g. the one active when the prompt was built. */
 	private boolean tryReplaceInEditor(AIAnswer ans, ITextEditor editor) {
 		boolean[] res = { false };
 		Display.getDefault().syncExec(() -> {
@@ -335,9 +334,9 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	/**
-	 * Holds, per doc, the auto-follow {@link IDocumentListener} together with
-	 * the editor it was registered for, so it can be located/removed again
-	 * when the editor closes.
+	 * Holds, per doc, the auto-follow {@link IDocumentListener} together with the
+	 * editor it was registered for, so it can be located/removed again when the
+	 * editor closes.
 	 */
 	private static final class AutoFollowState {
 		final ITextEditor editor;
@@ -349,20 +348,22 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 		}
 	}
 
-	/** Auto-follow listeners currently registered, keyed by doc. Only ever accessed on the UI thread. */
+	/**
+	 * Auto-follow listeners currently registered, keyed by doc. Only ever accessed
+	 * on the UI thread.
+	 */
 	private final Map<IDocument, AutoFollowState> autoFollowListeners = new HashMap<>();
 	private boolean partCloseCleanupRegistered = false;
 
 	/**
-	 * Moves the cursor to the end of the doc (start of the last line, i.e. an
-	 * empty selection at the doc's end) and, as long as auto-follow stays
-	 * applicable, keeps it there for every future change of the doc. A
-	 * one-shot retry with a fixed delay cannot work reliably here: further,
-	 * independent edits (e.g. from other pending AI answers) can arrive at
-	 * any time after a move has already been verified as successful, moving
-	 * the "end of doc" target again. Reacting to every {@link DocumentEvent}
-	 * instead removes the race entirely, since each change immediately
-	 * re-evaluates and re-applies the cursor position.
+	 * Moves the cursor to the end of the doc (start of the last line, i.e. an empty
+	 * selection at the doc's end) and, as long as auto-follow stays applicable,
+	 * keeps it there for every future change of the doc. A one-shot retry with a
+	 * fixed delay cannot work reliably here: further, independent edits (e.g. from
+	 * other pending AI answers) can arrive at any time after a move has already
+	 * been verified as successful, moving the "end of doc" target again. Reacting
+	 * to every {@link DocumentEvent} instead removes the race entirely, since each
+	 * change immediately re-evaluates and re-applies the cursor position.
 	 */
 	private void moveCursorToLastLineStart(ITextEditor editor, IDocument doc) {
 		tryMoveCursorToLastLineStart(editor, doc);

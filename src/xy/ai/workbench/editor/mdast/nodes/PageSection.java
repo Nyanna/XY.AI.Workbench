@@ -27,7 +27,7 @@ public class PageSection extends AbstractNode {
 		sub.reset();
 		return end;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Page";

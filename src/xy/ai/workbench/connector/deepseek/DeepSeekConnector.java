@@ -151,7 +151,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 
 		ArrayNode input = mapper.createArrayNode();
 		if (prompt.inputs != null)
-			for (ObjectNode item : sessionProcessor.process(prompt.inputs, prompt.processorEnabled,
+			for (ObjectNode item : sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled,
 					new SessionRequestCallbacks(mapper)))
 				input.add(item);
 
@@ -229,7 +229,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			FunctionCallOutputItemParam out = new FunctionCallOutputItemParam(node);
 			out.setType(InputElementTypeEnum.FUNCTION_CALL_OUTPUT);
 			out.setCallId(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(result.id != null ?  result.id : lastCallId != null ? lastCallId : "")));
+					TextNode.valueOf(result.id != null ? result.id : lastCallId != null ? lastCallId : "")));
 			out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
 			return node;
 		}

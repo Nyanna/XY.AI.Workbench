@@ -23,18 +23,21 @@ public class Model {
 		return displayName;
 	}
 
-	// Deliberately no equals()/hashCode() override: identity equality is fine since resolvers
-	// (incl. the in-memory ModelResolverRegistry cache) always hand out the same instances for the
-	// same key, and a single apiName may legitimately represent more than one model configuration
-	// (e.g. Claude Code "haiku" vs. the MCPC-root "haiku" with different tool/profile capabilities).
-	// Use matches() for explicit id-based lookups (e.g. restoring a persisted model reference).
+	/*
+	 * Deliberately no equals()/hashCode() override: identity equality is fine since
+	 * resolvers (incl. the in-memory ModelResolverRegistry cache) always hand out
+	 * the same instances for the same key, and a single apiName may legitimately
+	 * represent more than one model configuration (e.g. Claude Code "haiku" vs. the
+	 * MCPC-root "haiku" with different tool/profile capabilities). Use matches()
+	 * for explicit id-based lookups (e.g. restoring a persisted model reference)
+	 */
 	public boolean matches(KeyPattern provider, String apiName) {
 		return cap.getKeyPattern() == provider && java.util.Objects.equals(this.apiName, apiName);
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), Deepseek("^sk-[a-z0-9]{32}$"), None("^none$"),
-		ClaudeCode("^(work|personal)$"), Misc("^.*$");
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), Deepseek("^sk-[a-z0-9]{32}$"),
+		None("^none$"), ClaudeCode("^(work|personal)$"), Misc("^.*$");
 
 		public final Pattern pattern;
 
@@ -133,7 +136,6 @@ public class Model {
 			.agentProfiles(AgentProfile.values())//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	// MCPC Root Agents (displayName kept distinct from CC_* despite identical apiName)
 	public static final Model CC_MCPC_HAIKU = new Model("haiku", "haiku (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportTemperature(false)//
@@ -181,7 +183,10 @@ public class Model {
 			GEMINI_25_LIGHT, CLAUDE_OPUS, CLAUDE_SONNET, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
 			CC_MCPC_OPUS, MCP_TOOLS };
 
-	/** Default (static) catalog of models for a given provider, used by the DefaultModelResolver. */
+	/**
+	 * Default (static) catalog of models for a given provider, used by the
+	 * DefaultModelResolver.
+	 */
 	public static Model[] defaultsFor(KeyPattern provider) {
 		return java.util.Arrays.stream(DEFAULTS).filter(m -> m.cap.getKeyPattern() == provider).toArray(Model[]::new);
 	}

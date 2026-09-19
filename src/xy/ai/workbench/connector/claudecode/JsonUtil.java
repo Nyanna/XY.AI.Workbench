@@ -36,8 +36,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <li>{@link #plainText(JsonNode)} — the logical value of a node
  * <em>without</em> JSON quoting/escaping (the correct thing to show in the UI
  * or embed into a text container).</li>
- * <li>{@link #compact(JsonNode)} / {@link #pretty(JsonNode)} — a valid JSON
- * doc when the structure itself must be preserved.</li>
+ * <li>{@link #compact(JsonNode)} / {@link #pretty(JsonNode)} — a valid JSON doc
+ * when the structure itself must be preserved.</li>
  * <li>{@link #escape(String)} / {@link #unescape(String)} — round-trippable
  * JSON string escaping when raw text is embedded into a hand-built JSON
  * doc.</li>

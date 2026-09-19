@@ -14,7 +14,7 @@ import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.connector.IAIBatchConnector;
 import xy.ai.workbench.models.IModelRequest;
 
-public class AIBatchManager implements IStructuredContentProvider{
+public class AIBatchManager implements IStructuredContentProvider {
 	static final String UNSEND_ID = "New";
 	public static String KEY_REQIDS = "reqIds";
 	private IAIBatchConnector connector;

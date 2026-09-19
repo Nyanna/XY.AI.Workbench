@@ -6,8 +6,8 @@ import java.util.regex.Pattern;
  * A single parsed line of a ".gitignore" file, compiled into two regular
  * expressions:
  * <ul>
- * <li>{@code exactPattern} matches when the checked path itself is the
- * ignored entry.</li>
+ * <li>{@code exactPattern} matches when the checked path itself is the ignored
+ * entry.</li>
  * <li>{@code nestedPattern} matches when the checked path is located
  * <i>inside</i> an ignored directory.</li>
  * </ul>
@@ -31,10 +31,10 @@ final class GitIgnoreRule {
 	}
 
 	/**
-	 * @param relativePath path of the checked resource, relative to the
-	 *                      directory that contains the ".gitignore" file,
-	 *                      using '/' as separator
-	 * @param isDirectory   whether the checked resource itself is a folder
+	 * @param relativePath path of the checked resource, relative to the directory
+	 *                     that contains the ".gitignore" file, using '/' as
+	 *                     separator
+	 * @param isDirectory  whether the checked resource itself is a folder
 	 */
 	boolean matches(String relativePath, boolean isDirectory) {
 		if (exactPattern.matcher(relativePath).matches())

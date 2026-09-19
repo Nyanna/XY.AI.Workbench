@@ -32,7 +32,7 @@ public class ActiveEditorListener implements IPartListener2 {
 
 	private ITextEditor lastTextEditor;
 	private PromptHandler prompt;
-	
+
 	public void setPrompt(PromptHandler prompt) {
 		this.prompt = prompt;
 	}

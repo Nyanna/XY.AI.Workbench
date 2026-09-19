@@ -7,9 +7,9 @@ import java.util.List;
  * order, while turning session text into connector-native message objects
  * {@code M}. Only {@link #message(Role, String)} is mandatory; every other
  * callback falls back to it (rendered as plain text via
- * {@link SessionRenderer}) unless a connector overrides it - which is
- * exactly what happens for a message type a connector does not implement,
- * or when {@link SessionProcessor} itself is disabled.
+ * {@link SessionRenderer}) unless a connector overrides it - which is exactly
+ * what happens for a message type a connector does not implement, or when
+ * {@link SessionProcessor} itself is disabled.
  */
 public interface SessionCallbacks<M> {
 

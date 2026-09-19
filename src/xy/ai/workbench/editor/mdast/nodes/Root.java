@@ -17,7 +17,7 @@ public class Root extends AbstractNode {
 	protected boolean isEndInner(Scanner s) {
 		return s.isEOF();
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Root";

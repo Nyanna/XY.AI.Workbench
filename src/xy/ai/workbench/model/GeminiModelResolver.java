@@ -18,7 +18,6 @@ import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 
-/** Resolves mainstream generateContent models currently available for a Gemini API key. */
 public class GeminiModelResolver implements ModelResolver {
 
 	@Override

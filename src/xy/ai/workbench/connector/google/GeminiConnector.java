@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
@@ -109,7 +108,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 				proccessedInputs.add(Content.builder().parts(Part.fromText(text)).role("model").build());
 				return null;
 			};
-			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
+			sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled, cb);
 		}
 
 		if (fc.tools != null && !fc.tools.isEmpty())
@@ -172,7 +171,8 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		List<FunctionCall> calls = cresp.functionCalls();
 		if (calls != null)
 			for (FunctionCall call : calls) {
-				JsonNode args = call.args().isPresent() ? mapper.valueToTree(call.args().get()) : mapper.createObjectNode();
+				JsonNode args = call.args().isPresent() ? mapper.valueToTree(call.args().get())
+						: mapper.createObjectNode();
 				answer.toolCall("", call.name().orElse("unknown"), args);
 			}
 		res.answer = answer.toString();

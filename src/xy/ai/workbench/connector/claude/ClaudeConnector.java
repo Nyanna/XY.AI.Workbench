@@ -85,7 +85,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 				builder.addSystemMessage(text);
 				return null;
 			};
-			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
+			sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled, cb);
 		}
 
 		if (fc.tools != null && !fc.tools.isEmpty())

@@ -1,8 +1,7 @@
 package xy.ai.workbench.commands;
 
 public class CallCommand extends Command {
-
-	public static final String CMD_CALL   = "/call";
+	public static final String CMD_CALL = "/call";
 
 	public CallCommand() {
 		super();

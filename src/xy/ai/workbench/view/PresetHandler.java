@@ -31,8 +31,7 @@ import xy.ai.workbench.OutputMode;
 public class PresetHandler {
 	private static final String PROMPT_TXT = ".prompt.txt";
 
-	private static final Pattern FRONT_MATTER = Pattern.compile("\\A---\\s*\\n(.*?\\n)?---\\s*\\n?",
-			Pattern.DOTALL);
+	private static final Pattern FRONT_MATTER = Pattern.compile("\\A---\\s*\\n(.*?\\n)?---\\s*\\n?", Pattern.DOTALL);
 
 	private static final ObjectMapper YAML = new ObjectMapper(
 			new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER));

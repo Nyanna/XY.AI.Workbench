@@ -3,7 +3,9 @@ package xy.ai.workbench.commands;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Detected when the whole input consists solely of a single fenced ```yaml ...``` block (a pending edit/approval). */
+/**
+ * Detected when the whole input consists solely of a single YAML block
+ */
 public class CallEditCommand extends Command {
 
 	private static final Pattern YAML_BLOCK = Pattern.compile("^```yaml\\R(.*?)\\R?```$", Pattern.DOTALL);

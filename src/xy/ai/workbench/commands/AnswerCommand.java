@@ -1,8 +1,6 @@
 package xy.ai.workbench.commands;
 
 public class AnswerCommand extends Command {
-
-	/** Command prefixes recognized by connector.CommandHandler / SessionProcessor. */
 	public static final String CMD_ANSWER = "/answer";
 
 	public AnswerCommand() {

@@ -45,7 +45,8 @@ public class Elements {
 
 	public static class Agent {
 		public static final PrefixBlock THINKING_META = new PrefixBlock(EditorInterface.THINKING_META, false);
-		public static final LineSection THINKING = new LineSection(EditorInterface.THINKING, false, of(Basics.PARAGRAPH), of(THINKING_META));
+		public static final LineSection THINKING = new LineSection(EditorInterface.THINKING, false,
+				of(Basics.PARAGRAPH), of(THINKING_META));
 		public static final LineSection TEXT = new LineSection(EditorInterface.TEXT, false, of(Basics.PARAGRAPH),
 				of(NONE)); // replaced
 		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE, false);
@@ -54,7 +55,8 @@ public class Elements {
 		public static final PrefixBlock TOKEN_STATS = new PrefixBlock(ProtocolParser.TOKEN_STATS, false);
 		public static final PrefixBlock SYSTEM_INIT = new PrefixBlock(ProtocolParser.SYSTEM_INIT, false);
 		public static final PrefixBlock RESULT = new PrefixBlock(AIAnswer.RESULT, true);
-		public static final AbstractNode[] ALL = of(THINKING_META, THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN, TOKEN_STATS, SYSTEM_INIT, RESULT);
+		public static final AbstractNode[] ALL = of(THINKING_META, THINKING, TEXT, TOOLUSE, TOOLRESULT, REASONING_TOKEN,
+				TOKEN_STATS, SYSTEM_INIT, RESULT);
 	}
 
 	public static class Tools {

@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import org.eclipse.ui.IMemento;
 
-
 import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.model.ModelResolverRegistry;
@@ -300,7 +299,8 @@ public class ConfigManager {
 
 	public void setInputMode(InputMode mode, boolean enable) {
 		cfg.setInputMode(mode, enable);
-		// Converter and Selection are mutually exclusive: enabling one disables the other.
+		// Converter and Selection are mutually exclusive: enabling one disables the
+		// other.
 		if (enable && (mode == InputMode.Converter || mode == InputMode.Selection)) {
 			InputMode other = mode == InputMode.Converter ? InputMode.Selection : InputMode.Converter;
 			if (cfg.isInputEnabled(other)) {
@@ -361,9 +361,12 @@ public class ConfigManager {
 			if (snap == null)
 				return;
 
-			// Order matters: keys must be set (models resolved) before the model itself can be
-			// restored, and the model must be set before the remaining, capability-dependent
-			// settings are applied - otherwise setModel()'s own defaulting logic would clobber them.
+			/*
+			 * Order matters: keys must be set (models resolved) before the model itself can
+			 * be restored, and the model must be set before the remaining,
+			 * capability-dependent settings are applied - otherwise setModel()'s own
+			 * defaulting logic would clobber them.
+			 */
 			if (snap.keys != null)
 				setKey(snap.keys);
 

@@ -46,8 +46,8 @@ public class CCControlClient {
 		ProtocolParser.appendEvents(resp.events, res);
 
 		JsonNode first = pending.get(0);
-		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first), AnswerCommand.CMD_ANSWER,
-				first.path("id").asText()));
+		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first),
+				AnswerCommand.CMD_ANSWER, first.path("id").asText()));
 		resp.resultText = res.toString();
 	}
 
@@ -95,10 +95,7 @@ public class CCControlClient {
 		return true;
 	}
 
-	
-
-	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason,
-			String hint) {
+	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason, String hint) {
 		ObjectNode approval = mapper.createObjectNode();
 		approval.put("id", id);
 		if (arguments != null)

@@ -8,11 +8,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * (De)serializes {@link SessionConfig} as a single JSON blob instead of mirroring its structure
- * as a tree of {@link IMemento} children/items. This avoids duplicating the config structure and,
- * more importantly, decouples parsing from applying: {@link #loadConfig(IMemento)} only returns a
- * plain data snapshot, letting {@link ConfigManager} decide the (capability-dependent) order in
- * which the values are actually applied.
+ * (De)serializes {@link SessionConfig} as a single JSON blob instead of
+ * mirroring its structure as a tree of {@link IMemento} children/items. This
+ * avoids duplicating the config structure and, more importantly, decouples
+ * parsing from applying: {@link #loadConfig(IMemento)} only returns a plain
+ * data snapshot, letting {@link ConfigManager} decide the
+ * (capability-dependent) order in which the values are actually applied.
  */
 public class MementoConverter {
 
@@ -44,7 +45,6 @@ public class MementoConverter {
 		}
 	}
 
-	/** Returns the raw, persisted snapshot - or {@code null} if there is none. Applies nothing. */
 	public static Snapshot loadConfig(IMemento memento) {
 		if (memento == null)
 			return null;

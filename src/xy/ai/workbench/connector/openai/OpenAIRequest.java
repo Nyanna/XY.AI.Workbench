@@ -10,7 +10,7 @@ public class OpenAIRequest extends AbstractModelRequest {
 	public OpenAIRequest(ResponseCreateParams params) {
 		this.reqquest = params;
 	}
-	
+
 	@Override
 	public String getID() {
 		return reqquest.safetyIdentifier().get();

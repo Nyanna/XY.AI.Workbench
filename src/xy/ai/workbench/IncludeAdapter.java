@@ -37,11 +37,12 @@ import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
 /**
- * Resolves the {@link SessionProcessor}'s typed include kinds against Eclipse resources,
- * selection and search state - keeping the processor itself free of Eclipse APIs.
+ * Resolves the {@link SessionProcessor}'s typed include kinds against Eclipse
+ * resources, selection and search state - keeping the processor itself free of
+ * Eclipse APIs.
  */
 public class IncludeAdapter implements IIncludeAdapter {
-	
+
 	private ActiveEditorListener editorListener;
 	private List<IFile> selectedFiles = List.of();
 	private ISearchResult result = null;
@@ -75,8 +76,8 @@ public class IncludeAdapter implements IIncludeAdapter {
 		if (container == null)
 			return List.of();
 		try {
-			return toEntries(Arrays.stream(container.members()).filter(m -> m instanceof IFile)
-					.map(m -> (IFile) m).collect(Collectors.toList()));
+			return toEntries(Arrays.stream(container.members()).filter(m -> m instanceof IFile).map(m -> (IFile) m)
+					.collect(Collectors.toList()));
 		} catch (CoreException e) {
 			LOG.error(e.getMessage(), e);
 			return List.of();
@@ -169,7 +170,10 @@ public class IncludeAdapter implements IIncludeAdapter {
 		return entries;
 	}
 
-	/** Resolves {@code pathText} - absolute filesystem path or path relative to the active editor's folder. */
+	/**
+	 * Resolves {@code pathText} - absolute filesystem path or path relative to the
+	 * active editor's folder.
+	 */
 	private IContainer resolveContainer(String pathText) {
 		if (pathText == null || pathText.isBlank())
 			return baseContainer();

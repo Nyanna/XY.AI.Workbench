@@ -55,8 +55,8 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private DeepSeekConnector deepseek;
 	private MCPConnector mcp;
 	private IAIBatchConnector newBatch;
-	
-public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
+
+	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
 			SessionProcessor sessionProcessor) {
 		this.cfg = cfg;
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(cfg, mcpClient, sessionProcessor));
@@ -73,7 +73,7 @@ public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCP
 		return KeyPattern.None;
 	}
 
-		private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
+	private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
 		switch (model.cap.getKeyPattern()) {
 		case OpenAI:
 			return chad;
@@ -165,9 +165,6 @@ public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCP
 	public IModelRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		return getConnector(prompt.config.model).createRequest(prompt, mon);
 	}
-
-	
-	
 
 	@Override
 	public List<IAIBatch> updateBatches(IProgressMonitor mon) {

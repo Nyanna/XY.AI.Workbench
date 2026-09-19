@@ -1,5 +1,9 @@
 # TODO
 * deepseek nach tool call rendering /call kommando und call kommando immer auf MCPConnector leiten
+	* Dann file based SessionConfig mit fixierung
+	* dann auto prompter panel mit tabelle, immer letztes kommando auf basis von konditions pro datei mit config ausführen, result wird appended, kein tag replace
+		* abbruch bei exception
+		* nach tool result eine neues /prompt kommando
 
 ## Harness
 		
@@ -49,6 +53,7 @@
 
 - F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
 	- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert)
+	/ autocomplete after "/" und wenn nach YAML block dann /call /prompt
 - Schema doku notieren
 	- "Label:" -> Segmente mit Metadaten
 	- "``yaml" -> komplexe aufrufe unt metadaten
@@ -65,6 +70,7 @@
 	* block selektieren und mit Parametern diff tool starten, es gibt ein compare with clipboad analog
 	* sollte eine synchrone separate ansicht sein die live im chat aktualisiert
 * Table renderer support
+	* vielleicht nicht rendern sondern tabelle mit autoformat neu ausrichten?
 	* Zeile beginnt mit |, gleiche Anzahl | pro block pro Zeile
 	* Zeichen | mit offset an maxlength pro Spalte ändern
 	* exten "---" grey the whole line?

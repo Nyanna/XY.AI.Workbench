@@ -56,9 +56,9 @@ public class MarkdownDocument {
 	 *
 	 * <p>
 	 * Only applied when the edit is provably a clean tail append (spine of
-	 * last-children, every touched ancestor ending exactly at {@code sec}).
-	 * Returns the highest changed node, or {@code null} to fall back to the
-	 * generic re-parse/climb behavior.
+	 * last-children, every touched ancestor ending exactly at {@code sec}). Returns
+	 * the highest changed node, or {@code null} to fall back to the generic
+	 * re-parse/climb behavior.
 	 */
 	private Node appendSiblings(Node sec, Node parent, List<Node> rchilds, int delta) {
 		if (rchilds.isEmpty() || rchilds.get(0).instance != sec.instance)

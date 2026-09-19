@@ -44,19 +44,19 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	public CCRequest createRequest(Prompt prompt, IProgressMonitor mon) {
 		SubMonitor sub = SubMonitor.convert(mon, "Create request", 1);
 
-		Command command = prompt.command;
+		Command command = prompt.arg.command;
 		String promptText = null;
 		if (command == null) {
 			promptText = prompt.inputs.stream().map(String::strip).filter(s -> !s.isBlank())
 					.collect(Collectors.joining("\n"));
 			if (promptText.isEmpty())
-				throw new IllegalStateException("No commands in inputs");
+				throw new IllegalStateException("Prompt text is empty and no command");
 		}
 		sub.worked(1);
 
-		String title = promptText == null ? null : promptText.substring(0, Math.min(100, promptText.length())).replace('\n', ' ');
-		return new CCRequest(UUID.randomUUID().toString(), title, prompt.config, command, promptText, prompt.yamlBlock,
-				prompt.absoluteFilePath, prompt.projectPath);
+		String title = promptText == null ? null
+				: promptText.substring(0, Math.min(100, promptText.length())).replace('\n', ' ');
+		return new CCRequest(UUID.randomUUID().toString(), title, prompt.config, promptText, prompt.arg);
 	}
 
 	@Override
@@ -64,13 +64,13 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
 		CCSession session = null;
 
-		String relativeFilePath = req.projectPath.relativize(Paths.get(req.absoluteFilePath)).toString();
+		String relativeFilePath = req.arg.project.relativize(Paths.get(req.arg.absoluteFilePath)).toString();
 		FrozenConfig fc = req.config;
-		ClaudeSessionParameters params = new ClaudeSessionParameters(req.projectPath, fc.systemPrompt, fc.tools,
+		ClaudeSessionParameters params = new ClaudeSessionParameters(req.arg.project, fc.systemPrompt, fc.tools,
 				fc.model, fc.reasoning, fc.profile, fc.cliProfile, fc.cacheMode, relativeFilePath);
 		params.setTitle(req.title);
 
-		Command command = req.command;
+		Command command = req.arg.command;
 		if (command instanceof ResumeCommand rc) {
 			sub.subTask("Importing session");
 			sessionManager.importSession(rc.parameter(0), params);
@@ -93,9 +93,9 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 				throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 		} else if (command instanceof CallCommand) {
-			if (req.yamlBlock == null || req.yamlBlock.isBlank())
+			if (req.arg.yaml == null || req.arg.yaml.isBlank())
 				throw new IllegalArgumentException("No preceding ```yaml block found before /call");
-			if (!controlClient.submitEdit(req.yamlBlock))
+			if (!controlClient.submitEdit(req.arg.yaml))
 				throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
 		} else if (command == null) {
@@ -125,7 +125,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		}
 	}
 
-	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job) throws IOException {
+	private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job)
+			throws IOException {
 		SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
 		CCResponse resp = new CCResponse(req.id);
 
@@ -173,8 +174,6 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		return String.format("Prompting... (%d/%d)", s.length(), crc.getValue());
 	}
 
-	
-
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
@@ -189,5 +188,4 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		return answer;
 	}
 
-	
 }

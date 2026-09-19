@@ -149,7 +149,7 @@ public class SpellingStrategy {
 
 		if (viewer instanceof ITextViewerExtension2)
 			try {
-				//((ITextViewerExtension2) viewer).invalidateTextPresentation(offset, length);
+				// ((ITextViewerExtension2) viewer).invalidateTextPresentation(offset, length);
 			} catch (IllegalArgumentException ex) {
 				// ignore out of bound errors
 			}

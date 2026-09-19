@@ -2,7 +2,6 @@ package xy.ai.workbench.models;
 
 import xy.ai.workbench.connector.harness.Prompt;
 
-/** Base implementation of {@link IModelRequest} holding the originating {@link Prompt}. */
 public abstract class AbstractModelRequest implements IModelRequest {
 
 	private Prompt prompt;

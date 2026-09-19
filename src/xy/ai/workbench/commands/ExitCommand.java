@@ -1,8 +1,7 @@
 package xy.ai.workbench.commands;
 
 public class ExitCommand extends Command {
-
-	public static final String CMD_EXIT   = "/exit";
+	public static final String CMD_EXIT = "/exit";
 
 	public ExitCommand() {
 		super();

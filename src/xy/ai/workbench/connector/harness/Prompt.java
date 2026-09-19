@@ -1,54 +1,40 @@
 package xy.ai.workbench.connector.harness;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-import org.eclipse.ui.texteditor.ITextEditor;
-
-import xy.ai.workbench.commands.Command;
+import xy.ai.workbench.connector.harness.PromptInputHandler.PromptArguments;
 
 /**
- * Immutable, frozen prompt: semantically separated Inputs / Batch / Config,
- * plus the activation state for the SessionProcessor. Construction happens
- * exclusively via {@link Builder}, driven by the PromptHandler.
+ * Immutable, frozen prompt: semantically separated Inputs / Batch / Config /
+ * Arguments, plus the activation state for the SessionProcessor.
  */
 public class Prompt {
 	public final List<String> inputs;
 	public final boolean batch;
 	public final FrozenConfig config;
-	public final boolean processorEnabled;
-	public final String absoluteFilePath;
-	public final Path projectPath;
-	public final Command command;
-	public final String yamlBlock;
-	/** Editor active when the prompt was built; used as a hint for tag replacement. */
-	public final ITextEditor lastTextEditor;
+	public final PromptArguments arg;
 
 	private String sessionId;
 
-	public Prompt(List<String> inputs, boolean batch, FrozenConfig config, boolean processorEnabled,
-			String absoluteFilePath, Path projectPath, Command command, String yamlBlock, ITextEditor lastTextEditor) {
+	public Prompt(List<String> inputs, boolean batch, FrozenConfig config, PromptArguments arg) {
 		if (config == null)
 			throw new IllegalArgumentException("config must not be null");
-		if (absoluteFilePath == null || absoluteFilePath.isBlank())
+		if (arg.absoluteFilePath == null || arg.absoluteFilePath.isBlank())
 			throw new IllegalArgumentException("absoluteFilePath must not be blank");
-		if (projectPath == null)
+		if (arg.project == null)
 			throw new IllegalArgumentException("projectPath must not be null");
 		this.inputs = inputs != null ? List.copyOf(inputs) : List.of();
 		this.batch = batch;
 		this.config = config;
-		this.processorEnabled = processorEnabled;
-		this.absoluteFilePath = absoluteFilePath;
-		this.projectPath = projectPath;
-		this.command = command;
-		this.yamlBlock = yamlBlock;
-		this.lastTextEditor = lastTextEditor;
+		this.arg = arg;
 	}
 
-	/** Deterministic session id: hash(absoluteFilePath, batch, config.getHash()). */
+	/**
+	 * Deterministic session id: hash(absoluteFilePath, batch, config.getHash()).
+	 */
 	public String sessionId() {
 		if (sessionId == null)
 			sessionId = computeSessionId();
@@ -56,7 +42,7 @@ public class Prompt {
 	}
 
 	private String computeSessionId() {
-		String input = absoluteFilePath + "|" + batch + "|" + config.getHash();
+		String input = arg.absoluteFilePath + "|" + batch + "|" + config.getHash();
 		try {
 			MessageDigest md = MessageDigest.getInstance("MD5");
 			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));

@@ -70,8 +70,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 		FrozenConfig fc = prompt.config;
 
 		Builder builder = ResponseCreateParams.builder() //
-				.maxOutputTokens(fc.maxOutputTokens)
-				.safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "") //
+				.maxOutputTokens(fc.maxOutputTokens).safetyIdentifier(new Random().nextInt(Integer.MAX_VALUE) + "") //
 				.truncation(Truncation.DISABLED) //
 				.maxToolCalls(0)//
 				.background(isBackground)//
@@ -99,7 +98,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 						.addContent(inputText).build()));
 				return null;
 			};
-			sessionProcessor.process(prompt.inputs, prompt.processorEnabled, cb);
+			sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled, cb);
 			if (!respInputs.isEmpty())
 				builder.inputOfResponse(respInputs);
 		}

@@ -19,16 +19,15 @@ public class ClaudeSessionParameters extends SessionParameters {
 
 	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
-		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, filePath);
+		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, filePath, null, null,
+				null);
 	}
 
 	public static ClaudeSessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
 			List<String> tools) {
-		return new ClaudeSessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(), cfg.getProfile(),
-				cfg.getKeys(), cfg.getCacheMode(), filePath);
+		return new ClaudeSessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(),
+				cfg.getProfile(), cfg.getKeys(), cfg.getCacheMode(), filePath);
 	}
-
-	
 
 	public List<String> buildBaseCommand() {
 		List<String> cmd = new ArrayList<>();
@@ -186,10 +185,6 @@ public class ClaudeSessionParameters extends SessionParameters {
 		}
 		pb.environment().put("CLAUDE_CODE_DISABLE_ADVISOR_TOOL", "1");
 	}
-
-	
-
-	
 
 	public void setTitle(String title) {
 		if (this.title == null)

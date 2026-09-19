@@ -1,8 +1,7 @@
 package xy.ai.workbench.commands;
 
 public class ToolCommand extends Command {
-
-	public static final String CMD_TOOL   = "/tool";
+	public static final String CMD_TOOL = "/tool";
 
 	public ToolCommand() {
 		this("");

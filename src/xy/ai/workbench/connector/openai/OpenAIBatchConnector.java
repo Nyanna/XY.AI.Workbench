@@ -233,7 +233,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		try {
 			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
 			tree.get("error"); // errors
-			//TextNode id = (TextNode) tree.get("id");
+			// TextNode id = (TextNode) tree.get("id");
 			ObjectNode response = (ObjectNode) tree.get("response");
 			// IntNode statusCode = (IntNode) response.get("status_code");
 			ObjectNode body = (ObjectNode) response.get("body");

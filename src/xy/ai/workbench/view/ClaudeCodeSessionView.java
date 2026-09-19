@@ -77,9 +77,9 @@ import xy.ai.workbench.view.ActionManager.ActionDescription;
  * The view registers a change listener with the {@link CCSessionManager} and
  * refreshes the table on any session state change. A periodic timer refreshes
  * the table every second so that the mm:ss countdown shown for
- * {@link SessionState#Open} sessions stays accurate, and so that the
- * selection can automatically fall back to "Create new session" once a
- * synced session expires.
+ * {@link SessionState#Open} sessions stays accurate, and so that the selection
+ * can automatically fall back to "Create new session" once a synced session
+ * expires.
  * </p>
  */
 public class ClaudeCodeSessionView extends ViewPart {
@@ -90,8 +90,8 @@ public class ClaudeCodeSessionView extends ViewPart {
 	/** Periodic TTL refresh interval in milliseconds. */
 	private static final int TTL_REFRESH_INTERVAL_MS = 1_000;
 	private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null,
-			new ClaudeSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "",
-					CacheMode.Default, "none") {
+			new ClaudeSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic,
+					"", CacheMode.Default, "none") {
 				public String getHash() {
 					return "Create new session";
 				};
@@ -334,7 +334,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 				return msg;
 		}
 
-		String fileName = fileNameOf(s.getParameters().getFilePath());
+		String fileName = fileNameOf(s.getParameters().filePath);
 		String title = s.getParameters().getTitle();
 		if (fileName != null && !fileName.isBlank())
 			return fileName + ": " + s.stats.print();

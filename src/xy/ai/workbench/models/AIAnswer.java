@@ -11,16 +11,13 @@ public class AIAnswer {
 	private static final Pattern ID_PATTERN = Pattern.compile("id=([^,]*), ");
 
 	public final String id;
-	/**
-	 * Id printed in the Result Stats line. Defaults to the request {@link #id};
-	 * connectors backed by a real, independent session (e.g. ClaudeCode) override
-	 * it with that session's own id.
-	 */
 	public String sessionId;
 	public final TokenStats stats = new TokenStats();
 	public String answer = "";
 	public String instructions = "";
-	/** Prompt that produced this answer; null once no longer available (e.g. batch answers). */
+	/**
+	 * Prompt that produced this answer; null once no longer available
+	 */
 	public Prompt prompt;
 
 	public AIAnswer(String id) {

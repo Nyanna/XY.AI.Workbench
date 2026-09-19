@@ -12,10 +12,8 @@ import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 
-/** Generic, connector-agnostic session parameters incl. deterministic hash. */
 public class SessionParameters {
 
-	/** Deterministic hash of the session parameters. Immutable. */
 	public final Path cwd;
 	public final String systemPrompt;
 	public final List<String> tools;
@@ -28,14 +26,7 @@ public class SessionParameters {
 	public final Double topP;
 	public final Double temperature;
 	public final Integer maxOutputTokens;
-
 	private String hash;
-
-	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
-			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
-		this(cwd, systemPrompt, tools, model, reasoning, agentProfile, cliProfile, cacheMode, filePath, null, null,
-				null);
-	}
 
 	public SessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath, Double topP,
@@ -61,10 +52,6 @@ public class SessionParameters {
 		this.topP = topP;
 		this.temperature = temperature;
 		this.maxOutputTokens = maxOutputTokens;
-	}
-
-	public String getFilePath() {
-		return filePath;
 	}
 
 	public String getHash() {

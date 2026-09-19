@@ -17,9 +17,9 @@ import org.eclipse.ui.handlers.HandlerUtil;
 
 /**
  * Copies the absolute file path(s) of the currently selected resource(s), each
- * wrapped in backticks ("`"), to the system clipboard. Falls back to the
- * active editor's input file if no resource selection is available (e.g. when
- * invoked from an editor's context menu).
+ * wrapped in backticks ("`"), to the system clipboard. Falls back to the active
+ * editor's input file if no resource selection is available (e.g. when invoked
+ * from an editor's context menu).
  */
 public class CopyPathHandler extends AbstractHandler {
 

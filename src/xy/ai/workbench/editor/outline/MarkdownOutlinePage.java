@@ -188,7 +188,9 @@ public class MarkdownOutlinePage extends ContentOutlinePage {
 		}
 	}
 
-	/** Whether {@code ne} is currently hidden by one of the active viewer filters. */
+	/*
+	 * Whether {@code ne} is currently hidden by one of the active viewer filters.
+	 */
 	private boolean isFiltered(NodeElement ne) {
 		if (!isAlive(viewer))
 			return false;
