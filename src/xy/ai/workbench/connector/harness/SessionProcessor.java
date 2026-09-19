@@ -23,6 +23,7 @@ import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.commands.CommandRegistry;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
+import xy.ai.workbench.models.AIAnswer;
 
 /**
  * Deterministic, symmetric text &lt;-&gt; message-list translator shared by all
@@ -190,6 +191,11 @@ public class SessionProcessor {
 				if (stripped.equals(EditorInterface.TOOLRESULT)) {
 					flush();
 					i = consumeToolResult(lines, i + 1);
+					continue;
+				}
+				if (stripped.startsWith(AIAnswer.RESULT)) {
+					flush();
+					i++;
 					continue;
 				}
 

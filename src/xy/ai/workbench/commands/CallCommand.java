@@ -14,7 +14,7 @@ public class CallCommand extends Command {
 
 	@Override
 	public boolean matches(String line) {
-		return line != null && prefix().equalsIgnoreCase(line.strip());
+		return line != null && line.strip().startsWith(prefix());
 	}
 
 	@Override
