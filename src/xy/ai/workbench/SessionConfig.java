@@ -117,7 +117,7 @@ public class SessionConfig {
 		this.reasoningBudget = reasoningBudget;
 	}
 
-	public void setSystemPrompt(String freeText) {
+	public void setFreeText(String freeText) {
 		this.freeText = freeText;
 	}
 

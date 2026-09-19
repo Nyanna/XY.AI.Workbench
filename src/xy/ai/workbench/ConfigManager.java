@@ -3,6 +3,7 @@ package xy.ai.workbench;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -57,6 +58,8 @@ public class ConfigManager {
 	}
 
 	public void setKey(String keys) {
+		if (Objects.equals(cfg.getKeys(), keys))
+			return;
 		cfg.setKeys(keys);
 
 		String[] keysa = cfg.keys.split(",");
@@ -67,23 +70,33 @@ public class ConfigManager {
 
 	public void setMaxOutputTokens(Long maxOutputTokens) {
 		maxOutputTokens = (long) getCapabilities().alignOutpuTokens(maxOutputTokens.intValue());
+		if (Objects.equals(cfg.getMaxOutputTokens(), maxOutputTokens))
+			return;
 		cfg.setMaxOutputTokens(maxOutputTokens);
 		outTokenObs.forEach(c -> c.accept(cfg.maxOutputTokens));
 	}
 
-	public void setTemperature(Double temperature) {
-		temperature = getCapabilities().alignTemperature(temperature);
-		cfg.setTemperature(temperature);
+	public void setTemperature(Double temp) {
+		temp = getCapabilities().alignTemperature(temp);
+		var old = cfg.getTemperature();
+		if (Objects.equals(temp, old) || (temp != null && old != null && Math.abs(temp - old) < 0.01))
+			return;
+		cfg.setTemperature(temp);
 		temperatureObs.forEach(c -> c.accept(cfg.temperature));
 	}
 
 	public void setTopP(Double topP) {
 		topP = getCapabilities().alignTopP(topP);
+		var old = cfg.getTopP();
+		if (Objects.equals(topP, old) || (topP != null && old != null && Math.abs(topP - old) < 0.01))
+			return;
 		cfg.setTopP(topP);
 		topPObs.forEach(c -> c.accept(cfg.topP));
 	}
 
 	public void setModel(Model model) {
+		if (Objects.equals(cfg.getModel(), model))
+			return;
 		cfg.setModel(model);
 
 		if (Arrays.asList(getCapabilities().getReasonings()).indexOf(cfg.reasoning) == -1)
@@ -102,52 +115,81 @@ public class ConfigManager {
 		modelObs.forEach(c -> c.accept(model));
 	}
 
-	public Integer getReasoningBudget() {
-		return cfg.getReasoningBudget();
-	}
-
 	public void setReasoningBudget(Integer reasoningBudget) {
 		reasoningBudget = getCapabilities().alignBudget(reasoningBudget);
+		if (Objects.equals(cfg.getReasoningBudget(), reasoningBudget))
+			return;
 		cfg.setReasoningBudget(reasoningBudget);
 		budgetObs.forEach(c -> c.accept(cfg.reasoningBudget));
 	}
 
 	public void setReasoning(Reasoning reasoning) {
+		if (Objects.equals(cfg.getReasoning(), reasoning))
+			return;
 		cfg.setReasoning(reasoning);
 		reasonObs.forEach(c -> c.accept(cfg.reasoning));
 	}
 
 	public void setCacheMode(CacheMode cacheMode) {
+		if (Objects.equals(cfg.getCacheMode(), cacheMode))
+			return;
 		cfg.setCacheMode(cacheMode);
 		cacheObs.forEach(c -> c.accept(cfg.cacheMode));
 	}
 
 	public void setProfile(AgentProfile profile) {
+		if (Objects.equals(cfg.getProfile(), profile))
+			return;
 		cfg.setProfile(profile);
 		profileObs.forEach(c -> c.accept(cfg.profile));
 	}
 
 	public void setSystemPrompt(String[] systemPrompt) {
+		if (Arrays.equals(this.getSystemPrompt(), systemPrompt))
+			return;
 		cfg.setSystemPrompt(systemPrompt);
 		systemPromptObs.forEach(c -> c.accept(cfg));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
 
-	public void setSystemFree(String systemPrompt) {
-		cfg.setSystemPrompt(systemPrompt);
+	public void setSystemFree(String freeText) {
+		if (Objects.equals(cfg.getFreeText(), freeText))
+			return;
+		cfg.setFreeText(freeText);
 		systemFreeObs.forEach(c -> c.accept(cfg.freeText));
 		inputModeObs.forEach(c -> c.accept(InputMode.SystemPrompt));
 	}
 
 	public void setEnabledTools(String[] enabledTools) {
+		if (Arrays.equals(this.enabledTools, enabledTools))
+			return;
 		this.enabledTools = enabledTools;
 		enabledToolsObs.forEach(c -> c.accept(enabledTools));
 	}
 
-	public void addEnabledToolsObs(Consumer<String[]> obs, boolean initialize) {
-		enabledToolsObs.add(obs);
-		if (initialize)
-			obs.accept(enabledTools);
+	public void setOuputMode(OutputMode ouputMode) {
+		if (Objects.equals(cfg.ouputMode, ouputMode))
+			return;
+		cfg.ouputMode = ouputMode;
+		outputModeObs.forEach(c -> c.accept(cfg.ouputMode));
+	}
+
+	public void setInputMode(InputMode mode, boolean enable) {
+		if (enable && cfg.isInputEnabled(mode) || !enable && !cfg.isInputEnabled(mode))
+			return;
+		cfg.setInputMode(mode, enable);
+		// Converter and Selection are mutually exclusive: enabling one disables the
+		// other.
+		if (enable && (mode == InputMode.Converter || mode == InputMode.Selection)) {
+			InputMode other = mode == InputMode.Converter ? InputMode.Selection : InputMode.Converter;
+			if (cfg.isInputEnabled(other)) {
+				cfg.setInputMode(other, false);
+				inputObs.forEach(c -> c.accept(cfg.inputModes));
+				inputModeObs.forEach(c -> c.accept(other));
+			}
+		}
+		inputObs.forEach(c -> c.accept(cfg.inputModes));
+		inputModeObs.forEach(c -> c.accept(mode));
 	}
 
 	public String getKeys() {
@@ -170,6 +212,10 @@ public class ConfigManager {
 		return cfg.getModel();
 	}
 
+	public Integer getReasoningBudget() {
+		return cfg.getReasoningBudget();
+	}
+
 	public AgentProfile getProfile() {
 		return cfg.getProfile();
 	}
@@ -188,6 +234,14 @@ public class ConfigManager {
 
 	public String getFreeText() {
 		return cfg.getFreeText();
+	}
+
+	public OutputMode getOuputMode() {
+		return cfg.ouputMode;
+	}
+
+	public boolean isInputEnabled(InputMode mode) {
+		return cfg.isInputEnabled(mode);
 	}
 
 	public void addSystemPromptObs(Consumer<SessionConfig> obs, boolean initialize) {
@@ -278,39 +332,16 @@ public class ConfigManager {
 		inputModeObs.add(obs);
 	}
 
-	public OutputMode getOuputMode() {
-		return cfg.ouputMode;
-	}
-
-	public void setOuputMode(OutputMode ouputMode) {
-		cfg.ouputMode = ouputMode;
-		outputModeObs.forEach(c -> c.accept(cfg.ouputMode));
-	}
-
 	public void addOutputModeObs(Consumer<OutputMode> obs, boolean initialize) {
 		outputModeObs.add(obs);
 		if (initialize)
 			obs.accept(cfg.ouputMode);
 	}
 
-	public boolean isInputEnabled(InputMode mode) {
-		return cfg.isInputEnabled(mode);
-	}
-
-	public void setInputMode(InputMode mode, boolean enable) {
-		cfg.setInputMode(mode, enable);
-		// Converter and Selection are mutually exclusive: enabling one disables the
-		// other.
-		if (enable && (mode == InputMode.Converter || mode == InputMode.Selection)) {
-			InputMode other = mode == InputMode.Converter ? InputMode.Selection : InputMode.Converter;
-			if (cfg.isInputEnabled(other)) {
-				cfg.setInputMode(other, false);
-				inputObs.forEach(c -> c.accept(cfg.inputModes));
-				inputModeObs.forEach(c -> c.accept(other));
-			}
-		}
-		inputObs.forEach(c -> c.accept(cfg.inputModes));
-		inputModeObs.forEach(c -> c.accept(mode));
+	public void addEnabledToolsObs(Consumer<String[]> obs, boolean initialize) {
+		enabledToolsObs.add(obs);
+		if (initialize)
+			obs.accept(enabledTools);
 	}
 
 	private void updateEnabledModels(String[] keys) {
@@ -336,6 +367,8 @@ public class ConfigManager {
 	}
 
 	public void setEnabledProfiles(AgentProfile[] enabledProfiles) {
+		if (Arrays.equals(this.enabledProfiles, enabledProfiles))
+			return;
 		this.enabledProfiles = enabledProfiles;
 		enabledProfilesObs.forEach(c -> c.accept(enabledProfiles));
 	}
