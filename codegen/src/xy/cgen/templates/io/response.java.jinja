@@ -26,6 +26,11 @@ public final class {{ class_name }} {
     public String contentType() {
         return contentType;
     }
+    
+    /** Response body as JSON text, or an empty string if there is none. */
+    public String body() {
+        return node == null ? "" : node.toString();
+    }
 {% for c in codes %}
 
     /** Present only if the response's status code is {{ c.status_code }}. */

@@ -1,6 +1,7 @@
 # TODO
 
 ## Harness
+! deepseek kann gleichzeit mehrere toolcalls schicken, das muss als ein block ausgegeben werden mit nur einem call kommando und zwei(x) YAML blöcken
 * autorunner
 	* Dann file based SessionConfig mit fixierung
 	* dann auto prompter panel mit tabelle, immer letztes kommando auf basis von konditions pro datei mit config ausführen, result wird appended, kein tag replace
@@ -17,7 +18,6 @@
 ! warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
 
 ## Other
-* MCPC soll INFO auf STD loggen und nur ERROR auf STDERR
 * Toolliste beim editieren scrolll reset fixen
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben

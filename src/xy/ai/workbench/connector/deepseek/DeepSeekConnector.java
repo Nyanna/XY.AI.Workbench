@@ -277,8 +277,9 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		AIAnswer res = new AIAnswer(response.id);
 
 		if (!"200".equals(resp.statusCode())) {
-			LOG.error("Deepseek request failed: HTTP " + resp.statusCode());
-			res.answer = "HTTP " + resp.statusCode();
+			String body = resp.body();
+			LOG.error("Deepseek request failed: HTTP " + resp.statusCode() + (body.isEmpty() ? "" : " - " + body));
+			res.answer = "HTTP " + resp.statusCode() + (body.isEmpty() ? "" : ": " + body);
 			sub.worked(1);
 			return res;
 		}
