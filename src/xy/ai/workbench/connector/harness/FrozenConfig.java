@@ -21,7 +21,7 @@ import xy.ai.workbench.Reasoning;
  */
 public class FrozenConfig {
 
-	public final Model model;
+	public Model model;
 	public final AgentProfile profile;
 	public final Reasoning reasoning;
 	public final List<String> tools;

@@ -16,7 +16,9 @@ import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.Model;
 import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -150,10 +152,16 @@ public final class PromptHandler {
 		SubMonitor sub = SubMonitor.convert(mon, "Preparing Call", 1);
 		sub.subTask("Preparing Call");
 		Prompt prompt = input.buildPrompt(display, batchFix);
+		preprocessCommands(prompt);
 		IModelRequest req = connector.createRequest(prompt, sub);
 		req.setPrompt(prompt);
 		sub.worked(1);
 		return req;
+	}
+
+	private void preprocessCommands(Prompt prompt) {
+		if (prompt.arg.command instanceof CallCommand)
+			prompt.config.model = Model.MCP_TOOLS;
 	}
 
 	private AIAnswer executeInner(Display display, IModelRequest req, IProgressMonitor mon, PromptJob job) {
