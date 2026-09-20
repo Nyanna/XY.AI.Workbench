@@ -1,9 +1,5 @@
 # TODO
-- Schema doku notieren
-	- "Label:" -> Segmente mit Metadaten
-	- "``yaml" -> komplexe aufrufe unt metadaten
-	- "/command" -> Slash kommadnos
-	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
+* deep seek session analysieren: `/home/user/xyan/xy.ai.workbench/project/done/docu_cmd.md`
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis

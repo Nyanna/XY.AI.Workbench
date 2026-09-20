@@ -85,6 +85,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	public AIAnswer convertResponse(MCPResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
 		answer.answer = resp.resultText;
+		answer.showStats = false;
 		return answer;
 	}
 

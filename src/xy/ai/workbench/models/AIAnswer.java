@@ -15,6 +15,7 @@ public class AIAnswer {
 	public final TokenStats stats = new TokenStats();
 	public String answer = "";
 	public String instructions = "";
+	public boolean showStats = true;
 	/**
 	 * Prompt that produced this answer; null once no longer available
 	 */
