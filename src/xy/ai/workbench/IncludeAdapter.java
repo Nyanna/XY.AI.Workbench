@@ -147,7 +147,7 @@ public class IncludeAdapter implements IIncludeAdapter {
 		@Override
 		public void searchResultChanged(SearchResultEvent e) {
 			result = e.getSearchResult();
-			LOG.info("Searchresult changed: " + result.getLabel());
+			// LOG.info("Searchresult changed: " + result.getLabel());
 		}
 	}
 
