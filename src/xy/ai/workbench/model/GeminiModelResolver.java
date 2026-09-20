@@ -12,9 +12,9 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xy.ai.workbench.Capabilities;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 

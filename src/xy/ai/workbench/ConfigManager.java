@@ -14,7 +14,6 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.ide.ResourceUtil;
 
-import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.model.ModelResolverRegistry;
 

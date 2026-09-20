@@ -121,11 +121,11 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		// don't set User ID, segmentation prevents caching
 		// modelProps.setUser(userId);
 
-		if (fc.model.cap.isSupportTemperature())
+		if (fc.model.cap.isSupportTemperature(fc.reasoning))
 			// ignored when thinking, 0-2
 			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(fc.temperature)));
 
-		if (fc.model.cap.isSupportTopP())
+		if (fc.model.cap.isSupportTopP(fc.reasoning))
 			// onl yused when thinking 0.95-1
 			modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(fc.topP)));
 

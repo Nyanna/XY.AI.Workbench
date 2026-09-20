@@ -76,10 +76,10 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 								.build())
 				.model(ChatModel.of(fc.model.apiName)); //
 
-		if (fc.model.cap.isSupportTemperature())
+		if (fc.model.cap.isSupportTemperature(fc.reasoning))
 			builder.temperature(fc.temperature);
 
-		if (fc.model.cap.isSupportTopP())
+		if (fc.model.cap.isSupportTopP(fc.reasoning))
 			builder.topP(fc.topP);
 
 		if (prompt.inputs != null && !prompt.inputs.isEmpty()) {

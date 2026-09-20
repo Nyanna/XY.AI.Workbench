@@ -21,18 +21,17 @@ import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 
 /**
  * Key/Model/Profile/MaxToken/Temp/TopP/Reasoning/Cache row at the top of the
  * session view.
  */
-public class TopParametersSection {
+public class ModelParametersSection {
 
 	private final FormToolkit toolkit;
 
-	public TopParametersSection(FormToolkit toolkit) {
+	public ModelParametersSection(FormToolkit toolkit) {
 		this.toolkit = toolkit;
 	}
 
@@ -148,8 +147,8 @@ public class TopParametersSection {
 		cfg.addBudgetObs(bg -> budget.setText(bg + ""), true);
 
 		cfg.addModelObs(m -> {
-			toggleControl(tempLabel, temp, isTemperatureEnabled(m, cfg.getReasoning()));
-			toggleControl(topPLabel, topP, m.cap.isSupportTopP());
+			toggleControl(tempLabel, temp, m.cap.isSupportTemperature(cfg.getReasoning()));
+			toggleControl(topPLabel, topP, m.cap.isSupportTopP(cfg.getReasoning()));
 			toggleControl(maxTokenLabel, maxToken, m.cap.isSupportMaxToken());
 
 			String[] reasonings = cfg.getReasonings();
@@ -167,7 +166,7 @@ public class TopParametersSection {
 			budget.setVisible(enabled);
 			((GridData) budget.getLayoutData()).exclude = !enabled;
 
-			toggleControl(tempLabel, temp, isTemperatureEnabled(cfg.getModel(), r));
+			toggleControl(tempLabel, temp, cfg.getModel().cap.isSupportTemperature(r));
 
 			secReason.layout();
 			body.layout();
@@ -190,13 +189,6 @@ public class TopParametersSection {
 		cfg.addCacheObs(c -> {
 			cacheSel.setText(c != null ? c.name() : "");
 		}, true);
-	}
-
-	private boolean isTemperatureEnabled(Model m, Reasoning reasoning) {
-		if (m.cap.getKeyPattern().equals(KeyPattern.Claude))
-			return m.cap.isSupportTemperature() && Reasoning.Disabled.equals(reasoning);
-		else
-			return m.cap.isSupportTemperature();
 	}
 
 	private void toggleControl(Label label, Control ctrl, boolean enabled) {

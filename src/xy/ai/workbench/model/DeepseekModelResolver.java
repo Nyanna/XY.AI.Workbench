@@ -12,9 +12,9 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xy.ai.workbench.Capabilities;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 
@@ -38,6 +38,9 @@ public class DeepseekModelResolver implements ModelResolver {
 				Capabilities cap = ModelsDevCatalog.get().toCapabilities(KeyPattern.Deepseek, node);
 				cap.reasonings(Reasoning.Disabled, Reasoning.low, Reasoning.high, Reasoning.max);
 				cap.supportBatch(false);
+				cap.topPMin(0.95d);
+				cap.supportReasoningTemperature(false);
+				cap.supportTopP(false);
 				result.add(new Model(id, id, cap));
 			}
 			if (result.isEmpty())

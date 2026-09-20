@@ -18,7 +18,7 @@ import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.view.session.ActionButtonsSection;
 import xy.ai.workbench.view.session.InstructionSection;
 import xy.ai.workbench.view.session.OutputModeSection;
-import xy.ai.workbench.view.session.TopParametersSection;
+import xy.ai.workbench.view.session.ModelParametersSection;
 import xy.ai.workbench.view.session.UsageLogSection;
 
 /**
@@ -67,7 +67,7 @@ public class AISessionView extends ViewPart {
 		Composite body = form.getBody();
 		body.setLayout(new GridLayout());
 
-		new TopParametersSection(toolkit).create(body, cfg);
+		new ModelParametersSection(toolkit).create(body, cfg);
 		new InstructionSection(toolkit, () -> form.reflow(true)).create(body, cfg, prompt, getSite().getShell());
 		OutputModeSection.create(toolkit, body, cfg);
 		ActionButtonsSection.create(body, cfg, prompt);

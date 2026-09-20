@@ -12,9 +12,9 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xy.ai.workbench.Capabilities;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.Capabilities;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Reasoning;
 
@@ -56,6 +56,8 @@ public class AnthropicModelResolver implements ModelResolver {
 			cap.reasonings(Reasoning.Budget, Reasoning.Disabled).budget(1024, Math.max(1024, maxTokens - 1));
 		else
 			cap.reasonings(Reasoning.Disabled);
+		cap.tempMax(1d);
+		cap.supportReasoningTemperature(false);
 		return cap;
 	}
 
