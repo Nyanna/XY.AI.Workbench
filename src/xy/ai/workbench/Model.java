@@ -57,7 +57,7 @@ public class Model {
 	public static final Model NONE = new Model("none", new Capabilities()//
 			.key(KeyPattern.None)//
 	);
-	public static final Model CC_HAIKU = new Model("haiku", new Capabilities()//
+	public static final Model CC_HAIKU = new Model("haiku", "CC Haiku", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
@@ -65,7 +65,7 @@ public class Model {
 			.agentProfiles(AgentProfile.values())//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	public static final Model CC_SONNET = new Model("sonnet", new Capabilities()//
+	public static final Model CC_SONNET = new Model("sonnet", "CC Sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
@@ -73,7 +73,7 @@ public class Model {
 			.agentProfiles(AgentProfile.values())//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	public static final Model CC_OPUS = new Model("opus", new Capabilities()//
+	public static final Model CC_OPUS = new Model("opus", "CC Opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
@@ -81,7 +81,7 @@ public class Model {
 			.agentProfiles(AgentProfile.values())//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	public static final Model CC_MCPC_HAIKU = new Model("haiku", "haiku (mcpc)", new Capabilities()//
+	public static final Model CC_MCPC_HAIKU = new Model("haiku", "CC Haiku (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
@@ -90,7 +90,7 @@ public class Model {
 			.agentProfiles(AgentProfile.MCPC)//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	public static final Model CC_MCPC_SONNET = new Model("sonnet", "sonnet (mcpc)", new Capabilities()//
+	public static final Model CC_MCPC_SONNET = new Model("sonnet", "CC Sonnet (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
@@ -99,7 +99,7 @@ public class Model {
 			.agentProfiles(AgentProfile.MCPC)//
 			.reasonings(Reasoning.ClaudeCode)//
 	);
-	public static final Model CC_MCPC_OPUS = new Model("opus", "opus (mcpc)", new Capabilities()//
+	public static final Model CC_MCPC_OPUS = new Model("opus", "CC Opus (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//

@@ -5,7 +5,7 @@ public class SessionConfig {
 	public Long maxOutputTokens = 128000L;
 	public Double temperature = 0d;
 	public Double topP = 0.1d;
-	public Model model = Model.GPT_5_NANO;
+	public Model model = Model.MCP_TOOLS;
 	public AgentProfile profile;
 	public String[] systemPrompt = new String[] { //
 			"Answer very short and precise", //
