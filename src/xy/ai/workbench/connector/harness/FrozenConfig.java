@@ -73,8 +73,13 @@ public class FrozenConfig {
 		String[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getTools() : null;
 		List<String> tools = List.of(rawTools != null ? rawTools : new String[0]);
 
-		return new FrozenConfig(cfg.getKeys(), cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools,
-				systemPrompt, cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
+		String keys = cfg.getKeys();
+		for (String key : keys.split(","))
+			if (cfg.getModel().cap.acceptsKey(key))
+				keys = key;
+
+		return new FrozenConfig(keys, cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt,
+				cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),
 				cfg.getCacheMode(), cfg.getOuputMode());
 	}
 

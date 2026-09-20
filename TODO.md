@@ -1,5 +1,5 @@
 # TODO
-key anpassen für from config in CC
+key anpassen für from config in CC, fehlt der komma split und pattern check damit gleich ist mit CC session view auto select
 ## Harness
 ! deepseek kann gleichzeit mehrere toolcalls schicken, das muss als ein block ausgegeben werden mit nur einem call kommando und zwei(x) YAML blöcken
 * autorunner
