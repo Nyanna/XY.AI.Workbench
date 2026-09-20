@@ -467,5 +467,14 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
         if not path.is_file():
             raise AstError('Not a regular file.')
     return path
+
+_CONTROL_CHAR_RE = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+def check_no_control_chars(code: str) -> None:
+    """Raise :class:`AstError` if ``code`` contains abnormal control characters (e.g. NUL)."""
+    match = _CONTROL_CHAR_RE.search(code)
+    if match:
+        raise AstError(f'input contains an abnormal control character: {match.group()!r} at offset {match.start()}')
+    
 '#: JSON-Schema fragment for :class:`OutlineNode`, shared by list/find.'
 OUTLINE_NODE_DESCRIPTION = 'The result object represents an outline node with mandatory properties id, serving as the unique address for tools, and type, specifying the node type. Optional properties include lines for line numbers or ranges when edit tools are enabled, signature for single-line headers, docstring for documentation, code for full source text populated by find or read commands, and children for an array of nested child nodes. Signature and docstring are omitted when code is included, and code is omitted in list mode.'

@@ -1,1 +1,0 @@
-Die Engines `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/python/_engine.py` und `/home/user/xyan/xy.ai.workbench/mcpc/src/xy/ai/mcpc/tools/ast/generic/_engine.py` sollen bei Editoroperationen einen Fehler werfen wenn im Input anormale Steuerzeichen vorkommen wie zum Beispiel NUL Byte.

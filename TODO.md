@@ -24,9 +24,7 @@
 	* besserer shortcuts für datei erstellen
 	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
 	- / autocomplete after "/" und wenn nach YAML block dann /call /prompt, mit autocomplete für includes
-- AST
-	* JavaParser für java AST
-	* NUL byte fehler in AST filter
+- AST, JavaParser für java AST
 - Deepseek, temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
 * Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
 	* bei openai cache breakpoint marker mit in editor/processor schreiben

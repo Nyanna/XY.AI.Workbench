@@ -9,7 +9,7 @@ import autopep8
 import logging
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, SEGMENT_MAX_CHARS, Tree, id_segment
+from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, SEGMENT_MAX_CHARS, Tree, check_no_control_chars, id_segment
 from xy.ai.mcpc.tools.ast.python._comments import comments_to_annotations
 from xy.ai.mcpc.tools.ast.python._nodes import _DEF_TYPES, _IMPORT_TYPES, _StatementGroup, _decorators, _is_expandable
 logger = logging.getLogger('xy.ai.mcpc.tools.ast.python')
@@ -181,6 +181,7 @@ class PythonEngine(Engine):
         return _unparse(ast.fix_missing_locations(node))
 
     def replace(self, loc: Located, code: str) -> None:
+        check_no_control_chars(code)
         node = loc.node
         if isinstance(node, _StatementGroup):
             node.parent.body[node.start:node.stop] = self._parse_fragment(code)
@@ -188,6 +189,7 @@ class PythonEngine(Engine):
             loc.parent.body[loc.index:loc.index + 1] = self._parse_fragment(code)
 
     def insert(self, loc: Located, code: str, position: str) -> int:
+        check_no_control_chars(code)
         stmts = self._parse_fragment(code)
         node = loc.node
         if isinstance(node, _StatementGroup):
@@ -208,6 +210,7 @@ class PythonEngine(Engine):
             del loc.parent.body[loc.index]
 
     def append(self, tree: Tree, code: str) -> int:
+        check_no_control_chars(code)
         stmts = self._parse_fragment(code)
         tree.raw.body.extend(stmts)
         return len(stmts)

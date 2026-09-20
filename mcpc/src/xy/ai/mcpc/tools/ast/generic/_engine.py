@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 from tree_sitter_language_pack import get_parser
-from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, Tree, id_segment
+from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, Tree, check_no_control_chars, id_segment
 __all__ = ['TreeSitterEngine']
 "#: Named child types that usually carry a node's identifier/key."
 _NAME_TYPES = {
@@ -182,9 +182,11 @@ class TreeSitterEngine(Engine):
         tree.raw = self._parse(new)
 
     def replace(self, loc: Located, code: str) -> None:
+        check_no_control_chars(code)
         self._splice(loc.tree, loc.node.start_byte, loc.node.end_byte, code)
 
     def insert(self, loc: Located, code: str, position: str) -> int:
+        check_no_control_chars(code)
         if position == 'before':
             self._splice(loc.tree, loc.node.start_byte, loc.node.start_byte, code + '\n')
         else:
@@ -195,6 +197,7 @@ class TreeSitterEngine(Engine):
         self._splice(loc.tree, loc.node.start_byte, loc.node.end_byte, '')
 
     def append(self, tree: Tree, code: str) -> int:
+        check_no_control_chars(code)
         sep = '' if not tree.source or tree.source.endswith('\n') else '\n'
         self._splice(tree, len(tree.source.encode('utf-8')), len(tree.source.encode('utf-8')), sep + code)
         return 1

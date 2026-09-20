@@ -40,8 +40,12 @@ public class AISessionManager {
 		if (model == null)
 			return;
 		List<String> discovered = new ArrayList<>();
-		for (JsonNode tool : mcpClient.listTools())
-			discovered.add(tool.path("name").asText());
+		try {
+			for (JsonNode tool : mcpClient.listTools())
+				discovered.add(tool.path("name").asText());
+		} catch (IllegalStateException e) {
+			LOG.info("MCPC not yet ready", e);
+		}
 		model.cap.tools(sortByToolOrder(discovered));
 	}
 
