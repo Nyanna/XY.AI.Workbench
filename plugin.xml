@@ -57,7 +57,7 @@
 			icon="icons/sample.png"
 			id="xy.ai.workbench.view.ClaudeCodeSessionView"
 			inject="true"
-			name="Claude Code Sessions">
+			name="CC Sessions">
 		</view>
 	</extension>
 	<extension point="org.eclipse.ui.navigator.navigatorContent">

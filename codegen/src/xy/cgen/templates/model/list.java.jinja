@@ -68,12 +68,12 @@ public final class {{ class_name }} {
     public void remove(int index) {
         ((ArrayNode) node).remove(index);
     }
-{% if is_request_root %}
 
     @Override
     public String toString() {
         return {{ json_support_fqn }}.write(node);
     }
+{% if is_request_root %}
 
     public static {{ class_name }} fromString(String body) {
         return new {{ class_name }}({{ json_support_fqn }}.parse(body));

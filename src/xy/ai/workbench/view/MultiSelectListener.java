@@ -16,6 +16,7 @@ public class MultiSelectListener implements Clearable {
 		this.component = component;
 		component.addListener(SWT.MouseDown, event -> {
 			int clickedIndex = component.getSelectionIndex();
+			int topIdx = component.getTopIndex();
 
 			if (selectedIndices.contains(clickedIndex))
 				selectedIndices.remove(Integer.valueOf(clickedIndex));
@@ -24,10 +25,12 @@ public class MultiSelectListener implements Clearable {
 
 			int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
 			component.setSelection(selection);
+			component.setTopIndex(topIdx);
 		});
 	}
 
 	public void setSelection(String[] items) {
+		int topIdx = component.getTopIndex();
 		java.util.List<String> all = Arrays.asList(component.getItems());
 		selectedIndices.clear();
 		if (items != null)
@@ -38,6 +41,7 @@ public class MultiSelectListener implements Clearable {
 			}
 		int[] selection = selectedIndices.stream().mapToInt(Integer::intValue).sorted().toArray();
 		component.setSelection(selection);
+		component.setTopIndex(topIdx);
 	}
 
 	@Override

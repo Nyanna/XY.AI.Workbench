@@ -1,5 +1,4 @@
 # TODO
-key anpassen für from config in CC, fehlt der komma split und pattern check damit gleich ist mit CC session view auto select
 ## Harness
 ! deepseek kann gleichzeit mehrere toolcalls schicken, das muss als ein block ausgegeben werden mit nur einem call kommando und zwei(x) YAML blöcken
 * autorunner
@@ -11,7 +10,6 @@ key anpassen für from config in CC, fehlt der komma split und pattern check dam
 - warning wenn mehrturn kontext ohne cache hit zurückkommt > wo, wie? -> inline gelbe zeile aber woher wissen wann cache an sein soltle? -> vorhergehende result zeile mit cache metriken
 
 ## Other
-* Toolliste beim editieren scrolll reset fixen
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
@@ -29,9 +27,7 @@ key anpassen für from config in CC, fehlt der komma split und pattern check dam
 - AST
 	* JavaParser für java AST
 	* NUL byte fehler in AST filter
-- Deepseek
-	* deepseek codegen tostring auf Node für debugging
-	* deepseek, temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
+- Deepseek, temperaturee deaktivieren wenn thinking, top_p only thinking und minval 0.95 - 1
 * Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
 	* bei openai cache breakpoint marker mit in editor/processor schreiben
 - autorunner approval
@@ -48,9 +44,6 @@ key anpassen für from config in CC, fehlt der komma split und pattern check dam
 	* anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
 	* open alex zweistufig optimieren, split in separate files
 	
-* modell von dopplung durch kindknoten verwirrt - `/home/user/xyan/xy.ai.workbench/project/done/tools_provider.md`
-* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern -> richtiger java validator formatter
-
 - Schema doku notieren
 	- "Label:" -> Segmente mit Metadaten
 	- "``yaml" -> komplexe aufrufe unt metadaten
@@ -77,6 +70,8 @@ key anpassen für from config in CC, fehlt der komma split und pattern check dam
 	* erst mit keep alive sinnvoll
 
 # Ideas
+* modell von dopplung durch kindknoten verwirrt - `/home/user/xyan/xy.ai.workbench/project/done/tools_provider.md`
+* tabs sind was den yaml block scalar bricht, mit java formatter könnte man das ändern -> richtiger java validator formatter
 
 ## Agents
 

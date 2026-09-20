@@ -4,7 +4,6 @@ import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.actions.ActionFactory;
 import org.eclipse.ui.ide.IDE;
@@ -47,8 +46,7 @@ public class AISessionEditorContributor extends MultiPageEditorActionBarContribu
 		activeEditorPart = part;
 
 		IActionBars actionBars = getActionBars();
-		if (actionBars != null) {
-
+		if (actionBars != null && actionBars.getClass() == null) {
 			ITextEditor editor = (part instanceof ITextEditor) ? (ITextEditor) part : null;
 
 			actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(),
@@ -86,13 +84,13 @@ public class AISessionEditorContributor extends MultiPageEditorActionBarContribu
 	}
 
 	public void contributeToMenu(IMenuManager manager) {
-		IMenuManager menu = new MenuManager("Editor &Menu");
-		manager.prependToGroup(IWorkbenchActionConstants.MB_ADDITIONS, menu);
-		menu.add(sampleAction);
+//		IMenuManager menu = new MenuManager("Editor &Menu");
+//		manager.prependToGroup(IWorkbenchActionConstants.MB_ADDITIONS, menu);
+//		menu.add(sampleAction);
 	}
 
 	public void contributeToToolBar(IToolBarManager manager) {
-		manager.add(new Separator());
-		manager.add(sampleAction);
+//		manager.add(new Separator());
+//		manager.add(sampleAction);
 	}
 }

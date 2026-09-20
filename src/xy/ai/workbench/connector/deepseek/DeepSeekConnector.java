@@ -228,7 +228,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 				try {
 					return (ObjectNode) mapper.readTree(meta);
 				} catch (Exception e) {
-					LOG.error("Invalid Thinking Meta JSON, falling back to plain text: " + e.getMessage());
+					LOG.error("Invalid Thinking Meta JSON, falling back to plain text: " + e.getMessage(), e);
 				}
 			return message(role, SessionRenderer.reasoning(texts, null));
 		}

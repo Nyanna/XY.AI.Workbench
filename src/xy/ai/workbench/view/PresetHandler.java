@@ -61,7 +61,8 @@ public class PresetHandler {
 				};
 				project.accept(visitor);
 			} catch (CoreException e) {
-				//LOG.error(e.getMessage(), e);
+				// return things like project closed
+				// LOG.error(e.getMessage(), e);
 			}
 		}
 		files.sort(Comparator.comparing(f -> f.getFullPath().toString()));

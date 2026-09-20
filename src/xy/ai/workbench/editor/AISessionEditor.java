@@ -18,6 +18,8 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.part.FileEditorInput;
 import org.eclipse.ui.part.MultiPageEditorPart;
 
+import xy.ai.workbench.LOG;
+
 public class AISessionEditor extends MultiPageEditorPart implements IResourceChangeListener {
 
 	private AITextEditor editor;
@@ -43,6 +45,7 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 			folder.setTabHeight(0);
 		} catch (PartInitException e) {
 			ErrorDialog.openError(getSite().getShell(), "Error creating nested text editor", null, e.getStatus());
+			LOG.error("Error initing part", e);
 		}
 	}
 

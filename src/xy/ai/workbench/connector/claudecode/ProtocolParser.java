@@ -30,10 +30,10 @@ public class ProtocolParser {
 		JsonNode node;
 		try {
 			node = JsonUtil.readTree(line);
-		} catch (JsonProcessingException parseError) {
+		} catch (JsonProcessingException pe) {
 			throw new IllegalStateException(
 					"Could not parse CLI line as JSON (length=" + line.length() + "): " + JsonUtil.abbreviate(line),
-					parseError);
+					pe);
 		}
 
 		String type = JsonUtil.plainText(node.path("type"));

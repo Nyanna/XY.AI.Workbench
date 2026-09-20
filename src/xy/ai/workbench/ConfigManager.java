@@ -510,7 +510,7 @@ public class ConfigManager {
 						setInputMode(mode, snap.inputModes[mode.ordinal()]);
 		} catch (Exception e) {
 			LOG.error(e.getMessage(), e);
-			LOG.info("Unable to restore config");
+			LOG.info("Unable to restore config", e);
 		} finally {
 			activeEditorKey = savedKey;
 			cfg = savedKey == null ? defaultCfg : editorConfigs.getOrDefault(savedKey, defaultCfg);

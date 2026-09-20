@@ -96,11 +96,11 @@ public class EditorInterface {
 					IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
 					IDE.openEditor(page, newFile);
 				} catch (PartInitException e) {
-					LOG.info("Error opening new editor file");
+					LOG.info("Error opening new editor file", e);
 				} catch (CoreException e) {
-					LOG.info("Error writting file");
+					LOG.info("Error writting file", e);
 				} catch (UnsupportedEncodingException e) {
-					LOG.info("Error unsupported encoding");
+					LOG.info("Error unsupported encoding", e);
 				}
 
 			} else {
@@ -134,7 +134,7 @@ public class EditorInterface {
 					}
 					textEditor.doSave(mon);
 				} catch (BadLocationException e) {
-					LOG.info("Error adding text");
+					LOG.info("Error adding text", e);
 				}
 			}
 		});

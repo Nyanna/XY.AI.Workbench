@@ -1,9 +1,6 @@
 package xy.ai.workbench.connector.claudecode;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +10,7 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.SessionParameters;
+import xy.ai.workbench.tools.Hash;
 
 public class ClaudeSessionParameters extends SessionParameters {
 	private static final String SCRIPT = System.getProperty("user.home")
@@ -44,20 +42,7 @@ public class ClaudeSessionParameters extends SessionParameters {
 
 	protected String computeHash() {
 		String input = cliProfile + "|" + super.computeHash();
-		try {
-			MessageDigest md = MessageDigest.getInstance("MD5");
-			byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-			StringBuilder sb = new StringBuilder();
-			for (byte b : bytes)
-				sb.append(String.format("%02x", b));
-			return sb.substring(0, 8);
-		} catch (NoSuchAlgorithmException e) {
-			// Stable fallback (no external dependency)
-			long h = 0;
-			for (char c : input.toCharArray())
-				h = h * 31L + c;
-			return String.format("%08x", h & 0xFFFFFFFFL);
-		}
+		return Hash.hash(input);
 	}
 
 	public List<String> buildBaseCommand() {

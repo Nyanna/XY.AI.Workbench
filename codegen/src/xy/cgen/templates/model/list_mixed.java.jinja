@@ -67,12 +67,12 @@ public final class {{ class_name }} {
 {% endif %}
     }
 {% endfor %}
-{% if is_request_root %}
 
     @Override
     public String toString() {
         return {{ json_support_fqn }}.write(node);
     }
+{% if is_request_root %}
 
     public static {{ class_name }} fromString(String body) {
         return new {{ class_name }}({{ json_support_fqn }}.parse(body));
