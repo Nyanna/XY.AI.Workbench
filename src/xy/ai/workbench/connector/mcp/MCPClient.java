@@ -8,7 +8,9 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -36,11 +38,21 @@ public class MCPClient {
 
 	/** Instance-stable session id sent as X-MCPC-SESSION-ID. */
 	private final String sessionId = UUID.randomUUID().toString();
+	private final List<ConnectObserver> connectObservers = new CopyOnWriteArrayList<>();
 
 	private boolean initialized;
+	private boolean connectNotified;
 	private String mcpSessionId;
 	private ArrayNode toolCache;
 	private long nextId = 1;
+
+	public interface ConnectObserver {
+		void onConnect(MCPClient client);
+	}
+
+	public void addConnectObserver(ConnectObserver observer) {
+		connectObservers.add(observer);
+	}
 
 	public JsonNode findTool(String name) {
 		for (JsonNode tool : listTools())
@@ -145,6 +157,16 @@ public class MCPClient {
 		send(request("initialize", params), true);
 		send(notification("notifications/initialized"), false);
 		initialized = true;
+
+		if (!connectNotified) {
+			connectNotified = true;
+			new Thread(this::notifyConnected, "mcp-connect-notify").start();
+		}
+	}
+
+	private void notifyConnected() {
+		for (ConnectObserver observer : connectObservers)
+			observer.onConnect(this);
 	}
 
 	private JsonNode send(ObjectNode rpc, boolean expectResult) {

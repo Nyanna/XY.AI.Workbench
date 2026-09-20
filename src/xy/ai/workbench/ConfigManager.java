@@ -15,6 +15,7 @@ import org.eclipse.ui.IMemento;
 import org.eclipse.ui.ide.ResourceUtil;
 
 import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.model.ModelResolverRegistry;
 
 public class ConfigManager {
@@ -43,6 +44,10 @@ public class ConfigManager {
 	private List<Consumer<Double>> topPObs = new ArrayList<>();
 	private List<Consumer<OutputMode>> outputModeObs = new ArrayList<>();
 	private List<Consumer<String[]>> enabledToolsObs = new ArrayList<>();
+
+	public ConfigManager(MCPClient mcpClient) {
+		ModelResolverRegistry.attach(mcpClient);
+	}
 
 	public void clearObserver() {
 		systemPromptObs.clear();

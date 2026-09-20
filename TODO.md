@@ -1,7 +1,9 @@
 # TODO
-! mcpc startet zu spät nach tool laden. in plugin launch config prüfen und dann selber scho MCPC vor memento starten -> vielleicht?
-	-> besser, memento nach MCPC connectio tools neu einlesen, oder besser ein tools cache vor MCPC, und wenn MCPC danach ein update vpm cache
-		-> wenn dann MCPC nicht verfübar immernoch cahce, cache in Memento mit speichern und dann danach aktualisieren
+- Schema doku notieren
+	- "Label:" -> Segmente mit Metadaten
+	- "``yaml" -> komplexe aufrufe unt metadaten
+	- "/command" -> Slash kommadnos
+	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
@@ -17,12 +19,6 @@
 	* open alex zweistufig optimieren, split in separate files
 	- AST, JavaParser für java AST
 	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash oder python
-	
-- Schema doku notieren
-	- "Label:" -> Segmente mit Metadaten
-	- "``yaml" -> komplexe aufrufe unt metadaten
-	- "/command" -> Slash kommadnos
-	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
 
 # Backlog
 

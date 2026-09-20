@@ -23,16 +23,16 @@ public class Activator extends AbstractUIPlugin {
 	// The shared instance
 	private static Activator plugin;
 
-	public ConfigManager cfg = new ConfigManager();
-	public CCSessionManager cliSessionManager = new CCSessionManager();
 	public MCPClient mcpClient = new MCPClient();
+	public ConfigManager cfg = new ConfigManager(mcpClient);
+	public CCSessionManager cliSessionManager = new CCSessionManager();
 	public SessionProcessor sessionProcessor = new SessionProcessor();
 	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager, mcpClient, sessionProcessor);
 
 	public AIBatchManager batch = new AIBatchManager(connector);
 	public AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
 
-	public AISessionManager session = new AISessionManager(cfg, connector, batch, mcpClient, sessionProcessor);
+	public AISessionManager session = new AISessionManager(cfg, connector, batch, sessionProcessor);
 	public EditorInterface editIfc = session.editIfc;
 
 	public MarkerRessourceScanner markerScanner;
