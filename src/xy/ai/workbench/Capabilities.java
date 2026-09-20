@@ -3,10 +3,10 @@ package xy.ai.workbench;
 import xy.ai.workbench.Model.KeyPattern;
 
 public class Capabilities {
-	private boolean supportTemperature = true;
-	private boolean supportReasoningTemperature = true;
-	private boolean supportTopP = true;
-	private boolean supportReasoningTopP = true;
+	private boolean supportTemperature = false;
+	private boolean supportReasoningTemperature = false;
+	private boolean supportTopP = false;
+	private boolean supportReasoningTopP = false;
 	private boolean supportMaxToken = true;
 	private boolean supportBatch = true;
 	private Reasoning[] reasonings = Reasoning.values();

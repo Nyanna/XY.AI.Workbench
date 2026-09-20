@@ -57,7 +57,6 @@ public class AnthropicModelResolver implements ModelResolver {
 		else
 			cap.reasonings(Reasoning.Disabled);
 		cap.tempMax(1d);
-		cap.supportReasoningTemperature(false);
 		return cap;
 	}
 

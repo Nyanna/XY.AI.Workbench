@@ -39,8 +39,8 @@ public class DeepseekModelResolver implements ModelResolver {
 				cap.reasonings(Reasoning.Disabled, Reasoning.low, Reasoning.high, Reasoning.max);
 				cap.supportBatch(false);
 				cap.topPMin(0.95d);
-				cap.supportReasoningTemperature(false);
-				cap.supportTopP(false);
+				cap.supportTemperature(true);
+				cap.supportReasoningTopP(true);
 				result.add(new Model(id, id, cap));
 			}
 			if (result.isEmpty())

@@ -15,8 +15,7 @@ import xy.ai.workbench.Model.KeyPattern;
  * lifetime of the application (once per key, no repeated HTTP calls on every
  * settings/session restore).
  */
-public final class ModelResolverRegistry {
-
+public class ModelResolverRegistry {
 	private static final Map<KeyPattern, ModelResolver> RESOLVERS = new EnumMap<>(KeyPattern.class);
 	private static final Map<String, List<Model>> CACHE = new ConcurrentHashMap<>();
 
@@ -28,9 +27,6 @@ public final class ModelResolverRegistry {
 		RESOLVERS.put(KeyPattern.Claude, new AnthropicModelResolver());
 		RESOLVERS.put(KeyPattern.Deepseek, new DeepseekModelResolver());
 		// ClaudeCode/None/Misc stay on the DefaultModelResolver
-	}
-
-	private ModelResolverRegistry() {
 	}
 
 	public static List<Model> resolve(KeyPattern provider, String apiKey) {

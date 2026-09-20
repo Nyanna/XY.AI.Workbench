@@ -1,18 +1,35 @@
 # TODO
-## Other
-
+! mcpc startet zu spät nach tool laden. in plugin launch config prüfen und dann selber scho MCPC vor memento starten -> vielleicht?
+	-> besser, memento nach MCPC connectio tools neu einlesen, oder besser ein tools cache vor MCPC, und wenn MCPC danach ein update vpm cache
+		-> wenn dann MCPC nicht verfübar immernoch cahce, cache in Memento mit speichern und dann danach aktualisieren
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
 		- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
-- UX
-	- F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
-	- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert)
-	* besserer shortcuts für datei erstellen
-	- shortcut für in extra task auslagern (immer project verzeichnis, nottfals erstellen)
-	- / autocomplete after "/" und wenn nach YAML block dann /call /prompt, mit autocomplete für includes
-* autorunner
-	* Dann file based SessionConfig mit fixierung, muss aber als editor mal gestartet worden seon
+	- UX
+		- F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
+		- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert, mit projet datei autocompletion)
+		* besserer shortcuts für datei erstellen
+			- shortcut für selection in extra task auslagern (immer project verzeichnis, nottfals erstellen)
+		- / autocomplete after "/" und wenn nach YAML block dann /call /prompt, mit autocomplete für includes
+- tools
+	* anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
+	* open alex zweistufig optimieren, split in separate files
+	- AST, JavaParser für java AST
+	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash oder python
+	
+- Schema doku notieren
+	- "Label:" -> Segmente mit Metadaten
+	- "``yaml" -> komplexe aufrufe unt metadaten
+	- "/command" -> Slash kommadnos
+	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
+
+# Backlog
+
+* Cleanups, Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
+	* bei openai cache breakpoint marker mit in editor/processor schreiben
+* autorunner panel
+	* Dann file based SessionConfig mit fixierung, muss aber als editor mal gestartet worden sein
 	* dann auto prompter panel mit tabelle, immer letztes kommando auf basis von konditions pro datei mit config ausführen, result wird appended, kein tag replace
 		* abbruch bei exception
 		* nach tool result eine neues /prompt kommando
@@ -30,21 +47,6 @@
 			- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit),
 			- Viel Kontext(Zeichen Threshold), viele turns/cache read hoch -> per flag togglebar
 		* auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
-- tools
-	* anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
-	* open alex zweistufig optimieren, split in separate files
-	- AST, JavaParser für java AST
-	- restrict environment, keine absoluten pfade mehr sondern relative oder ein baseverzeichnis setzen um das environment stärker zu begrenzen
-		- wieder idee von virtuellem environment mit pfad alias, alles unter root, dann noch temp folder, funktioniert nicht mit bash oder python
-		- eigentlich brauche ich nur alles außerhalb project path oder filterliste unsichtbar machen
-* Cleanups, Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
-	* bei openai cache breakpoint marker mit in editor/processor schreiben
-	
-- Schema doku notieren
-	- "Label:" -> Segmente mit Metadaten
-	- "``yaml" -> komplexe aufrufe unt metadaten
-	- "/command" -> Slash kommadnos
-	- (Neu) [include file newlines=True](/pfad/datei) und [include prefix](/pfad/datei)
 
 # Ideas
 
@@ -70,11 +72,10 @@
 	- LLMLingua und LLM selbstkompression
 	- eclipse suchprovider für caolgrep -> oder generellen RAG tool panel um kontext auszuwählen
 * Planing augmentation
-	* AI Planstrukturierung self has the ability to decide abouts it's capacilities -> nein kann er nicht, reine inferenz
-	* It can match effort, modell structure and coordination of a federated mind, nein kann er nicht
 	1. Ein agent erstellt die notwendigen inputs für einen prompt, dateien, specs, schemas, studien, apis
 	2. Löst dann problem und delegiert Umsetzung
 	3. Umsetzngsagents
 * was ist https://mcp2cli.dev/
 * selbst lerne agenten die ihren prompt selbst modifizieren und persistieren. Quasi wie memorry
+	* brauche dynamischen memory das patterns un tools erkennt, ist das eine KB um häufige fehler zu vermeiden
 * weitere tools für research Semantic Scholar, arXiv API Access

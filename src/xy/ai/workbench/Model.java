@@ -56,61 +56,9 @@ public class Model {
 	// provider-specific resolver takes over (or as a fallback if it fails).
 	public static final Model NONE = new Model("none", new Capabilities()//
 			.key(KeyPattern.None)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-	);
-	public static final Model GPT_5_NANO = new Model("gpt-5-nano", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.OpenAI)//
-	);
-	public static final Model GPT_5_MINI = new Model("gpt-5-mini", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.OpenAI)//
-	);
-	public static final Model GPT_5 = new Model("gpt-5", new Capabilities()//
-			.key(KeyPattern.OpenAI)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
-			.reasonings(Reasoning.high, Reasoning.medium, Reasoning.low)//
-	);
-	public static final Model GEMINI_25_PRO = new Model("gemini-2.5-pro", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Unlimited, Reasoning.Budget)//
-			.budget(128, 32768)//
-	);
-	public static final Model GEMINI_25_FLASH = new Model("gemini-2.5-flash", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Budgets)//
-			.budget(0, 24576)//
-	);
-	public static final Model GEMINI_25_LIGHT = new Model("gemini-2.5-flash-lite", new Capabilities()//
-			.key(KeyPattern.Gemini)//
-			.outTokens(0, 65536)//
-			.reasonings(Reasoning.Budgets)//
-			.budget(512, 24576)//
-	);
-	public static final Model CLAUDE_OPUS = new Model("claude-opus-4-1", new Capabilities()//
-			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000)//
-			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
-			.budget(1024, 31999)//
-	);
-	public static final Model CLAUDE_SONNET = new Model("claude-sonnet-4-0", new Capabilities()//
-			.key(KeyPattern.Claude)//
-			.outTokens(0, 32000)//
-			.reasonings(Reasoning.Budget, Reasoning.Disabled)//
-			.budget(1024, 31999)//
 	);
 	public static final Model CC_HAIKU = new Model("haiku", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -119,8 +67,6 @@ public class Model {
 	);
 	public static final Model CC_SONNET = new Model("sonnet", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -129,8 +75,6 @@ public class Model {
 	);
 	public static final Model CC_OPUS = new Model("opus", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -139,8 +83,6 @@ public class Model {
 	);
 	public static final Model CC_MCPC_HAIKU = new Model("haiku", "haiku (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -150,8 +92,6 @@ public class Model {
 	);
 	public static final Model CC_MCPC_SONNET = new Model("sonnet", "sonnet (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -161,8 +101,6 @@ public class Model {
 	);
 	public static final Model CC_MCPC_OPUS = new Model("opus", "opus (mcpc)", new Capabilities()//
 			.key(KeyPattern.ClaudeCode)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.cacheMode(CacheMode.ClaudeCode)//
@@ -173,15 +111,12 @@ public class Model {
 
 	public static final Model MCP_TOOLS = new Model("mcp-tools", "MCP Tools", new Capabilities()//
 			.key(KeyPattern.Misc)//
-			.supportTemperature(false)//
-			.supportTopP(false)//
 			.supportMaxToken(false)//
 			.supportBatch(false)//
 			.reasonings(Reasoning.Disabled)//
 	);
 
-	public static final Model[] DEFAULTS = { NONE, GPT_5_NANO, GPT_5_MINI, GPT_5, GEMINI_25_PRO, GEMINI_25_FLASH,
-			GEMINI_25_LIGHT, CLAUDE_OPUS, CLAUDE_SONNET, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
+	public static final Model[] DEFAULTS = { NONE, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
 			CC_MCPC_OPUS, MCP_TOOLS };
 
 	/**
