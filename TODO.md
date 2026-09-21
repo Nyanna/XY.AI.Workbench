@@ -3,15 +3,14 @@
 ## Backlog
 
 - tools
-	* anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
-	* open alex zweistufig optimieren, split in separate files
+	- anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
+	- open alex zweistufig optimieren, split in separate files
 	- AST, JavaParser für java AST
-	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash oder python
+	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
 		- tool außerhalb automatisch umleiten
-* include handling
-	- include file tool muss absoluten dateinamen mit in das toolresult geben
-	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
-		- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
+	- include handling
+		- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
+			- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
 	- UX
 		- F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
 		- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert, mit projet datei autocompletion)
