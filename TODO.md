@@ -2,55 +2,63 @@
 
 ## Backlog
 
-- tools
-	- anderes RAG mit CUDA, omengrep, https://github.com/mrsladoje/sweet-search, SeaGOAT, Qdrant
-	- open alex zweistufig optimieren, split in separate files
-	- AST, JavaParser für java AST
-	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
-		- tool außerhalb automatisch umleiten
-	- include handling
-		- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
-			- reread bestimmt sich aus timestamp der gecachten datei -> oder auch nicht
-	- UX
-		- F3, drücken um includes dann in eclipse zu öffnen, immer wenn dateireferenzen, relativ oder absolut in `/datei`
-		- dragNdrop includes, includes autocompletion (nur wenn processor aktiviert, mit projet datei autocompletion)
-		* besserer shortcuts für datei erstellen
-			- shortcut für selection in extra task auslagern (immer project verzeichnis, nottfals erstellen)
-		- / autocomplete after "/" und "<" und wenn nach YAML block dann /call /prompt, mit autocomplete für includes
-* Cleanups, Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
-	* bei openai cache breakpoint marker mit in editor/processor schreiben
-* autorunner panel
-	* Dann file based SessionConfig mit fixierung, muss aber als editor mal gestartet worden sein
-	* dann auto prompter panel mit tabelle
-		- immer letztes kommando auf basis von konditions pro datei mit config ausführen, result wird appended, kein tag replace
-		* abbruch bei exception
-		* nach tool result eine neues /prompt kommando
-		* statt controll request, direkt aufruf und result modifizieren
-	* deepseek kann gleichzeit mehrere toolcalls schicken, das muss als ein block ausgegeben werden mit nur einem call kommando und zwei(x) YAML blöcken
-	- warning wenn mehrturn kontext ohne cache hit zurückkommt, gelbe zeile, vorhergehende result zeile mit cache metriken
-	- claude code: keep alive session, max limit bei 5m max eine stunde, bei 1h max 2h, "warte kurz" random list
-	- autorunner approval
-		* approval tool control anders, tool use nur für langwierige teure operationen,
-			- sonst immer den output abwarten und zusammen approven
-			- Dann nur ein approval call + ergebnis notwendig
-			- dann muss reaspon auch in die response gespiegelt werden vom autorunner (last reason), immer als letztetes
-				- zusammen mit stats wie Zeichen und ob modifizierend
-		- request approval categorie mit auto approval pro cat und argument
-			- IO-Web/Andere API, Schreiboperation (Pfad), Große Operation (Batch Limit),
-			- Viel Kontext(Zeichen Threshold), viele turns/cache read hoch -> per flag togglebar
-		* auto approve im harness wenn kontext in kleiner X zeichen und kein fehler -> warum nicht auch über MCPC controler, mit user timeout zum reagieren?
+### Tools
+- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
+- OpenAlex zweistufig optimieren – aufteilen in separate Dateien
+- AST, JavaParser für Java-AST
+- Virtual Environment – alles außerhalb Project-Path oder Filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
+  - Tool außerhalb automatisch umleiten
+- Include-Handling
+  - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
+  - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
+
+### UX
+- F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
+- Drag & Drop für Includes – Includes-Autocompletion (nur wenn Processor aktiviert, mit Projekt-Datei-Autocompletion)
+- Bessere Shortcuts für Datei-Erstellung
+  - Shortcut für Selection in extra Task auslagern (immer Project-Verzeichnis, notfalls erstellen)
+- Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
+
+### SDK
+- Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
+- Bei OpenAI Cache-Breakpoint-Marker im Editor/Processor schreiben
+
+### Auto-Runner-Panel
+- Datei-basierte SessionConfig mit Fixierung (muss aber als Editor einmal gestartet worden sein)
+- Auto-Prompt-Panel mit Tabelle
+  - Letztes Kommando pro Datei basierend auf Bedingungen mit Config ausführen – Result wird appended, kein Tag-Replace
+  - Abbruch bei Exception
+  - Statt Control-Request: direkter Aufruf und Result-Modifizierung
+- Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
+- Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
+- Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
+
+### Auto-Runner Approval
+- Approval-Tool-Control anders – Tool-Use nur für langwierige teure Operationen
+  - Sonst immer den Output abwarten und zusammen approven
+  - Nur ein Approval-Call + Ergebnis notwendig
+  - Response muss im Autorunner gespiegelt werden (Last Reason) – immer als Letztes
+    - Zusammen mit Stats (Zeichen, ob modifizierend)
+- Request-Approval-Kategorie mit Auto-Approval pro Kategorie und Argument
+  - IO/Web/andere API
+  - Schreiboperation (Pfad)
+  - Große Operation (Batch-Limit)
+  - Viel Kontext (Zeichen-Threshold)
+  - Viele Turns/Cache-Read hoch – per Flag togglebar
+- Auto-Approve im Harness bei kleinerem X-Zeichen-Kontext und kein Fehler → warum nicht auch über MCPC-Controller mit User-Timeout?
 
 ## Ideas
 
-* Diff support für edit commands, um intent direkter zu erkennen
-	* diff editor in Eclipse in memory aufrufen und Toolausgabe mit Action oder annotation versehen, "view as diff"
-	* block selektieren und mit Parametern diff tool starten, es gibt ein compare with clipboad analog
-	* sollte eine synchrone separate ansicht sein die live im chat aktualisiert -> immer letzter edit
-* Markdown Table autoformat support
-* subagenten mit Hauptsession verknüpfen, control filter per filter Parameter nach einem sessionbaum
-	* subagent interleaing -> gibt es nicht mit MCP Controller -> should no problem at all
-- Softpromt komprimiert erstellen mit LLMLingua und LLM selbstkompression
-- Phases, Research(human augmented), Retrieval(Preprocess agent,dateien, specs, schemas, studien, apis), Planing(high tier), Execution(Dumb agent)
-- was ist https://mcp2cli.dev/
-- selbst lerne agenten, lazy common knowledge base dynamischen memory das patterns un tools erkennt, ist das eine KB um häufige fehler zu vermeiden
-- andere tools für research Semantic Scholar, arXiv API Access
+- **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
+  - Diff-Editor in Eclipse in-memory aufrufen – Tool-Ausgabe mit Action/Annotation versehen: "view as diff"
+  - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
+  - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit
+- **Markdown-Table** Autoformat-Support
+- **Sub-Agenten** mit Hauptsession verknüpfen – Control-Filter per Filter-Parameter nach Sessionbaum
+  - Sub-Agent Interleaving (gibt es nicht mit MCP Controller → sollte kein Problem sein)
+- **Soft-Prompts** komprimiert erstellen mit LLMLingua und LLM-Selbstkompression
+- **Phases**: Research (human augmented) → Retrieval (Preprocess-Agent: Dateien, Specs, Schemas, Studien, APIs) → Planning (High-Tier) → Execution (Dumb-Agent)
+- Was ist [mcp2cli.dev](https://mcp2cli.dev/)?
+- **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools
+  - KB zur Vermeidung häufiger Fehler?
+- Weitere Tools für Research: Semantic Scholar, arXiv API Access
