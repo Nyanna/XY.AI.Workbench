@@ -1,7 +1,7 @@
 
 ![](doc/images/Screenshot_from_2025-09-01_22-55-12.png)
 
-#### XY.AI Workbench
+# XY.AI Workbench
 This project is a arrangement of different tools to support different workflows of AI focused tasks. Its center is not a fixed control-flow graph but a **minimal, self-steering controller** that treats the model **as a colleague operating at a different speed, not as a process to be supervised**.
 
 **Features**
@@ -42,6 +42,19 @@ This project is a arrangement of different tools to support different workflows 
 * Inject *How*-instructions just-in-time — only once the model discovers that something must be done — to exploit positional salience under the KV-cache no-erase constraint
 * Prefer holistic code review of intent over per-call approval when the code is what you would have written yourself
 * Store the synchronization history as a portable artifact and re-inject it on model/version change so earned trust is not reset
+
+## Table of papers
+
+- [AI Code Editing via a Tight, Symmetric Normalization Layer](docs/ast_editing.md)
+- [Statements and Arguments: Foundation for "Intuition Based Prompting" and Context Bloat Prevention](docs/context_bloat.md)
+- [On White Noise Prompting, Thalamocortical Analogues, and the Question of Machine State](docs/epistemic_gap_in_ai_output.md)
+- [Understanding the `effort` Parameter](docs/how_to_effort.md)
+- [Understanding "Thinking" in Language Models](docs/how_to_think.md)
+- [Summary: LLM File Editing — Research State, Reasoning & Recommendations](docs/llm_edits.md)
+- [From Harness Patterns to a Minimal Symbiotic Controller](docs/manifest.md)
+- [How LLMs Process Your Prompt (Multistep Prompt Design)](docs/multistep.md)
+- [Text↔Code Symmetry in LLMs: Thesis, Core Arguments, and Proposed Test](docs/text_code.md)
+- [Tokenizing — Statements and Arguments](docs/tokenize.md)
 
 # Base Considerations: A Practical Philosophy of Token-Driven Intelligence
 
@@ -471,6 +484,6 @@ Our “continuous prompt” loop—feeding back the model’s own outputs, criti
 
 6. **Symbiotic Reliability:** The joint human–AI error rate is lower than either alone (independent-layer diversity), and earned trust survives model/version changes via a portable synchronization history.
 
-## Closing: The Philosophy in One Paragraph
+# Closing: The Philosophy in One Paragraph
 
 Treat the LLM as a **high-bandwidth, pattern-sensitive text engine** that excels at turning structured intent and retrieved evidence into coherent language—but whose semantics and facts are only as reliable as the **system** around it. Build that system in Eclipse RCP as a set of **OSGi-composable tools**, **retrieval stores**, and a **minimal, self-steering controller** whose review layer — a blocking *exchange of thought* rather than an approval gate — constrains, validates, and grounds the model’s outputs. Grant freedom in the *What/Why*, delegate the *How* to code-as-tool and rudimentary execution agents, let the model stay “dumb” at the syntactic edges while a tight AST normalization layer absorbs its errors, and harvest efficiency as *both* cost *and* salience. In this partnership the model provides linguistic power and speed; the operator provides truth, structure, memory, and — through mutual anticipation — an independent second perspective. The result is not just “AI inside an app,” nor a process to be supervised, but an **engineered symbiosis** whose goal is not error-freeness but **error reduction through human–AI collaboration**. *(For the complete derivation and references, see [`docs/manifest.md`](docs/manifest.md); for the code-editing normalization layer, see [`docs/ast_editing.md`](docs/ast_editing.md).)*

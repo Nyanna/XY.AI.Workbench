@@ -3,8 +3,7 @@ package xy.ai.workbench.connector;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-
-import com.google.api.client.util.Objects;
+import java.util.Objects;
 
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
@@ -54,14 +53,14 @@ public class SessionParameters {
 	}
 
 	public boolean equalsConfig(FrozenConfig cfg, Path cwd, String filePath, List<String> tools) {
-		return Objects.equal(cwd, this.cwd) //
-				&& Objects.equal(cfg.systemPrompt, systemPrompt) //
-				&& Objects.equal(tools, this.tools) //
-				&& Objects.equal(cfg.model, model) //
-				&& Objects.equal(cfg.reasoning, reasoning) //
-				&& Objects.equal(cfg.profile, agentProfile) //
-				&& Objects.equal(filePath, this.filePath) //
-				&& Objects.equal(cfg.cacheMode, cacheMode);
+		return Objects.equals(cwd, this.cwd) //
+				&& Objects.equals(cfg.systemPrompt, systemPrompt) //
+				&& Objects.equals(tools, this.tools) //
+				&& Objects.equals(cfg.model, model) //
+				&& Objects.equals(cfg.reasoning, reasoning) //
+				&& Objects.equals(cfg.profile, agentProfile) //
+				&& Objects.equals(filePath, this.filePath) //
+				&& Objects.equals(cfg.cacheMode, cacheMode);
 	}
 
 	public String getHash() {

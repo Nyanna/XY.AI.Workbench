@@ -1,6 +1,4 @@
 # TODO
-* deep seek session analysieren: `/home/user/xyan/xy.ai.workbench/project/done/docu_cmd.md`
-* papers in readme verlinken
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis

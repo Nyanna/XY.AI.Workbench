@@ -1,4 +1,3 @@
-
 # 1. How LLMs Process Your Prompt
 
 Understanding what happens inside a language model when it reads and responds to your prompt is not just an academic exercise — it directly shapes which prompting strategies work, which fail, and why.
