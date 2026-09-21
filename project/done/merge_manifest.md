@@ -1503,4 +1503,33 @@ arguments:
   reason: "Enriching and correcting the AST aspect throughout the README from docs/ast_editing.md: the model stays plain-text and never sees the AST (infrastructure-side shield), tight symmetric normalization, decoupling AST-completeness from compilability, and the JavaParser/worker/Protobuf reference implementation; updating the feature bullet, cognitive-model note, blueprint entry, format bullets, tactics, success criteria and closing accordingly."
 ```
 /answer c1df-a allow
-[xy.ai.req:ClaudeCode:2b403bcc-16dc-4d7c-a834-2319829dd9c7]
+Result Stats: id=307b4c93-aacf-4a59-be6c-87da98e88cac, total: 204092, in: 137, out: 51672, reason: 2314, read: 366625, write: 152283
+ReasoningToken: 2314
+Ja — der Blick in `docs/ast_editing.md` hat sich klar gelohnt und ich habe den AST-Aspekt entsprechend ergänzt **und korrigiert**. Das Dokument beschreibt einen konkreteren und teils gegenteiligen Ansatz zu dem, was ich vorher nur aus dem Manifest übernommen hatte.
+
+## Was ich geändert habe
+
+**Wichtigste Korrektur:** Meine frühere Formulierung „exposes program entities as addressable nodes (Tree-sitter names)" war irreführend. Laut `ast_editing.md` arbeitet das Modell **nicht** auf dem AST und soll das auch nicht — es bleibt bei **plain source text**; der AST ist ein **infrastrukturseitiger Schild**, der die statistischen Fehler *hinter dem Rücken des Modells* absorbiert.
+
+**Konkret an folgenden Stellen ergänzt/aktualisiert:**
+
+1. **Feature-Bullet** → neu formuliert (Modell emittiert plain code; Normalisierungsschicht parse → canonical AST → regenerate).
+
+2. **Cognitive Model** → Notiz korrigiert: die explizite Struktur entsteht *infrastrukturseitig*, der Modell selbst sieht den AST nie.
+
+3. **AST-Abschnitt** (Kernstück, stark erweitert) — jetzt mit:
+   - der Kernthese (Schild statt Modell-Repräsentation, Trennung probabilistisch/deterministisch),
+   - den drei Eigenschaften: tight/bidirektionale Normalisierung (Normalform > reiches IR), Entkopplung AST-Vollständigkeit ↔ Kompilierbarkeit (3 Validierungsebenen, nur 1+2 in der Schicht → lokale, kontextarme Edits), AST als Transaktions-/Validierungsgrenze,
+   - der Referenzimplementierung: JavaParser (nicht LexicalPreservingPrinter/JDT, kein Symbol Solver/Spoon), langlebiger Java-Worker (kein JNI), Protobuf-Contract, kanonisches IR, LSP-artiger AST-RPC mit Operation-Contract + sprachspezifischen parse/generate-Paaren.
+
+4. **Semantics Preservation** → Hinweis, dass die AST-Schicht eine *deterministische* Teilmenge der Semantik (Syntax+Struktur) liefert.
+
+5. **Blueprint / Tool Registry** → `ASTEditService` präzisiert (Normalisierungsschicht statt „Tree-sitter node addressing").
+
+6. **Working with Formats → Source Code** → an den plain-text/Normalisierungs-Ansatz angepasst, plus „lokal & kontextarm".
+
+7. **Engineering Tactics, Success Criteria, Closing** → jeweils um den Punkt „Modell darf an den syntaktischen Rändern dumm sein, die AST-Schicht fängt es ab" ergänzt; Schluss-Verweis nun auch auf `docs/ast_editing.md`.
+
+Damit ist der AST-Aspekt jetzt konsistent zwischen Manifest (Token-Effizienz/Node-Adressierung) und dem detaillierten Normalisierungsschicht-Design aus `ast_editing.md` — ohne Widerspruch.
+
+Möchtest du, dass ich denselben Detailabgleich noch mit weiteren Dateien unter `docs/` mache (falls es dort z. B. zu HITL, Controller oder Security ebenfalls Vertiefungen gibt)?
