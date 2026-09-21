@@ -1,12 +1,17 @@
-"""``openalex_semantic_search`` tool: AI (embedding) search by meaning."""
+"""``openalex_semantic_search`` - stage 1 of the two-stage OpenAlex semantic search retrieval.
+
+Runs an AI (embedding) search and caches each full result by id; returns
+only an identity overview (id, display_name/title, ...). Call
+``openalex_search_results`` with the returned ids to resolve full records.
+"""
 from typing import Any
 from xy.ai.mcpc.openalex import DEFAULT_SEARCH_PRESET, OpenAlexError, resolve_select
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolResult
-from ._common import DEFAULT_SEMANTIC_LIMIT, MAX_SEMANTIC_RESULTS, SearchResult, clamp, error_result, get_client, ok_result, summarise_list, to_search_result
+from ._common import DEFAULT_SEMANTIC_LIMIT, MAX_SEMANTIC_RESULTS, SearchResult, clamp, error_result, get_client, ok_result, overview_structured, summarise_list, to_search_overview
 _WORK_PRESETS = list(WORK_PRESET_NAMES)
-_SEMANTIC_SEARCH_DESCRIPTION = 'AI-powered semantic search over OpenAlex works: finds works by meaning using embeddings, even when the wording differs. Best for paragraph-length input such as an abstract, a research question or a grant aim (up to ~2000 characters).\n\nSupports most filters, but NOT cited_by_count or country_code filters. Returns at most 50 works from the first page, ranked by semantic similarity.'
+_SEMANTIC_SEARCH_DESCRIPTION = 'AI-powered semantic search over OpenAlex works: finds works by meaning using embeddings, even when the wording differs. Best for paragraph-length input such as an abstract, a research question or a grant aim (up to ~2000 characters).\n\nSupports most filters, but NOT cited_by_count or country_code filters. Returns at most 50 works from the first page, ranked by semantic similarity.\n\nReturns an identity overview per result (id, display_name/title, ...); call openalex_search_results with the ids to get the full record.'
 _SEMANTIC_INPUT_SCHEMA: dict[str,
                              Any] = {'type': 'object',
                                      'properties': {'query': {'type': 'string',
@@ -40,13 +45,14 @@ def openalex_semantic_search(query: str, fields: str | None=None, filter: str | 
         limit: Max results (1-50, default 10).
 
     Returns:
-        Parsed search results (:class:`~xy.ai.mcpc.openalex.Work` records).
+        Identity overview per result; resolve full records via
+        ``openalex_search_results``.
 
     Raises:
         OpenAlexError: If the OpenAlex API request fails.
     """
     structured = _openalex_semantic_search_raw(query, fields=fields, filter=filter, limit=limit)
-    return to_search_result(structured, 'works')
+    return to_search_overview(structured)
 
 class OpenalexSemanticSearchTool(ToolDefinition):
     name = 'openalex_semantic_search'
@@ -57,11 +63,11 @@ class OpenalexSemanticSearchTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            structured = _openalex_semantic_search_raw(
+            result = openalex_semantic_search(
                 query=args['query'],
                 fields=args.get('fields'),
                 filter=args.get('filter'),
                 limit=args.get('limit'))
         except OpenAlexError as exc:
             return error_result(exc)
-        return ok_result(structured)
+        return ok_result(overview_structured(result))

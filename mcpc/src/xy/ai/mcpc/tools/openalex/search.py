@@ -1,14 +1,19 @@
-"""``openalex_search`` tool: keyword/boolean full-text search."""
+"""``openalex_search`` - stage 1 of the two-stage OpenAlex search retrieval.
+
+Runs a keyword/boolean search and caches each full result by id; returns
+only an identity overview (id, display_name/title, ...). Call
+``openalex_search_results`` with the returned ids to resolve full records.
+"""
 from typing import Any
 from xy.ai.mcpc.openalex import DEFAULT_SEARCH_PRESET, OpenAlexError, resolve_select
 from xy.ai.mcpc.openalex.client import ENTITIES
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolResult
-from ._common import DEFAULT_SEARCH_LIMIT, MAX_PER_PAGE, SearchResult, clamp, error_result, get_client, ok_result, summarise_list, to_search_result
+from ._common import DEFAULT_SEARCH_LIMIT, MAX_PER_PAGE, SearchResult, clamp, error_result, get_client, ok_result, overview_structured, summarise_list, to_search_overview
 _ENTITY_NAMES = sorted(ENTITIES)
 _WORK_PRESETS = list(WORK_PRESET_NAMES)
-_SEARCH_DESCRIPTION = 'Keyword and boolean full-text search across OpenAlex scholarly entities (works by default). Searches titles, abstracts and full text for works; names for authors, sources and institutions.\n\nQuery syntax: use uppercase AND / OR / NOT and double-quoted phrases, e.g. ("machine learning" OR "deep learning") NOT survey. Set exact=true for unstemmed matching and wildcards (machin*). Results are sorted by relevance and limited to the first page.'
+_SEARCH_DESCRIPTION = 'Keyword and boolean full-text search across OpenAlex scholarly entities (works by default). Searches titles, abstracts and full text for works; names for authors, sources and institutions.\n\nQuery syntax: use uppercase AND / OR / NOT and double-quoted phrases, e.g. ("machine learning" OR "deep learning") NOT survey. Set exact=true for unstemmed matching and wildcards (machin*). Results are sorted by relevance and limited to the first page.\n\nReturns an identity overview per result (id, display_name/title, ...); call openalex_search_results with the ids to get the full record.'
 _SEARCH_INPUT_SCHEMA: dict[str,
                            Any] = {'type': 'object',
                                    'properties': {'query': {'type': 'string',
@@ -67,7 +72,8 @@ def openalex_search(query: str, entity: str='works', exact: bool=False, fields: 
         limit: Max results from the first page.
 
     Returns:
-        Parsed search results, one dataclass per *entity* record.
+        Identity overview per result; resolve full records via
+        ``openalex_search_results``.
 
     Raises:
         OpenAlexError: If the OpenAlex API request fails.
@@ -80,7 +86,7 @@ def openalex_search(query: str, entity: str='works', exact: bool=False, fields: 
         filter=filter,
         sort=sort,
         limit=limit)
-    return to_search_result(structured, entity)
+    return to_search_overview(structured)
 
 class OpenalexSearchTool(ToolDefinition):
     name = 'openalex_search'
@@ -91,7 +97,7 @@ class OpenalexSearchTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         args = ctx.arguments
         try:
-            structured = _openalex_search_raw(
+            result = openalex_search(
                 query=args['query'],
                 entity=args.get(
                     'entity',
@@ -106,4 +112,4 @@ class OpenalexSearchTool(ToolDefinition):
                 limit=args.get('limit'))
         except OpenAlexError as exc:
             return error_result(exc)
-        return ok_result(structured)
+        return ok_result(overview_structured(result))

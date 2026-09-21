@@ -1,10 +1,11 @@
 """OpenAlex tools.
 
-Three tools sit on top of the :mod:`xy.ai.mcpc.openalex` interface package and
+Four tools sit on top of the :mod:`xy.ai.mcpc.openalex` interface package and
 apply standard assumptions so an AI agent can use OpenAlex without knowing the
 raw API:
 
-* ``openalex_search``          – keyword / boolean full-text search.
+* ``openalex_search``          – keyword / boolean full-text search (stage 1).
+* ``openalex_search_results``  – resolve search/semantic_search ids to full records (stage 2).
 * ``openalex_semantic_search`` – AI (embedding) search by meaning.
 * ``openalex_work``            – fetch a single work by id / DOI.
 
@@ -26,27 +27,32 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from ._common import SearchResult, WorkResult, build_client, set_client
 from .search import OpenalexSearchTool, openalex_search
+from .search_results import OpenalexSearchResultsTool, openalex_search_results
 from .semantic_search import OpenalexSemanticSearchTool, openalex_semantic_search
 from .work import OpenalexWorkTool, openalex_work
 __all__ = [
     'SearchResult',
     'WorkResult',
     'openalex_search',
+    'openalex_search_results',
     'openalex_semantic_search',
     'openalex_work',
     'OpenalexSearchTool',
+    'OpenalexSearchResultsTool',
     'OpenalexSemanticSearchTool',
     'OpenalexWorkTool',
     'register_openalex_tools']
 
 def register_openalex_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
-    """Register the three OpenAlex tools onto *registry*."""
+    """Register the four OpenAlex tools onto *registry*."""
     set_client(build_client(environment.config))
     registry.register(OpenalexSearchTool())
+    registry.register(OpenalexSearchResultsTool())
     registry.register(OpenalexSemanticSearchTool())
     registry.register(OpenalexWorkTool())
     functions = environment.functions
     if functions is not None:
         functions.register(openalex_search)
+        functions.register(openalex_search_results)
         functions.register(openalex_semantic_search)
         functions.register(openalex_work)

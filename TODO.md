@@ -3,7 +3,6 @@
 ## Backlog
 
 ### Tools
-- OpenAlex zweistufig optimieren – aufteilen in separate Dateien
 - AST, JavaParser für Java-AST
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
@@ -15,10 +14,6 @@
 - Bessere Shortcuts für Datei-Erstellung
   - Shortcut für Selection in extra Task auslagern (immer Project-Verzeichnis, notfalls erstellen)
 - Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
-
-### SDK
-- Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
-- Bei OpenAI Cache-Breakpoint-Marker im Editor/Processor schreiben
 
 ### Auto-Runner-Panel
 - Datei-basierte SessionConfig mit Fixierung (muss aber als Editor einmal gestartet worden sein)
@@ -45,6 +40,10 @@
   - KB zur Vermeidung häufiger Fehler -> Autorunner hat heuristik und regelset
 - Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
 - Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
+
+### SDK
+- Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
+- Bei OpenAI Cache-Breakpoint-Marker im Editor/Processor schreiben
 
 ## Ideas
 
