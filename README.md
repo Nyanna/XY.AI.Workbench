@@ -13,6 +13,7 @@ This project is a arrangement of different tools to support different workflows 
 * OpenAI Based on OpenAI SDK
 * Gemini based on Google genai SDK
 * Claude Support based on Anthropic SDK
+* Clients based on OpenAPI (DeepSeek)
 * File, Search, selection and editor content or line inputs
 * Shortcuts
 * Batch support
