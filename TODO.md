@@ -1,9 +1,8 @@
 # TODO
-* keine zwei parralelen CC sessions möglich, weil deaktivierte gelöscht werden während sie noch laufen
-* but mit key splitting in session pannel, brauche andere hash nur auf teilmenge wegen dateipfad usw
+* deep seek session analysieren: `/home/user/xyan/xy.ai.workbench/project/done/docu_cmd.md`
+* papers in readme verlinken
 * bei deepseek tauchen temperatur und topp nicht richtig auf
 * model resolver auflösung statt temp file, state dir
-* deep seek session analysieren: `/home/user/xyan/xy.ai.workbench/project/done/docu_cmd.md`
 * include handling
 	- include file tool muss absoluten dateinamen mit in das toolresult geben
 	- inlcude persist(tools/search file,all...) um lange sessions durchführen zu können, auf Basis Prompt Objekt Hash in Verzeichnis
@@ -19,6 +18,7 @@
 	* open alex zweistufig optimieren, split in separate files
 	- AST, JavaParser für java AST
 	- virtual environment, alles außerhalb project path oder filterliste unsichtbar (grep/ast), funktioniert nicht mit bash oder python
+		- tool außerhalb automatisch umleiten
 
 # Backlog
 

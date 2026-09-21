@@ -10,6 +10,7 @@ import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.SessionParameters;
+import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.tools.Hash;
 
 public class ClaudeSessionParameters extends SessionParameters {
@@ -26,11 +27,10 @@ public class ClaudeSessionParameters extends SessionParameters {
 		this.cliProfile = cliProfile;
 	}
 
-	public static ClaudeSessionParameters fromConfig(ConfigManager cfg, Path cwd, String filePath, String systemPrompt,
-			List<String> tools) {
-		// hashcode cliProfile
-		return new ClaudeSessionParameters(cwd, systemPrompt, tools, cfg.getModel(), cfg.getReasoning(),
-				cfg.getProfile(), cfg.getKeys(), cfg.getCacheMode(), filePath);
+	public boolean equals(ConfigManager cfg, Path cwd, String filePath, List<String> tools) {
+		FrozenConfig fc = FrozenConfig.from(cfg);
+		return fc.keys.contains(cliProfile) //
+				&& equalsConfig(fc, cwd, filePath, tools);
 	}
 
 	@Override
@@ -50,7 +50,7 @@ public class ClaudeSessionParameters extends SessionParameters {
 		if (AgentProfile.MCPC.equals(agentProfile)) {
 			cmd.add(COMMAND);
 			cmd.add("--system-prompt");
-			cmd.add(systemPrompt);
+			cmd.add(systemPrompt != null ? systemPrompt : "");
 			cmd.add("--tools");
 			cmd.add(""); // restrict builtin tools
 			// evil: breaks STDIN handling

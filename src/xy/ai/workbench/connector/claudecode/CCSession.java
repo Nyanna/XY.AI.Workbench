@@ -290,6 +290,8 @@ public class CCSession {
 	}
 
 	public boolean isExpired() {
+		if(inPrompt)
+			return false;
 		if (lastSentAt == null)
 			return false;
 		if (parameters.cacheMode != null)

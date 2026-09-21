@@ -4,10 +4,13 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.api.client.util.Objects;
+
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.tools.Hash;
 
 public class SessionParameters {
@@ -38,7 +41,7 @@ public class SessionParameters {
 			throw new IllegalArgumentException("Reasoning must not be null");
 
 		this.cwd = cwd;
-		this.systemPrompt = systemPrompt != null ? systemPrompt : "";
+		this.systemPrompt = systemPrompt;
 		this.tools = tools != null ? tools : Collections.emptyList();
 		this.model = model;
 		this.reasoning = reasoning;
@@ -48,6 +51,17 @@ public class SessionParameters {
 		this.topP = topP;
 		this.temperature = temperature;
 		this.maxOutputTokens = maxOutputTokens;
+	}
+
+	public boolean equalsConfig(FrozenConfig cfg, Path cwd, String filePath, List<String> tools) {
+		return Objects.equal(cwd, this.cwd) //
+				&& Objects.equal(cfg.systemPrompt, systemPrompt) //
+				&& Objects.equal(tools, this.tools) //
+				&& Objects.equal(cfg.model, model) //
+				&& Objects.equal(cfg.reasoning, reasoning) //
+				&& Objects.equal(cfg.profile, agentProfile) //
+				&& Objects.equal(filePath, this.filePath) //
+				&& Objects.equal(cfg.cacheMode, cacheMode);
 	}
 
 	public String getHash() {
@@ -63,4 +77,5 @@ public class SessionParameters {
 				+ (maxOutputTokens != null ? maxOutputTokens : "");
 		return Hash.hash(input);
 	}
+
 }

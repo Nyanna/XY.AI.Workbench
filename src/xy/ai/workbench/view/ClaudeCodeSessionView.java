@@ -262,27 +262,13 @@ public class ClaudeCodeSessionView extends ViewPart {
 			syncSelectionToCurrentFile();
 	}
 
-	private ClaudeSessionParameters currentParameters() {
-		if (currentProjectPath == null || cfg == null)
-			return null;
-		try {
-			return ClaudeSessionParameters.fromConfig(cfg, currentProjectPath, currentRelativeFilePath, "",
-					Arrays.asList(cfg.getTools()));
-		} catch (RuntimeException e) {
-			return null;
-		}
-	}
-
 	private CCSession findAssociatedSession(List<CCSession> sessions) {
-		ClaudeSessionParameters current = currentParameters();
-		if (current == null)
-			return null;
-		String hash = current.getHash();
 		for (CCSession s : sessions) {
 			if (!s.isValid())
 				continue;
 			ClaudeSessionParameters p = s.getParameters();
-			if (p != null && hash.equals(p.getHash()))
+			if (p != null
+					&& p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getTools())))
 				return s;
 		}
 		return null;

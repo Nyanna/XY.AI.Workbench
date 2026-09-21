@@ -120,7 +120,7 @@ public class CCSessionManager {
 
 	private void cleanupInvalidTerminated() {
 		sessions.removeIf(s -> {
-			if (s.isExpired()) {
+			if (!s.isValid()) {
 				s.terminate();
 				return true;
 			}
