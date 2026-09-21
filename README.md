@@ -20,7 +20,7 @@ This project is a arrangement of different tools to support different workflows 
 * Minimal self-steering controller: accept text, execute one tool call extracted from the answer, trigger a new turn — every published harness pattern is a special case
 * Code-as-tool execution: a single tool call can be an executable script (loops, branching, parallel calls), keeping the controller trivial while remaining more expressive than pre-planned graphs
 * Blocking exchange of thought (HITL/HOTL): every tool call carries a model-inferred reasoning parameter the operator can evaluate, annotate, modify or reject — together with the call and its result
-* AST-based semantic editing: address program entities by node/name instead of repeating old code
+* AST-based semantic editing: the model emits plain code, and a tight, symmetric normalization layer (parse → canonical AST → regenerate) absorbs its syntactic errors *behind its back*
 * Phase model: design-time Conception plus runtime Retrieval / Planning / Execution
 * Emergent, person-bound trust calibration: seniority is domain-local and learned through synchronization history rather than a static competence table
 
@@ -62,7 +62,7 @@ An LLM is a **token predictor** trained on vast corpora. It does not run code, b
 
 * It has learned **implicit structures**—lists, headings, code blocks, rhetorical patterns—not through explicit schemas but by exposure to many examples.
 
-* Internally, its processing resembles building a soft, implicit tree or graph of relationships—*not* a persisted AST, but a **contextualized latent structure**. (We later make that structure *explicit and addressable* for code via AST-based editing — see below.)
+* Internally, its processing resembles building a soft, implicit tree or graph of relationships—*not* a persisted AST, but a **contextualized latent structure**. (For code we make a structure explicit on the *infrastructure* side — a normalization AST the model itself never sees — via AST-based editing; see below.)
 
 **Generation as Probabilistic Action**
 
@@ -218,7 +218,19 @@ A note on caching as a *selection criterion*: the relevant metric is token cost 
 
 ## AST-Based Editing and Code-as-Tool
 
-**AST-based semantic editing** exposes **program entities as addressable nodes** (via Tree-sitter names), so read/edit tools operate directly on nodes — without string matching, line numbers, or brittle edits, and without repeating old code just to localize an edit. This differs from offline AST *diffing* (GumTree; built for evolutionary search, not decision-time editing) and from pattern tools (Comby/Piranha/Semgrep) that require a-priori-specified transformation patterns; the node approach lets the agent construct operations dynamically. It ties the AST axis directly to the salience/cost axis above.
+**The AST is an infrastructure-side shield, not a representation the model reasons about.** The platform deliberately does *not* make the model work natively on an AST, nor validate raw text only after the fact. Instead it inserts a **transparent, tight, symmetric normalization layer** between model and code: the model keeps its **natural output format — plain source text**; that text is **parsed and normalized into a single canonical AST**; **deterministic operations** run on that structure; and **unambiguous code is regenerated** from it. The model never sees the AST — the layer absorbs its statistical errors (a missing `;`, wrong bracketing, alternative spellings) *behind its back* before they take effect. This shifts reliability out of the probabilistic model and into deterministic code, rather than relying on a downstream `code → compiler/tests → LLM fixes it` loop.
+
+Three properties make this work (full elaboration in [`docs/ast_editing.md`](docs/ast_editing.md)):
+
+* **Tight, bidirectional normalization.** Every syntactic variation of the same construct collapses to *exactly one* canonical structure with *one* deterministic renderer: `normalize(print(IR)) == IR`, and `normalize(code1) == normalize(code2)` for semantically equal but syntactically different inputs. Python’s `ast` is the reference model — instruction-level, no formatting/token noise, no redundant nodes. A tight, invertible **normal form for code** matters *more* than a rich, generic cross-language IR.
+
+* **AST-completeness decoupled from compilability.** An edit must yield a structurally complete, canonical AST, but need *not* compile in the full project context — `foo(unknownVariable);` is a valid node even if nothing resolves. Three validation levels — **Syntax** (“did this become a complete AST?”), **Structure** (“is it admissible/canonical?”), **Compilation** (“is the whole program correct?”) — with only levels 1 and 2 in the normalization layer and level 3 left to the compiler. This keeps each edit **local, fast, and context-light**: no imports, type resolution, or build system pulled in for a single block change.
+
+* **The AST as a transaction/validation boundary** around each edit — reconstructing as much as possible from faulty AI text *without inventing semantic decisions of its own.* The model is allowed to be dumb and wrong; the representation is designed to absorb its errors.
+
+**Reference implementation.** **JavaParser** (`javaparser-core`, dependency-free, formatting-stripping) as the parser — deliberately *not* `LexicalPreservingPrinter` or JDT `ASTRewrite` (which preserve formatting, the opposite of the goal), and *no* Symbol Solver / Spoon (type and reference resolution are out of scope). A **long-running Java worker process** (no JNI/JPype/embedded JVM) pays JVM start-up once, with protocol on the data channel and logs on `stderr`. A **Protobuf** contract (over JSONL/MessagePack) gives a typed, versioned schema that generates code for Python/Java/Rust/JS from one `.proto`, enabling later language-agnostic parser servers; it transmits a **custom canonical IR**, not the raw JavaParser AST (which carries ranges/token ballast). The LSP-like AST-RPC exposes a **common operation contract** (`replace block`, `insert statement`, `delete expression`, `replace method body`, `rename declaration`, `add parameter`, …) behind language-specific `parse`/`generate` pairs — while the AI always stays at the **plain-code** boundary.
+
+This ties the AST axis to the salience/cost axis above (address a construct without repeating the surrounding code) and stays deliberately distinct from offline AST *diffing* (GumTree; built for evolutionary search, not decision-time editing) and from pattern tools (Comby/Piranha/Semgrep) that require a-priori-specified transformation patterns — the normalization layer lets the agent construct operations dynamically at plain-text level.
 
 **Code-as-tool** closes the controller. The controller executes one call per turn — but if that call is **executable code**, branching and parallelism move **into the interpreter** (`if`/`else` on a prior result, loops, `asyncio.gather`), while the controller stays exactly “one call per turn.” This is the CodeAct argument: code natively carries control flow, data flow, and tool composition, whereas JSON/text actions are limited to one action per response. It also makes the controller **strictly more powerful than ReWOO** — runtime-dependent branching is evaluated by the interpreter at execution time, not pre-planned — without ReWOO’s planning overhead.
 
@@ -248,7 +260,7 @@ The human touchpoint then becomes **code review of intent**, not per-call approv
 
 * Semantics are **engineered** into the *system* surrounding the model.
 
-* Where a bare Unix-style text interface unifies the *interface* but not the *semantics* (syntactic composability is solved; semantic compatibility is mere convention), and a typed graph enforces semantics at design time at the cost of complexity, the platform takes a **third option**: **situational human semantic checking at each hand-off point** — the reasoning parameter, retrieval filtering, and reachability constraint *are* that semantic layer.
+* Where a bare Unix-style text interface unifies the *interface* but not the *semantics* (syntactic composability is solved; semantic compatibility is mere convention), and a typed graph enforces semantics at design time at the cost of complexity, the platform takes a **third option**: **situational human semantic checking at each hand-off point** — the reasoning parameter, retrieval filtering, and reachability constraint *are* that semantic layer. For code specifically, the tight AST normalization layer supplies a *deterministic* slice of that semantics (syntax + structure) without touching full compilation.
 
 ## An Eclipse RCP Blueprint
 
@@ -264,7 +276,7 @@ The human touchpoint then becomes **code review of intent**, not per-call approv
 
 2. **Tool Registry (Service Bundle)**
 
-   * OSGi services for tools: WebSearchService, MathService, PdfExtractService, DocxExtractService, RAGService, MarkdownLinter, CitationBuilder, **ASTEditService** (Tree-sitter node addressing), **CodeExecService** (sandboxed interpreter with instrumentable hook points for privileged calls).
+   * OSGi services for tools: WebSearchService, MathService, PdfExtractService, DocxExtractService, RAGService, MarkdownLinter, CitationBuilder, **ASTEditService** (a tight, symmetric normalization layer: plain text → canonical AST → deterministic operation → regenerated code; a long-running JavaParser worker behind a Protobuf / LSP-like AST-RPC contract), **CodeExecService** (sandboxed interpreter with instrumentable hook points for privileged calls).
 
    * Each tool has: contract (IDL), execution policy, timeouts, redaction rules, **and transparent signatures/docstrings** so effects are legible.
 
@@ -362,7 +374,9 @@ The human touchpoint then becomes **code review of intent**, not per-call approv
 
 **Source Code**
 
-* Prefer an **AST/Tree-sitter** representation over raw text: address entities by node/name for reads and edits.
+* Let the model emit **plain source text** — its natural format. A tight, symmetric normalization layer parses it to a canonical AST, applies the requested operation deterministically, and regenerates code, absorbing syntactic errors *behind the model’s back* (see AST-Based Editing).
+
+* Keep edits **local and context-light**: require a complete, canonical AST (**Syntax + Structure**), but defer full compilation/type resolution to the compiler.
 
 * Let the agent express transformations as **code-as-tool** (loops, conditionals) rather than *N* per-item calls.
 
@@ -408,6 +422,8 @@ The human touchpoint then becomes **code review of intent**, not per-call approv
 
 * **Batch-generate, review sequentially**: keep branch generation parallel but review read-only in sequence for cross-path synthesis and cache preservation.
 
+* **Let the model be dumb at the edges**: emit plain code and let the AST normalization layer recover it, rather than demanding perfect syntax up front.
+
 ## What Learning Is—and Isn’t—in This System
 
 * The model’s **weights are fixed** at inference time; it does not “learn” from a single session.
@@ -444,16 +460,16 @@ Our “continuous prompt” loop—feeding back the model’s own outputs, criti
 
 1. **Groundedness:** Time-sensitive facts always go through tools/RAG with citations.
 
-2. **Semantics Preservation:** Outputs conform to schemas; diffs show where meaning could have drifted; a human semantic check sits at each hand-off.
+2. **Semantics Preservation:** Outputs conform to schemas; diffs show where meaning could have drifted; a human semantic check sits at each hand-off; code edits pass syntax + structure normalization deterministically.
 
 3. **Operational Safety:** Redaction, provenance, and auditability are first-class; rights management is actor-neutral; writing tools are concurrency-guarded.
 
 4. **Human-Centered UX:** Users can inspect *and modify* tool calls, results, and reasoning, tweak strictness, and approve changes.
 
-5. **Evolvability:** Tools are OSGi services; adding a new tool is registering a new service and schema, not rewriting the orchestrator.
+5. **Evolvability:** Tools are OSGi services; adding a new tool is registering a new service and schema, not rewriting the orchestrator; new languages are added as `parse`/`generate` pairs behind the shared operation contract.
 
 6. **Symbiotic Reliability:** The joint human–AI error rate is lower than either alone (independent-layer diversity), and earned trust survives model/version changes via a portable synchronization history.
 
 ## Closing: The Philosophy in One Paragraph
 
-Treat the LLM as a **high-bandwidth, pattern-sensitive text engine** that excels at turning structured intent and retrieved evidence into coherent language—but whose semantics and facts are only as reliable as the **system** around it. Build that system in Eclipse RCP as a set of **OSGi-composable tools**, **retrieval stores**, and a **minimal, self-steering controller** whose review layer — a blocking *exchange of thought* rather than an approval gate — constrains, validates, and grounds the model’s outputs. Grant freedom in the *What/Why*, delegate the *How* to code-as-tool and rudimentary execution agents, and harvest efficiency as *both* cost *and* salience. In this partnership the model provides linguistic power and speed; the operator provides truth, structure, memory, and — through mutual anticipation — an independent second perspective. The result is not just “AI inside an app,” nor a process to be supervised, but an **engineered symbiosis** whose goal is not error-freeness but **error reduction through human–AI collaboration**. *(For the complete derivation and references, see [`docs/manifest.md`](docs/manifest.md).)*
+Treat the LLM as a **high-bandwidth, pattern-sensitive text engine** that excels at turning structured intent and retrieved evidence into coherent language—but whose semantics and facts are only as reliable as the **system** around it. Build that system in Eclipse RCP as a set of **OSGi-composable tools**, **retrieval stores**, and a **minimal, self-steering controller** whose review layer — a blocking *exchange of thought* rather than an approval gate — constrains, validates, and grounds the model’s outputs. Grant freedom in the *What/Why*, delegate the *How* to code-as-tool and rudimentary execution agents, let the model stay “dumb” at the syntactic edges while a tight AST normalization layer absorbs its errors, and harvest efficiency as *both* cost *and* salience. In this partnership the model provides linguistic power and speed; the operator provides truth, structure, memory, and — through mutual anticipation — an independent second perspective. The result is not just “AI inside an app,” nor a process to be supervised, but an **engineered symbiosis** whose goal is not error-freeness but **error reduction through human–AI collaboration**. *(For the complete derivation and references, see [`docs/manifest.md`](docs/manifest.md); for the code-editing normalization layer, see [`docs/ast_editing.md`](docs/ast_editing.md).)*
