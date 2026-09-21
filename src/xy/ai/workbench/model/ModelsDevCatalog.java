@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.Instant;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
+import xy.ai.workbench.Activator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import xy.ai.workbench.Capabilities;
@@ -32,8 +34,8 @@ public final class ModelsDevCatalog {
 
 	private static final String URL = "https://models.dev/api.json";
 	private static final Duration MAX_AGE = Duration.ofDays(7);
-	private static final Path CACHE_FILE = Path.of(System.getProperty("java.io.tmpdir"),
-			"xy-ai-workbench-models-dev-cache.json");
+	private static final Path CACHE_FILE = Activator.getDefault().getStateLocation()
+			.append("models-dev-cache.json").toFile().toPath();
 
 	private static ModelsDevCatalog instance;
 

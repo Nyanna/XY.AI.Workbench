@@ -22,7 +22,7 @@ public class OpenAIModelResolver implements ModelResolver {
 	@Override
 	public List<Model> resolve(String apiKey) {
 		try {
-			String body = fetch(apiKey);
+			String body = ModelHttpCache.get("openai-models-cache.json", () -> fetch(apiKey));
 			ObjectMapper om = new ObjectMapper();
 			JsonNode data = om.readTree(body).path("data");
 			List<Model> result = new ArrayList<>();

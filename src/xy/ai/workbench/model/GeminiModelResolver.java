@@ -23,7 +23,7 @@ public class GeminiModelResolver implements ModelResolver {
 	@Override
 	public List<Model> resolve(String apiKey) {
 		try {
-			String body = fetch(apiKey);
+			String body = ModelHttpCache.get("gemini-models-cache.json", () -> fetch(apiKey));
 			ObjectMapper om = new ObjectMapper();
 			JsonNode models = om.readTree(body).path("models");
 			List<Model> result = new ArrayList<>();

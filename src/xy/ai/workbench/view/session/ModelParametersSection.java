@@ -167,6 +167,7 @@ public class ModelParametersSection {
 			((GridData) budget.getLayoutData()).exclude = !enabled;
 
 			toggleControl(tempLabel, temp, cfg.getModel().cap.isSupportTemperature(r));
+			toggleControl(topPLabel, topP, cfg.getModel().cap.isSupportTopP(cfg.getReasoning()));
 
 			secReason.layout();
 			body.layout();
