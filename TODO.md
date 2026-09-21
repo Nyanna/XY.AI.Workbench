@@ -3,11 +3,8 @@
 ## Backlog
 
 ### Tools
-- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
 - OpenAlex zweistufig optimieren – aufteilen in separate Dateien
 - AST, JavaParser für Java-AST
-- Virtual Environment – alles außerhalb Project-Path oder Filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
-  - Tool außerhalb automatisch umleiten
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
@@ -30,10 +27,6 @@
   - Abbruch bei Exception
   - Statt Control-Request: direkter Aufruf und Result-Modifizierung
 - Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
-- Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
-- Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
-
-### Auto-Runner Approval
 - Approval-Tool-Control anders – Tool-Use nur für langwierige teure Operationen
   - Sonst immer den Output abwarten und zusammen approven
   - Nur ein Approval-Call + Ergebnis notwendig
@@ -46,19 +39,23 @@
   - Viel Kontext (Zeichen-Threshold)
   - Viele Turns/Cache-Read hoch – per Flag togglebar
 - Auto-Approve im Harness bei kleinerem X-Zeichen-Kontext und kein Fehler → warum nicht auch über MCPC-Controller mit User-Timeout?
+- Virtual Environment – alles außerhalb Project-Path oder Filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
+  - Tool außerhalb automatisch umleiten -> Auto-Runner korrigiert Tool Calls oder lehnt ab
+- **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools
+  - KB zur Vermeidung häufiger Fehler -> Autorunner hat heuristik und regelset
+- Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
+- Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
 
 ## Ideas
 
 - **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
   - Diff-Editor in Eclipse in-memory aufrufen – Tool-Ausgabe mit Action/Annotation versehen: "view as diff"
   - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
-  - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit
+  - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit, oder cursor in Tool Call Block oder /answer /call
 - **Markdown-Table** Autoformat-Support
 - **Sub-Agenten** mit Hauptsession verknüpfen – Control-Filter per Filter-Parameter nach Sessionbaum
   - Sub-Agent Interleaving (gibt es nicht mit MCP Controller → sollte kein Problem sein)
 - **Soft-Prompts** komprimiert erstellen mit LLMLingua und LLM-Selbstkompression
 - **Phases**: Research (human augmented) → Retrieval (Preprocess-Agent: Dateien, Specs, Schemas, Studien, APIs) → Planning (High-Tier) → Execution (Dumb-Agent)
-- Was ist [mcp2cli.dev](https://mcp2cli.dev/)?
-- **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools
-  - KB zur Vermeidung häufiger Fehler?
 - Weitere Tools für Research: Semantic Scholar, arXiv API Access
+- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
