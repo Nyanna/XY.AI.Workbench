@@ -28,7 +28,7 @@ Er ist als **Read-Through LIFO-Cache, der Writes blockiert** implementiert:
   eingehender Text pro ID) auf, nicht die Edit-Operation selbst. Die Änderung ergibt
   sich aus der Sequenz der Einträge pro ID (erstes Vorkommen = Baseline, letztes
   Vorkommen = aktueller simulierter Stand).
-- Der Interceptor speichert den Typ Read/Write
+- Der Interceptor speichert den Typ Read/Write/Replace/Delete usw.
 
 ## Abgrenzung / Zuständigkeit
 
