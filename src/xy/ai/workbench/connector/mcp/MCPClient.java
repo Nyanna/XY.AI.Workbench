@@ -78,7 +78,9 @@ public class MCPClient {
 	public String renderToolCall(String name, JsonNode arguments) {
 		ObjectNode call = mapper.createObjectNode();
 		call.put("tool", name);
-		call.set("arguments", arguments != null && arguments.isObject() ? arguments : mapper.createObjectNode());
+		ObjectNode args = arguments != null && arguments.isObject() ? ((ObjectNode) arguments).deepCopy() : mapper.createObjectNode();
+		args.remove("reason");
+		call.set("arguments", args);
 		return yaml.toYamlBlock(call);
 	}
 

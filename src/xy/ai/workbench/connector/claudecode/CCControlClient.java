@@ -49,6 +49,7 @@ public class CCControlClient {
 		res.append(String.format("%s\n```yaml\n%s\n```\n%s %s allow", EditorInterface.CONTROL_REQUEST, toYaml(first),
 				AnswerCommand.CMD_ANSWER, first.path("id").asText()));
 		resp.resultText = res.toString();
+		resp.showStats = false;
 	}
 
 	public String toYaml(JsonNode node) {

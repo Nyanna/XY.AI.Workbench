@@ -177,6 +177,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 	@Override
 	public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
+		answer.showStats = resp.showStats;
 		answer.sessionId = resp.sessionId;
 		answer.stats.inputToken = resp.stats.inputToken;
 		answer.stats.outputToken = resp.stats.outputToken;

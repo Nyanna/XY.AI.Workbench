@@ -97,7 +97,7 @@ class ToolDefinition(ABC):
     description: str
     input_schema: dict[str, Any]
     title: str | None = None
-    output_schema: dict[str, Any] | None = { 'type': 'object' }
+    output_schema: dict[str, Any] | None = {'type': 'object'}
     annotations: dict[str, Any] | None = None
 
     @abstractmethod
@@ -143,7 +143,7 @@ REASON_PROPERTY = 'reason'
 '#: clients drop unknown top-level ``CallToolResult`` fields silently.'
 MESSAGE_PROPERTY = 'userMessage'
 
-def _inject_property(schema: dict[str, Any], name: str, description: str, *, required: bool) -> dict[str, Any]:
+def _inject_property(schema: dict[str, Any], name: str, description: str, *, required: bool, first: bool=False) -> dict[str, Any]:
     """Return *schema* with an additional property generically injected.
 
     Used both for the mandatory ``reason`` property on every tool's input
@@ -153,7 +153,11 @@ def _inject_property(schema: dict[str, Any], name: str, description: str, *, req
     """
     schema = dict(schema)
     properties = dict(schema.get('properties', {}))
-    properties[name] = {'type': 'string', 'description': description}
+    new_prop = {'type': 'string', 'description': description}
+    if first:
+        properties = {name: new_prop, **{k: v for k, v in properties.items() if k != name}}
+    else:
+        properties[name] = new_prop
     schema['properties'] = properties
     if required:
         required_list = list(schema.get('required', []))
@@ -173,7 +177,8 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
         schema,
         REASON_PROPERTY,
         'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.',
-        required=True)
+        required=True,
+        first=True)
 
 class ToolRegistry:
     """Process-wide registry of available tools."""

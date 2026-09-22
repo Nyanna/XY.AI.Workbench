@@ -1,5 +1,4 @@
 # TODO
-- reason inferenz immer vor den anderen toolparametern, aber im control client immer nach hinten, tool call ausgabe in workbench
 - Claude kombiniert filter und toolcalls im retrieval häufig
   ash(echo "=== oidc/server dir ===" && ls -R smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/server/ 2>/dev/null && echo "=== oidc dir ===" && ls
   smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/ && echo "=== security dir ===" && ls

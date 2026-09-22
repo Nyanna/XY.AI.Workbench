@@ -326,13 +326,29 @@ public class SessionProcessor {
 			return i;
 		}
 
+		private JsonNode reasonLast(JsonNode arguments) {
+			if (!(arguments instanceof ObjectNode) || !arguments.has("reason"))
+				return arguments;
+			ObjectNode src = (ObjectNode) arguments;
+			ObjectNode ordered = JsonNodeFactory.instance.objectNode();
+			JsonNode reason = src.get("reason");
+			Iterator<Map.Entry<String, JsonNode>> fields = src.fields();
+			while (fields.hasNext()) {
+				Map.Entry<String, JsonNode> entry = fields.next();
+				if (!"reason".equals(entry.getKey()))
+					ordered.set(entry.getKey(), entry.getValue());
+			}
+			ordered.set("reason", reason);
+			return ordered;
+		}
+
 		private int consumeToolCall(String[] lines, int start) {
 			int[] range = fenceRange(lines, start);
 			if (range == null)
 				return start;
 			JsonNode node = readYaml(lines, range);
-			out.add(callbacks.toolCall(
-					new ToolCall(node.path("id").asText(""), node.path("tool").asText(""), node.path("arguments"))));
+			out.add(callbacks.toolCall(new ToolCall(node.path("id").asText(""), node.path("tool").asText(""),
+					reasonLast(node.path("arguments")))));
 			return range[1] + 1;
 		}
 

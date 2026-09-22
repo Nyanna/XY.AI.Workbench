@@ -21,6 +21,7 @@ public class CCResponse implements IModelResponse {
 
 	public final TokenStats stats = new TokenStats();
 	public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
+	public boolean showStats = true;
 
 	public CCResponse(String id) {
 		this.id = id;

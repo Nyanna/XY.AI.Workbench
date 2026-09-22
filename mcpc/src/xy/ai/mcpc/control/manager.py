@@ -36,6 +36,14 @@ class ControlDecision:
     modified_result: dict[str, Any] | None = None
     'Replacement result dict for the ``result`` phase (``None`` → keep original).'
 
+def _reason_last(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Return *arguments* with ``reason``, if present, moved to the end so it is
+    always displayed last to the authorizing user.
+    """
+    if 'reason' not in arguments:
+        return arguments
+    return {**{k: v for k, v in arguments.items() if k != 'reason'}, 'reason': arguments['reason']}
+
 @dataclass
 class _PendingItem:
     id: str
@@ -54,7 +62,7 @@ class _PendingItem:
         item: dict[str, Any] = {'id': self.id}
         if self.arguments is not None:
             item['toolName'] = self.tool_name
-            item['arguments'] = self.arguments
+            item['arguments'] = _reason_last(self.arguments)
         if self.result is not None:
             item['result'] = self.result
         return item
