@@ -1,7 +1,18 @@
 # TODO
+- reason inferenz immer vor den anderen toolparametern, aber im control client immer nach hinten, tool call ausgabe in workbench
+- Claude kombiniert filter und toolcalls im retrieval häufig
+  ash(echo "=== oidc/server dir ===" && ls -R smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/server/ 2>/dev/null && echo "=== oidc dir ===" && ls
+  smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/ && echo "=== security dir ===" && ls
+  find ~/.gradle /root/.gradle -iname "*authorization-server*.jar" 2>/dev/null | head; echo "=== spring security version in BOM ==="; find ~/.gradle -path
+   "*spring-security-oauth2-authorization-server*" -name "*.jar" 2>/dev/null | head; echo "=== catalog ==="; grep -i "spring-boot\|spring-security\|jackson"
+   /home/user/unic/swissmedic/smc-swissdamed-parent/gradle/libs.versions.toml
 
 ## Backlog
-
+- **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
+  - Diff-Editor in Eclipse in-memory aufrufen – Tool-Ausgabe mit Action/Annotation versehen: "view as diff"
+  - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
+  - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit, oder cursor in Tool Call Block oder /answer /call
+  
 ### Tools
 - AST, JavaParser für Java-AST
 - Include-Handling
@@ -47,10 +58,6 @@
 
 ## Ideas
 
-- **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
-  - Diff-Editor in Eclipse in-memory aufrufen – Tool-Ausgabe mit Action/Annotation versehen: "view as diff"
-  - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
-  - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit, oder cursor in Tool Call Block oder /answer /call
 - **Markdown-Table** Autoformat-Support
 - **Sub-Agenten** mit Hauptsession verknüpfen – Control-Filter per Filter-Parameter nach Sessionbaum
   - Sub-Agent Interleaving (gibt es nicht mit MCP Controller → sollte kein Problem sein)
