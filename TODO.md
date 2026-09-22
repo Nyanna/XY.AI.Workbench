@@ -1,22 +1,21 @@
 # TODO
-- Claude kombiniert filter und toolcalls im retrieval häufig
-  ash(echo "=== oidc/server dir ===" && ls -R smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/server/ 2>/dev/null && echo "=== oidc dir ===" && ls
-  smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/ && echo "=== security dir ===" && ls
-  find ~/.gradle /root/.gradle -iname "*authorization-server*.jar" 2>/dev/null | head; echo "=== spring security version in BOM ==="; find ~/.gradle -path
-   "*spring-security-oauth2-authorization-server*" -name "*.jar" 2>/dev/null | head; echo "=== catalog ==="; grep -i "spring-boot\|spring-security\|jackson"
-   /home/user/unic/swissmedic/smc-swissdamed-parent/gradle/libs.versions.toml
 
 ## Backlog
 - **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
   - Diff-Editor in Eclipse in-memory aufrufen – Tool-Ausgabe mit Action/Annotation versehen: "view as diff"
   - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
   - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit, oder cursor in Tool Call Block oder /answer /call
+  - Muss über MCPC laufen als dry run aller edit tools, originale calls verwenden, mit flag wird nicht result returned sondern AST knoten alt/neu
+  	- URL parameter setzt interceptor in session, AST schickt Node read und write mit ID an Interceptor und speichert nicht, interceptor fängt dann tool result ab und ersetzt es durch eigene compare ausgabe 
   
 ### Tools
 - AST, JavaParser für Java-AST
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
+- Claude kombiniert filter und toolcalls im retrieval häufig -> Multi Tool Batch
+  - Bash(echo "=== oidc/server dir ===" && ls -R smc-swissdamed/.../server/ 2>/dev/null && echo "=== oidc dir ===" && ls smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/ && echo "=== security dir ===" && ls
+  - find ~/.gradle /root/.gradle -iname "*authorization-server*.jar" 2>/dev/null | head; echo "=== spring security version in BOM ==="; find ~/.gradle -path "*spring-security-oauth2-authorization-server*" -name "*.jar" 2>/dev/null | head; echo "=== catalog ==="; grep -i "spring-boot\|spring-security\|jackson" /home/.../libs.versions.toml
 
 ### UX
 - F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
