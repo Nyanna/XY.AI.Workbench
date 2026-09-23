@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 from tree_sitter_language_pack import get_parser
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, Tree, check_no_control_chars, id_segment
-__all__ = ['TreeSitterEngine']
+__all__ = ['TreeSitterEngine', 'GenericEngine']
 "#: Named child types that usually carry a node's identifier/key."
 _NAME_TYPES = {
     'identifier',
@@ -201,3 +201,48 @@ class TreeSitterEngine(Engine):
         sep = '' if not tree.source or tree.source.endswith('\n') else '\n'
         self._splice(tree, len(tree.source.encode('utf-8')), len(tree.source.encode('utf-8')), sep + code)
         return 1
+_GENERIC_LEAF_LIMIT = 1500
+
+class _GenericUnit:
+    """One collapsed node: a leaf once its own text fits the size budget (or it
+    has no named children anyway), else a branch over its own recursively
+    collapsed named children."""
+    __slots__ = ('type', 'named_children', 'start_byte', 'end_byte', 'start_point', 'end_point', '_node', '_source')
+
+    def __init__(self, node: Any, children: list[Any], source: bytes) -> None:
+        self.type = node.type
+        self.named_children = children
+        self.start_byte = node.start_byte
+        self.end_byte = node.end_byte
+        self.start_point = node.start_point
+        self.end_point = node.end_point
+        self._node = node
+        self._source = source
+
+    @property
+    def text(self) -> bytes:
+        return self._source[self.start_byte:self.end_byte]
+
+    def child_by_field_name(self, field: str) -> Any:
+        """Delegate to the wrapped native node, so field-based naming keeps working."""
+        return self._node.child_by_field_name(field)
+
+def _generic_collapse(node: Any, source: bytes) -> _GenericUnit:
+    """Collapse ``node`` into a leaf if its full text fits the budget or it has no
+    named children, else into a branch over its own recursively collapsed children."""
+    sub = node.named_children
+    size = len(node.text.decode('utf-8', 'replace'))
+    children = [] if size <= _GENERIC_LEAF_LIMIT or not sub else [_generic_collapse(child, source) for child in sub]
+    return _GenericUnit(node, children, source)
+
+class GenericEngine(TreeSitterEngine):
+    """Fallback for every tree-sitter grammar without a dedicated engine (XML,
+    JSON, TOML, Go, Rust, ...): restructures the native tree into leaves
+    collapsed to :data:`_GENERIC_LEAF_LIMIT` characters, instead of exposing
+    every single grammar node as its own address."""
+
+    def locate_all(self, tree: Tree) -> list[Located]:
+        source = tree.source.encode('utf-8')
+        children = [_generic_collapse(child, source) for child in tree.raw.root_node.named_children]
+        root = _RootHolder(children)
+        return self._locate_from(tree, root, lambda child, depth: True)

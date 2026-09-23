@@ -10,7 +10,7 @@ fallback (via :func:`fallback_engine`) for extensions no grammar covers.
 """
 from __future__ import annotations
 from xy.ai.mcpc.tools.ast.generic._css import CssEngine
-from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine
+from xy.ai.mcpc.tools.ast.generic._engine import GenericEngine, TreeSitterEngine
 from xy.ai.mcpc.tools.ast.generic._html import HtmlEngine
 from xy.ai.mcpc.tools.ast.generic._java import JavaEngine
 from xy.ai.mcpc.tools.ast.generic._javascript import JavaScriptEngine
@@ -19,6 +19,7 @@ from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
 from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
 __all__ = [
     'TreeSitterEngine',
+    'GenericEngine',
     'CssEngine',
     'HtmlEngine',
     'JavaEngine',
@@ -90,7 +91,7 @@ def get_engine(symbol: str) -> TreeSitterEngine:
     engine = _ENGINES.get(symbol)
     if engine is None:
         engine_cls = _ENGINE_CLASSES.get(symbol)
-        engine = engine_cls() if engine_cls else TreeSitterEngine(symbol)
+        engine = engine_cls() if engine_cls else GenericEngine(symbol)
         _ENGINES[symbol] = engine
     return engine
 _FALLBACK_ENGINE = PlainTextEngine()
