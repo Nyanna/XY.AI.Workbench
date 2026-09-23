@@ -67,7 +67,7 @@ public class EditorInterface {
 		display.syncExec(() -> {
 			OutputMode outputMode = req.getPrompt().config.outputMode;
 			if (OutputMode.New_File.equals(outputMode)) {
-				IContainer parent = editorListener.getCurrentFile().getParent();
+				IContainer parent = editorListener.getLastContainer();
 
 				String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"));
 				IFile newFile = parent.getFile(new Path(timestamp + ".md"));

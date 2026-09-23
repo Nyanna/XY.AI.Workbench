@@ -170,13 +170,13 @@ public class IncludeAdapter implements IIncludeAdapter {
 	 */
 	private IContainer resolveContainer(String pathText) {
 		if (pathText == null || pathText.isBlank())
-			return editorListener.baseContainer();
+			return editorListener.getLastContainer();
 		Path p = Paths.get(pathText);
 		if (p.isAbsolute()) {
 			IContainer[] found = ResourcesPlugin.getWorkspace().getRoot().findContainersForLocationURI(p.toUri());
 			return found.length > 0 ? found[0] : null;
 		}
-		IContainer base = editorListener.baseContainer();
+		IContainer base = editorListener.getLastContainer();
 		IResource member = base == null ? null : base.findMember(pathText);
 		return member instanceof IContainer ? (IContainer) member : null;
 	}
@@ -187,7 +187,7 @@ public class IncludeAdapter implements IIncludeAdapter {
 			IFile[] found = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(p.toUri());
 			return found.length > 0 ? found[0] : null;
 		}
-		IContainer base = editorListener.baseContainer();
+		IContainer base = editorListener.getLastContainer();
 		IResource member = base == null ? null : base.findMember(pathText);
 		return member instanceof IFile ? (IFile) member : null;
 	}

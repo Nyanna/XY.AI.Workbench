@@ -9,12 +9,6 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IRegion;
-import org.eclipse.jface.text.ITextSelection;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.texteditor.ITextEditor;
 
@@ -22,7 +16,6 @@ import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ActiveEditorListener.Selection;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
-import xy.ai.workbench.LOG;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallEditCommand;
 import xy.ai.workbench.commands.Command;
@@ -163,47 +156,37 @@ public class PromptInputHandler {
 	 * 
 	 * @param arg
 	 */
-	private void detectSelection(Selection selection, PromptArguments arg) {
-		ITextEditor editor = arg.getEditor();
-		if (editor == null)
+	private void detectSelection(Selection sel, PromptArguments arg) {
+		if (sel == null || sel.selection() == null || sel.selection().length == 0)
 			return;
 
-		IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
-		if (doc == null)
-			return;
+		String[] lines = sel.selection();
 
-		ITextSelection tsel = getSeletion(editor);
-		if (tsel != null) {
-			if (!tsel.isEmpty() && tsel.getLength() > 1) {
-				// selection solely of a YAML block
-				Command blockCmd = CommandRegistry.detect(tsel.getText());
-				if (blockCmd instanceof CallEditCommand) {
-					arg.command = blockCmd;
-					return;
-				}
-
-				arg.inputs.add(removeCommentLines(new Selection(tsel.getText().split("\n"), null)));
-				// An /answer command starting at the beginning of the block spans the
-				// whole selection, allowing a multi-line reason/hint for
-				// allow and deny alike.
-				if (blockCmd instanceof AnswerCommand) {
-					arg.command = blockCmd;
-					arg.yaml = captureYamlBlock(doc, tsel.getStartLine());
-				}
-				// multi-line command takes precedence over a trailing command
-				else if (!detectedCmd(getLine(doc, tsel.getStartLine()), doc, tsel.getStartLine(), arg))
-					detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg);
+		if (lines.length > 1) {
+			// selection solely of a YAML block
+			String text = String.join(System.lineSeparator(), lines);
+			Command blockCmd = CommandRegistry.detect(text);
+			if (blockCmd instanceof CallEditCommand) {
+				arg.command = blockCmd;
 				return;
 			}
 
-			try {
-				IRegion lineInfo = doc.getLineInformation(tsel.getEndLine());
-				arg.inputs.add(doc.get(lineInfo.getOffset(), lineInfo.getLength()));
-			} catch (BadLocationException e) {
-				LOG.error("Can't get selection", e);
+			arg.inputs.add(removeCommentLines(sel));
+			// An /answer command starting at the beginning of the block spans the
+			// whole selection, allowing a multi-line reason/hint for
+			// allow and deny alike.
+			if (blockCmd instanceof AnswerCommand) {
+				arg.command = blockCmd;
+				arg.yaml = captureYamlBlock(lines, 0);
 			}
-			detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg);
+			// multi-line command takes precedence over a trailing command
+			else if (!detectedCmd(lines[0], lines, 0, arg))
+				detectedCmd(lines[lines.length - 1], lines, lines.length - 1, arg);
+			return;
 		}
+
+		arg.inputs.add(lines[0]);
+		detectedCmd(lines[0], lines, 0, arg);
 	}
 
 	/*
@@ -211,64 +194,47 @@ public class PromptInputHandler {
 	 * line of the file, matching a command appended after the generated content.
 	 */
 	private void detectFullFile(Selection content, PromptArguments arg) {
-		ITextEditor editor = arg.getEditor();
-		if (editor == null)
+		if (content == null || content.selection() == null || content.selection().length == 0)
 			return;
 
-		IDocument doc = editor.getDocumentProvider().getDocument(editor.getEditorInput());
-		if (doc == null)
-			return;
-		arg.inputs.add(doc.get());
+		String[] lines = content.selection();
+		arg.inputs.add(String.join("\n", lines));
 
-		ITextSelection tsel = getSeletion(editor);
-		if (tsel != null && detectedCmd(getLine(doc, tsel.getEndLine()), doc, tsel.getEndLine(), arg))
+		Integer cursorLine = content.cursorOffset();
+		if (cursorLine != null && cursorLine >= 0 && cursorLine < lines.length
+				&& detectedCmd(lines[cursorLine], lines, cursorLine, arg))
 			return;
 
-		int lastLine = doc.getNumberOfLines() - 1;
-		detectedCmd(getLine(doc, lastLine), doc, lastLine, arg);
-		return;
+		int lastLine = lines.length - 1;
+		detectedCmd(lines[lastLine], lines, lastLine, arg);
 	}
 
-	private ITextSelection getSeletion(ITextEditor editor) {
-		ISelectionProvider prv = editor.getSelectionProvider();
-		ISelection sel = prv != null ? prv.getSelection() : null;
-		return sel instanceof ITextSelection ? (ITextSelection) sel : null;
-	}
+	
 
-	private boolean detectedCmd(String line, IDocument doc, int lineIndex, PromptArguments arg) {
+	private boolean detectedCmd(String line, String[] lines, int lineIndex, PromptArguments arg) {
 		Command cmd = CommandRegistry.detect(line);
 		if (cmd == null)
 			return false;
 		arg.command = cmd;
-		arg.yaml = captureYamlBlock(doc, lineIndex);
+		arg.yaml = captureYamlBlock(lines, lineIndex);
 		return true;
 	}
 
-	private String getLine(IDocument doc, int lineIndex) {
-		try {
-			IRegion info = doc.getLineInformation(lineIndex);
-			return doc.get(info.getOffset(), info.getLength());
-		} catch (BadLocationException e) {
-			LOG.error("Exception", e);
-			return "";
-		}
-	}
+	
 
 	/*
 	 * Walks backwards from the command line and keeps the closest preceding ```yaml
 	 * block.
 	 */
-	private String captureYamlBlock(IDocument doc, int lineIndex) {
-		try {
-			String prefix = doc.get(0, doc.getLineOffset(lineIndex));
-			Matcher m = YAML_BLOCK.matcher(prefix);
-			String last = null;
-			while (m.find())
-				last = m.group(1);
-			return last;
-		} catch (BadLocationException e) {
-			LOG.error("Can't capture YAML block", e);
-			return null;
-		}
+	private String captureYamlBlock(String[] lines, int lineIndex) {
+		StringBuilder prefix = new StringBuilder();
+		for (int i = 0; i < lineIndex && i < lines.length; i++)
+			prefix.append(lines[i]).append("\n");
+
+		Matcher m = YAML_BLOCK.matcher(prefix);
+		String last = null;
+		while (m.find())
+			last = m.group(1);
+		return last;
 	}
 }

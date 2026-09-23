@@ -239,7 +239,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private void updateCurrentEditor() {
 		ActiveEditorListener edtlst = Activator.getDefault().editorListener;
 		currentProjectPath = edtlst.resolveProjectPath();
-		currentRelativeFilePath = edtlst.getCurrentFile().getProjectRelativePath().toString();
+		currentRelativeFilePath = edtlst.getLastEditorFile().getProjectRelativePath().toString();
 
 		if (syncAction.isChecked())
 			syncSelectionToCurrentFile();

@@ -8,7 +8,6 @@ import java.nio.file.Paths;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -67,65 +66,77 @@ public class ActiveEditorListener implements IPartListener2 {
 		return lastTextEditor != null ? lastTextEditor.get() : null;
 	}
 
-	public IContainer baseContainer() {
-		ITextEditor textEditor = getLastTextEditor();
-		if (textEditor != null) {
-			IEditorInput input = textEditor.getEditorInput();
-			if (input instanceof IFileEditorInput)
-				return ((IFileEditorInput) input).getFile().getParent();
+	private IEditorInput getLastEditorInput() {
+		ITextEditor edit = getLastTextEditor();
+		return edit != null ? edit.getEditorInput() : null;
+	}
+
+	private ITextSelection getLastEditorSelection() {
+		ITextEditor edit = getLastTextEditor();
+		ISelectionProvider selPrv = edit != null ? edit.getSelectionProvider() : null;
+		ISelection sel = selPrv != null ? selPrv.getSelection() : null;
+		return sel instanceof ITextSelection ? (ITextSelection) sel : null;
+	}
+
+	public IFile getLastEditorFile() {
+		IEditorInput input = getLastEditorInput();
+		if (input instanceof IFileEditorInput)
+			return ((IFileEditorInput) input).getFile();
+		else if (input instanceof IURIEditorInput) {
+			URI uri = ((IURIEditorInput) input).getURI();
+			String fileName = new org.eclipse.core.runtime.Path(uri.getPath()).lastSegment();
+			IFile file = ResourcesPlugin.getWorkspace().getRoot().getProject("ExternalFiles").getFile(fileName);
+
+			if (!file.exists())
+				try {
+					file.createLink(uri, IResource.ALLOW_MISSING_LOCAL, new NullProgressMonitor());
+				} catch (CoreException e) {
+					throw new IllegalStateException("Could not link external file", e);
+				}
+			return file;
 		}
-		return ResourcesPlugin.getWorkspace().getRoot();
+		throw new IllegalArgumentException("Editor type not supported");
+	}
+
+	public IContainer getLastContainer() {
+		IFile file = getLastEditorFile();
+		return file != null ? file.getParent() : ResourcesPlugin.getWorkspace().getRoot();
 	}
 
 	public record Selection(String[] selection, Integer cursorOffset) {
 	}
 
 	public Selection getSelection() {
-		var textEditor = getLastTextEditor();
-		if (textEditor != null) {
-			ISelectionProvider selPrv = textEditor.getSelectionProvider();
-			if (selPrv != null) {
-				ISelection sel = selPrv.getSelection();
-				ITextSelection tsel = sel instanceof ITextSelection ? (ITextSelection) sel : null;
-				if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
-					return new Selection(tsel.getText().split("\n"), null);
+		ITextSelection tsel = getLastEditorSelection();
+		if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
+			return new Selection(tsel.getText().split("\n"), null);
 
-				if (tsel != null) {
-					int line = tsel.getEndLine();
-					IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-					try {
-						IRegion lineInfo = doc.getLineInformation(line);
-						return new Selection(doc.get(lineInfo.getOffset(), lineInfo.getLength()).split("\n"), null);
-					} catch (BadLocationException e1) {
-						LOG.error("Exception", e1);
-					}
-				}
+		if (tsel != null) {
+			int line = tsel.getEndLine();
+			IDocument doc = getLastTextEditor().getDocumentProvider().getDocument(getLastTextEditor().getEditorInput());
+			try {
+				IRegion lineInfo = doc.getLineInformation(line);
+				return new Selection(doc.get(lineInfo.getOffset(), lineInfo.getLength()).split("\n"), null);
+			} catch (BadLocationException e1) {
+				LOG.error("Exception", e1);
 			}
 		}
 		return null;
 	}
 
 	public String resolveAbsoluteFilePath() {
-		var textEditor = getLastTextEditor();
-		if (textEditor == null)
-			return null;
-		IEditorInput input = textEditor.getEditorInput();
-		if (input instanceof IFileEditorInput)
-			return ((IFileEditorInput) input).getFile().getLocation().toFile().getAbsolutePath();
+		IFile file = getLastEditorFile();
+		if (file != null)
+			return file.getLocation().toFile().getAbsolutePath();
+		IEditorInput input = getLastEditorInput();
 		if (input instanceof IURIEditorInput)
 			return new File(((IURIEditorInput) input).getURI()).getAbsolutePath();
 		return null;
 	}
 
 	public Path resolveProjectPath() {
-		var textEditor = getLastTextEditor();
-		if (textEditor == null)
-			return null;
-		IEditorInput input = textEditor.getEditorInput();
-		if (!(input instanceof IFileEditorInput))
-			return null;
-		IProject project = ((IFileEditorInput) input).getFile().getProject();
-		return Paths.get(project.getLocation().toOSString());
+		IFile file = getLastEditorFile();
+		return file != null ? Paths.get(file.getProject().getLocation().toOSString()) : null;
 	}
 
 	public Selection getFileContent() {
@@ -141,28 +152,6 @@ public class ActiveEditorListener implements IPartListener2 {
 			return new Selection(content.split("\n"), tsel != null ? tsel.getEndLine() : null);
 		}
 		return null;
-	}
-
-	public IResource getCurrentFile() {
-		var textEditor = getLastTextEditor();
-		IEditorInput editorInput = textEditor.getEditorInput();
-		IFile currentFile;
-		if (editorInput instanceof IFileEditorInput)
-			currentFile = ((IFileEditorInput) editorInput).getFile();
-		else if (editorInput instanceof IURIEditorInput) {
-			URI uri = ((IURIEditorInput) editorInput).getURI();
-			String fileName = new org.eclipse.core.runtime.Path(uri.getPath()).lastSegment();
-			currentFile = ResourcesPlugin.getWorkspace().getRoot().getProject("ExternalFiles").getFile(fileName);
-
-			if (!currentFile.exists())
-				try {
-					currentFile.createLink(uri, IResource.ALLOW_MISSING_LOCAL, new NullProgressMonitor());
-				} catch (CoreException e) {
-					throw new IllegalStateException("Could not link external file", e);
-				}
-		} else
-			throw new IllegalArgumentException("Editor type not supported for new file output mode");
-		return currentFile;
 	}
 
 	@Override
