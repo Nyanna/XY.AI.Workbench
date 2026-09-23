@@ -6,7 +6,13 @@
   - Block selektieren und Diff-Tool mit Parametern starten – Compare with Clipboard analog
   - Synchrone separate Ansicht, live im Chat aktualisiert → immer letzter Edit, oder cursor in Tool Call Block oder /answer /call
   - Muss über MCPC laufen als dry run aller edit tools, originale calls verwenden, mit flag wird nicht result returned sondern AST knoten alt/neu
-  	- URL parameter setzt interceptor in session, AST schickt Node read und write mit ID an Interceptor und speichert nicht, interceptor fängt dann tool result ab und ersetzt es durch eigene compare ausgabe 
+  	- URL parameter setzt interceptor in session, AST schickt Node read und write mit ID an Interceptor und speichert nicht, interceptor fängt dann tool result ab und ersetzt es durch eigene compare ausgabe
+* commit viewer in panel
+  * update logik wenn model return IAwnser
+  	* bash script dann über JGit intern
+  * ref immer dann aktualisieren mit neueste, commit editor ebenfalls aktualisieren
+  * mcp control client braucht nach allow noch execute was autoapprove deaktiviert
+  * ein deny im result macht dann auto revert vom aktuellen ref
   
 ### Tools
 - AST, JavaParser für Java-AST
