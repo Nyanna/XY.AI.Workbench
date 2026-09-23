@@ -16,6 +16,7 @@ from xy.ai.mcpc.tools.ast.generic._java import JavaEngine
 from xy.ai.mcpc.tools.ast.generic._javascript import JavaScriptEngine
 from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
+from xy.ai.mcpc.tools.ast.generic._xml import XmlEngine
 from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
 __all__ = [
     'TreeSitterEngine',
@@ -26,6 +27,7 @@ __all__ = [
     'JavaScriptEngine',
     'MarkdownEngine',
     'PlainTextEngine',
+    'XmlEngine',
     'YamlEngine',
     'language_for_extension',
     'get_engine',
@@ -84,7 +86,8 @@ _ENGINE_CLASSES: dict[str,
                                                  'yaml': YamlEngine,
                                                  'css': CssEngine,
                                                  'html': HtmlEngine,
-                                                 'javascript': JavaScriptEngine}
+                                                 'javascript': JavaScriptEngine,
+                                                 'xml': XmlEngine}
 _ENGINES: dict[str, TreeSitterEngine] = {}
 
 def get_engine(symbol: str) -> TreeSitterEngine:

@@ -1,6 +1,5 @@
 # TODO
 * AI MD editor menü reduzieren
-* Support für diff anzeigen, anderer Input typ für editor
 
 ## Backlog
 - **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung
@@ -14,7 +13,8 @@
   	* bash script dann über JGit intern
   * ref immer dann aktualisieren mit neueste, commit editor ebenfalls aktualisieren
   * mcp control client braucht nach allow noch execute was autoapprove deaktiviert
-  * ein deny im result macht dann auto revert vom aktuellen ref
+  	* Damit der agent nach einem success nicht weiter läuft und zeit für ein revert ist
+  	* ein deny im result macht dann auto revert vom aktuellen ref
   
 ### Tools
 - AST, JavaParser für Java-AST
