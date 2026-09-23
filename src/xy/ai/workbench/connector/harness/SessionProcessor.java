@@ -60,7 +60,7 @@ public class SessionProcessor {
 	private final YamlRenderer yaml = new YamlRenderer();
 	private IIncludeAdapter adapter;
 
-	public void setAdapter(IIncludeAdapter adapter) {
+	public SessionProcessor(IIncludeAdapter adapter) {
 		this.adapter = adapter;
 	}
 
@@ -332,6 +332,7 @@ public class SessionProcessor {
 			ObjectNode src = (ObjectNode) arguments;
 			ObjectNode ordered = JsonNodeFactory.instance.objectNode();
 			JsonNode reason = src.get("reason");
+			@SuppressWarnings("deprecation")
 			Iterator<Map.Entry<String, JsonNode>> fields = src.fields();
 			while (fields.hasNext()) {
 				Map.Entry<String, JsonNode> entry = fields.next();

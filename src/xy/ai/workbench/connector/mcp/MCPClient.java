@@ -38,7 +38,7 @@ public class MCPClient {
 
 	/** Instance-stable session id sent as X-MCPC-SESSION-ID. */
 	private final String sessionId = UUID.randomUUID().toString();
-	private final List<ConnectObserver> connectObservers = new CopyOnWriteArrayList<>();
+	private final List<IConnectObserver> connectObservers = new CopyOnWriteArrayList<>();
 
 	private boolean initialized;
 	private boolean connectNotified;
@@ -46,11 +46,11 @@ public class MCPClient {
 	private ArrayNode toolCache;
 	private long nextId = 1;
 
-	public interface ConnectObserver {
+	public interface IConnectObserver {
 		void onConnect(MCPClient client);
 	}
 
-	public void addConnectObserver(ConnectObserver observer) {
+	public void addConnectObserver(IConnectObserver observer) {
 		connectObservers.add(observer);
 	}
 
@@ -167,7 +167,7 @@ public class MCPClient {
 	}
 
 	private void notifyConnected() {
-		for (ConnectObserver observer : connectObservers)
+		for (IConnectObserver observer : connectObservers)
 			observer.onConnect(this);
 	}
 

@@ -11,10 +11,10 @@ import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 
+import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.IncludeAdapter;
-import xy.ai.workbench.InputMode;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.batch.AIBatchManager;
@@ -29,21 +29,23 @@ import xy.ai.workbench.models.IModelResponse;
  * the prepare/insertTag/execute/replaceTag job pipeline, delegating input
  * aggregation/preprocessing to {@link PromptInputHandler}.
  */
-public final class PromptHandler {
+public class PromptHandler {
 
 	private final AdaptingConnector connector;
 	private final EditorInterface editIfc;
+	private final IncludeAdapter includeAdapter;
 	private final AIBatchManager batch;
 	private final PromptInputHandler input;
 
 	private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
 
-	public PromptHandler(ConfigManager cfg, AdaptingConnector connector, AIBatchManager batch, EditorInterface editIfc,
-			IncludeAdapter includeAdapter) {
+	public PromptHandler(ConfigManager cfg, ActiveEditorListener editorListener, AdaptingConnector connector,
+			AIBatchManager batch, EditorInterface editIfc, IncludeAdapter includeAdapter) {
 		this.connector = connector;
 		this.editIfc = editIfc;
+		this.includeAdapter = includeAdapter;
 		this.batch = batch;
-		this.input = new PromptInputHandler(cfg, includeAdapter);
+		this.input = new PromptInputHandler(cfg, editorListener);
 	}
 
 	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
@@ -54,12 +56,9 @@ public final class PromptHandler {
 		answerObs.add(obs);
 	}
 
-	public void updateInputStat(InputMode mode) {
-		input.updateInputStat(mode);
-	}
-
 	public void initializeInputs() {
 		input.initializeInputs();
+		includeAdapter.initializeBindings();
 	}
 
 	public void execute(Display display) {

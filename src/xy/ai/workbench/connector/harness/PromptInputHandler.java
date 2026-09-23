@@ -25,8 +25,8 @@ import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.commands.AnswerCommand;
@@ -45,14 +45,19 @@ public class PromptInputHandler {
 			Pattern.MULTILINE | Pattern.DOTALL);
 
 	private final ConfigManager cfg;
-	private final IncludeAdapter includeAdapter;
+	private final ActiveEditorListener editorListener;
 
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
 
-	public PromptInputHandler(ConfigManager cfg, IncludeAdapter includeAdapter) {
+
+	public PromptInputHandler(ConfigManager cfg, ActiveEditorListener editorListener) {
 		this.cfg = cfg;
-		this.includeAdapter = includeAdapter;
+		this.editorListener = editorListener;
+
+		editorListener.setInputObserver(i -> updateInputStat(i));
+		cfg.addInputModeObs(i -> updateInputStat(i));
+		cfg.addEnabledToolsObs(t -> updateInputStat(InputMode.Tools), false);
 	}
 
 	public void addInputStatObs(Consumer<int[]> obs, boolean initialize) {
@@ -61,7 +66,7 @@ public class PromptInputHandler {
 			obs.accept(inputStats);
 	}
 
-	public void updateInputStat(InputMode mode) {
+	private void updateInputStat(InputMode mode) {
 		if (mode == InputMode.Tools) {
 			String[] tools = cfg.getTools();
 			inputStats[mode.ordinal()] = tools != null ? tools.length : 0;
@@ -75,11 +80,10 @@ public class PromptInputHandler {
 	public void initializeInputs() {
 		for (var mode : InputMode.values())
 			updateInputStat(mode);
-		includeAdapter.initializeInputs();
 	}
 
 	private String getInput(InputMode mode) {
-		ITextEditor textEditor = includeAdapter.getCurrentEditor();
+		ITextEditor textEditor = editorListener.getLastTextEditor();
 
 		switch (mode) {
 		case SystemPrompt:
@@ -150,7 +154,7 @@ public class PromptInputHandler {
 	public Prompt buildPrompt(Display display, boolean batch) {
 		PromptArguments arg = new PromptArguments();
 		display.syncExec(() -> {
-			arg.setEditor(includeAdapter.getCurrentEditor());
+			arg.setEditor(editorListener.getLastTextEditor());
 			arg.absoluteFilePath = resolveAbsoluteFilePath(arg.getEditor());
 			arg.project = resolveProjectPath(arg.getEditor());
 

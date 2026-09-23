@@ -42,6 +42,7 @@ import xy.ai.workbench.tools.AbstractQueryListener;
  * Eclipse APIs.
  */
 public class IncludeAdapter implements IIncludeAdapter {
+	public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
 
 	private ActiveEditorListener editorListener;
 	private List<IFile> selectedFiles = List.of();
@@ -51,14 +52,10 @@ public class IncludeAdapter implements IIncludeAdapter {
 		this.editorListener = editorListener;
 	}
 
-	public ITextEditor getCurrentEditor() {
-		return editorListener.getLastTextEditor();
-	}
-
 	@Override
 	public String contextPrompt(String dir) {
 		IContainer container = resolveContainer(dir);
-		IResource promptResource = container == null ? null : container.findMember(AISessionManager.CONTEXT_PROMPT_TXT);
+		IResource promptResource = container == null ? null : container.findMember(CONTEXT_PROMPT_TXT);
 		if (!(promptResource instanceof IFile))
 			return null;
 		try (InputStream is = ((IFile) promptResource).getContents()) {
@@ -118,7 +115,7 @@ public class IncludeAdapter implements IIncludeAdapter {
 		return matches;
 	}
 
-	public void initializeInputs() {
+	public void initializeBindings() {
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (window != null) {
 			SearchResultListener resObs = new SearchResultListener();
@@ -199,7 +196,7 @@ public class IncludeAdapter implements IIncludeAdapter {
 	}
 
 	private IContainer baseContainer() {
-		ITextEditor textEditor = getCurrentEditor();
+		ITextEditor textEditor = editorListener.getLastTextEditor();
 		if (textEditor != null) {
 			IEditorInput input = textEditor.getEditorInput();
 			if (input instanceof IFileEditorInput)

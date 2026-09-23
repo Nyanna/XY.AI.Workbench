@@ -45,7 +45,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
-import xy.ai.workbench.Activator;
+import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.OutputMode;
 import xy.ai.workbench.editor.AISessionEditor;
@@ -58,8 +58,10 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	private static final String MARKER_OFF_ID_ATTR = "offset";
 	private static final String MARKER_LEN_ID_ATTR = "length";
 	private final Pattern pattern;
+	private ConfigManager cfg;
 
-	public MarkerRessourceScanner(BundleContext context) {
+	public MarkerRessourceScanner(ConfigManager cfg, BundleContext context) {
+		this.cfg = cfg;
 		ResourcesPlugin.getWorkspace().addResourceChangeListener(this, IResourceChangeEvent.POST_CHANGE);
 		pattern = Pattern.compile("\\[" + AIREQ_PREFIX + ":(.*):(.*)\\]", Pattern.CASE_INSENSITIVE);
 	}
@@ -317,7 +319,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	}
 
 	private boolean isAutoFollowModeEnabled() {
-		OutputMode mode = Activator.getDefault().cfg.getOuputMode();
+		OutputMode mode = cfg.getOuputMode();
 		return mode == OutputMode.Append || mode == OutputMode.Chat;
 	}
 

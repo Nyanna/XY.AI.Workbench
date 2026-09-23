@@ -27,6 +27,7 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
+import org.osgi.framework.BundleContext;
 
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.AdaptingConnector;
@@ -45,12 +46,27 @@ public class EditorInterface {
 	public static final String TOOLRESULT = "ToolResult:";
 	public static final String CONTROL_REQUEST = "Control Request:";
 
+	private final ConfigManager cfg;
 	private final ActiveEditorListener editorListener;
 	private final AdaptingConnector connector;
+	private MarkerRessourceScanner markerScanner;
 
-	public EditorInterface(ActiveEditorListener editorListener, AdaptingConnector connector) {
+	public EditorInterface(ConfigManager cfg, ActiveEditorListener editorListener, AdaptingConnector connector) {
+		this.cfg = cfg;
 		this.editorListener = editorListener;
 		this.connector = connector;
+	}
+
+	public void register(BundleContext context) throws Exception {
+		if (markerScanner != null)
+			dispose(context);
+		markerScanner = new MarkerRessourceScanner(cfg, context);
+	}
+
+	public void dispose(BundleContext context) {
+		if (markerScanner != null)
+			markerScanner.dispose(context);
+		markerScanner = null;
 	}
 
 	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
@@ -150,7 +166,7 @@ public class EditorInterface {
 		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
 		if (ans.showStats && (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode)))
 			ans.answer = ans.print() + "\n" + ans.answer;
-		if (!Activator.getDefault().markerScanner.findAndReplaceMarkers(ans, hint))
+		if (!markerScanner.findAndReplaceMarkers(ans, hint))
 			LOG.info("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}
 }

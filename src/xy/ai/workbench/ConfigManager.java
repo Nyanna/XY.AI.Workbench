@@ -19,6 +19,7 @@ import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.model.ModelResolverRegistry;
 
 public class ConfigManager {
+	private ModelResolverRegistry resolverRegistry = new ModelResolverRegistry();
 
 	private SessionConfig defaultCfg = new SessionConfig();
 	private SessionConfig cfg = defaultCfg;
@@ -46,7 +47,7 @@ public class ConfigManager {
 	private List<Consumer<String[]>> enabledToolsObs = new ArrayList<>();
 
 	public ConfigManager(MCPClient mcpClient) {
-		ModelResolverRegistry.attach(mcpClient);
+		mcpClient.addConnectObserver(resolverRegistry);
 	}
 
 	public void clearObserver() {
@@ -420,7 +421,7 @@ public class ConfigManager {
 		for (String key : keys)
 			for (KeyPattern pattern : KeyPattern.values())
 				if (pattern.matches(key))
-					for (Model mod : ModelResolverRegistry.resolve(pattern, key))
+					for (Model mod : resolverRegistry.resolve(pattern, key))
 						if (!avail.contains(mod))
 							avail.add(mod);
 

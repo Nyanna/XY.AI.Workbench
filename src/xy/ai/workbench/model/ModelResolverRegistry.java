@@ -20,6 +20,7 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Tools;
 import xy.ai.workbench.connector.mcp.MCPClient;
+import xy.ai.workbench.connector.mcp.MCPClient.IConnectObserver;
 
 /**
  * Central, pluggable registry mapping a provider ({@link KeyPattern}) to its
@@ -28,15 +29,17 @@ import xy.ai.workbench.connector.mcp.MCPClient;
  * lifetime of the application (once per key, no repeated HTTP calls on every
  * settings/session restore).
  */
-public class ModelResolverRegistry {
-	private static final Map<KeyPattern, ModelResolver> RESOLVERS = new EnumMap<>(KeyPattern.class);
-	private static final Map<String, List<Model>> CACHE = new ConcurrentHashMap<>();
-	private static final String TOOLS_FILE = "tools.txt";
+public class ModelResolverRegistry implements IConnectObserver {
+	private final Map<KeyPattern, ModelResolver> RESOLVERS = new EnumMap<>(KeyPattern.class);
+	private final Map<String, List<Model>> CACHE = new ConcurrentHashMap<>();
+	private final String TOOLS_FILE = "tools.txt";
 
-	/** Cached tool list, lazily loaded from the state location on first resolve(). */
+	/**
+	 * Cached tool list, lazily loaded from the state location on first resolve().
+	 */
 	private static String[] tools;
 
-	static {
+	{
 		for (KeyPattern p : KeyPattern.values())
 			RESOLVERS.put(p, new DefaultModelResolver(p));
 		RESOLVERS.put(KeyPattern.OpenAI, new OpenAIModelResolver());
@@ -46,26 +49,23 @@ public class ModelResolverRegistry {
 		// ClaudeCode/None/Misc stay on the DefaultModelResolver
 	}
 
-	public static List<Model> resolve(KeyPattern provider, String apiKey) {
+	public List<Model> resolve(KeyPattern provider, String apiKey) {
 		ensureToolsLoaded();
-		List<Model> models = CACHE.computeIfAbsent(provider + ":" + apiKey, k -> RESOLVERS.get(provider).resolve(apiKey));
+		List<Model> models = CACHE.computeIfAbsent(provider + ":" + apiKey,
+				k -> RESOLVERS.get(provider).resolve(apiKey));
 		applyTools(models);
 		return models;
 	}
 
-	/** Wires the registry as a connect observer of the given (not yet connected) MCP client. */
-	public static void attach(MCPClient client) {
-		client.addConnectObserver(c -> onConnect(c));
-	}
-
-	private static synchronized void ensureToolsLoaded() {
+	private synchronized void ensureToolsLoaded() {
 		if (tools != null)
 			return;
 		String[] loaded = loadTools();
 		tools = loaded != null ? loaded : new String[0];
 	}
 
-	private static void onConnect(MCPClient client) {
+	@Override
+	public void onConnect(MCPClient client) {
 		List<String> discovered = new ArrayList<>();
 		for (JsonNode tool : client.listTools())
 			discovered.add(tool.path("name").asText());
@@ -81,12 +81,12 @@ public class ModelResolverRegistry {
 			applyTools(models);
 	}
 
-	private static void applyTools(List<Model> models) {
+	private void applyTools(List<Model> models) {
 		for (Model model : models)
 			model.cap.tools(tools);
 	}
 
-	private static String[] sortByToolOrder(Collection<String> names) {
+	private String[] sortByToolOrder(Collection<String> names) {
 		LinkedHashSet<String> remaining = new LinkedHashSet<>(names);
 		List<String> ordered = new ArrayList<>();
 		for (String known : Tools.ALL)
@@ -96,7 +96,7 @@ public class ModelResolverRegistry {
 		return ordered.toArray(new String[0]);
 	}
 
-	private static String[] loadTools() {
+	private String[] loadTools() {
 		try {
 			File file = toolsFile();
 			if (!file.exists())
@@ -109,7 +109,7 @@ public class ModelResolverRegistry {
 		}
 	}
 
-	private static void saveTools(String[] tools) {
+	private void saveTools(String[] tools) {
 		try {
 			Files.writeString(toolsFile().toPath(), String.join("\n", tools));
 		} catch (IOException e) {
@@ -117,7 +117,7 @@ public class ModelResolverRegistry {
 		}
 	}
 
-	private static File toolsFile() {
+	private File toolsFile() {
 		return Activator.getDefault().getStateLocation().append(TOOLS_FILE).toFile();
 	}
 }

@@ -13,6 +13,7 @@ Verify for new tools MCP part.
 * Tools should be as hallucination tolerant as possible and guess and correct/anticipate input
 * Verify Error returns, isError only true for MCP errors
 * Don't use output scheme, never used by LLM
+* Always consider inference order for input parameters (reasoning -> main intent -> gimmicks)
 
 For Python module direct call:
 

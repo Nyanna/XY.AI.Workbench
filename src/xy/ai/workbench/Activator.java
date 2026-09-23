@@ -8,59 +8,46 @@ import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
-import xy.ai.workbench.connector.harness.SessionProcessor;
+import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.connector.mcp.MCPClient;
-import xy.ai.workbench.marker.MarkerRessourceScanner;
 
 /**
  * The activator class controls the plug-in life cycle
  */
 public class Activator extends AbstractUIPlugin {
 
-	// The plug-in ID
 	public static final String PLUGIN_ID = "XY.AI.Workbench"; //$NON-NLS-1$
 
-	// The shared instance
 	private static Activator plugin;
 
-	public MCPClient mcpClient = new MCPClient();
-	public ConfigManager cfg = new ConfigManager(mcpClient);
-	public CCSessionManager cliSessionManager = new CCSessionManager();
-	public SessionProcessor sessionProcessor = new SessionProcessor();
-	private AdaptingConnector connector = new AdaptingConnector(cfg, cliSessionManager, mcpClient, sessionProcessor);
-
-	public AIBatchManager batch = new AIBatchManager(connector);
-	public AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
-
-	public AISessionManager session = new AISessionManager(cfg, connector, batch, sessionProcessor);
-	public EditorInterface editIfc = session.editIfc;
-
-	public MarkerRessourceScanner markerScanner;
+	private final MCPClient mcpClient = new MCPClient();
+	public final CCSessionManager ccSessionManager = new CCSessionManager();
+	public final ConfigManager cfg = new ConfigManager(mcpClient);
+	private final ActiveEditorListener editorListener = new ActiveEditorListener(cfg);
+	private final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
+	private final AdaptingConnector connector = new AdaptingConnector(cfg, ccSessionManager, mcpClient, includeAdapter);
+	public final AIBatchManager batch = new AIBatchManager(connector);
+	public final AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
+	public final EditorInterface editorInterface = new EditorInterface(cfg, editorListener, connector);
+	public final PromptHandler promptHandler = new PromptHandler(cfg, editorListener, connector, batch, editorInterface,
+			includeAdapter);
 
 	@Override
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
-		markerScanner = new MarkerRessourceScanner(context);
+		editorInterface.register(context);
 		LOG.log = Platform.getLog(context.getBundle());
 	}
 
 	@Override
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;
-		if (markerScanner != null)
-			markerScanner.dispose(context);
-		markerScanner = null;
+		editorInterface.dispose(context);
 		super.stop(context);
 	}
 
-	/**
-	 * Returns the shared instance
-	 *
-	 * @return the shared instance
-	 */
 	public static Activator getDefault() {
 		return plugin;
 	}
-
 }

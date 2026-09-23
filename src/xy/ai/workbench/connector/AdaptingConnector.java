@@ -7,6 +7,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 
 import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.NewBatch;
@@ -55,10 +56,12 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 	private DeepSeekConnector deepseek;
 	private MCPConnector mcp;
 	private IAIBatchConnector newBatch;
+	private SessionProcessor sessionProcessor;
 
 	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
-			SessionProcessor sessionProcessor) {
+			IncludeAdapter includeAdapter) {
 		this.cfg = cfg;
+		sessionProcessor = new SessionProcessor(includeAdapter);
 		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(mcpClient, sessionProcessor));
 		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(mcpClient, sessionProcessor));
 		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(mcpClient, sessionProcessor));

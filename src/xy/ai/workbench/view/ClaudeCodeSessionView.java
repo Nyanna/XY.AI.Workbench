@@ -134,7 +134,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 
 	@Override
 	public void createPartControl(Composite parent) {
-		sessionManager = Activator.getDefault().cliSessionManager;
+		sessionManager = Activator.getDefault().ccSessionManager;
 		cfg = Activator.getDefault().cfg;
 
 		parent.setLayout(new FillLayout());

@@ -1,4 +1,6 @@
 # TODO
+* AI MD editor menü reduzieren
+* Support für diff anzeigen, anderer Input typ für editor
 
 ## Backlog
 - **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung

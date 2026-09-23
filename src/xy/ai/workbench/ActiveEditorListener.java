@@ -26,17 +26,24 @@ import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.editor.AISessionEditor;
 
 public class ActiveEditorListener implements IPartListener2 {
-	private EditorChangeListener editorListener = new EditorChangeListener();
+	private final ConfigManager cfg;
+	private final EditorChangeListener editorListener = new EditorChangeListener();
 
 	private WeakReference<ITextEditor> lastTextEditor;
-	private PromptHandler prompt;
+	private InputStatObserver obs;
 
-	public void setPrompt(PromptHandler prompt) {
-		this.prompt = prompt;
+
+	public ActiveEditorListener(ConfigManager cfg) {
+		this.cfg = cfg;
+	}
+
+	public void setInputObserver(InputStatObserver obs) {
+		if (this.obs != null)
+			throw new IllegalStateException("Allready egistered");
+		this.obs = obs;
 	}
 
 	public ITextEditor getLastTextEditor() {
@@ -55,7 +62,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		editorListener.editorChanged(editor instanceof ITextEditor ? (ITextEditor) editor : null);
 
 		if (editor != null)
-			Activator.getDefault().cfg.activateEditor(editor);
+			cfg.activateEditor(editor);
 	}
 
 	public class EditorChangeListener {
@@ -80,8 +87,8 @@ public class ActiveEditorListener implements IPartListener2 {
 
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
-					prompt.updateInputStat(InputMode.Selection);
-					prompt.updateInputStat(InputMode.Converter);
+					obs.updateInputStat(InputMode.Selection);
+					obs.updateInputStat(InputMode.Converter);
 				});
 			}).schedule(300);
 
@@ -154,7 +161,7 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			Display.getDefault().asyncExec(() -> {
-				prompt.updateInputStat(InputMode.Selection);
+				obs.updateInputStat(InputMode.Selection);
 			});
 		}
 	}
@@ -164,8 +171,8 @@ public class ActiveEditorListener implements IPartListener2 {
 		public void documentChanged(DocumentEvent event) {
 			Job.create("Update Input Stats", (mon) -> {
 				Display.getDefault().asyncExec(() -> {
-					prompt.updateInputStat(InputMode.Selection);
-					prompt.updateInputStat(InputMode.Converter);
+					obs.updateInputStat(InputMode.Selection);
+					obs.updateInputStat(InputMode.Converter);
 				});
 			}).schedule(1000);
 
@@ -175,7 +182,7 @@ public class ActiveEditorListener implements IPartListener2 {
 	public class SelectionListener implements ISelectionChangedListener {
 		@Override
 		public void selectionChanged(SelectionChangedEvent event) {
-			Display.getDefault().asyncExec(() -> prompt.updateInputStat(InputMode.Selection));
+			Display.getDefault().asyncExec(() -> obs.updateInputStat(InputMode.Selection));
 		}
 	}
 
@@ -183,8 +190,8 @@ public class ActiveEditorListener implements IPartListener2 {
 		@Override
 		public void textChanged(TextEvent event) {
 			Display.getDefault().asyncExec(() -> {
-				prompt.updateInputStat(InputMode.Selection);
-				prompt.updateInputStat(InputMode.Converter);
+				obs.updateInputStat(InputMode.Selection);
+				obs.updateInputStat(InputMode.Converter);
 			});
 		}
 	}
@@ -221,5 +228,9 @@ public class ActiveEditorListener implements IPartListener2 {
 
 	@Override
 	public void partInputChanged(IWorkbenchPartReference partRef) {
+	}
+
+	public static interface InputStatObserver {
+		public void updateInputStat(InputMode mode);
 	}
 }
