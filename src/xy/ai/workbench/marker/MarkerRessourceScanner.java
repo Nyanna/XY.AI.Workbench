@@ -128,7 +128,8 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
 	 * @return true when at least one marker was displayed and the AI answer is
 	 *         persisted
 	 */
-	public boolean findAndReplaceMarkers(AIAnswer ans, ITextEditor hint) {
+	public boolean findAndReplaceMarkers(AIAnswer ans) {
+		ITextEditor hint = ans.prompt != null ? ans.prompt.arg.getEditor() : null;
 		if (hint != null && tryReplaceInEditor(ans, hint))
 			return true;
 

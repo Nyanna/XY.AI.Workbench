@@ -25,12 +25,9 @@ import org.eclipse.search.ui.ISearchResultListener;
 import org.eclipse.search.ui.NewSearchUI;
 import org.eclipse.search.ui.SearchResultEvent;
 import org.eclipse.search.ui.text.AbstractTextSearchResult;
-import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.connector.harness.IIncludeAdapter;
 import xy.ai.workbench.connector.harness.SessionProcessor;
@@ -173,13 +170,13 @@ public class IncludeAdapter implements IIncludeAdapter {
 	 */
 	private IContainer resolveContainer(String pathText) {
 		if (pathText == null || pathText.isBlank())
-			return baseContainer();
+			return editorListener.baseContainer();
 		Path p = Paths.get(pathText);
 		if (p.isAbsolute()) {
 			IContainer[] found = ResourcesPlugin.getWorkspace().getRoot().findContainersForLocationURI(p.toUri());
 			return found.length > 0 ? found[0] : null;
 		}
-		IContainer base = baseContainer();
+		IContainer base = editorListener.baseContainer();
 		IResource member = base == null ? null : base.findMember(pathText);
 		return member instanceof IContainer ? (IContainer) member : null;
 	}
@@ -190,19 +187,9 @@ public class IncludeAdapter implements IIncludeAdapter {
 			IFile[] found = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(p.toUri());
 			return found.length > 0 ? found[0] : null;
 		}
-		IContainer base = baseContainer();
+		IContainer base = editorListener.baseContainer();
 		IResource member = base == null ? null : base.findMember(pathText);
 		return member instanceof IFile ? (IFile) member : null;
-	}
-
-	private IContainer baseContainer() {
-		ITextEditor textEditor = editorListener.getLastTextEditor();
-		if (textEditor != null) {
-			IEditorInput input = textEditor.getEditorInput();
-			if (input instanceof IFileEditorInput)
-				return ((IFileEditorInput) input).getFile().getParent();
-		}
-		return ResourcesPlugin.getWorkspace().getRoot();
 	}
 
 	private Match toSearchMatch(org.eclipse.search.ui.text.Match match) throws BadLocationException, CoreException {

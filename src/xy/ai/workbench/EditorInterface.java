@@ -3,14 +3,11 @@ package xy.ai.workbench;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.Path;
@@ -19,9 +16,6 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
@@ -71,30 +65,9 @@ public class EditorInterface {
 
 	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
 		display.syncExec(() -> {
-			ITextEditor textEditor = editorListener.getLastTextEditor();
 			OutputMode outputMode = req.getPrompt().config.outputMode;
 			if (OutputMode.New_File.equals(outputMode)) {
-
-				IEditorInput editorInput = textEditor.getEditorInput();
-				IFile currentFile;
-				if (editorInput instanceof IFileEditorInput)
-					currentFile = ((IFileEditorInput) editorInput).getFile();
-				else if (editorInput instanceof IURIEditorInput) {
-					URI uri = ((IURIEditorInput) editorInput).getURI();
-					String fileName = new Path(uri.getPath()).lastSegment();
-					currentFile = ResourcesPlugin.getWorkspace().getRoot().getProject("ExternalFiles")
-							.getFile(fileName);
-
-					if (!currentFile.exists())
-						try {
-							currentFile.createLink(uri, IResource.ALLOW_MISSING_LOCAL, mon);
-						} catch (CoreException e) {
-							throw new IllegalStateException("Could not link external file", e);
-						}
-				} else
-					throw new IllegalArgumentException("Editor type not supported for new file output mode");
-
-				IContainer parent = currentFile.getParent();
+				IContainer parent = editorListener.getCurrentFile().getParent();
 
 				String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"));
 				IFile newFile = parent.getFile(new Path(timestamp + ".md"));
@@ -121,6 +94,7 @@ public class EditorInterface {
 
 			} else {
 
+				ITextEditor textEditor = editorListener.getLastTextEditor();
 				IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
 				ISelection selection = textEditor.getSelectionProvider().getSelection();
 				ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
@@ -162,11 +136,10 @@ public class EditorInterface {
 	}
 
 	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
-		ITextEditor hint = ans.prompt != null ? ans.prompt.arg.getEditor() : null;
 		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
 		if (ans.showStats && (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode)))
 			ans.answer = ans.print() + "\n" + ans.answer;
-		if (!markerScanner.findAndReplaceMarkers(ans, hint))
+		if (!markerScanner.findAndReplaceMarkers(ans))
 			LOG.info("Error: wasn't able to replace prompt marker with answer:\n" + ans.answer);
 	}
 }

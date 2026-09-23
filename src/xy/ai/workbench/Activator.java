@@ -23,7 +23,7 @@ public class Activator extends AbstractUIPlugin {
 	private final MCPClient mcpClient = new MCPClient();
 	public final CCSessionManager ccSessionManager = new CCSessionManager();
 	public final ConfigManager cfg = new ConfigManager(mcpClient);
-	private final ActiveEditorListener editorListener = new ActiveEditorListener(cfg);
+	public final ActiveEditorListener editorListener = new ActiveEditorListener(cfg);
 	private final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
 	private final AdaptingConnector connector = new AdaptingConnector(cfg, ccSessionManager, mcpClient, includeAdapter);
 	public final AIBatchManager batch = new AIBatchManager(connector);

@@ -1,9 +1,7 @@
 package xy.ai.workbench.connector.harness;
 
-import java.io.File;
 import java.lang.ref.WeakReference;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -11,7 +9,6 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.eclipse.core.resources.IProject;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IRegion;
@@ -19,13 +16,10 @@ import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
-import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.IURIEditorInput;
-import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
 import xy.ai.workbench.ActiveEditorListener;
+import xy.ai.workbench.ActiveEditorListener.Selection;
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.InputMode;
 import xy.ai.workbench.LOG;
@@ -49,7 +43,6 @@ public class PromptInputHandler {
 
 	private int[] inputStats = new int[InputMode.values().length];
 	private List<Consumer<int[]>> inputStatObs = new ArrayList<>();
-
 
 	public PromptInputHandler(ConfigManager cfg, ActiveEditorListener editorListener) {
 		this.cfg = cfg;
@@ -83,8 +76,6 @@ public class PromptInputHandler {
 	}
 
 	private String getInput(InputMode mode) {
-		ITextEditor textEditor = editorListener.getLastTextEditor();
-
 		switch (mode) {
 		case SystemPrompt:
 			StringBuffer systemPrompt = new StringBuffer();
@@ -96,51 +87,22 @@ public class PromptInputHandler {
 			String prompttext = systemPrompt.toString();
 			return prompttext.length() > 0 && !prompttext.isBlank() ? prompttext : null;
 		case Selection:
-			if (textEditor != null) {
-				ISelectionProvider selectionProvider = textEditor.getSelectionProvider();
-				if (selectionProvider != null) {
-					ISelection selection = selectionProvider.getSelection();
-					ITextSelection tsel = selection instanceof ITextSelection ? (ITextSelection) selection : null;
-					if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
-						return removeCommentLines(tsel.getText());
-
-					if (tsel != null) {
-						int line = tsel.getEndLine();
-						IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
-						try {
-							IRegion lineInfo = doc.getLineInformation(line);
-							return doc.get(lineInfo.getOffset(), lineInfo.getLength());
-						} catch (BadLocationException e1) {
-							LOG.error("Exception", e1);
-						}
-					}
-				}
-			}
-			break;
+			return removeCommentLines(editorListener.getSelection());
 		case Converter:
-			if (textEditor != null) {
-				IDocumentProvider provider = textEditor.getDocumentProvider();
-				if (provider != null) {
-					IDocument doc = provider.getDocument(textEditor.getEditorInput());
-					if (doc != null)
-						return doc.get();
-				}
-			}
-			break;
+			return removeCommentLines(editorListener.getFileContent());
 		case Tools:
 			throw new UnsupportedOperationException();
 		}
 		return null;
 	}
 
-	private String removeCommentLines(String input) {
-		if (input == null || input.isEmpty())
-			return input;
+	private String removeCommentLines(Selection input) {
+		if (input.selection() == null)
+			return null;
 
 		StringBuffer result = new StringBuffer();
-		String[] lines = input.split("\\R");
 
-		for (String line : lines)
+		for (String line : input.selection())
 			if (!line.trim().startsWith(AbstractRule.LINE_COMMENT))
 				result.append(line).append(System.lineSeparator());
 
@@ -155,13 +117,13 @@ public class PromptInputHandler {
 		PromptArguments arg = new PromptArguments();
 		display.syncExec(() -> {
 			arg.setEditor(editorListener.getLastTextEditor());
-			arg.absoluteFilePath = resolveAbsoluteFilePath(arg.getEditor());
-			arg.project = resolveProjectPath(arg.getEditor());
+			arg.absoluteFilePath = editorListener.resolveAbsoluteFilePath();
+			arg.project = editorListener.resolveProjectPath();
 
 			if (cfg.isInputEnabled(InputMode.Selection))
-				detectSelection(arg);
+				detectSelection(editorListener.getSelection(), arg);
 			else if (cfg.isInputEnabled(InputMode.Converter))
-				detectFullFile(arg);
+				detectFullFile(editorListener.getFileContent(), arg);
 		});
 		FrozenConfig frozen = FrozenConfig.from(cfg);
 		arg.processorEnabled = cfg.isInputEnabled(InputMode.Converter);
@@ -201,7 +163,7 @@ public class PromptInputHandler {
 	 * 
 	 * @param arg
 	 */
-	private void detectSelection(PromptArguments arg) {
+	private void detectSelection(Selection selection, PromptArguments arg) {
 		ITextEditor editor = arg.getEditor();
 		if (editor == null)
 			return;
@@ -220,7 +182,7 @@ public class PromptInputHandler {
 					return;
 				}
 
-				arg.inputs.add(removeCommentLines(tsel.getText()));
+				arg.inputs.add(removeCommentLines(new Selection(tsel.getText().split("\n"), null)));
 				// An /answer command starting at the beginning of the block spans the
 				// whole selection, allowing a multi-line reason/hint for
 				// allow and deny alike.
@@ -248,7 +210,7 @@ public class PromptInputHandler {
 	 * Processor (full file) mode: the caret line is checked first, then the last
 	 * line of the file, matching a command appended after the generated content.
 	 */
-	private void detectFullFile(PromptArguments arg) {
+	private void detectFullFile(Selection content, PromptArguments arg) {
 		ITextEditor editor = arg.getEditor();
 		if (editor == null)
 			return;
@@ -308,26 +270,5 @@ public class PromptInputHandler {
 			LOG.error("Can't capture YAML block", e);
 			return null;
 		}
-	}
-
-	private String resolveAbsoluteFilePath(ITextEditor textEditor) {
-		if (textEditor == null)
-			return null;
-		IEditorInput input = textEditor.getEditorInput();
-		if (input instanceof IFileEditorInput)
-			return ((IFileEditorInput) input).getFile().getLocation().toFile().getAbsolutePath();
-		if (input instanceof IURIEditorInput)
-			return new File(((IURIEditorInput) input).getURI()).getAbsolutePath();
-		return null;
-	}
-
-	private Path resolveProjectPath(ITextEditor textEditor) {
-		if (textEditor == null)
-			return null;
-		IEditorInput input = textEditor.getEditorInput();
-		if (!(input instanceof IFileEditorInput))
-			return null;
-		IProject project = ((IFileEditorInput) input).getFile().getProject();
-		return Paths.get(project.getLocation().toOSString());
 	}
 }

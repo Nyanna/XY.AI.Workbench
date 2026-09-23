@@ -8,11 +8,7 @@ import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IEditorSite;
-import org.eclipse.ui.IFileEditorInput;
-import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.part.FileEditorInput;
@@ -67,14 +63,6 @@ public class AISessionEditor extends MultiPageEditorPart implements IResourceCha
 		editor.doSaveAs();
 		setPageText(0, editor.getTitle());
 		setInput(editor.getEditorInput());
-	}
-
-	@Override
-	public void init(IEditorSite site, IEditorInput editorInput) throws PartInitException {
-		if (!(editorInput instanceof IFileEditorInput) && !(editorInput instanceof IURIEditorInput))
-			throw new PartInitException(
-					"Invalid Input: Must be IFileEditorInput/IURIEditorInput [" + editorInput.getClass() + "]");
-		super.init(site, editorInput);
 	}
 
 	@Override

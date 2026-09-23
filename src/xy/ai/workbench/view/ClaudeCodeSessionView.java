@@ -1,7 +1,6 @@
 package xy.ai.workbench.view;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,8 +8,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.zip.CRC32;
 
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -26,18 +23,17 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
-import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IPartListener2;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
-import org.eclipse.ui.IPartListener2;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
+import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.CacheMode;
 import xy.ai.workbench.ConfigManager;
@@ -241,22 +237,9 @@ public class ClaudeCodeSessionView extends ViewPart {
 	}
 
 	private void updateCurrentEditor() {
-		currentProjectPath = null;
-		currentRelativeFilePath = null;
-
-		IWorkbenchPage page = getSite() != null ? getSite().getPage() : null;
-		IEditorPart editor = page != null ? page.getActiveEditor() : null;
-		if (editor != null) {
-			IEditorInput input = editor.getEditorInput();
-			if (input instanceof IFileEditorInput) {
-				IFile file = ((IFileEditorInput) input).getFile();
-				IProject project = file.getProject();
-				if (project != null && project.getLocation() != null) {
-					currentProjectPath = Paths.get(project.getLocation().toOSString());
-					currentRelativeFilePath = file.getProjectRelativePath().toString();
-				}
-			}
-		}
+		ActiveEditorListener edtlst = Activator.getDefault().editorListener;
+		currentProjectPath = edtlst.resolveProjectPath();
+		currentRelativeFilePath = edtlst.getCurrentFile().getProjectRelativePath().toString();
 
 		if (syncAction.isChecked())
 			syncSelectionToCurrentFile();
@@ -267,8 +250,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 			if (!s.isValid())
 				continue;
 			ClaudeSessionParameters p = s.getParameters();
-			if (p != null
-					&& p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getTools())))
+			if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getTools())))
 				return s;
 		}
 		return null;

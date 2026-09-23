@@ -1,16 +1,31 @@
 package xy.ai.workbench;
 
+import java.io.File;
 import java.lang.ref.WeakReference;
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
+import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.ITextOperationTarget;
+import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.source.ISourceViewer;
+import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.SelectionChangedEvent;
@@ -18,8 +33,11 @@ import org.eclipse.swt.custom.CaretEvent;
 import org.eclipse.swt.custom.CaretListener;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IPartListener2;
+import org.eclipse.ui.IURIEditorInput;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.texteditor.AbstractTextEditor;
@@ -35,7 +53,6 @@ public class ActiveEditorListener implements IPartListener2 {
 	private WeakReference<ITextEditor> lastTextEditor;
 	private InputStatObserver obs;
 
-
 	public ActiveEditorListener(ConfigManager cfg) {
 		this.cfg = cfg;
 	}
@@ -48,6 +65,104 @@ public class ActiveEditorListener implements IPartListener2 {
 
 	public ITextEditor getLastTextEditor() {
 		return lastTextEditor != null ? lastTextEditor.get() : null;
+	}
+
+	public IContainer baseContainer() {
+		ITextEditor textEditor = getLastTextEditor();
+		if (textEditor != null) {
+			IEditorInput input = textEditor.getEditorInput();
+			if (input instanceof IFileEditorInput)
+				return ((IFileEditorInput) input).getFile().getParent();
+		}
+		return ResourcesPlugin.getWorkspace().getRoot();
+	}
+
+	public record Selection(String[] selection, Integer cursorOffset) {
+	}
+
+	public Selection getSelection() {
+		var textEditor = getLastTextEditor();
+		if (textEditor != null) {
+			ISelectionProvider selPrv = textEditor.getSelectionProvider();
+			if (selPrv != null) {
+				ISelection sel = selPrv.getSelection();
+				ITextSelection tsel = sel instanceof ITextSelection ? (ITextSelection) sel : null;
+				if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
+					return new Selection(tsel.getText().split("\n"), null);
+
+				if (tsel != null) {
+					int line = tsel.getEndLine();
+					IDocument doc = textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput());
+					try {
+						IRegion lineInfo = doc.getLineInformation(line);
+						return new Selection(doc.get(lineInfo.getOffset(), lineInfo.getLength()).split("\n"), null);
+					} catch (BadLocationException e1) {
+						LOG.error("Exception", e1);
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	public String resolveAbsoluteFilePath() {
+		var textEditor = getLastTextEditor();
+		if (textEditor == null)
+			return null;
+		IEditorInput input = textEditor.getEditorInput();
+		if (input instanceof IFileEditorInput)
+			return ((IFileEditorInput) input).getFile().getLocation().toFile().getAbsolutePath();
+		if (input instanceof IURIEditorInput)
+			return new File(((IURIEditorInput) input).getURI()).getAbsolutePath();
+		return null;
+	}
+
+	public Path resolveProjectPath() {
+		var textEditor = getLastTextEditor();
+		if (textEditor == null)
+			return null;
+		IEditorInput input = textEditor.getEditorInput();
+		if (!(input instanceof IFileEditorInput))
+			return null;
+		IProject project = ((IFileEditorInput) input).getFile().getProject();
+		return Paths.get(project.getLocation().toOSString());
+	}
+
+	public Selection getFileContent() {
+		ITextEditor textEditor = getLastTextEditor();
+		IDocumentProvider provider;
+		IDocument doc;
+		String content;
+		if (textEditor != null && (provider = textEditor.getDocumentProvider()) != null
+				&& (doc = provider.getDocument(textEditor.getEditorInput())) != null && (content = doc.get()) != null) {
+			ISelectionProvider prv = textEditor.getSelectionProvider();
+			ISelection sel = prv != null ? prv.getSelection() : null;
+			ITextSelection tsel = sel instanceof ITextSelection ? (ITextSelection) sel : null;
+			return new Selection(content.split("\n"), tsel != null ? tsel.getEndLine() : null);
+		}
+		return null;
+	}
+
+	public IResource getCurrentFile() {
+		var textEditor = getLastTextEditor();
+		IEditorInput editorInput = textEditor.getEditorInput();
+		IFile currentFile;
+		if (editorInput instanceof IFileEditorInput)
+			currentFile = ((IFileEditorInput) editorInput).getFile();
+		else if (editorInput instanceof IURIEditorInput) {
+			URI uri = ((IURIEditorInput) editorInput).getURI();
+			String fileName = new org.eclipse.core.runtime.Path(uri.getPath()).lastSegment();
+			currentFile = ResourcesPlugin.getWorkspace().getRoot().getProject("ExternalFiles").getFile(fileName);
+
+			if (!currentFile.exists())
+				try {
+					currentFile.createLink(uri, IResource.ALLOW_MISSING_LOCAL, new NullProgressMonitor());
+				} catch (CoreException e) {
+					throw new IllegalStateException("Could not link external file", e);
+				}
+		} else
+			throw new IllegalArgumentException("Editor type not supported for new file output mode");
+		return currentFile;
 	}
 
 	@Override
