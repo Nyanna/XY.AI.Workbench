@@ -32,8 +32,8 @@ public class Model {
 	 * MCPC-root "haiku" with different tool/profile capabilities). Use matches()
 	 * for explicit id-based lookups (e.g. restoring a persisted model reference)
 	 */
-	public boolean matches(KeyPattern provider, String apiName) {
-		return cap.getKeyPattern() == provider && Objects.equals(this.apiName, apiName);
+	public boolean matches(KeyPattern provider, String displayName) {
+		return cap.getKeyPattern() == provider && Objects.equals(this.displayName, displayName);
 	}
 
 	public static enum KeyPattern {
@@ -116,8 +116,8 @@ public class Model {
 			.reasonings(Reasoning.Disabled)//
 	);
 
-	public static final Model[] DEFAULTS = { NONE, CC_HAIKU, CC_SONNET, CC_OPUS, CC_MCPC_HAIKU, CC_MCPC_SONNET,
-			CC_MCPC_OPUS, MCP_TOOLS };
+	public static final Model[] DEFAULTS = { NONE, CC_MCPC_HAIKU, CC_MCPC_SONNET, CC_MCPC_OPUS, MCP_TOOLS, CC_HAIKU,
+			CC_SONNET, CC_OPUS, };
 
 	/**
 	 * Default (static) catalog of models for a given provider, used by the

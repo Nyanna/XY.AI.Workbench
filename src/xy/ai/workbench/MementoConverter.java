@@ -28,7 +28,7 @@ public class MementoConverter {
 		snap.freeText = cfg.freeText;
 		if (cfg.model != null) {
 			snap.modelProvider = cfg.model.cap.getKeyPattern().name();
-			snap.modelApiName = cfg.model.apiName;
+			snap.modelDisplayName = cfg.model.displayName;
 		}
 		snap.reasoning = cfg.reasoning != null ? cfg.reasoning.name() : null;
 		snap.cacheMode = cfg.cacheMode != null ? cfg.cacheMode.name() : null;
@@ -68,7 +68,7 @@ public class MementoConverter {
 		public Double topP;
 		public String freeText;
 		public String modelProvider;
-		public String modelApiName;
+		public String modelDisplayName;
 		public String reasoning;
 		public String cacheMode;
 		public String profile;

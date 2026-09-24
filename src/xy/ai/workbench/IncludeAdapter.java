@@ -18,6 +18,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.search.ui.ISearchQuery;
 import org.eclipse.search.ui.ISearchResult;
@@ -25,7 +26,9 @@ import org.eclipse.search.ui.ISearchResultListener;
 import org.eclipse.search.ui.NewSearchUI;
 import org.eclipse.search.ui.SearchResultEvent;
 import org.eclipse.search.ui.text.AbstractTextSearchResult;
+import org.eclipse.ui.ISelectionListener;
 import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 
@@ -43,6 +46,8 @@ public class IncludeAdapter implements IIncludeAdapter {
 
 	private ActiveEditorListener editorListener;
 	private List<IFile> selectedFiles = List.of();
+	private ISelectionListenerImplementation selectionListener = new ISelectionListenerImplementation();
+	private SearchResultListener searchListener = new SearchResultListener();
 	private ISearchResult result = null;
 
 	public IncludeAdapter(ActiveEditorListener editorListener) {
@@ -113,35 +118,33 @@ public class IncludeAdapter implements IIncludeAdapter {
 	}
 
 	public void initializeBindings() {
+		NewSearchUI.addQueryListener(searchListener);
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-		if (window != null) {
-			SearchResultListener resObs = new SearchResultListener();
-			NewSearchUI.addQueryListener(new AbstractQueryListener() {
-				@Override
-				public void queryAdded(ISearchQuery query) {
-					query.getSearchResult().addListener(resObs);
-				}
-			});
+		IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
+		if (activePage != null)
+			activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", selectionListener);
+	}
 
-			IWorkbenchPage activePage = window.getActivePage();
-			if (activePage != null) {
-				activePage.addPartListener(editorListener);
-
-				activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", (part, selection) -> {
-					if (selection instanceof TreeSelection) {
-						selectedFiles = ((TreeSelection) selection).stream().filter(o -> o instanceof IFile)
-								.map(obj -> (IFile) obj).collect(Collectors.toList());
-					}
-				});
+	private class ISelectionListenerImplementation implements ISelectionListener {
+		@Override
+		public void selectionChanged(IWorkbenchPart part, ISelection selection) {
+			if (selection instanceof TreeSelection) {
+				selectedFiles = ((TreeSelection) selection).stream().filter(o -> o instanceof IFile)
+						.map(obj -> (IFile) obj).collect(Collectors.toList());
 			}
 		}
 	}
 
-	public class SearchResultListener implements ISearchResultListener {
+	private class SearchResultListener extends AbstractQueryListener implements ISearchResultListener {
 		@Override
 		public void searchResultChanged(SearchResultEvent e) {
 			result = e.getSearchResult();
 			// LOG.info("Searchresult changed: " + result.getLabel());
+		}
+
+		@Override
+		public void queryAdded(ISearchQuery query) {
+			query.getSearchResult().addListener(this);
 		}
 	}
 

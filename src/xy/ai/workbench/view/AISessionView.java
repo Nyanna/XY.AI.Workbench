@@ -62,6 +62,5 @@ public class AISessionView extends ViewPart {
 
 	@Override
 	public void setFocus() {
-		// form.setFocus();
 	}
 }

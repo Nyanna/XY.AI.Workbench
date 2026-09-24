@@ -197,7 +197,8 @@ public class PromptHandler {
 				OpSnapshotter snap = new OpSnapshotter(prompt.arg.project.toFile());
 				SnapshotResult result = snap.snapshot(triggerLabel);
 				if (result != null && DiffPanel.INSTANCE != null)
-					DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository());
+					Display.getDefault().asyncExec(() -> DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository()));
+
 			} catch (Exception e) {
 				LOG.error(e.getMessage(), e);
 				return Status.CANCEL_STATUS;

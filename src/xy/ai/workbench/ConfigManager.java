@@ -481,12 +481,12 @@ public class ConfigManager {
 
 			if (snap.modelProvider != null) {
 				Model resolved = Arrays.stream(enabledModels)
-						.filter(m -> m.matches(KeyPattern.valueOf(snap.modelProvider), snap.modelApiName)).findFirst()
+						.filter(m -> m.matches(KeyPattern.valueOf(snap.modelProvider), snap.modelDisplayName)).findFirst()
 						.orElse(null);
 				if (resolved != null)
 					setModel(resolved);
 				else
-					LOG.error("Unable to resolve persisted model " + snap.modelProvider + ":" + snap.modelApiName
+					LOG.error("Unable to resolve persisted model " + snap.modelProvider + ":" + snap.modelDisplayName
 							+ ", no fallback applied");
 			}
 

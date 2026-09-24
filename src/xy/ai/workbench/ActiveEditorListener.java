@@ -23,8 +23,11 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IPartListener2;
 import org.eclipse.ui.IURIEditorInput;
+import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartReference;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
@@ -34,16 +37,30 @@ import xy.ai.workbench.view.PartListener2Adapter;
 
 public class ActiveEditorListener extends PartListener2Adapter implements IPartListener2 {
 	private final EditorChangeListener editorListener = new EditorChangeListener();
+	private boolean initialized;
 
 	public void addInputObserver(Consumer<InputMode> obs) {
+		checkInitBindings();
 		editorListener.addInputObserver(obs);
 	}
 
 	public void addTextEditorObserver(Consumer<ITextEditor> obs) {
+		checkInitBindings();
 		editorListener.addTextEditorObserver(obs);
 	}
 
+	private void checkInitBindings() {
+		if (initialized)
+			return;
+		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+		IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
+		if (activePage != null)
+			activePage.addPartListener(this);
+		initialized = true;
+	}
+
 	public ITextEditor getLastTextEditor() {
+		checkInitBindings();
 		return editorListener.getLastTextEditor();
 	}
 
