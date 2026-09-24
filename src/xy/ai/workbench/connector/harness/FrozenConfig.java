@@ -68,7 +68,7 @@ public class FrozenConfig {
 			systemPrompt = sb.toString();
 		}
 
-		String[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getTools() : null;
+		String[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getEnabledTools() : null;
 		List<String> tools = List.of(rawTools != null ? rawTools : new String[0]);
 
 		String keys = cfg.getKeys();

@@ -51,7 +51,7 @@ public class PromptInputHandler {
 
 	private void updateInputStat(InputMode mode) {
 		if (mode == InputMode.Tools) {
-			String[] tools = cfg.getTools();
+			String[] tools = cfg.getEnabledTools();
 			inputStats[mode.ordinal()] = tools != null ? tools.length : 0;
 		} else {
 			String input = getInput(mode);

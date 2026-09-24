@@ -23,6 +23,7 @@ public class SessionConfig {
 	public CacheMode cacheMode = CacheMode.Default;
 	public Integer reasoningBudget = -1;
 	public String freeText;
+	public String[] enabledTools = new String[0];
 
 	public SessionConfig() {
 		setInputMode(InputMode.SystemPrompt, true);
@@ -43,6 +44,7 @@ public class SessionConfig {
 		this.cacheMode = other.cacheMode;
 		this.reasoningBudget = other.reasoningBudget;
 		this.freeText = other.freeText;
+		this.enabledTools = other.enabledTools;
 	}
 
 	public String getKeys() {
@@ -139,5 +141,13 @@ public class SessionConfig {
 
 	public String getFreeText() {
 		return freeText;
+	}
+	
+	public String[] getEnabledTools() {
+		return enabledTools;
+	}
+	
+	public void setEnabledTools(String[] enabledTools) {
+		this.enabledTools = enabledTools;
 	}
 }

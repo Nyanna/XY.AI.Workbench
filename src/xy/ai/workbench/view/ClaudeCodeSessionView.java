@@ -226,7 +226,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 			if (!s.isValid())
 				continue;
 			ClaudeSessionParameters p = s.getParameters();
-			if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getTools())))
+			if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getEnabledTools())))
 				return s;
 		}
 		return null;

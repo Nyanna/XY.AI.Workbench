@@ -37,6 +37,7 @@ public class MementoConverter {
 		snap.systemPrompt = cfg.systemPrompt;
 		snap.outputMode = cfg.ouputMode != null ? cfg.ouputMode.name() : null;
 		snap.inputModes = cfg.inputModes;
+		snap.enabledTools = cfg.getEnabledTools();
 
 		try {
 			memento.createChild("cfg").putString("json", MAPPER.writeValueAsString(snap));
@@ -76,5 +77,6 @@ public class MementoConverter {
 		public String[] systemPrompt;
 		public String outputMode;
 		public boolean[] inputModes;
+		public String[] enabledTools;
 	}
 }

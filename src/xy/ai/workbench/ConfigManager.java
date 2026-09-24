@@ -27,7 +27,6 @@ public class ConfigManager {
 	private Map<String, SessionConfig> editorConfigs = new HashMap<>();
 	private Model[] enabledModels = new Model[0];
 	private AgentProfile[] enabledProfiles = new AgentProfile[0];
-	private String[] enabledTools = new String[0];
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
 	private List<Consumer<String>> systemFreeObs = new ArrayList<>();
 	private List<Consumer<boolean[]>> inputObs = new ArrayList<>();
@@ -231,9 +230,9 @@ public class ConfigManager {
 	}
 
 	public void setEnabledTools(String[] enabledTools) {
-		if (Arrays.equals(this.enabledTools, enabledTools))
+		if (Arrays.equals(cfg.getEnabledTools(), enabledTools))
 			return;
-		this.enabledTools = enabledTools;
+		cfg.setEnabledTools(enabledTools);
 		enabledToolsObs.forEach(c -> c.accept(enabledTools));
 	}
 
@@ -414,7 +413,7 @@ public class ConfigManager {
 	public void addEnabledToolsObs(Consumer<String[]> obs, boolean initialize) {
 		enabledToolsObs.add(obs);
 		if (initialize)
-			obs.accept(enabledTools);
+			obs.accept(cfg.getEnabledTools());
 	}
 
 	private void updateEnabledModels(String[] keys) {
@@ -514,6 +513,8 @@ public class ConfigManager {
 				for (InputMode mode : InputMode.values())
 					if (mode.ordinal() < snap.inputModes.length)
 						setInputMode(mode, snap.inputModes[mode.ordinal()]);
+			if (snap.enabledTools != null)
+				setEnabledTools(snap.enabledTools);
 		} catch (Exception e) {
 			LOG.error(e.getMessage(), e);
 			LOG.info("Unable to restore config", e);
@@ -527,7 +528,7 @@ public class ConfigManager {
 		return cfg.model.cap;
 	}
 
-	public String[] getTools() {
-		return enabledTools;
+	public String[] getEnabledTools() {
+		return cfg.getEnabledTools();
 	}
 }

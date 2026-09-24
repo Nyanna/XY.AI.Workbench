@@ -1,5 +1,4 @@
 # TODO
-* better restore tooles also
 * AI MD editor menü reduzieren
 
 ## Backlog
