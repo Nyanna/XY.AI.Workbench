@@ -23,9 +23,9 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
 public class OpSnapshotter {
 
@@ -70,10 +70,13 @@ public class OpSnapshotter {
 			cached = REPOSITORY_CACHE.get(key);
 			if (cached != null)
 				return cached;
-			FileRepositoryBuilder builder = new FileRepositoryBuilder().findGitDir(start);
-			if (builder.getGitDir() == null)
+			RepositoryBuilder gitDir = new RepositoryBuilder() //
+					.setGitDir(start) //
+					.readEnvironment() //
+					.findGitDir();
+			if (gitDir == null)
 				throw new IOException("No GIT Repository found " + start);
-			Repository repository = builder.build();
+			Repository repository = gitDir.build();
 			REPOSITORY_CACHE.put(key, repository);
 			return repository;
 		}
