@@ -85,6 +85,7 @@ public class DiffPanel extends ViewPart {
 				document.connect(formatter);
 			}
 
+			diffText.unconfigure();
 			diffText.configure(new DiffViewer.Configuration(EditorsUI.getPreferenceStore()));
 			diffText.setDocument(document);
 

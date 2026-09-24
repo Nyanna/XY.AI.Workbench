@@ -1,4 +1,7 @@
 # TODO
+* AISession view initialsiert editorlistender erst
+* better restore tooles also
+* config restore resettet immer das model auf nicht MCPC sonnet
 * AI MD editor menü reduzieren
 * refactor IPartListener2 to use ActiveEditorListener
 
