@@ -46,8 +46,9 @@ public class ConfigManager {
 	private List<Consumer<OutputMode>> outputModeObs = new ArrayList<>();
 	private List<Consumer<String[]>> enabledToolsObs = new ArrayList<>();
 
-	public ConfigManager(MCPClient mcpClient) {
+	public ConfigManager(MCPClient mcpClient, ActiveEditorListener editorListener) {
 		mcpClient.addConnectObserver(resolverRegistry);
+		editorListener.addTextEditorObserver(e -> activateEditor(e));
 	}
 
 	public void clearObserver() {
@@ -70,7 +71,7 @@ public class ConfigManager {
 		enabledToolsObs.clear();
 	}
 
-	public void activateEditor(IEditorPart editor) {
+	private void activateEditor(IEditorPart editor) {
 		String key = resolveKey(editor);
 		if (Objects.equals(activeEditorKey, key))
 			return;

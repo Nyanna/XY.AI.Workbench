@@ -2,7 +2,6 @@ package xy.ai.workbench.connector.harness;
 
 import java.util.List;
 
-import xy.ai.workbench.connector.harness.PromptInputHandler.PromptArguments;
 import xy.ai.workbench.tools.Hash;
 
 /**

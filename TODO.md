@@ -1,5 +1,6 @@
 # TODO
 * AI MD editor menü reduzieren
+* refactor IPartListener2 to use ActiveEditorListener
 
 ## Backlog
 - **Diff-Support** für Edit-Commands zur direkteren Intent-Erkennung

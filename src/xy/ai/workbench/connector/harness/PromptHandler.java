@@ -18,11 +18,17 @@ import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.LOG;
 import xy.ai.workbench.Model;
 import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallCommand;
+import xy.ai.workbench.commands.Command;
+import xy.ai.workbench.commands.ToolCommand;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
+import xy.ai.workbench.view.diff.DiffPanel;
+import xy.ai.workbench.view.diff.OpSnapshotter;
+import xy.ai.workbench.view.diff.SnapshotResult;
 
 /**
  * Prompt-specific orchestration extracted from {@code AISessionManager}: drives
@@ -172,6 +178,31 @@ public class PromptHandler {
 		AIAnswer res = connector.convertResponse(resp, mon);
 		res.prompt = req.getPrompt();
 		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
+		triggerSnapshotIfNeeded(req);
 		return res;
+	}
+
+	private void triggerSnapshotIfNeeded(IModelRequest req) {
+		Prompt prompt = req.getPrompt();
+		if (prompt == null || prompt.arg == null)
+			return;
+
+		Command cmd = prompt.arg.command;
+		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof ToolCommand))
+			return;
+
+		String triggerLabel = cmd.prefix();
+		Job.create("Workbench-Snapshot", mon -> {
+			try {
+				OpSnapshotter snap = new OpSnapshotter(prompt.arg.project.toFile());
+				SnapshotResult result = snap.snapshot(triggerLabel);
+				if (result != null && DiffPanel.INSTANCE != null)
+					DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository());
+			} catch (Exception e) {
+				LOG.error(e.getMessage(), e);
+				return Status.CANCEL_STATUS;
+			}
+			return Status.OK_STATUS;
+		}).schedule();
 	}
 }

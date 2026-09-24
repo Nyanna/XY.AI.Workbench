@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.zip.CRC32;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -23,11 +24,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
-import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IPartListener2;
 import org.eclipse.ui.ISharedImages;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
@@ -111,23 +108,6 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private Path currentProjectPath;
 	private String currentRelativeFilePath;
 
-	private final IPartListener2 editorPartListener = new PartListener2Adapter() {
-		@Override
-		public void partActivated(IWorkbenchPartReference partRef) {
-			maybeUpdate(partRef);
-		}
-
-		private void maybeUpdate(IWorkbenchPartReference partRef) {
-			if (partRef.getPart(false) instanceof IEditorPart)
-				updateCurrentEditor();
-		}
-
-		@Override
-		public void partOpened(IWorkbenchPartReference partRef) {
-			maybeUpdate(partRef);
-		}
-	};
-
 	@Override
 	public void createPartControl(Composite parent) {
 		sessionManager = Activator.getDefault().ccSessionManager;
@@ -187,9 +167,7 @@ public class ClaudeCodeSessionView extends ViewPart {
 		act.fillLocalPullDown(bars.getMenuManager());
 		bars.updateActionBars();
 
-		IWorkbenchPage activePage = getSite().getPage();
-		if (activePage != null)
-			activePage.addPartListener(editorPartListener);
+		Activator.getDefault().editorListener.addTextEditorObserver(e -> updateCurrentEditor());
 		updateCurrentEditor();
 
 		ttlRefreshRunnable = new Runnable() {
@@ -208,9 +186,6 @@ public class ClaudeCodeSessionView extends ViewPart {
 	public void dispose() {
 		disposed = true;
 		sessionManager.removeChangeListener(changeListener);
-		IWorkbenchPage activePage = getSite().getPage();
-		if (activePage != null)
-			activePage.removePartListener(editorPartListener);
 		Display.getDefault().timerExec(-1, ttlRefreshRunnable);
 		super.dispose();
 	}
@@ -239,7 +214,8 @@ public class ClaudeCodeSessionView extends ViewPart {
 	private void updateCurrentEditor() {
 		ActiveEditorListener edtlst = Activator.getDefault().editorListener;
 		currentProjectPath = edtlst.resolveProjectPath();
-		currentRelativeFilePath = edtlst.getLastEditorFile().getProjectRelativePath().toString();
+		IFile editorFile = edtlst.getLastEditorFile();
+		currentRelativeFilePath = editorFile != null ? editorFile.getProjectRelativePath().toString() : null;
 
 		if (syncAction.isChecked())
 			syncSelectionToCurrentFile();

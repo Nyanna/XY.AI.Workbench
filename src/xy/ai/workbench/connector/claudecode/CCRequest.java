@@ -1,7 +1,7 @@
 package xy.ai.workbench.connector.claudecode;
 
 import xy.ai.workbench.connector.harness.FrozenConfig;
-import xy.ai.workbench.connector.harness.PromptInputHandler.PromptArguments;
+import xy.ai.workbench.connector.harness.PromptArguments;
 import xy.ai.workbench.models.AbstractModelRequest;
 
 public class CCRequest extends AbstractModelRequest {
