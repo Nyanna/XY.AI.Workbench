@@ -1,9 +1,8 @@
 # TODO
 * AI MD editor menü reduzieren
 
-## Backlog
+## Diff
 * diff viewer, synchron zu cursorposition von tool call und ref id
-  * diff viewer zeigt noch prompt änderung selbst an
   * mcp control client braucht nach allow noch execute was autoapprove deaktiviert für das result control
   	* ein deny im result macht dann auto revert vom aktuellen ref
   

@@ -6,8 +6,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -20,6 +18,7 @@ import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheBuilder;
 import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.ignore.IgnoreNode;
+import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -128,6 +127,7 @@ public class OpSnapshotter {
 		try (RevWalk walk = new RevWalk(repository)) {
 			parentTree = walk.parseCommit(parent).getTree();
 		}
+
 		ObjectId treeId = buildFilteredTree(parentTree);
 
 		if (treeId.equals(parentTree))
@@ -157,7 +157,7 @@ public class OpSnapshotter {
 	}
 
 	private ObjectId buildFilteredTree(ObjectId parentTree) throws IOException {
-		List<String> excludedPaths = loadDiffIgnore();
+		IgnoreNode ignoreNode = loadDiffIgnore();
 
 		try (ObjectReader reader = repository.newObjectReader();
 				ObjectInserter inserter = repository.newObjectInserter();
@@ -169,29 +169,31 @@ public class OpSnapshotter {
 			FileTreeIterator workingTree = new FileTreeIterator(repository);
 			walk.addTree(workingTree);
 			walk.addTree(parentTree);
-			walk.setRecursive(true);
+			walk.setRecursive(false);
 
 			while (walk.next()) {
 				String path = walk.getPathString();
-				boolean excluded = isExcluded(path, excludedPaths);
+				boolean isDir = walk.isSubtree();
+				MatchResult mr = ignoreNode.isIgnored(path, isDir);
+				boolean ignored = mr == MatchResult.IGNORED;
 
-				AbstractTreeIterator source = excluded ? walk.getTree(1, AbstractTreeIterator.class)
+				if (isDir) {
+					if (ignored) {
+						AbstractTreeIterator parentIter = walk.getTree(1, AbstractTreeIterator.class);
+						if (parentIter != null)
+							copyParentSubtree(reader, parentIter.getEntryObjectId(), path, inserter, builder);
+					} else
+						walk.enterSubtree();
+
+					continue;
+				}
+
+				AbstractTreeIterator source = ignored ? walk.getTree(1, AbstractTreeIterator.class)
 						: walk.getTree(0, AbstractTreeIterator.class);
 				if (source == null)
-					continue; // deleted or not present
+					continue; // not or never present
 
-				DirCacheEntry entry = new DirCacheEntry(path);
-				entry.setFileMode(source.getEntryFileMode());
-
-				if (source instanceof WorkingTreeIterator) {
-					WorkingTreeIterator wti = (WorkingTreeIterator) source;
-					try (InputStream in = wti.openEntryStream()) {
-						entry.setObjectId(inserter.insert(Constants.OBJ_BLOB, wti.getEntryLength(), in));
-					}
-				} else {
-					entry.setObjectId(source.getEntryObjectId());
-				}
-				builder.add(entry);
+				addEntry(inserter, builder, path, source);
 			}
 			builder.finish();
 
@@ -201,27 +203,45 @@ public class OpSnapshotter {
 		}
 	}
 
-	private boolean isExcluded(String path, List<String> excludedPaths) {
-		for (String excl : excludedPaths) {
-			if (path.equals(excl) || path.startsWith(excl + "/"))
-				return true;
-		}
-		return false;
+	private void addEntry(ObjectInserter inserter, DirCacheBuilder builder, String path, AbstractTreeIterator source)
+			throws IOException {
+		DirCacheEntry entry = new DirCacheEntry(path);
+		entry.setFileMode(source.getEntryFileMode());
+
+		if (source instanceof WorkingTreeIterator) {
+			WorkingTreeIterator wti = (WorkingTreeIterator) source;
+			try (InputStream in = wti.openEntryStream()) {
+				entry.setObjectId(inserter.insert(Constants.OBJ_BLOB, wti.getEntryLength(), in));
+			}
+		} else
+			entry.setObjectId(source.getEntryObjectId());
+
+		builder.add(entry);
 	}
 
-	private List<String> loadDiffIgnore() throws IOException {
-		List<String> result = new ArrayList<>();
+	private void copyParentSubtree(ObjectReader reader, ObjectId treeId, String basePath, ObjectInserter inserter,
+			DirCacheBuilder builder) throws IOException {
+		try (TreeWalk sub = new TreeWalk(reader)) {
+			sub.addTree(treeId);
+			sub.setRecursive(true);
+			while (sub.next()) {
+				String childPath = basePath + "/" + sub.getPathString();
+				AbstractTreeIterator it = sub.getTree(0, AbstractTreeIterator.class);
+				addEntry(inserter, builder, childPath, it);
+			}
+		}
+	}
+
+	private IgnoreNode loadDiffIgnore() throws IOException {
+		IgnoreNode node = new IgnoreNode();
 		File workTree = repository.getWorkTree();
 		File diffIgnoreFile = new File(workTree, DIFFIGNORE_FILE);
-		if (!diffIgnoreFile.isFile())
-			return result;
+		if (diffIgnoreFile.isFile())
+			try (InputStream in = Files.newInputStream(diffIgnoreFile.toPath())) {
+				node.parse(in);
+			}
 
-		try (InputStream in = Files.newInputStream(diffIgnoreFile.toPath())) {
-			IgnoreNode node = new IgnoreNode();
-			node.parse(in);
-			node.getRules().forEach(rule -> result.add(rule.getPattern()));
-		}
-		return result;
+		return node;
 	}
 
 	public SnapshotResult findLatest() throws IOException {
@@ -262,6 +282,6 @@ public class OpSnapshotter {
 		Result result = update.update();
 		if (result != Result.NEW && result != Result.FORCED && result != Result.FAST_FORWARD
 				&& result != Result.NO_CHANGE)
-			throw new IOException("Ref-Update fehlgeschlagen fuer " + name + ": " + result);
+			throw new IOException("Ref-Update failed for " + name + ": " + result);
 	}
 }
