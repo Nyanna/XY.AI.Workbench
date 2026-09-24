@@ -2,8 +2,12 @@ package xy.ai.workbench.view.diff;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -12,12 +16,15 @@ import java.util.regex.Pattern;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.dircache.DirCache;
+import org.eclipse.jgit.dircache.DirCacheBuilder;
+import org.eclipse.jgit.dircache.DirCacheEntry;
+import org.eclipse.jgit.ignore.IgnoreNode;
 import org.eclipse.jgit.lib.CommitBuilder;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
+import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
@@ -26,6 +33,10 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.treewalk.AbstractTreeIterator;
+import org.eclipse.jgit.treewalk.FileTreeIterator;
+import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.WorkingTreeIterator;
 
 public class OpSnapshotter {
 
@@ -33,6 +44,7 @@ public class OpSnapshotter {
 	private static final Pattern OP_SUFFIX = Pattern.compile(".*/op-(\\d+)$");
 	private static final Map<String, Repository> REPOSITORY_CACHE = new ConcurrentHashMap<>();
 	private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+	private static final String DIFFIGNORE_FILE = ".diffignore";
 
 	private final Repository repository;
 
@@ -112,24 +124,11 @@ public class OpSnapshotter {
 		}
 		ObjectId parent = lastOpRefName != null ? resolveRef(lastOpRefName) : storedBase;
 
-		try (Git git = new Git(repository)) {
-			git.add().addFilepattern(".").call();
-			git.add().addFilepattern(".").setUpdate(true).call();
-		} catch (GitAPIException e) {
-			throw new IOException(e);
-		}
-
-		ObjectId treeId;
-		try (ObjectInserter inserter = repository.newObjectInserter()) {
-			DirCache cache = repository.readDirCache();
-			treeId = cache.writeTree(inserter);
-			inserter.flush();
-		}
-
 		ObjectId parentTree;
 		try (RevWalk walk = new RevWalk(repository)) {
 			parentTree = walk.parseCommit(parent).getTree();
 		}
+		ObjectId treeId = buildFilteredTree(parentTree);
 
 		if (treeId.equals(parentTree))
 			return new SnapshotResult(false, namespace, null, parent, parent, triggerLabel);
@@ -155,6 +154,74 @@ public class OpSnapshotter {
 		updateRef(refName, newCommit);
 
 		return new SnapshotResult(true, namespace, refName, newCommit, parent, triggerLabel);
+	}
+
+	private ObjectId buildFilteredTree(ObjectId parentTree) throws IOException {
+		List<String> excludedPaths = loadDiffIgnore();
+
+		try (ObjectReader reader = repository.newObjectReader();
+				ObjectInserter inserter = repository.newObjectInserter();
+				TreeWalk walk = new TreeWalk(repository, reader)) {
+
+			DirCache inCore = DirCache.newInCore();
+			DirCacheBuilder builder = inCore.builder();
+
+			FileTreeIterator workingTree = new FileTreeIterator(repository);
+			walk.addTree(workingTree);
+			walk.addTree(parentTree);
+			walk.setRecursive(true);
+
+			while (walk.next()) {
+				String path = walk.getPathString();
+				boolean excluded = isExcluded(path, excludedPaths);
+
+				AbstractTreeIterator source = excluded ? walk.getTree(1, AbstractTreeIterator.class)
+						: walk.getTree(0, AbstractTreeIterator.class);
+				if (source == null)
+					continue; // deleted or not present
+
+				DirCacheEntry entry = new DirCacheEntry(path);
+				entry.setFileMode(source.getEntryFileMode());
+
+				if (source instanceof WorkingTreeIterator) {
+					WorkingTreeIterator wti = (WorkingTreeIterator) source;
+					try (InputStream in = wti.openEntryStream()) {
+						entry.setObjectId(inserter.insert(Constants.OBJ_BLOB, wti.getEntryLength(), in));
+					}
+				} else {
+					entry.setObjectId(source.getEntryObjectId());
+				}
+				builder.add(entry);
+			}
+			builder.finish();
+
+			ObjectId treeId = inCore.writeTree(inserter);
+			inserter.flush();
+			return treeId;
+		}
+	}
+
+	private boolean isExcluded(String path, List<String> excludedPaths) {
+		for (String excl : excludedPaths) {
+			if (path.equals(excl) || path.startsWith(excl + "/"))
+				return true;
+		}
+		return false;
+	}
+
+	private List<String> loadDiffIgnore() throws IOException {
+		List<String> result = new ArrayList<>();
+		File workTree = repository.getWorkTree();
+		File diffIgnoreFile = new File(workTree, DIFFIGNORE_FILE);
+		if (!diffIgnoreFile.isFile())
+			return result;
+
+		try (InputStream in = Files.newInputStream(diffIgnoreFile.toPath())) {
+			IgnoreNode node = new IgnoreNode();
+			node.parse(in);
+			node.getRules().forEach(rule -> result.add(rule.getPattern()));
+		}
+		return result;
 	}
 
 	public SnapshotResult findLatest() throws IOException {
