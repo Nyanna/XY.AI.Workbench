@@ -1,4 +1,4 @@
-
+/tool list
 ![](doc/images/Screenshot_from_2025-09-01_22-55-12.png)
 
 # XY.AI Workbench
@@ -487,3 +487,5 @@ Our “continuous prompt” loop—feeding back the model’s own outputs, criti
 # Closing: The Philosophy in One Paragraph
 
 Treat the LLM as a **high-bandwidth, pattern-sensitive text engine** that excels at turning structured intent and retrieved evidence into coherent language—but whose semantics and facts are only as reliable as the **system** around it. Build that system in Eclipse RCP as a set of **OSGi-composable tools**, **retrieval stores**, and a **minimal, self-steering controller** whose review layer — a blocking *exchange of thought* rather than an approval gate — constrains, validates, and grounds the model’s outputs. Grant freedom in the *What/Why*, delegate the *How* to code-as-tool and rudimentary execution agents, let the model stay “dumb” at the syntactic edges while a tight AST normalization layer absorbs its errors, and harvest efficiency as *both* cost *and* salience. In this partnership the model provides linguistic power and speed; the operator provides truth, structure, memory, and — through mutual anticipation — an independent second perspective. The result is not just “AI inside an app,” nor a process to be supervised, but an **engineered symbiosis** whose goal is not error-freeness but **error reduction through human–AI collaboration**. *(For the complete derivation and references, see [`docs/manifest.md`](docs/manifest.md); for the code-editing normalization layer, see [`docs/ast_editing.md`](docs/ast_editing.md).)*
+
+[xy.ai.req:Misc:183ce286-7b95-40f4-af88-9097be8a3cc4]

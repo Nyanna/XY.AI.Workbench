@@ -1,5 +1,7 @@
 package xy.ai.workbench.view.session;
 
+import java.util.Arrays;
+
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionListener;
@@ -43,6 +45,10 @@ public class ToolsTab implements ToolSelection {
 				toolsList.setItems(m.cap.getTools());
 		}, true);
 		toolsMultiSelect = new MultiSelectListener(toolsList);
+		cfg.addEnabledToolsObs(t -> {
+			if (!Arrays.equals(toolsList.getSelection(), t))
+				toolsMultiSelect.setSelection(t);
+		}, true);
 	}
 
 	@Override

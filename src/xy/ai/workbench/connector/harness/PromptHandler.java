@@ -21,7 +21,6 @@ import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.commands.Command;
-import xy.ai.workbench.commands.ToolCommand;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -188,7 +187,7 @@ public class PromptHandler {
 			return;
 
 		Command cmd = prompt.arg.command;
-		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof ToolCommand))
+		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof CallCommand))
 			return;
 
 		String triggerLabel = cmd.prefix();

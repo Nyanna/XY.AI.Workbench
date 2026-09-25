@@ -131,7 +131,7 @@ public class DiffPanel extends ViewPart {
 		@Override
 		protected void formatGitDiffFirstHeaderLine(ByteArrayOutputStream o, ChangeType type, String oldPath,
 				String newPath) throws IOException {
-			o.write((oldPath + "\n\n").getBytes());
+			o.write((String.format("%-20s", oldPath) + "\n\n").getBytes());
 		}
 
 		@Override
