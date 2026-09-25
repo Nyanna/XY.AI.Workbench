@@ -1,14 +1,25 @@
 package xy.ai.workbench.view.diff;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.eclipse.egit.ui.internal.commit.DiffDocument;
 import org.eclipse.egit.ui.internal.commit.DiffRegionFormatter;
 import org.eclipse.egit.ui.internal.commit.DiffViewer;
 import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jgit.diff.DiffDriver;
+import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.diff.DiffEntry.ChangeType;
+import org.eclipse.jgit.diff.RawText;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.patch.FileHeader;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.swt.SWT;
@@ -25,14 +36,13 @@ import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.LOG;
 
 public class DiffPanel extends ViewPart {
-
 	public static final String ID = "xy.ai.workbench.view.diff.DiffPanel";
 
 	public static DiffPanel INSTANCE;
 
 	private Label statusLabel;
 	@SuppressWarnings("restriction")
-	private DiffViewer diffText;
+	private DiffViewer diffViewer;
 
 	@SuppressWarnings("restriction")
 	@Override
@@ -47,9 +57,9 @@ public class DiffPanel extends ViewPart {
 
 		Composite diffSection = new Composite(parent, SWT.NONE);
 		diffSection.setLayout(new FillLayout());
-		diffText = new DiffViewer(parent, null, SWT.V_SCROLL | SWT.H_SCROLL);
-		diffText.getControl().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		diffText.setDocument(new Document("Empty"));
+		diffViewer = new DiffViewer(parent, null, SWT.V_SCROLL | SWT.H_SCROLL);
+		diffViewer.getControl().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		diffViewer.setDocument(new Document("Empty"));
 	}
 
 	public void onEditorChange() {
@@ -70,13 +80,13 @@ public class DiffPanel extends ViewPart {
 
 	@SuppressWarnings("restriction")
 	public void onSnapshot(SnapshotResult result, Repository repo) {
-		if (diffText == null || diffText.getControl().isDisposed() || !result.created())
+		if (diffViewer == null || diffViewer.getControl().isDisposed() || !result.created())
 			return;
 		try {
 			statusLabel.setText(result.chain() + " / " + result.ref());
 
 			DiffDocument document = new DiffDocument();
-			try (DiffRegionFormatter formatter = new DiffRegionFormatter(document); RevWalk walk = new RevWalk(repo)) {
+			try (DiffRegionFormatter formatter = new Formatter(document); RevWalk walk = new RevWalk(repo)) {
 				formatter.setRepository(repo);
 				RevCommit oldC = walk.parseCommit(result.parent());
 				RevCommit newC = walk.parseCommit(result.commit());
@@ -85,17 +95,47 @@ public class DiffPanel extends ViewPart {
 				document.connect(formatter);
 			}
 
-			diffText.unconfigure();
-			diffText.configure(new DiffViewer.Configuration(EditorsUI.getPreferenceStore()));
-			diffText.setDocument(document);
+			diffViewer.unconfigure();
+			diffViewer.configure(new DiffViewer.Configuration(EditorsUI.getPreferenceStore()));
+			diffViewer.setDocument(document);
 
 		} catch (IOException e) {
-			diffText.setDocument(new Document("Error loading diff: " + e.getMessage()));
+			diffViewer.setDocument(new Document("Error loading diff: " + e.getMessage()));
 		}
 	}
 
 	@Override
 	public void setFocus() {
-		diffText.getControl().setFocus();
+		diffViewer.getControl().setFocus();
+	}
+
+	@SuppressWarnings("restriction")
+	private class Formatter extends DiffRegionFormatter {
+		private Formatter(IDocument document) {
+			super(document);
+		}
+
+		@Override
+		public void format(FileHeader h, RawText a, RawText b, DiffDriver d) throws IOException {
+			Predicate<? super String> pre = l -> !l.startsWith("--- ") && !l.startsWith("+++ ");
+			String fil = new String(h.getBuffer(), StandardCharsets.UTF_8).lines().filter(pre)
+					.collect(Collectors.joining("\n", "", "\n"));
+			byte[] headerLines = fil.getBytes(StandardCharsets.UTF_8);
+			super.format(new FileHeader(headerLines, h.toEditList(), h.getPatchType()), a, b, d);
+		}
+
+		@Override
+		protected void writeHunkHeader(int aStartLine, int aEndLine, int bStartLine, int bEndLine, String funcName) {
+		}
+
+		@Override
+		protected void formatGitDiffFirstHeaderLine(ByteArrayOutputStream o, ChangeType type, String oldPath,
+				String newPath) throws IOException {
+			o.write((oldPath + "\n\n").getBytes());
+		}
+
+		@Override
+		protected void formatIndexLine(OutputStream o, DiffEntry ent) throws IOException {
+		}
 	}
 }
