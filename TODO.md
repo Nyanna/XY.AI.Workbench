@@ -1,5 +1,4 @@
 # TODO
-* AI MD editor menü reduzieren
 
 ## Diff
 * diff viewer, synchron zu cursorposition von tool call und ref id
@@ -23,6 +22,7 @@
 - Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
 
 ### Auto-Runner-Panel
+! autorunner soll überwachung erleichtern, vielleicht einfaches penl und nicht vollen editor anzeigen (performance)
 - Datei-basierte SessionConfig mit Fixierung (muss aber als Editor einmal gestartet worden sein)
 - Auto-Prompt-Panel mit Tabelle
   - Letztes Kommando pro Datei basierend auf Bedingungen mit Config ausführen – Result wird appended, kein Tag-Replace

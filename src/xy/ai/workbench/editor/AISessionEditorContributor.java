@@ -39,6 +39,7 @@ public class AISessionEditorContributor extends MultiPageEditorActionBarContribu
 		return (editor == null ? null : editor.getAction(actionID));
 	}
 
+	@Override
 	public void setActivePage(IEditorPart part) {
 		if (activeEditorPart == part)
 			return;
@@ -46,7 +47,8 @@ public class AISessionEditorContributor extends MultiPageEditorActionBarContribu
 		activeEditorPart = part;
 
 		IActionBars actionBars = getActionBars();
-		if (actionBars != null && actionBars.getClass() == null) {
+		// needed for gloabl operations like undo to work
+		if (actionBars != null) {
 			ITextEditor editor = (part instanceof ITextEditor) ? (ITextEditor) part : null;
 
 			actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(),
