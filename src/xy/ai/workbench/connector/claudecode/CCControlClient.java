@@ -73,11 +73,15 @@ public class CCControlClient {
 	}
 
 	public ArrayNode approve(String id, String hint) {
-		return submit(approvalNode(id, null, null, null, hint == null || hint.isBlank() ? null : hint));
+		return submit(approvalNode(id, null, null, null, hint == null || hint.isBlank() ? null : hint, false));
+	}
+
+	public ArrayNode exec(String id, String hint) {
+		return submit(approvalNode(id, null, null, null, hint == null || hint.isBlank() ? null : hint, true));
 	}
 
 	public ArrayNode deny(String id, String reason) {
-		return submit(approvalNode(id, null, null, reason == null ? "" : reason, null));
+		return submit(approvalNode(id, null, null, reason == null ? "" : reason, null, false));
 	}
 
 	public boolean submitEdit(String yamlBlock) {
@@ -96,7 +100,8 @@ public class CCControlClient {
 		return true;
 	}
 
-	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason, String hint) {
+	private ObjectNode approvalNode(String id, JsonNode arguments, JsonNode result, String rejectReason, String hint,
+			boolean exec) {
 		ObjectNode approval = mapper.createObjectNode();
 		approval.put("id", id);
 		if (arguments != null)
@@ -109,6 +114,8 @@ public class CCControlClient {
 		}
 		if (hint != null)
 			approval.put("hint", hint);
+		if (exec)
+			approval.put("exec", true);
 		return approval;
 	}
 

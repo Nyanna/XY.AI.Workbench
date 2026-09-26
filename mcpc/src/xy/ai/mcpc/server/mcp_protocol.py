@@ -124,6 +124,7 @@ class McpProtocol:
         _validate_arguments(tool.input_schema, arguments)
         control = self.environment.control_manager if self.environment else None
         request_hint: str | None = None
+        force_result_review = False
         if control is not None and (not skip_control):
             decision = control.submit_request(session, name, arguments)
             if not decision.approved:
@@ -133,6 +134,7 @@ class McpProtocol:
                 return ToolResult(content=[text_content(f'DENIED: {reason}')], is_error=True).to_dict()
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
+            force_result_review = decision.force_result_review
             if decision.approval_hint:
                 "# For ask_user, an approval hint *is* the human's answer"
                 if name == TOOLNAME_ASK_USER:
@@ -150,7 +152,12 @@ class McpProtocol:
             '# noqa: BLE001 - surface as tool error result'
             result = ToolResult(content=[text_content(f"Tool '{name}' failed: {exc}")], is_error=True)
         if control is not None and (not skip_control):
-            decision = control.submit_result(session, name, result.to_dict(), auto_approve=result.auto_approve)
+            decision = control.submit_result(
+                session,
+                name,
+                result.to_dict(),
+                auto_approve=result.auto_approve and (
+                    not force_result_review))
             if not decision.approved:
                 reason = decision.rejection_reason or 'Tool result rejected by controller'
                 if name == TOOLNAME_ASK_USER:

@@ -85,6 +85,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 		if (command instanceof AnswerCommand ac) {
 			if (ac.action() == AnswerCommand.Action.Allow)
 				controlClient.approve(ac.parameter(0), ac.parameter(2));
+			else if (ac.action() == AnswerCommand.Action.Exec)
+				controlClient.exec(ac.parameter(0), ac.parameter(2));
 			else
 				controlClient.deny(ac.parameter(0), ac.parameter(2));
 			session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);

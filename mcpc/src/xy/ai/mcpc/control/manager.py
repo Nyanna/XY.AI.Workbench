@@ -35,6 +35,8 @@ class ControlDecision:
     'Replacement arguments for the ``request`` phase (``None`` → keep originals).'
     modified_result: dict[str, Any] | None = None
     'Replacement result dict for the ``result`` phase (``None`` → keep original).'
+    force_result_review: bool = False
+    "Set by an ``exec`` approval: behaves like ``allow`` for the request phase\n    but disables any tool-provided ``auto_approve`` for the subsequent result\n    phase, so a questionable command's output is always reviewed before use.\n    "
 
 def _reason_last(arguments: dict[str, Any]) -> dict[str, Any]:
     """Return *arguments* with ``reason``, if present, moved to the end so it is
@@ -137,6 +139,9 @@ class ToolControlManager:
         * ``{"id": "…", "hint": "…"}`` — approve with a hint for the agent
           (``/allow <id> <hint>``); does not reject the call, only enriches
           the eventual result.
+        * ``{"id": "…", "exec": true}`` — approve like ``allow`` but disable
+          a possible tool-provided ``auto_approve`` for the result phase
+          (``/answer <id> exec``), forcing the result to be reviewed too.
         """
         for approval in approvals:
             item_id = approval.get('id')
@@ -157,7 +162,9 @@ class ToolControlManager:
                     approved=True,
                     modified_arguments=approval.get('arguments'),
                     modified_result=approval.get('result'),
-                    approval_hint=approval.get('hint'))
+                    approval_hint=approval.get('hint'),
+                    force_result_review=bool(
+                        approval.get('exec')))
             item._decision = decision
             with self._lock:
                 self._pending.pop(item_id, None)

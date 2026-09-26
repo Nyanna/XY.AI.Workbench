@@ -19,7 +19,7 @@ public class AnswerCommand extends Command {
 	@Override
 	public boolean matches(String line) {
 		// "s" (DOTALL) allows a block-selected multi-line reason/hint after allow|deny.
-		return line != null && line.strip().matches("(?is)" + prefix() + "\\s+\\S+\\s+(allow|deny)(\\s+.*)?");
+		return line != null && line.strip().matches("(?is)" + prefix() + "\\s+\\S+\\s+(allow|deny|exec)(\\s+.*)?");
 	}
 
 	@Override
@@ -37,10 +37,14 @@ public class AnswerCommand extends Command {
 	}
 
 	public enum Action {
-		Allow, Deny
+		Allow, Deny, Exec
 	}
 
 	public Action action() {
-		return "allow".equalsIgnoreCase(parameter(1)) ? Action.Allow : Action.Deny;
+		if ("allow".equalsIgnoreCase(parameter(1)))
+			return Action.Allow;
+		if ("exec".equalsIgnoreCase(parameter(1)))
+			return Action.Exec;
+		return Action.Deny;
 	}
 }
