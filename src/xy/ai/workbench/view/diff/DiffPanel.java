@@ -28,12 +28,16 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.editors.text.EditorsUI;
 import org.eclipse.ui.part.ViewPart;
 
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.view.ActionManager;
+import xy.ai.workbench.view.ActionManager.ActionDescription;
 
 public class DiffPanel extends ViewPart {
 	public static final String ID = "xy.ai.workbench.view.diff.DiffPanel";
@@ -43,6 +47,9 @@ public class DiffPanel extends ViewPart {
 	private Label statusLabel;
 	@SuppressWarnings("restriction")
 	private DiffViewer diffViewer;
+
+	private ActionManager act = new ActionManager();
+	private ActionDescription syncAction;
 
 	@SuppressWarnings("restriction")
 	@Override
@@ -60,9 +67,26 @@ public class DiffPanel extends ViewPart {
 		diffViewer = new DiffViewer(parent, null, SWT.V_SCROLL | SWT.H_SCROLL);
 		diffViewer.getControl().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		diffViewer.setDocument(new Document("Empty"));
+
+		makeActions();
+		IActionBars bars = getViewSite().getActionBars();
+		act.fillLocalToolBar(bars.getToolBarManager());
+		bars.updateActionBars();
+	}
+
+	private void makeActions() {
+		syncAction = act.create().toolbar().text("Sync", "Automatically show the latest diff on editor change")
+				.image(ISharedImages.IMG_ELCL_SYNCED).runnable(() -> {
+					if (syncAction.isChecked())
+						onEditorChange();
+				});
+		syncAction.done();
+		syncAction.setChecked(false);
 	}
 
 	public void onEditorChange() {
+		if (syncAction != null && !syncAction.isChecked())
+			return;
 		ActiveEditorListener editLst = Activator.getDefault().editorListener;
 		Path path = editLst.resolveProjectPath();
 		if (path == null)

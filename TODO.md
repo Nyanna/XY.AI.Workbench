@@ -1,20 +1,12 @@
 # TODO
-
-## Diff
-* diff viewer, synchron zu cursorposition von tool call und ref id
   
 ### Tools
 - AST, JavaParser für Java-AST
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
-- Claude kombiniert filter und toolcalls im retrieval häufig -> Multi Tool Batch
-  - Bash(echo "=== oidc/server dir ===" && ls -R smc-swissdamed/.../server/ 2>/dev/null && echo "=== oidc dir ===" && ls smc-swissdamed/src/main/java/ch/swissmedic/swissdamed/config/security/oidc/ && echo "=== security dir ===" && ls
-  - find ~/.gradle /root/.gradle -iname "*authorization-server*.jar" 2>/dev/null | head; echo "=== spring security version in BOM ==="; find ~/.gradle -path "*spring-security-oauth2-authorization-server*" -name "*.jar" 2>/dev/null | head; echo "=== catalog ==="; grep -i "spring-boot\|spring-security\|jackson" /home/.../libs.versions.toml
-
-### UX
-- F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
-- Drag & Drop für Includes – Includes-Autocompletion (nur wenn Processor aktiviert, mit Projekt-Datei-Autocompletion)
+  - F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
+  - Drag & Drop für Includes – Includes-Autocompletion (nur wenn Processor aktiviert, mit Projekt-Datei-Autocompletion)
 - Bessere Shortcuts für Datei-Erstellung
   - Shortcut für Selection in extra Task auslagern (immer Project-Verzeichnis, notfalls erstellen)
 - Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
