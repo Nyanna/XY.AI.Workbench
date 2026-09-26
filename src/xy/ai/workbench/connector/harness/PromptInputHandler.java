@@ -153,9 +153,10 @@ public class PromptInputHandler {
 			// An /answer command starting at the beginning of the block spans the
 			// whole selection, allowing a multi-line reason/hint for
 			// allow and deny alike.
-			if (blockCmd instanceof AnswerCommand) {
+			if (blockCmd instanceof AnswerCommand ac) {
 				arg.command = blockCmd;
 				arg.yaml = captureYamlBlock(lines, 0);
+				ac.setYaml(arg.yaml);
 			}
 			// multi-line command takes precedence over a trailing command
 			else if (!detectedCmd(lines[0], lines, 0, arg))
@@ -193,6 +194,8 @@ public class PromptInputHandler {
 			return false;
 		arg.command = cmd;
 		arg.yaml = captureYamlBlock(lines, lineIndex);
+		if (cmd instanceof AnswerCommand ac)
+			ac.setYaml(arg.yaml);
 		return true;
 	}
 

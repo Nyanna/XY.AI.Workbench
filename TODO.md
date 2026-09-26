@@ -2,8 +2,6 @@
 
 ## Diff
 * diff viewer, synchron zu cursorposition von tool call und ref id
-  * mcp control client braucht nach allow noch execute was autoapprove deaktiviert für das result control
-  	* ein deny im result macht dann auto revert vom aktuellen ref
   
 ### Tools
 - AST, JavaParser für Java-AST

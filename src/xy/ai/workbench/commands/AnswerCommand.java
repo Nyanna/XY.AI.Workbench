@@ -40,6 +40,24 @@ public class AnswerCommand extends Command {
 		Allow, Deny, Exec
 	}
 
+	/** Distinguishes a pending tool call (arguments) from a pending tool result (result). */
+	public enum BlockType {
+		Call, Result
+	}
+
+	private String yaml;
+
+	/** Sets the raw YAML block this answer refers to, used by {@link #blockType()}. */
+	public void setYaml(String yaml) {
+		this.yaml = yaml;
+	}
+
+	public BlockType blockType() {
+		if (yaml != null && yaml.lines().anyMatch(l -> l.startsWith("result:")))
+			return BlockType.Result;
+		return BlockType.Call;
+	}
+
 	public Action action() {
 		if ("allow".equalsIgnoreCase(parameter(1)))
 			return Action.Allow;

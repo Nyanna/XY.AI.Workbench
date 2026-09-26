@@ -190,11 +190,14 @@ public class PromptHandler {
 		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof CallCommand))
 			return;
 
-		String triggerLabel = cmd.prefix();
+		String opId = extractYamlId(prompt.arg.yaml);
+		boolean revertToolResultDeny = cmd instanceof AnswerCommand ac && ac.action() == AnswerCommand.Action.Deny
+				&& ac.blockType() == AnswerCommand.BlockType.Result;
+
 		Job.create("Workbench-Snapshot", mon -> {
 			try {
 				OpSnapshotter snap = new OpSnapshotter(prompt.arg.project.toFile());
-				SnapshotResult result = snap.snapshot(triggerLabel);
+				SnapshotResult result = revertToolResultDeny ? snap.revertLast() : snap.snapshot(opId);
 				if (result != null && DiffPanel.INSTANCE != null)
 					Display.getDefault().asyncExec(() -> DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository()));
 
@@ -204,5 +207,13 @@ public class PromptHandler {
 			}
 			return Status.OK_STATUS;
 		}).schedule();
+	}
+
+	/** Extracts the top-level "id:" field from a captured tool-call/result YAML block. */
+	private String extractYamlId(String yaml) {
+		if (yaml == null)
+			return null;
+		var m = java.util.regex.Pattern.compile("(?m)^id:\\s*[\"']?([^\"'\\r\\n]+?)[\"']?\\s*$").matcher(yaml);
+		return m.find() ? m.group(1).strip() : null;
 	}
 }

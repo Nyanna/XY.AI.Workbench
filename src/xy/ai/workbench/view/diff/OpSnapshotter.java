@@ -299,6 +299,101 @@ public class OpSnapshotter {
 		}
 	}
 
+	/**
+	 * Reverts the last snapshot commit of the current chain: restores the working
+	 * tree to the state of its parent and removes the op-ref, so the next
+	 * {@link #snapshot(String)} call continues from that parent.
+	 *
+	 * @return the resulting current state (for diff display), or {@code null} if
+	 *         there is nothing to revert.
+	 */
+	public synchronized SnapshotResult revertLast() throws IOException {
+		ObjectId storedBase = resolveRef(BASE_MARKER);
+		if (storedBase == null)
+			return null;
+
+		String chainId = repository.newObjectReader().abbreviate(storedBase, 7).name();
+		String namespace = "refs/llm-ops/chain-" + chainId;
+
+		int lastN = 0;
+		for (Ref ref : repository.getRefDatabase().getRefsByPrefix(namespace + "/op-")) {
+			Matcher m = OP_SUFFIX.matcher(ref.getName());
+			if (m.matches())
+				lastN = Math.max(lastN, Integer.parseInt(m.group(1)));
+		}
+		if (lastN == 0)
+			return null;
+
+		String lastOpRefName = namespace + "/op-" + lastN;
+		ObjectId toRevert = resolveRef(lastOpRefName);
+
+		ObjectId newHead;
+		try (RevWalk walk = new RevWalk(repository)) {
+			RevCommit revertedCommit = walk.parseCommit(toRevert);
+			newHead = revertedCommit.getParentCount() > 0 ? revertedCommit.getParent(0) : storedBase;
+			ObjectId newHeadTree = walk.parseCommit(newHead).getTree();
+			checkoutDelta(revertedCommit.getTree(), newHeadTree);
+		}
+
+		deleteRef(lastOpRefName);
+
+		if (newHead.equals(storedBase))
+			return new SnapshotResult(false, namespace, null, storedBase, storedBase, null);
+
+		String newRefName = namespace + "/op-" + (lastN - 1);
+		ObjectId newHeadParent;
+		try (RevWalk walk = new RevWalk(repository)) {
+			RevCommit c = walk.parseCommit(newHead);
+			newHeadParent = c.getParentCount() > 0 ? c.getParent(0) : storedBase;
+		}
+		return new SnapshotResult(true, namespace, newRefName, newHead, newHeadParent, null);
+	}
+
+	/** Restores the working tree paths that differ between the two trees to their 'toTree' state. */
+	private void checkoutDelta(ObjectId fromTree, ObjectId toTree) throws IOException {
+		File workTree = repository.getWorkTree();
+		try (ObjectReader reader = repository.newObjectReader(); TreeWalk walk = new TreeWalk(repository, reader)) {
+			walk.addTree(fromTree);
+			walk.addTree(toTree);
+			walk.setRecursive(true);
+			while (walk.next()) {
+				File file = new File(workTree, walk.getPathString());
+				ObjectId toId = walk.getObjectId(1);
+				if (toId.equals(ObjectId.zeroId())) {
+					Files.deleteIfExists(file.toPath());
+					deleteEmptyParents(workTree, file.getParentFile());
+				} else {
+					file.getParentFile().mkdirs();
+					try (InputStream in = reader.open(toId).openStream()) {
+						Files.copy(in, file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+					}
+					if (walk.getFileMode(1) == FileMode.EXECUTABLE_FILE)
+						file.setExecutable(true, false);
+				}
+			}
+		}
+	}
+
+	private void deleteEmptyParents(File root, File dir) {
+		while (dir != null && !dir.equals(root)) {
+			String[] children = dir.list();
+			if (children == null || children.length > 0)
+				break;
+			File parent = dir.getParentFile();
+			dir.delete();
+			dir = parent;
+		}
+	}
+
+	private void deleteRef(String name) throws IOException {
+		RefUpdate update = repository.updateRef(name);
+		update.setForceUpdate(true);
+		Result result = update.delete();
+		if (result != Result.NEW && result != Result.FORCED && result != Result.FAST_FORWARD
+				&& result != Result.NO_CHANGE)
+			throw new IOException("Ref-Delete failed for " + name + ": " + result);
+	}
+
 	private ObjectId resolveRef(String name) throws IOException {
 		Ref ref = repository.exactRef(name);
 		return ref == null ? null : ref.getObjectId();
