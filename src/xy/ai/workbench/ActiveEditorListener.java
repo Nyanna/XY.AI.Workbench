@@ -52,11 +52,15 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 	private void checkInitBindings() {
 		if (initialized)
 			return;
-		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-		IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
-		if (activePage != null)
-			activePage.addPartListener(this);
-		initialized = true;
+		try {
+			IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+			IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
+			if (activePage != null)
+				activePage.addPartListener(this);
+			initialized = true;
+		} catch (Exception e) {
+			// ignore when workbench not ready yet
+		}
 	}
 
 	public ITextEditor getLastTextEditor() {

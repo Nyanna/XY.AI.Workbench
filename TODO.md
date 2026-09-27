@@ -1,7 +1,7 @@
 # TODO
-  
+
 ### Tools
-- AST, JavaParser für Java-AST
+- AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
@@ -45,8 +45,6 @@
 ## Ideas
 
 - **Markdown-Table** Autoformat-Support
-- **Sub-Agenten** mit Hauptsession verknüpfen – Control-Filter per Filter-Parameter nach Sessionbaum
-  - Sub-Agent Interleaving (gibt es nicht mit MCP Controller → sollte kein Problem sein)
 - **Soft-Prompts** komprimiert erstellen mit LLMLingua und LLM-Selbstkompression
 - **Phases**: Research (human augmented) → Retrieval (Preprocess-Agent: Dateien, Specs, Schemas, Studien, APIs) → Planning (High-Tier) → Execution (Dumb-Agent)
 - Weitere Tools für Research: Semantic Scholar, arXiv API Access

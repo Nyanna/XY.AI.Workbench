@@ -479,4 +479,12 @@
 		<type name="xy.ai.workbench.editor.spellcheck.spelling"/>
 	</extension>
 
+
+	<extension point="org.eclipse.e4.workbench.model">
+		<processor
+				class="xy.ai.workbench.layout.FixedWidthPanelAddonProcessor"
+				beforefragment="false">
+		</processor>
+	</extension>
+
 </plugin>

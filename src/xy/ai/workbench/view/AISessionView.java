@@ -24,7 +24,7 @@ import xy.ai.workbench.view.session.UsageLogSection;
  */
 public class AISessionView extends ViewPart {
 
-	public static final String ID = "xy.ai.workbench.views.AISessionView";
+	public static final String ID = "xy.ai.workbench.view.AISessionView";
 
 	@Override
 	public void saveState(IMemento memento) {
