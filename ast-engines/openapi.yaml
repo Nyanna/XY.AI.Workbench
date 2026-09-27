@@ -1,0 +1,416 @@
+openapi: 3.1.0
+info:
+  title: AST Engine RPC API
+  version: "0.1.0"
+  description: |
+    Stateless RPC contract mirroring the Python `Engine` ABC
+    (`xy.ai.mcpc.tools.ast.base.Engine`). Each deployment implements exactly
+    one target-platform parser (e.g. Java, C#, Go) and is called by the mcpc
+    controller to perform the same node-oriented operations the Python and
+    tree-sitter engines perform in-process.
+
+    The server holds no session state: every request carries the full current
+    `source` text, the controller alone persists the result to disk after a
+    mutating call. `path` is optional context (e.g. file extension) an engine
+    may use to pick a grammar/dialect; it is never read from or written to by
+    the server.
+
+    Node addressing uses the same `id` scheme as `Located.node_id`: a stable,
+    primarily name-based path from the tree root (e.g. `MyClass.method`),
+    falling back to a content hash for anonymous nodes. An `id` returned by
+    `POST /nodes` for a given `source` remains valid for further calls against
+    that same `source`; after a mutation, re-fetch `/nodes` from the returned
+    `source` before addressing further nodes.
+
+servers:
+  - url: http://localhost:8080/v1
+    description: One instance per target-platform engine.
+
+paths:
+  /info:
+    get:
+      operationId: getEngineInfo
+      summary: Engine metadata (Engine.name, Engine.validates_syntax).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineInfo"
+
+  /validate:
+    post:
+      operationId: validateSource
+      summary: Engine.validate — cheap well-formedness check without a full parse.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateResponse"
+
+  /nodes:
+    post:
+      operationId: listNodes
+      summary: Engine.parse + Engine.locate_all — every addressable node, in document order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocateResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+  /nodes/{nodeId}:
+    post:
+      operationId: getNode
+      summary: Engine.node_code / signature / docstring for a single node.
+      parameters:
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+        "404":
+          $ref: "#/components/responses/AstErrorResponse"
+        "409":
+          $ref: "#/components/responses/AstAmbiguousResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+  /nodes/{nodeId}/replace:
+    post:
+      operationId: replaceNode
+      summary: Engine.replace — replace the node's source, return the new full source.
+      parameters:
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "404":
+          $ref: "#/components/responses/AstErrorResponse"
+        "409":
+          $ref: "#/components/responses/AstAmbiguousResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+  /nodes/{nodeId}/insert:
+    post:
+      operationId: insertRelativeToNode
+      summary: Engine.insert — insert code "before"/"after" the node.
+      parameters:
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsertRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsertResponse"
+        "404":
+          $ref: "#/components/responses/AstErrorResponse"
+        "409":
+          $ref: "#/components/responses/AstAmbiguousResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+  /nodes/{nodeId}/delete:
+    post:
+      operationId: deleteNode
+      summary: Engine.delete — remove the node from its container.
+      parameters:
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "404":
+          $ref: "#/components/responses/AstErrorResponse"
+        "409":
+          $ref: "#/components/responses/AstAmbiguousResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+  /append:
+    post:
+      operationId: appendTopLevel
+      summary: >
+        Engine.append — append code at the tree's top level. An empty
+        `source` is parsed via Engine.empty_tree (new file case).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppendResponse"
+        "422":
+          $ref: "#/components/responses/AstErrorResponse"
+
+components:
+  parameters:
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      description: A `Node.id` previously returned by `POST /nodes` for this `source`.
+      schema:
+        type: string
+
+  responses:
+    AstErrorResponse:
+      description: Engine-side AstError (unparsable source, unknown node id, ...).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    AstAmbiguousResponse:
+      description: >
+        AstAmbiguous — `nodeId` no longer resolves to a single node (e.g. after
+        upstream edits); `candidates` lists the current ids it could mean.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    EngineInfo:
+      type: object
+      required: [name, validatesSyntax]
+      properties:
+        name:
+          type: string
+          description: Engine.name, e.g. "python", "java".
+        validatesSyntax:
+          type: boolean
+          description: >
+            Engine.validates_syntax — whether validate/replace reliably reject
+            malformed edits. False for lenient markup grammars.
+
+    SourceRequest:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          description: Full current file content.
+        path:
+          type: string
+          nullable: true
+          description: Optional absolute path, for grammar/dialect selection only.
+
+    
+
+    ValidateResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          nullable: true
+          description: Engine.validate's return value; null when well-formed.
+
+    LocateRequest:
+      type: object
+      required: [source]
+      description: A SourceRequest plus includeCode.
+      properties:
+        source:
+          type: string
+          description: Full current file content.
+        path:
+          type: string
+          nullable: true
+          description: Optional absolute path, for grammar/dialect selection only.
+        includeCode:
+          type: boolean
+          default: false
+          description: Populate Node.code for every node (expensive for large trees).
+
+    LocateResponse:
+      type: object
+      required: [nodes]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+
+    Node:
+      type: object
+      description: Wire form of Located, enriched with Engine.signature/docstring.
+      required: [id, type, lineno, endLineno, expandable, isDefinition]
+      properties:
+        id:
+          type: string
+          description: Located.node_id — unique, stable path used to address this node.
+        type:
+          type: string
+          description: Located.node_type — engine-reported node type name.
+        name:
+          type: string
+          nullable: true
+          description: Located.name — simple name, if the node carries one.
+        lineno:
+          type: integer
+          minimum: 1
+        endLineno:
+          type: integer
+          minimum: 1
+        parentType:
+          type: string
+          nullable: true
+          description: Located.parent_type; null at the top level.
+        expandable:
+          type: boolean
+          description: Located.expandable — a pure container of nested defs.
+        isDefinition:
+          type: boolean
+          description: Engine.is_definition(type).
+        signature:
+          type: string
+          nullable: true
+          description: Engine.signature/default_signature, one-line header rendering.
+        docstring:
+          type: string
+          nullable: true
+          description: Engine.docstring, if the format has such a concept.
+        code:
+          type: string
+          nullable: true
+          description: Engine.node_code; present when requested/for single-node reads.
+
+    CodeRequest:
+      type: object
+      required: [source, code]
+      description: A SourceRequest plus the code fragment to apply.
+      properties:
+        source:
+          type: string
+          description: Full current file content.
+        path:
+          type: string
+          nullable: true
+          description: Optional absolute path, for grammar/dialect selection only.
+        code:
+          type: string
+          description: New source fragment to parse and splice in.
+
+    InsertRequest:
+      type: object
+      required: [source, code, position]
+      description: A CodeRequest plus insertion position.
+      properties:
+        source:
+          type: string
+          description: Full current file content.
+        path:
+          type: string
+          nullable: true
+          description: Optional absolute path, for grammar/dialect selection only.
+        code:
+          type: string
+          description: New source fragment to parse and splice in.
+        position:
+          type: string
+          enum: [before, after]
+
+    MutationResponse:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          description: Engine.serialize's result after the mutation; caller persists it.
+
+    InsertResponse:
+      type: object
+      required: [source, unitsInserted]
+      description: A MutationResponse plus units-inserted count.
+      properties:
+        source:
+          type: string
+          description: Engine.serialize's result after the mutation; caller persists it.
+        unitsInserted:
+          type: integer
+          description: Engine.insert's return value (top-level units inserted).
+
+    AppendResponse:
+      type: object
+      required: [source, unitsAppended]
+      description: A MutationResponse plus units-appended count.
+      properties:
+        source:
+          type: string
+          description: Engine.serialize's result after the mutation; caller persists it.
+        unitsAppended:
+          type: integer
+          description: Engine.append's return value (top-level units appended).
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        candidates:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Set only for AstAmbiguous responses.

@@ -6,7 +6,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="/XY.AI.Workbench/libs/ast/protobuf-java-4.36.2.jar"/>
 	<classpathentry kind="lib" path="/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2.jar" sourcepath="/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2-sources.jar">
 		<attributes>
 			<attribute name="javadoc_location" value="jar:platform:/resource/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2-javadoc.jar!/"/>
