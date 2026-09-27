@@ -13,5 +13,6 @@
 			<attribute name="javadoc_location" value="jar:platform:/resource/XY.AI.ast-java/libs/javaparser-core-3.28.2-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="libs/jackson-annotations-3.0-rc5.jar"/>
 	<classpathentry kind="output" path=".bin"/>
 </classpath>
