@@ -81,3 +81,44 @@ class CodeBranch:
 def build_code_branches(response_node, named_model) -> list:
     return [CodeBranch(status_code=code_node.status_code, java_type=named_model.name_of(code_node).fqn)
             for code_node in response_node.codes]
+'# read_method -> JsonNodeFactory factory-method name, for constructing a raw'
+'# JsonNode from a primitive Java value (setCode<NNN>... on the server side).'
+PRIMITIVE_NODE_FACTORY = {
+    'asText': 'textNode',
+    'asLong': 'numberNode',
+    'asDouble': 'numberNode',
+    'asBoolean': 'booleanNode'}
+
+@dataclass(frozen=True)
+class ResponseSetter:
+    """One setCode<NNN>[<ContentTypeSuffix>](...) constructor-style setter on a
+    ResponseNode: status code and content type are implied by the spec, the
+    server implementer only supplies the already-typed body value."""
+    status_code: str
+    method_name: str
+    content_type: str
+    java_type: str
+    category: str
+    node_factory_method: str | None
+
+def build_response_setters(response_node, named_model) -> list:
+    """One ResponseSetter per (status code, content type) combination. The
+    content-type suffix is only appended when a status code has more than one
+    content type (declaration order, same as build_content_type_branches)."""
+    setters = []
+    for code_node in response_node.codes:
+        branches = build_content_type_branches(code_node, named_model)
+        multiple = len(branches) > 1
+        for branch in branches:
+            suffix = branch.short_name if multiple else ''
+            setters.append(
+                ResponseSetter(
+                    status_code=code_node.status_code,
+                    method_name=f'setCode{
+                        code_node.status_code}{suffix}',
+                    content_type=branch.content_type,
+                    java_type=branch.java_type,
+                    category=branch.category,
+                    node_factory_method=PRIMITIVE_NODE_FACTORY.get(
+                            branch.read_method) if branch.category == 'primitive' else None))
+    return setters

@@ -1,13 +1,22 @@
 package {{ package }};
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
 
-/** Root response object; status code and content type are transport metadata, never part of the body. */
+/** Root response object; status code and content type are transport metadata, never part of the body.
+ * Client-side, use {@link #from}; server-side, use the no-arg constructor plus one of the
+ * setCode&lt;NNN&gt;(...) methods to construct the exact response your operation implementation returns. */
+@SuppressWarnings("unused")
 public final class {{ class_name }} {
 
-    private final JsonNode node;
-    private final String statusCode;
-    private final String contentType;
+    private JsonNode node;
+    private String statusCode;
+    private String contentType;
+
+    /** For server-side construction: follow up with a setCode&lt;NNN&gt;(...) call. */
+    public {{ class_name }}() {
+    }
 
     private {{ class_name }}(JsonNode node, int statusCode, String contentType) {
         this.node = node;
@@ -39,6 +48,23 @@ public final class {{ class_name }} {
             return null;
         }
         return new {{ c.java_type }}(node, contentType);
+    }
+{% endfor %}
+{% for s in setters %}
+
+    /** Builds a {{ s.status_code }} / "{{ s.content_type }}" response from an already-typed body value. */
+    public void {{ s.method_name }}({{ s.java_type }} value) {
+{% if s.category == 'primitive' %}
+        this.node = value == null ? NullNode.instance : JsonNodeFactory.instance.{{ s.node_factory_method }}(value);
+{% elif s.category == 'enum' %}
+        this.node = value == null ? NullNode.instance : JsonNodeFactory.instance.textNode(value.rawValue());
+{% elif s.category == 'any_dictionary' %}
+        this.node = value;
+{% else %}
+        this.node = value == null ? NullNode.instance : value.node();
+{% endif %}
+        this.statusCode = "{{ s.status_code }}";
+        this.contentType = "{{ s.content_type }}";
     }
 {% endfor %}
 }

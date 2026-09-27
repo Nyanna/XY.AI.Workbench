@@ -1,0 +1,111 @@
+{% import "model/macros.jinja" as macros %}
+package {{ package }};
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Transport-agnostic server base class (JDK {@code com.sun.net.httpserver} stdlib, no
+ * external framework). Implement one abstract method per operation -- each has the exact
+ * same signature (parameters and {@code XxxResponse} return type) as the corresponding
+ * client-interface method, so no HTTP type (status code, content type, ...) ever appears
+ * in your implementation. Build the returned response via its no-arg constructor plus one
+ * of its setCode&lt;NNN&gt;(...) methods.
+ */
+public abstract class {{ class_name }} {
+{% for m in methods %}
+    private static final Pattern {{ m.pattern_name }} = Pattern.compile("{{ m.pattern_regex }}");
+{% endfor %}
+{% for m in methods %}
+
+{{ macros.javadoc(m.description, m.example_repr) }}
+    protected abstract {{ m.response_type }} {{ m.name }}({{ m.signature }});
+{% endfor %}
+
+    /** Binds and starts a JDK {@link HttpServer} on the given port, routed by {@link #createHttpHandler()}. */
+    public HttpServer start(int port) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        server.createContext("/", createHttpHandler());
+        server.start();
+        return server;
+    }
+
+    /** The routing {@link HttpHandler}; wire it into your own {@link HttpServer} setup if {@link #start} isn't used. */
+    public HttpHandler createHttpHandler() {
+        return this::handle;
+    }
+
+    private void handle(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod();
+        String path = exchange.getRequestURI().getPath();
+        @SuppressWarnings("unused")
+        Map<String, String> queryParams = parseQuery(exchange.getRequestURI().getRawQuery());
+        try {
+{% for m in methods %}
+            {
+                Matcher matcher = {{ m.pattern_name }}.matcher(path);
+                if ("{{ m.http_method }}".equalsIgnoreCase(method) && matcher.matches()) {
+{% for line in m.binding_lines %}
+                    {{ line }}
+{% endfor %}
+                    {{ m.response_type }} response = {{ m.name }}({{ m.call_args }});
+                    writeResult(exchange, response.statusCode(), response.contentType(), response.body());
+                    return;
+                }
+            }
+{% endfor %}
+            writeResult(exchange, "404", "text/plain", "not found: " + method + " " + path);
+        } catch (Exception e) {
+            writeResult(exchange, "500", "text/plain", String.valueOf(e.getMessage()));
+        }
+    }
+
+    private static Map<String, String> parseQuery(String rawQuery) {
+        Map<String, String> result = new HashMap<>();
+        if (rawQuery == null || rawQuery.isEmpty()) {
+            return result;
+        }
+        for (String pair : rawQuery.split("&")) {
+            int idx = pair.indexOf('=');
+            String key = idx < 0 ? pair : pair.substring(0, idx);
+            String value = idx < 0 ? "" : pair.substring(idx + 1);
+            result.put(URLDecoder.decode(key, StandardCharsets.UTF_8), URLDecoder.decode(value, StandardCharsets.UTF_8));
+        }
+        return result;
+    }
+
+    private static String readBody(HttpExchange exchange) throws IOException {
+        try (InputStream is = exchange.getRequestBody()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static void writeResult(HttpExchange exchange, String statusCode, String contentType, String body) throws IOException {
+        byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
+        if (contentType != null) {
+            exchange.getResponseHeaders().set("Content-Type", contentType);
+        }
+        int code;
+        try {
+            code = Integer.parseInt(statusCode);
+        } catch (NumberFormatException e) {
+            code = 500;
+        }
+        exchange.sendResponseHeaders(code, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+}

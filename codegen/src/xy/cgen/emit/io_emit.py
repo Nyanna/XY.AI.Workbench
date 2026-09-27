@@ -10,7 +10,7 @@ part of the shared type graph).
 """
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from xy.cgen.emit.io_context import build_code_branches, build_content_type_branches, json_support_fqn
+from xy.cgen.emit.io_context import build_code_branches, build_content_type_branches, build_response_setters, json_support_fqn
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / 'templates'
 _ENV = Environment(
     loader=FileSystemLoader(
@@ -41,11 +41,13 @@ def _emit_json_support(model, writer) -> None:
 def _emit_response(response_node, model, writer) -> None:
     name = model.name_of(response_node)
     codes = build_code_branches(response_node, model)
+    setters = build_response_setters(response_node, model)
     template = _ENV.get_template('io/response.java.jinja')
     content = template.render(
         package=name.package,
         class_name=name.class_name,
         codes=codes,
+        setters=setters,
         json_support_fqn=json_support_fqn(
             model.base_package))
     _write(name, content, writer)

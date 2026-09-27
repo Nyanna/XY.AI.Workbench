@@ -6,9 +6,11 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2.jar" sourcepath="/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2-sources.jar">
+	<classpathentry kind="lib" path="libs/jackson-core-2.20.0.jar"/>
+	<classpathentry kind="lib" path="libs/jackson-databind-2.20.0.jar"/>
+	<classpathentry kind="lib" path="libs/javaparser-core-3.28.2.jar" sourcepath="libs/javaparser-core-3.28.2-sources.jar">
 		<attributes>
-			<attribute name="javadoc_location" value="jar:platform:/resource/XY.AI.Workbench/libs/ast/javaparser-core-3.28.2-javadoc.jar!/"/>
+			<attribute name="javadoc_location" value="jar:platform:/resource/XY.AI.ast-java/libs/javaparser-core-3.28.2-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="output" path=".bin"/>

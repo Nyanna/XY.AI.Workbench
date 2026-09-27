@@ -3,6 +3,7 @@ package {{ package }};
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 /** Proxy over a JSON array node; holds no data of its own. */
 public final class {{ class_name }} {
@@ -11,6 +12,11 @@ public final class {{ class_name }} {
 
     public {{ class_name }}(JsonNode node) {
         this.node = node;
+    }
+
+    /** Backed by a fresh, empty JSON array; populate it via add(...). */
+    public {{ class_name }}() {
+        this(JsonNodeFactory.instance.arrayNode());
     }
 
     public JsonNode node() {
