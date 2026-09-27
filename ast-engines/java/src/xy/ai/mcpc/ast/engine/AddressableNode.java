@@ -9,29 +9,27 @@ import com.github.javaparser.ast.NodeList;
  * {@code Node.replace}/{@code Node.remove} cover the other two mutations directly).
  */
 public final class AddressableNode {
+  public final String id;
+  public final Node astNode;
+  public final String type;
+  public final String name;
+  public final int lineno;
+  public final int endLineno;
+  public final String parentType;
+  public final boolean expandable;
+  public final boolean isDefinition;
+  public final NodeList<?> container;
 
-    public final String id;
-    public final Node astNode;
-    public final String type;
-    public final String name;
-    public final int lineno;
-    public final int endLineno;
-    public final String parentType;
-    public final boolean expandable;
-    public final boolean isDefinition;
-    public final NodeList<?> container;
-
-    public AddressableNode(String id, Node astNode, String type, String name, int lineno, int endLineno,
-                            String parentType, boolean expandable, boolean isDefinition, NodeList<?> container) {
-        this.id = id;
-        this.astNode = astNode;
-        this.type = type;
-        this.name = name;
-        this.lineno = lineno;
-        this.endLineno = endLineno;
-        this.parentType = parentType;
-        this.expandable = expandable;
-        this.isDefinition = isDefinition;
-        this.container = container;
-    }
+  public AddressableNode(String id, Node astNode, String type, String name, int lineno, int endLineno, String parentType, boolean expandable, boolean isDefinition, NodeList<?> container) {
+    this.id = id;
+    this.astNode = astNode;
+    this.type = type;
+    this.name = name;
+    this.lineno = lineno;
+    this.endLineno = endLineno;
+    this.parentType = parentType;
+    this.expandable = expandable;
+    this.isDefinition = isDefinition;
+    this.container = container;
+  }
 }

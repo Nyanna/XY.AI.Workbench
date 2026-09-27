@@ -10,198 +10,258 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
+import com.github.javaparser.ast.body.InitializerDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.comments.JavadocComment;
-
+import com.github.javaparser.printer.Printer;
+import com.github.javaparser.printer.DefaultPrettyPrinter;
+import com.github.javaparser.printer.DefaultPrettyPrinterVisitor;
+import com.github.javaparser.printer.configuration.DefaultConfigurationOption;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.DoStmt;
+import com.github.javaparser.ast.stmt.ForEachStmt;
+import com.github.javaparser.ast.stmt.ForStmt;
+import com.github.javaparser.ast.stmt.IfStmt;
+import com.github.javaparser.ast.stmt.LabeledStmt;
+import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.stmt.WhileStmt;
+import com.github.javaparser.ast.visitor.VoidVisitor;
+import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
+import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration.ConfigOption;
+import com.github.javaparser.printer.configuration.Indentation;
+import com.github.javaparser.printer.configuration.Indentation.IndentType;
+import com.github.javaparser.printer.configuration.PrinterConfiguration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * JavaParser mechanics: parse/print, syntax validation, fragment parsing keyed by the
- * target node's category, and the four mutation primitives. Uses the plain
- * {@code PrettyPrinter} (via {@code Node#toString()}, which is not affected unless
- * {@code LexicalPreservingPrinter.setup} is called — which it never is here) so every
- * write normalises formatting, rather than {@code LexicalPreservingPrinter}.
+ * JavaParser mechanics: parse/print, syntax validation, fragment parsing keyed
+ * by the target node's category, and the four mutation primitives. Uses the
+ * plain {@code PrettyPrinter} (via {@code Node#toString()}, which is not
+ * affected unless {@code LexicalPreservingPrinter.setup} is called — which it
+ * never is here) so every write normalises formatting, rather than
+ * {@code LexicalPreservingPrinter}.
  */
 public final class JavaAstEngine {
+  private final JavaParser parser;
 
-    private final JavaParser parser;
+  public JavaAstEngine() {
+    ParserConfiguration cfg = new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_25);
+    cfg.setTabSize(2);
+    cfg.setDetectOriginalLineSeparator(false);
+    cfg.setIgnoreAnnotationsWhenAttributingComments(true);
+    this.parser = new JavaParser(cfg);
+  }
 
-    public JavaAstEngine() {
-        ParserConfiguration configuration = new ParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.CURRENT);
-        this.parser = new JavaParser(configuration);
+  public CompilationUnit parseCompilationUnit(String source) {
+    return unwrap(parser.parse(source), "compilation unit");
+  }
+
+  public CompilationUnit emptyCompilationUnit() {
+    return new CompilationUnit();
+  }
+
+  public String print(Node node) {
+    Indentation indent = new Indentation(IndentType.SPACES, 2);
+    final PrinterConfiguration cfg = new DefaultPrinterConfiguration();
+    cfg.addOption(new DefaultConfigurationOption(ConfigOption.INDENTATION, indent));
+    cfg.addOption(new DefaultConfigurationOption(ConfigOption.END_OF_LINE_CHARACTER, "\n"));
+    Function<PrinterConfiguration, VoidVisitor<Void>> fac = (config) -> new DefaultPrettyPrinterVisitorExtension(config);
+    Printer printer = new DefaultPrettyPrinter(fac, cfg);
+    return printer.print(node);
+  }
+
+  private class DefaultPrettyPrinterVisitorExtension extends DefaultPrettyPrinterVisitor {
+
+    private DefaultPrettyPrinterVisitorExtension(PrinterConfiguration configuration) {
+      super(configuration);
     }
 
-    public CompilationUnit parseCompilationUnit(String source) {
-        return unwrap(parser.parse(source), "compilation unit");
+    protected void printMembers(final NodeList<BodyDeclaration<?>> members, final Void arg) {
+      for (final BodyDeclaration<?> mem : members) {
+        if (needsBlankLineAfter(mem))
+          printer.println();
+        mem.accept(this, arg);
+        printer.println();
+      }
     }
+  }
 
-    public CompilationUnit emptyCompilationUnit() {
-        return new CompilationUnit();
+  private boolean needsBlankLineAfter(BodyDeclaration<?> m) {
+    return m instanceof MethodDeclaration || m instanceof ConstructorDeclaration || m instanceof ClassOrInterfaceDeclaration || m instanceof EnumDeclaration || m instanceof RecordDeclaration || m instanceof InitializerDeclaration;
+  }
+
+  /**
+   * Returns an error message if {@code source} is malformed, else {@code null}.
+   */
+  public String validate(String source) {
+    ParseResult<CompilationUnit> result = parser.parse(source);
+    return result.isSuccessful() ? null : problemsMessage(result.getProblems());
+  }
+
+  public ImportDeclaration parseImportFragment(String code) {
+    String stripped = code.strip();
+    return unwrap(parser.parseImport(stripped.endsWith(";") ? stripped : stripped + ";"), "import");
+  }
+
+  public TypeDeclaration<?> parseTypeFragment(String code) {
+    return unwrap(parser.parseTypeDeclaration(code), "type declaration");
+  }
+
+  public BodyDeclaration<?> parseBodyFragment(String code) {
+    return unwrap(parser.parseBodyDeclaration(code), "member declaration");
+  }
+
+  public EnumConstantDeclaration parseEnumConstantFragment(String code) {
+    CompilationUnit wrapper = unwrap(parser.parse("enum __Wrapper__ { " + code + " }"), "enum constant");
+    EnumDeclaration decl = (EnumDeclaration) wrapper.getType(0);
+    if (decl.getEntries().isEmpty())
+      throw new AstEngineException(AstEngineException.Kind.SYNTAX, "not a valid enum constant: " + code);
+    return decl.getEntries().get(0).clone();
+  }
+
+  /**
+   * Parses {@code code} for the node category matching {@code sample}'s own type.
+   */
+  public Node parseReplacementFor(Node sample, String code) {
+    if (sample instanceof ImportDeclaration)
+      return parseImportFragment(code);
+    if (sample instanceof TypeDeclaration<?>)
+      return parseTypeFragment(code);
+    if (sample instanceof EnumConstantDeclaration)
+      return parseEnumConstantFragment(code);
+    return parseBodyFragment(code);
+  }
+
+  public record AppendResult(CompilationUnit cu, int units) {
+  }
+
+  public AppendResult append(CompilationUnit cu, String code) {
+    boolean empty = cu.getTypes().isEmpty() && cu.getImports().isEmpty() && cu.getPackageDeclaration().isEmpty();
+    if (empty)
+      return new AppendResult(parseCompilationUnit(code), 1);
+    String trimmed = code.strip();
+    if (trimmed.startsWith("import "))
+      cu.getImports().add(parseImportFragment(trimmed));
+    else
+      cu.addType(parseTypeFragment(trimmed));
+    return new AppendResult(cu, 1);
+  }
+
+  public void replace(AddressableNode target, String code) {
+    Node replacement = parseReplacementFor(target.astNode, code);
+    if (!target.astNode.replace(replacement))
+      throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be replaced in place: " + target.id);
+  }
+
+  @SuppressWarnings("unchecked")
+  public int insert(AddressableNode target, String code, String position) {
+    Node fragment = parseReplacementFor(target.astNode, code);
+    NodeList<Node> container = (NodeList<Node>) target.container;
+    int idx = container.indexOf(target.astNode);
+    if (idx < 0)
+      throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node no longer present: " + target.id);
+    if ("after".equals(position))
+      idx++;
+    container.add(idx, fragment);
+    return 1;
+  }
+
+  public void delete(AddressableNode target) {
+    if (!target.astNode.remove())
+      throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be removed: " + target.id);
+  }
+
+  public String signature(Node node, int limit) {
+    String text;
+    if (node instanceof CallableDeclaration<?> callable)
+      text = callable.getDeclarationAsString();
+    else if (node instanceof TypeDeclaration<?>)
+      text = header(node.toString());
+    else
+      text = firstLine(node.toString());
+    text = text.replace('\n', ' ').replace('\r', ' ').strip();
+    return text.length() <= limit ? text : text.substring(0, limit - 1) + "…";
+  }
+
+  private static String header(String printed) {
+    int brace = printed.indexOf('{');
+    return brace < 0 ? firstLine(printed) : printed.substring(0, brace + 1);
+  }
+
+  private static String firstLine(String printed) {
+    for (String line : printed.split("\n")) {
+      String stripped = line.strip();
+      if (!stripped.isEmpty())
+        return stripped;
     }
+    return "";
+  }
 
-    public String print(Node node) {
-        return node.toString();
+  /**
+   * Short first-paragraph rendering of {@code node}'s Javadoc, if any.
+   */
+  public String docstring(Node node, int limit) {
+    Optional<Comment> comment = node.getComment();
+    if (comment.isEmpty() || !(comment.get() instanceof JavadocComment javadoc))
+      return null;
+    Stream<String> st = Arrays.stream(javadoc.getContent().split("\n"));
+    st = st.map(line -> line.strip().replaceFirst("^\\*\\s?", ""));
+    st = st.filter(line -> !line.isBlank());
+    String cleaned = st.findFirst().orElse("").strip();
+    if (cleaned.isEmpty())
+      return null;
+    return cleaned.length() <= limit ? cleaned : cleaned.substring(0, limit - 1) + "…";
+  }
+
+  private static <T> T unwrap(ParseResult<T> result, String what) {
+    if (result.isSuccessful() && result.getResult().isPresent()) {
+      T node = result.getResult().get();
+      if (node instanceof Node astNode)
+        unwrapSingleStatementBlocks(astNode);
+      return node;
     }
+    throw new AstEngineException(AstEngineException.Kind.SYNTAX, "invalid " + what + ": " + problemsMessage(result.getProblems()), result.getProblems().stream().map(Problem::toString).collect(Collectors.toList()));
+  }
 
-    /** Returns an error message if {@code source} is malformed, else {@code null}. */
-    public String validate(String source) {
-        ParseResult<CompilationUnit> result = parser.parse(source);
-        return result.isSuccessful() ? null : problemsMessage(result.getProblems());
+  private static void unwrapSingleStatementBlocks(Node root) {
+    for (BlockStmt block : root.findAll(BlockStmt.class)) {
+      if (block.getStatements().size() != 1)
+        continue;
+      Statement single = block.getStatement(0);
+      Node parent = block.getParentNode().orElse(null);
+      if (parent instanceof IfStmt ifStmt)
+        if (ifStmt.getThenStmt() == block) {
+          boolean danglingElse = ifStmt.getElseStmt().isPresent() && single instanceof IfStmt innerIf && innerIf.getElseStmt().isEmpty();
+          if (!danglingElse)
+            ifStmt.setThenStmt(single);
+        } else if (ifStmt.getElseStmt().orElse(null) == block)
+          ifStmt.setElseStmt(single);
+        else if (parent instanceof WhileStmt whileStmt && whileStmt.getBody() == block)
+          whileStmt.setBody(single);
+        else if (parent instanceof DoStmt doStmt && doStmt.getBody() == block)
+          doStmt.setBody(single);
+        else if (parent instanceof ForStmt forStmt && forStmt.getBody() == block)
+          forStmt.setBody(single);
+        else if (parent instanceof ForEachStmt forEachStmt && forEachStmt.getBody() == block)
+          forEachStmt.setBody(single);
+        else if (parent instanceof LabeledStmt labeledStmt && labeledStmt.getStatement() == block)
+          labeledStmt.setStatement(single);
     }
+  }
 
-    // -- fragment parsing, one entry point per node category --
-
-    public ImportDeclaration parseImportFragment(String code) {
-        String stripped = code.strip();
-        return unwrap(parser.parseImport(stripped.endsWith(";") ? stripped : stripped + ";"), "import");
-    }
-
-    public TypeDeclaration<?> parseTypeFragment(String code) {
-        return unwrap(parser.parseTypeDeclaration(code), "type declaration");
-    }
-
-    public BodyDeclaration<?> parseBodyFragment(String code) {
-        return unwrap(parser.parseBodyDeclaration(code), "member declaration");
-    }
-
-    public EnumConstantDeclaration parseEnumConstantFragment(String code) {
-        CompilationUnit wrapper = unwrap(parser.parse("enum __Wrapper__ { " + code + " }"), "enum constant");
-        EnumDeclaration decl = (EnumDeclaration) wrapper.getType(0);
-        if (decl.getEntries().isEmpty()) {
-            throw new AstEngineException(AstEngineException.Kind.SYNTAX, "not a valid enum constant: " + code);
-        }
-        return decl.getEntries().get(0).clone();
-    }
-
-    /** Parses {@code code} for the node category matching {@code sample}'s own type. */
-    public Node parseReplacementFor(Node sample, String code) {
-        if (sample instanceof ImportDeclaration) {
-            return parseImportFragment(code);
-        }
-        if (sample instanceof TypeDeclaration<?>) {
-            return parseTypeFragment(code);
-        }
-        if (sample instanceof EnumConstantDeclaration) {
-            return parseEnumConstantFragment(code);
-        }
-        return parseBodyFragment(code);
-    }
-
-    // -- CU-level append --
-
-    public record AppendResult(CompilationUnit cu, int units) {
-    }
-
-    public AppendResult append(CompilationUnit cu, String code) {
-        boolean empty = cu.getTypes().isEmpty() && cu.getImports().isEmpty() && cu.getPackageDeclaration().isEmpty();
-        if (empty) {
-            return new AppendResult(parseCompilationUnit(code), 1);
-        }
-        String trimmed = code.strip();
-        if (trimmed.startsWith("import ")) {
-            cu.getImports().add(parseImportFragment(trimmed));
-        } else {
-            cu.addType(parseTypeFragment(trimmed));
-        }
-        return new AppendResult(cu, 1);
-    }
-
-    // -- mutation on a resolved node --
-
-    public void replace(AddressableNode target, String code) {
-        Node replacement = parseReplacementFor(target.astNode, code);
-        if (!target.astNode.replace(replacement)) {
-            throw new AstEngineException(AstEngineException.Kind.CONFLICT,
-                    "node could not be replaced in place: " + target.id);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public int insert(AddressableNode target, String code, String position) {
-        Node fragment = parseReplacementFor(target.astNode, code);
-        NodeList<Node> container = (NodeList<Node>) target.container;
-        int idx = container.indexOf(target.astNode);
-        if (idx < 0) {
-            throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node no longer present: " + target.id);
-        }
-        if ("after".equals(position)) {
-            idx++;
-        }
-        container.add(idx, fragment);
-        return 1;
-    }
-
-    public void delete(AddressableNode target) {
-        if (!target.astNode.remove()) {
-            throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be removed: " + target.id);
-        }
-    }
-
-    // -- signature / docstring --
-
-    public String signature(Node node, int limit) {
-        String text;
-        if (node instanceof CallableDeclaration<?> callable) {
-            text = callable.getDeclarationAsString();
-        } else if (node instanceof TypeDeclaration<?>) {
-            text = header(node.toString());
-        } else {
-            text = firstLine(node.toString());
-        }
-        text = text.replace('\n', ' ').replace('\r', ' ').strip();
-        return text.length() <= limit ? text : text.substring(0, limit - 1) + "…";
-    }
-
-    private static String header(String printed) {
-        int brace = printed.indexOf('{');
-        return brace < 0 ? firstLine(printed) : printed.substring(0, brace + 1);
-    }
-
-    private static String firstLine(String printed) {
-        for (String line : printed.split("\n")) {
-            String stripped = line.strip();
-            if (!stripped.isEmpty()) {
-                return stripped;
-            }
-        }
-        return "";
-    }
-
-    /** Short first-paragraph rendering of {@code node}'s Javadoc, if any. */
-    public String docstring(Node node, int limit) {
-        Optional<Comment> comment = node.getComment();
-        if (comment.isEmpty() || !(comment.get() instanceof JavadocComment javadoc)) {
-            return null;
-        }
-        String cleaned = Arrays.stream(javadoc.getContent().split("\n"))
-                .map(line -> line.strip().replaceFirst("^\\*\\s?", ""))
-                .filter(line -> !line.isBlank())
-                .findFirst().orElse("").strip();
-        if (cleaned.isEmpty()) {
-            return null;
-        }
-        return cleaned.length() <= limit ? cleaned : cleaned.substring(0, limit - 1) + "…";
-    }
-
-    // -- helpers --
-
-    private static <T> T unwrap(ParseResult<T> result, String what) {
-        if (result.isSuccessful() && result.getResult().isPresent()) {
-            return result.getResult().get();
-        }
-        throw new AstEngineException(AstEngineException.Kind.SYNTAX,
-                "invalid " + what + ": " + problemsMessage(result.getProblems()),
-                result.getProblems().stream().map(Problem::toString).collect(Collectors.toList()));
-    }
-
-    private static String problemsMessage(List<Problem> problems) {
-        return problems.stream().map(Problem::getVerboseMessage).collect(Collectors.joining("; "));
-    }
+  private static String problemsMessage(List<Problem> problems) {
+    return problems.stream().map(Problem::getVerboseMessage).collect(Collectors.joining("; "));
+  }
 }
