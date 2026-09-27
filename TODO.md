@@ -2,6 +2,7 @@
 
 ### Tools
 - AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
+- Auch AST für JS/TS
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei

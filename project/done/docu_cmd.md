@@ -1884,7 +1884,7 @@ Result Stats: id=1631751753, total: 27186, in: 546, out: 272, reason: 152, read:
 Thinking:
 Now I have all necessary info. Let me also check if there is a "Label:" prefix specifically. The user first said Labels "Label:" -> segments with metadata, then clarified Label means all prefix-like constructs, e.g. Result Stats in AIAnswer. So I'll document all prefix/label constructs as "Labels" not just "Label:" literal.
 
-I should also check for the prompt tag format: `[xy.ai.req:<meta>:<id>]`. The generateTag uses pattern.name() as meta. What is KeyPattern names? Could search, but not necessary. But maybe helpful to document that "Label" prompt markers appear as `[xy.ai.req:...:...]`. Let me search for KeyPattern enum.
+I should also check for the prompt tag format: `xy.ai.req:<meta>:<id>`. The generateTag uses pattern.name() as meta. What is KeyPattern names? Could search, but not necessary. But maybe helpful to document that "Label" prompt markers appear as `xy.ai.req:...:...`. Let me search for KeyPattern enum.
 Thinking Meta: {"type":"reasoning","id":"03427267-ca6a-4da6-9985-959427e9d626","status":"completed","content":[{"type":"reasoning_text","text":"{{reasoning-text-0}}"}],"summary":[],"encrypted_content":"51a82a89-99ba-4da6-92c1-796d0685c184-0"}
 Tool:
 ```yaml
@@ -2144,7 +2144,7 @@ Now I have all. I should produce a compact English listing/documentation for end
    - `SystemInit: ` — metadata `id=..., cwd=..., model=...`.
    - `ReasoningToken: ` — reasoning token count.
    - `Token Usage: ` — token usage.
-   - Prompt tag label: `[xy.ai.req:<meta>:<id>]` — generated marker, where meta is KeyPattern name (OpenAI, Gemini, Claude, Deepseek, None, ClaudeCode, Misc).
+   - Prompt tag label: `xy.ai.req:<meta>:<id>` — generated marker, where meta is KeyPattern name (OpenAI, Gemini, Claude, Deepseek, None, ClaudeCode, Misc).
 
 Let me verify exact strings. In EditorInterface: 
 - USER = "User:"
@@ -2221,7 +2221,7 @@ List:
 - `SystemInit: ` — session metadata; format `SystemInit: id=<session id>, cwd=<dir>, model=<model>`
 - `ReasoningToken: ` — count of reasoning tokens.
 - `Token Usage: ` — token usage segment.
-- Prompt tag: `[xy.ai.req:<provider>:<request id>]` — generated placeholder; provider is one of OpenAI, Gemini, Claude, Deepseek, None, ClaudeCode, Misc.
+- Prompt tag: `xy.ai.req:<provider>:<request id>` — generated placeholder; provider is one of OpenAI, Gemini, Claude, Deepseek, None, ClaudeCode, Misc.
 
 I need be accurate: THINKING_META and Token Usage/ReasoningToken/SystemInit have trailing spaces. Include exact strings with quotes. Let me include a table with "Exact prefix" and "Meaning".
 

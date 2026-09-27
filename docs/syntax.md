@@ -18,7 +18,7 @@ A **label** is a line prefix that marks the start of a segment. It separates con
 | `SystemInit: ` | Session metadata | Session startup info. Format: `SystemInit: id=<session-id>, cwd=<directory>, model=<model>` |
 | `ReasoningToken: ` | Reasoning token count | Number of reasoning tokens. |
 | `Token Usage: ` | Token usage | Token usage information. |
-| `[xy.ai.req:<provider>:<request-id>]` | Prompt marker | Generated placeholder for a request. `<provider>` is one of: `OpenAI`, `Gemini`, `Claude`, `Deepseek`, `None`, `ClaudeCode`, `Misc`. |
+| `xy.ai.req:<provider>:<request-id>` | Prompt marker | Generated placeholder for a request. `<provider>` is one of: `OpenAI`, `Gemini`, `Claude`, `Deepseek`, `None`, `ClaudeCode`, `Misc`. |
 
 > Note: The labels with a trailing space (`Result Stats: `, `SystemInit: `, `ReasoningToken: `, `Token Usage: `) include that space in their exact form. All other labels use a colon without a trailing space.
 
