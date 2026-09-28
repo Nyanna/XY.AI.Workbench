@@ -1,0 +1,83 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** Proxy over a decoded JSON object used as a string-keyed map; holds no data of its own. */
+final class {{ class_name }}
+{
+    private array $node;
+
+    public function __construct(array $node = [])
+    {
+        $this->node = $node;
+    }
+
+    public function node(): array
+    {
+        return $this->node;
+    }
+
+    public function size(): int
+    {
+        return count($this->node);
+    }
+
+    public function keys(): array
+    {
+        return array_keys($this->node);
+    }
+
+    public function containsKey(string $key): bool
+    {
+        return array_key_exists($key, $this->node);
+    }
+
+{{ macros.phpdoc(value.description, value.example_repr) }}
+    public function get(string $key)
+    {
+{% if value.category == 'primitive' %}
+        $v = $this->node[$key] ?? null;
+        return $v === null ? null : ({{ value.read_method }}) $v;
+{% elif value.category == 'enum' %}
+        $v = $this->node[$key] ?? null;
+        return $v === null ? null : {{ value.java_type|phpfqn }}::fromValue(({{ value.read_method }}) $v);
+{% elif value.category == 'any_dictionary' %}
+        return $this->node[$key] ?? null;
+{% else %}
+        $child = $this->node[$key] ?? null;
+        return $child === null ? null : new {{ value.java_type|phpfqn }}($child);
+{% endif %}
+    }
+
+{{ macros.phpdoc(value.description, value.example_repr) }}
+    public function put(string $key, $value): void
+    {
+{% if value.category == 'primitive' %}
+        $this->node[$key] = $value;
+{% elif value.category == 'enum' %}
+        $this->node[$key] = $value === null ? null : $value->rawValue();
+{% elif value.category == 'any_dictionary' %}
+        $this->node[$key] = $value;
+{% else %}
+        $this->node[$key] = $value === null ? null : $value->node();
+{% endif %}
+    }
+
+    public function remove(string $key): void
+    {
+        unset($this->node[$key]);
+    }
+
+    public function __toString(): string
+    {
+        return {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% if is_request_root %}
+
+    public static function fromString(string $body): self
+    {
+        return new self({{ json_support_fqn|phpfqn }}::parse($body));
+    }
+{% endif %}
+}

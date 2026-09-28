@@ -1,0 +1,14 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** One method per operation; description/example copied from the operation. */
+interface {{ class_name }}
+{
+{% for m in methods %}
+
+{{ macros.phpdoc(m.description, m.example_repr) }}
+    public function {{ m.name }}({{ m.signature }}): {{ m.response_type|phpfqn }};
+{% endfor %}
+}

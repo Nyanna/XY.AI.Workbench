@@ -1,0 +1,72 @@
+<?php
+
+namespace {{ package|phpns }};
+
+/**
+ * PHP stream-based implementation of {@see {{ interface_fqn|phpfqn }}}.
+ * Base URL is a constructor parameter; extend this class and override
+ * {@see self::customizeRequest} to inject Authorization or other headers --
+ * no concrete auth code lives in this class itself.
+ */
+class {{ class_name }} implements {{ interface_fqn|phpfqn }}
+{
+    private string $baseUrl;
+
+    public function __construct(string $baseUrl)
+    {
+        $this->baseUrl = $baseUrl;
+    }
+
+    /** Hook for subclasses (e.g. to set Authorization); no-op by default. */
+    protected function customizeRequest(array &$headers): void
+    {
+    }
+{% for m in methods %}
+
+    public function {{ m.name }}({{ m.signature }}): {{ m.response_type|phpfqn }}
+    {
+        $url = $this->baseUrl . {{ m.path_url_expression }};
+{% if m.query_params %}
+        $queryParts = [];
+{% for p in m.query_params %}
+        if (${{ p.name }} !== null) {
+            $queryParts[] = '{{ p.raw_name }}=' . rawurlencode((string) ${{ p.name }});
+        }
+{% endfor %}
+        if (!empty($queryParts)) {
+            $url .= '?' . implode('&', $queryParts);
+        }
+{% endif %}
+        $headers = [];
+{% if m.body_param %}
+        $headers[] = 'Content-Type: application/json';
+        $requestBody = (string) ${{ m.body_param.name }};
+{% else %}
+        $requestBody = '';
+{% endif %}
+        $this->customizeRequest($headers);
+        $context = stream_context_create([
+            'http' => [
+                'method' => '{{ m.http_method }}',
+                'header' => implode("\r\n", $headers),
+                'content' => $requestBody,
+                'ignore_errors' => true,
+            ],
+        ]);
+        $responseBody = @file_get_contents($url, false, $context);
+        if ($responseBody === false) {
+            throw new \RuntimeException('request failed: {{ m.name }}');
+        }
+        $statusCode = 0;
+        $responseContentType = null;
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d+)#', $header, $statusMatch)) {
+                $statusCode = (int) $statusMatch[1];
+            } elseif (stripos($header, 'Content-Type:') === 0) {
+                $responseContentType = trim(substr($header, strlen('Content-Type:')));
+            }
+        }
+        return {{ m.response_type|phpfqn }}::from($responseBody, $statusCode, $responseContentType);
+    }
+{% endfor %}
+}

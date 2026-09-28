@@ -1,0 +1,56 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** One status-code view; the content-type header selects which typed getter applies. */
+final class {{ class_name }}
+{
+    private $node;
+    private ?string $contentType;
+
+    public function __construct($node, ?string $contentType)
+    {
+        $this->node = $node;
+        $this->contentType = $contentType;
+    }
+
+    public function contentType(): ?string
+    {
+        return $this->contentType;
+    }
+{% for v in content_types %}
+
+    /** Whether the bound content type is "{{ v.content_type }}". */
+    public function is{{ v.short_name }}(): bool
+    {
+        return $this->contentType === '{{ v.content_type }}';
+    }
+
+{{ macros.phpdoc(v.description, none) }}
+    public function get{{ v.short_name }}()
+    {
+        if (!$this->is{{ v.short_name }}()) {
+            return null;
+        }
+{% if v.category == 'primitive' %}
+        if ($this->node === null) {
+            return null;
+        }
+        return ({{ v.read_method }}) $this->node;
+{% elif v.category == 'enum' %}
+        if ($this->node === null) {
+            return null;
+        }
+        return {{ v.java_type|phpfqn }}::fromValue(({{ v.read_method }}) $this->node);
+{% elif v.category == 'any_dictionary' %}
+        return $this->node;
+{% else %}
+        if ($this->node === null) {
+            return null;
+        }
+        return new {{ v.java_type|phpfqn }}($this->node);
+{% endif %}
+    }
+{% endfor %}
+}

@@ -7,53 +7,36 @@ affect the resolved type. `null` has no Java type of its own: absent vs.
 explicit-null is a getter concern on the composition view that contains it
 , never a standalone type.
 """
-
-from xy.cgen.model.nodes import (
-    AnyDictionaryNode,
-    CompositionNode,
-    DictionaryNode,
-    EnumNode,
-    ListNode,
-    ObjectNode,
-    PrimitiveNode,
-    RefNode,
-    UnsupportedNode,
-)
-
-JAVA_PRIMITIVE_TYPE = {
-    "string": "String",
-    "integer": "Long",
-    "number": "Double",
-    "boolean": "Boolean",
-}
-
-ANY_DICTIONARY_JAVA_TYPE = "com.fasterxml.jackson.databind.JsonNode"
-
-# Node kinds whose Java type is the generated class assigned by naming.
+from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, PrimitiveNode, RefNode, UnsupportedNode
+JAVA_PRIMITIVE_TYPE = {'string': 'String', 'integer': 'Long', 'number': 'Double', 'boolean': 'Boolean'}
+PHP_PRIMITIVE_TYPE = {'string': 'string', 'integer': 'int', 'number': 'float', 'boolean': 'bool'}
+PRIMITIVE_TYPE = {'java': JAVA_PRIMITIVE_TYPE, 'php': PHP_PRIMITIVE_TYPE}
+ANY_DICTIONARY_JAVA_TYPE = 'com.fasterxml.jackson.databind.JsonNode'
+ANY_DICTIONARY_TYPE = {'java': ANY_DICTIONARY_JAVA_TYPE, 'php': 'mixed'}
+'# Node kinds whose type is the generated class assigned by naming.'
 _GENERATED_CLASS_KINDS = (EnumNode, ListNode, DictionaryNode, ObjectNode, CompositionNode)
 
-
 def map_type(node, named_model) -> str:
-    """Resolve the Java type for a given IR node.
+    """Resolve the target-language type for a given IR node.
 
-    `named_model` supplies the generated class name/package for node kinds
-    that are not primitives (RefNode resolves through the referenced named
-    schema's own entry).
+    `named_model` supplies the generated class name/package (as a dotted fqn,
+    regardless of target language -- Java uses it verbatim, PHP templates
+    convert it via the `phpfqn`/`phpns` filters) for node kinds that are not
+    primitives (RefNode resolves through the referenced named schema's own entry).
     """
     if isinstance(node, PrimitiveNode):
-        return _map_primitive(node)
+        return _map_primitive(node, named_model.language)
     if isinstance(node, AnyDictionaryNode):
-        return ANY_DICTIONARY_JAVA_TYPE
+        return ANY_DICTIONARY_TYPE[named_model.language]
     if isinstance(node, RefNode):
         return named_model.name_of_ref(node.name).fqn
     if isinstance(node, _GENERATED_CLASS_KINDS):
         return named_model.name_of(node).fqn
     if isinstance(node, UnsupportedNode):
-        raise ValueError(f"unsupported node has no Java type (reason={node.reason!r})")
-    raise TypeError(f"cannot map node kind to a Java type: {node.kind!r}")
+        raise ValueError(f'unsupported node has no target type (reason={node.reason!r})')
+    raise TypeError(f'cannot map node kind to a target type: {node.kind!r}')
 
-
-def _map_primitive(node: PrimitiveNode) -> str:
-    if node.primitive_type == "null":
-        raise ValueError("'null' has no standalone Java type -- resolve via the enclosing composition view")
-    return JAVA_PRIMITIVE_TYPE[node.primitive_type]
+def _map_primitive(node: PrimitiveNode, language: str) -> str:
+    if node.primitive_type == 'null':
+        raise ValueError("'null' has no standalone type -- resolve via the enclosing composition view")
+    return PRIMITIVE_TYPE[language][node.primitive_type]

@@ -1,0 +1,73 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** Proxy over a decoded JSON array; holds no data of its own. */
+final class {{ class_name }}
+{
+    private array $node;
+
+    public function __construct(array $node = [])
+    {
+        $this->node = $node;
+    }
+
+    public function node(): array
+    {
+        return $this->node;
+    }
+
+    public function size(): int
+    {
+        return count($this->node);
+    }
+
+{{ macros.phpdoc(element.description, element.example_repr) }}
+    public function get(int $index)
+    {
+{% if element.category == 'primitive' %}
+        $value = $this->node[$index] ?? null;
+        return $value === null ? null : ({{ element.read_method }}) $value;
+{% elif element.category == 'enum' %}
+        $value = $this->node[$index] ?? null;
+        return $value === null ? null : {{ element.java_type|phpfqn }}::fromValue(({{ element.read_method }}) $value);
+{% elif element.category == 'any_dictionary' %}
+        return $this->node[$index] ?? null;
+{% else %}
+        $child = $this->node[$index] ?? null;
+        return $child === null ? null : new {{ element.java_type|phpfqn }}($child);
+{% endif %}
+    }
+
+{{ macros.phpdoc(element.description, element.example_repr) }}
+    public function add($value): void
+    {
+{% if element.category == 'primitive' %}
+        $this->node[] = $value;
+{% elif element.category == 'enum' %}
+        $this->node[] = $value === null ? null : $value->rawValue();
+{% elif element.category == 'any_dictionary' %}
+        $this->node[] = $value;
+{% else %}
+        $this->node[] = $value === null ? null : $value->node();
+{% endif %}
+    }
+
+    public function remove(int $index): void
+    {
+        array_splice($this->node, $index, 1);
+    }
+
+    public function __toString(): string
+    {
+        return {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% if is_request_root %}
+
+    public static function fromString(string $body): self
+    {
+        return new self({{ json_support_fqn|phpfqn }}::parse($body));
+    }
+{% endif %}
+}

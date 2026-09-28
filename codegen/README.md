@@ -1,6 +1,6 @@
-# cgen - OpenAPI 3.1 to Java Code Generator
+# cgen - OpenAPI 3.1 to Code Generator
 
-A type-safe Java code generator that transforms OpenAPI 3.1 YAML specifications into well-structured, production-ready source code.
+A type-safe code generator that transforms OpenAPI 3.1 YAML specifications into well-structured, production-ready source code. The target language is selected via `--language`, which picks the corresponding `templates/<language>` directory.
 
 ## Overview
 
@@ -49,7 +49,7 @@ OpenAPI YAML Schema
 ### Command-Line Interface
 
 ```bash
-cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>]
+cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>] [--language java|php]
 ```
 
 ### Arguments
@@ -57,6 +57,7 @@ cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <p
 - `--schema` (required): Path to the OpenAPI 3.1 YAML schema file
 - `--out` (required): Output directory where generated Java sources will be written
 - `--base-package` (optional): Root package for generated code
+- `--language` (optional): Target language, `java` or `php` (default: `java`); selects the `templates/<language>` directory
 
 ## Project Structure
 

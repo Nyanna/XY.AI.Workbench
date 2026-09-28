@@ -1,0 +1,29 @@
+<?php
+
+namespace {{ package|phpns }};
+
+/** Shared JSON (de)serialization used by every request/response root class. */
+final class JsonSupport
+{
+    private function __construct()
+    {
+    }
+
+    public static function parse(string $body)
+    {
+        $decoded = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('failed to parse JSON body: ' . json_last_error_msg());
+        }
+        return $decoded;
+    }
+
+    public static function write($node): string
+    {
+        $encoded = json_encode($node);
+        if ($encoded === false) {
+            throw new \RuntimeException('failed to serialize JSON body: ' . json_last_error_msg());
+        }
+        return $encoded;
+    }
+}

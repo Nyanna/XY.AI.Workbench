@@ -1,0 +1,55 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/**
+ * Transport-agnostic server base class. Implement one abstract method per operation -- each has the exact
+ * same signature (parameters and XxxResponse return type) as the corresponding client-interface method, so
+ * no HTTP type (status code, content type, ...) ever appears in your implementation. Build the returned
+ * response via its no-arg constructor plus one of its setCode<NNN>(...) methods.
+ *
+ * Wire {@see self::handle} into your own front controller (e.g. index.php), or call {@see self::run}
+ * directly from one driven by PHP's built-in web server / request superglobals.
+ */
+abstract class {{ class_name }}
+{
+{% for m in methods %}
+
+{{ macros.phpdoc(m.description, m.example_repr) }}
+    abstract protected function {{ m.name }}({{ m.signature }}): {{ m.response_type|phpfqn }};
+{% endfor %}
+
+    /** Routes one request and sends the response via http_response_code()/header()/echo. */
+    public function handle(string $method, string $path, array $queryParams): void
+    {
+{% for m in methods %}
+        if (strcasecmp($method, '{{ m.http_method }}') === 0 && preg_match('#^{{ m.pattern_regex }}$#', $path, $matches)) {
+{% for line in m.binding_lines %}
+            {{ line }}
+{% endfor %}
+            $response = $this->{{ m.name }}({{ m.call_args }});
+            $this->writeResult($response->statusCode(), $response->contentType(), $response->body());
+            return;
+        }
+{% endfor %}
+        $this->writeResult('404', 'text/plain', 'not found: ' . $method . ' ' . $path);
+    }
+
+    /** Convenience entry point: derives method/path/query from PHP superglobals. */
+    public function run(): void
+    {
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+        $this->handle($method, $path, $_GET);
+    }
+
+    private function writeResult(?string $statusCode, ?string $contentType, string $body): void
+    {
+        http_response_code((int) ($statusCode ?? '500'));
+        if ($contentType !== null) {
+            header('Content-Type: ' . $contentType);
+        }
+        echo $body;
+    }
+}

@@ -1,0 +1,30 @@
+<?php
+
+namespace {{ package|phpns }};
+
+/** Closed value set over {{ primitive_type }}. */
+enum {{ class_name }}
+{
+{% for c in constants %}
+    case {{ c.constant_name }};
+{% endfor %}
+
+    public function rawValue(): {{ raw_type }}
+    {
+        return match ($this) {
+{% for c in constants %}
+            self::{{ c.constant_name }} => {{ c.literal }},
+{% endfor %}
+        };
+    }
+
+    public static function fromValue({{ raw_type }} $value): self
+    {
+        foreach (self::cases() as $candidate) {
+            if ($candidate->rawValue() === $value) {
+                return $candidate;
+            }
+        }
+        throw new \InvalidArgumentException("unknown {{ class_name }} value: " . $value);
+    }
+}

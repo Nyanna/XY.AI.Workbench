@@ -1,0 +1,72 @@
+<?php
+
+namespace {{ package|phpns }};
+
+/** Root response object; status code and content type are transport metadata, never part of the body.
+ * Client-side, use {@see self::from}; server-side, use the no-arg constructor plus one of the
+ * setCode<NNN>(...) methods to construct the exact response your operation implementation returns. */
+final class {{ class_name }}
+{
+    private $node = null;
+    private ?string $statusCode = null;
+    private ?string $contentType = null;
+
+    /** For server-side construction: follow up with a setCode<NNN>(...) call. */
+    public function __construct()
+    {
+    }
+
+    public static function from(string $body, int $statusCode, ?string $contentType): self
+    {
+        $response = new self();
+        $response->node = {{ json_support_fqn|phpfqn }}::parse($body);
+        $response->statusCode = (string) $statusCode;
+        $response->contentType = $contentType;
+        return $response;
+    }
+
+    public function statusCode(): ?string
+    {
+        return $this->statusCode;
+    }
+
+    public function contentType(): ?string
+    {
+        return $this->contentType;
+    }
+
+    /** Response body as JSON text, or an empty string if there is none. */
+    public function body(): string
+    {
+        return $this->node === null ? '' : {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% for c in codes %}
+
+    /** Present only if the response's status code is {{ c.status_code }}. */
+    public function getCode{{ c.status_code }}(): ?{{ c.java_type|phpfqn }}
+    {
+        if ($this->statusCode !== '{{ c.status_code }}') {
+            return null;
+        }
+        return new {{ c.java_type|phpfqn }}($this->node, $this->contentType);
+    }
+{% endfor %}
+{% for s in setters %}
+
+    /** Builds a {{ s.status_code }} / "{{ s.content_type }}" response from an already-typed body value. */
+    public function {{ s.method_name }}($value): void
+    {
+{% if s.category == 'primitive' %}
+        $this->node = $value;
+{% elif s.category == 'enum' %}
+        $this->node = $value === null ? null : $value->rawValue();
+{% elif s.category == 'any_dictionary' %}
+        $this->node = $value;
+{% else %}
+        $this->node = $value === null ? null : $value->node();
+{% endif %}
+        $this->statusCode = '{{ s.status_code }}';
+        $this->contentType = '{{ s.content_type }}';
+    }
+{% endfor %}
+}

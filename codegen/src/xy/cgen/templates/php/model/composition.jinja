@@ -1,0 +1,67 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** Proxy over one decoded JSON value; every branch below is a view of the same {{ keyword }} node (no merge). */
+final class {{ class_name }}
+{
+    private $node;
+
+    public function __construct($node)
+    {
+        $this->node = $node;
+    }
+
+    public function node()
+    {
+        return $this->node;
+    }
+{% for b in branches %}
+{% if b.applies_expr is not none %}
+
+    /** Whether the bound node currently matches the {{ b.accessor_name }} branch. */
+    public function is{{ b.accessor_name }}(): bool
+    {
+        return {{ b.applies_expr }};
+    }
+{% endif %}
+{% if b.has_getter %}
+
+{{ macros.phpdoc(b.description, b.example_repr) }}
+    public function get{{ b.accessor_name }}()
+    {
+{% if b.category == 'primitive' %}
+        if ($this->node === null) {
+            return null;
+        }
+        return ({{ b.read_method }}) $this->node;
+{% elif b.category == 'enum' %}
+        if ($this->node === null) {
+            return null;
+        }
+        return {{ b.java_type|phpfqn }}::fromValue(({{ b.read_method }}) $this->node);
+{% elif b.category == 'any_dictionary' %}
+        return $this->node;
+{% else %}
+        if ($this->node === null) {
+            return null;
+        }
+        return new {{ b.java_type|phpfqn }}($this->node);
+{% endif %}
+    }
+{% endif %}
+{% endfor %}
+
+    public function __toString(): string
+    {
+        return {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% if is_request_root %}
+
+    public static function fromString(string $body): self
+    {
+        return new self({{ json_support_fqn|phpfqn }}::parse($body));
+    }
+{% endif %}
+}

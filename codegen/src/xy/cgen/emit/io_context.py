@@ -7,7 +7,7 @@ since status code and content type are transport metadata that never live on
 a shared model type -- they only exist on this operation-specific root.
 """
 from dataclasses import dataclass
-from xy.cgen.emit.model_context import PRIMITIVE_READ_METHOD, classify
+from xy.cgen.emit.model_context import READ_METHOD, classify
 from xy.cgen.model.nodes import RefNode
 from xy.cgen.naming.identifiers import content_type_short_name, to_pascal_case
 from xy.cgen.typemap import map_type
@@ -56,20 +56,14 @@ def build_content_type_branches(code_node, named_model) -> list:
         category, primitive_type = classify(edge.target, named_model.named_nodes)
         if category == 'unsupported':
             continue
-        branches.append(
-            ContentTypeBranch(
-                short_name=to_pascal_case(
-                    content_type_short_name(
-                        content_type_view.content_type)),
-                content_type=content_type_view.content_type,
-                java_type=map_type(
-                    edge.target,
-                    named_model),
-                category=category,
-                read_method=PRIMITIVE_READ_METHOD.get(primitive_type) if category in (
-                    'primitive',
-                    'enum') else None,
-                description=edge.description))
+        branches.append(ContentTypeBranch(short_name=to_pascal_case(content_type_short_name(content_type_view.content_type)),
+                                          content_type=content_type_view.content_type,
+                                          java_type=map_type(edge.target,
+                                                             named_model),
+                                          category=category,
+                                          read_method=READ_METHOD[named_model.language].get(primitive_type) if category in ('primitive',
+                                                                                                                            'enum') else None,
+                                          description=edge.description))
     return branches
 
 @dataclass(frozen=True)

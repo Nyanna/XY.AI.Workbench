@@ -45,6 +45,7 @@ class NamedModel:
     operations: tuple
     fingerprints: dict
     base_package: str
+    language: str
     '# id(node) -> NodeName'
     names: dict
 
@@ -64,7 +65,7 @@ class _Entry:
     sort_key: str
     final_name: str = field(default='')
 
-def assign_names(identified_model, base_package: str) -> NamedModel:
+def assign_names(identified_model, base_package: str, language: str='java') -> NamedModel:
     """Derive class/package names for every named, anonymous, and transport node."""
     class_names = derive_class_names(identified_model)
     edge_index = identified_model.edge_index
@@ -78,8 +79,13 @@ def assign_names(identified_model, base_package: str) -> NamedModel:
     names = {id(entry.node): NodeName(package=entry.package, class_name=entry.final_name) for entry in entries}
     _mirror_content_type_view_names(identified_model, names)
     _mirror_ref_request_names(identified_model, names)
-    return NamedModel(named_nodes=identified_model.named_nodes, operations=identified_model.operations,
-                      fingerprints=identified_model.fingerprints, base_package=base_package, names=names)
+    return NamedModel(
+        named_nodes=identified_model.named_nodes,
+        operations=identified_model.operations,
+        fingerprints=identified_model.fingerprints,
+        base_package=base_package,
+        language=language,
+        names=names)
 _SHARED = object()
 "# ownership-chain cycle guard sentinel: 'currently being resolved'"
 

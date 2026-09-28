@@ -1,0 +1,65 @@
+{% import "model/macros.jinja" as macros %}
+<?php
+
+namespace {{ package|phpns }};
+
+/** Proxy over a decoded JSON object; holds no data of its own. */
+final class {{ class_name }}
+{
+    private array $node;
+
+    public function __construct(array $node = [])
+    {
+        $this->node = $node;
+    }
+
+    public function node(): array
+    {
+        return $this->node;
+    }
+{% for a in accessors %}
+
+{{ macros.phpdoc(a.description, a.example_repr) }}
+    public function get{{ a.name }}()
+    {
+{% if a.category == 'primitive' %}
+        $value = $this->node['{{ a.label }}'] ?? null;
+        return $value === null ? null : ({{ a.read_method }}) $value;
+{% elif a.category == 'enum' %}
+        $value = $this->node['{{ a.label }}'] ?? null;
+        return $value === null ? null : {{ a.java_type|phpfqn }}::fromValue(({{ a.read_method }}) $value);
+{% elif a.category == 'any_dictionary' %}
+        return $this->node['{{ a.label }}'] ?? null;
+{% else %}
+        $child = $this->node['{{ a.label }}'] ?? null;
+        return $child === null ? null : new {{ a.java_type|phpfqn }}($child);
+{% endif %}
+    }
+
+{{ macros.phpdoc(a.description, a.example_repr) }}
+    public function set{{ a.name }}($value): void
+    {
+{% if a.category == 'primitive' %}
+        $this->node['{{ a.label }}'] = $value;
+{% elif a.category == 'enum' %}
+        $this->node['{{ a.label }}'] = $value === null ? null : $value->rawValue();
+{% elif a.category == 'any_dictionary' %}
+        $this->node['{{ a.label }}'] = $value;
+{% else %}
+        $this->node['{{ a.label }}'] = $value === null ? null : $value->node();
+{% endif %}
+    }
+{% endfor %}
+
+    public function __toString(): string
+    {
+        return {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% if is_request_root %}
+
+    public static function fromString(string $body): self
+    {
+        return new self({{ json_support_fqn|phpfqn }}::parse($body));
+    }
+{% endif %}
+}

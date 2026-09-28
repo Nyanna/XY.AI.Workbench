@@ -1,0 +1,61 @@
+<?php
+
+namespace {{ package|phpns }};
+
+/** Proxy over a decoded JSON object used as an untyped string-keyed map; holds no data of its own. */
+final class {{ class_name }}
+{
+    private array $node;
+
+    public function __construct(array $node = [])
+    {
+        $this->node = $node;
+    }
+
+    public function node(): array
+    {
+        return $this->node;
+    }
+
+    public function size(): int
+    {
+        return count($this->node);
+    }
+
+    public function keys(): array
+    {
+        return array_keys($this->node);
+    }
+
+    public function containsKey(string $key): bool
+    {
+        return array_key_exists($key, $this->node);
+    }
+
+    public function get(string $key)
+    {
+        return $this->node[$key] ?? null;
+    }
+
+    public function put(string $key, $value): void
+    {
+        $this->node[$key] = $value;
+    }
+
+    public function remove(string $key): void
+    {
+        unset($this->node[$key]);
+    }
+
+    public function __toString(): string
+    {
+        return {{ json_support_fqn|phpfqn }}::write($this->node);
+    }
+{% if is_request_root %}
+
+    public static function fromString(string $body): self
+    {
+        return new self({{ json_support_fqn|phpfqn }}::parse($body));
+    }
+{% endif %}
+}

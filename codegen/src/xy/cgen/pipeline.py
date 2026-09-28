@@ -13,5 +13,5 @@ def run_pipeline(config: Config) -> None:
     model = build_model(ingested)
     identified_model = compute_identity(model)
     optimized_model = optimize_identity(identified_model)
-    named_model = assign_names(optimized_model, config.base_package)
+    named_model = assign_names(optimized_model, config.base_package, config.language)
     emit_code(named_model, config.output_dir)
