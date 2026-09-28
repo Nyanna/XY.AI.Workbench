@@ -7,7 +7,8 @@ since status code and content type are transport metadata that never live on
 a shared model type -- they only exist on this operation-specific root.
 """
 from dataclasses import dataclass
-from xy.cgen.emit.model_context import READ_METHOD, classify
+from xy.cgen.emit.model_context import classify
+from xy.cgen.lang import get_language
 from xy.cgen.model.nodes import RefNode
 from xy.cgen.naming.identifiers import content_type_short_name, to_pascal_case
 from xy.cgen.typemap import map_type
@@ -46,24 +47,32 @@ class ContentTypeBranch:
     java_type: str
     category: str
     read_method: str | None
+    node_factory_method: str | None
     description: str | None
 
 def build_content_type_branches(code_node, named_model) -> list:
     """One branch per ContentTypeView, in declaration order."""
+    lang = get_language(named_model.language)
     branches = []
     for content_type_view in code_node.content_types:
         edge = content_type_view.body
         category, primitive_type = classify(edge.target, named_model.named_nodes)
         if category == 'unsupported':
             continue
-        branches.append(ContentTypeBranch(short_name=to_pascal_case(content_type_short_name(content_type_view.content_type)),
-                                          content_type=content_type_view.content_type,
-                                          java_type=map_type(edge.target,
-                                                             named_model),
-                                          category=category,
-                                          read_method=READ_METHOD[named_model.language].get(primitive_type) if category in ('primitive',
-                                                                                                                            'enum') else None,
-                                          description=edge.description))
+        has_read = category in ('primitive', 'enum')
+        branches.append(
+            ContentTypeBranch(
+                short_name=to_pascal_case(
+                    content_type_short_name(
+                        content_type_view.content_type)),
+                content_type=content_type_view.content_type,
+                java_type=map_type(
+                    edge.target,
+                    named_model),
+                category=category,
+                read_method=lang.read_method.get(primitive_type) if has_read else None,
+                node_factory_method=lang.factory_method.get(primitive_type) if category == 'primitive' else None,
+                description=edge.description))
     return branches
 
 @dataclass(frozen=True)
@@ -75,13 +84,6 @@ class CodeBranch:
 def build_code_branches(response_node, named_model) -> list:
     return [CodeBranch(status_code=code_node.status_code, java_type=named_model.name_of(code_node).fqn)
             for code_node in response_node.codes]
-'# read_method -> JsonNodeFactory factory-method name, for constructing a raw'
-'# JsonNode from a primitive Java value (setCode<NNN>... on the server side).'
-PRIMITIVE_NODE_FACTORY = {
-    'asText': 'textNode',
-    'asLong': 'numberNode',
-    'asDouble': 'numberNode',
-    'asBoolean': 'booleanNode'}
 
 @dataclass(frozen=True)
 class ResponseSetter:
@@ -113,6 +115,5 @@ def build_response_setters(response_node, named_model) -> list:
                     content_type=branch.content_type,
                     java_type=branch.java_type,
                     category=branch.category,
-                    node_factory_method=PRIMITIVE_NODE_FACTORY.get(
-                            branch.read_method) if branch.category == 'primitive' else None))
+                    node_factory_method=branch.node_factory_method))
     return setters

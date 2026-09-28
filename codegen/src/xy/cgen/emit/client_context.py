@@ -10,19 +10,17 @@ class, which encapsulates its own serialization.
 import re
 from dataclasses import dataclass
 from xy.cgen.emit.io_context import request_root_node
+from xy.cgen.lang import get_language
 from xy.cgen.model.nodes import MISSING
 from xy.cgen.naming.identifiers import class_identifier, property_accessor_name, sanitize_identifier, to_camel_case
 from xy.cgen.naming.paths import path_to_class_fragment
-PARAMETER_JAVA_TYPE = {'integer': 'Long', 'number': 'Double', 'boolean': 'Boolean'}
-PARAMETER_PHP_TYPE = {'integer': 'int', 'number': 'float', 'boolean': 'bool'}
-PARAMETER_TYPE = {'java': PARAMETER_JAVA_TYPE, 'php': PARAMETER_PHP_TYPE}
-PARAMETER_DEFAULT_TYPE = {'java': 'String', 'php': 'string'}
 _PATH_PARAM = re.compile('\\{([^}]+)\\}')
 
 def _parameter_type(schema: dict | None, language: str) -> str:
     """Path/query parameters never enter the body tree; map their
     raw JSON-Schema type directly to a scalar type (string is the default)."""
-    return PARAMETER_TYPE[language].get((schema or {}).get('type'), PARAMETER_DEFAULT_TYPE[language])
+    lang = get_language(language)
+    return lang.parameter_type.get((schema or {}).get('type'), lang.parameter_default_type)
 
 @dataclass(frozen=True)
 class MethodParameter:
@@ -41,57 +39,14 @@ def _build_parameter(param, kind: str, language: str) -> MethodParameter:
             param.name), java_type=_parameter_type(
                 param.schema, language), raw_name=param.name, kind=kind)
 
-def _java_string_literal(text: str) -> str:
-    escaped = text.replace('\\', '\\\\').replace('"', '\\"')
-    return f'"{escaped}"'
-
-def _php_string_literal(text: str) -> str:
-    escaped = text.replace('\\', '\\\\').replace("'", "\\'")
-    return f"'{escaped}'"
-_PHP_SCALAR_TYPES = {'int', 'float', 'string', 'bool', 'mixed'}
-
-def _php_type_hint(type_name: str) -> str:
-    """A dotted fqn ('pkg.Class') becomes a fully-qualified PHP type hint; scalars pass through."""
-    if type_name in _PHP_SCALAR_TYPES or '.' not in type_name:
-        return type_name
-    return '\\' + type_name.replace('.', '\\')
-
 def _signature(parameters: tuple, language: str) -> str:
-    if language == 'php':
-        return ', '.join((f'{_php_type_hint(p.java_type)} ${p.name}' for p in parameters))
-    return ', '.join((f'{p.java_type} {p.name}' for p in parameters))
+    lang = get_language(language)
+    return ', '.join((lang.parameter_declaration(lang.type_hint(p.java_type), p.name) for p in parameters))
 
 def _path_url_expression(path: str, path_params: tuple, language: str) -> str:
     """A string-concatenation expression rebuilding the URL path, with
     every '{param}' token replaced by its URL-encoded argument value."""
-    by_raw_name = {p.raw_name: p for p in path_params}
-    if language == 'php':
-        parts, last = ([], 0)
-        for match in _PATH_PARAM.finditer(path):
-            literal = path[last:match.start()]
-            if literal:
-                parts.append(_php_string_literal(literal))
-            param = by_raw_name[match.group(1)]
-            parts.append(f'rawurlencode((string) ${param.name})')
-            last = match.end()
-        tail = path[last:]
-        if tail or not parts:
-            parts.append(_php_string_literal(tail))
-        return ' . '.join(parts)
-    parts, last = ([], 0)
-    for match in _PATH_PARAM.finditer(path):
-        literal = path[last:match.start()]
-        if literal:
-            parts.append(_java_string_literal(literal))
-        param = by_raw_name[match.group(1)]
-        parts.append(
-            f'java.net.URLEncoder.encode(String.valueOf({
-                param.name}), java.nio.charset.StandardCharsets.UTF_8)')
-        last = match.end()
-    tail = path[last:]
-    if tail or not parts:
-        parts.append(_java_string_literal(tail))
-    return ' + '.join(parts)
+    return get_language(language).path_url_expression(path, path_params)
 
 def _method_name(operation) -> str:
     """operationId wins verbatim (D-decision); otherwise '<method><Path>' (e.g. postResponses)."""

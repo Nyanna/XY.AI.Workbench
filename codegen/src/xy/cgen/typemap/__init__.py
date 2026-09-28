@@ -7,12 +7,8 @@ affect the resolved type. `null` has no Java type of its own: absent vs.
 explicit-null is a getter concern on the composition view that contains it
 , never a standalone type.
 """
+from xy.cgen.lang import get_language
 from xy.cgen.model.nodes import AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, PrimitiveNode, RefNode, UnsupportedNode
-JAVA_PRIMITIVE_TYPE = {'string': 'String', 'integer': 'Long', 'number': 'Double', 'boolean': 'Boolean'}
-PHP_PRIMITIVE_TYPE = {'string': 'string', 'integer': 'int', 'number': 'float', 'boolean': 'bool'}
-PRIMITIVE_TYPE = {'java': JAVA_PRIMITIVE_TYPE, 'php': PHP_PRIMITIVE_TYPE}
-ANY_DICTIONARY_JAVA_TYPE = 'com.fasterxml.jackson.databind.JsonNode'
-ANY_DICTIONARY_TYPE = {'java': ANY_DICTIONARY_JAVA_TYPE, 'php': 'mixed'}
 '# Node kinds whose type is the generated class assigned by naming.'
 _GENERATED_CLASS_KINDS = (EnumNode, ListNode, DictionaryNode, ObjectNode, CompositionNode)
 
@@ -27,7 +23,7 @@ def map_type(node, named_model) -> str:
     if isinstance(node, PrimitiveNode):
         return _map_primitive(node, named_model.language)
     if isinstance(node, AnyDictionaryNode):
-        return ANY_DICTIONARY_TYPE[named_model.language]
+        return get_language(named_model.language).any_dictionary_type
     if isinstance(node, RefNode):
         return named_model.name_of_ref(node.name).fqn
     if isinstance(node, _GENERATED_CLASS_KINDS):
@@ -39,4 +35,4 @@ def map_type(node, named_model) -> str:
 def _map_primitive(node: PrimitiveNode, language: str) -> str:
     if node.primitive_type == 'null':
         raise ValueError("'null' has no standalone type -- resolve via the enclosing composition view")
-    return PRIMITIVE_TYPE[language][node.primitive_type]
+    return get_language(language).primitive_type[node.primitive_type]

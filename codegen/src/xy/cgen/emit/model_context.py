@@ -22,19 +22,9 @@ from dataclasses import dataclass
 from xy.cgen.model.nodes import MISSING, AnyDictionaryNode, CompositionNode, DictionaryNode, EnumNode, ListNode, ObjectNode, PrimitiveNode, RefNode, UnsupportedNode
 from xy.cgen.naming.identifiers import property_accessor_name, to_pascal_case
 from xy.cgen.naming.names import PRIMITIVE_BRANCH_NAME
-from xy.cgen.typemap import PRIMITIVE_TYPE, map_type
-JAVA_PRIMITIVE_READ_METHOD = {'string': 'asText', 'integer': 'asLong', 'number': 'asDouble', 'boolean': 'asBoolean'}
-'# JsonNodeFactory typed-constructor names, used only where ArrayNode has no typed set() overload'
-'# (mixed/tuple lists, see list_mixed.jinja). Java-only -- PHP arrays need no factory.'
-JAVA_PRIMITIVE_FACTORY_METHOD = {
-    'string': 'textNode',
-    'integer': 'numberNode',
-    'number': 'numberNode',
-    'boolean': 'booleanNode'}
-'# PHP cast keyword used as a prefix cast, e.g. (int) $value -- reuses the scalar type map.'
-PHP_PRIMITIVE_CAST = PRIMITIVE_TYPE['php']
-READ_METHOD = {'java': JAVA_PRIMITIVE_READ_METHOD, 'php': PHP_PRIMITIVE_CAST}
-FACTORY_METHOD = {'java': JAVA_PRIMITIVE_FACTORY_METHOD, 'php': {}}
+from xy.cgen.lang import get_language
+from xy.cgen.typemap import map_type
+'# per-language scalar read/cast and factory methods, see xy.cgen.lang.'
 
 @dataclass(frozen=True)
 class Accessor:
@@ -92,14 +82,21 @@ def build_accessor(label: str, edge, named_model) -> Accessor | None:
     category, primitive_type = classify(edge.target, named_model.named_nodes)
     if category == 'unsupported':
         return None
-    language = named_model.language
+    lang = get_language(named_model.language)
+    has_read = category in ('primitive', 'enum')
     return Accessor(
-        label=label, name=to_pascal_case(
-            property_accessor_name(label)), java_type=map_type(
-                edge.target, named_model), category=category, read_method=READ_METHOD[language].get(primitive_type) if category in (
-                    'primitive', 'enum') else None, factory_method=FACTORY_METHOD[language].get(primitive_type) if category in (
-                        'primitive', 'enum') else None, description=edge.description, example_repr=None if edge.example is MISSING else repr(
-                            edge.example))
+        label=label,
+        name=to_pascal_case(
+            property_accessor_name(label)),
+        java_type=map_type(
+            edge.target,
+            named_model),
+        category=category,
+        read_method=lang.read_method.get(primitive_type) if has_read else None,
+        factory_method=lang.factory_method.get(primitive_type) if has_read else None,
+        description=edge.description,
+        example_repr=None if edge.example is MISSING else repr(
+            edge.example))
 '# --- Enum-specific context -------------------------------------------------'
 _WORD_BOUNDARY = re.compile('[^A-Za-z0-9]+')
 
@@ -110,13 +107,14 @@ class EnumConstant:
 
 def enum_constants(node, language: str='java') -> list[EnumConstant]:
     """One enum constant per declared value, in declaration order (deterministic input)."""
+    lang = get_language(language)
     seen_names: dict = {}
     constants = []
     for value in node.values:
         base = _constant_base(value)
         seen_names[base] = seen_names.get(base, 0) + 1
         name = base if seen_names[base] == 1 else f'{base}_{seen_names[base]}'
-        constants.append(EnumConstant(constant_name=name, literal=_literal(value, node.primitive_type, language)))
+        constants.append(EnumConstant(constant_name=name, literal=lang.literal(value, node.primitive_type)))
     return constants
 
 def _constant_base(value) -> str:
@@ -126,35 +124,8 @@ def _constant_base(value) -> str:
     base = '_'.join((w.upper() for w in words))
     return f'_{base}' if base[0].isdigit() else base
 
-def _literal(value, primitive_type: str, language: str) -> str:
-    if primitive_type == 'boolean':
-        return 'true' if value else 'false'
-    if language == 'php':
-        if primitive_type == 'string':
-            return _php_string_literal(str(value))
-        if primitive_type == 'integer':
-            return str(int(value))
-        if primitive_type == 'number':
-            return repr(float(value))
-        raise ValueError(f'enum has no supported base primitive type: {primitive_type!r}')
-    if primitive_type == 'string':
-        return _java_string_literal(str(value))
-    if primitive_type == 'integer':
-        return f'{int(value)}L'
-    if primitive_type == 'number':
-        return f'{float(value)}d'
-    raise ValueError(f'enum has no supported base primitive type: {primitive_type!r}')
-
-def _java_string_literal(text: str) -> str:
-    escaped = text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
-    return f'"{escaped}"'
-
-def _php_string_literal(text: str) -> str:
-    escaped = text.replace('\\', '\\\\').replace("'", "\\'")
-    return f"'{escaped}'"
-
 def enum_raw_type(node, language: str='java') -> str:
-    return PRIMITIVE_TYPE[language][node.primitive_type]
+    return get_language(language).primitive_type[node.primitive_type]
 '# --- Composition context (allOf/anyOf/oneOf proxy views) -----------'
 '#'
 '# One CompositionNode -> one class holding a single JsonNode. Every branch is'
@@ -164,12 +135,6 @@ def enum_raw_type(node, language: str='java') -> str:
 "# branch's own view (for object-shaped branches, since it shares the node) or"
 "# through the enclosing property's setter (which replaces the whole bound"
 '# node), never through the composition class itself.'
-_TYPE_CHECK_METHOD = {
-    'string': 'isTextual',
-    'integer': 'isIntegralNumber',
-    'number': 'isNumber',
-    'boolean': 'isBoolean'}
-_PHP_TYPE_CHECK = {'string': 'is_string', 'integer': 'is_int', 'number': 'is_float', 'boolean': 'is_bool'}
 
 @dataclass(frozen=True)
 class Branch:
@@ -197,7 +162,7 @@ def _branch_accessor_name(target, named_model) -> str:
 def build_branches(node, named_model) -> list[Branch]:
     """Build the render context for every branch of one CompositionNode."""
     named_nodes = named_model.named_nodes
-    language = named_model.language
+    lang = get_language(named_model.language)
     needs_applies = node.keyword in ('anyOf', 'oneOf')
     discriminator_values = _resolve_discriminator_values(
         node, named_nodes) if needs_applies and node.discriminator else {}
@@ -215,14 +180,13 @@ def build_branches(node, named_model) -> list[Branch]:
             values = discriminator_values.get(index)
             if values:
                 applies_expr = ' || '.join(
-                    (_discriminator_literal_expr(
+                    (lang.discriminator_literal_expr(
                         node.discriminator.property_name,
                         value,
-                        primitive_type,
-                        language) for value,
+                        primitive_type) for value,
                      primitive_type in values))
             else:
-                applies_expr = _structural_applies_expr(resolved, language)
+                applies_expr = _structural_applies_expr(resolved, named_model.language)
         if isinstance(resolved, PrimitiveNode) and resolved.primitive_type == 'null':
             branches.append(
                 Branch(
@@ -243,7 +207,7 @@ def build_branches(node, named_model) -> list[Branch]:
                     target,
                     named_model),
                 category=category,
-                read_method=READ_METHOD[language].get(primitive_type) if category in (
+                read_method=lang.read_method.get(primitive_type) if category in (
                     'primitive',
                     'enum') else None,
                 description=edge.description,
@@ -303,57 +267,22 @@ def _const_value_for_branch(target, property_name: str, named_nodes):
         return None
     return None
 
-def _discriminator_literal_expr(property_name: str, value, primitive_type: str, language: str) -> str:
-    """A boolean expression testing `node`'s discriminator property against one value."""
-    if language == 'php':
-        accessor = f"($this->node['{property_name}'] ?? null)"
-        if primitive_type == 'boolean':
-            return f'{accessor} === {('true' if value else 'false')}'
-        return f'{accessor} === {_literal(value, primitive_type, language)}'
-    '# Uses JsonNode.path() (never MissingNode == null) so no separate absence guard is needed here.'
-    accessor = f'node.path("{property_name}")'
-    if primitive_type == 'string':
-        return f'{_java_string_literal(str(value))}.equals({accessor}.asText())'
-    if primitive_type == 'integer':
-        return f'{accessor}.asLong() == {int(value)}L'
-    if primitive_type == 'number':
-        return f'{accessor}.asDouble() == {float(value)}d'
-    if primitive_type == 'boolean':
-        return f'{accessor}.asBoolean() == {('true' if value else 'false')}'
-    raise ValueError(f'discriminator property has no supported primitive type: {primitive_type!r}')
-
 def _structural_applies_expr(resolved, language: str) -> str:
     """presence of required fields / JSON type, no discriminator const available."""
-    if language == 'php':
-        if isinstance(resolved, ObjectNode):
-            if not resolved.required:
-                return 'true'
-            return ' && '.join(
-                (f"array_key_exists('{field_name}', (array) $this->node)" for field_name in sorted(resolved.required)))
-        if isinstance(resolved, ListNode):
-            return 'is_array($this->node)'
-        if isinstance(resolved, (DictionaryNode, AnyDictionaryNode)):
-            return 'is_array($this->node) || is_object($this->node)'
-        if isinstance(resolved, EnumNode):
-            return f'{_PHP_TYPE_CHECK[resolved.primitive_type]}($this->node)'
-        if isinstance(resolved, PrimitiveNode):
-            if resolved.primitive_type == 'null':
-                return '$this->node === null'
-            return f'{_PHP_TYPE_CHECK[resolved.primitive_type]}($this->node)'
-        return 'true'
+    lang = get_language(language)
     if isinstance(resolved, ObjectNode):
         if not resolved.required:
-            return 'true'
-        return ' && '.join((f'node.has("{field_name}")' for field_name in sorted(resolved.required)))
+            return lang.applies_always()
+        return lang.applies_required(sorted(resolved.required))
     if isinstance(resolved, ListNode):
-        return 'node.isArray()'
+        return lang.applies_array()
     if isinstance(resolved, (DictionaryNode, AnyDictionaryNode)):
-        return 'node.isObject()'
+        return lang.applies_object()
     if isinstance(resolved, EnumNode):
-        return f'node.{_TYPE_CHECK_METHOD[resolved.primitive_type]}()'
+        return lang.applies_type_check(resolved.primitive_type)
     if isinstance(resolved, PrimitiveNode):
         if resolved.primitive_type == 'null':
-            return 'node.isNull()'
-        return f'node.{_TYPE_CHECK_METHOD[resolved.primitive_type]}()'
+            return lang.applies_null()
+        return lang.applies_type_check(resolved.primitive_type)
     '# nested composition or other structural node: best-effort, never validated further'
-    return 'true'
+    return lang.applies_always()

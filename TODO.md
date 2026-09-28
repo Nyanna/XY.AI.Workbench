@@ -1,5 +1,6 @@
 # TODO
--codegen sprachsüezifika in emitter packe in language package auslagern
+- doublic click protection wenn cursor in markerzeiele steht
+-python hinzufügen
 ### Tools
 - AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
 - Auch AST für JS/TS
