@@ -1,7 +1,6 @@
 # TODO
-- doublic click protection wenn cursor in markerzeiele steht
--python hinzufügen
 ### Tools
+- doublic click protection wenn cursor in markerzeiele steht
 - AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
 - Auch AST für JS/TS
 - Include-Handling

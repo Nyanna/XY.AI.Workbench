@@ -36,6 +36,9 @@ class ServerMethod:
     '# ready-made "a, b, c" argument list for calling the abstract method'
     call_args: str
     has_body: bool
+    '# fqn of the request-body class, or None; needed by targets (e.g. Python) that'
+    '# cannot reference a class through an in-place fqn expression without an import.'
+    body_type: str | None
 
 def _path_regex(path: str, path_params: tuple) -> tuple[str, tuple]:
     """Regex pattern string plus the path parameters in regex-group
@@ -72,7 +75,8 @@ def build_server_methods(named_model) -> list[ServerMethod]:
                 pattern_regex=pattern_regex,
                 binding_lines=binding_lines,
                 call_args=call_args,
-                has_body=client_method.body_param is not None))
+                has_body=client_method.body_param is not None,
+                body_type=client_method.body_param.java_type if client_method.body_param is not None else None))
     return server_methods
 
 def server_class_name(named_model) -> str:

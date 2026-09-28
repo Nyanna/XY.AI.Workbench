@@ -49,7 +49,7 @@ OpenAPI YAML Schema
 ### Command-Line Interface
 
 ```bash
-cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>] [--language java|php]
+cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>] [--language java|php|python]
 ```
 
 ### Arguments
@@ -57,7 +57,7 @@ cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <p
 - `--schema` (required): Path to the OpenAPI 3.1 YAML schema file
 - `--out` (required): Output directory where generated Java sources will be written
 - `--base-package` (optional): Root package for generated code
-- `--language` (optional): Target language, `java` or `php` (default: `java`); selects the `templates/<language>` directory
+- `--language` (optional): Target language, `java`, `php` or `python` (default: `java`); selects the `templates/<language>` directory
 
 ## Project Structure
 

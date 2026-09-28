@@ -1,0 +1,25 @@
+{% macro pydoc(description, example_repr, indent="    ") %}
+{% if description or example_repr %}
+{{ indent }}"""
+{% if description %}
+{% for line in description.split('\n') %}
+{{ indent }}{{ line }}
+{% endfor %}
+{% endif %}
+{% if example_repr %}
+{{ indent }}Example: {{ example_repr }}
+{% endif %}
+{{ indent }}"""
+{% endif %}
+{% endmacro %}
+{% macro qualified(fqn, self_fqn) %}{% if fqn == self_fqn %}{{ fqn.split('.')[-1] }}{% else %}{{ fqn }}.{{ fqn.split('.')[-1] }}{% endif %}{% endmacro %}
+{% macro imports(fqns, self_fqn, extra) %}
+{% for fqn in (fqns | pyimports(self_fqn)) %}
+import {{ fqn }}
+{% endfor %}
+{% for fqn in extra %}
+{% if fqn != self_fqn %}
+import {{ fqn }}
+{% endif %}
+{% endfor %}
+{% endmacro %}
