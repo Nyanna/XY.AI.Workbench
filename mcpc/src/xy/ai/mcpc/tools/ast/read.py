@@ -6,7 +6,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import PATH_PROP
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast.list import ast_list
+from xy.ai.mcpc.tools.ast.outline import ast_outline
 from xy.ai.mcpc.tools._tool_helpers import require_items, batch_schema
 __all__ = ['ReadItem', 'ReadResult', 'ReadError', 'ReadBatchResult', 'ast_read', 'ReadNodeTool', 'register']
 _ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', '', '*'}
@@ -145,7 +145,7 @@ class ReadNodeTool(ToolDefinition):
                     continue
                 item_result = batch.results[0]
             if _looks_like_root_intent(ids) and (item_result is None or not item_result.nodes):
-                list_batch = ast_list([path], with_lines=with_lines)
+                list_batch = ast_outline([path], with_lines=with_lines)
                 for lr in list_batch.results:
                     results.append({'path': lr.path, 'nodes': [core.to_dict(n) for n in lr.nodes], 'errors': [
                                    f'ids {ids!r} resolved to no node; redirected to ast_list, returning the full outline instead.']})

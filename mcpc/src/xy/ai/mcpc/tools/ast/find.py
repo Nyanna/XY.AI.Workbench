@@ -154,7 +154,7 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
     title = 'Find AST nodes'
-    description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp. Returns matches per file with their full source.'
+    description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source.'
     input_schema = {
         'type': 'object',
         'properties': {

@@ -3,7 +3,7 @@
 A content-hash validated cache (:mod:`.core`) holds parsed modules; comments are
 converted to standalone string-literal annotations on import so they survive the
 ``parse``/``unparse`` round-trip. Retrieval is layered on a
-single ``list`` tree (``ast_list`` structure, ``ast_find`` property/text/regexp
+single ``outline`` tree (``ast_outline`` structure, ``ast_find`` property/text/regexp
 filtering with source, ``ast_read`` reads subtrees by id); mutation is
 node-level CRUD, each tool in its own ``*`` module (``ast_create``/``ast_delete``
 cover the whole-file case too), with two in-node editors ``ast_edit_marks``
@@ -12,12 +12,13 @@ and a ``validate`` compile check.
 """
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import create, delete, edit_block, edit_marks, find, insert, list, read, replace, script, validate
+from xy.ai.mcpc.tools.ast import create, delete, edit_block, edit_marks, find, insert, read, replace, script, validate
+from xy.ai.mcpc.tools.ast import outline
 __all__ = ['register_ast_tools', 'ALIAS']
 '#: Alias name that activates the whole family in one go.'
 ALIAS = 'ast'
 _ALIAS_MEMBERS = (
-    'ast_list',
+    'ast_outline',
     'ast_find',
     'ast_read',
     'ast_insert',
@@ -29,13 +30,13 @@ _ALIAS_MEMBERS = (
     'ast_validate')
 ALIAS_READ = 'ast-read'
 _ALIAS_READ_MEMBERS = (
-    'ast_list',
+    'ast_outline',
     'ast_find',
     'ast_read')
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``ast_*`` tool and the ``ast`` alias."""
-    list.register(registry, functions)
+    outline.register(registry, functions)
     find.register(registry, functions)
     read.register(registry, functions)
     insert.register(registry, functions)

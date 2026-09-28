@@ -1,7 +1,5 @@
 # TODO
 ### Tools
-- doublic click protection wenn cursor in markerzeiele steht
-- AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
 - Auch AST für JS/TS
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
