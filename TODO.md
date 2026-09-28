@@ -1,5 +1,5 @@
 # TODO
-
+-codegen sprachsüezifika in emitter packe in language package auslagern
 ### Tools
 - AST, JavaParser für Java-AST, laufender subprozess mit protokoll in MCPC, lazy started
 - Auch AST für JS/TS
