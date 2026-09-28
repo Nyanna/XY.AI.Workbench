@@ -8,4 +8,5 @@
 /libs/**/*.jar
 /src/xy/ai/workbench/connector/openapi/**/*
 /ast-engines/java/src/xy/ai/mcpc/ast/openapi/**/*
+/mcpc/src/xy/ai/mcpc/ast/openapi/**/*
 .pydevproject
