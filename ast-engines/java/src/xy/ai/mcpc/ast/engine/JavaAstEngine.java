@@ -33,6 +33,7 @@ import com.github.javaparser.ast.stmt.LabeledStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import com.github.javaparser.ast.visitor.VoidVisitor;
+import java.util.ArrayList;
 import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
 import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration.ConfigOption;
 import com.github.javaparser.printer.configuration.Indentation;
@@ -70,6 +71,23 @@ public final class JavaAstEngine {
 
   public CompilationUnit emptyCompilationUnit() {
     return new CompilationUnit();
+  }
+
+  /** Dispatches to {@link #print(Node)} or, for a grouped segment, joins each member's own print. */
+  public String print(Object node) {
+    if (node instanceof NodeGroup group)
+      return printGroup(group);
+    return print((Node) node);
+  }
+
+  private String printGroup(NodeGroup group) {
+    StringBuilder sb = new StringBuilder();
+    for (Node m : group.members()) {
+      if (sb.length() > 0)
+        sb.append('\n');
+      sb.append(print(m));
+    }
+    return sb.toString();
   }
 
   public String print(Node node) {
@@ -160,16 +178,24 @@ public final class JavaAstEngine {
   }
 
   public void replace(AddressableNode target, String code) {
-    Node replacement = parseReplacementFor(target.astNode, code);
-    if (!target.astNode.replace(replacement))
+    if (target.astNode instanceof NodeGroup group) {
+      replaceGroup(group, code);
+      return;
+    }
+    Node node = (Node) target.astNode;
+    Node replacement = parseReplacementFor(node, code);
+    if (!node.replace(replacement))
       throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be replaced in place: " + target.id);
   }
 
   @SuppressWarnings("unchecked")
   public int insert(AddressableNode target, String code, String position) {
-    Node fragment = parseReplacementFor(target.astNode, code);
+    if (target.astNode instanceof NodeGroup group)
+      return insertGroup(group, code, position);
+    Node node = (Node) target.astNode;
+    Node fragment = parseReplacementFor(node, code);
     NodeList<Node> container = (NodeList<Node>) target.container;
-    int idx = container.indexOf(target.astNode);
+    int idx = container.indexOf(node);
     if (idx < 0)
       throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node no longer present: " + target.id);
     if ("after".equals(position))
@@ -179,8 +205,72 @@ public final class JavaAstEngine {
   }
 
   public void delete(AddressableNode target) {
-    if (!target.astNode.remove())
+    if (target.astNode instanceof NodeGroup group) {
+      deleteGroup(group);
+      return;
+    }
+    Node node = (Node) target.astNode;
+    if (!node.remove())
       throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be removed: " + target.id);
+  }
+
+  @SuppressWarnings("unchecked")
+  private NodeList<Node> groupContainer(NodeGroup group) {
+    return (NodeList<Node>) group.container;
+  }
+
+  private void replaceGroup(NodeGroup group, String code) {
+    NodeList<Node> container = groupContainer(group);
+    List<Node> fragments = parseGroupFragments(group.kind, code);
+    for (int i = group.end - 1; i >= group.start; i--) container.remove(i);
+    container.addAll(group.start, fragments);
+  }
+
+  private int insertGroup(NodeGroup group, String code, String position) {
+    NodeList<Node> container = groupContainer(group);
+    List<Node> fragments = parseGroupFragments(group.kind, code);
+    int idx = "after".equals(position) ? group.end : group.start;
+    container.addAll(idx, fragments);
+    return fragments.size();
+  }
+
+  private void deleteGroup(NodeGroup group) {
+    NodeList<Node> container = groupContainer(group);
+    for (int i = group.end - 1; i >= group.start; i--) container.remove(i);
+  }
+
+  private List<Node> parseGroupFragments(String kind, String code) {
+    return NodeGroup.KIND_IMPORTS.equals(kind) ? parseImportsFragment(code) : parseMembersFragment(code);
+  }
+
+  /** Parses {@code code} as one or more import declarations, for an {@link NodeGroup#KIND_IMPORTS} group. */
+  public List<Node> parseImportsFragment(String code) {
+    CompilationUnit fragment = unwrap(parser.parse(code), "imports");
+    List<Node> result = new ArrayList<>();
+    for (ImportDeclaration imp : fragment.getImports()) result.add(imp.clone());
+    if (result.isEmpty())
+      throw new AstEngineException(AstEngineException.Kind.SYNTAX, "no import declarations found: " + code);
+    return result;
+  }
+
+  /** Parses {@code code} as one or more member declarations, for a {@link NodeGroup#KIND_STATEMENTS} group. */
+  public List<Node> parseMembersFragment(String code) {
+    CompilationUnit wrapper = unwrap(parser.parse("class __Wrapper__ { " + code + " }"), "member declarations");
+    ClassOrInterfaceDeclaration decl = (ClassOrInterfaceDeclaration) wrapper.getType(0);
+    List<Node> result = new ArrayList<>();
+    for (BodyDeclaration<?> m : decl.getMembers()) result.add(m.clone());
+    if (result.isEmpty())
+      throw new AstEngineException(AstEngineException.Kind.SYNTAX, "no member declarations found: " + code);
+    return result;
+  }
+
+  /** Dispatches to {@link #signature(Node, int)} or, for a grouped segment, its own first printed line. */
+  public String signature(Object node, int limit) {
+    if (node instanceof NodeGroup group) {
+      String text = firstLine(printGroup(group)).replace('\n', ' ').replace('\r', ' ').strip();
+      return text.length() <= limit ? text : text.substring(0, limit - 1) + "…";
+    }
+    return signature((Node) node, limit);
   }
 
   public String signature(Node node, int limit) {
@@ -207,6 +297,13 @@ public final class JavaAstEngine {
         return stripped;
     }
     return "";
+  }
+
+  /** Dispatches to {@link #docstring(Node, int)}; a grouped segment never carries a Javadoc. */
+  public String docstring(Object node, int limit) {
+    if (node instanceof NodeGroup)
+      return null;
+    return docstring((Node) node, limit);
   }
 
   /**

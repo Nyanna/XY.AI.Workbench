@@ -9,7 +9,7 @@ tools:
 - "ast_edit_marks"
 - "ast_find"
 - "ast_insert"
-- "ast_list"
+- "ast_outline"
 - "ast_replace"
 - "ast_validate"
 outputMode: "Append"

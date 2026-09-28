@@ -1,16 +1,17 @@
 package xy.ai.mcpc.ast.engine;
 
-import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 
 /**
  * One node the HTTP API can list/get/replace/insert/delete, plus the sibling
  * {@link NodeList} needed to splice a replacement fragment in (JavaParser's
  * {@code Node.replace}/{@code Node.remove} cover the other two mutations directly).
+ * {@code astNode} is either a JavaParser {@link com.github.javaparser.ast.Node} or,
+ * for a grouped "imports"/"statements" segment, a {@link NodeGroup}.
  */
 public final class AddressableNode {
   public final String id;
-  public final Node astNode;
+  public final Object astNode;
   public final String type;
   public final String name;
   public final int lineno;
@@ -20,7 +21,7 @@ public final class AddressableNode {
   public final boolean isDefinition;
   public final NodeList<?> container;
 
-  public AddressableNode(String id, Node astNode, String type, String name, int lineno, int endLineno, String parentType, boolean expandable, boolean isDefinition, NodeList<?> container) {
+  public AddressableNode(String id, Object astNode, String type, String name, int lineno, int endLineno, String parentType, boolean expandable, boolean isDefinition, NodeList<?> container) {
     this.id = id;
     this.astNode = astNode;
     this.type = type;
