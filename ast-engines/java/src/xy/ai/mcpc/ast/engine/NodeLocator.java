@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  */
 public final class NodeLocator {
   /** A group keeps accumulating siblings until adding the next one would push its source past this many characters (then it splits). */
-  private static final int SEGMENT_MAX_CHARS = 500;
+  private static final int SEGMENT_MAX_CHARS = 1000;
   private static final Pattern UNSAFE = Pattern.compile("[^A-Za-z0-9_]+");
   private static final String HASH_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
