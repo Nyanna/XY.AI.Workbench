@@ -73,7 +73,9 @@ public final class JavaAstEngine {
     return new CompilationUnit();
   }
 
-  /** Dispatches to {@link #print(Node)} or, for a grouped segment, joins each member's own print. */
+  /**
+   * Dispatches to {@link #print(Node)} or, for a grouped segment, joins each member's own print.
+   */
   public String print(Object node) {
     if (node instanceof NodeGroup group)
       return printGroup(group);
@@ -193,15 +195,27 @@ public final class JavaAstEngine {
     if (target.astNode instanceof NodeGroup group)
       return insertGroup(group, code, position);
     Node node = (Node) target.astNode;
-    Node fragment = parseReplacementFor(node, code);
+    List<Node> fragments = parseInsertionFragments(node, code);
     NodeList<Node> container = (NodeList<Node>) target.container;
     int idx = container.indexOf(node);
     if (idx < 0)
       throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node no longer present: " + target.id);
     if ("after".equals(position))
       idx++;
-    container.add(idx, fragment);
-    return 1;
+    container.addAll(idx, fragments);
+    return fragments.size();
+  }
+
+  private List<Node> parseInsertionFragments(Node sample, String code) {
+    if (sample instanceof BodyDeclaration<?> && !(sample instanceof TypeDeclaration<?>))
+      try {
+        return List.of(parseReplacementFor(sample, code));
+      } catch (AstEngineException e) {
+        if (e.kind() != AstEngineException.Kind.SYNTAX)
+          throw e;
+        return parseMembersFragment(code);
+      }
+    return List.of(parseReplacementFor(sample, code));
   }
 
   public void delete(AddressableNode target) {
@@ -243,7 +257,9 @@ public final class JavaAstEngine {
     return NodeGroup.KIND_IMPORTS.equals(kind) ? parseImportsFragment(code) : parseMembersFragment(code);
   }
 
-  /** Parses {@code code} as one or more import declarations, for an {@link NodeGroup#KIND_IMPORTS} group. */
+  /**
+   * Parses {@code code} as one or more import declarations, for an {@link NodeGroup#KIND_IMPORTS} group.
+   */
   public List<Node> parseImportsFragment(String code) {
     CompilationUnit fragment = unwrap(parser.parse(code), "imports");
     List<Node> result = new ArrayList<>();
@@ -253,7 +269,9 @@ public final class JavaAstEngine {
     return result;
   }
 
-  /** Parses {@code code} as one or more member declarations, for a {@link NodeGroup#KIND_STATEMENTS} group. */
+  /**
+   * Parses {@code code} as one or more member declarations, for a {@link NodeGroup#KIND_STATEMENTS} group.
+   */
   public List<Node> parseMembersFragment(String code) {
     CompilationUnit wrapper = unwrap(parser.parse("class __Wrapper__ { " + code + " }"), "member declarations");
     ClassOrInterfaceDeclaration decl = (ClassOrInterfaceDeclaration) wrapper.getType(0);
@@ -264,7 +282,9 @@ public final class JavaAstEngine {
     return result;
   }
 
-  /** Dispatches to {@link #signature(Node, int)} or, for a grouped segment, its own first printed line. */
+  /**
+   * Dispatches to {@link #signature(Node, int)} or, for a grouped segment, its own first printed line.
+   */
   public String signature(Object node, int limit) {
     if (node instanceof NodeGroup group) {
       String text = firstLine(printGroup(group)).replace('\n', ' ').replace('\r', ' ').strip();
@@ -278,9 +298,9 @@ public final class JavaAstEngine {
     if (node instanceof CallableDeclaration<?> callable)
       text = callable.getDeclarationAsString();
     else if (node instanceof TypeDeclaration<?>)
-      text = header(node.toString());
+      text = header(print(node));
     else
-      text = firstLine(node.toString());
+      text = firstLine(print(node));
     text = text.replace('\n', ' ').replace('\r', ' ').strip();
     return text.length() <= limit ? text : text.substring(0, limit - 1) + "…";
   }
@@ -299,7 +319,9 @@ public final class JavaAstEngine {
     return "";
   }
 
-  /** Dispatches to {@link #docstring(Node, int)}; a grouped segment never carries a Javadoc. */
+  /**
+   * Dispatches to {@link #docstring(Node, int)}; a grouped segment never carries a Javadoc.
+   */
   public String docstring(Object node, int limit) {
     if (node instanceof NodeGroup)
       return null;
