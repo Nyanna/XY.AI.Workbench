@@ -1,9 +1,10 @@
 # TODO
-
+- sdk in JAR exportieren -> script ändern
 ### Tools
 - Auch AST für JS/TS
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
+  	- ist ein speicher hash prompt, zieldatei im cahe für session, eher backup als cache
   - Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
   - F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
   - Drag & Drop für Includes – Includes-Autocompletion (nur wenn Processor aktiviert, mit Projekt-Datei-Autocompletion)

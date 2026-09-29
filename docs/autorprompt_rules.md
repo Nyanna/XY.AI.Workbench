@@ -1,0 +1,1 @@
+- Never to commands or searches accross Root ("/")
