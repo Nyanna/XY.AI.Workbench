@@ -1,5 +1,7 @@
 # TODO
-- sdk in JAR exportieren -> script ändern
+- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
+	- alle doof, splitting mit model by domain markdown -> text modell, code -> lateon modell, augmented retrieval tool, MCPC integrated RAG
+
 ### Tools
 - Auch AST für JS/TS
 - Include-Handling
@@ -49,4 +51,3 @@
 - **Soft-Prompts** komprimiert erstellen mit LLMLingua und LLM-Selbstkompression
 - **Phases**: Research (human augmented) → Retrieval (Preprocess-Agent: Dateien, Specs, Schemas, Studien, APIs) → Planning (High-Tier) → Execution (Dumb-Agent)
 - Weitere Tools für Research: Semantic Scholar, arXiv API Access
-- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
