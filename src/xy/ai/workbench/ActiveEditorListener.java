@@ -95,7 +95,9 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 				try {
 					file.createLink(uri, IResource.ALLOW_MISSING_LOCAL, new NullProgressMonitor());
 				} catch (CoreException e) {
-					throw new IllegalStateException("Could not link external file", e);
+					//throw new IllegalStateException("Could not link external file", e);
+					LOG.info("Could not link external file: " + e.getMessage());
+					return null;
 				}
 			return file;
 		}
