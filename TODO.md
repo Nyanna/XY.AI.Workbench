@@ -1,6 +1,31 @@
 # TODO
+- Fehlermeldungen für pfade, dateien und knoten umbauen, statt not found anzahl dateien etc, irgendwas was für den nächsten call funktioniert, an root,[*], module etc andocken. Warnung kann entfernt werden, weniger kritisch. Tool aufruf soll hilfreich sein und den nächsten schritt anzeigen. STDOUT limit soll auszug geben mit hinweis auf grep und vollem output oder outline ala 2 stage und auch metriken über stdout dateien, zeilen/lines etc
+- outputschema müssen sprechend sein, namen ud struktur prüfen, STDERR datei parameter prüfen, nicht besser im fleißtext erwähnen?
+
 - Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
 	- alle doof, splitting mit model by domain markdown -> text modell, code -> lateon modell, augmented retrieval tool, MCPC integrated RAG
+	- Multilayer RAG engine auf filesystem und parquet basis in python
+		- AST engin für chunking nutzen
+		- damit ein grep/ast_find liefern das nur suchausschnitt zeigt
+		- geteilter index für dateiänderungen, hash und
+		- reindex lazy mit erstem layer also textsuche
+		- teilen sich infrastruktur, änderungserkennung, dateisystem
+		- reindex priorisierung durch vorherige layer
+			- layher fügen hinzu, oder reichern an oder taggen und voten für ranking
+			- 2 stage system der results, liefern zeilen, zeilen, chunks/ast oder outline
+			- Liefern, Datei AST ID und Zeile
+			- metadaten sind separate layer wie auch zusammenfassungen und queries
+			- layer muss für agent transparentes signal liefern, dies ist eine zusammenfassung, dies ist ein auszug
+		- gemeinsame interfaces schaffen, query objekt, result object, query Kontext
+		
+		
+		- fd/glob, grep, ripgrep, ugrep,
+		- csearch/cindex, Zoekt, fcs, FTS5-Trigramm, ugrep-indexer
+		- FTS5, bm25s, Tantivy, Recoll, qmd search, mit eigener Tokenisierung (camelCase, LaTeX)
+		- bm25, trigram/n-gramm, word2vector, model2vector,
+		- BGE-M3 dense/sparse, Jina, Qwen3-Embedding, SPECTER2
+		- Doc2Query, ColBERT-MaxSim auf Kandidaten, BGE-M3 multi, PyLate rank
+		- PyLate/FastPLAID mit LateOn-Code-edge (17M) → LateOn-Code (130M), GTE-ModernColBERT
 
 ### Tools
 - Auch AST für JS/TS

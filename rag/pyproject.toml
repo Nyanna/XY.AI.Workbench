@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xy-ai-rag"
+version = "0.1.0"
+description = "RAG"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "xyan" }]
+keywords = ["rag"]
+
+dependencies = [
+]
+
+[project.scripts]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["xy*"]
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
