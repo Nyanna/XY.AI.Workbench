@@ -6,3 +6,9 @@ edition = "2024"
 [dependencies]
 serde_json = "1"
 regex = "1"
+syn = { version = "3", default-features = false, features = ["full", "extra-traits", "visit", "visit-mut", "clone-impls", "printing", "parsing"] }
+quote = "1"
+proc-macro2 = { version = "1", features = ["span-locations"] }
+prettyplease = "0.3"
+sha2 = "0.10"
+sha1 = "0.10"
