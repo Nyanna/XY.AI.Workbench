@@ -67,6 +67,7 @@ class ListResult:
     """Result of listing a single directory, mirroring its input path for result association."""
     path: str
     entries: list[str]
+    warning: str | None = None
 
 @dataclass(frozen=True)
 class ListItemError:
@@ -92,8 +93,13 @@ def _list_one(item: ListItem) -> ListResult:
         ListError: If path is not absolute.
         ListError: If path does not exist or is not a directory.
         ListError: If pattern is not a valid regular expression.
-        ListError: If more than ``_MAX_ENTRIES`` files match.
+        ListError: If more than ``_MAX_ENTRIES`` entries remain even after the result has been
+            reduced to one entry per directory level and then to top-level directories only.
     """
+    '# When the flat file count exceeds the limit, the result is progressively reduced:'
+    '# first to one entry per directory level (with a per-level file count), then, if'
+    '# that still exceeds the limit, to top-level directories only (with an aggregated'
+    '# file count below each). Both reduced results are returned with a warning.'
     dir_path = Path(item.path)
     if not dir_path.is_absolute():
         raise ListError('Path must be absolute.')
@@ -116,15 +122,48 @@ def _list_one(item: ListItem) -> ListResult:
         if matched_files:
             groups[rel_dir] = matched_files
             match_count += len(matched_files)
-    if match_count > _MAX_ENTRIES:
+    if match_count <= _MAX_ENTRIES:
+        entries = []
+        for rel_dir in sorted(groups):
+            header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
+            entries.append(f'{header}:')
+            entries.extend(groups[rel_dir])
+        return ListResult(path=item.path, entries=entries)
+    '# Step 1: collapse each directory level to a single representative entry,'
+    '# annotated with the total file count for that level.'
+    level1_counts = {rel_dir: len(files) for rel_dir, files in groups.items()}
+    if len(level1_counts) <= _MAX_ENTRIES:
+        entries = []
+        for rel_dir in sorted(groups):
+            header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
+            count = level1_counts[rel_dir]
+            entries.append(f'{header}: ({count} file{('s' if count != 1 else '')})')
+            entries.append(groups[rel_dir][0])
+        warning = f"Result reduced to one entry per directory level because the total number of entries ({match_count}) exceeds the limit of {_MAX_ENTRIES}. Each directory header now shows the total file count for that level. Narrow down the result using the 'pattern' regular expression parameter."
+        return ListResult(path=item.path, entries=entries, warning=warning)
+    '# Step 2: the per-level reduction still exceeds the limit, so collapse the'
+    '# tree depth and aggregate file counts below each top-level directory.'
+
+    def _top_key(rel_dir: str) -> str:
+        if rel_dir == '.':
+            return '.'
+        return rel_dir.split(os.sep)[0]
+    top_counts: dict[str, int] = {}
+    for rel_dir, files in groups.items():
+        key = _top_key(rel_dir)
+        top_counts[key] = top_counts.get(key, 0) + len(files)
+    if len(top_counts) > _MAX_ENTRIES:
         raise ListError(
-            f"Too many entries ({match_count}) exceed the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter.")
+            f"Too many entries even after reducing by directory level ({
+                len(top_counts)}) exceed the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter.")
     entries = []
-    for rel_dir in sorted(groups):
-        header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
-        entries.append(f'{header}:')
-        entries.extend(groups[rel_dir])
-    return ListResult(path=item.path, entries=entries)
+    for key in sorted(top_counts):
+        header = key if key == '.' else './' + key.replace(os.sep, '/')
+        count = top_counts[key]
+        entries.append(f'{header}: ({count} file{('s' if count != 1 else '')} below)')
+    warning = f"Result reduced to top-level directories because grouping by directory level still exceeds the limit of {_MAX_ENTRIES} ({
+        len(level1_counts)} directories). Each header now shows the total number of files below that directory. Narrow down the result using the 'pattern' regular expression parameter."
+    return ListResult(path=item.path, entries=entries, warning=warning)
 
 def list(items: list[ListItem]) -> ListBatchResult:
     """List each directory in ``items``.
@@ -164,7 +203,9 @@ class ListTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> ListItem:
             return ListItem(path=it['path'], pattern=it.get('pattern'))
-        result_serializer = lambda r: {'path': r.path, 'entries': r.entries}
+
+        def result_serializer(r):
+            return {'path': r.path, 'entries': r.entries, **({'warning': r.warning} if r.warning else {})}
         return handle_batch_tool(ctx, item_factory, list, ListError, result_serializer)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
