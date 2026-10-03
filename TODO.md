@@ -9,7 +9,7 @@
 		- damit ein grep/ast_find liefern das nur suchausschnitt zeigt
 		- geteilter index für dateiänderungen, hash und
 		- reindex lazy mit erstem layer also textsuche
-		- teilen sich infrastruktur, änderungserkennung, dateisystem
+		- teilen sich infrastruktur, änderungserkennung, dateisystem, Outline sync mit Zeilennummern pro Datei
 		- reindex priorisierung durch vorherige layer
 			- layher fügen hinzu, oder reichern an oder taggen und voten für ranking
 			- 2 stage system der results, liefern zeilen, zeilen, chunks/ast oder outline
