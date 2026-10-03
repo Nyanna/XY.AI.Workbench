@@ -125,7 +125,7 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
         content.append(
             text_content(
                 f'Full output written to file ({
-                    len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_list) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                    len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
         structured['stdout_file'] = stdout_file
     else:
         structured['stdout'] = stdout
@@ -135,7 +135,7 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
             content.append(
                 text_content(
                     f'Full output written to file ({
-                        len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_list) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                        len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
             structured['stderr_file'] = stderr_file
         else:
             structured['stderr'] = stderr

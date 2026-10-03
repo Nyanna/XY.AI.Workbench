@@ -150,7 +150,7 @@ class OutlineNodesTool(ToolDefinition):
         'required': ['paths']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`ast_list`, translating the MCP schema to/from the AST API."""
+        """Delegate to :func:`ast_outline`, translating the MCP schema to/from the AST API."""
         paths, error = require_items(ctx, key='paths')
         if error is not None:
             return error

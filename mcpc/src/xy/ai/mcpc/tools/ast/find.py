@@ -92,7 +92,7 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
     most specific (smallest) enclosing node rather than to every ancestor whose
     source happens to contain it. Matches are returned with their full source.
     Called with no selector at all, ``ast_find`` returns the whole node tree per
-    file, nested like ``ast_list`` but including source.
+    file, nested like ``ast_outline`` but including source.
 
     Args:
         paths: Absolute paths of the files to search. Must be non-empty.

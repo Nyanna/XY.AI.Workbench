@@ -107,8 +107,8 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
-    title = 'After using `ast_list` or `ast_find`, read AST subtrees for known node IDs'
-    description = "After using `ast_list` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source. " + core.OUTLINE_NODE_DESCRIPTION
+    title = 'After using `ast_outline` or `ast_find`, read AST subtrees for known node IDs'
+    description = "After using `ast_outline` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source. " + core.OUTLINE_NODE_DESCRIPTION
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'ids': {
@@ -123,7 +123,7 @@ class ReadNodeTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API.
 
-        Per item, falls back to :func:`ast_list` when ``ids`` looks like agents
+        Per item, falls back to :func:`ast_outline` when ``ids`` looks like agents
         habitually mis-guessing a root id (``root``/``_module_``/``module``/empty)
         and none of them resolve to a node: returns that file's full outline
         instead of an error, and notes the redirect in the item's ``errors``.
@@ -148,7 +148,7 @@ class ReadNodeTool(ToolDefinition):
                 list_batch = ast_outline([path], with_lines=with_lines)
                 for lr in list_batch.results:
                     results.append({'path': lr.path, 'nodes': [core.to_dict(n) for n in lr.nodes], 'errors': [
-                                   f'ids {ids!r} resolved to no node; redirected to ast_list, returning the full outline instead.']})
+                                   f'ids {ids!r} resolved to no node; redirected to ast_outline, returning the full outline instead.']})
                 for le in list_batch.errors:
                     errors.append({'path': le.path, 'error': le.error})
                 continue
