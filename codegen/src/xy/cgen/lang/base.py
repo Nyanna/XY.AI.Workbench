@@ -30,8 +30,12 @@ class LanguageSupport(ABC):
         """A dotted fqn or scalar type name as it appears in a type position."""
 
     @abstractmethod
-    def parameter_declaration(self, type_hint: str, var_name: str) -> str:
-        """One '<type> <name>'-style method-signature parameter."""
+    def parameter_declaration(self, type_hint: str, var_name: str, kind: str='path') -> str:
+        """One '<type> <name>'-style method-signature parameter. `kind` is
+        'path' | 'query' | 'body'; most languages ignore it (every scalar
+        parameter type is nullable by default), but it lets a target
+        without that property (e.g. Rust) wrap query parameters in an
+        optional type."""
 
     @abstractmethod
     def reference_expr(self, name: str) -> str:
@@ -75,3 +79,9 @@ class LanguageSupport(ABC):
     def build_binding_lines(self, client_method, regex_order, body_json_support_fqn: str) -> tuple:
         """Statements decoding matcher groups / query params / body into locals
         for the server dispatcher; one `ServerMethod.binding_lines` tuple."""
+
+    def finalize_output(self, output_dir) -> None:
+        """Post-processing hook, run once after every file has been written to
+        `output_dir`. No-op by default; a target can override this to generate
+        whatever index/glue files its module system needs (e.g. Rust's `mod.rs`
+        files -- it has no implicit-namespace-package equivalent)."""

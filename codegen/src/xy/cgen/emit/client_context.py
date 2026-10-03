@@ -41,7 +41,7 @@ def _build_parameter(param, kind: str, language: str) -> MethodParameter:
 
 def _signature(parameters: tuple, language: str) -> str:
     lang = get_language(language)
-    return ', '.join((lang.parameter_declaration(lang.type_hint(p.java_type), p.name) for p in parameters))
+    return ', '.join((lang.parameter_declaration(lang.type_hint(p.java_type), p.name, p.kind) for p in parameters))
 
 def _path_url_expression(path: str, path_params: tuple, language: str) -> str:
     """A string-concatenation expression rebuilding the URL path, with

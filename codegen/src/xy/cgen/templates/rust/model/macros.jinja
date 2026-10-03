@@ -1,0 +1,11 @@
+{% macro rustdoc(description, example_repr, indent="    ") %}
+{% if description %}
+{% for line in description.split('\n') %}
+{{ indent }}/// {{ line }}
+{% endfor %}
+{% endif %}
+{% if example_repr %}
+{{ indent }}/// Example: {{ example_repr }}
+{% endif %}
+{% endmacro %}
+{% macro read_raw(var, read_method) %}{% if read_method == "as_str" %}{{ var }}.as_str().map(|s| s.to_string()){% else %}{{ var }}.{{ read_method }}(){% endif %}{% endmacro %}

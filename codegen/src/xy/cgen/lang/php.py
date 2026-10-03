@@ -54,7 +54,7 @@ class PhpSupport(LanguageSupport):
             return type_name
         return _to_php_fqn(type_name)
 
-    def parameter_declaration(self, type_hint: str, var_name: str) -> str:
+    def parameter_declaration(self, type_hint: str, var_name: str, kind: str='path') -> str:
         return f'{type_hint} ${var_name}'
 
     def reference_expr(self, name: str) -> str:

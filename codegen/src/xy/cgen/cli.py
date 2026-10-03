@@ -14,7 +14,7 @@ def parse_args(argv=None) -> Config:
         '--base-package',
         default='xy.api.codegen',
         help='Root package/namespace for generated code (default: xy.api.codegen).')
-    parser.add_argument('--language', choices=('java', 'php', 'python'), default='java',
+    parser.add_argument('--language', choices=('java', 'php', 'python', 'rust'), default='java',
                         help='Target language; selects the templates/<language> subdirectory (default: java).')
     args = parser.parse_args(argv)
     return Config(input_schema=args.schema, output_dir=args.out, base_package=args.base_package, language=args.language)

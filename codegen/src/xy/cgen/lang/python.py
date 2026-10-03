@@ -63,7 +63,7 @@ class PythonSupport(LanguageSupport):
     def type_hint(self, type_name: str) -> str:
         return type_name
 
-    def parameter_declaration(self, type_hint: str, var_name: str) -> str:
+    def parameter_declaration(self, type_hint: str, var_name: str, kind: str='path') -> str:
         return f'{var_name}: {type_hint}'
 
     def reference_expr(self, name: str) -> str:
