@@ -51,7 +51,7 @@ class PythonTool(ToolDefinition):
             result = python(args['script'])
         except PythonError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result)
+        return pack_process_result(result, ctx)
 
 def register_python_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(PythonTool())

@@ -30,8 +30,13 @@ import os
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
+from xy.ai.mcpc.tools.ast import core as _ast_core
+from xy.ai.mcpc.tools.ast.outline import ast_outline as _ast_outline
+from xy.ai.mcpc.tools.file_stats import compute_file_stats as _compute_file_stats
+from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 _BLANK_RUN_RE = re.compile('[ \\t]+$', re.MULTILINE)
 _MULTI_BLANK_RE = re.compile('\\n{3,}')
@@ -87,7 +92,22 @@ def _spill_to_file(text: str, label: str) -> str:
         raise
     return path
 
-def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, omit_zero_exit_code: bool=False, max_stream_chars: int | None=None) -> ToolResult:
+def _spill_extra_info(path: str, ctx: ToolContext) -> dict[str, Any]:
+    """Compute the extra structured info attached for a spilled-to-disk stream.
+
+    Always includes ``file_stats``; additionally includes ``ast_outline`` when
+    the ``ast_outline`` tool is enabled for the session.
+    """
+    info: dict[str, Any] = {'file_stats': asdict(_compute_file_stats(Path(path)))}
+    if {'tools', 'ast_outline'} & ctx.session.enabled_tools:
+        batch = _ast_outline(paths=[path])
+        if batch.results:
+            info['ast_outline'] = [_ast_core.to_dict(n) for n in batch.results[0].nodes]
+        elif batch.errors:
+            info['ast_outline'] = {'error': batch.errors[0].error}
+    return info
+
+def pack_process_result(result: ProcessResult, ctx: ToolContext, *, normalize_output: bool=False, omit_zero_exit_code: bool=False, max_stream_chars: int | None=None) -> ToolResult:
     """Pack a :class:`ProcessResult` into the MCP output schema.
 
     * ``normalize_output`` — when ``True``, post-process STDOUT/STDERR to
@@ -96,12 +116,14 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
       result entirely if the process exited with code ``0``.
     * ``max_stream_chars`` — safety limit on the number of characters of
       STDOUT/STDERR returned inline.  When a stream exceeds this limit, its
-      full content is written to a temp file instead and the structured
-      result contains the absolute path (``stdout_file``/``stderr_file``) in
-      place of the raw text, so the caller can keep operating on it (e.g.
-      with the ``read`` tool) without the oversized content ever passing
-      through the result payload.  ``None`` (the default) disables the
-      limit.
+      full content is written to a temp file instead; the structured
+      result then carries the absolute path (``stdout_file``/``stderr_file``)
+      in place of the raw text, plus ``stdout_file_stats``/``stderr_file_stats``
+      (and, when the ``ast_outline`` tool is enabled, ``stdout_file_outline``/
+      ``stderr_file_outline``) describing that file, so the caller can keep
+      operating on it (e.g. with the ``read`` tool) without the oversized
+      content ever passing through the result payload.  ``None`` (the
+      default) disables the limit.
 
     ``stdout`` is always present; ``stderr`` is included whenever it is
     non-empty. The result carries no separate text content block —
@@ -124,9 +146,10 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
         stdout_file = _spill_to_file(stdout, 'stdout')
         content.append(
             text_content(
-                f'Full output written to file ({
-                    len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                f'Full output written to file ({stdout_file}). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
         structured['stdout_file'] = stdout_file
+        for key, value in _spill_extra_info(stdout_file, ctx).items():
+            structured[f'stdout_file_{key}'] = value
     else:
         structured['stdout'] = stdout
     if stderr:
@@ -134,9 +157,10 @@ def pack_process_result(result: ProcessResult, *, normalize_output: bool=False, 
             stderr_file = _spill_to_file(stderr, 'stderr')
             content.append(
                 text_content(
-                    f'Full output written to file ({
-                        len(stdout)} characters). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                    f'Full output written to file ({stderr_file}). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
             structured['stderr_file'] = stderr_file
+            for key, value in _spill_extra_info(stderr_file, ctx).items():
+                structured[f'stderr_file_{key}'] = value
         else:
             structured['stderr'] = stderr
     '# Simple success with auto_approve when exit code is 0 and both streams are empty'

@@ -85,7 +85,7 @@ class MarkdownTool(ToolDefinition):
             result = self._runner.markdown(args['script'])
         except MarkdownError as exc:
             return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result)
+        return pack_process_result(result, ctx)
 
 def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment) -> None:
     tool = MarkdownTool(environment.config.markdown_env_dir)

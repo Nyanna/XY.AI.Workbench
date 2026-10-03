@@ -67,6 +67,7 @@ class BashTool(ToolDefinition):
             return ToolResult(content=[text_content(str(exc))], is_error=True)
         return pack_process_result(
             result,
+            ctx,
             normalize_output=True,
             omit_zero_exit_code=True,
             max_stream_chars=_MAX_STREAM_CHARS)
