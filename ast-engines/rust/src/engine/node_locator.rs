@@ -11,51 +11,51 @@
 //! Ids are name-based structural paths (e.g. `"MyStruct.foo"`) for named definitions,
 //! and stable content-hash paths (e.g. `"a1B2c3|d4E5f6"`) for anonymous group
 //! segments, rebuilt fresh on every call from the live tree.
-
 use std::collections::HashMap;
-
 use sha1::{Digest, Sha1};
 use syn::spanned::Spanned;
 use syn::{File, ImplItem, Item, TraitItem};
-
 use crate::engine::addressable_node::AddressableNode;
 use crate::engine::node_path::{NodePath, Owner};
-
 /// A group keeps accumulating siblings until adding the next one would push its (token) length past this many characters.
 const SEGMENT_MAX_CHARS: usize = 1000;
 const HASH_ALPHABET: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
 pub fn locate_all(file: &File) -> Vec<AddressableNode> {
     let mut out = Vec::new();
     walk_items(&file.items, Vec::new(), "File", "", &mut out);
     out
 }
-
 fn line(span: proc_macro2::Span) -> i64 {
     span.start().line as i64
 }
-
 fn end_line(span: proc_macro2::Span) -> i64 {
     span.end().line as i64
 }
-
 fn sanitize(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for c in name.chars() {
-        if c.is_ascii_alphanumeric() || c == '_' { out.push(c); } else { out.push('_'); }
+        if c.is_ascii_alphanumeric() || c == '_' {
+            out.push(c);
+        } else {
+            out.push('_');
+        }
     }
     out
 }
-
-fn segment(name: Option<&str>, type_name: &str, used: &mut HashMap<String, i32>) -> String {
-    let base = match name { Some(n) => sanitize(n), None => type_name.to_string() };
+fn segment(
+    name: Option<&str>,
+    type_name: &str,
+    used: &mut HashMap<String, i32>,
+) -> String {
+    let base = match name {
+        Some(n) => sanitize(n),
+        None => type_name.to_string(),
+    };
     let count = used.entry(base.clone()).and_modify(|c| *c += 1).or_insert(1);
     if *count == 1 { base } else { format!("{}_{}", base, count) }
 }
-
 fn base62_hash(text: &str, length: usize) -> String {
     let digest = Sha1::digest(text.as_bytes());
-    // Big-endian byte sequence treated as a big integer, repeatedly reduced mod 62 -- same as Java's BigInteger approach.
     let mut digits: Vec<u8> = digest.to_vec();
     let mut out = String::with_capacity(length);
     for _ in 0..length {
@@ -69,11 +69,9 @@ fn base62_hash(text: &str, length: usize) -> String {
     }
     out
 }
-
 fn content_hash(content: &str) -> String {
     base62_hash(content, 6)
 }
-
 /// Hash of the group's whitespace-stripped first/last 20 chars: stays put even when unrelated edits shift the group's interior.
 fn content_prefix_hash(content: &str) -> String {
     let stripped: String = content.chars().filter(|c| !c.is_whitespace()).collect();
@@ -84,29 +82,35 @@ fn content_prefix_hash(content: &str) -> String {
     let suffix: String = chars[suffix_start..].iter().collect();
     base62_hash(&format!("{}{}", prefix, suffix), 6)
 }
-
 fn anonymous_segment(content: &str, used: &mut HashMap<String, i32>) -> String {
     let base = format!("{}|{}", content_prefix_hash(content), content_hash(content));
     let count = used.entry(base.clone()).and_modify(|c| *c += 1).or_insert(1);
     if *count == 1 { base } else { format!("{}_{}", base, count) }
 }
-
 fn join_id(parent_id: &str, segment: &str) -> String {
-    if parent_id.is_empty() { segment.to_string() } else { format!("{}.{}", parent_id, segment) }
+    if parent_id.is_empty() {
+        segment.to_string()
+    } else {
+        format!("{}.{}", parent_id, segment)
+    }
 }
-
 fn token_len(item: &Item) -> usize {
-    quote::quote! { #item }.to_string().len()
+    quote::quote! {
+        # item
+    }
+        .to_string()
+        .len()
 }
-
 fn is_definition_item(item: &Item) -> bool {
-    matches!(item, Item::Fn(_) | Item::Struct(_) | Item::Enum(_) | Item::Union(_) | Item::Trait(_) | Item::TraitAlias(_) | Item::Type(_) | Item::Mod(_) | Item::Impl(_))
+    matches!(
+        item, Item::Fn(_) | Item::Struct(_) | Item::Enum(_) | Item::Union(_) |
+        Item::Trait(_) | Item::TraitAlias(_) | Item::Type(_) | Item::Mod(_) |
+        Item::Impl(_)
+    )
 }
-
 fn group_kind(item: &Item) -> &'static str {
     if matches!(item, Item::Use(_)) { "ImportGroup" } else { "StatementGroup" }
 }
-
 fn item_type_name(item: &Item) -> &'static str {
     match item {
         Item::Const(_) => "ItemConst",
@@ -127,7 +131,6 @@ fn item_type_name(item: &Item) -> &'static str {
         _ => "ItemUnsupported",
     }
 }
-
 fn item_name(item: &Item) -> Option<String> {
     match item {
         Item::Fn(f) => Some(f.sig.ident.to_string()),
@@ -142,36 +145,64 @@ fn item_name(item: &Item) -> Option<String> {
         _ => None,
     }
 }
-
 fn impl_name(imp: &syn::ItemImpl) -> String {
     let ty = &imp.self_ty;
-    let ty_str = sanitize(&quote::quote! { #ty }.to_string().replace(' ', ""));
+    let ty_str = sanitize(
+        &quote::quote! {
+            # ty
+        }
+            .to_string()
+            .replace(' ', ""),
+    );
     match &imp.trait_ {
         Some((path, _)) => {
-            let trait_str = sanitize(&quote::quote! { #path }.to_string().replace(' ', ""));
+            let trait_str = sanitize(
+                &quote::quote! {
+                    # path
+                }
+                    .to_string()
+                    .replace(' ', ""),
+            );
             format!("impl_{}_for_{}", trait_str, ty_str)
         }
         None => format!("impl_{}", ty_str),
     }
 }
-
 fn is_expandable(item: &Item) -> bool {
     match item {
-        Item::Mod(m) => m.content.as_ref().map(|(_, items)| items.iter().any(is_definition_item)).unwrap_or(false),
+        Item::Mod(m) => {
+            m.content
+                .as_ref()
+                .map(|(_, items)| items.iter().any(is_definition_item))
+                .unwrap_or(false)
+        }
         Item::Impl(imp) => imp.items.iter().any(|m| matches!(m, ImplItem::Fn(_))),
         Item::Trait(t) => t.items.iter().any(|m| matches!(m, TraitItem::Fn(_))),
         _ => false,
     }
 }
-
-fn walk_items(items: &[Item], mod_path: Vec<usize>, parent_type: &str, parent_id: &str, out: &mut Vec<AddressableNode>) {
+fn walk_items(
+    items: &[Item],
+    mod_path: Vec<usize>,
+    parent_type: &str,
+    parent_id: &str,
+    out: &mut Vec<AddressableNode>,
+) {
     let mut used: HashMap<String, i32> = HashMap::new();
     let n = items.len();
     let mut i = 0;
     while i < n {
         let item = &items[i];
         if is_definition_item(item) {
-            emit_definition(items, i, mod_path.clone(), parent_type, parent_id, &mut used, out);
+            emit_definition(
+                items,
+                i,
+                mod_path.clone(),
+                parent_type,
+                parent_id,
+                &mut used,
+                out,
+            );
             i += 1;
             continue;
         }
@@ -180,17 +211,38 @@ fn walk_items(items: &[Item], mod_path: Vec<usize>, parent_type: &str, parent_id
         let mut length = 0usize;
         while i < n {
             let cur = &items[i];
-            if is_definition_item(cur) || group_kind(cur) != kind { break; }
+            if is_definition_item(cur) || group_kind(cur) != kind {
+                break;
+            }
             let piece = token_len(cur);
-            if i > start && length + piece > SEGMENT_MAX_CHARS { break; }
+            if i > start && length + piece > SEGMENT_MAX_CHARS {
+                break;
+            }
             length += piece;
             i += 1;
         }
-        add_item_group(items, kind, mod_path.clone(), start, i, parent_type, parent_id, &mut used, out);
+        add_item_group(
+            items,
+            kind,
+            mod_path.clone(),
+            start,
+            i,
+            parent_type,
+            parent_id,
+            &mut used,
+            out,
+        );
     }
 }
-
-fn emit_definition(items: &[Item], idx: usize, mod_path: Vec<usize>, parent_type: &str, parent_id: &str, used: &mut HashMap<String, i32>, out: &mut Vec<AddressableNode>) {
+fn emit_definition(
+    items: &[Item],
+    idx: usize,
+    mod_path: Vec<usize>,
+    parent_type: &str,
+    parent_id: &str,
+    used: &mut HashMap<String, i32>,
+    out: &mut Vec<AddressableNode>,
+) {
     let item = &items[idx];
     let type_name = item_type_name(item);
     let name = item_name(item);
@@ -216,15 +268,35 @@ fn emit_definition(items: &[Item], idx: usize, mod_path: Vec<usize>, parent_type
                 walk_items(inner, child_mod_path, type_name, &id, out);
             }
         }
-        Item::Impl(imp) => walk_impl_items(&imp.items, mod_path, idx, type_name, &id, out),
+        Item::Impl(imp) => {
+            walk_impl_items(&imp.items, mod_path, idx, type_name, &id, out)
+        }
         Item::Trait(t) => walk_trait_items(&t.items, mod_path, idx, type_name, &id, out),
         _ => {}
     }
 }
-
-fn add_item_group(items: &[Item], kind: &str, mod_path: Vec<usize>, start: usize, end: usize, parent_type: &str, parent_id: &str, used: &mut HashMap<String, i32>, out: &mut Vec<AddressableNode>) {
+fn add_item_group(
+    items: &[Item],
+    kind: &str,
+    mod_path: Vec<usize>,
+    start: usize,
+    end: usize,
+    parent_type: &str,
+    parent_id: &str,
+    used: &mut HashMap<String, i32>,
+    out: &mut Vec<AddressableNode>,
+) {
     let slice = &items[start..end];
-    let content = slice.iter().map(|m| quote::quote! { #m }.to_string()).collect::<Vec<_>>().join("\n");
+    let content = slice
+        .iter()
+        .map(|m| {
+            quote::quote! {
+                # m
+            }
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     let seg = anonymous_segment(&content, used);
     let id = join_id(parent_id, &seg);
     out.push(AddressableNode {
@@ -239,8 +311,14 @@ fn add_item_group(items: &[Item], kind: &str, mod_path: Vec<usize>, start: usize
         is_definition: false,
     });
 }
-
-fn walk_impl_items(items: &[ImplItem], mod_path: Vec<usize>, owner_idx: usize, parent_type: &str, parent_id: &str, out: &mut Vec<AddressableNode>) {
+fn walk_impl_items(
+    items: &[ImplItem],
+    mod_path: Vec<usize>,
+    owner_idx: usize,
+    parent_type: &str,
+    parent_id: &str,
+    out: &mut Vec<AddressableNode>,
+) {
     let mut used: HashMap<String, i32> = HashMap::new();
     let n = items.len();
     let mut i = 0;
@@ -250,7 +328,12 @@ fn walk_impl_items(items: &[ImplItem], mod_path: Vec<usize>, owner_idx: usize, p
             let id = join_id(parent_id, &seg);
             out.push(AddressableNode {
                 id,
-                path: NodePath::single(mod_path.clone(), Owner::Impl, Some(owner_idx), i),
+                path: NodePath::single(
+                    mod_path.clone(),
+                    Owner::Impl,
+                    Some(owner_idx),
+                    i,
+                ),
                 node_type: "ImplItemFn".to_string(),
                 name: Some(f.sig.ident.to_string()),
                 lineno: line(f.span()),
@@ -265,19 +348,42 @@ fn walk_impl_items(items: &[ImplItem], mod_path: Vec<usize>, owner_idx: usize, p
         let start = i;
         let mut length = 0usize;
         while i < n {
-            if matches!(items[i], ImplItem::Fn(_)) { break; }
-            let piece = quote::quote! { #(&items[i]) }.to_string().len();
-            if i > start && length + piece > SEGMENT_MAX_CHARS { break; }
+            if matches!(items[i], ImplItem::Fn(_)) {
+                break;
+            }
+            let piece = quote::quote! {
+                # (& items[i])
+            }
+                .to_string()
+                .len();
+            if i > start && length + piece > SEGMENT_MAX_CHARS {
+                break;
+            }
             length += piece;
             i += 1;
         }
         let slice = &items[start..i];
-        let content = slice.iter().map(|m| quote::quote! { #m }.to_string()).collect::<Vec<_>>().join("\n");
+        let content = slice
+            .iter()
+            .map(|m| {
+                quote::quote! {
+                    # m
+                }
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let seg = anonymous_segment(&content, &mut used);
         let id = join_id(parent_id, &seg);
         out.push(AddressableNode {
             id,
-            path: NodePath::range(mod_path.clone(), Owner::Impl, Some(owner_idx), start, i),
+            path: NodePath::range(
+                mod_path.clone(),
+                Owner::Impl,
+                Some(owner_idx),
+                start,
+                i,
+            ),
             node_type: "StatementGroup".to_string(),
             name: None,
             lineno: line(slice[0].span()),
@@ -288,8 +394,14 @@ fn walk_impl_items(items: &[ImplItem], mod_path: Vec<usize>, owner_idx: usize, p
         });
     }
 }
-
-fn walk_trait_items(items: &[TraitItem], mod_path: Vec<usize>, owner_idx: usize, parent_type: &str, parent_id: &str, out: &mut Vec<AddressableNode>) {
+fn walk_trait_items(
+    items: &[TraitItem],
+    mod_path: Vec<usize>,
+    owner_idx: usize,
+    parent_type: &str,
+    parent_id: &str,
+    out: &mut Vec<AddressableNode>,
+) {
     let mut used: HashMap<String, i32> = HashMap::new();
     let n = items.len();
     let mut i = 0;
@@ -299,7 +411,12 @@ fn walk_trait_items(items: &[TraitItem], mod_path: Vec<usize>, owner_idx: usize,
             let id = join_id(parent_id, &seg);
             out.push(AddressableNode {
                 id,
-                path: NodePath::single(mod_path.clone(), Owner::Trait, Some(owner_idx), i),
+                path: NodePath::single(
+                    mod_path.clone(),
+                    Owner::Trait,
+                    Some(owner_idx),
+                    i,
+                ),
                 node_type: "TraitItemFn".to_string(),
                 name: Some(f.sig.ident.to_string()),
                 lineno: line(f.span()),
@@ -314,19 +431,42 @@ fn walk_trait_items(items: &[TraitItem], mod_path: Vec<usize>, owner_idx: usize,
         let start = i;
         let mut length = 0usize;
         while i < n {
-            if matches!(items[i], TraitItem::Fn(_)) { break; }
-            let piece = quote::quote! { #(&items[i]) }.to_string().len();
-            if i > start && length + piece > SEGMENT_MAX_CHARS { break; }
+            if matches!(items[i], TraitItem::Fn(_)) {
+                break;
+            }
+            let piece = quote::quote! {
+                # (& items[i])
+            }
+                .to_string()
+                .len();
+            if i > start && length + piece > SEGMENT_MAX_CHARS {
+                break;
+            }
             length += piece;
             i += 1;
         }
         let slice = &items[start..i];
-        let content = slice.iter().map(|m| quote::quote! { #m }.to_string()).collect::<Vec<_>>().join("\n");
+        let content = slice
+            .iter()
+            .map(|m| {
+                quote::quote! {
+                    # m
+                }
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let seg = anonymous_segment(&content, &mut used);
         let id = join_id(parent_id, &seg);
         out.push(AddressableNode {
             id,
-            path: NodePath::range(mod_path.clone(), Owner::Trait, Some(owner_idx), start, i),
+            path: NodePath::range(
+                mod_path.clone(),
+                Owner::Trait,
+                Some(owner_idx),
+                start,
+                i,
+            ),
             node_type: "StatementGroup".to_string(),
             name: None,
             lineno: line(slice[0].span()),

@@ -5,9 +5,7 @@
 //! inside one `impl`/`trait` block's own item list. Re-resolved fresh on every
 //! request against the live tree, exactly like the Java engine re-resolves ids via
 //! `NodeLocator.locateAll` each call.
-
 use syn::{File, Item, ImplItem, TraitItem};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Owner {
     /// The range lives directly in an items list (`File.items` or a `mod`'s items).
@@ -17,7 +15,6 @@ pub enum Owner {
     /// The range lives in the `items` of the `ItemTrait` at `owner_idx` of that items list.
     Trait,
 }
-
 #[derive(Debug, Clone)]
 pub struct NodePath {
     /// Indices of `ItemMod` to descend through (in order) to reach the items list this path targets.
@@ -27,17 +24,37 @@ pub struct NodePath {
     pub start: usize,
     pub end: usize,
 }
-
 impl NodePath {
-    pub fn single(mod_path: Vec<usize>, owner: Owner, owner_idx: Option<usize>, index: usize) -> Self {
-        Self { mod_path, owner, owner_idx, start: index, end: index + 1 }
+    pub fn single(
+        mod_path: Vec<usize>,
+        owner: Owner,
+        owner_idx: Option<usize>,
+        index: usize,
+    ) -> Self {
+        Self {
+            mod_path,
+            owner,
+            owner_idx,
+            start: index,
+            end: index + 1,
+        }
     }
-
-    pub fn range(mod_path: Vec<usize>, owner: Owner, owner_idx: Option<usize>, start: usize, end: usize) -> Self {
-        Self { mod_path, owner, owner_idx, start, end }
+    pub fn range(
+        mod_path: Vec<usize>,
+        owner: Owner,
+        owner_idx: Option<usize>,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Self {
+            mod_path,
+            owner,
+            owner_idx,
+            start,
+            end,
+        }
     }
 }
-
 fn items_vec<'a>(file: &'a File, mod_path: &[usize]) -> Option<&'a Vec<Item>> {
     let mut cur = &file.items;
     for &idx in mod_path {
@@ -48,8 +65,10 @@ fn items_vec<'a>(file: &'a File, mod_path: &[usize]) -> Option<&'a Vec<Item>> {
     }
     Some(cur)
 }
-
-fn items_vec_mut<'a>(file: &'a mut File, mod_path: &[usize]) -> Option<&'a mut Vec<Item>> {
+fn items_vec_mut<'a>(
+    file: &'a mut File,
+    mod_path: &[usize],
+) -> Option<&'a mut Vec<Item>> {
     let mut cur = &mut file.items;
     for &idx in mod_path {
         match cur.get_mut(idx)? {
@@ -59,7 +78,6 @@ fn items_vec_mut<'a>(file: &'a mut File, mod_path: &[usize]) -> Option<&'a mut V
     }
     Some(cur)
 }
-
 /// What a [`NodePath`] ultimately addresses: either a slice of `Item`s, or a slice
 /// of `ImplItem`s/`TraitItem`s one level inside one `impl`/`trait` of that slice.
 pub enum Target<'a> {
@@ -67,40 +85,45 @@ pub enum Target<'a> {
     Impl(&'a mut Vec<ImplItem>),
     Trait(&'a mut Vec<TraitItem>),
 }
-
 pub fn resolve_mut<'a>(file: &'a mut File, path: &NodePath) -> Option<Target<'a>> {
     let items = items_vec_mut(file, &path.mod_path)?;
     match path.owner {
         Owner::None => Some(Target::Items(items)),
-        Owner::Impl => match items.get_mut(path.owner_idx?)? {
-            Item::Impl(imp) => Some(Target::Impl(&mut imp.items)),
-            _ => None,
-        },
-        Owner::Trait => match items.get_mut(path.owner_idx?)? {
-            Item::Trait(tr) => Some(Target::Trait(&mut tr.items)),
-            _ => None,
-        },
+        Owner::Impl => {
+            match items.get_mut(path.owner_idx?)? {
+                Item::Impl(imp) => Some(Target::Impl(&mut imp.items)),
+                _ => None,
+            }
+        }
+        Owner::Trait => {
+            match items.get_mut(path.owner_idx?)? {
+                Item::Trait(tr) => Some(Target::Trait(&mut tr.items)),
+                _ => None,
+            }
+        }
     }
 }
-
 /// Read-only counterpart of [`Target`]: what a [`NodePath`] ultimately addresses.
 pub enum TargetRef<'a> {
     Items(&'a [Item]),
     Impl(&'a [ImplItem]),
     Trait(&'a [TraitItem]),
 }
-
 pub fn resolve<'a>(file: &'a File, path: &NodePath) -> Option<TargetRef<'a>> {
     let items = items_vec(file, &path.mod_path)?;
     match path.owner {
         Owner::None => Some(TargetRef::Items(items)),
-        Owner::Impl => match items.get(path.owner_idx?)? {
-            Item::Impl(imp) => Some(TargetRef::Impl(&imp.items)),
-            _ => None,
-        },
-        Owner::Trait => match items.get(path.owner_idx?)? {
-            Item::Trait(tr) => Some(TargetRef::Trait(&tr.items)),
-            _ => None,
-        },
+        Owner::Impl => {
+            match items.get(path.owner_idx?)? {
+                Item::Impl(imp) => Some(TargetRef::Impl(&imp.items)),
+                _ => None,
+            }
+        }
+        Owner::Trait => {
+            match items.get(path.owner_idx?)? {
+                Item::Trait(tr) => Some(TargetRef::Trait(&tr.items)),
+                _ => None,
+            }
+        }
     }
 }
