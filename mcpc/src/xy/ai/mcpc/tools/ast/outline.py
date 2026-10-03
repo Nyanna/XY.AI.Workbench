@@ -7,7 +7,15 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
-__all__ = ['OutlineNodesResult', 'OutlineNodesError', 'OutlineNodesBatchResult', 'ast_outline', 'OutlineNodesTool', 'register']
+from xy.ai.mcpc.tools.list import ListError, ListItem
+from xy.ai.mcpc.tools.list import list as _list_dirs
+__all__ = [
+    'OutlineNodesResult',
+    'OutlineNodesError',
+    'OutlineNodesBatchResult',
+    'ast_outline',
+    'OutlineNodesTool',
+    'register']
 _MAX_DIR_EXPANSION = 5
 
 @dataclass(frozen=True)
@@ -69,6 +77,25 @@ def _outline_one(path: str, *, with_lines: bool) -> OutlineNodesResult:
     nodes = core.build_outline(core.locate_all(tree), with_lines=with_lines, with_type=False)
     return OutlineNodesResult(path=path, nodes=nodes)
 
+def _directory_listing_hint(path: str) -> str:
+    """Build an error message for a path that turned out to be a directory,
+    anticipating the likely intent: list its contents (via the ``list`` tool)
+    instead of outlining it as a file.
+    """
+    hint = 'Path is a directory, not a file; listing its contents instead (intent anticipated).'
+    try:
+        batch = _list_dirs([ListItem(path=path)])
+    except ListError as exc:
+        return f'{hint} Listing failed: {exc}'
+    if batch.errors:
+        return f'{hint} Listing failed: {batch.errors[0].error}'
+    result = batch.results[0]
+    parts = [hint]
+    if result.warning:
+        parts.append(result.warning)
+    parts.extend(result.entries)
+    return '\n'.join(parts)
+
 def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatchResult:
     """List the hierarchical AST-node tree of one or more files.
 
@@ -79,7 +106,8 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 
     A path naming a directory without subdirectories and holding at most
     5 files is transparently expanded to those files; any other directory
-    fails normally.
+    is reported as an error whose message contains the directory's listing
+    (via the ``list`` tool), anticipating the likely intent.
 
     Args:
         paths: Absolute paths of the files to list. Must be non-empty.
@@ -97,6 +125,9 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
     errors: list[OutlineNodesError] = []
     for path in paths:
         for real_path in _expand_path(path):
+            if Path(real_path).is_dir():
+                errors.append(OutlineNodesError(path=real_path, error=_directory_listing_hint(real_path)))
+                continue
             try:
                 results.append(_outline_one(real_path, with_lines=with_lines))
             except core.AstError as exc:
@@ -106,7 +137,7 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 class OutlineNodesTool(ToolDefinition):
     name = 'ast_outline'
     title = 'List AST nodes of files'
-    description = "Hierarchical tree of one or more files' AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source. A directory without subdirectories and with at most 5 files is transparently expanded to those files. " + core.OUTLINE_NODE_DESCRIPTION
+    description = "Hierarchical tree of one or more files' AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source. A directory without subdirectories and with at most 5 files is transparently expanded to those files; any other directory is reported as an error containing its listing. " + core.OUTLINE_NODE_DESCRIPTION
     input_schema = {
         'type': 'object',
         'properties': {
