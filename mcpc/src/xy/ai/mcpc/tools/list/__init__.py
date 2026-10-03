@@ -57,7 +57,7 @@ class ListItem:
 
     Attributes:
         path: Absolute directory path to list (must exist and be a directory).
-        pattern: Optional regular expression to filter results. Only matching file paths are included.
+        pattern: Optional regular expression to filter results. If it contains '/', it is matched against the relative path (e.g. './dir/file.ext'); otherwise it is matched against the file name only.
     """
     path: str
     pattern: str | None = None
@@ -115,9 +115,11 @@ def _list_one(item: ListItem) -> ListResult:
     for root, dirs, files in os.walk(str(dir_path)):
         rel_dir = os.path.relpath(root, str(dir_path))
         matched_files = []
+        header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
+        match_against_path = regex is not None and '/' in item.pattern
         for file in sorted(files):
-            rel_path = os.path.normpath(os.path.join(rel_dir, file))
-            if regex is None or regex.search(rel_path):
+            candidate = f'{header}/{file}' if match_against_path else file
+            if regex is None or regex.search(candidate):
                 matched_files.append(file)
         if matched_files:
             groups[rel_dir] = matched_files
