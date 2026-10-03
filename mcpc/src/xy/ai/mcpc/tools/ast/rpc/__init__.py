@@ -10,4 +10,5 @@ from __future__ import annotations
 from xy.ai.mcpc.tools.ast.rpc._engine import RpcEngine
 from xy.ai.mcpc.tools.ast.rpc._java import JavaEngine
 from xy.ai.mcpc.tools.ast.rpc._process import RpcProcess
-__all__ = ['RpcEngine', 'RpcProcess', 'JavaEngine']
+from xy.ai.mcpc.tools.ast.rpc._rust import RustEngine
+__all__ = ['RpcEngine', 'RpcProcess', 'JavaEngine', 'RustEngine']

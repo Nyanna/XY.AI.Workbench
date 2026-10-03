@@ -17,6 +17,7 @@ from xy.ai.mcpc.tools.ast.generic._javascript import JavaScriptEngine
 from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
 from xy.ai.mcpc.tools.ast.rpc._java import JavaEngine
+from xy.ai.mcpc.tools.ast.rpc._rust import RustEngine
 from xy.ai.mcpc.tools.ast.generic._xml import XmlEngine
 from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     'HtmlEngine',
     'JavaEngine',
     'JavaScriptEngine',
+    'RustEngine',
     'MarkdownEngine',
     'PlainTextEngine',
     'XmlEngine',
@@ -84,6 +86,7 @@ def language_for_extension(ext: str) -> str | None:
 _ENGINE_CLASSES: dict[str,
                       type[Engine]] = {'markdown': MarkdownEngine,
                                        'java': JavaEngine,
+                                       'rust': RustEngine,
                                        'yaml': YamlEngine,
                                        'css': CssEngine,
                                        'html': HtmlEngine,
