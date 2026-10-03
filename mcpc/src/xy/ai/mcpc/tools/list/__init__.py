@@ -139,7 +139,7 @@ def _list_one(item: ListItem) -> ListResult:
             count = level1_counts[rel_dir]
             entries.append(f'{header}: ({count} file{('s' if count != 1 else '')})')
             entries.append(groups[rel_dir][0])
-        warning = f"Result reduced to one entry per directory level because the total number of entries ({match_count}) exceeds the limit of {_MAX_ENTRIES}. Each directory header now shows the total file count for that level. Narrow down the result using the 'pattern' regular expression parameter."
+        warning = f"Result reduced because the total number of entries ({match_count}) exceeds the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter."
         return ListResult(path=item.path, entries=entries, warning=warning)
     '# Step 2: the per-level reduction still exceeds the limit, so collapse the'
     '# tree depth and aggregate file counts below each top-level directory.'
@@ -161,8 +161,8 @@ def _list_one(item: ListItem) -> ListResult:
         header = key if key == '.' else './' + key.replace(os.sep, '/')
         count = top_counts[key]
         entries.append(f'{header}: ({count} file{('s' if count != 1 else '')} below)')
-    warning = f"Result reduced to top-level directories because grouping by directory level still exceeds the limit of {_MAX_ENTRIES} ({
-        len(level1_counts)} directories). Each header now shows the total number of files below that directory. Narrow down the result using the 'pattern' regular expression parameter."
+    warning = f"Result reduced to top-level directories the limit of {_MAX_ENTRIES} is exceeded ({
+        len(level1_counts)}). Narrow down the result using the 'pattern' regular expression parameter."
     return ListResult(path=item.path, entries=entries, warning=warning)
 
 def _dedupe_hierarchy(items: list[ListItem]) -> list[ListItem]:
