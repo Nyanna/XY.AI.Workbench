@@ -165,6 +165,24 @@ def _list_one(item: ListItem) -> ListResult:
         len(level1_counts)} directories). Each header now shows the total number of files below that directory. Narrow down the result using the 'pattern' regular expression parameter."
     return ListResult(path=item.path, entries=entries, warning=warning)
 
+def _dedupe_hierarchy(items: list[ListItem]) -> list[ListItem]:
+    """Remove items whose path lies below another item's path in the same directory hierarchy.
+
+    Only the topmost item of each hierarchy is kept; items for separate hierarchies
+    are left untouched. Original relative order of the kept items is preserved.
+    """
+    resolved = [(item, Path(item.path).resolve()) for item in items]
+    resolved.sort(key=lambda pair: len(pair[1].parts))
+    kept_paths: list[Path] = []
+    kept_items: list[ListItem] = []
+    for item, path in resolved:
+        if any((path == kept or kept in path.parents for kept in kept_paths)):
+            continue
+        kept_paths.append(path)
+        kept_items.append(item)
+    kept_ids = {id(item) for item in kept_items}
+    return [item for item in items if id(item) in kept_ids]
+
 def list(items: list[ListItem]) -> ListBatchResult:
     """List each directory in ``items``.
 
@@ -179,6 +197,7 @@ def list(items: list[ListItem]) -> ListBatchResult:
     """
     if not items:
         raise ListError("'items' must be a non-empty list.")
+    items = _dedupe_hierarchy(items)
     results: list[ListResult] = []
     errors: list[ListItemError] = []
     for item in items:
