@@ -8,6 +8,7 @@ use xy_ai_rag::core::layer::LayerStatus;
 use xy_ai_rag::core::persistence::PersistenceManager;
 use xy_ai_rag::core::query::Query;
 use xy_ai_rag::core::registry::LayerRegistry;
+use xy_ai_rag::layers::dir_cache::{configure_global_filter, PathFilter};
 #[derive(Parser, Debug)]
 #[command(name = "xyrag", about = "xy.ai.rag - Layered Anytime Retrieval Engine")]
 struct Cli {
@@ -22,6 +23,14 @@ struct Cli {
     /// Execution model of the layer topology
     #[arg(long, default_value = "parallel")]
     mode: String,
+    /// Comma-separated glob patterns; only matching names/paths are
+    /// returned by searches (wins over --exclude on conflicts)
+    #[arg(long, value_delimiter = ',')]
+    include: Vec<String>,
+    /// Comma-separated glob patterns; matching names/paths are dropped
+    /// from searches, unless also matched by --include
+    #[arg(long, value_delimiter = ',')]
+    exclude: Vec<String>,
 }
 fn parse_query(args: &[String], json_query: Option<&str>) -> Result<Query> {
     let mut fields = Map::new();
@@ -112,6 +121,9 @@ async fn main() -> Result<()> {
     let registry = build_default_registry();
     let persistence = PersistenceManager::new(cli.root.as_deref().map(Path::new))?;
     query.set_document_root(persistence.root.clone());
+    let filter = PathFilter::new(&cli.include, &cli.exclude)
+        .map_err(|e| anyhow!("Invalid --include/--exclude pattern: {}", e))?;
+    configure_global_filter(persistence.root.clone(), filter);
     let mut engine = Engine::new(registry, persistence, mode);
     engine.start_background();
     let (result_set, statuses) = engine.run_query(query).await?;

@@ -19,8 +19,9 @@
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
+use glob::Pattern;
 use lru::LruCache;
 /// Entries are re-checked against the filesystem at most this often;
 /// within this window a cache hit is trusted without any I/O.
@@ -41,6 +42,86 @@ pub struct FileInfo {
     pub name: String,
     pub mtime_ns: u64,
     pub size: u64,
+}
+/// Comma-separated-at-the-edge glob patterns that scope which directory
+/// entries [`DirCache::list`] returns, without touching what it caches.
+///
+/// A name/path is kept if it matches `include` (when `include` is
+/// non-empty, acting as a whitelist); otherwise it is kept unless it
+/// matches `exclude`. Include always wins: an entry matching `include`
+/// is never dropped by `exclude`.
+#[derive(Clone, Default)]
+pub struct PathFilter {
+    include: Vec<Pattern>,
+    exclude: Vec<Pattern>,
+}
+impl PathFilter {
+    /// Builds a filter from glob pattern lists (already comma-split by
+    /// the caller, e.g. the CLI).
+    pub fn new(
+        include: &[String],
+        exclude: &[String],
+    ) -> Result<Self, glob::PatternError> {
+        let compile = |pats: &[String]| -> Result<Vec<Pattern>, glob::PatternError> {
+            pats.iter().map(|p| Pattern::new(p)).collect()
+        };
+        Ok(Self {
+            include: compile(include)?,
+            exclude: compile(exclude)?,
+        })
+    }
+    pub fn is_empty(&self) -> bool {
+        self.include.is_empty() && self.exclude.is_empty()
+    }
+    fn matches_any(pats: &[Pattern], name: &str, rel: &str, abs: &str) -> bool {
+        pats.iter().any(|p| p.matches(name) || p.matches(rel) || p.matches(abs))
+    }
+    fn keep(&self, name: &str, rel: &str, abs: &str) -> bool {
+        if !self.include.is_empty() {
+            return Self::matches_any(&self.include, name, rel, abs);
+        }
+        !Self::matches_any(&self.exclude, name, rel, abs)
+    }
+    /// Filters a copy of `listing` whose entries live directly under
+    /// `dir`; `rel`/`abs` paths are matched in addition to bare names.
+    fn apply(&self, listing: &DirListing, dir: &Path, root: &Path) -> DirListing {
+        if self.is_empty() {
+            return listing.clone();
+        }
+        let rel_base = dir.strip_prefix(root).unwrap_or(dir);
+        let rel_of = |name: &str| {
+            rel_base.join(name).to_string_lossy().replace('\\', "/")
+        };
+        let abs_of = |name: &str| dir.join(name).to_string_lossy().into_owned();
+        DirListing {
+            files: listing
+                .files
+                .iter()
+                .filter(|f| self.keep(&f.name, &rel_of(&f.name), &abs_of(&f.name)))
+                .cloned()
+                .collect(),
+            dirs: listing
+                .dirs
+                .iter()
+                .filter(|name| self.keep(name, &rel_of(name), &abs_of(name)))
+                .cloned()
+                .collect(),
+        }
+    }
+}
+/// Process-wide root + filter, installed once from the CLI and applied
+/// transparently by every [`DirCache::list`] call. A layer that needs a
+/// different scope can bypass this via [`DirCache::list_with_filter`].
+struct GlobalFilterConfig {
+    root: PathBuf,
+    filter: PathFilter,
+}
+static GLOBAL_FILTER: OnceLock<GlobalFilterConfig> = OnceLock::new();
+/// Installs the process-wide include/exclude filter, relative to `root`.
+/// Intended to be called once at startup, before any query runs; later
+/// calls are ignored.
+pub fn configure_global_filter(root: PathBuf, filter: PathFilter) {
+    let _ = GLOBAL_FILTER.set(GlobalFilterConfig { root, filter });
 }
 struct CacheEntry {
     mtime: SystemTime,
@@ -101,6 +182,31 @@ impl DirCache {
     /// Any path beyond the fresh-hit check counts as a cache miss, and
     /// the time it takes (including stat retrieval) is accumulated.
     pub fn list(&self, dir: &Path) -> std::io::Result<DirListing> {
+        let listing = self.list_unfiltered(dir)?;
+        Ok(
+            match GLOBAL_FILTER.get() {
+                Some(cfg) if !cfg.filter.is_empty() => {
+                    cfg.filter.apply(&listing, dir, &cfg.root)
+                }
+                _ => listing,
+            },
+        )
+    }
+    /// Like [`list`](Self::list), but applies `filter` (relative to
+    /// `root`) instead of the process-wide one, for layers that need to
+    /// scope their own traversal independently of the CLI-level filter.
+    pub fn list_with_filter(
+        &self,
+        dir: &Path,
+        root: &Path,
+        filter: &PathFilter,
+    ) -> std::io::Result<DirListing> {
+        let listing = self.list_unfiltered(dir)?;
+        Ok(if filter.is_empty() { listing } else { filter.apply(&listing, dir, root) })
+    }
+    /// Lists the direct children of `dir` straight from the cache,
+    /// without applying any include/exclude filter.
+    fn list_unfiltered(&self, dir: &Path) -> std::io::Result<DirListing> {
         let key = dir.to_path_buf();
         if let Some(listing) = self.fresh_hit(&key) {
             return Ok(listing);
