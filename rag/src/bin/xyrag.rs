@@ -87,6 +87,6 @@ async fn main() -> Result<()> {
         .collect();
     let layers: Vec<Value> = statuses.iter().map(status_to_json).collect();
     let output = json!({ "results" : results, "layers" : layers });
-    println!("{}", serde_json::to_string_pretty(& output) ?);
+    println!("{}", serde_yaml::to_string(& output) ?.trim_end());
     Ok(())
 }
