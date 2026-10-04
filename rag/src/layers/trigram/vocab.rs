@@ -10,8 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use anyhow::{bail, Context, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, bail, Context, Result};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use super::trie::TrieParams;
 fn now_ns() -> u64 {
     SystemTime::now()
@@ -27,7 +27,11 @@ fn split_mix64(state: &mut u64) -> u64 {
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
 }
-#[derive(Serialize, Deserialize)]
+/// On-disk vocabulary layout, serialised with rkyv (zero-copy binary,
+/// not JSON: the vocabulary can grow to the full trigram ID space and
+/// is read/written far more often than it is inspected by hand).
+#[derive(Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 struct VocabFile {
     key_bits: u8,
     quant_bits: u8,
@@ -63,12 +67,14 @@ impl Vocab {
     }
     fn try_load(path: &Path, params: TrieParams) -> Option<Self> {
         let bytes = std::fs::read(path).ok()?;
-        let vf: VocabFile = serde_json::from_slice(&bytes).ok()?;
-        if vf.key_bits != params.key_bits || vf.quant_bits != params.quant_bits
-            || vf.root_bits != params.root_bits
+        let archived = rkyv::check_archived_root::<VocabFile>(&bytes).ok()?;
+        if archived.key_bits != params.key_bits
+            || archived.quant_bits != params.quant_bits
+            || archived.root_bits != params.root_bits
         {
             return None;
         }
+        let vf: VocabFile = archived.deserialize(&mut rkyv::Infallible).ok()?;
         let mut map = HashMap::with_capacity(vf.entries.len());
         let mut used = HashSet::with_capacity(vf.entries.len());
         for (tg, id) in vf.entries {
@@ -127,7 +133,8 @@ impl Vocab {
             id = (id + 1) % cap;
         }
     }
-    /// Writes the vocabulary atomically (temp file + rename).
+    /// Writes the vocabulary atomically (temp file + rename), as an
+    /// rkyv-serialised binary blob.
     pub fn persist(&self) -> Result<()> {
         let mut entries: Vec<(String, u32)> = self
             .map
@@ -143,7 +150,8 @@ impl Vocab {
             rng_state: self.rng_state,
             entries,
         };
-        let bytes = serde_json::to_vec(&vf)?;
+        let bytes = rkyv::to_bytes::<_, 4096>(&vf)
+            .map_err(|e| anyhow!("rkyv serialize: {e}"))?;
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent)?;
         }

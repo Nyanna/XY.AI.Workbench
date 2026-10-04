@@ -44,9 +44,9 @@ fn walk(cache: &DirCache, root: &Path, rel_prefix: &str, out: &mut Vec<Candidate
             Ok(l) => l,
             Err(_) => continue,
         };
-        for name in &listing.files {
+        for f in &listing.files {
             out.push(Candidate {
-                rel_path: join_rel(&prefix, name),
+                rel_path: join_rel(&prefix, &f.name),
                 is_dir: false,
             });
         }

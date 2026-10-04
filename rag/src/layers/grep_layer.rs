@@ -68,10 +68,10 @@ fn collect_files(
             Ok(l) => l,
             Err(_) => continue,
         };
-        for name in &listing.files {
+        for f in &listing.files {
             out.push(FileCandidate {
-                rel_path: join_rel(&prefix, name),
-                abs_path: dir.join(name),
+                rel_path: join_rel(&prefix, &f.name),
+                abs_path: dir.join(&f.name),
             });
         }
         for name in &listing.dirs {

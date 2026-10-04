@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use rayon::prelude::*;
 use serde_json::{json, Map, Value};
 use crate::core::layer::{Layer, LayerContext, LayerStage, LayerStatus};
 use crate::core::persistence::LayerStorage;
@@ -36,6 +37,7 @@ const START_CUTOFF_RATIO: f64 = 0.9;
 /// Default fraction of query trigrams a file must contain to be searched.
 const DEFAULT_MIN_MATCH_RATIO: f64 = 0.8;
 /// Tunable thresholds; defaults follow the spec.
+#[derive(Clone, Copy)]
 struct Config {
     min_match_ratio: f64,
     prune_ratio: f64,
@@ -66,23 +68,102 @@ struct Candidate {
 fn join_rel(prefix: &str, name: &str) -> String {
     if prefix.is_empty() { name.to_string() } else { format!("{prefix}/{name}") }
 }
-/// All regular files below `root`, traversed iteratively via `cache`.
-fn collect_files(
-    cache: &DirCache,
-    root: &Path,
-    rel_prefix: &str,
-    out: &mut Vec<(String, PathBuf)>,
-) {
-    let mut pending: Vec<(PathBuf, String)> = vec![
-        (root.to_path_buf(), rel_prefix.to_string())
-    ];
-    while let Some((dir, prefix)) = pending.pop() {
-        let Ok(listing) = cache.list(&dir) else { continue };
-        for name in &listing.files {
-            out.push((join_rel(&prefix, name), dir.join(name)));
+/// A file discovered during traversal, with the mtime/size the
+/// directory cache already read (so no second `fs::metadata` call is
+/// needed to decide staleness or enforce the size cap).
+struct FileEntry {
+    rel: String,
+    abs: PathBuf,
+    mtime_ns: u64,
+    size: u64,
+}
+/// All regular files below `root`, traversed via `cache`.
+///
+/// Descends into subdirectories in parallel via rayon, so the traversal
+/// itself uses every core of the pool it is called from (intended to run
+/// inside a [`crate::core::executor::CpuExecutor::spawn`] closure).
+fn collect_files(cache: &DirCache, root: &Path, rel_prefix: &str) -> Vec<FileEntry> {
+    let Ok(listing) = cache.list(root) else { return Vec::new() };
+    let mut out: Vec<FileEntry> = listing
+        .files
+        .iter()
+        .map(|f| FileEntry {
+            rel: join_rel(rel_prefix, &f.name),
+            abs: root.join(&f.name),
+            mtime_ns: f.mtime_ns,
+            size: f.size,
+        })
+        .collect();
+    let nested: Vec<Vec<FileEntry>> = listing
+        .dirs
+        .par_iter()
+        .map(|name| {
+            let sub_root = root.join(name);
+            let sub_prefix = join_rel(rel_prefix, name);
+            collect_files(cache, &sub_root, &sub_prefix)
+        })
+        .collect();
+    out.extend(nested.into_iter().flatten());
+    out
+}
+/// (Re-)indexes one file: normalise, mirror, build + persist signature.
+/// Returns the file's expanded mask, or `None` on an I/O error. Runs on
+/// the CPU executor, in parallel with other files' reindexing.
+fn reindex(
+    state: &SharedState,
+    params: TrieParams,
+    cfg: Config,
+    rel: &str,
+    abs: &Path,
+    mtime: u64,
+) -> Option<CellMask> {
+    let bytes = std::fs::read(abs).ok()?;
+    let norm = normalize::normalize_bytes(&bytes).unwrap_or_default();
+    let mirror = state.mirror_dir.join(rel);
+    if let Some(parent) = mirror.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&mirror, &norm);
+    let trigrams = signature::file_trigrams(&norm, cfg.prune_ratio, cfg.prune_min_count);
+    let keys = {
+        let mut v = state.vocab.write().unwrap();
+        let (keys, changed) = v.intern_all(&trigrams).ok()?;
+        if changed {
+            let _ = v.persist();
         }
-        for name in &listing.dirs {
-            pending.push((dir.join(name), join_rel(&prefix, name)));
+        keys
+    };
+    let trie = CompactTrie::build(params, keys).ok()?;
+    let mask = trie.expand();
+    let indexed_at = index::now_ns();
+    let _ = index::store_entry(&state.storage, rel, mtime, indexed_at, &trie);
+    state
+        .index
+        .write()
+        .unwrap()
+        .insert(
+            rel.to_string(),
+            IndexEntry {
+                mtime_ns: mtime,
+                indexed_at,
+                mask: mask.clone(),
+            },
+        );
+    Some(mask)
+}
+/// Removes index entries whose files no longer exist on disk.
+fn prune_deleted(state: &SharedState, document_root: &Path, prefix: &str) {
+    let rels: Vec<String> = {
+        let idx = state.index.read().unwrap();
+        idx.keys()
+            .filter(|r| prefix.is_empty() || r.starts_with(prefix))
+            .cloned()
+            .collect()
+    };
+    for rel in rels {
+        if !document_root.join(&rel).exists() {
+            let _ = index::delete_entry(&state.storage, &rel);
+            state.index.write().unwrap().remove(&rel);
         }
     }
 }
@@ -106,16 +187,16 @@ fn search_file(mirror: &Path, abs: &Path, needle: &str) -> Vec<(usize, String)> 
 }
 /// Trigram-gated text search layer.
 pub struct TrigramLayer {
-    cache: DirCache,
+    cache: Arc<DirCache>,
     params: TrieParams,
     cfg: Config,
-    state: OnceLock<SharedState>,
+    state: OnceLock<Arc<SharedState>>,
 }
 impl TrigramLayer {
     pub fn new() -> Self {
         let params = TrieParams::new(16, 0, 4).expect("valid default trie params");
         Self {
-            cache: DirCache::new(DIR_CACHE_CAPACITY),
+            cache: Arc::new(DirCache::new(DIR_CACHE_CAPACITY)),
             params,
             cfg: Config::default(),
             state: OnceLock::new(),
@@ -123,88 +204,27 @@ impl TrigramLayer {
     }
     /// Lazily builds the shared state from this run's storage (same storage
     /// across runs). Best-effort: a failed load yields an empty index.
-    fn state(&self, ctx: &LayerContext) -> &SharedState {
+    /// Returned as an `Arc` so it can be moved into executor closures.
+    fn state(&self, ctx: &LayerContext) -> Arc<SharedState> {
         self.state
             .get_or_init(|| {
                 let storage = ctx.storage.clone();
                 let vocab_path = storage
-                    .path_for("vocab.json")
-                    .unwrap_or_else(|_| PathBuf::from("vocab.json"));
+                    .path_for("vocab.bin")
+                    .unwrap_or_else(|_| PathBuf::from("vocab.bin"));
                 let mirror_dir = storage
                     .path_for("mirror")
                     .unwrap_or_else(|_| PathBuf::from("mirror"));
                 let vocab = Vocab::load_or_new(&vocab_path, self.params);
                 let index = index::load_all(&storage, self.params).unwrap_or_default();
-                SharedState {
+                Arc::new(SharedState {
                     vocab: RwLock::new(vocab),
                     index: RwLock::new(index),
                     mirror_dir,
                     storage,
-                }
+                })
             })
-    }
-    /// (Re-)indexes one file: normalise, mirror, build + persist signature.
-    /// Returns the file's expanded mask, or `None` on an I/O error.
-    fn reindex(
-        &self,
-        state: &SharedState,
-        rel: &str,
-        abs: &Path,
-        mtime: u64,
-    ) -> Option<CellMask> {
-        let bytes = std::fs::read(abs).ok()?;
-        let norm = normalize::normalize_bytes(&bytes).unwrap_or_default();
-        let mirror = state.mirror_dir.join(rel);
-        if let Some(parent) = mirror.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let _ = std::fs::write(&mirror, &norm);
-        let trigrams = signature::file_trigrams(
-            &norm,
-            self.cfg.prune_ratio,
-            self.cfg.prune_min_count,
-        );
-        let keys = {
-            let mut v = state.vocab.write().unwrap();
-            let (keys, changed) = v.intern_all(&trigrams).ok()?;
-            if changed {
-                let _ = v.persist();
-            }
-            keys
-        };
-        let trie = CompactTrie::build(self.params, keys).ok()?;
-        let mask = trie.expand();
-        let indexed_at = index::now_ns();
-        let _ = index::store_entry(&state.storage, rel, mtime, indexed_at, &trie);
-        state
-            .index
-            .write()
-            .unwrap()
-            .insert(
-                rel.to_string(),
-                IndexEntry {
-                    mtime_ns: mtime,
-                    indexed_at,
-                    mask: mask.clone(),
-                },
-            );
-        Some(mask)
-    }
-    /// Removes index entries whose files no longer exist on disk.
-    fn prune_deleted(&self, state: &SharedState, document_root: &Path, prefix: &str) {
-        let rels: Vec<String> = {
-            let idx = state.index.read().unwrap();
-            idx.keys()
-                .filter(|r| prefix.is_empty() || r.starts_with(prefix))
-                .cloned()
-                .collect()
-        };
-        for rel in rels {
-            if !document_root.join(&rel).exists() {
-                let _ = index::delete_entry(&state.storage, &rel);
-                state.index.write().unwrap().remove(&rel);
-            }
-        }
+            .clone()
     }
 }
 impl Default for TrigramLayer {
@@ -236,69 +256,89 @@ impl Layer for TrigramLayer {
         };
         let query_norm = normalize::normalize(text);
         let needle = query_norm.replace('\n', " ");
-        let needle = needle.trim();
+        let needle = needle.trim().to_string();
         if needle.is_empty() {
             status.skipped = true;
             return status;
         }
         let state = self.state(ctx);
-        let vocab_created = state.vocab.read().unwrap().created_at();
         let (search_root, rel_prefix) = query.resolve_search_root();
         let document_root = query.document_root().to_path_buf();
-        let mut files = Vec::new();
-        collect_files(&self.cache, &search_root, &rel_prefix, &mut files);
-        let mut visited: Vec<(String, PathBuf)> = Vec::new();
-        for (rel, abs) in files {
-            let Ok(meta) = std::fs::metadata(&abs) else { continue };
-            if meta.len() > MAX_FILE_SIZE {
-                continue;
-            }
-            let mtime = index::mtime_ns(&meta);
-            let stale = {
-                let idx = state.index.read().unwrap();
-                match idx.get(&rel) {
-                    None => true,
-                    Some(e) => e.mtime_ns != mtime || e.indexed_at < vocab_created,
-                }
-            };
-            if stale && self.reindex(state, &rel, &abs, mtime).is_none() {
-                continue;
-            }
-            visited.push((rel, abs));
-        }
-        self.prune_deleted(state, &document_root, &rel_prefix);
-        let keys: Vec<u32> = {
-            let v = state.vocab.read().unwrap();
-            signature::query_trigrams(&query_norm)
-                .iter()
-                .filter_map(|tg| v.lookup(tg))
-                .collect()
-        };
-        let Ok(qmask) = QueryMask::new(self.params, keys) else {
+        let cache = Arc::clone(&self.cache);
+        let params = self.params;
+        let cfg = self.cfg;
+        let state_bg = Arc::clone(&state);
+        let query_norm_bg = query_norm.clone();
+        let root_bg = search_root.clone();
+        let prefix_bg = rel_prefix.clone();
+        let doc_root_bg = document_root.clone();
+        let candidates: Option<Vec<Candidate>> = ctx
+            .cpu
+            .spawn(move || {
+                let vocab_created = state_bg.vocab.read().unwrap().created_at();
+                let files = collect_files(&cache, &root_bg, &prefix_bg);
+                let visited: Vec<FileEntry> = files
+                    .into_par_iter()
+                    .filter(|f| f.size <= MAX_FILE_SIZE)
+                    .filter(|f| {
+                        let stale = {
+                            let idx = state_bg.index.read().unwrap();
+                            match idx.get(&f.rel) {
+                                None => true,
+                                Some(e) => {
+                                    e.mtime_ns != f.mtime_ns || e.indexed_at < vocab_created
+                                }
+                            }
+                        };
+                        !stale
+                            || reindex(
+                                    &state_bg,
+                                    params,
+                                    cfg,
+                                    &f.rel,
+                                    &f.abs,
+                                    f.mtime_ns,
+                                )
+                                .is_some()
+                    })
+                    .collect();
+                prune_deleted(&state_bg, &doc_root_bg, &prefix_bg);
+                let keys: Vec<u32> = {
+                    let v = state_bg.vocab.read().unwrap();
+                    signature::query_trigrams(&query_norm_bg)
+                        .iter()
+                        .filter_map(|tg| v.lookup(tg))
+                        .collect()
+                };
+                let qmask = QueryMask::new(params, keys).ok()?;
+                let t = (cfg.min_match_ratio * qmask.n_keys as f64).ceil() as u32;
+                let t_cells = qmask.corrected_threshold(t.max(1));
+                let candidates: Vec<Candidate> = visited
+                    .into_par_iter()
+                    .filter(|f| {
+                        state_bg
+                            .index
+                            .read()
+                            .unwrap()
+                            .get(&f.rel)
+                            .map(|e| matches_at_least(&e.mask, &qmask, t_cells))
+                            .unwrap_or(false)
+                    })
+                    .map(|f| Candidate {
+                        mirror_path: state_bg.mirror_dir.join(&f.rel),
+                        abs_path: f.abs,
+                        rel_path: f.rel,
+                    })
+                    .collect();
+                Some(candidates)
+            })
+            .await
+            .unwrap_or(None);
+        let Some(candidates) = candidates else {
             status.skipped = true;
             return status;
         };
-        let t = (self.cfg.min_match_ratio * qmask.n_keys as f64).ceil() as u32;
-        let t_cells = qmask.corrected_threshold(t.max(1));
-        let mut candidates: Vec<Candidate> = Vec::new();
-        for (rel, abs) in visited {
-            let passes = state
-                .index
-                .read()
-                .unwrap()
-                .get(&rel)
-                .map(|e| matches_at_least(&e.mask, &qmask, t_cells))
-                .unwrap_or(false);
-            if passes {
-                candidates
-                    .push(Candidate {
-                        mirror_path: state.mirror_dir.join(&rel),
-                        abs_path: abs,
-                        rel_path: rel,
-                    });
-            }
-        }
-        let needle = Arc::new(needle.to_string());
+        let needle = Arc::new(needle);
         let mut queue: VecDeque<Candidate> = candidates.into();
         let start = Instant::now();
         let deadline = start + MAX_RUNTIME;
