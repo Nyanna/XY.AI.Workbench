@@ -83,17 +83,17 @@ fn numeric_keys_for_lines(value: &mut serde_yaml::Value) {
             for (key, val) in map.iter_mut() {
                 if key.as_str() == Some("Lines") {
                     if let serde_yaml::Value::Mapping(lines) = val {
-                        *lines = lines
+                        let mut entries: Vec<
+                            (i64, serde_yaml::Value, serde_yaml::Value),
+                        > = lines
                             .iter()
-                            .map(|(k, v)| {
-                                let key = k
-                                    .as_str()
-                                    .and_then(|s| s.parse::<i64>().ok())
-                                    .map(serde_yaml::Value::from)
-                                    .unwrap_or_else(|| k.clone());
-                                (key, v.clone())
+                            .filter_map(|(k, v)| {
+                                let n = k.as_str()?.parse::<i64>().ok()?;
+                                Some((n, serde_yaml::Value::from(n), v.clone()))
                             })
                             .collect();
+                        entries.sort_by_key(|(n, _, _)| *n);
+                        *lines = entries.into_iter().map(|(_, k, v)| (k, v)).collect();
                     }
                 } else {
                     numeric_keys_for_lines(val);

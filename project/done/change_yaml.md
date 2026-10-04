@@ -1209,4 +1209,5 @@ result:
     stdout: |
       Error: Invalid mode: grep
 ```
-/answer 7c4c-8e allow
+/answer 7c4c-8e deny
+Cannot process command: no active Claude Code session exists
