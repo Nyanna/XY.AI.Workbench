@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# On-demand CLI-Start der xy.ai.rag Engine.
+# On-demand CLI start of the xy.ai.rag engine.
 #
 # Usage: xyrag.sh [--root PATH] <query...>
-#   --root PATH   Persistenz-Root (.xyrag); Default: aktuelles Arbeitsverzeichnis (CWD).
-#   <query...>    Freitext, wird als Feld "query" in das Query-Objekt gepackt
-#                 und durch die Layer-Pipeline geschickt.
+#   --root PATH   Persistence root (.xyrag); default: current working directory (CWD).
+#   <query...>    Free text, packed as field "query" into the query object
+#                 and sent through the layer pipeline.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC_DIR="${SCRIPT_DIR}/../src"
 
 root=""
 query_args=()
@@ -43,16 +42,7 @@ done
 
 query_text="${query_args[*]}"
 
-# Baut das Query-Objekt mit Feld "query" als JSON (sauberes Escaping).
-json_query=$(python3 -c '
-import json, sys
-print(json.dumps({"query": sys.argv[1]}))
-' "$query_text")
-
-# Erlaubt den Start ohne vorherige Installation des Packages.
-export PYTHONPATH="${SRC_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
-
-cmd=(python3 -m xy.ai.rag.cli --json "$json_query")
+cmd=(cargo run --quiet --manifest-path "${SCRIPT_DIR}/Cargo.toml" --bin xyrag -- "query=${query_text}")
 if [[ -n "$root" ]]; then
   cmd+=(--root "$root")
 fi

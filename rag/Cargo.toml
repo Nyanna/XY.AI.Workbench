@@ -1,0 +1,24 @@
+[package]
+name = "xy-ai-rag"
+version = "0.1.0"
+edition = "2021"
+description = "xy.ai.rag - Layered Anytime Retrieval Engine"
+
+[lib]
+name = "xy_ai_rag"
+path = "src/lib.rs"
+
+[[bin]]
+name = "xyrag"
+path = "src/bin/xyrag.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio-util = "0.7"
+async-trait = "0.1"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"

@@ -1,0 +1,271 @@
+//! Shared, disk-persisted infrastructure under `.xyrag`.
+//!
+//! Contains the central shared index (change detection across layer
+//! boundaries) and an abstract interface through which every layer manages
+//! its own persistence units (cache entries for chunks, lines, files,
+//! composite objects, ...), without the engine prescribing the structure
+//! of these units.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use anyhow::Result;
+use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value;
+
+pub const PERSISTENCE_DIRNAME: &str = ".xyrag";
+
+/// Resolves the persistence root: explicit argument, or CWD/.xyrag.
+pub fn resolve_root(root: Option<&Path>) -> Result<PathBuf> {
+    let base = match root {
+        Some(p) => p.to_path_buf(),
+        None => std::env::current_dir()?.join(PERSISTENCE_DIRNAME),
+    };
+    std::fs::create_dir_all(&base)?;
+    Ok(base)
+}
+
+/// One row of the central file index.
+#[derive(Debug, Clone)]
+pub struct FileRecord {
+    pub path: String,
+    pub hash: Option<String>,
+    pub size: Option<i64>,
+    pub mtime: Option<f64>,
+    pub seq: i64,
+    pub deleted: bool,
+}
+
+/// Central, shared index for change detection across all layers.
+///
+/// Minimal base: path, hash, size, mtime and a monotonic sequence number
+/// per entry; deletions as tombstones. Concrete layers use this as the
+/// shared source of "has something changed".
+pub struct SharedIndex {
+    conn: Mutex<Connection>,
+}
+
+fn row_to_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileRecord> {
+    Ok(FileRecord {
+        path: row.get(0)?,
+        hash: row.get(1)?,
+        size: row.get(2)?,
+        mtime: row.get(3)?,
+        seq: row.get(4)?,
+        deleted: row.get::<_, i64>(5)? != 0,
+    })
+}
+
+impl SharedIndex {
+    pub fn open(db_path: &Path) -> Result<Self> {
+        let conn = Connection::open(db_path)?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             CREATE TABLE IF NOT EXISTS file_index (
+                 path TEXT PRIMARY KEY,
+                 hash TEXT,
+                 size INTEGER,
+                 mtime REAL,
+                 seq INTEGER,
+                 deleted INTEGER NOT NULL DEFAULT 0
+             );
+             CREATE TABLE IF NOT EXISTS seq_counter (name TEXT PRIMARY KEY, value INTEGER);",
+        )?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    fn next_seq(conn: &Connection) -> rusqlite::Result<i64> {
+        conn.execute(
+            "INSERT INTO seq_counter(name, value) VALUES ('global', 1)
+             ON CONFLICT(name) DO UPDATE SET value = value + 1",
+            [],
+        )?;
+        conn.query_row(
+            "SELECT value FROM seq_counter WHERE name = 'global'",
+            [],
+            |r| r.get(0),
+        )
+    }
+
+    /// Creates/updates a file entry, returns the new sequence number.
+    pub fn upsert(&self, path: &str, content_hash: &str, size: i64, mtime: f64) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let seq = Self::next_seq(&conn)?;
+        conn.execute(
+            "INSERT INTO file_index(path, hash, size, mtime, seq, deleted)
+             VALUES (?1, ?2, ?3, ?4, ?5, 0)
+             ON CONFLICT(path) DO UPDATE SET hash=?2, size=?3, mtime=?4, seq=?5, deleted=0",
+            params![path, content_hash, size, mtime, seq],
+        )?;
+        Ok(seq)
+    }
+
+    pub fn mark_deleted(&self, path: &str) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let seq = Self::next_seq(&conn)?;
+        conn.execute(
+            "INSERT INTO file_index(path, hash, size, mtime, seq, deleted)
+             VALUES (?1, NULL, NULL, NULL, ?2, 1)
+             ON CONFLICT(path) DO UPDATE SET deleted=1, seq=?2",
+            params![path, seq],
+        )?;
+        Ok(seq)
+    }
+
+    pub fn get(&self, path: &str) -> Result<Option<FileRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let rec = conn
+            .query_row(
+                "SELECT path, hash, size, mtime, seq, deleted FROM file_index WHERE path = ?1",
+                params![path],
+                row_to_record,
+            )
+            .optional()?;
+        Ok(rec)
+    }
+
+    /// Returns all changes since `seq` - basis for the per-layer cursor.
+    pub fn changes_since(&self, seq: i64) -> Result<Vec<FileRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT path, hash, size, mtime, seq, deleted FROM file_index
+             WHERE seq > ?1 ORDER BY seq ASC",
+        )?;
+        let rows = stmt.query_map(params![seq], row_to_record)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+}
+
+/// Abstracted persistence interface for a single layer.
+///
+/// Unspecific key/value cache (JSON-serialized) per layer, plus its own
+/// file-system namespace for sidecars (vectors, index files, ...). Layers
+/// decide for themselves what structure their ids have (chunk id, line
+/// range, file path, composite key) and whether/how they share resources
+/// with other layers (e.g. via the same key scheme).
+pub struct LayerStorage {
+    pub layer_id: String,
+    pub dir: PathBuf,
+    conn: Mutex<Connection>,
+}
+
+impl LayerStorage {
+    pub fn open(layer_id: &str, db_path: &Path, dir_path: &Path) -> Result<Self> {
+        std::fs::create_dir_all(dir_path)?;
+        let conn = Connection::open(db_path)?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT);
+             CREATE TABLE IF NOT EXISTS layer_meta (name TEXT PRIMARY KEY, value TEXT);",
+        )?;
+        Ok(Self {
+            layer_id: layer_id.to_string(),
+            dir: dir_path.to_path_buf(),
+            conn: Mutex::new(conn),
+        })
+    }
+
+    pub fn put(&self, key: &str, value: &Value) -> Result<()> {
+        let json = serde_json::to_string(value)?;
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO cache(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value=?2",
+            params![key, json],
+        )?;
+        Ok(())
+    }
+
+    pub fn get(&self, key: &str) -> Result<Option<Value>> {
+        let conn = self.conn.lock().unwrap();
+        let raw: Option<String> = conn
+            .query_row("SELECT value FROM cache WHERE key = ?1", params![key], |r| {
+                r.get(0)
+            })
+            .optional()?;
+        Ok(match raw {
+            Some(s) => Some(serde_json::from_str(&s)?),
+            None => None,
+        })
+    }
+
+    pub fn delete(&self, key: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM cache WHERE key = ?1", params![key])?;
+        Ok(())
+    }
+
+    pub fn keys(&self, prefix: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let pattern = format!("{}%", prefix);
+        let mut stmt = conn.prepare("SELECT key FROM cache WHERE key LIKE ?1 ORDER BY key")?;
+        let rows = stmt.query_map(params![pattern], |r| r.get(0))?;
+        Ok(rows.collect::<rusqlite::Result<Vec<String>>>()?)
+    }
+
+    /// Path for layer-owned sidecar files (e.g. vector sidecars).
+    pub fn path_for(&self, name: &str) -> PathBuf {
+        self.dir.join(name)
+    }
+
+    // ---- Per-layer cursor over the SharedIndex (change detection) ----
+
+    pub fn get_cursor(&self) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT value FROM layer_meta WHERE name = 'cursor'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(raw.and_then(|s| s.parse().ok()).unwrap_or(0))
+    }
+
+    pub fn set_cursor(&self, seq: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO layer_meta(name, value) VALUES ('cursor', ?1)
+             ON CONFLICT(name) DO UPDATE SET value=?1",
+            params![seq.to_string()],
+        )?;
+        Ok(())
+    }
+}
+
+/// Manages the `.xyrag` directory and hands out their storage to layers.
+pub struct PersistenceManager {
+    pub root: PathBuf,
+    pub shared_index: Arc<SharedIndex>,
+    layer_storages: Mutex<HashMap<String, Arc<LayerStorage>>>,
+}
+
+impl PersistenceManager {
+    pub fn new(root: Option<&Path>) -> Result<Self> {
+        let root = resolve_root(root)?;
+        let shared_index = Arc::new(SharedIndex::open(&root.join("index.db"))?);
+        Ok(Self {
+            root,
+            shared_index,
+            layer_storages: Mutex::new(HashMap::new()),
+        })
+    }
+
+    pub fn layer_storage(&self, layer_id: &str) -> Result<Arc<LayerStorage>> {
+        let mut map = self.layer_storages.lock().unwrap();
+        if let Some(s) = map.get(layer_id) {
+            return Ok(s.clone());
+        }
+        let layer_dir = self.root.join("layers").join(layer_id);
+        let storage = Arc::new(LayerStorage::open(
+            layer_id,
+            &layer_dir.join("cache.db"),
+            &layer_dir,
+        )?);
+        map.insert(layer_id.to_string(), storage.clone());
+        Ok(storage)
+    }
+}
