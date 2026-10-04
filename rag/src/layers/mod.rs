@@ -2,3 +2,4 @@
 pub mod dir_cache;
 pub mod glob_layer;
 pub mod grep_layer;
+pub mod trigram;
