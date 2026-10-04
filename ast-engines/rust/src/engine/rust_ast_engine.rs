@@ -40,6 +40,15 @@ fn print_items(items: &[Item]) -> String {
     };
     prettyplease::unparse(&file)
 }
+fn print_attrs(attrs: &[Attribute]) -> String {
+    let file = syn::File {
+        shebang: None,
+        frontmatter: None,
+        attrs: attrs.to_vec(),
+        items: Vec::new(),
+    };
+    prettyplease::unparse(&file)
+}
 /// Strips the synthetic `impl __Wrapper__ { ... }` / `trait __Wrapper__ { ... }` shell
 /// prettyplease prints around a wrapped fragment, and dedents the body by one level.
 fn unwrap_block(printed: &str) -> String {
@@ -108,6 +117,9 @@ pub fn print_node(file: &syn::File, node: &AddressableNode) -> String {
         }
         Some(TargetRef::Trait(items)) => {
             print_trait_items(&items[node.path.start..node.path.end])
+        }
+        Some(TargetRef::Attrs(attrs)) => {
+            print_attrs(&attrs[node.path.start..node.path.end])
         }
         None => String::new(),
     }
@@ -214,8 +226,31 @@ pub fn docstring(file: &syn::File, node: &AddressableNode) -> Option<String> {
         Some(TargetRef::Trait(items)) => {
             docstring_from_attrs(trait_item_attrs(&items[node.path.start]), 80)
         }
+        Some(TargetRef::Attrs(_)) => None,
         None => None,
     }
+}
+/// Parses `code` as one or more inner attributes (`//!`/`#![..]`), for the
+/// file-level `attrs` container.
+pub fn parse_inner_attrs(code: &str) -> AstResult<Vec<Attribute>> {
+    let parser = |input: syn::parse::ParseStream| {
+        let mut attrs = Vec::new();
+        while !input.is_empty() {
+            attrs.push(input.call(Attribute::parse_inner)?);
+        }
+        Ok(attrs)
+    };
+    let attrs = syn::parse::Parser::parse_str(parser, code)
+        .map_err(|e| syntax_err("inner attribute", e))?;
+    if attrs.is_empty() {
+        return Err(
+            AstEngineException::new(
+                Kind::Syntax,
+                format!("no attributes found: {}", code),
+            ),
+        );
+    }
+    Ok(attrs)
 }
 fn syntax_err(what: &str, e: syn::Error) -> AstEngineException {
     AstEngineException::new(Kind::Syntax, format!("invalid {}: {}", what, e))
@@ -296,6 +331,10 @@ pub fn replace(
             let fragments = parse_trait_fragment(code)?;
             items.splice(path.start..path.end, fragments);
         }
+        Target::Attrs(attrs) => {
+            let fragments = parse_inner_attrs(code)?;
+            attrs.splice(path.start..path.end, fragments);
+        }
     }
     Ok(())
 }
@@ -326,6 +365,12 @@ pub fn insert(
             items.splice(idx..idx, fragments);
             n
         }
+        Target::Attrs(attrs) => {
+            let fragments = parse_inner_attrs(code)?;
+            let n = fragments.len();
+            attrs.splice(idx..idx, fragments);
+            n
+        }
     };
     Ok(count as i64)
 }
@@ -340,6 +385,9 @@ pub fn delete(file: &mut syn::File, node: &AddressableNode) -> AstResult<()> {
         }
         Target::Trait(items) => {
             items.drain(path.start..path.end);
+        }
+        Target::Attrs(attrs) => {
+            attrs.drain(path.start..path.end);
         }
     }
     Ok(())

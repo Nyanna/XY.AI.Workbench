@@ -5,7 +5,7 @@
 //! inside one `impl`/`trait` block's own item list. Re-resolved fresh on every
 //! request against the live tree, exactly like the Java engine re-resolves ids via
 //! `NodeLocator.locateAll` each call.
-use syn::{File, Item, ImplItem, TraitItem};
+use syn::{Attribute, File, Item, ImplItem, TraitItem};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Owner {
     /// The range lives directly in an items list (`File.items` or a `mod`'s items).
@@ -14,6 +14,9 @@ pub enum Owner {
     Impl,
     /// The range lives in the `items` of the `ItemTrait` at `owner_idx` of that items list.
     Trait,
+    /// The range lives in the file-level inner `attrs` (e.g. `//!` module doc comments);
+    /// `mod_path`/`owner_idx` are unused and must be empty/`None`.
+    FileAttrs,
 }
 #[derive(Debug, Clone)]
 pub struct NodePath {
@@ -84,8 +87,12 @@ pub enum Target<'a> {
     Items(&'a mut Vec<Item>),
     Impl(&'a mut Vec<ImplItem>),
     Trait(&'a mut Vec<TraitItem>),
+    Attrs(&'a mut Vec<Attribute>),
 }
 pub fn resolve_mut<'a>(file: &'a mut File, path: &NodePath) -> Option<Target<'a>> {
+    if path.owner == Owner::FileAttrs {
+        return Some(Target::Attrs(&mut file.attrs));
+    }
     let items = items_vec_mut(file, &path.mod_path)?;
     match path.owner {
         Owner::None => Some(Target::Items(items)),
@@ -108,8 +115,12 @@ pub enum TargetRef<'a> {
     Items(&'a [Item]),
     Impl(&'a [ImplItem]),
     Trait(&'a [TraitItem]),
+    Attrs(&'a [Attribute]),
 }
 pub fn resolve<'a>(file: &'a File, path: &NodePath) -> Option<TargetRef<'a>> {
+    if path.owner == Owner::FileAttrs {
+        return Some(TargetRef::Attrs(&file.attrs));
+    }
     let items = items_vec(file, &path.mod_path)?;
     match path.owner {
         Owner::None => Some(TargetRef::Items(items)),

@@ -82,7 +82,7 @@ def _directory_listing_hint(path: str) -> str:
     anticipating the likely intent: list its contents (via the ``list`` tool)
     instead of outlining it as a file.
     """
-    hint = 'Path is a directory, not a file; listing its contents instead (intent anticipated).'
+    hint = 'Path is a directory, not a file; listing its contents instead.'
     try:
         batch = _list_dirs([ListItem(path=path)])
     except ListError as exc:

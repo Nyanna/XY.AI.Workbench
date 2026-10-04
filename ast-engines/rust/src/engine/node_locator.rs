@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 use sha1::{Digest, Sha1};
 use syn::spanned::Spanned;
-use syn::{File, ImplItem, Item, TraitItem};
+use syn::{Attribute, File, ImplItem, Item, TraitItem};
 use crate::engine::addressable_node::AddressableNode;
 use crate::engine::node_path::{NodePath, Owner};
 /// A group keeps accumulating siblings until adding the next one would push its (token) length past this many characters.
@@ -22,8 +22,26 @@ const SEGMENT_MAX_CHARS: usize = 1000;
 const HASH_ALPHABET: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 pub fn locate_all(file: &File) -> Vec<AddressableNode> {
     let mut out = Vec::new();
+    if !file.attrs.is_empty() {
+        out.push(file_attrs_node(&file.attrs));
+    }
     walk_items(&file.items, Vec::new(), "File", "", &mut out);
     out
+}
+/// A single node covering the file's inner attributes (`//!`/`#![..]`), so that
+/// e.g. a leading module doc comment resolves to a node instead of no node at all.
+fn file_attrs_node(attrs: &[Attribute]) -> AddressableNode {
+    AddressableNode {
+        id: "ModuleDoc".to_string(),
+        path: NodePath::range(Vec::new(), Owner::FileAttrs, None, 0, attrs.len()),
+        node_type: "ModuleAttrs".to_string(),
+        name: None,
+        lineno: line(attrs[0].span()),
+        end_lineno: end_line(attrs[attrs.len() - 1].span()),
+        parent_type: "File".to_string(),
+        expandable: false,
+        is_definition: false,
+    }
 }
 fn line(span: proc_macro2::Span) -> i64 {
     span.start().line as i64
