@@ -103,8 +103,8 @@
 //! # Persistence contract
 //!
 //! All shared, disk-backed state lives under a `.xyrag` sub-folder, located
-//! in the current working directory or at an explicitly supplied root path
-//! (see [`crate::core::persistence::resolve_root`]). Two kinds of storage
+//! in the current working directory or at an explicitly supplied root path.
+//! Two kinds of storage
 //! are handed to a layer through its context structs:
 //!
 //! - [`crate::core::persistence::SharedIndex`]: one process-wide, central,
