@@ -1,24 +1,63 @@
 //! Weakly typed, dynamic query object of the RAG engine.
 
+use std::path::{Path, PathBuf};
+
 use serde_json::{Map, Value};
+
+fn default_document_root() -> PathBuf {
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
 
 /// Dynamic, weakly typed query object.
 ///
 /// Layers decide for themselves which fields they react to: either by
 /// presence of a field (`query.has("include")`) or by inspecting the whole
 /// object (`query.inspect()`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Query {
     fields: Map<String, Value>,
+    /// Fallback for the `directory` field; see [`Query::directory`].
+    document_root: PathBuf,
+}
+
+impl Default for Query {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Query {
     pub fn new() -> Self {
-        Self { fields: Map::new() }
+        Self {
+            fields: Map::new(),
+            document_root: default_document_root(),
+        }
     }
 
     pub fn from_fields(fields: Map<String, Value>) -> Self {
-        Self { fields }
+        Self {
+            fields,
+            document_root: default_document_root(),
+        }
+    }
+
+    /// Overrides the document root (fallback for `directory`), e.g. with
+    /// the RAG root resolved by the engine's `PersistenceManager`.
+    pub fn set_document_root(&mut self, root: impl Into<PathBuf>) {
+        self.document_root = root.into();
+    }
+
+    pub fn document_root(&self) -> &Path {
+        &self.document_root
+    }
+
+    /// Resolves the directory a layer should operate on: the `directory`
+    /// field if present and non-null, otherwise the document root.
+    pub fn directory(&self) -> PathBuf {
+        match self.get_str("directory") {
+            Some(s) => PathBuf::from(s),
+            None => self.document_root.clone(),
+        }
     }
 
     pub fn has(&self, field: &str) -> bool {
@@ -43,7 +82,10 @@ impl Query {
         for (k, v) in overrides {
             merged.insert(k, v);
         }
-        Query { fields: merged }
+        Query {
+            fields: merged,
+            document_root: self.document_root.clone(),
+        }
     }
 
     pub fn set(&mut self, key: impl Into<String>, value: Value) {

@@ -15,7 +15,6 @@ fn next_entry_id() -> String {
 #[derive(Debug, Default)]
 struct EntryInner {
     fields: Map<String, Value>,
-    signals: Vec<String>,
 }
 /// A single, weakly typed entry in the result set.
 #[derive(Debug)]
@@ -24,35 +23,20 @@ pub struct ResultEntry {
     inner: Mutex<EntryInner>,
 }
 impl ResultEntry {
-    pub fn new(
-        entry_id: Option<String>,
-        fields: Map<String, Value>,
-        signals: Vec<String>,
-    ) -> Arc<Self> {
+    pub fn new(entry_id: Option<String>, fields: Map<String, Value>) -> Arc<Self> {
         Arc::new(Self {
             id: entry_id.unwrap_or_else(next_entry_id),
-            inner: Mutex::new(EntryInner { fields, signals }),
+            inner: Mutex::new(EntryInner { fields }),
         })
     }
-    /// Extends/overwrites fields and appends signals (thread-safe).
+    /// Extends/overwrites fields (thread-safe).
     ///
     /// An enrichment layer calls this on an already existing entry, e.g. to
     /// replace "line" with a text excerpt or to add an AST outline/FQN.
-    pub fn merge(
-        &self,
-        fields: Option<Map<String, Value>>,
-        signals: Option<Vec<String>>,
-    ) {
+    pub fn merge(&self, fields: Map<String, Value>) {
         let mut guard = self.inner.lock().unwrap();
-        if let Some(f) = fields {
-            for (k, v) in f {
-                guard.fields.insert(k, v);
-            }
-        }
-        for s in signals.into_iter().flatten() {
-            if !guard.signals.contains(&s) {
-                guard.signals.push(s);
-            }
+        for (k, v) in fields {
+            guard.fields.insert(k, v);
         }
     }
     pub fn has(&self, field: &str) -> bool {
@@ -63,17 +47,10 @@ impl ResultEntry {
         let guard = self.inner.lock().unwrap();
         guard.fields.get(field).cloned()
     }
-    pub fn signals(&self) -> Vec<String> {
-        self.inner.lock().unwrap().signals.clone()
-    }
     pub fn to_dict(&self) -> Map<String, Value> {
         let guard = self.inner.lock().unwrap();
         let mut out = Map::new();
         out.insert("id".into(), Value::String(self.id.clone()));
-        out.insert(
-            "signals".into(),
-            Value::Array(guard.signals.iter().cloned().map(Value::String).collect()),
-        );
         for (k, v) in guard.fields.iter() {
             out.insert(k.clone(), v.clone());
         }
@@ -118,7 +95,7 @@ impl ResultSet {
     ///
     /// The implicit aggregation of layers is based on this mechanism: a
     /// layer looks up e.g. all entries with a given "path" and enriches
-    /// them with further fields/signals.
+    /// them with further fields.
     pub fn find(&self, criteria: &[(&str, Value)]) -> Vec<Arc<ResultEntry>> {
         self.entries()
             .into_iter()

@@ -44,7 +44,11 @@ fn parse_query(args: &[String], json_query: Option<&str>) -> Result<Query> {
 ///
 /// Concrete layers are added here later.
 fn build_default_registry() -> LayerRegistry {
-    LayerRegistry::new()
+    let mut registry = LayerRegistry::new();
+    registry
+        .register(std::sync::Arc::new(xy_ai_rag::layers::glob_layer::GlobLayer::new()))
+        .expect("failed to register GlobLayer");
+    registry
 }
 fn status_to_json(s: &LayerStatus) -> Value {
     let stage = match s.stage {
@@ -62,9 +66,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let mode = ExecutionMode::parse(&cli.mode)
         .ok_or_else(|| anyhow!("Invalid mode: {}", cli.mode))?;
-    let query = parse_query(&cli.query, cli.json_query.as_deref())?;
+    let mut query = parse_query(&cli.query, cli.json_query.as_deref())?;
     let registry = build_default_registry();
     let persistence = PersistenceManager::new(cli.root.as_deref().map(Path::new))?;
+    query.set_document_root(persistence.root.clone());
     let mut engine = Engine::new(registry, persistence, mode);
     engine.start_background();
     let (result_set, statuses) = engine.run_query(query).await?;

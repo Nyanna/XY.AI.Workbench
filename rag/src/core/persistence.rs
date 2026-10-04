@@ -143,88 +143,114 @@ impl SharedIndex {
 /// decide for themselves what structure their ids have (chunk id, line
 /// range, file path, composite key) and whether/how they share resources
 /// with other layers (e.g. via the same key scheme).
+///
+/// Lazily backed: `open` only records the paths, it does not touch the
+/// filesystem. The sidecar directory and the `cache.db` SQLite file are
+/// created on first actual access (`put`/`get`/`delete`/`keys`/
+/// `get_cursor`/`set_cursor`/`path_for`) - a layer that is registered but
+/// never uses its storage for a given run leaves no trace on disk.
 pub struct LayerStorage {
     pub layer_id: String,
     pub dir: PathBuf,
-    conn: Mutex<Connection>,
+    db_path: PathBuf,
+    conn: Mutex<Option<Connection>>,
 }
 impl LayerStorage {
+    /// Records the paths only; performs no filesystem access.
     pub fn open(layer_id: &str, db_path: &Path, dir_path: &Path) -> Result<Self> {
-        std::fs::create_dir_all(dir_path)?;
-        let conn = Connection::open(db_path)?;
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT);
-             CREATE TABLE IF NOT EXISTS layer_meta (name TEXT PRIMARY KEY, value TEXT);",
-        )?;
         Ok(Self {
             layer_id: layer_id.to_string(),
             dir: dir_path.to_path_buf(),
-            conn: Mutex::new(conn),
+            db_path: db_path.to_path_buf(),
+            conn: Mutex::new(None),
         })
+    }
+    /// Returns the open connection, creating the sidecar directory and
+    /// opening/initializing `cache.db` on the very first call.
+    fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        let mut guard = self.conn.lock().unwrap();
+        if guard.is_none() {
+            std::fs::create_dir_all(&self.dir)?;
+            let conn = Connection::open(&self.db_path)?;
+            conn.execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT);
+                 CREATE TABLE IF NOT EXISTS layer_meta (name TEXT PRIMARY KEY, value TEXT);",
+            )?;
+            *guard = Some(conn);
+        }
+        f(guard.as_ref().unwrap())
     }
     pub fn put(&self, key: &str, value: &Value) -> Result<()> {
         let json = serde_json::to_string(value)?;
-        let conn = self.conn.lock().unwrap();
-        conn.execute(
-            "INSERT INTO cache(key, value) VALUES (?1, ?2)
-             ON CONFLICT(key) DO UPDATE SET value=?2",
-            params![key, json],
-        )?;
-        Ok(())
+        self.with_conn(|conn| {
+            conn.execute(
+                "INSERT INTO cache(key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value=?2",
+                params![key, json],
+            )?;
+            Ok(())
+        })
     }
     pub fn get(&self, key: &str) -> Result<Option<Value>> {
-        let conn = self.conn.lock().unwrap();
-        let raw: Option<String> = conn
-            .query_row(
-                "SELECT value FROM cache WHERE key = ?1",
-                params![key],
-                |r| { r.get(0) },
+        self.with_conn(|conn| {
+            let raw: Option<String> = conn
+                .query_row(
+                    "SELECT value FROM cache WHERE key = ?1",
+                    params![key],
+                    |r| { r.get(0) },
+                )
+                .optional()?;
+            Ok(
+                match raw {
+                    Some(s) => Some(serde_json::from_str(&s)?),
+                    None => None,
+                },
             )
-            .optional()?;
-        Ok(
-            match raw {
-                Some(s) => Some(serde_json::from_str(&s)?),
-                None => None,
-            },
-        )
+        })
     }
     pub fn delete(&self, key: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute("DELETE FROM cache WHERE key = ?1", params![key])?;
-        Ok(())
+        self.with_conn(|conn| {
+            conn.execute("DELETE FROM cache WHERE key = ?1", params![key])?;
+            Ok(())
+        })
     }
     pub fn keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let conn = self.conn.lock().unwrap();
-        let pattern = format!("{}%", prefix);
-        let mut stmt = conn
-            .prepare("SELECT key FROM cache WHERE key LIKE ?1 ORDER BY key")?;
-        let rows = stmt.query_map(params![pattern], |r| r.get(0))?;
-        Ok(rows.collect::<rusqlite::Result<Vec<String>>>()?)
+        self.with_conn(|conn| {
+            let pattern = format!("{}%", prefix);
+            let mut stmt = conn
+                .prepare("SELECT key FROM cache WHERE key LIKE ?1 ORDER BY key")?;
+            let rows = stmt.query_map(params![pattern], |r| r.get(0))?;
+            Ok(rows.collect::<rusqlite::Result<Vec<String>>>()?)
+        })
     }
-    /// Path for layer-owned sidecar files (e.g. vector sidecars).
-    pub fn path_for(&self, name: &str) -> PathBuf {
-        self.dir.join(name)
+    /// Path for layer-owned sidecar files (e.g. vector sidecars). Creates
+    /// the sidecar directory on first call.
+    pub fn path_for(&self, name: &str) -> Result<PathBuf> {
+        std::fs::create_dir_all(&self.dir)?;
+        Ok(self.dir.join(name))
     }
     pub fn get_cursor(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let raw: Option<String> = conn
-            .query_row(
-                "SELECT value FROM layer_meta WHERE name = 'cursor'",
-                [],
-                |r| r.get(0),
-            )
-            .optional()?;
-        Ok(raw.and_then(|s| s.parse().ok()).unwrap_or(0))
+        self.with_conn(|conn| {
+            let raw: Option<String> = conn
+                .query_row(
+                    "SELECT value FROM layer_meta WHERE name = 'cursor'",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            Ok(raw.and_then(|s| s.parse().ok()).unwrap_or(0))
+        })
     }
     pub fn set_cursor(&self, seq: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute(
-            "INSERT INTO layer_meta(name, value) VALUES ('cursor', ?1)
-             ON CONFLICT(name) DO UPDATE SET value=?1",
-            params![seq.to_string()],
-        )?;
-        Ok(())
+        self.with_conn(|conn| {
+            conn.execute(
+                "INSERT INTO layer_meta(name, value) VALUES ('cursor', ?1)
+                 ON CONFLICT(name) DO UPDATE SET value=?1",
+                params![seq.to_string()],
+            )?;
+            Ok(())
+        })
     }
 }
 /// Manages the RAG root directory's `.xyrag` storage and hands out their storage to layers.
