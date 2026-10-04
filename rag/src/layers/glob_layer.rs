@@ -7,72 +7,18 @@
 //! document root as fallback (see [`Query::directory`]). Directory
 //! listings are served from a small LRU, mtime-validated in-memory cache
 //! so repeated sub-globs/queries don't re-read unchanged directories.
-use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::SystemTime;
 use async_trait::async_trait;
 use glob::Pattern;
-use lru::LruCache;
 use serde_json::{json, Map, Value};
 use crate::core::layer::{Layer, LayerContext, LayerStage, LayerStatus};
 use crate::core::query::Query;
 use crate::core::result::{ResultEntry, ResultSet};
+use crate::layers::dir_cache::DirCache;
 /// Max number of directory listings kept in memory at once.
 const DIR_CACHE_CAPACITY: usize = 4096;
 /// Max number of matches written back per query.
 const MAX_MATCHES: usize = 50;
-/// One cached directory listing, validated by the directory's own mtime.
-///
-/// Flat by design: only the direct children of one directory are stored.
-/// A subdirectory name recorded in `dirs` is sufficient to look it up
-/// again in the very same cache, keyed by its own path.
-#[derive(Clone)]
-struct DirListing {
-    mtime: SystemTime,
-    files: Vec<String>,
-    dirs: Vec<String>,
-}
-/// Bounded, mtime-validated in-memory cache of directory listings.
-struct DirCache {
-    inner: Mutex<LruCache<PathBuf, DirListing>>,
-}
-impl DirCache {
-    fn new(capacity: usize) -> Self {
-        Self {
-            inner: Mutex::new(
-                LruCache::new(NonZeroUsize::new(capacity).expect("capacity must be > 0")),
-            ),
-        }
-    }
-    /// Lists the direct children of `dir`, trusting the cache as long as
-    /// the directory's mtime did not change since it was last listed.
-    fn list(&self, dir: &Path) -> std::io::Result<DirListing> {
-        let mtime = std::fs::metadata(dir)?.modified()?;
-        {
-            let mut guard = self.inner.lock().unwrap();
-            if let Some(cached) = guard.get(&dir.to_path_buf()) {
-                if cached.mtime == mtime {
-                    return Ok(cached.clone());
-                }
-            }
-        }
-        let mut files = Vec::new();
-        let mut dirs = Vec::new();
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if entry.file_type()?.is_dir() {
-                dirs.push(name);
-            } else {
-                files.push(name);
-            }
-        }
-        let listing = DirListing { mtime, files, dirs };
-        self.inner.lock().unwrap().put(dir.to_path_buf(), listing.clone());
-        Ok(listing)
-    }
-}
 /// One candidate found below the search root, prior to glob matching.
 #[derive(Clone)]
 struct Candidate {
@@ -83,25 +29,35 @@ struct Candidate {
 fn join_rel(prefix: &str, name: &str) -> String {
     if prefix.is_empty() { name.to_string() } else { format!("{prefix}/{name}") }
 }
-/// Recursively collects every file/directory below `root`, via `cache`.
-fn walk(cache: &DirCache, dir: &Path, rel_prefix: &str, out: &mut Vec<Candidate>) {
-    let listing = match cache.list(dir) {
-        Ok(l) => l,
-        Err(_) => return,
-    };
-    for name in &listing.files {
-        out.push(Candidate {
-            rel_path: join_rel(rel_prefix, name),
-            is_dir: false,
-        });
-    }
-    for name in &listing.dirs {
-        let rel = join_rel(rel_prefix, name);
-        out.push(Candidate {
-            rel_path: rel.clone(),
-            is_dir: true,
-        });
-        walk(cache, &dir.join(name), &rel, out);
+/// Collects every file/directory below `root`, via `cache`.
+///
+/// Traverses the tree iteratively with an explicit stack of pending
+/// directories, issuing one single-level `cache.list` call per
+/// directory - the recursive descent lives entirely here, not in the
+/// cache.
+fn walk(cache: &DirCache, root: &Path, rel_prefix: &str, out: &mut Vec<Candidate>) {
+    let mut pending: Vec<(PathBuf, String)> = vec![
+        (root.to_path_buf(), rel_prefix.to_string())
+    ];
+    while let Some((dir, prefix)) = pending.pop() {
+        let listing = match cache.list(&dir) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        for name in &listing.files {
+            out.push(Candidate {
+                rel_path: join_rel(&prefix, name),
+                is_dir: false,
+            });
+        }
+        for name in &listing.dirs {
+            let rel = join_rel(&prefix, name);
+            out.push(Candidate {
+                rel_path: rel.clone(),
+                is_dir: true,
+            });
+            pending.push((dir.join(name), rel));
+        }
     }
 }
 /// Number of glob meta characters in a pattern - a rough specificity
