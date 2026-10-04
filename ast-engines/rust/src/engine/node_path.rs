@@ -108,6 +108,7 @@ pub fn resolve_mut<'a>(file: &'a mut File, path: &NodePath) -> Option<Target<'a>
                 _ => None,
             }
         }
+        Owner::FileAttrs => unreachable!(),
     }
 }
 /// Read-only counterpart of [`Target`]: what a [`NodePath`] ultimately addresses.
@@ -136,5 +137,6 @@ pub fn resolve<'a>(file: &'a File, path: &NodePath) -> Option<TargetRef<'a>> {
                 _ => None,
             }
         }
+        Owner::FileAttrs => unreachable!(),
     }
 }

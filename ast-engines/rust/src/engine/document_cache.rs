@@ -129,6 +129,7 @@ impl DocumentCache {
             );
         Ok(source)
     }
+		#[allow(dead_code)]
     pub fn invalidate(&self, path: &Path) {
         self.entries.lock().unwrap().remove(&path.to_string_lossy().into_owned());
     }

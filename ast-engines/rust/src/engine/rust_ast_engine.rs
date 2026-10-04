@@ -236,7 +236,7 @@ pub fn parse_inner_attrs(code: &str) -> AstResult<Vec<Attribute>> {
     let parser = |input: syn::parse::ParseStream| {
         let mut attrs = Vec::new();
         while !input.is_empty() {
-            attrs.push(input.call(Attribute::parse_inner)?);
+            attrs.extend(input.call(Attribute::parse_inner)?);
         }
         Ok(attrs)
     };
