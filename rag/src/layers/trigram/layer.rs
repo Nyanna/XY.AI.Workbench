@@ -190,11 +190,27 @@ fn search_file(mirror: &Path, abs: &Path, needle: &str) -> Vec<(usize, String)> 
     let mut out = Vec::new();
     for (i, nline) in norm.split('\n').enumerate() {
         if !nline.is_empty() && nline.contains(needle) {
-            let text = orig_lines.get(i).copied().unwrap_or("").to_string();
+            let text = orig_lines.get(i).copied().unwrap_or("").trim().to_string();
             out.push((i + 1, text));
         }
     }
     out
+}
+/// Maximum length (in chars) of a line returned in a result match.
+const MAX_LINE_LEN: usize = 200;
+/// Truncates `line` to `MAX_LINE_LEN` chars if needed, replacing the middle
+/// with an ellipsis (prefix + … + postfix).
+fn truncate_line_middle(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    if chars.len() <= MAX_LINE_LEN {
+        return line.to_string();
+    }
+    let keep = MAX_LINE_LEN - 3;
+    let prefix_len = keep.div_ceil(2);
+    let postfix_len = keep - prefix_len;
+    let prefix: String = chars[..prefix_len].iter().collect();
+    let postfix: String = chars[chars.len() - postfix_len..].iter().collect();
+    format!("{prefix}...{postfix}")
 }
 /// Trigram-gated text search layer.
 pub struct TrigramLayer {
@@ -417,7 +433,8 @@ impl Layer for TrigramLayer {
             }
             let mut lines_obj = Map::new();
             for (ln, text) in lines {
-                lines_obj.insert(ln.to_string(), Value::String(text));
+                lines_obj
+                    .insert(ln.to_string(), Value::String(truncate_line_middle(&text)));
             }
             let mut fields = Map::new();
             fields.insert("File".into(), Value::String(rel));
