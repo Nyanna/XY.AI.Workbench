@@ -141,18 +141,15 @@
 //! identity - if a layer's behavior changes incompatibly, express that
 //! through its own persisted metadata/versioning inside `LayerStorage`, not
 //! by changing the id.
-
 use std::collections::HashSet;
 use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 use tokio_util::sync::CancellationToken;
-
+use crate::core::executor::CpuExecutor;
 use crate::core::persistence::{LayerStorage, SharedIndex};
 use crate::core::query::Query;
 use crate::core::result::ResultSet;
-
 /// Coarse topology hint for a layer; does not replace explicit `depends_on`.
 ///
 /// Classifies a layer's typical relationship to the shared `ResultSet`
@@ -177,7 +174,6 @@ pub enum LayerStage {
     /// numerically, only sorts stably.
     Postprocess,
 }
-
 /// Outcome protocol of one layer invocation for one query.
 ///
 /// Returned by [`Layer::run`] so the engine/caller can distinguish "ran and
@@ -198,7 +194,6 @@ pub struct LayerStatus {
     /// timings); not interpreted by the engine.
     pub detail: Map<String, Value>,
 }
-
 impl LayerStatus {
     pub fn new(layer_id: impl Into<String>, stage: LayerStage) -> Self {
         Self {
@@ -212,7 +207,6 @@ impl LayerStatus {
         }
     }
 }
-
 /// Per-query context the engine hands to a layer's `run` call.
 ///
 /// - `query`: the current `Query` object (also passed separately to `run`
@@ -226,8 +220,11 @@ pub struct LayerContext {
     pub query: Query,
     pub storage: Arc<LayerStorage>,
     pub shared_index: Arc<SharedIndex>,
+    /// Shared rayon-backed executor for CPU-bound work; see
+    /// [`CpuExecutor::spawn`] to offload work without blocking the async
+    /// runtime.
+    pub cpu: Arc<CpuExecutor>,
 }
-
 /// Global context the engine hands to a layer's `background` call.
 ///
 /// Same storage/index handles as `LayerContext`, but deliberately without a
@@ -237,8 +234,11 @@ pub struct LayerContext {
 pub struct BackgroundContext {
     pub storage: Arc<LayerStorage>,
     pub shared_index: Arc<SharedIndex>,
+    /// Shared rayon-backed executor for CPU-bound work; see
+    /// [`CpuExecutor::spawn`] to offload work without blocking the async
+    /// runtime.
+    pub cpu: Arc<CpuExecutor>,
 }
-
 /// Base trait every concrete RAG layer implements.
 ///
 /// A layer is a fully independent signal producer. It owns its own
@@ -263,7 +263,6 @@ pub trait Layer: Send + Sync {
     /// name. Never reuse an id for a semantically different layer; version
     /// internally via `LayerStorage` metadata instead.
     fn id(&self) -> &str;
-
     /// Topology hint; see [`LayerStage`]. Affects default scheduling
     /// relative to other layers, not correctness - correctness must not
     /// depend on stage ordering alone when explicit ordering matters (use
@@ -271,7 +270,6 @@ pub trait Layer: Send + Sync {
     fn stage(&self) -> LayerStage {
         LayerStage::Enrich
     }
-
     /// IDs of other layers whose contribution to the *current query run*
     /// must be complete before this layer's `run` is invoked. Layers
     /// without (mutual) dependencies may be scheduled fully in parallel
@@ -281,7 +279,6 @@ pub trait Layer: Send + Sync {
     fn depends_on(&self) -> HashSet<String> {
         HashSet::new()
     }
-
     /// Decide whether this layer participates in the given query.
     ///
     /// Default: activate when the query carries a field named exactly like
@@ -298,7 +295,6 @@ pub trait Layer: Send + Sync {
     fn applies(&self, query: &Query) -> bool {
         query.has(self.id())
     }
-
     /// Process one query against the shared `ResultSet`.
     ///
     /// Invoked once per query for which `applies` returned true. Must
@@ -333,8 +329,12 @@ pub trait Layer: Send + Sync {
     /// present beyond what it declared via `depends_on`; all other
     /// coordination happens implicitly through shared `ResultEntry` field
     /// names.
-    async fn run(&self, query: &Query, result_set: &ResultSet, ctx: &LayerContext) -> LayerStatus;
-
+    async fn run(
+        &self,
+        query: &Query,
+        result_set: &ResultSet,
+        ctx: &LayerContext,
+    ) -> LayerStatus;
     /// Optional, self-directed background activity (e.g. lazy index/cache
     /// build).
     ///
@@ -352,7 +352,5 @@ pub trait Layer: Send + Sync {
     /// Persist progress incrementally via `ctx.storage` so an aborted run
     /// loses at most the current unit of work and leaves previously
     /// written data usable.
-    async fn background(&self, _ctx: &BackgroundContext, _cancel: CancellationToken) {
-        // Default: no background activity.
-    }
+    async fn background(&self, _ctx: &BackgroundContext, _cancel: CancellationToken) {}
 }
