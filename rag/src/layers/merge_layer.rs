@@ -9,7 +9,7 @@
 //! Entries without a `File` field are left untouched.
 use std::collections::BTreeMap;
 use async_trait::async_trait;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use crate::core::layer::{Layer, LayerContext, LayerStage, LayerStatus};
 use crate::core::query::Query;
 use crate::core::result::ResultSet;
@@ -139,6 +139,7 @@ impl Layer for MergeLayer {
         }
         status.contributions = duplicate_ids.len();
         status.ran = true;
+        status.detail.insert("merged_matches".into(), json!(duplicate_ids.len()));
         status
     }
 }

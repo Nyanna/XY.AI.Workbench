@@ -16,6 +16,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use async_trait::async_trait;
@@ -266,8 +267,13 @@ impl Layer for GrepLayer {
         }
         let tokens = Arc::new(compiled);
         let (search_root, rel_prefix) = query.resolve_search_root();
+        let cache_stats_before = self.cache.stats();
+        let traversal_start = Instant::now();
         let mut files = Vec::new();
         collect_files(&self.cache, &search_root, &rel_prefix, &mut files);
+        let traversal_ms = traversal_start.elapsed().as_secs_f64() * 1000.0;
+        let files_searched = files.len();
+        let search_nanos = Arc::new(AtomicU64::new(0));
         let mut queue: VecDeque<FileCandidate> = files.into();
         let start = Instant::now();
         let deadline = start + MAX_RUNTIME;
@@ -283,11 +289,20 @@ impl Layer for GrepLayer {
                 let tokens = Arc::clone(&tokens);
                 let rel_path = file.rel_path;
                 let abs_path = file.abs_path;
+                let search_nanos = Arc::clone(&search_nanos);
                 pending
                     .push(async move {
-                        cpu.spawn(move || search_file(&abs_path, &rel_path, &tokens))
+                        let t0 = Instant::now();
+                        let hits = cpu
+                            .spawn(move || search_file(&abs_path, &rel_path, &tokens))
                             .await
-                            .unwrap_or_default()
+                            .unwrap_or_default();
+                        search_nanos
+                            .fetch_add(
+                                t0.elapsed().as_nanos() as u64,
+                                Ordering::Relaxed,
+                            );
+                        hits
                     });
             }
             if pending.is_empty() {
@@ -340,6 +355,19 @@ impl Layer for GrepLayer {
         status.ran = true;
         status.aborted = aborted;
         status.detail.insert("root".into(), json!(search_root.display().to_string()));
+        let cache_delta = self.cache.stats().delta(&cache_stats_before);
+        status.detail.insert("dir_cache_misses".into(), json!(cache_delta.misses));
+        status
+            .detail
+            .insert("dir_cache_update_ms".into(), json!(cache_delta.update_ms()));
+        status.detail.insert("traversal_ms".into(), json!(traversal_ms));
+        status.detail.insert("files_searched".into(), json!(files_searched));
+        status
+            .detail
+            .insert(
+                "search_ms".into(),
+                json!(search_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0),
+            );
         status
     }
 }

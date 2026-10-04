@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 use async_trait::async_trait;
@@ -109,6 +110,10 @@ fn collect_files(cache: &DirCache, root: &Path, rel_prefix: &str) -> Vec<FileEnt
 /// (Re-)indexes one file: normalise, mirror, build + persist signature.
 /// Returns the file's expanded mask, or `None` on an I/O error. Runs on
 /// the CPU executor, in parallel with other files' reindexing.
+///
+/// `norm_mirror_nanos` accumulates time spent reading, normalising and
+/// mirroring the file; `signature_nanos` accumulates time spent
+/// extracting trigrams and building the signature trie.
 fn reindex(
     state: &SharedState,
     params: TrieParams,
@@ -116,7 +121,10 @@ fn reindex(
     rel: &str,
     abs: &Path,
     mtime: u64,
+    norm_mirror_nanos: &AtomicU64,
+    signature_nanos: &AtomicU64,
 ) -> Option<CellMask> {
+    let t0 = Instant::now();
     let bytes = std::fs::read(abs).ok()?;
     let norm = normalize::normalize_bytes(&bytes).unwrap_or_default();
     let mirror = state.mirror_dir.join(rel);
@@ -124,6 +132,8 @@ fn reindex(
         let _ = std::fs::create_dir_all(parent);
     }
     let _ = std::fs::write(&mirror, &norm);
+    norm_mirror_nanos.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+    let t1 = Instant::now();
     let trigrams = signature::file_trigrams(&norm, cfg.prune_ratio, cfg.prune_min_count);
     let keys = {
         let mut v = state.vocab.write().unwrap();
@@ -135,6 +145,7 @@ fn reindex(
     };
     let trie = CompactTrie::build(params, keys).ok()?;
     let mask = trie.expand();
+    signature_nanos.fetch_add(t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
     let indexed_at = index::now_ns();
     let _ = index::store_entry(&state.storage, rel, mtime, indexed_at, &trie);
     state
@@ -263,6 +274,7 @@ impl Layer for TrigramLayer {
         }
         let state = self.state(ctx);
         let (search_root, rel_prefix) = query.resolve_search_root();
+        let cache_stats_before = self.cache.stats();
         let document_root = query.document_root().to_path_buf();
         let cache = Arc::clone(&self.cache);
         let params = self.params;
@@ -272,11 +284,17 @@ impl Layer for TrigramLayer {
         let root_bg = search_root.clone();
         let prefix_bg = rel_prefix.clone();
         let doc_root_bg = document_root.clone();
-        let candidates: Option<Vec<Candidate>> = ctx
+        let norm_mirror_nanos = Arc::new(AtomicU64::new(0));
+        let signature_nanos = Arc::new(AtomicU64::new(0));
+        let norm_mirror_nanos_bg = Arc::clone(&norm_mirror_nanos);
+        let signature_nanos_bg = Arc::clone(&signature_nanos);
+        let indexing: Option<(Vec<Candidate>, f64)> = ctx
             .cpu
             .spawn(move || {
                 let vocab_created = state_bg.vocab.read().unwrap().created_at();
+                let traversal_start = Instant::now();
                 let files = collect_files(&cache, &root_bg, &prefix_bg);
+                let traversal_ms = traversal_start.elapsed().as_secs_f64() * 1000.0;
                 let visited: Vec<FileEntry> = files
                     .into_par_iter()
                     .filter(|f| f.size <= MAX_FILE_SIZE)
@@ -298,6 +316,8 @@ impl Layer for TrigramLayer {
                                     &f.rel,
                                     &f.abs,
                                     f.mtime_ns,
+                                    &norm_mirror_nanos_bg,
+                                    &signature_nanos_bg,
                                 )
                                 .is_some()
                     })
@@ -330,14 +350,16 @@ impl Layer for TrigramLayer {
                         rel_path: f.rel,
                     })
                     .collect();
-                Some(candidates)
+                Some((candidates, traversal_ms))
             })
             .await
             .unwrap_or(None);
-        let Some(candidates) = candidates else {
+        let Some((candidates, traversal_ms)) = indexing else {
             status.skipped = true;
             return status;
         };
+        let candidates_after_signature_filter = candidates.len();
+        let search_nanos = Arc::new(AtomicU64::new(0));
         let needle = Arc::new(needle);
         let mut queue: VecDeque<Candidate> = candidates.into();
         let start = Instant::now();
@@ -355,12 +377,19 @@ impl Layer for TrigramLayer {
                 let rel = c.rel_path;
                 let abs = c.abs_path;
                 let mirror = c.mirror_path;
+                let search_nanos = Arc::clone(&search_nanos);
                 pending
                     .push(async move {
+                        let t0 = Instant::now();
                         let hits = cpu
                             .spawn(move || search_file(&mirror, &abs, &needle))
                             .await
                             .unwrap_or_default();
+                        search_nanos
+                            .fetch_add(
+                                t0.elapsed().as_nanos() as u64,
+                                Ordering::Relaxed,
+                            );
                         (rel, hits)
                     });
             }
@@ -399,6 +428,39 @@ impl Layer for TrigramLayer {
         status.ran = true;
         status.aborted = aborted;
         status.detail.insert("root".into(), json!(search_root.display().to_string()));
+        let cache_delta = self.cache.stats().delta(&cache_stats_before);
+        status.detail.insert("dir_cache_misses".into(), json!(cache_delta.misses));
+        status
+            .detail
+            .insert("dir_cache_update_ms".into(), json!(cache_delta.update_ms()));
+        status.detail.insert("traversal_ms".into(), json!(traversal_ms));
+        status
+            .detail
+            .insert(
+                "normalize_mirror_ms".into(),
+                json!(norm_mirror_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0),
+            );
+        status
+            .detail
+            .insert(
+                "signature_ms".into(),
+                json!(signature_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0),
+            );
+        status
+            .detail
+            .insert(
+                "candidates_after_signature_filter".into(),
+                json!(candidates_after_signature_filter),
+            );
+        status
+            .detail
+            .insert("files_searched".into(), json!(candidates_after_signature_filter));
+        status
+            .detail
+            .insert(
+                "search_ms".into(),
+                json!(search_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0),
+            );
         status
     }
 }

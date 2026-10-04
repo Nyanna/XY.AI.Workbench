@@ -18,6 +18,7 @@
 //! stack), issuing one [`DirCache::list`] call per level.
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 use lru::LruCache;
@@ -49,6 +50,31 @@ struct CacheEntry {
 /// Bounded, mtime-validated in-memory cache of single-directory listings.
 pub struct DirCache {
     inner: Mutex<LruCache<PathBuf, CacheEntry>>,
+    /// Number of `list()` calls that could not be served from a fresh
+    /// cache hit (cumulative since construction).
+    misses: AtomicU64,
+    /// Total nanoseconds spent re-validating or rebuilding entries
+    /// (stat retrieval plus, on a full miss, the directory read).
+    update_nanos: AtomicU64,
+}
+/// Point-in-time snapshot of [`DirCache`]'s cumulative counters; two
+/// snapshots can be subtracted via [`DirCacheStats::delta`] to get the
+/// activity within a time window (e.g. one query).
+#[derive(Clone, Copy, Default)]
+pub struct DirCacheStats {
+    pub misses: u64,
+    pub update_nanos: u64,
+}
+impl DirCacheStats {
+    pub fn delta(&self, start: &DirCacheStats) -> DirCacheStats {
+        DirCacheStats {
+            misses: self.misses.saturating_sub(start.misses),
+            update_nanos: self.update_nanos.saturating_sub(start.update_nanos),
+        }
+    }
+    pub fn update_ms(&self) -> f64 {
+        self.update_nanos as f64 / 1_000_000.0
+    }
 }
 impl DirCache {
     pub fn new(capacity: usize) -> Self {
@@ -56,6 +82,15 @@ impl DirCache {
             inner: Mutex::new(
                 LruCache::new(NonZeroUsize::new(capacity).expect("capacity must be > 0")),
             ),
+            misses: AtomicU64::new(0),
+            update_nanos: AtomicU64::new(0),
+        }
+    }
+    /// Cumulative miss/timing counters snapshot, see [`DirCacheStats`].
+    pub fn stats(&self) -> DirCacheStats {
+        DirCacheStats {
+            misses: self.misses.load(Ordering::Relaxed),
+            update_nanos: self.update_nanos.load(Ordering::Relaxed),
         }
     }
     /// Lists the direct children of the absolute path `dir`.
@@ -63,28 +98,37 @@ impl DirCache {
     /// Trusts a cache hit outright if it was last checked less than
     /// [`STALE_AFTER`] ago; otherwise validates (and, if needed,
     /// rebuilds) the entry against the filesystem before returning it.
+    /// Any path beyond the fresh-hit check counts as a cache miss, and
+    /// the time it takes (including stat retrieval) is accumulated.
     pub fn list(&self, dir: &Path) -> std::io::Result<DirListing> {
         let key = dir.to_path_buf();
         if let Some(listing) = self.fresh_hit(&key) {
             return Ok(listing);
         }
-        let mtime = std::fs::metadata(dir)?.modified()?;
-        if let Some(listing) = self.revalidated_hit(&key, mtime) {
-            return Ok(listing);
-        }
-        let listing = read_dir_listing(dir)?;
-        self.inner
-            .lock()
-            .unwrap()
-            .put(
-                key,
-                CacheEntry {
-                    mtime,
-                    last_checked: Instant::now(),
-                    listing: listing.clone(),
-                },
-            );
-        Ok(listing)
+        self.misses.fetch_add(1, Ordering::Relaxed);
+        let start = Instant::now();
+        let result = (|| {
+            let mtime = std::fs::metadata(dir)?.modified()?;
+            if let Some(listing) = self.revalidated_hit(&key, mtime) {
+                return Ok(listing);
+            }
+            let listing = read_dir_listing(dir)?;
+            self.inner
+                .lock()
+                .unwrap()
+                .put(
+                    key,
+                    CacheEntry {
+                        mtime,
+                        last_checked: Instant::now(),
+                        listing: listing.clone(),
+                    },
+                );
+            Ok(listing)
+        })();
+        self.update_nanos
+            .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+        result
     }
     /// Returns the cached listing if it was checked recently enough to
     /// be trusted without consulting the filesystem.

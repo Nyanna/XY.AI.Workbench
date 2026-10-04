@@ -8,6 +8,7 @@
 //! listings are served from a small LRU, mtime-validated in-memory cache
 //! so repeated sub-globs/queries don't re-read unchanged directories.
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use async_trait::async_trait;
 use glob::Pattern;
 use serde_json::{json, Map, Value};
@@ -137,8 +138,11 @@ impl Layer for GlobLayer {
             return status;
         }
         let (search_root, rel_prefix) = query.resolve_search_root();
+        let cache_stats_before = self.cache.stats();
+        let traversal_start = Instant::now();
         let mut candidates = Vec::new();
         walk(&self.cache, &search_root, &rel_prefix, &mut candidates);
+        let traversal_ms = traversal_start.elapsed().as_secs_f64() * 1000.0;
         let mut hits: Vec<(usize, usize, Candidate)> = Vec::new();
         for token in &tokens {
             let pattern = match Pattern::new(token) {
@@ -195,6 +199,13 @@ impl Layer for GlobLayer {
         }
         status.ran = true;
         status.detail.insert("root".into(), json!(search_root.display().to_string()));
+        let cache_delta = self.cache.stats().delta(&cache_stats_before);
+        status.detail.insert("dir_cache_misses".into(), json!(cache_delta.misses));
+        status
+            .detail
+            .insert("dir_cache_update_ms".into(), json!(cache_delta.update_ms()));
+        status.detail.insert("traversal_ms".into(), json!(traversal_ms));
+        status.detail.insert("files_searched".into(), json!(0));
         status
     }
 }
