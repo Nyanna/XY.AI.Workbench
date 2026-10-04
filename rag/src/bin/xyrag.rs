@@ -70,6 +70,39 @@ fn status_to_json(s: &LayerStatus) -> Value {
         "aborted" : s.aborted, "contributions" : s.contributions, "detail" : s.detail, }
     )
 }
+/// Recursively rewrites `Lines` objects so their (numeric) string keys
+/// become real YAML integers, yielding `1: text` instead of `'1': text`.
+fn numeric_keys_for_lines(value: &mut serde_yaml::Value) {
+    match value {
+        serde_yaml::Value::Sequence(items) => {
+            for item in items {
+                numeric_keys_for_lines(item);
+            }
+        }
+        serde_yaml::Value::Mapping(map) => {
+            for (key, val) in map.iter_mut() {
+                if key.as_str() == Some("Lines") {
+                    if let serde_yaml::Value::Mapping(lines) = val {
+                        *lines = lines
+                            .iter()
+                            .map(|(k, v)| {
+                                let key = k
+                                    .as_str()
+                                    .and_then(|s| s.parse::<i64>().ok())
+                                    .map(serde_yaml::Value::from)
+                                    .unwrap_or_else(|| k.clone());
+                                (key, v.clone())
+                            })
+                            .collect();
+                    }
+                } else {
+                    numeric_keys_for_lines(val);
+                }
+            }
+        }
+        _ => {}
+    }
+}
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -90,6 +123,8 @@ async fn main() -> Result<()> {
         .collect();
     let layers: Vec<Value> = statuses.iter().map(status_to_json).collect();
     let output = json!({ "results" : results, "layers" : layers });
-    println!("{}", serde_yaml::to_string(& output) ?.trim_end());
+    let mut yaml_value = serde_yaml::to_value(&output)?;
+    numeric_keys_for_lines(&mut yaml_value);
+    println!("{}", serde_yaml::to_string(& yaml_value) ?.trim_end());
     Ok(())
 }

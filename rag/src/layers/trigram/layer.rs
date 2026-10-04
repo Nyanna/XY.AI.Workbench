@@ -386,10 +386,13 @@ impl Layer for TrigramLayer {
             for (ln, text) in hits {
                 lines.entry(ln).or_insert(text);
             }
-            let ordered: Vec<(usize, String)> = lines.into_iter().collect();
+            let mut lines_obj = Map::new();
+            for (ln, text) in lines {
+                lines_obj.insert(ln.to_string(), Value::String(text));
+            }
             let mut fields = Map::new();
             fields.insert("File".into(), Value::String(rel));
-            fields.insert("Lines".into(), json!(ordered));
+            fields.insert("Lines".into(), Value::Object(lines_obj));
             result_set.add(ResultEntry::new(None, fields));
             status.contributions += 1;
         }

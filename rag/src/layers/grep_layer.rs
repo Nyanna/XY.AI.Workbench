@@ -327,9 +327,13 @@ impl Layer for GrepLayer {
         for rel in order {
             let mut lines = grouped.remove(&rel).unwrap_or_default();
             lines.sort_by_key(|(ln, _)| *ln);
+            let mut lines_obj = Map::new();
+            for (ln, text) in lines {
+                lines_obj.insert(ln.to_string(), Value::String(text));
+            }
             let mut fields = Map::new();
             fields.insert("File".into(), Value::String(rel));
-            fields.insert("Lines".into(), json!(lines));
+            fields.insert("Lines".into(), Value::Object(lines_obj));
             result_set.add(ResultEntry::new(None, fields));
             status.contributions += 1;
         }
