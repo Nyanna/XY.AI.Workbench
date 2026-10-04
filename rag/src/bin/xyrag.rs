@@ -49,6 +49,9 @@ fn build_default_registry() -> LayerRegistry {
         .register(std::sync::Arc::new(xy_ai_rag::layers::glob_layer::GlobLayer::new()))
         .expect("failed to register GlobLayer");
     registry
+        .register(std::sync::Arc::new(xy_ai_rag::layers::grep_layer::GrepLayer::new()))
+        .expect("failed to register GrepLayer");
+    registry
 }
 fn status_to_json(s: &LayerStatus) -> Value {
     let stage = match s.stage {

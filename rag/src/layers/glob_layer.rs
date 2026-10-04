@@ -65,30 +65,6 @@ fn walk(cache: &DirCache, root: &Path, rel_prefix: &str, out: &mut Vec<Candidate
 fn wildcard_count(pattern: &str) -> usize {
     pattern.chars().filter(|c| matches!(c, '*' | '?' | '[' | ']')).count()
 }
-/// Resolves the actual filesystem directory to walk, plus the relative
-/// prefix (document-root-relative, `/`-separated) every discovered path
-/// must be prepended with, so `File`/`Directory` always carry the full
-/// path relative to the document root - not just relative to the
-/// (optional) search `directory`.
-fn resolve_search_root(query: &Query) -> (PathBuf, String) {
-    let document_root = query.document_root().to_path_buf();
-    match query.get_str("directory") {
-        None => (document_root, String::new()),
-        Some(dir) => {
-            let dir_path = PathBuf::from(dir);
-            let search_root = if dir_path.is_absolute() {
-                dir_path.clone()
-            } else {
-                document_root.join(&dir_path)
-            };
-            let prefix = match search_root.strip_prefix(&document_root) {
-                Ok(rel) => rel.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"),
-                Err(_) => dir.trim_matches('/').to_string(),
-            };
-            (search_root, prefix)
-        }
-    }
-}
 /// Glob-pattern based file/directory search layer.
 ///
 /// See the module documentation for the matching, ranking and caching
@@ -138,7 +114,7 @@ impl Layer for GlobLayer {
             status.skipped = true;
             return status;
         }
-        let (search_root, rel_prefix) = resolve_search_root(query);
+        let (search_root, rel_prefix) = query.resolve_search_root();
         let mut candidates = Vec::new();
         walk(&self.cache, &search_root, &rel_prefix, &mut candidates);
         let mut hits: Vec<(usize, usize, Candidate)> = Vec::new();
