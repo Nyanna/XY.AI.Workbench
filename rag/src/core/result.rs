@@ -108,6 +108,17 @@ impl ResultSet {
         let mut order = self.order.lock().unwrap();
         order.sort_by_key(|id| key(&entries[id]));
     }
+    /// Removes an entry by id (used by postprocess layers that reduce the
+    /// result set, e.g. merging duplicate entries into one).
+    pub fn remove(&self, entry_id: &str) -> Option<Arc<ResultEntry>> {
+        let mut entries = self.entries.lock().unwrap();
+        let mut order = self.order.lock().unwrap();
+        let removed = entries.remove(entry_id);
+        if removed.is_some() {
+            order.retain(|id| id != entry_id);
+        }
+        removed
+    }
     pub fn len(&self) -> usize {
         self.order.lock().unwrap().len()
     }
