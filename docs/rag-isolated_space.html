@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isolated Semantic Space as a Navigation Tool for LLM Agents — Documentation</title>
+<link rel="stylesheet" href="scholar-theme.css">
+</head>
+<body>
+<header class="site-header">
+<a class="back-link" href="index.html">&larr; Overview</a>
+</header>
+<main class="article">
+<article>
+<h1>Isolated Semantic Space as a Navigation Tool for LLM Agents</h1>
+<blockquote>A systematic elaboration of the conceptual model. This document extends and formalizes the line of reasoning — it is not merely a summary, but a thesis in its own right.</blockquote>
+<h3>1. Initial Observation: The Granularity Continuum</h3>
+<p>Retrieval representations do not fall into discrete categories ("dense" vs. "multi-vector"); rather, they lie on a continuum governed by two coupled parameters:</p>
+<ul><li><strong>Segment size</strong> (how finely text is cut: document → paragraph → sentence → token)</li><li><strong>Vector size/count</strong> per unit</li></ul>
+<p>A dense index using very small chunks structurally converges toward multi-vector search. In this framing, ColBERT is simply the point of maximal granularity (one vector per token) — the product of a fixed convention rather than a deliberate design choice.</p>
+<p><strong>Extension developed in dialogue:</strong> The continuum has at least two further, orthogonal axes:</p>
+<ol><li><strong>Contextualization</strong>: Is each unit encoded in isolation, or jointly with the rest of the text? (Standard chunking = isolated; ColBERT / Late Chunking = jointly encoded, then split)</li><li><strong>Interaction/Aggregation</strong>: One query vector against many document vectors (max) vs. many query vectors against many document vectors (sum of maxima, MaxSim)</li></ol>
+<p><strong>Central thesis:</strong> <em>These axes are not fundamentally distinct — they are mutually imitable through training design.</em> Query-splitting combined with fine-grained chunking and end-to-end training of the aggregation step approximates ColBERT closely. What remains irreducible is the <em>isolation barrier</em> at encoding time (solvable through Late-Chunking-style methods) — not the architecture itself.</p>
+<p><strong>Confirming evidence from the field:</strong> MUVERA moves in the opposite direction (multi-vector → compressed into a fixed vector for fast search), demonstrating that this axis is real and can be traversed in either direction.</p>
+<h3>2. Two-Level Model: Precision vs. Navigability</h3>
+<p>A central distinction that emerged from the dialogue:</p>
+<p>| Level | Question | Responsibility | Metric | |---|---|---|---| | <strong>1. Single call</strong> | How precise and context-economical is a single retrieval result? | Scoring quality, chunk/span granularity, reranking | Precision@k, tokens per answer, latency | | <strong>2. Overall task</strong> | How well can an agent navigate purposefully across multiple turns? | State feedback, controllable breadth, determinism, set operations | Steps to target chunk, total context tokens |</p>
+<p><strong>Core thesis:</strong> The RAG system should not try to anticipate what the LLM can already do better within dialogue — e.g., building synonym bridges or rephrasing terms. Instead, it should function as a <em>precise, iterable tool</em>. This separation defuses the common objection "BM25 doesn't know synonyms" as a knockout argument against lexical/deterministic indexes — because bridging synonyms is a task for the agent across multiple steps, not a task for the index.</p>
+<p><strong>Consequence:</strong> Every retrieval tool must be evaluated separately on both levels. An improvement at Level 1 (e.g., a better embedding model) can be worthless — or even harmful — at Level 2 if it fails to provide state feedback.</p>
+<h3>3. The Isolated, Corpus-Relative Semantic Space</h3>
+<h4>3.1 Basic Idea</h4>
+<p>Rather than applying a large, pretrained embedding model to a small knowledge base (KB), a <strong>standalone, small vector space is constructed exclusively relative to the KB</strong> (e.g., via word2vec/fastText-style training from scratch, or via distillation). Rationale:</p>
+<ul><li>The KB is orders of magnitude smaller than any general vocabulary → the index stays small, search stays fast.</li><li>Semantics is <em>differential</em> — meaning arises from contrasts within the KB, not from global world knowledge.</li><li>Rejection ("this lies outside the space") is explicitly the <strong>goal, not a deficiency</strong> — for a medical KB, philosophical queries should sensibly remain unresolved.</li></ul>
+<h4>3.2 The Radius-Ring Model</h4>
+<p>A construction developed to encode evidence/importance:</p>
+<ul><li><strong>Initialization at the boundary</strong> (high-dimensional sphere surface) rather than at the center or randomly distributed throughout: random boundary points in high dimensions are nearly orthogonal to one another → the geometric equivalent of "unconnected" / "lacking evidence."</li><li><strong>Movement toward the center</strong> proportional to frequency/importance during training.</li><li>Result: a <strong>bandpass in radius</strong> (related to Luhn's 1958 observation on term frequency):</li><li><strong>Center</strong>: stop words, overly general terms, scoring-wise irrelevant/down-weighted.</li><li><strong>Ring (middle band)</strong>: the actually relevant, information-bearing region.</li><li><strong>Boundary</strong>: unsubstantiated/rare terms, lacking reliable semantics, deliberately kept "outside."</li></ul>
+<p><strong>Important clarification from the dialogue:</strong> Radius, ring, and thresholds are <strong>search-navigation parameters, not indexing parameters</strong>. They are progressively widened or narrowed at search time (ranking cutoff), without reindexing. The ability to <em>react</em> to too few or too many hits resides with the navigator (the LLM), not within the index itself.</p>
+<p><strong>Separation of semantic roles:</strong> Operators such as "not," "for," "without" are <strong>not</strong> encoded as directions within the semantic space (antonyms share contexts and lie geometrically close together — directional shift is unreliable here). Instead, they are implemented as <strong>explicit navigation operations at the set level</strong> (intersection, subtraction, Rocchio-style feedback). Sentence-level relational semantics (e.g., "drug for X" vs. "drug against X") is not resolved by the space itself, but verified by the LLM when reading candidate results.</p>
+<h4>3.3 The Adapter as an Exchangeable Bridge Layer</h4>
+<p>Since a strictly isolated space naturally cannot unlock KB-foreign phrasings (user/lay language, unlearned relations such as "greater than"), this task is explicitly <strong>delegated</strong> to an exchangeable adapter layer:</p>
+<p>| Adapter Type | Mechanism | Data Requirement | |---|---|---| | Standard world knowledge | LLM formulates directly in KB-proximate terms, iteratively refined via neighbor feedback | none | | Reference navigation | Glossary/overview as anchor | curated | | Analogy/navigation | Pivoting from a known anchor | none, locally bounded | | Mapping | Learned mapping from user space → KB space | anchor pairs | | Trained adapter | Model/MLP, contrastively trained | pairs; loses interpretability |</p>
+<p>The space itself remains unchanged; the adapter is swapped experimentally. This renders the semantic space a stable core with a variable outer layer — a deliberate separation of responsibilities.</p>
+<h3>4. Why Multi-Vector (ColBERT-style) Was Chosen as the Carrier Structure</h3>
+<p>The decisive justification that emerged in dialogue: <strong>MaxSim decomposes additively into per-query-token contributions.</strong> This serves both levels simultaneously:</p>
+<ul><li><strong>Level 1:</strong> The query-token → document-token alignment reveals <em>which</em> span of text carries the match → span extraction instead of whole chunks → smaller context without a second model.</li><li><strong>Level 2:</strong> Per-token scores reveal which part of the query is "covered" (high contribution) and which is not (unknown term/boundary) → native state feedback, the foundation for the radius/ring mechanism, and the basis for targeted sharpening or broadening of individual query terms at search time.</li></ul>
+<p>Learned sparse representations (SPLADE) exhibit the same additive decomposability — with even more direct interpretability, since they operate over actual vocabulary terms rather than latent token vectors. This remains an open and natural competing candidate.</p>
+<h3>5. Practical Constraints</h3>
+<ul><li><strong>No persistent server process</strong>: on-demand execution, index files rather than a database/metadata layer (model: ColGREP).</li><li><strong>Avoid background load</strong>: if preloading is necessary (model/batch), it must run only as a short-lived, self-terminating daemon process (idle timeout) — no service, no autostart.</li><li><strong>Parallelization via shards rather than a monolith</strong>: one small index per KB/topic; parallel queries across multiple shards; merge of top-k results. Requires an identical model and identical thresholds across all shards.</li><li><strong>Frequent corrections as the norm, not the exception</strong>: index design must support upsert without full rebuild/requantization (tombstones + periodic compaction rather than immediate reclustering); compression is deliberately deferred or avoided, since it introduces drift sensitivity under incremental updates. Speed should come primarily from centroid pruning and sharding, not from quantization.</li></ul>
+<h3>6. Condensed Formula of the Overall Concept</h3>
+<blockquote>A small, exclusively corpus-relative trained multi-vector space, whose vector radius encodes evidence/importance (boundary = unsubstantiated, center = overly general, ring = relevant), serves an LLM as an inspectable, file-based, on-demand-runnable navigation tool — not as an answer system. The additive decomposability of MaxSim delivers both precise span localization (Level 1) and native state feedback for iterative navigation (Level 2). The bridge to KB-foreign user language lies deliberately outside the space, in an exchangeable adapter layer carried primarily by the LLM itself (world knowledge, iterative feedback).</blockquote>
+</article>
+</main>
+<footer class="site-footer">
+<small>Documentation</small>
+</footer>
+</body>
+</html>
