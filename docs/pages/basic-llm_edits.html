@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Summary: LLM File Editing — Research State, Reasoning &amp; Recommendations — Documentation</title>
+<link rel="stylesheet" href="scholar-theme.css">
+</head>
+<body>
+<header class="site-header">
+<a class="back-link" href="index.html">&larr; Overview</a>
+</header>
+<main class="article">
+<article>
+<h1>Summary: LLM File Editing — Research State, Reasoning &amp; Recommendations</h1>
+<h3>1. State of Research</h3>
+<h4>Emerging Field: Edit Representation for LLMs</h4>
+<p>The research field of <strong>Edit Representation for LLMs</strong> (also: <em>LLM Code Editing</em>) is nascent and rapidly evolving. It covers how changes to documents — not just source code — are best represented for language model generation.</p>
+<h4>Key Publications</h4>
+<p>| Paper | Venue | Core Finding | |---|---|---| | <em>To Diff or Not to Diff? Structure-Aware and Adaptive Output Formats for Efficient LLM-based Code Editing</em> | ACL Findings 2026 | Adaptive format selection cuts token cost &amp; latency by <strong>&gt;30 %</strong> without quality loss; classic Git diffs are surprisingly unnatural for LLMs | | <em>Coeditor: Leveraging Repo-level Diffs for Code Auto-editing</em> | ICLR 2024 | Training models on <em>changes</em> (commit history) rather than full files improves edit quality | | <em>Can It Edit? Evaluating the Ability of Large Language Models to Follow Code Editing Instructions</em> | OpenReview | Standard benchmark covering replace, insert, delete, multi-file edits; enables objective format comparison | | <em>Cascaded Code Editing</em> | arXiv 2026 | Large model generates only edit sketches; small model writes the file — avoids regenerating unchanged tokens | | <em>EfficientEdit</em> | arXiv 2025 | Reusing existing text at decoding time achieves up to <strong>10× faster</strong> edit throughput | | <em>Let the Code LLM Edit Itself When You Edit the Code</em> | arXiv 2024 | Incremental inference: small edits require <strong>&gt;85 % less compute</strong> by not reprocessing the full context | | <em>Beyond Synthetic Benchmarks</em> | arXiv 2025 | Gap between isolated function generation (84–89 % correctness) and real-world class-level modification (24–35 % correctness) |</p>
+<h4>Format Comparison Table (synthesised from all sources)</h4>
+<p>| Edit Format | Token Cost | Quality | Robustness | Research Coverage | Primary Error Source | |---|---|---|---|---|---| | Full file regeneration | Very high | Very high | Very high | Baseline in most benchmarks | Attention loss in large contexts (<em>Lost in the Middle</em>) | | Character / byte offsets | Minimal | Unknown | Very low | Barely studied | Near-zero semantic information for the model | | Line-based replace / insert | Low | Medium | Medium | Partially benchmarked | Exact match failure on minor source deviations | | Unified Diff | Low | Medium–high | Medium | Well studied; not optimal | Hallucinated line numbers, wrong hunk metadata | | Git Patch | Low | Medium | Medium | Similar to Unified Diff | Same as Unified Diff | | Search / replace blocks (merge syntax) | High efficiency | 70–80 % | Medium | Aider leaderboard; good for large models | Exact search-string match fragile | | Structured Block Diff (BLOCKDIFF / FUNCDIFF) | Low | High | High | Best current approach | Requires pre-training or AST parsing | | Function / section replacement | Medium | Very high | High | Strong results across multiple papers | — | | AST Rewrite | Very low | Potentially very high | Very high | Promising; little empirical data | Requires AST tooling; DSL pre-training |</p>
+<p><strong>Key pattern:</strong> The optimal format is <em>not</em> "smallest tokens wins". Below a certain semantic granularity, the model loses orientation. Byte offsets are cheap but almost useless for LLMs trained on coherent language.</p>
+<h3>2. Arguments &amp; Reasoning</h3>
+<p>The core reasoning in the dialogue can be reconstructed as a three-step argument:</p>
+<h4>Step 1 — Diagnosis</h4>
+<blockquote><em>"The topic is so new that LLMs have no specialisation in this area."</em></blockquote>
+<p>This is confirmed by the research: no single format has been shown to universally dominate. Training data contains very little explicit edit-representation signal, so models generalise from general language patterns rather than from edit-specific training.</p>
+<h4>Step 2 — Implication</h4>
+<blockquote><em>"Therefore the most efficient approach is to allow the LLM to choose from all options and support the model's intuition."</em></blockquote>
+<p>If no format is universally best, and the model lacks deep specialisation, then <em>forcing</em> a single output format (e.g., always producing a Unified Diff) introduces avoidable errors. The model's generative prior should be respected — it naturally gravitates toward semantically coherent units.</p>
+<h4>Step 3 — Tool-use framing</h4>
+<p>This is further sharpened, which implicitly accepts: edit operations can be conceived as a <strong>toolset</strong>. The LLM does not produce a diff; it <em>calls a tool</em> — append, replace range, replace block, full rewrite — and selects the tool that offers the best trade-off between semantic expressiveness and token economy <em>for the current situation</em>.</p>
+<p>This reframing connects two otherwise separate research streams:</p>
+<ul><li>Edit-representation research (format quality)</li><li>LLM tool-use research (agent decision-making)</li></ul>
+<h3>3. Recommendation: Adaptive Toolset Based on Model Intuition</h3>
+<h4>Core Principle</h4>
+<p>Design the edit interface as a <strong>vocabulary of edit operations</strong>, not as a fixed output schema. The model chooses the operation; the system executes it.</p>
+<h4>Recommended Tool Set</h4>
+<p>| Tool / Operation | When to use | Semantic unit | |---|---|---| | <code>append(content)</code> | Pure additions at end of file/section | File or section | | <code>replace_block(anchor, content)</code> | Replace a named, semantically coherent block | Heading, function, paragraph | | <code>replace_lines(start, end, content)</code> | Medium-granularity changes where lines are stable | Line range | | <code>insert_after(anchor, content)</code> | Add content relative to a semantic landmark | Named element | | <code>rewrite_file(content)</code> | Small files or wholesale restructuring | Full file | | <code>apply_diff(patch)</code> | Large codebases where line precision is controlled externally | Line-accurate patch |</p>
+<blockquote>Byte-level and character-offset operations are <strong>not recommended</strong> as primary tools: they provide near-zero semantic context and produce high error rates.</blockquote>
+<h4>Design Principles</h4>
+<ol><li><strong>Semantic anchoring over positional indexing</strong> — Identify edit targets by name (heading, function name, section ID), not by line or byte offset. This matches LLM training distribution and reduces hallucination.</li></ol>
+<ol><li><strong>Let the model decide</strong> — Do not instruct the model to use a specific format unless forced by external constraints (e.g., a very large file where full rewrite is prohibitively expensive). Adaptive choice outperforms fixed schemas (<em>To Diff or Not to Diff?</em>).</li></ol>
+<ol><li><strong>Validate semantically, not syntactically</strong> — Acceptance criteria should be <em>"does the result mean what was intended?"</em>, not <em>"did the patch apply cleanly?"</em>. This avoids discarding correct outputs due to whitespace mismatches.</li></ol>
+<ol><li><strong>Cascade for large files</strong> — For large documents, use a two-stage approach: (1) large model identifies <em>what</em> changes and <em>where</em>, using semantic anchors; (2) a smaller or deterministic system applies the change mechanically. (<em>Cascaded Code Editing</em>, 2026)</li></ol>
+<ol><li><strong>Instrument for learning</strong> — The adaptive toolset is also a data collection opportunity. Logging which tool the model chooses, and whether the output is accepted, generates training signal for future specialisation — closing the gap the research currently identifies.</li></ol>
+<h4>Open Research Gap</h4>
+<p>A systematic empirical comparison of these operations across document types (Markdown, JSON, XML, prose) with respect to <strong>quality, token cost, latency, and error rate</strong> does not yet exist. Conducting such a benchmark would be a direct contribution to the field.</p>
+</article>
+</main>
+<footer class="site-footer">
+<small>Documentation</small>
+</footer>
+</body>
+</html>

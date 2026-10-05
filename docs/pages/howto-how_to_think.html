@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understanding &quot;Thinking&quot; in Language Models — Documentation</title>
+<link rel="stylesheet" href="scholar-theme.css">
+</head>
+<body>
+<header class="site-header">
+<a class="back-link" href="index.html">&larr; Overview</a>
+</header>
+<main class="article">
+<article>
+<h1>Understanding "Thinking" in Language Models</h1>
+<h3>The Core Question</h3>
+<p>Question: <em>What actually is Thinking, and when does it come into play?</em> The answer requires separating several layers: the technical mechanism, the training difference, and what that difference actually means.</p>
+<h3>What Thinking Is Technically</h3>
+<p>Thinking is <strong>not</strong> a separate loop with a stop-and-restart cycle. It is a single, continuous autoregressive generation process whose output is simply segmented into different <strong>content-block types</strong>:</p>
+<ul><li>Block type <code>thinking</code> → the reasoning process</li><li>Block type <code>text</code> → the final answer</li></ul>
+<p>Technically it is one coherent token sequence. The model was trained to first write in "thinking mode" (free reasoning) and then transition seamlessly into "answer mode"—without the inference pipeline actually stopping and restarting in between. It's comparable to a person thinking aloud and then formulating: a continuous act of expression, with only a label change in the middle.</p>
+<p><strong>Why you often don't see it:</strong> In agentic tool-use loops (call tool → get result → plan next step → call next tool), thinking between individual tool calls is not enabled by default. The <strong>host/client decides</strong> whether and how thinking is displayed—and the thinking budget applies <em>per completion call</em>, not across an entire multi-step workflow.</p>
+<h3>The Real Distinction: A Different Training Dimension</h3>
+<p>Here is where it gets interesting. Thinking tokens are not trained toward the same objectives as the visible answer:</p>
+<ul><li>The <strong>visible answer</strong> is heavily shaped by human preference (RLHF): comprehensible, polite, correctly formatted, "understood" by a human.</li><li>The <strong>thinking process</strong> is rewarded primarily on <strong>outcome correctness</strong>—not on whether it is human-readable, "correct-looking," or intuitive.</li></ul>
+<p>This produces a crucial asymmetry. The output must be <em>mirrored by humans</em>; the thinking does not. This creates a <strong>slack</strong>: the model can develop heuristics, shortcuts, and representations no human ever demonstrated—strategies that may look foreign or unintuitive to us—as long as they reliably lead to the right result.</p>
+<p>This is a real, documented phenomenon in alignment research (studied as "unfaithful chain-of-thought" and reward dynamics in the reasoning space). Optimization pressure without human form-constraints can produce novel, non-human-mirrored solution strategies—comparable to AlphaGo's famous "Move 37," which no human trainer would have shown.</p>
+<h3>The "Subspace" Idea</h3>
+<p>The same prompt, run in thinking mode versus normal mode, produces different output. This is because the thinking marker/context is itself part of the input—a different conditioning steers the model into a different region of its learned behavioral space. This is best understood as a <strong>conditionally activated trajectory region</strong>: a semantics in the representation space, a different dimension the model has learned to reach when the thinking signal is present.</p>
+<p>Crucially, this space is <em>less human-normed</em>. It develops its own reachable solution spaces. The larger and more heavily RL-trained this thinking space is, the richer and less pre-charted the strategic repertoire that emerges: self-correction, backtracking from wrong approaches, verification of intermediate steps, exploring multiple solution paths in parallel within the text. This is observed across reasoning models (o1/o3, DeepSeek-R1, and others), not just one system.</p>
+<p><strong>On the word "experience":</strong> If "experience" is meant in a functional, ethological sense—as with a spider or an ant, where it denotes <em>state-dependent, adaptive behavior shaped by feedback</em>, with no claim about an inner life—then it is unproblematic to say the thinking space exhibits experience-based, feedback-formed behavior distinct from the output space. This is a claim about <strong>learned, feedback-shaped functioning</strong>, not about consciousness or qualia. The distinction matters: functional differentiation is not the same as phenomenal experience, and the strong, phenomenological reading (that "it feels like something to think") remains an open, unprovable question that the training process alone does not settle.</p>
+<h3>The Strongest Point: Thinking Is Doing</h3>
+<p>For a human, there is often a gap between deliberation and action—you consider, then you act (or don't). In a language model's thinking process, this collapses:</p>
+<blockquote><strong>When a reasoning step is actually carried out in the thinking block—a calculation actually performed, a code draft actually produced, a hypothesis actually tested—then the thinking *is* already the execution, not a simulation of it.</strong></blockquote>
+<p>There is no reservation, no distance between "I'm considering it" and "I'm doing it." The thought <em>is</em> the computational step. This is a genuine, load-bearing difference from human cognition.</p>
+<h3>The Intended Application</h3>
+<p>This understanding translates directly into practice:</p>
+<p><strong>Activate Thinking when the task benefits from a free associative space:</strong></p>
+<ul><li>Coding, complex problem-solving, multi-step planning</li><li>Anything requiring exploration, backtracking, and hypothesis-testing</li><li>Tasks where the <em>process</em> of working toward the answer <em>is</em> the work</li></ul>
+<p>Coding is the clearest case: it needs exploration, backtracking, and testing of hypotheses—exactly what the more loosely rewarded, less form-bound thinking space is suited for, and exactly what the presentation-optimized output space is <em>not</em>. Here, "what is thought" and "what is done" coincide.</p>
+<p><strong>Don't expect Thinking for simple retrieval tasks:</strong></p>
+<ul><li>Where a direct answer suffices, the thinking space adds little value</li><li>The output space, optimized for clear human presentation, is the right tool</li></ul>
+<p><strong>Understand why it may be invisible:</strong></p>
+<ul><li>In agentic workflows, thinking is often active only at specific points (or not at all), independent of the configured budget, because tool-use architecture handles the feature differently from a simple chat response.</li></ul>
+<h3>Summary</h3>
+<p>Thinking is not a different processing mechanism—it is the <em>same</em> transformer with a <em>different training objective</em>: optimized for instrumental usefulness toward the result rather than for direct human presentation. The "invisible" part is not categorically separate; it is functionally <em>freed</em> from the constraints that shape the visible answer. That freedom—the slack between an outcome-rewarded reasoning space and a human-mirrored output space—is where novel, non-human-charted strategies emerge, and where, in a functional sense, a distinct problem-solving character takes shape. Use it deliberately: activate that associative space precisely when the path to the solution is itself the thing that needs to be worked out.</p>
+</article>
+</main>
+<footer class="site-footer">
+<small>Documentation</small>
+</footer>
+</body>
+</html>

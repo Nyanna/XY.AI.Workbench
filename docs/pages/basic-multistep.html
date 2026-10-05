@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. How LLMs Process Your Prompt — Documentation</title>
+<link rel="stylesheet" href="scholar-theme.css">
+</head>
+<body>
+<header class="site-header">
+<a class="back-link" href="index.html">&larr; Overview</a>
+</header>
+<main class="article">
+<article>
+<h1>1. How LLMs Process Your Prompt</h1>
+<p>Understanding what happens inside a language model when it reads and responds to your prompt is not just an academic exercise — it directly shapes which prompting strategies work, which fail, and why.</p>
+<h3>1.1 The Key–Value Cache: A Passive Accumulator</h3>
+<p>Every token your model generates is stored in the <strong>Key–Value (KV) cache</strong> as a pair of matrices. These represent that token's contribution to the model's internal attention mechanism. The cache grows with every step, and at each new token the model recomputes attention over the entire accumulated history — at cost $O(n)$ per step rather than the full $O(n^2)$ of a naive implementation.</p>
+<p>What this means for your prompts: the model has <strong>no working memory</strong> and <strong>no global plan</strong>. It does not hold a mental model of your task and then execute it. It produces the next token based on what came before — and that is all.</p>
+<p><strong>There is no revision.</strong> Once a token is generated, it is final. The model cannot go back, reconsider, or correct an earlier step without an external mechanism forcing it to do so. Every intermediate result exists only as generated text sitting in the cache, not as a structured internal state.</p>
+<h3>1.2 Three Structural Limits Every Prompt Designer Must Know</h3>
+<p>| Limit | Cause | Effect on Your Prompt | |---|---|---| | <strong>Autoregressive irreversibility</strong> | Each token is final — no native backtracking | Early errors compound uncorrected | | <strong>No working memory</strong> | Intermediate states exist only as generated text | Complex state is easily lost or corrupted | | <strong>Depth limit</strong> | An $L$-layer transformer can execute at most ~$L$ serial reasoning steps | Very deep chains of logic fail structurally |</p>
+<h2>2. Failure Modes to Design Around</h2>
+<p>These are not theoretical weaknesses — each has been quantified in peer-reviewed research. Knowing them lets you design prompts and workflows that avoid them.</p>
+<h3>2.1 Position Bias: Where You Put Things Matters</h3>
+<p>Liu et al. (2023) demonstrated that attention over a long context follows a <strong>U-shaped curve</strong> by position. In a 20-document retrieval task, accuracy was approximately 60 % for documents placed first, but dropped to roughly 30 % for documents in the middle.</p>
+<p><strong>Design implication:</strong> Put the most critical context, constraints, and instructions at the <strong>beginning</strong> or <strong>end</strong> of your prompt. Do not bury essential information in the middle of a long input, and do not rely on the model to faithfully retrieve early intermediate results in a long chain.</p>
+<h3>2.2 Error Accumulation Is Multiplicative</h3>
+<p>In a chain of $k$ steps, each with an individual error rate $\varepsilon$, the probability of a fully correct output is:</p>
+<p>$$P(\text{success}) = (1 - \varepsilon)^k$$</p>
+<p>At $\varepsilon = 0.1$ and $k = 10$ steps, success probability falls to approximately <strong>35 %</strong> — with no built-in recovery mechanism.</p>
+<p><strong>Design implication:</strong> Do not ask a model to execute long, serial reasoning chains in a single prompt if the individual steps are non-trivial. Break the task up and validate each step programmatically before proceeding.</p>
+<h3>2.3 Reasoning Chains Can Be Decorative</h3>
+<p>Turpin et al. (2023) showed that Chain-of-Thought (CoT) outputs can be syntactically coherent yet <strong>causally disconnected</strong> from the final answer. The model does not necessarily use its generated intermediate reasoning — it can produce a plausible-looking chain that post-hoc rationalises an answer derived by other means.</p>
+<p><strong>Design implication:</strong> Do not treat a CoT explanation as ground truth verification. If correctness matters, validate intermediate results externally rather than trusting the model's own commentary on its reasoning.</p>
+<h2>3. Prompt Design Patterns</h2>
+<h3>3.1 The Naive Pattern and Why It Breaks</h3>
+<p>``<code> [Prompt] ──► [LLM] ──► [Answer] </code>``</p>
+<p>The naive single-prompt approach places the entire burden on one forward pass. There is no error recovery, no parallelism, no constraint enforcement, and no ability to inspect what went wrong. For simple, single-step tasks this is fine. For anything more complex, it is structurally fragile.</p>
+<h3>3.2 The Structured Orchestration Pattern</h3>
+<p>``<code> [Prompt] ──► [LLM: intent extraction] ──► [Data structure / plan] ──► [Validator] ──► [Loop / DAG] ──► [LLM: subtask × n, parallel if independent] ──► [Aggregation] ──► [Answer] </code>``</p>
+<p>Rather than asking the model to solve everything at once, this pattern uses the LLM only for what it is good at — language understanding, generation, and structured extraction — while delegating control flow, validation, and state management to deterministic code.</p>
+<p>| Aspect | Single-prompt LLM | Structured orchestration | |---|---|---| | Error correction | None | Retry logic after each step | | Parallelisation | Not possible | Independent tasks run in parallel | | Constraint enforcement | Implicit, unreliable | Deterministic in code | | Debugging | Black box | Every step is inspectable | | Intermediate caching | Not possible | Partial results are cacheable |</p>
+<h3>3.3 Research-Proven Techniques</h3>
+<p>The following approaches are ordered roughly from minimal overhead to maximal capability.</p>
+<p><strong>Chain-of-Thought (CoT) prompting</strong> asks the model to generate explicit intermediate steps before producing a final answer. Wei et al. (2022) showed improvements of 50–87 % on arithmetic benchmarks (GSM8K) over direct-answer prompting. Best used as a first upgrade from naive prompting when tasks require sequential reasoning.</p>
+<p><strong>ReAct (Reasoning + Acting)</strong> interleaves model reasoning with external tool calls in a repeating <code>Thought → Action → Observation</code> loop. Yao et al. (2022) reported a +34 % gain on HotpotQA over pure CoT. The key mechanism: external observations provide ground-truth signals that correct internal drift.</p>
+<p><strong>Tree of Thoughts (ToT)</strong> extends CoT into a branching search structure, enabling systematic backtracking across multiple reasoning paths. Yao et al. (2023) achieved a +16 % gain on Game of 24. Use when the problem has a large solution space and early commitments are costly.</p>
+<p><strong>Skeleton-of-Thought</strong> generates a structured plan first, then expands each section in parallel. Ning et al. (2024) measured a 1.5–2× generation speedup at comparable quality — useful when latency matters and the output has a natural sectional structure.</p>
+<p><strong>Process supervision</strong> uses a reward model that evaluates each reasoning step rather than only the final answer. Lightman et al. (2023) demonstrated a ~15 percentage-point accuracy gain on the MATH benchmark. This is the strongest empirical argument for external step-level validation over trusting the model's own output.</p>
+<p><strong>LLM Compiler</strong> treats the full task as a directed acyclic graph (DAG), compiling independent tool calls for parallel execution. Kim et al. (2024) report a <strong>5.5× latency reduction</strong> over sequential ReAct. The right architecture for production systems with complex, multi-tool workflows.</p>
+<p><strong>DSPy</strong> abstracts prompts away entirely, replacing hand-written instructions with declarative modules (<code>dspy.ChainOfThought</code>) compiled and optimised against validation data. Khattab et al. (2023) demonstrated consistent gains over hand-tuned prompts. Use when you want to decouple program logic from prompt wording and optimise systematically.</p>
+<h2>4. Choosing the Right Pattern</h2>
+<p>Not every task benefits from orchestration. Applying heavy structure to the wrong problem adds engineering overhead without improving results.</p>
+<p><strong>Use structured orchestration when:</strong></p>
+<ul><li>The task requires four or more serial steps with validatable intermediate results</li><li>External tool calls are involved — deterministic execution is always preferable to LLM hallucination for retrievable facts</li><li>Hard constraints must be enforced (SQL schemas, API contracts, code correctness)</li><li>The system operates in production with audit, logging, or compliance requirements</li></ul>
+<p><strong>Stick to simpler prompting when:</strong></p>
+<ul><li>The task is creative or open-ended without a clear step decomposition</li><li>Latency is critical and DAG parallelisation is not feasible — multiple sequential LLM calls add a 2–5× overhead compared to a single call</li><li>The step structure of the problem is itself unknown — in that case, complexity shifts into the orchestration layer and may not be justified</li></ul>
+<p><strong>The real trade-off</strong> is not quality versus simplicity. Structured orchestration produces demonstrably better outcomes on complex tasks. The cost is engineering complexity and, without parallelisation, increased latency. DAG-based execution (LLM Compiler pattern) eliminates most of the latency cost when subtasks are independent.</p>
+<h2>5. Key References</h2>
+<p>| Paper | Authors | Link | Key result | |---|---|---|---| | Chain-of-Thought Prompting | Wei et al., 2022 | <a href="https://arxiv.org/abs/2201.11903">arxiv:2201.11903</a> | +50–87 % on GSM8K over direct answering | | Lost in the Middle | Liu et al., 2023 | <a href="https://arxiv.org/abs/2307.03172">arxiv:2307.03172</a> | Accuracy halved for middle-context documents | | ReAct | Yao et al., 2022 | <a href="https://arxiv.org/abs/2210.03629">arxiv:2210.03629</a> | +34 % on HotpotQA vs. pure CoT | | Tree of Thoughts | Yao et al., 2023 | <a href="https://arxiv.org/abs/2305.10601">arxiv:2305.10601</a> | +16 % on Game of 24 with backtracking | | Let's Verify Step by Step | Lightman et al., 2023 | OpenAI technical report | +15 pp. accuracy on MATH with process supervision | | LLM Compiler | Kim et al., 2024 | <a href="https://arxiv.org/abs/2407.06030">arxiv:2407.06030</a> | 5.5× latency reduction over sequential ReAct | | DSPy | Khattab et al., 2023 | <a href="https://arxiv.org/abs/2310.03025">arxiv:2310.03025</a> | Compiled prompt optimisation outperforms hand-tuning | | Skeleton-of-Thought | Ning et al., 2024 | — | 1.5–2× generation speedup at comparable quality |</p>
+</article>
+</main>
+<footer class="site-footer">
+<small>Documentation</small>
+</footer>
+</body>
+</html>

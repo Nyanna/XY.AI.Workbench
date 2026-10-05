@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text↔Code Symmetry in LLMs: Thesis, Core Arguments, and Proposed Test — Documentation</title>
+<link rel="stylesheet" href="scholar-theme.css">
+</head>
+<body>
+<header class="site-header">
+<a class="back-link" href="index.html">&larr; Overview</a>
+</header>
+<main class="article">
+<article>
+<h1>Text↔Code Symmetry in LLMs: Thesis, Core Arguments, and Proposed Test</h1>
+<h3>1. The Thesis</h3>
+<p>The central claim is a statement about <strong>internal representation quality</strong>, not about output fluency:</p>
+<blockquote>Because contemporary LLMs receive substantially more training signal for the direction <strong>Text → Code</strong> (a natural-language specification or comment followed by an implementation) than for <strong>Code → Text</strong> (an implementation followed by its explanation), the model's <em>internal semantic representation of code itself</em> is more weakly and less robustly organized than its representation of equivalent natural-language descriptions. As a consequence, an LLM should be worse at <strong>interpreting existing code</strong> than at interpreting an equivalent textual explanation of that same code.</blockquote>
+<p>The sharpest and most important part of the thesis is a distinction that separates it from the obvious, weaker version of the idea:</p>
+<ul><li><strong>Weak (rejected) version:</strong> "The model can <em>express</em> code explanations poorly" — i.e., the decoding path Code → natural language is under-trained.</li><li><strong>Strong (asserted) version:</strong> "The model <em>encodes</em> code less richly in the first place." The deficit lives on the <strong>input/representation side</strong>, before any decoding takes place. The code, as a <em>semantic starting point</em>, is under-represented.</li></ul>
+<p>In other words: the problem is not that the model struggles to <em>say</em> what code does; it is that the model has a less informative internal grasp of <em>what the code is</em> to begin with.</p>
+<h3>2. Core Arguments</h3>
+<h4>2.1 A learned association is intrinsically directionless</h4>
+<p>The starting intuition is correct and forms the foundation: a primitive learned association carries no inherent arrow. If a network relates two variables via a shared latent representation,</p>
+<p>$$\text{Text} \rightarrow z \leftarrow \text{Code},$$</p>
+<p>then the object actually stored is the <em>joint structure</em> — a feature such as "addition" that can be activated equally from either surface form. The joint distribution $P(\text{Text}, \text{Code})$ has no built-in directionality; direction only appears once we designate one variable as input and the other as target.</p>
+<p>This also means a network can, in principle, be <strong>inverted</strong>: feeding the output back as input recovers an approximation of the original input, $x \approx f^{-1}(y)$. This invertibility is simply the <strong>symmetry of the underlying statistics</strong>. Crucially, this symmetry does <strong>not</strong> require the weight matrices themselves to be inverses of one another ($W<em>{\text{Text}\to\text{Code}} \neq W</em>{\text{Code}\to\text{Text}}^{\top}$); the directionlessness resides in the shared representation $z$, not in any algebraic symmetry of $W$.</p>
+<h4>2.2 Three distinct levels must be separated</h4>
+<p>The argument's precision comes from refusing to conflate three things:</p>
+<p>| Level | Property | |---|---| | <strong>Statistical / associative</strong> ($A \leftrightarrow B$ via $z$) | Symmetric, directionless in principle | | <strong>Causal token prediction</strong> ($x<em>{&lt;t} \rightarrow x</em>t$) | Strictly directed by architecture | | <strong>Output decoding</strong> | Directed toward one modality |</p>
+<p>The autoregressive machinery (levels 2 and 3) is directed by construction, but this does <strong>not</strong> by itself imply the representation (level 1) must be asymmetric. So the mere fact that an LLM generates excellent code does not prove it can invert that mapping — and, conversely, the fact that associations are "in principle" symmetric does not prove the model actually learned both directions equally well. The thesis lives precisely in this gap.</p>
+<h4>2.3 The training signal is positionally asymmetric</h4>
+<p>Consider a canonical training string under a next-token objective:</p>
+<p>```</p>
+<h2>adds two numbers</h2>
+<p>def add(a, b): return a + b ```</p>
+<p>When the comment precedes the code, the gradient signal reinforces the dependency <strong>description → code</strong>: the model is repeatedly asked to predict code tokens <em>given</em> the description. It is <strong>never asked</strong>, from this example, to predict the description <em>given</em> the code, because the description is positionally earlier. Attention transports information only "forward" to later positions, and the FFN then transforms it. Absent counter-examples (code placed <em>before</em> its comment), there is no direct learning signal for the reverse direction.</p>
+<p>So while the <em>association</em> could be directionless (2.1), the <em>distribution of learning pressure</em> is not. Code appears overwhelmingly as a <strong>quantity to be predicted</strong> (a target state), and comparatively rarely as a <strong>semantic source</strong> from which a description must be reconstructed.</p>
+<h4>2.4 The decisive move: asymmetric pressure sculpts the representation, not merely the decoder</h4>
+<p>Here the thesis departs from the standard "it's just a decoding problem" reply. The claim is that the training objective determines <em>which aspects of the code become useful to encode</em>. If the model is chiefly rewarded for producing $P(\text{Code} \mid \text{Text})$, its features will specialize toward whatever supports that mapping. The features that would be needed to support $P(\text{Text} \mid \text{Code})$ — a robust, abstract, language-ready semantic factorization of the program — receive far less reinforcement.</p>
+<p>Schematically, for two inputs of identical meaning:</p>
+<p>$$h<em>{\text{Text}} \approx [\text{Operation}, \text{Iteration}, \text{Squaring}, \text{Aggregation}, \dots]$$ $$h</em>{\text{Code}} \approx [\text{Syntax}, \text{Tokens}, \text{local dependencies}, \dots]$$</p>
+<p>The hypothesis is that the <em>abstract semantic structure</em> is encoded less strongly and less robustly on the code side. "Seeing code constantly" is therefore <strong>not</strong> evidence of understanding it: <em>seeing</em> code as context is not the same as <em>representing</em> code as a semantic variable. The objective decides which is which.</p>
+<h4>2.5 The resulting prediction</h4>
+<p>If the representation were genuinely symmetric, learning $P(\text{Code} \mid \text{Text})$ well would automatically yield an approximately equally good $P(\text{Text} \mid \text{Code})$. The thesis asserts that <strong>it does not fully do so</strong> — and that the residual gap manifests as a genuine representational deficit on the code side, testable in the sense described below.</p>
+<h3>3. Proposed Implementation (the Test)</h3>
+<h4>3.1 Why single-direction comparison is insufficient</h4>
+<p>Comparing Text→Code quality against Code→Text quality directly is confounded: it measures decoding fluency in two different modalities, not representational richness. A cleaner probe is needed that stresses the representation repeatedly and reveals <em>where</em> information is lost.</p>
+<h4>3.2 The iterated cycle</h4>
+<p>Define two transformations:</p>
+<p>$$T: \text{Text} \rightarrow \text{Code}, \qquad C: \text{Code} \rightarrow \text{Text}$$</p>
+<p>Take a semantically fixed item and pass it through the cycle <strong>repeatedly</strong>:</p>
+<p>$$x<em>0 \xrightarrow{T} y</em>0 \xrightarrow{C} x<em>1 \xrightarrow{T} y</em>1 \xrightarrow{C} x_2 \xrightarrow{T} \cdots$$</p>
+<p>The object of measurement is <strong>not</strong> the quality of any single output but the <strong>cumulative semantic drift</strong> across iterations. If both representations were symmetric, one would expect stability:</p>
+<p>$$C(T(x)) \approx x, \qquad T(C(y)) \approx y, \qquad (C \circ T)^n(x) \text{ semantically stable.}$$</p>
+<p>The thesis predicts instead a <strong>directional drift</strong>: information is lost preferentially at the <em>code-representation stage</em>, so the loop degrades over cycles rather than remaining stationary.</p>
+<h4>3.3 Quantities to measure</h4>
+<p>Define two single-pass reconstruction errors and one long-horizon error:</p>
+<p>$$L<em>T = d\big(x,\, C(T(x))\big), \qquad L</em>C = d\big(y,\, T(C(y))\big),$$ $$D_n = d\big(x,\, (C \circ T)^n(x)\big),$$</p>
+<p>and the per-cycle drift</p>
+<p>$$\Delta<em>n = S(x</em>0, x<em>n) - S(x</em>0, x_{n+1}).$$</p>
+<p><strong>Critical requirement on the metric $d$ / $S$:</strong> it must be an <em>independent semantic</em> metric, <strong>not</strong> string distance. Suitable candidates include execution on shared test cases (behavioral equivalence), AST- or I/O-equivalence checks for the code side, and a separately trained semantic encoder for the text side. Otherwise surface paraphrasing would be mistaken for semantic loss.</p>
+<h4>3.4 The attractor comparison (the discriminating experiment)</h4>
+<p>Run the loop from <strong>both</strong> starting modalities and compare:</p>
+<p>$$\underbrace{T<em>0 \to C</em>0 \to T<em>1 \to \cdots}</em>{\text{start from Text}} \qquad \text{vs.} \qquad \underbrace{C<em>0 \to T</em>0 \to C<em>1 \to \cdots}</em>{\text{start from Code}}$$</p>
+<p>If the system converges to a fixed point $x^\ast$,</p>
+<p>$$x<em>0 \to x</em>1 \to x_2 \to \cdots \to x^\ast,$$</p>
+<p>the decisive question is <strong>which modality the attractor lies closer to</strong>. The thesis predicts that the loop bleeds information at the code stage, so the trajectory should drift toward a simplified, natural-language-like attractor and lose the finer program semantics (e.g. <code>"process each element once; on duplicates only the first counts"</code> collapsing toward <code>"removes duplicates"</code>).</p>
+<h4>3.5 What would count as evidence</h4>
+<ul><li><strong>Confirming the thesis:</strong> a systematically higher per-cycle drift attributable to the $C$-stage than the $T$-stage; an attractor biased toward the text modality; and, optionally, a mutual-information gap $I(h<em>{\text{Text}}; S) &gt; I(h</em>{\text{Code}}; S)$ for a semantic target $S$ probed from a <em>frozen</em> intermediate layer, despite code and text expressing the same function.</li><li><strong>Disconfirming it:</strong> stable loops with symmetric $L<em>T \approx L</em>C$ and no directional attractor.</li></ul>
+<h3>4. Positioning Relative to Existing Work</h3>
+<p>The proposal is adjacent to, but distinct from, published work:</p>
+<ul><li><strong>Wei et al. (NeurIPS 2019), *Code Generation as a Dual Task of Code Summarization</strong>* — treats Text↔Code as coupled dual tasks, supporting the duality framing but optimizing it rather than diagnosing asymmetry.</li><li><strong>Allamanis, Panthaplackel &amp; Yin (ICML 2024), *Round-Trip Correctness</strong>* — closest experimentally (Code→Text→Code), but used as a <strong>single-round evaluation metric</strong> for code LLMs, not as an iterated multi-cycle drift analysis and not aimed at internal representational asymmetry.</li><li><strong>General cycle-consistency literature</strong> ($g(f(x)) \approx x$) — establishes the mathematical principle in other domains.</li><li><strong>Recent Lean4 autoformalization work (2026)</strong> — uses NL↔Code cycle-consistency as a training/evaluation signal, again not as a probe of directional representation strength.</li></ul>
+<p><strong>Novel contribution:</strong> the specific hypothesis that <em>asymmetric pretraining yields a weaker internal code representation</em> — diagnosed through <em>cumulative drift in a long iterated Text↔Code cycle under an independent semantic metric, with a start-modality attractor comparison</em> — does not appear in this form in the existing literature.</p>
+</article>
+</main>
+<footer class="site-footer">
+<small>Documentation</small>
+</footer>
+</body>
+</html>
