@@ -33,7 +33,7 @@ TOPIC_LABELS: dict[str, str] = {
     'rag': 'RAG',
 }
 
-OUTPUT_DIR = DOCS_DIR / 'pages'
+OUTPUT_DIR = DOCS_DIR
 CSS_FILENAME = 'scholar-theme.css'
 SITE_TITLE = 'Documentation'
 SITE_TAGLINE = 'Reference material, grouped by topic.'
