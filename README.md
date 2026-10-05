@@ -43,18 +43,9 @@ This project is a arrangement of different tools to support different workflows 
 * Prefer holistic code review of intent over per-call approval when the code is what you would have written yourself
 * Store the synchronization history as a portable artifact and re-inject it on model/version change so earned trust is not reset
 
-## Table of papers
+## Papers
 
-- [AI Code Editing via a Tight, Symmetric Normalization Layer](docs/ast_editing.md)
-- [Statements and Arguments: Foundation for "Intuition Based Prompting" and Context Bloat Prevention](docs/context_bloat.md)
-- [On White Noise Prompting, Thalamocortical Analogues, and the Question of Machine State](docs/epistemic_gap_in_ai_output.md)
-- [Understanding the `effort` Parameter](docs/how_to_effort.md)
-- [Understanding "Thinking" in Language Models](docs/how_to_think.md)
-- [Summary: LLM File Editing — Research State, Reasoning & Recommendations](docs/llm_edits.md)
-- [From Harness Patterns to a Minimal Symbiotic Controller](docs/manifest.md)
-- [How LLMs Process Your Prompt (Multistep Prompt Design)](docs/multistep.md)
-- [Text↔Code Symmetry in LLMs: Thesis, Core Arguments, and Proposed Test](docs/text_code.md)
-- [Tokenizing — Statements and Arguments](docs/tokenize.md)
+[Papers](https://nyanna.github.io/XY.AI.Workbench/index.html)
 
 # Base Considerations: A Practical Philosophy of Token-Driven Intelligence
 
