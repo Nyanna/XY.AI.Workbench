@@ -1,10 +1,3 @@
-# TODO
-
-- Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
-	- AST ID mit in ergebnis
-- ColBERT-MaxSim
-
-
 Sortiert nach grober Gesamtkosten (Aufbau plus Abfrage). Die Reihenfolge ist meine Einschätzung, nicht gemessen. Rolle: **G** = generiert Kandidaten aus dem ganzen Scope, **V** = bewertet nur vorhandene Kandidaten.
 
 | #  | Layer                                     | Werkzeuge                                                                                  |
