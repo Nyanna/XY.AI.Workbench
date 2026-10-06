@@ -31,6 +31,9 @@ struct Cli {
     /// from searches, unless also matched by --include
     #[arg(long, value_delimiter = ',')]
     exclude: Vec<String>,
+    /// Overrides the per-layer result limit (default: 50 per layer)
+    #[arg(long = "max-results")]
+    max_results: Option<u64>,
 }
 fn parse_query(args: &[String], json_query: Option<&str>) -> Result<Query> {
     let mut fields = Map::new();
@@ -118,6 +121,9 @@ async fn main() -> Result<()> {
     let mode = ExecutionMode::parse(&cli.mode)
         .ok_or_else(|| anyhow!("Invalid mode: {}", cli.mode))?;
     let mut query = parse_query(&cli.query, cli.json_query.as_deref())?;
+    if let Some(max_results) = cli.max_results {
+        query.set("maxResults", json!(max_results));
+    }
     let registry = build_default_registry();
     let persistence = PersistenceManager::new(cli.root.as_deref().map(Path::new))?;
     query.set_document_root(persistence.root.clone());

@@ -327,7 +327,8 @@ impl Layer for GrepLayer {
                     .then(a.rel_path.cmp(&b.rel_path))
                     .then(a.line_no.cmp(&b.line_no))
             });
-        all_hits.truncate(MAX_MATCHES);
+        let max_results = query.get_usize("maxResults").unwrap_or(MAX_MATCHES);
+        all_hits.truncate(max_results);
         let mut order: Vec<String> = Vec::new();
         let mut grouped: HashMap<String, Vec<(usize, String)>> = HashMap::new();
         for hit in all_hits {

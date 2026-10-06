@@ -162,7 +162,8 @@ impl Layer for GlobLayer {
         });
         let mut seen = std::collections::HashSet::new();
         hits.retain(|(_, _, cand)| seen.insert(cand.rel_path.clone()));
-        hits.truncate(MAX_MATCHES);
+        let max_results = query.get_usize("maxResults").unwrap_or(MAX_MATCHES);
+        hits.truncate(max_results);
         for (_, _, cand) in &hits {
             let mut fields = Map::new();
             if cand.is_dir {

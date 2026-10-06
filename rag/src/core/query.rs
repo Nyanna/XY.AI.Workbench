@@ -81,6 +81,15 @@ impl Query {
     pub fn get_str(&self, field: &str) -> Option<&str> {
         self.fields.get(field).and_then(Value::as_str)
     }
+    /// Resolves a numeric field as `usize`, e.g. `maxResults`, accepting
+    /// both JSON numbers and numeric strings (as passed via the CLI).
+    pub fn get_usize(&self, field: &str) -> Option<usize> {
+        match self.fields.get(field)? {
+            Value::Number(n) => n.as_u64().map(|v| v as usize),
+            Value::String(s) => s.parse::<usize>().ok(),
+            _ => None,
+        }
+    }
     /// Full copy of the fields for free analysis by layers.
     pub fn inspect(&self) -> Map<String, Value> {
         self.fields.clone()

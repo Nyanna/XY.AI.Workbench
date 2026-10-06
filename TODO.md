@@ -1,8 +1,8 @@
 # TODO
-
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
 - ColBERT-MaxSim
+- vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
 - RAG als tool in subprozess server anbinden
 
 - Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
