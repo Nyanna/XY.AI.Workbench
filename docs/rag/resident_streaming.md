@@ -1,9 +1,5 @@
 # Resident Streaming Architectures for ColBERT-MaxSim RAG: A Conceptual Model
 
-> *Extrapolated from the reasoning line developed in the dialogue "ONNX alternatives discussion."*
-
-## Abstract
-
 Standard retrieval-augmented generation (RAG) stacks inherit their serving model from general-purpose ML frameworks: monolithic runtimes (ONNX, Hugging Face `from_pretrained()`) that bundle tokenization, weights, and execution into a single opaque unit, and a request/response lifecycle that loads, infers, and discards state per call. This paper develops a conceptual architecture that rejects both defaults. We argue for (1) disaggregating the inference stack into independently composable components (tokenizer, weights, kernels), (2) replacing request/response serving with a permanently resident computation model driven by producer-consumer ring buffers, (3) treating ColBERT-style multi-vector retrieval as pure post-hoc geometry over already-materialized points rather than a model-bound operation, (4) replacing artificial chunking with a native sliding-window representation that yields multi-vector structure as an emergent property rather than a constructed one, (5) reframing embedding vectors as signals amenable to frequency-domain compression (an explicit JPEG/JPEG2000 analogy), and (6) exploiting the fact that weights and activations are mathematically indistinguishable tensors to enable lightweight, resident, contextual-bandit-style online adaptation. We position the resulting architecture relative to three established serving paradigms and argue that the gap it fills is a consequence of field immaturity and tooling path-dependence rather than technical infeasibility.
 
 ## 1. Introduction
