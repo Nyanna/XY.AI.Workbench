@@ -1,6 +1,7 @@
 Ich will eine Engine "resident" auf Basis der These `/home/user/xyan/xy.ai.workbench/docs/rag/resident_streaming.md`. Implementiere folgende Komponenten im Rust Projekt `/home/user/xyan/xy.ai.workbench/rag` auf Basis des Stacks.
 
 - Entsprechende Fehlerbehandlung und Logging ist vorzusehen
+- `resident_subengine.md` `resident_processor.md` `resident_precision.md` enthalten zum Teil Revisionen. Der Planner/Processor stellt eine Überarbeitung dar durch Integration einer Zwischenschicht. Die Verwendung von Tasks in Subengines direkt ist veraltet. Diese drei Dokumente sind aktueller.
 
 ## Einstieg und Fassade
 

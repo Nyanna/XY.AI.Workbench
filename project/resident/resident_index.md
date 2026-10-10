@@ -150,7 +150,7 @@ struct KernelHit  { offset: u64 /* Arena-Offset */, score: f32 }
   - Dichte Scopes: ganze Segmente laden.
   - Dünne Kandidatenmengen: Gather in einen temporären, kompakten Segmentpuffer im gepinnten Staging, ein DMA.
   - Sehr kleine Mengen: Zero-Copy aus gemapptem Host-Speicher möglich.
-  - Die Dichteschwelle zwischen Gather und Segmentladen ist Manager-Implementierung. Sie kann als Achse in die Kalibrierung (`resident_precision_calibration.md`) aufgenommen werden.
+  - Die Dichteschwelle zwischen Gather und Segmentladen ist Manager-Implementierung. Sie kann als Achse in die Kalibrierung (`resident_precision.md`) aufgenommen werden.
 - **Tiering:**
   - Summary-Strukturen (Zentroide, Präfixtabellen): klein, zuerst und am längsten gehalten (lange Entladezeit im VRAM).
   - Vektorsegmente: warm, per Eviction verdrängbar.
