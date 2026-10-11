@@ -6,7 +6,6 @@ tools:
 - "write"
 outputMode: "Append"
 inputs:
-- "SystemPrompt"
 - "Tools"
 - "Selection"
 ---

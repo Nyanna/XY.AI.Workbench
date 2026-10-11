@@ -1,6 +1,6 @@
 # TODO
 -MCP tool ohne umstellen steuern können
-- alle pläne in einheitliches schema und reviewen
+	- alle pläne in einheitliches schema und reviewen
 
 
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
