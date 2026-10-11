@@ -1,9 +1,19 @@
 # TODO
+- hint: import blöcke finden sich am leichtesten mit ast_find und einem schlüsselwort "import"
 -preset liste verbessern
 	- ein default CLEAR all Preset
-	- Ein Clear Tools preset
+	- Ein Clear Tools preset - ist schon ein button da (Clear Tools, Clear All)
+	- Preset name aus metadaten
+	- Preesets per unique dedup machen
+	- Preset Pfad in klammern () nur verzeichnislevel / letztes sonst immer eine ebene mehr bis unique
+	- Save dialog immer in projekt dir beginnen
+	- input müssen mit gespeichert und resettet werden
+	- default preset umbenennen zu "default write code"
+	- Name anzeigen statt datei mit (Projektnamen in klammern wenn doppelter name)
 -MCP tool um umstellen steuern können
--control requests by session filtern
+- alle pläne in einheitliches schema und reviewen
+
+
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
 - ColBERT-MaxSim

@@ -121,10 +121,18 @@ class ToolControlManager:
         item = self._enqueue(session, 'result', tool_name, arguments=None, result=result)
         return self._wait(item)
 
-    def get_pending(self) -> list[dict[str, Any]]:
-        """Return serialisable snapshots of all items still awaiting a decision."""
+    def get_pending(self, session_id: str | None=None) -> list[dict[str, Any]]:
+        """Return serialisable snapshots of items still awaiting a decision.
+
+        When *session_id* is given, only items belonging to that session are
+        returned, so parallel sessions don't see each other's pending
+        requests on the poll endpoint.
+        """
         with self._lock:
-            return [item.to_dict() for item in self._pending.values()]
+            items = self._pending.values()
+            if session_id is not None:
+                items = (item for item in items if item.session_id == session_id)
+            return [item.to_dict() for item in items]
 
     def process_approvals(self, approvals: list[dict[str, Any]]) -> None:
         """Apply a batch of approval decisions from the control client.

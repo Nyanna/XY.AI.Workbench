@@ -2,7 +2,7 @@
 import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from xy.ai.mcpc.server import jsonrpc
 if TYPE_CHECKING:
     from xy.ai.mcpc.server.http_transport import StreamableHttpHandler
@@ -67,7 +67,9 @@ class ControlHandler:
             control.process_approvals(approvals)
         else:
             logger.debug('Control: empty body, poll only')
-        pending = control.get_pending()
+        query = parse_qs(urlparse(self._http.path).query)
+        session_filter = query.get('session', [None])[0]
+        pending = control.get_pending(session_filter)
         logger.debug('Control: returning %d pending item(s)', len(pending))
         response: dict[str, Any] = {'pending': pending}
         self._http._send_json(HTTPStatus.OK, jsonrpc.dumps(response), session_id=None)
