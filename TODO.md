@@ -1,20 +1,14 @@
 # TODO
-- hint: import blöcke finden sich am leichtesten mit ast_find und einem schlüsselwort "import"
 -MCP tool ohne umstellen steuern können
 - alle pläne in einheitliches schema und reviewen
 
 
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
-- ColBERT-MaxSim
 - vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
 - RAG als tool in subprozess server anbinden
-
-- Alternatives RAG mit CUDA, Omnigrep, [sweet-search](https://github.com/mrsladoje/sweet-search), SeaGOAT, Qdrant
-	- alle doof, splitting mit model by domain markdown -> text modell, code -> lateon modell, augmented retrieval tool, MCPC integrated RAG
 	- Multilayer RAG engine auf filesystem und parquet basis in python
 		- AST engin für chunking nutzen
-		- damit ein grep/ast_find liefern das nur suchausschnitt zeigt
 		- 2 stage system der results, liefern zeilen, zeilen, chunks/ast oder outline
 		- Liefern, Datei AST ID und Zeile			
 

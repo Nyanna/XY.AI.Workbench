@@ -166,7 +166,7 @@ class FindNodesTool(ToolDefinition):
             **SELECTOR_PROPS,
             'text': {
                 'type': 'string',
-                        'description': "Case-insensitive substring the node's source must contain."},
+                        'description': "Case-insensitive substring the node's source must contain. Example: Keyword `import` to find nodes doing imports"},
             'regexp': {
                 'type': 'string',
                 'description': "Regular expression the node's source must match (re.search)."}},
