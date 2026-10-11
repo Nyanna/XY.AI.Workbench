@@ -58,9 +58,12 @@ class ListItem:
     Attributes:
         path: Absolute directory path to list (must exist and be a directory).
         pattern: Optional regular expression to filter results. If it contains '/', it is matched against the relative path (e.g. './dir/file.ext'); otherwise it is matched against the file name only.
+        recursive: If True (default), list files in all subdirectories. If False, list only the
+            immediate contents of ``path``.
     """
     path: str
     pattern: str | None = None
+    recursive: bool = True
 
 @dataclass(frozen=True)
 class ListResult:
@@ -124,6 +127,8 @@ def _list_one(item: ListItem) -> ListResult:
         if matched_files:
             groups[rel_dir] = matched_files
             match_count += len(matched_files)
+        if not item.recursive:
+            dirs.clear()
     if match_count <= _MAX_ENTRIES:
         entries = []
         for rel_dir in sorted(groups):
@@ -213,8 +218,11 @@ class ListTool(ToolDefinition):
     name = 'list'
     title = 'List directory contents'
     description = 'List all files below one or more absolute directory paths, recursively, as a flat list, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch.'
-    _ITEM_PROPERTIES = {'path': {'type': 'string', 'description': 'Absolute directory path.'},
-                        'pattern': {'type': 'string', 'description': 'Regular expression to filter the result.'}}
+    _ITEM_PROPERTIES = {
+        'path': {
+            'type': 'string', 'description': 'Absolute directory path.'}, 'pattern': {
+                'type': 'string', 'description': 'Regular expression to filter the result.'}, 'recursive': {
+                    'type': 'boolean', 'description': 'List subdirectories recursively. Default true.'}}
     _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Directories to list.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
@@ -223,7 +231,7 @@ class ListTool(ToolDefinition):
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
 
         def item_factory(it: dict[str, Any]) -> ListItem:
-            return ListItem(path=it['path'], pattern=it.get('pattern'))
+            return ListItem(path=it['path'], pattern=it.get('pattern'), recursive=it.get('recursive', True))
 
         def result_serializer(r):
             return {'path': r.path, 'entries': r.entries, **({'warning': r.warning} if r.warning else {})}
