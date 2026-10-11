@@ -1,4 +1,9 @@
 # TODO
+-preset liste verbessern
+	- ein default CLEAR all Preset
+	- Ein Clear Tools preset
+-MCP tool um umstellen steuern können
+-control requests by session filtern
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
 - ColBERT-MaxSim
