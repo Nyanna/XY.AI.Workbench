@@ -53,6 +53,8 @@ Der Processor (C2) orchestriert beide und braucht Planner-Ausgabe + Fassaden-Que
 - **Q3 Tests/Mocks:** No-GPU-Pfad immer lauffähig; `proptest`/`proptest-state-machine` für Invarianten und Lebenszyklen; Kernel-/Mess-/Completion-Mocks. [B/W]
 - **Q4 Feature-Flag `cuda`:** reale CUDA-Pfade hinter `#[cfg(feature = "cuda")]`, orchestrierungsseitige Logik ist ohne GPU übersetzbar und testbar. Trait `Completion` immer kompiliert, `ManualCompletion`-Mock immer verfügbar. [D/W]
 
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ## Vorbedingungen aus anderen Gruppen (Eingangsverträge)
 
 Diese Pläne konsumieren Typen aus Gruppe B. Sind diese noch nicht gebaut, definiert der jeweilige C-Plan einen **minimalen Platzhalter-Trait/-Typ** mit identischer Signatur, der später gegen die B-Implementierung getauscht wird:
@@ -63,7 +65,7 @@ Diese Pläne konsumieren Typen aus Gruppe B. Sind diese noch nicht gebaut, defin
 
 ## Offene Risiken, die in Gruppe C nur abgesichert (nicht gelöst) werden
 
-1. Keine belastbare Quelle zu „launch-bound GPU-Worker"-Dimensionierung (Q13) → Worker-Zahl als Parameter, per Messung bestimmen.
+1. Keine belastbare Quelle zu „launch-bound GPU-Worker"-Dimensionierung (Q13) → Worker-Zahl als Parameter, per statischer Konfiguration bestimmen.
 2. `launch_host_function`-Signatur und candle-Stream-Erzeugung nur in der **gepinnten** Version verifizierbar (Q12) → als erster Schritt in C2 gegenprüfen.
 3. Starved-Hint-Verfall und Shared-Queue ohne Head-of-Line-Blocking (Q17/Q21) sind Eigenentwürfe [W] → mit Lasttests absichern.
 4. Ringbuffer-/Graph-Capture-Modi bleiben Ausblick (Gruppe H); C2 sichert nur Erweiterungspunkte.

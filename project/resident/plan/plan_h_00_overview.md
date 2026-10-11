@@ -4,6 +4,10 @@ Stufe-2-Pläne zu `resident_planplan.md`. Je Paket ein eigenständiger, einzeln 
 
 Recherchegrundlage für alle Pläne: `project/resident/context/context_h_q.md` (Stand ca. Mitte 2026, Zielhardware GTX 1660 / TU116 / sm75 / 6 GB VRAM). Mit **[prüfen]** markierte Punkte sind vor der Implementierung gegen die aktuelle Crate-/CUDA-Version zu verifizieren.
 
+## Umsetzungspläne Gruppe Q — Überblick
+
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ## Grundregel Gruppe H (Ausblick / zurückgestellt)
 
 Für **alle** H-Pakete gilt: In Stufe 2 werden **nur Erweiterungspunkte gesichert** —

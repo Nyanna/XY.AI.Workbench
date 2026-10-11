@@ -55,6 +55,8 @@ Diese Werte sind für alle drei Pakete verbindlich und müssen **konsistent** ü
 
 ## 4. Querschnitt (Q1–Q4) für Gruppe G
 
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ### Q1 · Fehler-Taxonomie (`thiserror`)
 Neue/berührte Varianten, die G beisteuert (in die projektweite Taxonomie einhängen):
 - `IncompatibleSchema { expected, found }` — Index-Header passt nicht zur aktiven Modellkonfig (G2).
@@ -99,8 +101,8 @@ Aus `context_g.md`, Abschnitt „Offene Punkte". Jeder Punkt ist einem Paket zug
 > Vorschlag, final mit A2 abzustimmen. G ist bewusst klein und modellgebunden.
 
 ```
-rag/
-└── src/
+rag/src/
+└── resident/impl/
     ├── model/
     │   ├── e5.rs          # G1: ModelSpec + Pipeline-Config (reine Daten)
     │   └── pipeline.rs    # G1: Präfix→Tokenize→Forward→MaskedMean→L2 (Stage-Verdrahtung)

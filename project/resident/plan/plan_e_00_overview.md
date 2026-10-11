@@ -101,6 +101,8 @@ Sequenz für den Lauf: **E1 → E2 → E3 → E4 → E5 → E6 → E7 → E8 →
 - **Nebenläufigkeit:** `loom`/`shuttle` für die CoW-/Epoch-/Slot-Protokolle (E4/E5), `proptest` für Scan-Sequenzen (E6). Virtuelle Zeit (`tokio::time::pause`) für Idle/Eviction (E7). Failpoints zum Erzwingen von Interleavings (Stamp zwischen Stamp- und Datenlesen ändern, E6).
 - Alle Tests laufen **ohne** `cuda`-Feature (No-GPU-Pfad). CUDA-Pfade nur per `cargo check` + Hardware-Smoke-Test.
 
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ---
 
 ## 7. Gruppenweite Definition of Done

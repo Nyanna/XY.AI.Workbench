@@ -7,8 +7,6 @@
 
 **Quellen:** `resident_planplan.md` (Paketschnitt), `context/context_d.md` (destillierte Recherche, Belegmarken `[V]`/`[U]`/`[prüfen]`), `resident_subengine.md` (primäre Designquelle, §1–§11), `resident.md` (Basiskonzept), `resident_first.md` (Modell e5-small), `context/context_h_q.md` (Querschnitt Q1–Q4).
 
-> Hinweis: `resident_index.md` betrifft die Implementierung des **Vektorindexes** (nicht eine Dateiliste/Inhaltsverzeichnis). Er überlappt mit D7 und Gruppe E; für Gruppe D nur dort relevant, wo Segment-Repräsentation und Sync berührt werden.
-
 ---
 
 ## 1. Gegenstand von Gruppe D
@@ -84,12 +82,14 @@ Diese Prototypen sind **Gating** und in den jeweiligen Paketen als erster Schrit
 - **Q3 Tests/Mocks:** Logik gegen Traits testen; **No-GPU-Pfad** als Default. Kernel-Mock (B5) und Mess-Mock (manuelle Fakes, `context_d`-Q33). Nebenläufigkeit mit `loom`/`shuttle` (D1 Lease/Evict, D7 Sync). Deterministische Zeit via `tokio::time::pause` / `Clock`-Trait.
 - **Q4 Feature-Flags:** `cuda` ist **additiv**, Default **ohne**. `cfg(feature="cuda")` nur an Modulgrenzen (Backend-Factory). Durchreichen: `cuda = ["candle-core/cuda", "dep:cudarc"]`. CI-Matrix mit/ohne `cuda`; No-GPU-Build muss ohne `nvcc` kompilieren und alle Unit-Tests laufen.
 
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ---
 
 ## 6. Vorgeschlagener Modulschnitt (final in A2)
 
 ```
-rag/src/
+rag/src/resident/
   error.rs                 # Top-Level-Fehler (Q1), aggregiert Modul-Enums
   subengine/               # D1: Subengine-Trait, Lifecycle, Lease, Aggregation
   device/                  # D2: DeviceHandle, ExecContext/Lane (cuda hinter Flag)

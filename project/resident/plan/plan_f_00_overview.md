@@ -3,8 +3,6 @@
 > Stufe-2-Umsetzungsplan zum Metaplan `resident_planplan.md`, Gruppe F.
 > Primärquelle: `resident_precision.md`. Recherche-/Kontextquelle: `context/context_f.md`.
 > Querschnitt (Fehler/Logging/Tests/Feature-Flags): `context/context_h_q.md` (Q1–Q4).
->
-> **Hinweis zur Quellenlage:** `resident_index.md` ist die Dokumentation des Vektorindex-Subsystems (Gruppe E) und **keine** Inhalts-/Indexdatei des Projekts. Gruppe F bezieht ihre Fachvorgaben ausschließlich aus `resident_precision.md`; `resident_subengine.md` §4.5 (D6) liefert die Kernel-/Scoring-Pfade, gegen die die Capability-Achsen validiert werden.
 
 ---
 
@@ -89,6 +87,8 @@ B6 besitzt formal `CapabilitySet` und `Profile { position: f32, config }`. Falls
 ---
 
 ## 4. Querschnitt Q für alle F-Pakete
+
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
 
 ### Q1 · Fehler (`thiserror`)
 Ein **modul-lokales** Enum `PrecisionError` (`#[non_exhaustive]`), das an der Engine-API per `#[from]` in den Top-Level-Fehler aggregiert wird (kein Mega-Enum; vgl. `context_h_q.md` Q1/26). Pflicht-Varianten aus `resident_precision.md`:

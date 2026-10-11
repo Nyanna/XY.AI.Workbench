@@ -37,8 +37,8 @@ B4 ist **eigenständig vom Kern** (Index-Trait) und kann parallel zu B1–B3 bea
 Alle B-Typen bilden die kern­nahe Vertragsschicht. Vorschlag (A2 besitzt die finale Crate-/Modulgrenze):
 
 ```
-rag/
-└─ crates/resident-core/           # reine Verträge, kein CUDA, kein candle-Zwang
+rag/src/resident
+└─ core/           # reine Verträge, kein CUDA, kein candle-Zwang
    ├─ queue.rs        (B1)  Node, ClaimState, TaskState, Queue
    ├─ mem.rs          (B2)  Region, Layout, DType, MemoryManager-Trait
    ├─ op.rs           (B3)  Op-Trait, OpParams, Requirements, Value, Lease
@@ -73,6 +73,8 @@ Candle-/safetensors-Adapter liegen in einem separaten `pub(crate)`-Modul (`adapt
 - **Q2 Logging (`tracing`):** Span pro Task-ID (B1/B3), pro Manager-Zyklus (B4), pro Batch/Kernel (B5). Invariantenverletzungen auf `debug_assert!` + `warn!`.
 - **Q3 Tests & Mocks:** No-GPU-Pfad verpflichtend. Mocks: `MockKernel` (B5), kein GPU in CI. Testmatrizen je Paket (insb. B1 Queue-Semantik, B4 Stamp/Racy, B6 Pareto/Matching-Vorarbeit).
 - **Q4 Feature-Flags:** reale CUDA-/candle-Pfade hinter `cuda`/`candle`; die reine Logik (Zustandsautomat, Free-List, Stamp-Vergleich, CapabilitySet) ist ohne GPU testbar.
+
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
 
 ---
 

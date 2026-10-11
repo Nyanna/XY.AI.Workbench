@@ -65,8 +65,8 @@ eingehen und nicht neu recherchiert werden müssen:
 
 ## 6. Zu erzeugende Artefakte
 
-- `rag/docs/architecture/scope_charta.md` (empfohlener Pfad; alternativ im Projektordner).
-  Enthält: Grenztabelle, "Engine liefert"-/"Außerhalb"-Listen, Divergenz-Notiz, Hook-Liste.
+- `rag/docs/architecture/scope_charta.md` (empfohlener Pfad).
+  Enthält: Grenztabelle, "Engine liefert"-/"Außerhalb"-Listen, Divergenz-Notiz, Hook-Liste, in englischer Sprache.
 
 ## 7. Offene Punkte / Verifikation vor Abschluss
 

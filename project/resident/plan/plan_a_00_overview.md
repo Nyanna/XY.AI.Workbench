@@ -41,6 +41,8 @@ A1 wird deshalb durch **A1′** (Scope-Charta) ersetzt — siehe `plan_a1.md`.
 - **Q3 Teststrategie & Mocks** — Konventionen in A4, No-GPU-Pfad in A2.
 - **Q4 Feature-Flags** — reale CUDA-Pfade hinter `cuda`-Flag, Logik GPU-frei testbar (A2).
 
+Hier -> `/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_q_00_overview.md`
+
 ## Definition of Done für Gruppe A (gesamt)
 
 1. Scope-Charta liegt vor und ist referenzierbar aus C1/E2 (A1′).
