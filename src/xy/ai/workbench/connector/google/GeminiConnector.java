@@ -43,9 +43,9 @@ import xy.ai.workbench.models.AIAnswer;
 public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiResponse> {
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor;
+	private final SessionProcessor<Void> sessionProcessor;
 
-	public GeminiConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public GeminiConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 	}

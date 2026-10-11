@@ -36,9 +36,9 @@ import xy.ai.workbench.models.AIAnswer;
 public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeResponse> {
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor;
+	private final SessionProcessor<Void> sessionProcessor;
 
-	public ClaudeConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public ClaudeConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 	}

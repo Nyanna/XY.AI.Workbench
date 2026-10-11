@@ -43,9 +43,9 @@ import xy.ai.workbench.models.AIAnswer;
 public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
 	private final MCPClient mcpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
-	private final SessionProcessor sessionProcessor;
+	private final SessionProcessor<Void> sessionProcessor;
 
-	public OpenAIConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public OpenAIConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 	}

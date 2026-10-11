@@ -2,10 +2,8 @@ package xy.ai.workbench.connector;
 
 import java.util.Collection;
 import java.util.List;
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.jobs.Job;
-
 import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.IncludeAdapter;
 import xy.ai.workbench.Model;
@@ -44,171 +42,170 @@ import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
 
 public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResponse>, IAIBatchConnector {
+  private ConfigManager cfg;
+  private OpenAIConnector chad;
+  private IAIBatchConnector batchChad;
+  private GeminiConnector gemini;
+  private IAIBatchConnector batchGemini;
+  private ClaudeConnector claude;
+  private IAIBatchConnector batchClaude;
+  private CCConnector claudeCode;
+  private DeepSeekConnector deepseek;
+  private MCPConnector mcp;
+  private IAIBatchConnector newBatch;
+  @SuppressWarnings("rawtypes")
+  private SessionProcessor sessionProcessor;
 
-	private ConfigManager cfg;
-	private OpenAIConnector chad;
-	private IAIBatchConnector batchChad;
-	private GeminiConnector gemini;
-	private IAIBatchConnector batchGemini;
-	private ClaudeConnector claude;
-	private IAIBatchConnector batchClaude;
-	private CCConnector claudeCode;
-	private DeepSeekConnector deepseek;
-	private MCPConnector mcp;
-	private IAIBatchConnector newBatch;
-	private SessionProcessor sessionProcessor;
+  @SuppressWarnings("unchecked")
+  public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient, IncludeAdapter includeAdapter) {
+    this.cfg = cfg;
+    sessionProcessor = new SessionProcessor<>(includeAdapter);
+    batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(mcpClient, sessionProcessor));
+    batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(mcpClient, sessionProcessor));
+    batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(mcpClient, sessionProcessor));
+    deepseek = new DeepSeekConnector(mcpClient, sessionProcessor);
+    claudeCode = new CCConnector(sessionManager, includeAdapter);
+    mcp = new MCPConnector(mcpClient);
+    newBatch = new NewBatchConnector();
+  }
 
-	public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient,
-			IncludeAdapter includeAdapter) {
-		this.cfg = cfg;
-		sessionProcessor = new SessionProcessor(includeAdapter);
-		batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(mcpClient, sessionProcessor));
-		batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(mcpClient, sessionProcessor));
-		batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(mcpClient, sessionProcessor));
-		deepseek = new DeepSeekConnector(mcpClient, sessionProcessor);
-		claudeCode = new CCConnector(sessionManager);
-		mcp = new MCPConnector(mcpClient);
-		newBatch = new NewBatchConnector();
-	}
+  @Override
+  public KeyPattern getSupportedKeyPattern() {
+    return KeyPattern.None;
+  }
 
-	@Override
-	public KeyPattern getSupportedKeyPattern() {
-		return KeyPattern.None;
-	}
+  private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
+    switch(model.cap.getKeyPattern()) {
+      case OpenAI:
+        return chad;
+      case Gemini:
+        return gemini;
+      case Claude:
+        return claude;
+      case Deepseek:
+        return deepseek;
+      case ClaudeCode:
+        return claudeCode;
+      case Misc:
+        return mcp;
+      default:
+    }
+    throw new IllegalArgumentException("Model unsupported: " + model.displayName);
+  }
 
-	private IAIConnector<? extends IModelRequest, ? extends IModelResponse> getConnector(Model model) {
-		switch (model.cap.getKeyPattern()) {
-		case OpenAI:
-			return chad;
-		case Gemini:
-			return gemini;
-		case Claude:
-			return claude;
-		case Deepseek:
-			return deepseek;
-		case ClaudeCode:
-			return claudeCode;
-		case Misc:
-			return mcp;
-		default:
-		}
-		throw new IllegalArgumentException("Model unsupported: " + model.displayName);
-	}
+  public IAIBatchConnector getBatchConnector(Model model) {
+    switch(model.cap.getKeyPattern()) {
+      case OpenAI:
+        return batchChad;
+      case Gemini:
+        return batchGemini;
+      case Claude:
+        return batchClaude;
+      default:
+    }
+    throw new IllegalArgumentException("Model unsupported: " + model.displayName);
+  }
 
-	public IAIBatchConnector getBatchConnector(Model model) {
-		switch (model.cap.getKeyPattern()) {
-		case OpenAI:
-			return batchChad;
-		case Gemini:
-			return batchGemini;
-		case Claude:
-			return batchClaude;
-		default:
-		}
-		throw new IllegalArgumentException("Model unsupported: " + model.displayName);
-	}
+  @SuppressWarnings("rawtypes")
+  public IAIConnector getConnector(IModelRequest request) {
+    if (request instanceof GeminiRequest)
+      return gemini;
+    else if (request instanceof OpenAIRequest)
+      return chad;
+    else if (request instanceof ClaudeRequest)
+      return claude;
+    else if (request instanceof DeepSeekRequest)
+      return deepseek;
+    else if (request instanceof CCRequest)
+      return claudeCode;
+    else if (request instanceof MCPRequest)
+      return mcp;
+    throw new IllegalArgumentException("Model unsupported");
+  }
 
-	@SuppressWarnings("rawtypes")
-	public IAIConnector getConnector(IModelRequest request) {
-		if (request instanceof GeminiRequest)
-			return gemini;
-		else if (request instanceof OpenAIRequest)
-			return chad;
-		else if (request instanceof ClaudeRequest)
-			return claude;
-		else if (request instanceof DeepSeekRequest)
-			return deepseek;
-		else if (request instanceof CCRequest)
-			return claudeCode;
-		else if (request instanceof MCPRequest)
-			return mcp;
-		throw new IllegalArgumentException("Model unsupported");
-	}
+  @SuppressWarnings("rawtypes")
+  private IAIConnector getConnector(IModelResponse response) {
+    if (response instanceof GeminiResponse)
+      return gemini;
+    else if (response instanceof OpenAIResponse)
+      return chad;
+    else if (response instanceof ClaudeResponse)
+      return claude;
+    else if (response instanceof DeepSeekResponse)
+      return deepseek;
+    else if (response instanceof CCResponse)
+      return claudeCode;
+    else if (response instanceof MCPResponse)
+      return mcp;
+    throw new IllegalArgumentException("Model unsupported");
+  }
 
-	@SuppressWarnings("rawtypes")
-	private IAIConnector getConnector(IModelResponse response) {
-		if (response instanceof GeminiResponse)
-			return gemini;
-		else if (response instanceof OpenAIResponse)
-			return chad;
-		else if (response instanceof ClaudeResponse)
-			return claude;
-		else if (response instanceof DeepSeekResponse)
-			return deepseek;
-		else if (response instanceof CCResponse)
-			return claudeCode;
-		else if (response instanceof MCPResponse)
-			return mcp;
-		throw new IllegalArgumentException("Model unsupported");
-	}
+  private IAIBatchConnector getBatchConnector(IModelRequest request) {
+    if (request instanceof GeminiRequest)
+      return batchGemini;
+    else if (request instanceof OpenAIRequest)
+      return batchChad;
+    else if (request instanceof ClaudeRequest)
+      return batchClaude;
+    throw new IllegalArgumentException("Model unsupported");
+  }
 
-	private IAIBatchConnector getBatchConnector(IModelRequest request) {
-		if (request instanceof GeminiRequest)
-			return batchGemini;
-		else if (request instanceof OpenAIRequest)
-			return batchChad;
-		else if (request instanceof ClaudeRequest)
-			return batchClaude;
-		throw new IllegalArgumentException("Model unsupported");
-	}
+  private IAIBatchConnector getBatchConnector(IAIBatch entry) {
+    if (entry instanceof GeminiBatch)
+      return batchGemini;
+    else if (entry instanceof OpenAIBatch)
+      return batchChad;
+    else if (entry instanceof ClaudeBatch)
+      return batchClaude;
+    else if (entry instanceof NewBatch)
+      return newBatch;
+    throw new IllegalArgumentException("Model unsupported");
+  }
 
-	private IAIBatchConnector getBatchConnector(IAIBatch entry) {
-		if (entry instanceof GeminiBatch)
-			return batchGemini;
-		else if (entry instanceof OpenAIBatch)
-			return batchChad;
-		else if (entry instanceof ClaudeBatch)
-			return batchClaude;
-		else if (entry instanceof NewBatch)
-			return newBatch;
-		throw new IllegalArgumentException("Model unsupported");
-	}
+  @Override
+  public IModelRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+    return getConnector(prompt.config.model).createRequest(prompt, mon);
+  }
 
-	@Override
-	public IModelRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-		return getConnector(prompt.config.model).createRequest(prompt, mon);
-	}
+  @Override
+  public List<IAIBatch> updateBatches(IProgressMonitor mon) {
+    return getBatchConnector(cfg.getModel()).updateBatches(mon);
+  }
 
-	@Override
-	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
-		return getBatchConnector(cfg.getModel()).updateBatches(mon);
-	}
+  @Override
+  public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
+    return getBatchConnector(cfg.getModel()).submitBatch(entry, mon);
+  }
 
-	@Override
-	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
-		return getBatchConnector(cfg.getModel()).submitBatch(entry, mon);
-	}
+  @SuppressWarnings("unchecked")
+  @Override
+  public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon, Job job) {
+    return getConnector(request).executeRequest(request, mon, job);
+  }
 
-	@SuppressWarnings("unchecked")
-	@Override
-	public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon, Job job) {
-		return getConnector(request).executeRequest(request, mon, job);
-	}
+  @Override
+  public String requestsToJson(Collection<IModelRequest> reqs) {
+    return getBatchConnector(reqs.iterator().next()).requestsToJson(reqs);
+  }
 
-	@Override
-	public String requestsToJson(Collection<IModelRequest> reqs) {
-		return getBatchConnector(reqs.iterator().next()).requestsToJson(reqs);
-	}
+  @SuppressWarnings("unchecked")
+  @Override
+  public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
+    return getConnector(response).convertResponse(response, mon);
+  }
 
-	@SuppressWarnings("unchecked")
-	@Override
-	public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
-		return getConnector(response).convertResponse(response, mon);
-	}
+  @Override
+  public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
+    return getBatchConnector(entry).cancelBatch(entry, mon);
+  }
 
-	@Override
-	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
-		return getBatchConnector(entry).cancelBatch(entry, mon);
-	}
+  @Override
+  public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+    getBatchConnector(entry).loadBatch(entry, mon);
+  }
 
-	@Override
-	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
-		getBatchConnector(entry).loadBatch(entry, mon);
-	}
-
-	@Override
-	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
-		getBatchConnector(obj).convertAnswers(obj, mon);
-	}
-
+  @Override
+  public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
+    getBatchConnector(obj).convertAnswers(obj, mon);
+  }
 }

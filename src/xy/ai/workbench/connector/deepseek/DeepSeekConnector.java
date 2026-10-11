@@ -85,9 +85,9 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	private static final String BASE_URL = "https://api.deepseek.com";
 
 	private final MCPClient mcpClient;
-	private final SessionProcessor sessionProcessor;
+	private final SessionProcessor<ObjectNode> sessionProcessor;
 
-	public DeepSeekConnector(MCPClient mcpClient, SessionProcessor sessionProcessor) {
+	public DeepSeekConnector(MCPClient mcpClient, SessionProcessor<ObjectNode> sessionProcessor) {
 		this.mcpClient = mcpClient;
 		this.sessionProcessor = sessionProcessor;
 	}

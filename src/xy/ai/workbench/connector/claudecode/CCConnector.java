@@ -2,6 +2,7 @@ package xy.ai.workbench.connector.claudecode;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
@@ -20,16 +21,24 @@ import xy.ai.workbench.commands.ResumeCommand;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
+import xy.ai.workbench.connector.harness.Role;
+import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.connector.harness.IIncludeAdapter;
+import xy.ai.workbench.connector.harness.IncludeProcessor;
 import xy.ai.workbench.models.AIAnswer;
+import java.util.List;
 
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
   private final ProtocolParser jsonParser = new ProtocolParser();
   private final CCControlClient controlClient = new CCControlClient();
+  private final SessionCallbacks<String> callbacks = new SessionRequestCallbacks();
   private final CCSessionManager sessionManager;
+  private final IncludeProcessor<String> includeProcessor;
 
-  public CCConnector(CCSessionManager sessionManager) {
+  public CCConnector(CCSessionManager sessionManager, IIncludeAdapter includeAdapter) {
     this.sessionManager = sessionManager;
+    this.includeProcessor = new IncludeProcessor<>(includeAdapter);
   }
 
   @Override
@@ -43,13 +52,26 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     Command command = prompt.arg.command;
     String promptText = null;
     if (command == null) {
-      promptText = prompt.inputs.stream().map(String::strip).filter(s -> !s.isBlank()).collect(Collectors.joining("\n"));
+      List<String> out = new ArrayList<>();
+      for (String input : prompt.inputs) {
+        if (input != null && !input.isBlank())
+        	includeProcessor.processText(input, List.of(), callbacks, out, includeProcessor);
+      }
+      promptText = out.stream().map(String::strip).filter(s -> !s.isBlank()).collect(Collectors.joining("\n"));
       if (promptText.isEmpty())
         throw new IllegalStateException("Prompt text is empty and no command");
     }
     sub.worked(1);
     String title = promptText == null ? null : promptText.substring(0, Math.min(100, promptText.length())).replace('\n', ' ');
     return new CCRequest(UUID.randomUUID().toString(), title, prompt.config, promptText, prompt.arg);
+  }
+
+  private static class SessionRequestCallbacks implements SessionCallbacks<String> {
+
+    @Override
+    public String message(Role role, String text) {
+      return text;
+    }
   }
 
   @Override
