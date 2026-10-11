@@ -21,6 +21,7 @@ import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.commands.Command;
+import xy.ai.workbench.commands.ToolCommand;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -167,7 +168,7 @@ public class PromptHandler {
 		for (String key : prompt.config.keys.split(","))
 			if (prompt.config.model.cap.acceptsKey(key))
 				prompt.config.keys = key;
-		if (prompt.arg.command instanceof CallCommand)
+		if (prompt.arg.command instanceof CallCommand || prompt.arg.command instanceof ToolCommand)
 			prompt.config.model = Model.MCP_TOOLS;
 	}
 
