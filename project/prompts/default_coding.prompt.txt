@@ -1,9 +1,23 @@
 ---
+title: Coding, AST-Tools
 tools:
 - "ask_user"
-- "read_file"
-- "write"
+- "grep"
+- "ast_read"
+- "ast_create"
+- "ast_delete"
+- "ast_edit_block"
+- "ast_edit_marks"
+- "ast_find"
+- "ast_insert"
+- "ast_outline"
+- "ast_replace"
+- "ast_validate"
 outputMode: "Append"
+inputs:
+- "SystemPrompt"
+- "Tools"
+- "Selection"
 ---
 Answer very short and precise
 #Be objective and neutral

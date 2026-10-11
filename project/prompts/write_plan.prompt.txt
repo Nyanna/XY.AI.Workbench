@@ -1,18 +1,14 @@
 ---
+title: Write Plans
 tools:
 - "ask_user"
-- "grep"
-- "ast_read"
-- "ast_create"
-- "ast_delete"
-- "ast_edit_block"
-- "ast_edit_marks"
-- "ast_find"
-- "ast_insert"
-- "ast_outline"
-- "ast_replace"
-- "ast_validate"
+- "read_file"
+- "write"
 outputMode: "Append"
+inputs:
+- "SystemPrompt"
+- "Tools"
+- "Selection"
 ---
 Answer very short and precise
 #Be objective and neutral
