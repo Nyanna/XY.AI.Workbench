@@ -1,8 +1,5 @@
 # TODO
--MCP tool ohne umstellen steuern können
-	- alle pläne in einheitliches schema und reviewen
-
-
+- "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
 - vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
