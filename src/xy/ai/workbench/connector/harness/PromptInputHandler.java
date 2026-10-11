@@ -110,12 +110,6 @@ public class PromptInputHandler {
     return new Prompt(arg.inputs, batch, frozen, arg);
   }
 
-  /**
-   * Selection mode: a real (multi-char) selection is a BlockSelection, an
-   * empty/caret selection falls back to the current cursor line (LineInput).
-   *
-   * @param arg
-   */
   private void detectSelection(Selection sel, PromptArguments arg) {
     if (sel == null || sel.selection() == null || sel.selection().length == 0)
       return;
@@ -142,7 +136,17 @@ public class PromptInputHandler {
       return;
     }
     arg.inputs.add(lines[0]);
-    detectedCmd(lines[0], lines, 0, arg);
+    // Cursor-only (no real selection): "lines" is just the current line, so a
+    // preceding ```yaml block cannot be found within it. Fall back to the full
+    // document to locate the block before the cursor line.
+    if (detectedCmd(lines[0], lines, 0, arg) && arg.yaml == null) {
+      Selection full = editorListener.getFileContent();
+      if (full != null && full.selection() != null && full.cursorOffset() != null) {
+        arg.yaml = captureYamlBlock(full.selection(), full.cursorOffset());
+        if (arg.command instanceof AnswerCommand ac)
+          ac.setYaml(arg.yaml);
+      }
+    }
   }
 
   /*
