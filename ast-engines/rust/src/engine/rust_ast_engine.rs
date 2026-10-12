@@ -5,7 +5,7 @@
 use syn::{Attribute, Expr, ImplItem, Item, Lit, Meta, TraitItem};
 use crate::engine::addressable_node::AddressableNode;
 use crate::engine::ast_engine_exception::{AstEngineException, AstResult, Kind};
-use crate::engine::node_path::{resolve, resolve_mut, NodePath, Target, TargetRef};
+use crate::engine::node_path::{resolve, resolve_mut, NodePath, Owner, Target, TargetRef};
 pub fn empty_file() -> syn::File {
     syn::File {
         shebang: None,
@@ -230,27 +230,41 @@ pub fn docstring(file: &syn::File, node: &AddressableNode) -> Option<String> {
         None => None,
     }
 }
-/// Parses `code` as one or more inner attributes (`//!`/`#![..]`), for the
-/// file-level `attrs` container.
-pub fn parse_inner_attrs(code: &str) -> AstResult<Vec<Attribute>> {
+/// Parses `code` as optional leading inner attributes (`//!`/`#![..]`) followed
+/// by zero or more top-level items. The file-level `attrs` container only holds
+/// module doc comments/attributes, but callers (e.g. an agent regenerating a
+/// module's header) routinely hand back the doc comment together with the
+/// `use`/`const`/`fn` items that originally followed it -- that combined text is
+/// perfectly valid Rust, just not valid as an attributes-only fragment. Rather
+/// than rejecting it, the engine recognizes the split point itself and routes
+/// each part to its proper container (see callers in [`replace`]/[`insert`]).
+fn parse_inner_attrs_and_items(code: &str) -> AstResult<(Vec<Attribute>, Vec<Item>)> {
     let parser = |input: syn::parse::ParseStream| {
         let mut attrs = Vec::new();
-        while !input.is_empty() {
+        loop {
+            let before = input.cursor();
             attrs.extend(input.call(Attribute::parse_inner)?);
+            if input.cursor() == before {
+                break;
+            }
         }
-        Ok(attrs)
+        let mut items = Vec::new();
+        while !input.is_empty() {
+            items.push(input.parse()?);
+        }
+        Ok((attrs, items))
     };
-    let attrs = syn::parse::Parser::parse_str(parser, code)
-        .map_err(|e| syntax_err("inner attribute", e))?;
-    if attrs.is_empty() {
+    let (attrs, items) = syn::parse::Parser::parse_str(parser, code)
+        .map_err(|e| syntax_err("inner attribute/item", e))?;
+    if attrs.is_empty() && items.is_empty() {
         return Err(
             AstEngineException::new(
                 Kind::Syntax,
-                format!("no attributes found: {}", code),
+                format!("no attributes or items found: {}", code),
             ),
         );
     }
-    Ok(attrs)
+    Ok((attrs, items))
 }
 fn syntax_err(what: &str, e: syn::Error) -> AstEngineException {
     AstEngineException::new(Kind::Syntax, format!("invalid {}: {}", what, e))
@@ -318,6 +332,15 @@ pub fn replace(
     code: &str,
 ) -> AstResult<()> {
     let path: &NodePath = &node.path;
+    if path.owner == Owner::FileAttrs {
+        let (attr_fragments, item_fragments) = parse_inner_attrs_and_items(code)?;
+        file.attrs.splice(path.start..path.end, attr_fragments);
+        // Items carried alongside the module doc (e.g. `use`/`const`/`fn` that an
+        // agent re-sent together with the doc comment) belong at the top of the
+        // file, right where a module doc is always followed by such declarations.
+        file.items.splice(0..0, item_fragments);
+        return Ok(());
+    }
     match resolve_mut(file, path).ok_or_else(|| not_found(&node.id))? {
         Target::Items(items) => {
             let fragments = parse_items(code)?;
@@ -331,10 +354,7 @@ pub fn replace(
             let fragments = parse_trait_fragment(code)?;
             items.splice(path.start..path.end, fragments);
         }
-        Target::Attrs(attrs) => {
-            let fragments = parse_inner_attrs(code)?;
-            attrs.splice(path.start..path.end, fragments);
-        }
+        Target::Attrs(_) => unreachable!("Owner::FileAttrs handled above"),
     }
     Ok(())
 }
@@ -346,6 +366,13 @@ pub fn insert(
 ) -> AstResult<i64> {
     let path: &NodePath = &node.path;
     let idx = if position == "after" { path.end } else { path.start };
+    if path.owner == Owner::FileAttrs {
+        let (attr_fragments, item_fragments) = parse_inner_attrs_and_items(code)?;
+        let n = attr_fragments.len() + item_fragments.len();
+        file.attrs.splice(idx..idx, attr_fragments);
+        file.items.splice(0..0, item_fragments);
+        return Ok(n as i64);
+    }
     let count = match resolve_mut(file, path).ok_or_else(|| not_found(&node.id))? {
         Target::Items(items) => {
             let fragments = parse_items(code)?;
@@ -365,12 +392,7 @@ pub fn insert(
             items.splice(idx..idx, fragments);
             n
         }
-        Target::Attrs(attrs) => {
-            let fragments = parse_inner_attrs(code)?;
-            let n = fragments.len();
-            attrs.splice(idx..idx, fragments);
-            n
-        }
+        Target::Attrs(_) => unreachable!("Owner::FileAttrs handled above"),
     };
     Ok(count as i64)
 }
@@ -391,4 +413,59 @@ pub fn delete(file: &mut syn::File, node: &AddressableNode) -> AstResult<()> {
         }
     }
     Ok(())
+}
+#[cfg(test)]
+mod parse_inner_attrs_tests {
+    use super::parse_inner_attrs_and_items;
+
+    #[test]
+    fn parses_doc_comments_only() {
+        let code = "//! line one\n//! line two\n";
+        let (attrs, items) = parse_inner_attrs_and_items(code).expect("should parse");
+        assert_eq!(attrs.len(), 2);
+        assert_eq!(items.len(), 0);
+    }
+
+    /// Regression test: a source blob where inner doc comments are followed by
+    /// non-attribute code (e.g. an agent re-sends `use`/`fn` items alongside a
+    /// module doc replacement) must no longer hang forever in the parser loop,
+    /// and the engine should route the trailing code to `items` instead of
+    /// erroring, since the combined text is perfectly valid Rust.
+    #[test]
+    fn splits_trailing_code_into_items_without_hanging() {
+        let code = "//! module doc\nuse tracing::Span;\npub fn x() {}\n";
+        let (attrs, items) = parse_inner_attrs_and_items(code).expect("should parse");
+        assert_eq!(attrs.len(), 1);
+        assert_eq!(items.len(), 2);
+    }
+}
+#[cfg(test)]
+mod replace_file_attrs_tests {
+    use super::*;
+    use crate::engine::addressable_node::AddressableNode;
+    use crate::engine::node_path::{NodePath, Owner};
+
+    /// End-to-end regression test for the original hang: replacing the file-level
+    /// `ModuleDoc` (`Attrs`) node with a block that mixes `//!` doc comments and
+    /// real items must succeed -- not hang, not error -- splitting the result
+    /// between `file.attrs` and `file.items`.
+    #[test]
+    fn replace_module_doc_with_mixed_doc_and_items() {
+        let mut file = empty_file();
+        let node = AddressableNode {
+            id: "ModuleDoc".to_string(),
+            path: NodePath::range(Vec::new(), Owner::FileAttrs, None, 0, 0),
+            node_type: "Attrs".to_string(),
+            name: None,
+            lineno: 1,
+            end_lineno: 1,
+            parent_type: "File".to_string(),
+            expandable: false,
+            is_definition: true,
+        };
+        let code = "//! Tracing conventions and init.\n//!\n//! Second line.\n\nuse tracing::Span;\n\npub const FIELD_TASK_ID: &str = \"task_id\";\n\npub fn init_tracing() {}\n";
+        replace(&mut file, &node, code).expect("replace should succeed, not hang or error");
+        assert_eq!(file.attrs.len(), 3, "each //! line is its own attr in file.attrs");
+        assert_eq!(file.items.len(), 3, "use + const + fn go to file.items");
+    }
 }
