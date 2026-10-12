@@ -55,7 +55,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
       List<String> out = new ArrayList<>();
       for (String input : prompt.inputs) {
         if (input != null && !input.isBlank())
-        	includeProcessor.processText(input, List.of(), callbacks, out, includeProcessor);
+          includeProcessor.processText(input, List.of(), callbacks, out, includeProcessor);
       }
       promptText = out.stream().map(String::strip).filter(s -> !s.isBlank()).collect(Collectors.joining("\n"));
       if (promptText.isEmpty())
@@ -138,7 +138,9 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
     CCResponse resp = new CCResponse(req.id);
     String line;
+    long lastChangeAt = System.currentTimeMillis();
     while (true) {
+      boolean changed = false;
       // alternate read sources undtil answer
       try {
         // wait 300 ms
@@ -147,16 +149,28 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
           job.setName(abbreviateForStatus(line));
           mon.worked(1);
           jsonParser.parseLine(resp, session, sub, line);
+          changed = true;
         }
       } catch (Exception ex) {
         LOG.error("Error reading line: ", ex);
-        try {
-          while ((line = session.readError()) != null) LOG.error("CLI stderr: " + line);
-        } catch (Exception ex2) {
-          LOG.error("Error reading stderr: ", ex2);
-        }
         resp.resultText = ex.getMessage();
+        changed = true;
       }
+      try {
+        String errLine = session.readError();
+        if (errLine != null) {
+          LOG.error("CLI stderr: " + errLine);
+          resp.resultText = (resp.resultText == null ? "" : resp.resultText + "\n") + errLine;
+          changed = true;
+        }
+      } catch (Exception ex2) {
+        LOG.error("Error reading stderr: ", ex2);
+      }
+      if (changed)
+        lastChangeAt = System.currentTimeMillis();
+      else if (System.currentTimeMillis() - lastChangeAt > 30000)
+        // Stuck detection: neither STDOUT nor STDERR produced anything for 30s
+        throw new IOException("Stuck detection: no STDOUT/STDERR output for 30 seconds (session " + session.getID() + ")");
       if (!resp.isReady())
         controlClient.checkControlEndpoint(resp, session.getID());
       if (resp.isReady()) {
