@@ -107,17 +107,17 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
-    title = 'After using `ast_outline` or `ast_find`, read AST subtrees for known node IDs'
-    description = "After using `ast_outline` or `ast_find`, recursively read the subtree of each ID-addressed AST node across one or more files, surfacing each node's children and source. " + core.OUTLINE_NODE_DESCRIPTION
+    title = 'Reads the code, text, and content of the nodes identified by the given IDs within the specified files.'
+    description = "After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs."
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'ids': {
             'type': 'array',
             'items': {
                 'type': 'string'},
-            'description': 'List of AST node ids to read.'}}
+            'description': 'List of AST node IDs to read.'}}
     _ITEM_REQUIRED = ['path', 'ids']
-    _ITEMS_DESCRIPTION = 'Per-file node ids to read.'
+    _ITEMS_DESCRIPTION = 'Per-file node IDs to read.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:

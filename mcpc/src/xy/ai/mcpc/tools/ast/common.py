@@ -30,7 +30,7 @@ SELECTOR_PROPS = {
 '#: Path-only selectors used by every mutation tool (replace/insert/delete/edit_*).'
 PATH_SELECTOR_PROPS = {'id': SELECTOR_PROPS['id']}
 "#: Absolute-path property shared by every batch tool's item schema."
-PATH_PROP = {'type': 'string', 'description': 'Absolute path to the file.'}
+PATH_PROP = {'type': 'string', 'description': 'Absolute path to the file (never directories).'}
 
 def select_one(tree, **selectors: Any) -> core.Located:
     """Return the single node in *tree* matching *selectors*.

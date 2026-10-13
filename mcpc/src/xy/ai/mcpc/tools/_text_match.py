@@ -258,7 +258,8 @@ def replace_between(block: str, begin_marker: str, end_marker: str, content: str
         if len(ends) > 1:
             raise TextAmbiguous(f'End marker is ambiguous – found {len(ends)} occurrences in {where}.', len(ends))
         sm, em = (starts[0], ends[0])
-        if em.start < sm.end:
+        same_span = sm.start == em.start and sm.end == em.end
+        if not same_span and em.start < sm.end:
             raise TextOrderError('End marker must start after start marker ends.')
         result = block[:sm.start] + _mirror_escaping(block[sm.start:em.end], content) + block[em.end:]
         if accept and (not accept(block[sm.start:sm.end], block[em.start:em.end], result)):

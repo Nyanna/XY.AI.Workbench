@@ -136,8 +136,8 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 
 class OutlineNodesTool(ToolDefinition):
     name = 'ast_outline'
-    title = 'List AST nodes of files'
-    description = "Hierarchical tree of one or more files' AST nodes (import/statement segments, classes, functions, sections) with id and optional line range – no source. A directory without subdirectories and with at most 5 files is transparently expanded to those files; any other directory is reported as an error containing its listing. " + core.OUTLINE_NODE_DESCRIPTION
+    title = 'Hierarchical AST outline with IDs from a set of defined files'
+    description = "Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, type, docstring, children, imports, and segments. Other AST tools require IDs as input."
     input_schema = {
         'type': 'object',
         'properties': {
@@ -146,7 +146,7 @@ class OutlineNodesTool(ToolDefinition):
                 'minItems': 1,
                 'items': {
                     'type': 'string'},
-                'description': 'Absolute paths of the files to list.'}},
+                'description': 'List of absolute file paths (never directories).'}},
         'required': ['paths']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

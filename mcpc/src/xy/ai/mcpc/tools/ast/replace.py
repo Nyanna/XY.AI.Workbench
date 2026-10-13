@@ -107,15 +107,15 @@ def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
-    title = 'Replace AST nodes'
-    description = 'Replace selected nodes with source or text, for a batch of items; several operations may target the same or different files. Returns changed IDs in the result.'
+    title = 'Replace the complete source of the AST nodes identified by the given IDs with new content.'
+    description = 'Replace the source or text of selected AST nodes in a batch; operations may target the same or different files. Returns the updated IDs.'
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'source': {
             'type': 'string',
             'description': 'Replacement source.'},
         **PATH_SELECTOR_PROPS}
-    _ITEM_REQUIRED = ['path', 'source']
+    _ITEM_REQUIRED = ['path', 'source', 'id']
     _ITEMS_DESCRIPTION = 'Node replacements to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 

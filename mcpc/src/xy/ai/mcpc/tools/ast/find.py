@@ -153,8 +153,8 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
 
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
-    title = 'Find AST nodes'
-    description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source.'
+    title = 'Finds code, text, and content within the specified files.'
+    description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source. Use this when looking up content without IDs.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -162,14 +162,14 @@ class FindNodesTool(ToolDefinition):
                 'type': 'array',
                 'items': {
                     'type': 'string'},
-                'description': 'Absolute paths of the files to search.'},
+                'description': 'Absolute paths of the files to search (never directories).'},
             **SELECTOR_PROPS,
             'text': {
                 'type': 'string',
-                        'description': "Case-insensitive substring the node's source must contain. Example: Keyword `import` to find nodes doing imports"},
+                        'description': "Case-insensitive substring that the node’s source must contain. Example: `import` finds nodes containing imports."},
             'regexp': {
                 'type': 'string',
-                'description': "Regular expression the node's source must match (re.search)."}},
+                'description': "Regular expression that the node’s source must match (`re.search` semantics)."}},
         'required': ['paths']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
