@@ -1360,7 +1360,6 @@ Dann prüfe zuerst den Client `/XY.AI.Workbench/src/xy/ai/workbench/connectors/c
 #:  cwd: "/home/user/xyan/xy.ai.workbench"
 #:  script: "find / -iname \"ClaudeCodeControlClient.java\" 2>/dev/null"
 /allow 3fecba7d-c7eb-43fb-93c2-8cae39ae59eb
-[xy.ai.req:ClaudeCode:aad8e44c-115e-44f5-974f-2e33bba346e4]
 Korrektur, hier ist der Pfad `/home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/connectors/claudecode/ClaudeCodeControlClient.java`.
 #:SystemInit: cwd=/home/user/xyan/xy.ai.workbench | session_id=d818682d-f561-4aa6-a54a-f3cc039daa64 | model=claude-sonnet-5 | plugins=
 #:ReasoningToken: 264
@@ -1396,4 +1395,3 @@ Session created
 #:ReasoningToken: 64
 #:ReasoningToken: 23
 
-[xy.ai.req:ClaudeCode:58cf303e-1399-4984-9037-69f305e39e7e]
