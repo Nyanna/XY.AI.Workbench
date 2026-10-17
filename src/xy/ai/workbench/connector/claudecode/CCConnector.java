@@ -147,56 +147,46 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
     CCResponse resp = new CCResponse(req.id);
     String line;
-    long lastChangeAt = System.currentTimeMillis();
+    long lastDataAt = System.nanoTime();
     long lastControlAt = 0;
     boolean errDead = false;
     while (true) {
-      boolean changed = false;
-      boolean found = false;
-      // Priority: 1. STDERR, 2. STDOUT (Claude Code), 3. control endpoint. Sources are probed without
-      // blocking; only a source that has data is read.
-      if (!errDead) {
+      long before = lastDataAt;
+      // Sources are probed without blocking; a source is only read if it has data.
+      // lastDataAt is set on receipt and after processing, so processing time never counts against the limit.
+      if (!errDead)
         try {
           if (session.hasError()) {
-            found = true;
             String errLine = ts.io(() -> session.readError());
             if (errLine != null) {
+              lastDataAt = System.nanoTime();
               LOG.error("CLI stderr: " + errLine);
               resp.resultText = (resp.resultText == null ? "" : resp.resultText + "\n") + errLine;
-              changed = true;
             }
           }
         } catch (Exception ex2) {
           LOG.error("Error reading stderr: ", ex2);
-          errDead = true; // avoid a hot loop on a broken stream
+          // avoid a hot loop on a broken stream
+          errDead = true;
         }
-      }
-      if (!found) {
-        try {
-          if (session.hasOutput()) {
-            found = true;
-            if ((line = ts.io(() -> session.readLine())) != null) {
-              ts.received++;
-              session.setLastRawLine(line);
-              job.setName(abbreviateForStatus(line));
-              mon.worked(1);
-              jsonParser.parseLine(resp, session, sub, line);
-              changed = true;
-            }
-          }
-        } catch (Exception ex) {
-          LOG.error("Error reading line: ", ex);
-          resp.resultText = ex.getMessage();
-          changed = true;
+      try {
+        if (session.hasOutput() && (line = ts.io(() -> session.readLine())) != null) {
+          lastDataAt = System.nanoTime();
+          ts.received++;
+          session.setLastRawLine(line);
+          job.setName(abbreviateForStatus(line));
+          mon.worked(1);
+          jsonParser.parseLine(resp, session, sub, line);
+          lastDataAt = System.nanoTime();
         }
+      } catch (Exception ex) {
+        LOG.error("Error reading line: ", ex);
+        resp.resultText = ex.getMessage();
+        lastDataAt = System.nanoTime();
       }
-      if (changed)
-        lastChangeAt = System.currentTimeMillis();
-      else if (System.currentTimeMillis() - lastChangeAt > 30000)
-        // Stuck detection: neither STDOUT nor STDERR produced anything for 30s
-        throw new IOException("Stuck detection: no STDOUT/STDERR output for 30 seconds (session " + session.getID() + ")");
-      if (!found && !resp.isReady()) {
-        // Idle: check control endpoint (HTTP), rate limited to limit CPU spent on state lookups
+      boolean idle = lastDataAt == before;
+      if (idle && !resp.isReady()) {
+        // Check control endpoint (HTTP), rate limited to limit CPU spent on state lookups
         long now = System.currentTimeMillis();
         if (now - lastControlAt >= CONTROL_CHECK_INTERVAL_MS) {
           lastControlAt = now;
@@ -206,6 +196,9 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
           });
         }
         if (!resp.isReady()) {
+          long silentMs = (System.nanoTime() - lastDataAt) / 1_000_000;
+          if (silentMs > 30000)
+            throw new IOException("Stuck detection: no data from STDOUT/STDERR for " + silentMs / 1000 + " seconds (session " + session.getID() + ", received=" + ts.received + ", lastLine=" + abbreviateForStatus(String.valueOf(session.getLastRawLine())) + ")");
           try {
             Thread.sleep(IDLE_WAIT_MS);
           } catch (InterruptedException ie) {
