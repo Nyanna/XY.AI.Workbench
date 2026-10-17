@@ -1,3 +1,12 @@
+Setze Q3 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
+- Projektdokumente immer in englisch ausgeben
+
 # Umsetzungsplan Q3 · Teststrategie & Mocks
 
 **Querschnitt Q — verbindliche Konvention.** Nach A4 initial zu fixieren, je Gruppe fortzuschreiben.

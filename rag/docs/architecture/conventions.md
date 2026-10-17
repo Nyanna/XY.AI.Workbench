@@ -21,19 +21,27 @@
 
 ## Q2 — Logging (`tracing`)
 
-- Span granularity: one span per task (field `task_id`); child spans per processing
-  cycle/batch and per manager cycle. A resource (device/index) is a span **field**
-  (`resident::telemetry::FIELD_RESOURCE`), never its own span.
+- Stable field names (`resident::telemetry`): `task_id`, `resource_kind`, `model_id`,
+  `index_id`, `segment_gen`, `slot`, `lane`, `manager_cycle`, `op`, `precision`, `profile`.
+  Always use these exact names so filters and JSON pipelines stay stable.
+- Span topology: one task span (`telemetry::task_span`) per task; one resource span
+  (`telemetry::resource_span`) per leased resource, nested under the task span; one
+  manager-cycle span (`telemetry::manager_cycle_span`) per communication slot/scan cycle.
 - Async rule: use `#[tracing::instrument(skip_all, fields(task_id = %id))]` or
   `.instrument(span)` on futures. Never hold `span.enter()` across an `.await`.
 - Thread/`spawn_blocking` rule: spans do not propagate automatically across a thread
-  boundary. Clone the span (`telemetry::for_blocking`) and use `span.in_scope(...)` or
-  `let _g = span.enter();` inside the closure. GPU calls run on a dedicated thread or via
+  boundary. Capture `Span::current()`, pass it in, and use `telemetry::for_blocking` plus
+  `span.in_scope(...)` inside the closure. GPU calls run on a dedicated thread or via
   `spawn_blocking`, never as a plain async task.
-- Subscriber: `tracing-subscriber` with `EnvFilter` (`telemetry::init_tracing`, default
-  `info`, overridable via `RUST_LOG`). High-frequency kernel-level events use `trace!`.
+- GPU completion callbacks (`cuLaunchHostFunc`) must not call tracing/CUDA APIs directly;
+  hand the completion data to a channel/atomic and log it from the worker that drains it.
+- Subscriber: `tracing-subscriber` with `EnvFilter` (`telemetry::init_tracing` for the plain
+  default, `telemetry::init_tracing_non_blocking` for a non-blocking appender with optional
+  JSON output behind the `json` feature). High-frequency kernel-level events use `trace!`.
   Each group defines, for its own events, what is logged at which level (e.g. manager scan
   results, load/eviction decisions, discarded/outdated results, arena utilization).
+- The engine library never installs a global subscriber or appender; only the binary/daemon
+  does (see `src/bin/xyrag.rs`).
 
 ## Q3 — Test Strategy & Mocks
 

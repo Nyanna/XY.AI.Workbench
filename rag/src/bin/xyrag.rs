@@ -9,6 +9,7 @@ use xy_ai_rag::core::persistence::PersistenceManager;
 use xy_ai_rag::core::query::Query;
 use xy_ai_rag::core::registry::LayerRegistry;
 use xy_ai_rag::layers::dir_cache::{configure_global_filter, PathFilter};
+use xy_ai_rag::resident::telemetry;
 #[derive(Parser, Debug)]
 #[command(name = "xyrag", about = "xy.ai.rag - Layered Anytime Retrieval Engine")]
 struct Cli {
@@ -117,6 +118,10 @@ fn numeric_keys_for_lines(value: &mut serde_yaml::Value) {
 }
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _tracing_guard = telemetry::init_tracing_non_blocking(
+        std::io::stderr(),
+        cfg!(feature = "json"),
+    );
     let cli = Cli::parse();
     let mode = ExecutionMode::parse(&cli.mode)
         .ok_or_else(|| anyhow!("Invalid mode: {}", cli.mode))?;
