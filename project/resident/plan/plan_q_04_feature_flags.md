@@ -4,7 +4,6 @@ Setze Q4 um.
 [include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
 
 - minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
 - Projektdokumente immer in englisch ausgeben
 
 
@@ -3532,4 +3531,29 @@ arguments:
   reason: Abschließende Validierung aller für Q4 geänderten Dateien.
 ```
 /answer 9faa-26 allow
-[xy.ai.req:ClaudeCode:a182e22a-f224-4c7c-b47f-52b7c17f5756]
+Result Stats: id=a4b60ef1-3872-41f5-aa32-a2847309f27b, total: 87756, in: 165, out: 13658, reason: 6196, read: 659909, write: 73933
+ReasoningToken: 103
+ReasoningToken: 229
+ReasoningToken: 200
+ReasoningToken: 481
+ReasoningToken: 655
+ReasoningToken: 426
+ReasoningToken: 3922
+ReasoningToken: 44
+Text:
+ Now validate and update docs.
+ReasoningToken: 136
+Text:
+ Good. Now update the Q4 convention doc to reflect the actual implemented factory.
+Text:
+ Final validation of all touched files.
+Q4 ist umgesetzt:
+
+- **`src/resident/backend.rs`** (neu): `ComputeBackend`-Trait (feature-unabhängig) und `create_backend()` als einziger `#[cfg(feature = "cuda")]`-Entscheidungspunkt mit Fallback auf `CpuBackend`.
+- **`src/resident/subengine/mod.rs`**: `CpuBackend` (immer gebaut, Default + Fallback-Ziel).
+- **`src/resident/subengine/device.rs`**: `CudaBackend` als einziger Candle/CUDA-Adapterpunkt der Subengine; `try_new()` liefert bei fehlender GPU einen Fehler, den die Factory abfängt.
+- **`src/resident/mock.rs`**: doppelte `ComputeBackend`-Definition entfernt, importiert jetzt die produktive Trait-Definition aus `backend.rs`; `MockBackend` bleibt unverändert.
+- **`src/resident/mod.rs`**: `backend`-Modul registriert.
+- **`docs/architecture/conventions.md`**: Q4-Abschnitt auf die tatsächlich implementierte Factory aktualisiert.
+
+`Cargo.toml`-Feature-Matrix und `docs/architecture/feature_matrix.md` (CI-Jobs A–D) waren bereits aus einem vorherigen Durchlauf korrekt vorhanden.

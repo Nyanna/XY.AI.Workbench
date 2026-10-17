@@ -160,6 +160,7 @@ public class ClaudeSessionParameters extends SessionParameters {
 			pb.environment().put("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_CRON", "1");
+			pb.environment().put("CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS", "0");
 			pb.environment().put("CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1");
