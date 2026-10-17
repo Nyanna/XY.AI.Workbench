@@ -11,322 +11,304 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-
 import xy.ai.workbench.LOG;
+import xy.ai.workbench.models.TimeStats;
 import xy.ai.workbench.models.TokenStats;
 
 public class CCSession {
-	/**
-	 * The Claude session UUID. {@code null} until the process is started for the
-	 * first time (or until a UUID is pre-assigned via {@link #assignUuid}).
-	 */
-	private final String uuid;
-	private final ClaudeSessionParameters parameters;
+  private final String uuid;
+  private final ClaudeSessionParameters parameters;
+  private Process process;
+  private PrintWriter stdin;
+  private TimedLineReader stdout;
+  private TimedLineReader stderr;
+  private Writer mirror;
+  @SuppressWarnings("unused")
+  private final Instant createdAt = Instant.now();
+  @SuppressWarnings("unused")
+  private Instant startedAt;
+  /**
+   * The last time a prompt was sent to STDIN. Determines TTL.
+   */
+  private Instant lastSentAt;
+  private volatile Instant lastReceivedAt;
+  public final TokenStats stats = new TokenStats();
+  public final TimeStats time = new TimeStats();
+  private volatile boolean inPrompt;
+  private volatile String lastParsedMessage;
+  private volatile String lastRawLine;
+  private volatile boolean lastRawLineProcessed;
+  private boolean resume;
+  private final CCSessionManager manager;
 
-	private Process process;
-	private PrintWriter stdin;
-	private TimedLineReader stdout;
-	private TimedLineReader stderr;
-	private Writer mirror;
+  public CCSession(CCSessionManager manager, ClaudeSessionParameters parameters) {
+    this(UUID.randomUUID().toString(), false, manager, parameters);
+  }
 
-	@SuppressWarnings("unused")
-	private final Instant createdAt = Instant.now();
-	@SuppressWarnings("unused")
-	private Instant startedAt;
-	/** The last time a prompt was sent to STDIN. Determines TTL. */
-	private Instant lastSentAt;
-	private volatile Instant lastReceivedAt;
+  public CCSession(String sessionUuid, CCSessionManager manager, ClaudeSessionParameters parameters) {
+    this(sessionUuid, true, manager, parameters);
+  }
 
-	public final TokenStats stats = new TokenStats();
-	private volatile boolean inPrompt;
-	private volatile String lastParsedMessage;
-	private volatile String lastRawLine;
-	private volatile boolean lastRawLineProcessed;
-	private boolean resume;
+  private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, ClaudeSessionParameters parameters) {
+    if (sessionUuid == null || sessionUuid.isBlank())
+      throw new IllegalArgumentException("Session UUID must not be null or blank");
+    Objects.requireNonNull(parameters, "session parameters must not be null");
+    this.uuid = sessionUuid;
+    this.resume = resume;
+    this.manager = manager;
+    this.parameters = parameters;
+  }
 
-	private final CCSessionManager manager;
+  public long getRemainingTtlMinutes() {
+    if (lastSentAt == null)
+      return -1;
+    long elapsed = ChronoUnit.MINUTES.between(lastSentAt, Instant.now());
+    if (parameters.cacheMode != null)
+      switch(parameters.cacheMode) {
+        case Disabled:
+          return 0l;
+        case Minutes_5:
+          return Math.max(0, 5 - elapsed);
+        case Default:
+        case Hours_1:
+        case Minutes_30:
+      }
+    return Math.max(0, 60 - elapsed);
+  }
 
-	public CCSession(CCSessionManager manager, ClaudeSessionParameters parameters) {
-		this(UUID.randomUUID().toString(), false, manager, parameters);
-	}
+  public SessionState getState() {
+    if (inPrompt)
+      return SessionState.Prompting;
+    if (isExpired())
+      return SessionState.Expired;
+    if (isProcessAlive())
+      return SessionState.Open;
+    return SessionState.Created;
+  }
 
-	public CCSession(String sessionUuid, CCSessionManager manager, ClaudeSessionParameters parameters) {
-		this(sessionUuid, true, manager, parameters);
-	}
+  /**
+   * @return the number of whole seconds until this session's TTL runs out, or
+   *         {@code -1} if no prompt has been sent yet (TTL not started).
+   */
+  public long getRemainingTtlSeconds() {
+    if (lastSentAt == null)
+      return -1;
+    long elapsed = ChronoUnit.SECONDS.between(lastSentAt, Instant.now());
+    long totalSeconds = 60 * 60;
+    if (parameters.cacheMode != null)
+      switch(parameters.cacheMode) {
+        case Disabled:
+          return 0L;
+        case Minutes_5:
+          totalSeconds = 5 * 60;
+          break;
+        default:
+      }
+    return Math.max(0, totalSeconds - elapsed);
+  }
 
-	private CCSession(String sessionUuid, boolean resume, CCSessionManager manager,
-			ClaudeSessionParameters parameters) {
-		if (sessionUuid == null || sessionUuid.isBlank())
-			throw new IllegalArgumentException("Session UUID must not be null or blank");
-		Objects.requireNonNull(parameters, "session parameters must not be null");
-		this.uuid = sessionUuid;
-		this.resume = resume;
-		this.manager = manager;
-		this.parameters = parameters;
-	}
+  /**
+   * @return {@code true} unless the session is {@link SessionState#Expired}. Used
+   *         to filter out no-longer-usable sessions from automatic selection
+   *         logic.
+   */
+  public boolean isValid() {
+    return getState() != SessionState.Expired;
+  }
 
-	public long getRemainingTtlMinutes() {
-		if (lastSentAt == null)
-			return -1;
-		long elapsed = ChronoUnit.MINUTES.between(lastSentAt, Instant.now());
+  private synchronized void start() throws IOException {
+    if (process != null) {
+      if (process.isAlive())
+        return;
+      terminate();
+    }
+    List<String> cmd = parameters.buildBaseCommand();
+    if (resume)
+      cmd.add("--resume");
+    else
+      cmd.add("--session-id");
+    cmd.add(uuid);
+    ProcessBuilder pb = new ProcessBuilder(cmd);
+    parameters.buildEvironment(pb);
+    pb.environment().put("MCPC_SESSION_ID", uuid);
+    pb.redirectErrorStream(false);
+    process = pb.start();
+    stdin = JsonUtil.newWriter(process.getOutputStream());
+    stdout = new TimedLineReader(JsonUtil.newReader(process.getInputStream()));
+    stderr = new TimedLineReader(JsonUtil.newReader(process.getErrorStream()));
+    startedAt = Instant.now();
+    // after first start use resume
+    resume = true;
+    LOG.info("CLI started, uuid=" + uuid + ", workDir=" + parameters.cwd);
+    notifyChanged();
+  }
 
-		if (parameters.cacheMode != null)
-			switch (parameters.cacheMode) {
-			case Disabled:
-				return 0l;
-			case Minutes_5:
-				return Math.max(0, 5 - elapsed);
-			case Default:
-			case Hours_1:
-			case Minutes_30:
-			}
-		return Math.max(0, 60 - elapsed);
-	}
+  public synchronized void terminate() {
+    if (process != null) {
+      try {
+        if (stdin != null)
+          stdin.close();
+      } catch (Exception ignored) {
+      }
+      process.destroy();
+      process = null;
+      stdin = null;
+      stdout = null;
+      stderr = null;
+      if (mirror != null)
+        try {
+          mirror.close();
+        } catch (IOException ignored) {
+        } finally {
+          mirror = null;
+        }
+      LOG.info("Terminated, uuid=" + uuid);
+      notifyChanged();
+    }
+  }
 
-	public SessionState getState() {
-		if (inPrompt)
-			return SessionState.Prompting;
-		if (isExpired())
-			return SessionState.Expired;
-		if (isProcessAlive())
-			return SessionState.Open;
-		return SessionState.Created;
-	}
+  public synchronized void writeLine(String jsonLine) throws IOException {
+    if (lastSentAt != null && isExpired()) {
+      if (isProcessAlive())
+        terminate();
+      throw new IllegalStateException("Session has expired and can no longer be used");
+    }
+    Objects.requireNonNull(jsonLine, "line to write must not be null");
+    // idempotent
+    start();
+    if (stdin == null)
+      throw new IllegalStateException("STDIN unavailable after start(); process=" + process + ", uuid=" + uuid);
+    mirrorLine(jsonLine);
+    stdin.println(jsonLine);
+    stdin.flush();
+    lastSentAt = Instant.now();
+    notifyChanged();
+  }
 
-	/**
-	 * @return the number of whole seconds until this session's TTL runs out, or
-	 *         {@code -1} if no prompt has been sent yet (TTL not started).
-	 */
-	public long getRemainingTtlSeconds() {
-		if (lastSentAt == null)
-			return -1;
-		long elapsed = ChronoUnit.SECONDS.between(lastSentAt, Instant.now());
+  private void mirrorLine(String jsonLine) throws IOException {
+    openMirrorIfNeeded();
+    if (jsonLine != null && jsonLine.length() > 0) {
+      mirror.write(jsonLine);
+      mirror.write(System.lineSeparator());
+      mirror.flush();
+    }
+  }
 
-		long totalSeconds = 60 * 60;
-		if (parameters.cacheMode != null)
-			switch (parameters.cacheMode) {
-			case Disabled:
-				return 0L;
-			case Minutes_5:
-				totalSeconds = 5 * 60;
-				break;
-			default:
-			}
-		return Math.max(0, totalSeconds - elapsed);
-	}
+  public String readLine() {
+    return readLine(stdout, "STDOUT");
+  }
 
-	/**
-	 * @return {@code true} unless the session is {@link SessionState#Expired}. Used
-	 *         to filter out no-longer-usable sessions from automatic selection
-	 *         logic.
-	 */
-	public boolean isValid() {
-		return getState() != SessionState.Expired;
-	}
+  public String readError() {
+    return readLine(stderr, "STDERR");
+  }
 
-	private synchronized void start() throws IOException {
-		if (process != null) {
-			if (process.isAlive())
-				return;
-			terminate();
-		}
+  private String readLine(TimedLineReader reader, String channel) {
+    if (reader == null)
+      throw new IllegalStateException("Cannot read " + channel + ": the CLI process is not started" + " (uuid=" + uuid + ", processAlive=" + isProcessAlive() + ")." + " A prompt must be sent (writeLine) before reading.");
+    try {
+      var line = reader.readLine();
+      mirrorLine(line);
+      lastSentAt = Instant.now();
+      return line;
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to read " + channel + " for session " + uuid, e);
+    }
+  }
 
-		List<String> cmd = parameters.buildBaseCommand();
-		if (resume)
-			cmd.add("--resume");
-		else
-			cmd.add("--session-id");
-		cmd.add(uuid);
+  private void openMirrorIfNeeded() {
+    if (mirror != null)
+      return;
+    // Guard against ever producing a "null.json" (or similar) mirror file.
+    if (uuid == null || uuid.isBlank())
+      throw new IllegalStateException("Refusing to create a mirror file: session UUID is null/blank");
+    File filePath = null;
+    try {
+      var di = parameters.cwd.resolve(".claude/logs/");
+      Files.createDirectories(di);
+      filePath = di.resolve(uuid + ".json").toFile();
+      mirror = JsonUtil.newWriter(new FileOutputStream(filePath, true), false);
+      // LOG.info("Created mirror file: " + filePath);
+    } catch (IOException e) {
+      LOG.error("Cannot open mirror file: " + filePath, e);
+      throw new IllegalStateException("Cannot open mirror file: " + filePath, e);
+    }
+  }
 
-		ProcessBuilder pb = new ProcessBuilder(cmd);
-		parameters.buildEvironment(pb);
-		pb.environment().put("MCPC_SESSION_ID", uuid);
-		pb.redirectErrorStream(false);
+  public String getSessionUuid() {
+    return uuid;
+  }
 
-		process = pb.start();
-		stdin = JsonUtil.newWriter(process.getOutputStream());
-		stdout = new TimedLineReader(JsonUtil.newReader(process.getInputStream()));
-		stderr = new TimedLineReader(JsonUtil.newReader(process.getErrorStream()));
-		startedAt = Instant.now();
-		// after first start use resume
-		resume = true;
+  public Instant getLastSentAt() {
+    return lastSentAt;
+  }
 
-		LOG.info("CLI started, uuid=" + uuid + ", workDir=" + parameters.cwd);
-		notifyChanged();
-	}
+  public String getLastParsedMessage() {
+    return lastParsedMessage;
+  }
 
-	public synchronized void terminate() {
-		if (process != null) {
-			try {
-				if (stdin != null)
-					stdin.close();
-			} catch (Exception ignored) {
-			}
-			process.destroy();
-			process = null;
-			stdin = null;
-			stdout = null;
-			stderr = null;
+  public void setLastParsedMessage(String msg) {
+    this.lastParsedMessage = msg != null ? msg.replace('\n', ' ').strip() : "empty";
+    this.lastRawLineProcessed = true;
+    notifyChanged();
+  }
 
-			if (mirror != null)
-				try {
-					mirror.close();
-				} catch (IOException ignored) {
-				} finally {
-					mirror = null;
-				}
-			LOG.info("Terminated, uuid=" + uuid);
-			notifyChanged();
-		}
-	}
+  public void setLastRawLine(String line) {
+    this.lastRawLine = line;
+    this.lastRawLineProcessed = false;
+    this.lastReceivedAt = Instant.now();
+    notifyChanged();
+  }
 
-	public synchronized void writeLine(String jsonLine) throws IOException {
-		if (lastSentAt != null && isExpired()) {
-			if (isProcessAlive())
-				terminate();
-			throw new IllegalStateException("Session has expired and can no longer be used");
-		}
+  public String getLastRawLine() {
+    return lastRawLine;
+  }
 
-		Objects.requireNonNull(jsonLine, "line to write must not be null");
-		start(); // idempotent
-		if (stdin == null)
-			throw new IllegalStateException("STDIN unavailable after start(); process=" + process + ", uuid=" + uuid);
+  public boolean isLastRawLineProcessed() {
+    return lastRawLineProcessed;
+  }
 
-		mirrorLine(jsonLine);
-		stdin.println(jsonLine);
-		stdin.flush();
-		lastSentAt = Instant.now();
-		notifyChanged();
-	}
+  public Instant getLastReceivedAt() {
+    return lastReceivedAt;
+  }
 
-	private void mirrorLine(String jsonLine) throws IOException {
-		openMirrorIfNeeded();
-		if (jsonLine != null && jsonLine.length() > 0) {
-			mirror.write(jsonLine);
-			mirror.write(System.lineSeparator());
-			mirror.flush();
-		}
-	}
+  public boolean isExpired() {
+    if (inPrompt)
+      return false;
+    if (lastSentAt == null)
+      return false;
+    if (parameters.cacheMode != null)
+      switch(parameters.cacheMode) {
+        case Disabled:
+          return true;
+        case Minutes_5:
+          return Instant.now().isAfter(lastSentAt.plus(5, ChronoUnit.MINUTES));
+        default:
+      }
+    return Instant.now().isAfter(lastSentAt.plus(1, ChronoUnit.HOURS));
+  }
 
-	public String readLine() {
-		return readLine(stdout, "STDOUT");
-	}
+  private boolean isProcessAlive() {
+    return process != null && process.isAlive();
+  }
 
-	public String readError() {
-		return readLine(stderr, "STDERR");
-	}
+  public void setInPrompt(boolean inPrompt) {
+    if (this.inPrompt == inPrompt)
+      return;
+    this.inPrompt = inPrompt;
+    notifyChanged();
+  }
 
-	private String readLine(TimedLineReader reader, String channel) {
-		if (reader == null)
-			throw new IllegalStateException(
-					"Cannot read " + channel + ": the CLI process is not started" + " (uuid=" + uuid + ", processAlive="
-							+ isProcessAlive() + ")." + " A prompt must be sent (writeLine) before reading.");
+  public ClaudeSessionParameters getParameters() {
+    return parameters;
+  }
 
-		try {
-			var line = reader.readLine();
-			mirrorLine(line);
-			lastSentAt = Instant.now();
+  private void notifyChanged() {
+    manager.onSessionChanged(this);
+  }
 
-			return line;
-		} catch (IOException e) {
-			throw new IllegalStateException("Failed to read " + channel + " for session " + uuid, e);
-		}
-	}
-
-	private void openMirrorIfNeeded() {
-		if (mirror != null)
-			return;
-		// Guard against ever producing a "null.json" (or similar) mirror file.
-		if (uuid == null || uuid.isBlank())
-			throw new IllegalStateException("Refusing to create a mirror file: session UUID is null/blank");
-		File filePath = null;
-		try {
-			var di = parameters.cwd.resolve(".claude/logs/");
-			Files.createDirectories(di);
-			filePath = di.resolve(uuid + ".json").toFile();
-			mirror = JsonUtil.newWriter(new FileOutputStream(filePath, true), false);
-			// LOG.info("Created mirror file: " + filePath);
-		} catch (IOException e) {
-			LOG.error("Cannot open mirror file: " + filePath, e);
-			throw new IllegalStateException("Cannot open mirror file: " + filePath, e);
-		}
-	}
-
-	public String getSessionUuid() {
-		return uuid;
-	}
-
-	public Instant getLastSentAt() {
-		return lastSentAt;
-	}
-
-	public String getLastParsedMessage() {
-		return lastParsedMessage;
-	}
-
-	public void setLastParsedMessage(String msg) {
-		this.lastParsedMessage = msg != null ? msg.replace('\n', ' ').strip() : "empty";
-		this.lastRawLineProcessed = true;
-		notifyChanged();
-	}
-
-	public void setLastRawLine(String line) {
-		this.lastRawLine = line;
-		this.lastRawLineProcessed = false;
-		this.lastReceivedAt = Instant.now();
-		notifyChanged();
-	}
-
-	public String getLastRawLine() {
-		return lastRawLine;
-	}
-
-	public boolean isLastRawLineProcessed() {
-		return lastRawLineProcessed;
-	}
-
-	public Instant getLastReceivedAt() {
-		return lastReceivedAt;
-	}
-
-	public boolean isExpired() {
-		if(inPrompt)
-			return false;
-		if (lastSentAt == null)
-			return false;
-		if (parameters.cacheMode != null)
-			switch (parameters.cacheMode) {
-			case Disabled:
-				return true;
-			case Minutes_5:
-				return Instant.now().isAfter(lastSentAt.plus(5, ChronoUnit.MINUTES));
-			default:
-			}
-		return Instant.now().isAfter(lastSentAt.plus(1, ChronoUnit.HOURS));
-	}
-
-	private boolean isProcessAlive() {
-		return process != null && process.isAlive();
-	}
-
-	public void setInPrompt(boolean inPrompt) {
-		if (this.inPrompt == inPrompt)
-			return;
-		this.inPrompt = inPrompt;
-		notifyChanged();
-	}
-
-	public ClaudeSessionParameters getParameters() {
-		return parameters;
-	}
-
-	private void notifyChanged() {
-		manager.onSessionChanged(this);
-	}
-
-	public String getID() {
-		if (uuid != null)
-			return uuid;
-		return getParameters().getHash();
-	}
+  public String getID() {
+    if (uuid != null)
+      return uuid;
+    return getParameters().getHash();
+  }
 }

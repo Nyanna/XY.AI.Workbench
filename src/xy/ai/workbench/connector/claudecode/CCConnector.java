@@ -1,5 +1,6 @@
 package xy.ai.workbench.connector.claudecode;
 
+import xy.ai.workbench.models.TimeStats;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -78,6 +79,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   public CCResponse executeRequest(CCRequest req, IProgressMonitor mon, Job job) {
     SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
     CCSession session = null;
+    TimeStats ts = new TimeStats();
+    ts.start();
     String relativeFilePath = req.arg.project.relativize(Paths.get(req.arg.absoluteFilePath)).toString();
     FrozenConfig fc = req.config;
     ClaudeSessionParameters params = new ClaudeSessionParameters(req.arg.project, fc.systemPrompt, fc.tools, fc.model, fc.reasoning, fc.profile, fc.keys, fc.cacheMode, relativeFilePath);
@@ -96,20 +99,20 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     }
     if (command instanceof AnswerCommand ac) {
       if (ac.action() == AnswerCommand.Action.Allow)
-        controlClient.approve(ac.parameter(0), ac.parameter(2));
+        ts.control(() -> controlClient.approve(ac.parameter(0), ac.parameter(2)));
       else if (ac.action() == AnswerCommand.Action.Exec)
-        controlClient.exec(ac.parameter(0), ac.parameter(2));
+        ts.control(() -> controlClient.exec(ac.parameter(0), ac.parameter(2)));
       else
-        controlClient.deny(ac.parameter(0), ac.parameter(2));
+        ts.control(() -> controlClient.deny(ac.parameter(0), ac.parameter(2)));
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command instanceof CallEditCommand cec) {
-      if (!controlClient.submitEdit(cec.yaml()))
+      if (!ts.control(() -> controlClient.submitEdit(cec.yaml())))
         throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command instanceof CallCommand) {
       if (req.arg.yaml == null || req.arg.yaml.isBlank())
         throw new IllegalArgumentException("No preceding ```yaml block found before /call");
-      if (!controlClient.submitEdit(req.arg.yaml))
+      if (!ts.control(() -> controlClient.submitEdit(req.arg.yaml)))
         throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command == null) {
@@ -120,13 +123,17 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     try {
       session.setInPrompt(true);
       if (command == null) {
-        if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !controlClient.isMCPCAvailable())
+        if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !ts.control(() -> controlClient.isMCPCAvailable()))
           throw new IllegalStateException("MCPC not reachable for AgentProfile");
         sub.subTask("Sending prompt");
-        session.writeLine(requestBuilder.buildPromptJson(req.promptText));
+        String promptJson = requestBuilder.buildPromptJson(req.promptText);
+        long t0 = System.nanoTime();
+        session.writeLine(promptJson);
+        ts.ioMs += (System.nanoTime() - t0) / 1_000_000;
+        ts.sent++;
       }
       sub.subTask("Waiting for answer");
-      return readUntilResult(req, session, sub.split(1), job);
+      return readUntilResult(req, session, sub.split(1), job, ts);
     } catch (IOException e) {
       throw new IllegalStateException("Claude Code CLI error", e);
     } finally {
@@ -134,7 +141,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     }
   }
 
-  private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job) throws IOException {
+  private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job, TimeStats ts) throws IOException {
     SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
     CCResponse resp = new CCResponse(req.id);
     String line;
@@ -144,7 +151,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
       // alternate read sources undtil answer
       try {
         // wait 300 ms
-        if ((line = session.readLine()) != null) {
+        if ((line = ts.io(() -> session.readLine())) != null) {
+          ts.received++;
           session.setLastRawLine(line);
           job.setName(abbreviateForStatus(line));
           mon.worked(1);
@@ -157,7 +165,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
         changed = true;
       }
       try {
-        String errLine = session.readError();
+        String errLine = ts.io(() -> session.readError());
         if (errLine != null) {
           LOG.error("CLI stderr: " + errLine);
           resp.resultText = (resp.resultText == null ? "" : resp.resultText + "\n") + errLine;
@@ -172,9 +180,16 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
         // Stuck detection: neither STDOUT nor STDERR produced anything for 30s
         throw new IOException("Stuck detection: no STDOUT/STDERR output for 30 seconds (session " + session.getID() + ")");
       if (!resp.isReady())
-        controlClient.checkControlEndpoint(resp, session.getID());
+        ts.control(() -> {
+          controlClient.checkControlEndpoint(resp, session.getID());
+          return null;
+        });
       if (resp.isReady()) {
         resp.sessionId = session.getID();
+        ts.stop();
+        session.time.add(ts);
+        resp.time.add(ts);
+        resp.time.totalMs = session.time.totalMs;
         session.stats.add(resp.stats);
         session.stats.totalToken = session.stats.inputToken + session.stats.cacheCreate;
         return resp;
@@ -202,6 +217,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     answer.stats.cacheRead = resp.stats.cacheRead;
     answer.stats.cacheCreate = resp.stats.cacheCreate;
     answer.stats.totalToken = answer.stats.inputToken + answer.stats.cacheCreate + answer.stats.outputToken;
+    answer.time.add(resp.time);
+    answer.time.totalMs = resp.time.totalMs;
     answer.answer = resp.resultText;
     return answer;
   }

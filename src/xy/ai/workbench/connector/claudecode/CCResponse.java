@@ -1,46 +1,47 @@
 package xy.ai.workbench.connector.claudecode;
 
 import java.util.LinkedHashMap;
-
 import xy.ai.workbench.models.IModelResponse;
+import xy.ai.workbench.models.TimeStats;
 import xy.ai.workbench.models.TokenStats;
 
 public class CCResponse implements IModelResponse {
+  public final String id;
+  public String sessionId;
+  public String resultText;
+  public boolean isError;
+  /**
+   * True when this response represents a pending tool_use request rather than a
+   * final result.
+   */
+  public boolean isToolRequest;
+  /**
+   * The tool_use id when isToolRequest is true, otherwise null.
+   */
+  public String toolUseId;
+  public final TokenStats stats = new TokenStats();
+  public final TimeStats time = new TimeStats();
+  public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
+  public boolean showStats = true;
 
-	public final String id;
-	public String sessionId;
-	public String resultText;
-	public boolean isError;
-	/**
-	 * True when this response represents a pending tool_use request rather than a
-	 * final result.
-	 */
-	public boolean isToolRequest;
-	/** The tool_use id when isToolRequest is true, otherwise null. */
-	public String toolUseId;
+  public CCResponse(String id) {
+    this.id = id;
+    this.isToolRequest = false;
+    this.toolUseId = null;
+  }
 
-	public final TokenStats stats = new TokenStats();
-	public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
-	public boolean showStats = true;
+  public CCResponse(String id, String resultText) {
+    this.id = id;
+    this.resultText = resultText;
+  }
 
-	public CCResponse(String id) {
-		this.id = id;
-		this.isToolRequest = false;
-		this.toolUseId = null;
-	}
+  public void setToolUse(String resultText, String toolUseId) {
+    this.resultText = resultText;
+    this.isToolRequest = true;
+    this.toolUseId = toolUseId;
+  }
 
-	public CCResponse(String id, String resultText) {
-		this.id = id;
-		this.resultText = resultText;
-	}
-
-	public void setToolUse(String resultText, String toolUseId) {
-		this.resultText = resultText;
-		this.isToolRequest = true;
-		this.toolUseId = toolUseId;
-	}
-
-	public boolean isReady() {
-		return resultText != null;
-	}
+  public boolean isReady() {
+    return resultText != null;
+  }
 }
