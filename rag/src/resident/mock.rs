@@ -19,11 +19,7 @@ impl Clock for FakeClock {
         self.fixed_millis
     }
 }
-/// Backend abstraction the orchestration layer runs against; `cuda` selects the real
-/// CUDA implementation elsewhere, this crate only needs a CPU/mock impl to stay testable.
-pub trait ComputeBackend {
-    fn run_batch(&self, input: &[f32]) -> Vec<f32>;
-}
+use crate::resident::backend::ComputeBackend;
 /// Identity backend: sufficient for orchestration tests that do not care about numerics.
 pub struct MockBackend;
 impl ComputeBackend for MockBackend {

@@ -70,13 +70,26 @@
 
 ## Q4 — Feature Flags
 
-- Real CUDA code paths live behind the `cuda` feature; backend selection via `#[cfg]`:
+- Real CUDA code paths live behind the `cuda` feature. The only `#[cfg(feature = "cuda")]`
+  decision point is `backend::create_backend` (`src/resident/backend.rs`); everything else
+  runs against the feature-independent `ComputeBackend` trait:
   ```rust
-  #[cfg(feature = "cuda")]
-  type DefaultBackend = CudaBackend;
-  #[cfg(not(feature = "cuda"))]
-  type DefaultBackend = CpuBackend;
+  pub fn create_backend() -> Box<dyn ComputeBackend> {
+      #[cfg(feature = "cuda")]
+      {
+          if let Ok(backend) = CudaBackend::try_new() {
+              return Box::new(backend);
+          }
+      }
+      Box::new(CpuBackend)
+  }
   ```
+- `CpuBackend` (`src/resident/subengine/mod.rs`) is always built and is both the `cuda`-less
+  default and the fallback if `CudaBackend::try_new` fails. `CudaBackend`
+  (`src/resident/subengine/device.rs`) is the single Candle/CUDA adapter point for the
+  subengine; `resident/kernel/cuda.rs` is the equivalent adapter point for the kernel layer.
+  Both are gated `#[cfg(feature = "cuda")]` only at their module declaration in the parent
+  `mod.rs` — no `cfg` spreads into scheduler/planner/index logic.
 - `cuda` is never part of `default`; optional GPU crates use `dep:` syntax in `Cargo.toml`.
 - See `docs/architecture/feature_matrix.md` for the CI job matrix (no-GPU build/test vs.
   GPU build with `cuda`).

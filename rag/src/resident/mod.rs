@@ -1,4 +1,5 @@
 //! Resident engine: embedding/similarity substrate, kept warm.
+pub mod backend;
 pub mod error;
 pub mod telemetry;
 #[cfg(any(test, feature = "mock"))]
