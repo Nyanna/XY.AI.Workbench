@@ -184,7 +184,7 @@ class EditBlockNodeTool(ToolDefinition):
             'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
             'default': False},
         **PATH_SELECTOR_PROPS}
-    _ITEM_REQUIRED = ['path', 'old_text', 'new_text']
+    _ITEM_REQUIRED = ['path', 'old_text', 'new_text', 'id']
     _ITEMS_DESCRIPTION = 'Block edits to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
 
