@@ -66,7 +66,14 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
         start = lineno if lineno is not None else end_lineno
         end = end_lineno if end_lineno is not None else lineno
         hit = core.most_specific(candidates, start, end)
-        candidates = [hit] if hit is not None else []
+        if hit is not None:
+            candidates = [hit]
+        else:
+            overlap = [c for c in candidates if c.lineno <= end and c.end_lineno >= start]
+            candidates = [
+                c for c in overlap if not any(
+                    (o is not c and c.lineno <= o.lineno and (
+                        o.end_lineno <= c.end_lineno) for o in overlap))]
     if pattern is None:
         nodes = core.build_outline(candidates, with_code=True, with_lines=with_lines, with_type=with_type)
         return FileNodesResult(path=path, nodes=nodes)
@@ -102,7 +109,8 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
             node's type name must match.
         lineno: Line the target node must contain; selects the most specific
             (smallest) matching node. Combined with ``end_lineno``, selects the
-            most specific node fully covering ``[lineno, end_lineno]``.
+            most specific node fully covering ``[lineno, end_lineno]``; if none
+            does, all innermost nodes overlapping the range are returned.
         end_lineno: End line of the target range; see ``lineno``. May be given
             alone to select the most specific node containing that single line.
         parent_type: Node type name of the enclosing container (case-insensitive).
@@ -166,10 +174,10 @@ class FindNodesTool(ToolDefinition):
             **SELECTOR_PROPS,
             'text': {
                 'type': 'string',
-                        'description': "Case-insensitive substring that the node’s source must contain. Example: `import` finds nodes containing imports."},
+                        'description': 'Case-insensitive substring that the node’s source must contain. Example: `import` finds nodes containing imports.'},
             'regexp': {
                 'type': 'string',
-                'description': "Regular expression that the node’s source must match (`re.search` semantics)."}},
+                'description': 'Regular expression that the node’s source must match (`re.search` semantics).'}},
         'required': ['paths']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

@@ -23,6 +23,18 @@ public class TimedLineReader {
 		this.delegate = delegate;
 	}
 
+	/**
+	 * Non-blocking probe: true if {@link #readLine()} would find data without
+	 * waiting for the idle timeout.
+	 */
+	public boolean hasData() throws IOException {
+		if (pending.length() > 0)
+			return true;
+		if (eof)
+			return delegate != null; // EOF is reported once as null
+		return delegate != null && delegate.ready();
+	}
+
 	public String readLine() throws IOException {
 		while (true) {
 			int nl = pending.indexOf("\n");

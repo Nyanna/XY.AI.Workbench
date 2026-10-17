@@ -30,6 +30,8 @@ import xy.ai.workbench.models.AIAnswer;
 import java.util.List;
 
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
+  private static final long CONTROL_CHECK_INTERVAL_MS = 300;
+  private static final long IDLE_WAIT_MS = 50;
   private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
   private final ProtocolParser jsonParser = new ProtocolParser();
   private final CCControlClient controlClient = new CCControlClient();
@@ -146,44 +148,72 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     CCResponse resp = new CCResponse(req.id);
     String line;
     long lastChangeAt = System.currentTimeMillis();
+    long lastControlAt = 0;
+    boolean errDead = false;
     while (true) {
       boolean changed = false;
-      // alternate read sources undtil answer
-      try {
-        // wait 300 ms
-        if ((line = ts.io(() -> session.readLine())) != null) {
-          ts.received++;
-          session.setLastRawLine(line);
-          job.setName(abbreviateForStatus(line));
-          mon.worked(1);
-          jsonParser.parseLine(resp, session, sub, line);
-          changed = true;
+      boolean found = false;
+      // Priority: 1. STDERR, 2. STDOUT (Claude Code), 3. control endpoint. Sources are probed without
+      // blocking; only a source that has data is read.
+      if (!errDead) {
+        try {
+          if (session.hasError()) {
+            found = true;
+            String errLine = ts.io(() -> session.readError());
+            if (errLine != null) {
+              LOG.error("CLI stderr: " + errLine);
+              resp.resultText = (resp.resultText == null ? "" : resp.resultText + "\n") + errLine;
+              changed = true;
+            }
+          }
+        } catch (Exception ex2) {
+          LOG.error("Error reading stderr: ", ex2);
+          errDead = true; // avoid a hot loop on a broken stream
         }
-      } catch (Exception ex) {
-        LOG.error("Error reading line: ", ex);
-        resp.resultText = ex.getMessage();
-        changed = true;
       }
-      try {
-        String errLine = ts.io(() -> session.readError());
-        if (errLine != null) {
-          LOG.error("CLI stderr: " + errLine);
-          resp.resultText = (resp.resultText == null ? "" : resp.resultText + "\n") + errLine;
+      if (!found) {
+        try {
+          if (session.hasOutput()) {
+            found = true;
+            if ((line = ts.io(() -> session.readLine())) != null) {
+              ts.received++;
+              session.setLastRawLine(line);
+              job.setName(abbreviateForStatus(line));
+              mon.worked(1);
+              jsonParser.parseLine(resp, session, sub, line);
+              changed = true;
+            }
+          }
+        } catch (Exception ex) {
+          LOG.error("Error reading line: ", ex);
+          resp.resultText = ex.getMessage();
           changed = true;
         }
-      } catch (Exception ex2) {
-        LOG.error("Error reading stderr: ", ex2);
       }
       if (changed)
         lastChangeAt = System.currentTimeMillis();
       else if (System.currentTimeMillis() - lastChangeAt > 30000)
         // Stuck detection: neither STDOUT nor STDERR produced anything for 30s
         throw new IOException("Stuck detection: no STDOUT/STDERR output for 30 seconds (session " + session.getID() + ")");
-      if (!resp.isReady())
-        ts.control(() -> {
-          controlClient.checkControlEndpoint(resp, session.getID());
-          return null;
-        });
+      if (!found && !resp.isReady()) {
+        // Idle: check control endpoint (HTTP), rate limited to limit CPU spent on state lookups
+        long now = System.currentTimeMillis();
+        if (now - lastControlAt >= CONTROL_CHECK_INTERVAL_MS) {
+          lastControlAt = now;
+          ts.control(() -> {
+            controlClient.checkControlEndpoint(resp, session.getID());
+            return null;
+          });
+        }
+        if (!resp.isReady()) {
+          try {
+            Thread.sleep(IDLE_WAIT_MS);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for Claude Code output (session " + session.getID() + ")", ie);
+          }
+        }
+      }
       if (resp.isReady()) {
         resp.sessionId = session.getID();
         ts.stop();

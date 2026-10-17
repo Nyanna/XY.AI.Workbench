@@ -202,9 +202,32 @@ public class CCSession {
     return readLine(stderr, "STDERR");
   }
 
-  private String readLine(TimedLineReader reader, String channel) {
+  /** Non-blocking probe: is there anything to read on STDOUT? */
+  public boolean hasOutput() {
+    return hasData(stdout, "STDOUT");
+  }
+
+  /** Non-blocking probe: is there anything to read on STDERR? */
+  public boolean hasError() {
+    return hasData(stderr, "STDERR");
+  }
+
+  private boolean hasData(TimedLineReader reader, String channel) {
+    requireReader(reader, channel);
+    try {
+      return reader.hasData();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to probe " + channel + " for session " + uuid, e);
+    }
+  }
+
+  private void requireReader(TimedLineReader reader, String channel) {
     if (reader == null)
       throw new IllegalStateException("Cannot read " + channel + ": the CLI process is not started" + " (uuid=" + uuid + ", processAlive=" + isProcessAlive() + ")." + " A prompt must be sent (writeLine) before reading.");
+  }
+
+  private String readLine(TimedLineReader reader, String channel) {
+    requireReader(reader, channel);
     try {
       var line = reader.readLine();
       mirrorLine(line);
