@@ -48,6 +48,7 @@ import asyncio
 import logging
 import threading
 from typing import Any
+from collections.abc import Sequence
 from urllib.parse import parse_qs, urlparse
 from xy.ai.mcpc.server import errors, jsonrpc
 from xy.ai.mcpc.server.json_codec import JsonCodec
@@ -80,6 +81,10 @@ logger = logging.getLogger('xy.ai.mcpc.ws')
 '#: WebSocket close code for "policy violation" (RFC 6455 §7.4.1), used for'
 '#: every handshake-time rejection (unknown endpoint, missing session id, ...).'
 _POLICY_VIOLATION = 1008
+
+def _select_subprotocol(connection: 'ServerConnection', offered: 'Sequence[str]') -> 'str | None':
+    """Select ``mcp`` if offered (newer Claude Code requires it); accept clients that offer none."""
+    return 'mcp' if 'mcp' in offered else None
 
 class WebSocketMcpServer:
     """Runs the MCP JSON-RPC protocol over WebSocket, next to the HTTP server.
@@ -134,7 +139,7 @@ class WebSocketMcpServer:
 
     async def _serve(self) -> None:
         self._loop = asyncio.get_running_loop()
-        async with ws_serve(self._handle_connection, self.config.resolved_ws_host, self.config.ws_port) as server:
+        async with ws_serve(self._handle_connection, self.config.resolved_ws_host, self.config.ws_port, subprotocols=['mcp'], select_subprotocol=_select_subprotocol) as server:
             self._server = server
             self._ready.set()
             await server.serve_forever()
@@ -143,6 +148,9 @@ class WebSocketMcpServer:
     async def _handle_connection(self, connection: 'ServerConnection') -> None:
         request = connection.request
         headers = request.headers
+        logger.debug('WS: handshake path=%s offered_subprotocols=%s selected_subprotocol=%s user_agent=%s extensions=%s',
+                    request.path, headers.get('Sec-WebSocket-Protocol'), connection.subprotocol,
+                    headers.get('User-Agent'), headers.get('Sec-WebSocket-Extensions'))
         parsed = urlparse(request.path)
         query = parse_qs(parsed.query)
         if parsed.path != self.config.path:
@@ -176,8 +184,8 @@ class WebSocketMcpServer:
         try:
             async for raw in connection:
                 await self._handle_message(session_id, session, connection, raw, skip_control)
-        except ConnectionClosed:
-            pass
+        except ConnectionClosed as exc:
+            logger.debug('WS: connection closed session=%s rcvd=%s sent=%s', session_id, exc.rcvd, exc.sent)
         except Exception:
             '# noqa: BLE001 - never let one connection kill the loop'
             logger.exception('WS: unhandled error on connection for session %s', session_id)
@@ -189,6 +197,7 @@ class WebSocketMcpServer:
 
     async def _handle_message(self, session_id: str, session: Session, connection: 'ServerConnection', raw: 'str | bytes', skip_control: bool) -> None:
         text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else raw
+        logger.debug('WS: message received session=%s: %.300s', session_id, text)
         try:
             message = jsonrpc.parse_body(text.encode('utf-8'))
         except errors.JsonRpcError as exc:
