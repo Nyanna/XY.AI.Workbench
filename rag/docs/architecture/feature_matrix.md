@@ -13,3 +13,5 @@
 - Job A: `cargo build --no-default-features` without CUDA toolkit.
 - Job B: `cargo test --no-default-features`.
 - Job C (GPU runner): `cargo build --features cuda` with `CUDA_COMPUTE_CAP=75`, CUDA 12.x.
+- Job D (loom, on-demand): `RUSTFLAGS="--cfg loom" cargo test --release` for CAS-protocol
+  modules; exhaustive, so excluded from the default per-commit run.

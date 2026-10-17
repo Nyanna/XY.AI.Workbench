@@ -57,6 +57,10 @@ json = ["tracing-subscriber/json"]
 proptest = "1"
 criterion = "0.5"
 mockall = "0.15.0"
+loom = "0.7"
+shuttle = "0.7"
+rand = "0.8"
+tokio = { version = "1", features = ["test-util"] }
 
 [[bench]]
 name = "trie_bench"

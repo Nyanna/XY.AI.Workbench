@@ -1,2 +1,3 @@
 [build]
 target-dir = ".bin"
+rustflags = ["--check-cfg=cfg(loom)"]

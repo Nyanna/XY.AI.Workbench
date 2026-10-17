@@ -45,15 +45,26 @@
 
 ## Q3 — Test Strategy & Mocks
 
-- Narrow traits for GPU/measurement interfaces (e.g. a future `Kernel` trait, a measurement
-  trait); generics (static dispatch) in the hot path, `dyn` only at the edges.
+- Narrow traits for GPU/measurement interfaces (`ComputeBackend`, `Kernel`, `Measure`);
+  generics (static dispatch) in the hot path, `dyn` only at the edges.
 - Mock strategy: `mockall` (`#[automock]`) for orchestrator-level traits; deterministic
-  hand-written fakes (`Fake*`, fixed output, simulated failure) for GPU/async-heavy traits,
-  since they compose more simply across `Send`/`async` boundaries. See
-  `src/resident/mock.rs` for the convention and a minimal example.
+  hand-written fakes (`Fake*`, fixed/scripted output, simulated failure) for GPU/async-heavy
+  traits, since they compose more simply across `Send`/`async` boundaries. See
+  `src/resident/mock.rs`: `FakeClock`, `MockBackend`, `FakeKernel` (scriptable batch results),
+  `FakeMeasure` (seeded-RNG noise, `NoiseModel::{Constant,Outlier,Drift}`).
 - Visibility: all test doubles are gated `#[cfg(any(test, feature = "mock"))]`.
-- Testmatrix: each package ships its own test matrix (e.g. queue semantics, sync behavior,
-  calibration) as it is implemented; this document only fixes the convention, not the matrices.
+- Concurrency: CAS protocols (e.g. the queue's claim/complete/cancel/unlink transitions) run
+  under `loom` for exhaustive interleavings; the production code imports `sync::{atomic, Arc}`
+  from `src/resident/mock.rs`, which resolves to `loom::sync` under `cfg(loom)` and to
+  `std::sync` otherwise — no second implementation. Larger scenarios use `shuttle`
+  (randomized schedules); sequences/properties use `proptest`. Loom runs are a separate,
+  explicit invocation (`RUSTFLAGS="--cfg loom" cargo test`), not part of the default suite.
+- Deterministic time: `tokio::time::pause` (`test-util` dev-feature) or the `Clock` trait for
+  TTL/idle/time-slice logic; prefer state-based assertions over timing-based ones.
+- Testmatrix: each package ships its own test matrix (queue semantics, index-sync ordering,
+  calibration stability, processor/planner behavior) as it is implemented; this document only
+  fixes the convention and the shared testkit, not the per-package matrices.
+- Precision/scorer tests assert bounds/relations, never bit-equality.
 - No-GPU path: GPU integration tests are `#[ignore]`d or behind a dedicated feature, so CI
   without a GPU stays green (see `docs/architecture/feature_matrix.md`).
 

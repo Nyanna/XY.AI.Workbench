@@ -1588,4 +1588,38 @@ arguments:
   reason: Abschließende Syntaxprüfung aller geänderten Dateien
 ```
 /answer f91b-58 allow
-[xy.ai.req:ClaudeCode:df3aad72-195d-40d6-8b85-bf67049a9f2f]
+Result Stats: id=99ad280a-793d-4181-903e-6f6d800f230a, total: 62605, in: 189, out: 18253, reason: 5099, read: 800717, write: 44163
+ReasoningToken: 1891
+ReasoningToken: 353
+Text:
+ Now rewrite telemetry.rs with full stable field names, span topology helpers, and propagation helper.
+ReasoningToken: 13
+Text:
+ Now add span-topology constructor functions and a non-blocking binary setup helper, plus update `init_tracing`/`for_blocking` doc and add tests.
+ReasoningToken: 534
+ReasoningToken: 630
+ReasoningToken: 284
+Text:
+ Duplicate old versions (`task_span_2`, `resource_span_2`, `manager_cycle_span_2`) need removal since compile would fail (duplicate fn names).
+Text:
+ Now add tests at the end of the file and fix `for_blocking` doc reference consistency.
+ReasoningToken: 187
+Text:
+ Now add a propagation test for `spawn_blocking` using tokio, and validate the file compiles.
+ReasoningToken: 822
+Text:
+ Now validate the file compiles syntactically, and check mock lib-no-subscriber test / check `resident/mod.rs` doesn't init subscriber anywhere.
+ReasoningToken: 57
+ReasoningToken: 328
+Text:
+ Now update conventions.md Q2 section to reflect the full implemented convention.
+Text:
+ Final validation of all touched files.
+Q2 (Logging) ist umgesetzt:
+
+- **`Cargo.toml`**: `tracing-appender` ergänzt, `tracing-subscriber/env-filter` explizit, neues `json`-Feature (→ `tracing-subscriber/json`).
+- **`src/resident/telemetry.rs`**: vollständiger stabiler Feldnamen-Satz (`task_id`, `resource_kind`, `model_id`, `index_id`, `segment_gen`, `slot`, `lane`, `manager_cycle`, `op`, `precision`, `profile`); Span-Topologie-Konstruktoren `task_span`/`resource_span`/`manager_cycle_span`; `init_tracing_non_blocking` (EnvFilter + fmt/json + non-blocking Appender, `WorkerGuard`); Moduldoc mit Propagations- und Callback-Regel; Tests für Feldnamen, Span-Felder und Thread-Propagation.
+- **`src/bin/xyrag.rs`**: Subscriber-Setup (`init_tracing_non_blocking`, Guard gehalten) ausschließlich im Binary verdrahtet.
+- **`docs/architecture/conventions.md`**: Q2-Abschnitt auf den vollen Stand (Feldnamen, Topologie, Callback-Regel, Subscriber-Setup) aktualisiert.
+
+Instrumentierung der konkreten Ereigniskataloge (Queue/Processor/Subengine/Index/Precision) folgt, sobald die jeweiligen Gruppen (B–F) implementiert sind — diese Module sind aktuell nur Platzhalter.
