@@ -185,7 +185,8 @@ def _dedupe_hierarchy(items: list[ListItem]) -> list[ListItem]:
     for item, path in resolved:
         if any((path == kept or kept in path.parents for kept in kept_paths)):
             continue
-        kept_paths.append(path)
+        if item.recursive:
+            kept_paths.append(path)
         kept_items.append(item)
     kept_ids = {id(item) for item in kept_items}
     return [item for item in items if id(item) in kept_ids]
