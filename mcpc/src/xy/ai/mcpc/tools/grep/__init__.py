@@ -220,12 +220,12 @@ def _resolve_nodes(match: GrepMatch, roots: list[str]) -> GrepMatch:
     nodes = [GrepNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
     return GrepMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
 
-def grep(items: list[GrepItem], *, with_ast: bool=False) -> GrepBatchResult:
+def grep(items: list[GrepItem], *, with_nodeId: bool=False) -> GrepBatchResult:
     """Run one or more independent grep searches. Limits apply per item, not per batch.
 
     Args:
         items: Grep searches to run. Must be non-empty.
-        with_ast: Resolve matched lines to AST node ids (see :class:`GrepMatch`).
+        with_nodeId: Resolve matched lines to AST node ids (see :class:`GrepMatch`).
 
     Returns:
         GrepBatchResult: one result per successful search, one error per failed search.
@@ -240,7 +240,7 @@ def grep(items: list[GrepItem], *, with_ast: bool=False) -> GrepBatchResult:
     for item in items:
         try:
             result = _grep_one(item)
-            if with_ast:
+            if with_nodeId:
                 result = GrepResult(
                     directory=result.directory,
                     matches=[
@@ -286,14 +286,17 @@ class GrepTool(ToolDefinition):
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
-    input_schema['properties']['with_ast'] = {
+    input_schema['properties']['with_nodeId'] = {'type': 'boolean', 'default': False,
+                                              'description': 'Return node id (usable with ast_read and other ast_* tools).'}
+    input_schema['properties']['with_lineno'] = {
         'type': 'boolean',
         'default': False,
-        'description': 'Return node id (usable with ast_read and other ast_* tools).'}
+        'description': 'Include the line number of each match.'}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
-        with_ast = bool(ctx.arguments.get('with_ast', False))
+        with_nodeId = bool(ctx.arguments.get('with_nodeId', False))
+        with_lineno = bool(ctx.arguments.get('with_lineno', False))
 
         def item_factory(it: dict[str, Any]) -> GrepItem:
             return GrepItem(
@@ -307,7 +310,9 @@ class GrepTool(ToolDefinition):
                         _DEFAULT_LIMIT)))
 
         def line_dicts(lms: list[GrepLineMatch]) -> list[dict[str, Any]]:
-            return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
+            if with_lineno:
+                return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
+            return [{'match': lm.match} for lm in lms]
 
         def file_dict(m: GrepMatch) -> dict[str, Any]:
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
@@ -332,7 +337,7 @@ class GrepTool(ToolDefinition):
             item_factory,
             lambda items: grep(
                 items,
-                with_ast=with_ast),
+                with_nodeId=with_nodeId),
             GrepError,
             result_serializer,
             error_serializer)
