@@ -97,17 +97,15 @@ def test_http_bash_tool(http_client, tmp_path):
     assert result.get('isError') is not True
     assert 'hello-mcpc' in _first_text(result) or 'hello-mcpc' in json.dumps(result.get('structuredContent', {}))
 
-def test_http_ast_list_tool(http_client, tmp_path):
+def test_http_ast_outline_tool(http_client, tmp_path):
     source = tmp_path / 'sample.py'
     source.write_text(textwrap.dedent(
         '\n            """Module docstring."""\n            import os\n\n\n            def greet(name: str) -> str:\n                """Say hello."""\n                return f"hello {name}"\n\n\n            class Greeter:\n                """A greeter."""\n\n                def greet(self) -> None:\n                    """Greet."""\n                    pass\n            '))
-    result = http_client.call_tool('ast_list', {'paths': [str(source)]})
+    result = http_client.call_tool('ast_outline', {'paths': [str(source)]})
     assert result.get('isError') is not True
     nodes = result['structuredContent']['results'][0]['nodes']
     top_level = {n['id']: n for n in nodes}
     assert 'greet' in top_level
-    assert top_level['greet']['type'] == 'FunctionDef'
     assert 'Greeter' in top_level
-    assert top_level['Greeter']['type'] == 'ClassDef'
     method_ids = {c['id'] for c in top_level['Greeter'].get('children', [])}
     assert 'Greeter.greet' in method_ids

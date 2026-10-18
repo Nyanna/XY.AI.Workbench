@@ -25,7 +25,7 @@ from xy.ai.mcpc.tools.ast.find import ast_find
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast.insert import InsertItem, ast_insert
 '# noqa: E402'
-from xy.ai.mcpc.tools.ast.list import ast_list
+from xy.ai.mcpc.tools.ast.outline import ast_outline
 '# noqa: E402'
 from xy.ai.mcpc.tools.ast.read import ReadItem, ast_read
 '# noqa: E402'
@@ -70,10 +70,10 @@ def test_snippet_defaults_to_python():
 '# --------------------------------------------------------------------------- #'
 
 def test_python_outline(py_file):
-    nodes = ast_list(paths=[py_file]).results[0].nodes
-    kinds = [(n.type, n.id) for n in nodes]
-    assert ('ClassDef', 'A') in kinds
-    assert ('FunctionDef', 'bar') in kinds
+    nodes = ast_outline(paths=[py_file]).results[0].nodes
+    ids = [n.id for n in nodes]
+    assert 'A' in ids
+    assert 'bar' in ids
     cls = next((n for n in nodes if n.id == 'A'))
     assert any((c.id == 'A.foo' for c in cls.children))
 
@@ -90,7 +90,14 @@ def test_python_read_returns_source(py_file):
 
 def test_python_full_crud_roundtrip(py_file):
     ast_replace(items=[ReplaceItem(path=py_file, source='def bar():\n    return 42', id='bar')])
-    ast_edit_marks(items=[EditMarksItem(path=py_file, start_marker='x = 1', end_marker='return x', content='return 99', id='A.foo')])
+    ast_edit_marks(
+        items=[
+            EditMarksItem(
+                path=py_file,
+                start_marker='x = 1',
+                end_marker='return x',
+                content='return 99',
+                id='A.foo')])
     ast_insert(items=[InsertItem(path=py_file, source='z = 5', id='bar', position='after')])
     import_id = ast_find(paths=[py_file], node_type='imports').files[0].nodes[0].id
     ast_delete(items=[DeleteItem(path=py_file, id=import_id)])
@@ -109,12 +116,10 @@ def test_generic_uses_treesitter_engine(json_file):
     assert tree.engine.name == 'tree-sitter:json'
 
 def test_generic_qualified_names(json_file):
-    """# The generic tree-sitter engine addresses every named child; the"""
-    '# top-level value is always the first located node.'
     _, tree = core.load(json_file)
     locs = core.locate_all(tree)
-    assert len(locs) > 1
     assert locs[0].node_type == 'object'
+    assert not locs[0].expandable, 'small documents collapse into a single leaf'
 
 def test_generic_replace_by_qualified_name(json_file):
     _, tree = core.load(json_file)
@@ -126,7 +131,14 @@ def test_generic_replace_by_qualified_name(json_file):
 def test_generic_edit_between_markers(json_file):
     _, tree = core.load(json_file)
     obj_id = core.locate_all(tree)[0].node_id
-    ast_edit_marks(items=[EditMarksItem(path=json_file, start_marker='"a": 1', end_marker='"b": 2', content='"a": 10,\n    "b": 20', id=obj_id)])
+    ast_edit_marks(
+        items=[
+            EditMarksItem(
+                path=json_file,
+                start_marker='"a": 1',
+                end_marker='"b": 2',
+                content='"a": 10,\n    "b": 20',
+                id=obj_id)])
     text = Path(json_file).read_text()
     assert '"a": 10' in text and '"b": 20' in text
     assert ast_validate([json_file]).all_ok
@@ -183,7 +195,11 @@ def test_cache_is_shared_across_engines(py_file, json_file):
 
 def test_create_file_typescript(tmp_path: Path):
     ts = tmp_path / 'app.ts'
-    ast_create(items=[CreateFileItem(path=str(ts), source='function greet(name: string): string {\n  return name;\n}\n')])
+    ast_create(
+        items=[
+            CreateFileItem(
+                path=str(ts),
+                source='function greet(name: string): string {\n  return name;\n}\n')])
     hits = ast_find(paths=[str(ts)], node_type='function_declaration').files[0].nodes
     assert hits and hits[0].id == 'greet'
     assert ast_validate([str(ts)]).all_ok

@@ -62,7 +62,11 @@ def test_insert_before_adds_a_sibling_field(engine):
     units = engine.insert(bar, 'int x;', 'before')
     assert units == 1
     assert 'int x;' in tree.source
-    assert any((loc.node_type == 'FieldDeclaration' for loc in engine.locate_all(tree)))
+    located = engine.locate_all(tree)
+    bar_after = next((loc for loc in located if loc.node_id == 'Foo.bar'))
+    members = [loc for loc in located if loc.node_id.startswith('Foo.') and loc.node_id != 'Foo.bar']
+    field = next((loc for loc in members if 'int x;' in engine.node_code(loc.node)))
+    assert field.end_lineno < bar_after.lineno
 
 def test_delete_removes_the_node(engine):
     tree = engine.parse(VALID_SOURCE)

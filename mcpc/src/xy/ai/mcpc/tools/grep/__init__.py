@@ -195,13 +195,16 @@ def _grep_one(item: GrepItem) -> GrepResult:
             item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
     return GrepResult(directory=item.directory, matches=matches, warning=warning)
 
-def _resolve_nodes(match: GrepMatch) -> GrepMatch:
+def _resolve_nodes(match: GrepMatch, roots: list[str]) -> GrepMatch:
     """Regroup a file's line matches by the most specific enclosing AST node.
 
-    Files that cannot be parsed are returned unchanged. Lines not covered by any
-    node stay in ``matches``.
+    ``match`` paths are relative to one of ``roots``. Files that cannot be parsed
+    are returned unchanged. Lines not covered by any node stay in ``matches``.
     """
-    path = f'{match.directory}/{match.filename}' if match.directory else match.filename
+    relative = f'{match.directory}/{match.filename}' if match.directory else match.filename
+    path = next((str(Path(r) / relative) for r in roots if (Path(r) / relative).is_file()), None)
+    if path is None:
+        return match
     try:
         located = core.locate_all(core.load(path)[1])
     except (core.AstError, OSError):
@@ -241,7 +244,9 @@ def grep(items: list[GrepItem], *, with_ast: bool=False) -> GrepBatchResult:
                 result = GrepResult(
                     directory=result.directory,
                     matches=[
-                        _resolve_nodes(m) for m in result.matches],
+                        _resolve_nodes(
+                            m,
+                            item.directory) for m in result.matches],
                     warning=result.warning)
             results.append(result)
         except GrepError as exc:
@@ -281,10 +286,14 @@ class GrepTool(ToolDefinition):
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema['properties']['with_ast'] = {
+        'type': 'boolean',
+        'default': False,
+        'description': 'Return node id (usable with ast_read and other ast_* tools).'}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
-        with_ast = bool({'tools', 'ast_read'} & ctx.session.enabled_tools)
+        with_ast = bool(ctx.arguments.get('with_ast', False))
 
         def item_factory(it: dict[str, Any]) -> GrepItem:
             return GrepItem(
