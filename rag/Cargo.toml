@@ -39,6 +39,7 @@ parking_lot = "0.12.5"
 arc-swap = "1.9.2"
 half = "2.7.1"
 memmap2 = "0.9.3"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 parquet = "60.0.0"
 arrow = "60.0.0"
 tokenizers = { version = "0.23.2", default-features = false }
