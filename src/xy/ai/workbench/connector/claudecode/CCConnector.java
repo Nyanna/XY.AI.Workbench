@@ -197,7 +197,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
         }
         if (!resp.isReady()) {
           long silentMs = (System.nanoTime() - lastDataAt) / 1_000_000;
-          if (silentMs > 30000)
+          if (silentMs > 60000)
             throw new IOException("Stuck detection: no data from STDOUT/STDERR for " + silentMs / 1000 + " seconds (session " + session.getID() + ", received=" + ts.received + ", lastLine=" + abbreviateForStatus(String.valueOf(session.getLastRawLine())) + ")");
           try {
             Thread.sleep(IDLE_WAIT_MS);
