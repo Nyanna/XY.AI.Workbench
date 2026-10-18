@@ -186,7 +186,7 @@ class FindNodesTool(ToolDefinition):
         paths, error = require_items(ctx, key='paths')
         if error is not None:
             return error
-        with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
+        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
         try:
             result = ast_find(
                 paths=paths,

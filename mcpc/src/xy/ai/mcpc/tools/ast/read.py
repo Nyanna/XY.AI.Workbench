@@ -128,7 +128,7 @@ class ReadNodeTool(ToolDefinition):
         and none of them resolve to a node: returns that file's full outline
         instead of an error, and notes the redirect in the item's ``errors``.
         """
-        with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
+        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
         raw_items, error = require_items(ctx)
         if error is not None:
             return error

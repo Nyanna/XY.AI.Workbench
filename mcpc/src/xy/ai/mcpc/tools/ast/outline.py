@@ -154,7 +154,7 @@ class OutlineNodesTool(ToolDefinition):
         paths, error = require_items(ctx, key='paths')
         if error is not None:
             return error
-        with_lines = bool({'tools', 'edit-lines'} & ctx.session.enabled_tools)
+        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
         batch = ast_outline(paths=paths, with_lines=with_lines)
         result_serializer = lambda r: {'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]}
         error_serializer = lambda e: {'path': e.path, 'error': e.error}
