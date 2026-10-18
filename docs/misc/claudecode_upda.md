@@ -1,0 +1,2 @@
+#Download Claude Code CHANGELOG.MD and filter
+cat ~/Downloads/CHANGELOG.md | grep -v -E "(\[Code Review\]|\[VSCode\]|\[Claude Tag\]|\[Cloud sessions\]|\[Claude Code on the web\])" > /home/user/xyan/xy.ai.workbench/project/CHANGELOG.MD

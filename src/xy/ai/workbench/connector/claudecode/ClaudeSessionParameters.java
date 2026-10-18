@@ -164,6 +164,7 @@ public class ClaudeSessionParameters extends SessionParameters {
 			pb.environment().put("CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1");
+			pb.environment().put("CLAUDE_CODE_DISABLE_WEB_FETCH", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_POLICY_SKILLS", "1");
 			pb.environment().put("CLAUDE_CODE_DISABLE_WORKFLOWS", "1");
 			pb.environment().put("CLAUDE_CODE_ENABLE_AWAY_SUMMARY", "0");
