@@ -16,4 +16,5 @@ pub mod processor;
 pub mod planner;
 pub mod subengine;
 pub mod model;
+pub mod tokenize;
 pub mod manager;
