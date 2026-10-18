@@ -56,14 +56,13 @@ fn lines_of(result: &xy_ai_rag::core::result::ResultSet, file: &str) -> Vec<(u64
     for entry in result.entries() {
         let dict = entry.to_dict();
         if dict.get("File").and_then(Value::as_str) == Some(file) {
-            let arr = dict.get("Lines").and_then(Value::as_array).unwrap();
-            return arr
+            let obj = dict.get("Lines").and_then(Value::as_object).unwrap();
+            let mut lines: Vec<(u64, String)> = obj
                 .iter()
-                .map(|pair| {
-                    let p = pair.as_array().unwrap();
-                    (p[0].as_u64().unwrap(), p[1].as_str().unwrap().to_string())
-                })
+                .map(|(k, v)| (k.parse().unwrap(), v.as_str().unwrap().to_string()))
                 .collect();
+            lines.sort_by_key(|l| l.0);
+            return lines;
         }
     }
     Vec::new()
@@ -104,6 +103,8 @@ async fn reindexes_on_mtime_change() {
     // Rewrite with the search term; mtime changes -> re-index -> match.
     std::thread::sleep(std::time::Duration::from_millis(10));
     fs::write(&path, "the hidden treasure map\n").unwrap();
+    // A fresh engine bypasses the directory-listing cache's trust window.
+    let engine = engine_for(&dirs.rag_root);
     let (r2, _) = engine.run_query(query_for(&dirs.content, "treasure")).await.unwrap();
     assert_eq!(lines_of(&r2, "b.txt").len(), 1);
 }

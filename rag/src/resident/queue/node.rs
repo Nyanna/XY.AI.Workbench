@@ -96,7 +96,7 @@ impl<P, D, O, E> Drop for Node<P, D, O, E> {
         let mut cur = self.next.swap(None);
         while let Some(arc) = cur {
             match Arc::try_unwrap(arc) {
-                Ok(mut node) => cur = node.next.swap(None),
+                Ok(node) => cur = node.next.swap(None),
                 Err(_shared) => break, // another owner takes over the remainder
             }
         }
