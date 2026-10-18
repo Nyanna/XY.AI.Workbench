@@ -92,6 +92,15 @@ public boundary of this crate.
 Re-run `cargo tree -d` when bumping `arrow`/`parquet`/`tokenizers`; any duplicate of `cudarc` or `candle-*`
 is a blocker.
 
+### Vendored crates (`third_party/`, `[patch.crates-io]`)
+
+| Crate | Change | Remove when |
+|---|---|---|
+| `candle-kernels` | build configuration for the installed toolkit | upstream builds with the pinned toolkit |
+| `candle-transformers` 0.11.0 | `bert.rs`: `get_extended_attention_mask` uses a finite minimum per dtype (-65504 for f16). Upstream uses `f32::MIN`, which is `-inf` in f16 and yields `0 * -inf = NaN`. Examples and tests were dropped from the copy. | upstream fixes the mask; diff against the registry copy on every candle bump |
+
+The BERT backbone runs in f16 on the GPU and f32 on the CPU (`backbone_dtype`). Reference tolerance against PyTorch f32: cosine > 0.9999 on CPU, > 0.999 on GPU; measured GPU values exceed 0.99999.
+
 ## 6. Acceptance Status
 
 1. Duplicate review done and recorded above; `cudarc`/`candle` single-version check is a GPU CI step.

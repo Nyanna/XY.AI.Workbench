@@ -76,3 +76,4 @@ harness = false
 
 [patch.crates-io]
 candle-kernels = { path = "third_party/candle-kernels" }
+candle-transformers = { path = "third_party/candle-transformers" }

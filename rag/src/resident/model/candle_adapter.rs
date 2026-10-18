@@ -5,10 +5,12 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
 use super::{Backbone, Encoder, ModelError, ModelSpec, PooledEncoder, ProjectionHead};
 use crate::resident::memory::DeviceKind;
-/// candle's `get_extended_attention_mask` computes `(1 - mask) * f32::MIN` in the model dtype, which is
-/// `0 * -inf = NaN` in f16 for every position (also without a caller mask, as it builds a ones mask).
-/// The backbone therefore runs in f32; only the stored embeddings use the slot dtype.
-const BACKBONE_DTYPE: CDType = CDType::F32;
+fn backbone_dtype(kind: DeviceKind) -> CDType {
+    match kind {
+        DeviceKind::Cpu => CDType::F32,
+        _ => CDType::F16,
+    }
+}
 pub struct CandleBert {
     model: BertModel,
     device: Device,
@@ -55,7 +57,7 @@ impl CandleBert {
             });
         }
         let device = device_for(kind)?;
-        let dtype = BACKBONE_DTYPE;
+        let dtype = backbone_dtype(kind);
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&spec.paths.weights, dtype, &device)
         }
@@ -303,7 +305,7 @@ mod tests {
         Some((texts, embeddings))
     }
 
-    fn assert_matches_reference(device: DeviceKind) {
+    fn assert_matches_reference(device: DeviceKind, min_cosine: f32) {
         let models = installed_models();
         assert!(!models.is_empty(), "no model installed under model/ (see model/README.md)");
         for (name, dir) in models {
@@ -315,21 +317,21 @@ mod tests {
             assert_eq!(got.len(), expected.len(), "{name}");
             for (i, (g, e)) in got.iter().zip(&expected).enumerate() {
                 let c = cosine(g, e);
-                assert!(c > 0.9999, "{name} text {i}: cosine {c}");
+                assert!(c > min_cosine, "{name} text {i}: cosine {c}");
             }
         }
     }
 
     #[test]
     fn installed_models_cpu_match_reference() {
-        assert_matches_reference(DeviceKind::Cpu);
+        assert_matches_reference(DeviceKind::Cpu, 0.9999);
     }
 
     #[cfg(feature = "cuda")]
     #[test]
     #[ignore = "requires a CUDA device"]
     fn installed_models_gpu_match_reference() {
-        assert_matches_reference(DeviceKind::Gpu);
+        assert_matches_reference(DeviceKind::Gpu, 0.999);
     }
 
     #[cfg(feature = "cuda")]
@@ -345,7 +347,7 @@ mod tests {
         let gpu = embed(&texts, &dir, DType::F32, DeviceKind::Gpu);
         for (c, g) in cpu.iter().zip(&gpu) {
             assert!(g.iter().all(| x | x.is_finite()));
-            assert!(cosine(c, g) > 0.9999, "cosine {}", cosine(c, g));
+            assert!(cosine(c, g) > 0.999, "cosine {}", cosine(c, g));
         }
     }
 }

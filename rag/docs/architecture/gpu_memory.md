@@ -44,7 +44,7 @@ Gate result (`memory/wrap_gate.rs`, GTX 1660 SUPER, Candle 0.11, cudarc 0.19.9):
 
 **Decision:** arenas serve engine kernels only. Candle computes in its own allocations and results are moved into arenas with `CudaMemoryManager::copy_d2d`. Wrapping stays limited to long-lived read-only views, if needed at all.
 
-**Not verified:** in-place writes through a wrapped tensor (`slice_set`). Candle's kernels fail here with `CUDA_ERROR_UNSUPPORTED_PTX_VERSION`: the PTX is built with the 13.4 toolkit, the installed driver supports CUDA 13.3. Any test that runs a Candle kernel needs a toolkit not newer than the driver.
+In-place writes through a wrapped view work: `slice_set` writes into the arena range and leaves neighbouring elements untouched (`slice_set_writes_through_a_wrapped_view_into_the_arena`). The wrapped tensor must still be forgotten, never dropped. A Candle kernel that fails with `CUDA_ERROR_UNSUPPORTED_PTX_VERSION` means the toolkit is newer than the driver.
 
 ## Limits
 
