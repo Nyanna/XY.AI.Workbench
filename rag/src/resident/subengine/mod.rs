@@ -9,11 +9,18 @@ impl ComputeBackend for CpuBackend {
     }
 }
 mod device;
+mod exec;
 mod error;
 mod lifecycle;
 mod resource;
 pub use device::*;
-pub use error::SubengineError;
+pub use exec::{
+    CpuLane, EventHandle, ExecContext, LaneClass, LaneConfig, LaneJob, ParamBlock,
+    ParamValue, ScratchArena,
+};
+#[cfg(any(test, feature = "mock"))]
+pub use exec::RecordingLane;
+pub use error::{DeviceError, SubengineError};
 pub use lifecycle::{
     CellConfig, InitLimiter, OpGuard, ResourceCell, ResourceLease, ResourceState,
 };

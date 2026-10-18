@@ -111,6 +111,7 @@ impl IsRetryable for ConfigError {
         false
     }
 }
+pub use crate::resident::subengine::DeviceError;
 /// Top-level resident engine error, wrapping every layer error via `#[from]`.
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -129,6 +130,8 @@ pub enum ResidentError {
     Orchestration(#[from] OrchestrationError),
     #[error(transparent)]
     Subengine(#[from] SubengineError),
+    #[error(transparent)]
+    Device(#[from] DeviceError),
 }
 impl IsRetryable for ResidentError {
     fn is_retryable(&self) -> bool {
@@ -140,6 +143,7 @@ impl IsRetryable for ResidentError {
             ResidentError::Capability(e) => e.is_retryable(),
             ResidentError::Orchestration(e) => e.is_retryable(),
             ResidentError::Subengine(e) => e.is_retryable(),
+            ResidentError::Device(e) => e.is_retryable(),
         }
     }
 }
@@ -156,6 +160,7 @@ mod tests {
         assert_send_sync_static::<PlannerError>();
         assert_send_sync_static::<CapabilityError>();
         assert_send_sync_static::<ConfigError>();
+        assert_send_sync_static::<DeviceError>();
     }
     #[test]
     fn layer_errors_convert_into_resident_error() {
