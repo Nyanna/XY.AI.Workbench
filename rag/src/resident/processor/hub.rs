@@ -1,15 +1,17 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use tokio::sync::Notify;
 
 use crate::resident::error::ResidentError;
 use crate::resident::facade::{Payload, TaskError, TaskMeta, TaskQueue};
-use crate::resident::op::{OpParams, OperationNode, ResourceKind, TaskCtx};
+use crate::resident::memory::Region;
+use crate::resident::op::{OpParams, OperationNode, ResourceKind, TaskCtx, Value};
 use crate::resident::queue::ClaimState;
 use crate::resident::telemetry;
 
-use super::config::ProcessorConfig;
+use super::config::WorkerConfig;
 use super::error::OrchestrationError;
 use super::ops::{Collect, OpJob, OpQueues, Side, TaskRun};
 use super::starved::{StarvedSet, StarvedSnapshot};
@@ -81,6 +83,9 @@ impl Default for Wakeups {
     }
 }
 
+/// Reports whether a region handle still refers to the current generation of its arena.
+pub type RegionCheck = Arc<dyn Fn(Region) -> bool + Send + Sync>;
+
 pub struct Hub {
     tasks: Arc<TaskQueue>,
     queues: OpQueues,
@@ -88,13 +93,14 @@ pub struct Hub {
     starved_gpu: StarvedSet,
     wakeups: Wakeups,
     expander: Arc<dyn Expander>,
-    cfg: ProcessorConfig,
+    cfg: WorkerConfig,
     shutdown: AtomicBool,
+    region_check: OnceLock<RegionCheck>,
 }
 
 impl Hub {
     pub(super) fn new(
-        cfg: ProcessorConfig,
+        cfg: WorkerConfig,
         tasks: Arc<TaskQueue>,
         wakeups: Wakeups,
         expander: Arc<dyn Expander>,
@@ -108,10 +114,11 @@ impl Hub {
             expander,
             cfg,
             shutdown: AtomicBool::new(false),
+            region_check: OnceLock::new(),
         }
     }
 
-    pub fn config(&self) -> &ProcessorConfig {
+    pub fn config(&self) -> &WorkerConfig {
         &self.cfg
     }
 
@@ -130,6 +137,11 @@ impl Hub {
         }
     }
 
+    /// Enables the debug-build staleness assertion for device handles at claim time.
+    pub fn set_region_check(&self, check: RegionCheck) {
+        let _ = self.region_check.set(check);
+    }
+
     pub(super) fn is_shutdown(&self) -> bool {
         self.shutdown.load(Ordering::Acquire)
     }
@@ -141,6 +153,9 @@ impl Hub {
     /// A pick of a resource kind satisfies that kind's starved hint.
     pub fn claim(&self, side: Side, accepts: &dyn Fn(&OpParams) -> bool) -> Option<OpJob> {
         let job = self.queues.claim(side, accepts)?;
+        if let (Some(check), Value::Device(lease)) = (self.region_check.get(), &job.node.input) {
+            debug_assert!(check(lease.region()), "stale device handle claimed");
+        }
         self.starved(side).clear(job.params().requires.resource);
         Some(job)
     }
@@ -149,6 +164,10 @@ impl Hub {
     pub fn complete_op(&self, job: OpJob, followups: Vec<Arc<OperationNode>>) {
         let OpJob { run, .. } = job;
         if !followups.is_empty() {
+            if run.expire_if_due() {
+                run.skip();
+                return;
+            }
             if let Err(err) = self.enqueue(&run, followups) {
                 run.fail(err.into());
                 run.skip();
@@ -220,7 +239,8 @@ impl Hub {
             let ctx = TaskCtx::new(meta.id, 0, 0);
             match self.expander.expand(&meta, payload, &ctx) {
                 Ok(Expansion { ops, collect }) => {
-                    let run = TaskRun::new(ctx, state, collect);
+                    let deadline = self.cfg.task_timeout.map(|t| Instant::now() + t);
+                        let run = TaskRun::new(ctx, state, collect, deadline);
                     if ops.is_empty() {
                         run.finish();
                     } else if let Err(err) = self.enqueue(&run, ops) {

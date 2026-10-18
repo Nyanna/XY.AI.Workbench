@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 use parking_lot::Mutex;
 use tokio::sync::Notify;
@@ -19,11 +20,23 @@ pub struct TaskRun {
     state: Arc<TaskState<Output, TaskError>>,
     collect: Mutex<Option<Collect>>,
     completed: AtomicBool,
+    deadline: Option<Instant>,
 }
 
 impl TaskRun {
-    pub fn new(ctx: Arc<TaskCtx>, state: Arc<TaskState<Output, TaskError>>, collect: Collect) -> Arc<Self> {
-        Arc::new(Self { ctx, state, collect: Mutex::new(Some(collect)), completed: AtomicBool::new(false) })
+    pub fn new(
+        ctx: Arc<TaskCtx>,
+        state: Arc<TaskState<Output, TaskError>>,
+        collect: Collect,
+        deadline: Option<Instant>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            ctx,
+            state,
+            collect: Mutex::new(Some(collect)),
+            completed: AtomicBool::new(false),
+            deadline,
+        })
     }
 
     pub fn ctx(&self) -> &Arc<TaskCtx> {
@@ -32,6 +45,15 @@ impl TaskRun {
 
     pub fn is_cancelled(&self) -> bool {
         self.ctx.is_cancelled()
+    }
+
+    /// Fails the task with a timeout once its deadline has passed; returns whether it has.
+    pub fn expire_if_due(&self) -> bool {
+        let due = self.deadline.is_some_and(|d| Instant::now() >= d);
+        if due && self.ctx.fail(OrchestrationError::Timeout { task: self.ctx.id() }.into()) {
+            self.complete_once(|| Err(TaskError::Timeout));
+        }
+        due
     }
 
     fn complete_once(&self, result: impl FnOnce() -> Result<Output, TaskError>) {
@@ -129,7 +151,7 @@ impl Counted {
             if let Some(state) = node.task_state() {
                 state.complete(Ok(()));
             }
-            if job.run.is_cancelled() {
+            if job.run.is_cancelled() || job.run.expire_if_due() {
                 job.run.skip();
                 continue;
             }
@@ -214,7 +236,7 @@ pub(crate) mod testutil {
     pub fn run(id: u64) -> (Arc<TaskRun>, Arc<TaskState<Output, TaskError>>) {
         let state = Arc::new(TaskState::new());
         let ctx = TaskCtx::new(id, 0, 0);
-        let run = TaskRun::new(ctx, state.clone(), Box::new(|| Ok(Output::Scores(vec![1.0]))));
+        let run = TaskRun::new(ctx, state.clone(), Box::new(|| Ok(Output::Scores(vec![1.0]))), None);
         (run, state)
     }
 }

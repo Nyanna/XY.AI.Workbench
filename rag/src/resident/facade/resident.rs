@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -9,37 +8,20 @@ use super::params::{
     EmbeddingParams, InferenceParams, PairInput, SimilarityParams, TextInput, VectorInput,
 };
 use super::task::{Payload, TaskKind, TaskMeta, TaskQueue};
-use crate::resident::error::{ConfigError, ResidentError};
+use crate::resident::error::{ConfigError, PlannerError, ResidentError};
 use crate::resident::index::Index;
-use crate::resident::op::{IndexId, ModelId};
+use crate::resident::op::{IndexId, ModelId, TaskCtx};
+use crate::resident::processor::{
+    Engine, Expander, Expansion, Hub, OrchestrationError, Processor, Step, Wakeups, WorkerConfig,
+};
 use crate::resident::queue::{Queue, TaskState};
 use crate::resident::telemetry::task_span;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct WorkerConfig {
-    pub cpu: usize,
-    pub gpu: usize,
-}
-
-impl WorkerConfig {
-    pub fn new(cpu: usize, gpu: usize) -> Self {
-        Self { cpu, gpu }
-    }
-}
-
-impl Default for WorkerConfig {
-    fn default() -> Self {
-        Self::new(1, 0)
-    }
-}
 
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ResidentConfig {
     model: ModelId,
     workers: WorkerConfig,
-    min_op_buffer: usize,
 }
 
 impl ResidentConfig {
@@ -47,20 +29,48 @@ impl ResidentConfig {
         &self.model
     }
 
-    pub fn workers(&self) -> WorkerConfig {
-        self.workers
+    pub fn workers(&self) -> &WorkerConfig {
+        &self.workers
     }
 
     pub fn min_op_buffer(&self) -> usize {
-        self.min_op_buffer
+        self.workers.min_op_buffer
     }
 }
 
-#[derive(Debug, Default)]
+/// Stands in until a planner is supplied: tasks fail instead of waiting forever.
+struct Unplanned;
+
+impl Expander for Unplanned {
+    fn expand(
+        &self,
+        _meta: &TaskMeta,
+        _payload: Payload,
+        _ctx: &Arc<TaskCtx>,
+    ) -> Result<Expansion, ResidentError> {
+        Err(PlannerError::MissingCapability {
+            capability: "planner".into(),
+        }
+        .into())
+    }
+}
+
+struct NoEngine;
+
+impl Engine for NoEngine {
+    fn step(&self, _hub: &Hub) -> Step {
+        Step::Idle(None)
+    }
+}
+
+#[derive(Default)]
 pub struct ResidentBuilder {
     model: Option<ModelId>,
     workers: WorkerConfig,
     min_op_buffer: Option<usize>,
+    expander: Option<Arc<dyn Expander>>,
+    cpu: Option<Arc<dyn Engine>>,
+    gpu: Option<Arc<dyn Engine>>,
 }
 
 impl ResidentBuilder {
@@ -83,25 +93,52 @@ impl ResidentBuilder {
         self
     }
 
-    /// Acquires no model or device resources; those are created by the first task.
+    pub fn expander(mut self, expander: Arc<dyn Expander>) -> Self {
+        self.expander = Some(expander);
+        self
+    }
+
+    /// GPU workers are only started when a GPU engine is supplied.
+    pub fn engines(mut self, cpu: Arc<dyn Engine>, gpu: Option<Arc<dyn Engine>>) -> Self {
+        self.cpu = Some(cpu);
+        self.gpu = gpu;
+        self
+    }
+
+    /// Starts the processor and its worker threads; model and device resources are
+    /// created by the first task, not here.
     pub fn init(self) -> Result<Resident, ConfigError> {
         let model = self.model.ok_or_else(|| ConfigError::MissingField {
             field: "model".into(),
         })?;
-        let min_op_buffer = self.min_op_buffer.unwrap_or(1);
-        if min_op_buffer == 0 {
+        let mut workers = self.workers;
+        if let Some(n) = self.min_op_buffer {
+            workers.min_op_buffer = n;
+        }
+        if workers.min_op_buffer == 0 {
             return Err(ConfigError::InvalidValue {
                 field: "min_op_buffer".into(),
                 reason: "must be at least 1".into(),
             });
         }
+        let wakeups = Wakeups::new();
+        let queue: Arc<TaskQueue> = Arc::new(Queue::new(wakeups.relays()));
+        let processor = Processor::start(
+            workers.clone(),
+            queue.clone(),
+            wakeups,
+            self.expander.unwrap_or_else(|| Arc::new(Unplanned)),
+            self.cpu.unwrap_or_else(|| Arc::new(NoEngine)),
+            self.gpu,
+        )
+        .map_err(|e| ConfigError::InvalidValue {
+            field: "workers".into(),
+            reason: e.to_string(),
+        })?;
         Ok(Resident {
-            config: ResidentConfig {
-                model,
-                workers: self.workers,
-                min_op_buffer,
-            },
-            queue: Arc::new(Queue::new(Vec::new())),
+            config: ResidentConfig { model, workers },
+            queue,
+            processor,
             next_task: AtomicU64::new(0),
             next_index: AtomicU64::new(0),
             indexes: Mutex::new(HashMap::new()),
@@ -125,12 +162,13 @@ pub struct IndexInfo {
 
 struct IndexEntry {
     info: IndexInfo,
-    _index: Arc<dyn Any + Send + Sync>,
+    _index: Arc<dyn Index + Send + Sync>,
 }
 
 pub struct Resident {
     config: ResidentConfig,
     queue: Arc<TaskQueue>,
+    processor: Processor,
     next_task: AtomicU64,
     next_index: AtomicU64,
     indexes: Mutex<HashMap<IndexId, IndexEntry>>,
@@ -149,13 +187,12 @@ impl Resident {
         &self.queue
     }
 
+    pub fn processor(&self) -> &Processor {
+        &self.processor
+    }
+
     /// Registers the index without loading it; loading is triggered by a task.
-    /// `Index` has return-position `impl Trait` and is not dyn-compatible, so the
-    /// table keeps the concrete index type-erased.
-    pub fn add_index<I>(&self, index: Arc<I>) -> IndexId
-    where
-        I: Index + Send + Sync + 'static,
-    {
+    pub fn add_index(&self, index: Arc<dyn Index + Send + Sync>) -> IndexId {
         let id = IndexId(format!("idx-{}", self.next_index.fetch_add(1, Ordering::Relaxed)));
         self.lock_indexes().insert(
             id.clone(),
@@ -201,8 +238,8 @@ impl Resident {
         )
     }
 
-    /// Cancels every task that no worker has claimed yet.
-    pub fn shutdown(self) -> Result<(), ResidentError> {
+    /// Joins the workers, then cancels every task that no worker has claimed.
+    pub fn shutdown(self) -> Result<(), OrchestrationError> {
         drop(self);
         Ok(())
     }
@@ -229,6 +266,7 @@ impl Resident {
 
 impl Drop for Resident {
     fn drop(&mut self) {
+        self.processor.shutdown();
         for node in self.queue.iter_live() {
             if let Some(state) = node.task_state() {
                 state.cancel();
@@ -247,6 +285,7 @@ mod tests {
     fn resident() -> Resident {
         Resident::builder()
             .model(ModelId("e5-small".into()))
+            .worker_hint(WorkerConfig::new(0, 0))
             .init()
             .unwrap()
     }
@@ -330,5 +369,48 @@ mod tests {
         let handle = r.submit_embedding(TextInput::single("a"), EmbeddingParams::default());
         r.shutdown().unwrap();
         assert!(matches!(handle.try_get(), Some(Err(TaskError::Cancelled))));
+    }
+
+    #[tokio::test]
+    async fn submit_wakes_workers_and_unplanned_task_fails() {
+        let r = Resident::builder()
+            .model(ModelId("m".into()))
+            .init()
+            .unwrap();
+        let handle = r.submit_embedding(TextInput::single("hi"), EmbeddingParams::default());
+        let res = handle.wait_timeout(Duration::from_secs(5)).await;
+        assert!(matches!(res, Err(TaskError::Engine(_))), "{res:?}");
+    }
+
+    #[test]
+    fn blocking_wrapper_returns_task_result() {
+        let r = Resident::builder()
+            .model(ModelId("m".into()))
+            .init()
+            .unwrap();
+        let blocking = crate::resident::facade::ResidentBlocking::new(r).unwrap();
+        let res = blocking.embedding(TextInput::single("hi"), EmbeddingParams::default());
+        assert!(matches!(res, Err(TaskError::Engine(_))));
+    }
+
+    #[test]
+    fn add_index_registers_without_loading() {
+        let r = resident();
+        let id = r.add_index(Arc::new(crate::resident::index::memory::InMemoryIndex::new()));
+        let info = r.index_info(&id).unwrap();
+        assert_eq!(info.residency, Residency::NotLoaded);
+        assert_eq!(info.leases, 0);
+        assert!(r.index_info(&IndexId("missing".into())).is_none());
+    }
+
+    #[test]
+    fn builder_min_op_buffer_overrides_worker_hint() {
+        let r = Resident::builder()
+            .model(ModelId("m".into()))
+            .worker_hint(WorkerConfig::new(0, 0).with_min_op_buffer(7))
+            .min_op_buffer(3)
+            .init()
+            .unwrap();
+        assert_eq!(r.config().min_op_buffer(), 3);
     }
 }

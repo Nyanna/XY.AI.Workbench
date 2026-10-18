@@ -89,7 +89,7 @@ Mappt die „Zu klären"-Punkte des Metaplans (Parameterobjekt-Design; Lazy-Init
 - Intern: Task mit eingebettetem Ergebnis-Kanal; Reihenfolge immer **Ergebnis zuerst in den Zustand, dann Signal**. Sender-Drop ohne Senden → `TaskError::Cancelled` (nicht als String).
 
 ### 4.8 Index-Übergabe/-Besitz — **`Arc<dyn Index>`, Residency-Tabelle, keine Persistenz** [W, context §C1.8]
-- `add_index(Arc<dyn Index + Send + Sync>) -> IndexId`. Die Engine hält eine **Residency-Tabelle** `IndexId → (Zustand, Leases)` und **kein** Persistenz-Handle.
+- `add_index(Arc<dyn Index + Send + Sync>) -> IndexId`. `Index::stamps` returns `Box<dyn Iterator<Item = (EntryId, Stamp)> + '_>` so the trait stays object-safe. Die Engine hält eine **Residency-Tabelle** `IndexId → (Zustand, Leases)` und **kein** Persistenz-Handle.
 - Der Index kapselt Mutex/Persistenz selbst (`resident.md` Klarstellung: „Ein Index Objekt … besitzt den Mutex selbst"). Die Engine ruft nur Trait-Methoden.
 - `Index`-Trait objekt-sicher halten (keine Generics in Methoden). **Nie** einen `std::sync::Mutex`-Guard über `.await` halten.
 - Indizes werden hinzugefügt, aber erst durch einen Task geladen (`resident.md` Kontrollfluss).
@@ -144,7 +144,8 @@ pub struct InferenceParams { /* model, precision: f32, ... */ }
 pub struct TaskHandle { /* Arc<TaskState>, task_id */ }
 impl std::future::IntoFuture for TaskHandle { type Output = Result<Output, TaskError>; /* ... */ }
 impl TaskHandle {
-    pub fn wait_timeout(self, d: std::time::Duration) -> Result<Output, TaskError>;
+    // async on purpose: a blocking wait inside a running runtime panics; sync callers use ResidentBlocking
+    pub async fn wait_timeout(self, d: std::time::Duration) -> Result<Output, TaskError>;
     pub fn try_get(&self) -> Option<Result<Output, TaskError>>;
 }
 impl Drop for TaskHandle { /* Cancel: CAS Queued→Cancelled */ }

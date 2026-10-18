@@ -65,12 +65,12 @@ Nach **jeder** Operation neu prüfen, feste Priorität:
 
 ### 4.3 GPU-Completion ohne Doppelverarbeitung [B/W, context §10, §11]
 - **Callback** (`cuLaunchHostFunc` am Stream-Ende) tut **nur**: Completion-Eintrag (lock-free) ablegen + `Notify` auslösen. **Keine** CUDA-API, keine Synchronisation, kein Blockieren (Callback blockiert sonst nachfolgende Stream-Arbeit).
-- **Poll-Fallback** `cuEventQuery`/`CudaEvent::try_is_complete()` in Worker-Schritt 1 deckt verpasste Callbacks ab (Callback wird bei CUDA-Fehler **nicht** aufgerufen). **`try_is_complete()` statt `is_complete()`** (letzteres liefert bei Fehlern `false`).
+- **Poll-Fallback** `cuEventQuery`/`CudaEvent::try_is_complete()` in Worker-Schritt 1 deckt verpasste Callbacks ab (Callback wird bei CUDA-Fehler **nicht** aufgerufen). **Verified against cudarc 0.19.9: `try_is_complete()` does not exist**; `CudaEvent::is_complete()` folds errors into `false`. Query via `result::event::query(event.cu_event())`: `Ok` = complete, `CUDA_ERROR_NOT_READY` = pending, any other error = lane failed.
 - **Doppelverarbeitung verhindern:** pro Lane ein `AtomicU8`-Zustand; Callback **und** Poller versuchen `compare_exchange(Launched → Completing)`; nur der Gewinner verarbeitet. → deckt `Prüfen`-Punkt „keine doppelte Verarbeitung einer Lane".
 - Event mit `CU_EVENT_DISABLE_TIMING` (schnellstes `cuEventQuery`).
 
 ### 4.4 Zugang über `candle`/`cudarc` [B/D, context §12]
-- **Genau die aus `candle` re-exportierte `cudarc`-Version** verwenden (`candle::cuda_backend::cudarc`), nicht separat dazuziehen (Version 0.19.10 beim Rechercheabgleich).
+- **Genau die aus `candle` re-exportierte `cudarc`-Version** verwenden (`candle::cuda_backend::cudarc`), nicht separat dazuziehen (pinned `=0.19.9`; `launch_host_function(stream: CUstream, func: unsafe extern "C" fn(*mut c_void), arg: *mut c_void)` verified, `CudaContext::new_stream()` and `CudaStream::record_event(Option<CUevent_flags>)` exist).
 - `CudaDevice::cuda_stream() -> Arc<CudaStream>`; Host-Funktion über `cudarc::driver::result::stream::launch_host_function(stream.cu_stream(), trampoline, arg)` (kein sicherer Wrapper). Trampoline gibt z. B. `Box<Completion-Eintrag>` frei.
 - **Erster Umsetzungsschritt:** `launch_host_function`-Signatur und candle-Stream-Erzeugung (`context.new_stream()` vs. `default_stream()`) in der **gepinnten** Version gegenprüfen (context Q12).
 - Host-Callback auf dem candle-Stream blockiert dort Folge-Kernel → minimal halten; Stream-Wechsel per Event/Wait.
@@ -88,6 +88,7 @@ Nach **jeder** Operation neu prüfen, feste Priorität:
 - **Mindestpuffer** an Operationen als Parameter (`WorkerConfig::min_op_buffer`): Richtwert `(Refill-Latenz des Planners / Zeit pro Op) + 1`, adaptiv als **untere** Wasserlinie; **keine** feste obere Füllschwelle.
 
 ### 4.7 Shared-Queue-Semantik [B-Analogie/W, context §21, `resident_processor.md`]
+- Routing: `Either` operations go to the CPU queue; the shared queue is consulted on claim but not filled by routing (no logic yet, by design).
 - Subengine prüft **erst die eigene Queue, dann shared** (shared ist angelegt, leer, ohne Logik).
 - Beim Pop aus shared nur nehmen, was zur eigenen Capability passt (`requires()`), sonst liegen lassen; **kein Head-of-Line-Blocking** (bis zu K Einträge überspringen statt vom Kopf blockieren). Analogie: tokio-Scheduler prüft lokale Queue bevorzugt, globale alle N Ticks.
 
@@ -136,7 +137,7 @@ pub struct Processor {
     cfg: WorkerConfig,
 }
 
-pub struct WorkerConfig { /* gpu_workers, cpu_workers, min_op_buffer, candle_rayon_threads */ }
+pub struct WorkerConfig { /* cpu_workers, gpu_workers, min_op_buffer, candle_rayon_threads, cpu_nice, starved_ttl, task_timeout */ }  // single type in `processor`, re-exported by the facade
 
 // GPU-Completion (Q4: Trait immer kompiliert)
 pub trait Completion: Send + Sync {

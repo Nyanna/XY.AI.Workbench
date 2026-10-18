@@ -155,12 +155,13 @@ pub struct IndexHeader {
     pub hash_version: u32,
 }
 
+/// Object-safe: engines hold indexes as `Arc<dyn Index + Send + Sync>`.
 pub trait Index {
     /// `None` = entry removed.
     fn stamp(&self, entry: EntryId) -> Option<Stamp>;
 
     /// Must not touch vector data.
-    fn stamps(&self) -> impl Iterator<Item = (EntryId, Stamp)>;
+    fn stamps(&self) -> Box<dyn Iterator<Item = (EntryId, Stamp)> + '_>;
 
     /// Missing entries yield empty data. May block on I/O.
     fn read(&self, entry: EntryId) -> EntryData<'_>;

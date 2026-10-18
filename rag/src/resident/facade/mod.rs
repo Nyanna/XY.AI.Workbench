@@ -15,6 +15,7 @@ pub use params::{
     VectorInput,
 };
 pub use resident::{
-    IndexInfo, Residency, Resident, ResidentBuilder, ResidentConfig, WorkerConfig,
+    IndexInfo, Residency, Resident, ResidentBuilder, ResidentConfig,
 };
+pub use crate::resident::processor::WorkerConfig;
 pub use task::{Payload, TaskKind, TaskMeta, TaskQueue};

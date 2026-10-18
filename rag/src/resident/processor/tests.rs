@@ -9,7 +9,9 @@ use crate::resident::facade::{
 };
 use crate::resident::op::{EngineSelector, IndexId, OperationNode, ResourceKind, TaskCtx};
 use crate::resident::queue::{Queue, TaskState};
-use super::ops::testutil::node;
+use super::ops::testutil::{node, run as new_run};
+use crate::resident::memory::{ArenaId, Region};
+use crate::resident::op::{Lease, Op, OpDesc, OpKind, OpParams, PinCount, Requirements, Value};
 use super::worker::pass;
 use super::*;
 type TaskStateRef = Arc<TaskState<Output, TaskError>>;
@@ -87,7 +89,7 @@ impl TestEngine {
     }
     fn take(counter: &AtomicUsize) -> bool {
         counter
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_sub(1))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_sub(1))
             .is_ok()
     }
 }
@@ -168,7 +170,7 @@ fn submit(tasks: &TaskQueue, (meta, payload): (TaskMeta, Payload)) -> TaskStateR
     tasks.push(meta, state.clone(), payload);
     state
 }
-fn hub(cfg: ProcessorConfig, expander: Arc<dyn Expander>) -> (Hub, Arc<TaskQueue>) {
+fn hub(cfg: WorkerConfig, expander: Arc<dyn Expander>) -> (Hub, Arc<TaskQueue>) {
     let wakeups = Wakeups::new();
     let tasks = Arc::new(Queue::new(wakeups.relays()));
     (Hub::new(cfg, tasks.clone(), wakeups, expander), tasks)
@@ -182,7 +184,7 @@ fn await_result(state: &TaskStateRef) -> Result<Output, TaskError> {
     state.result().unwrap().clone()
 }
 fn start(
-    cfg: ProcessorConfig,
+    cfg: WorkerConfig,
     expander: Arc<dyn Expander>,
     cpu: Arc<TestEngine>,
 ) -> (Processor, Arc<TaskQueue>) {
@@ -195,7 +197,7 @@ fn start(
 fn worker_threads_run_tasks_to_completion() {
     let cpu = TestEngine::new(Side::Cpu, Mode::Run);
     let (_p, tasks) = start(
-        ProcessorConfig::new(2, 0).with_cpu_nice(0),
+        WorkerConfig::new(2, 0).with_cpu_nice(0),
         TestExpander::new(3),
         cpu.clone(),
     );
@@ -209,7 +211,7 @@ fn worker_threads_run_tasks_to_completion() {
 fn first_failing_op_fails_task_and_remaining_ops_are_dropped() {
     let cpu = TestEngine::new(Side::Cpu, Mode::FailAll);
     let (_p, tasks) = start(
-        ProcessorConfig::new(1, 0).with_cpu_nice(0),
+        WorkerConfig::new(1, 0).with_cpu_nice(0),
         TestExpander::new(4),
         cpu.clone(),
     );
@@ -222,7 +224,7 @@ fn first_failing_op_fails_task_and_remaining_ops_are_dropped() {
 fn followup_ops_keep_task_open_until_they_finish() {
     let cpu = TestEngine::new(Side::Cpu, Mode::FollowUp);
     let (_p, tasks) = start(
-        ProcessorConfig::new(1, 0).with_cpu_nice(0),
+        WorkerConfig::new(1, 0).with_cpu_nice(0),
         TestExpander::new(1),
         cpu.clone(),
     );
@@ -238,7 +240,7 @@ fn expansion_failure_completes_task_with_error() {
         expanded: Mutex::new(vec![]),
     });
     let cpu = TestEngine::new(Side::Cpu, Mode::Run);
-    let (_p, tasks) = start(ProcessorConfig::new(1, 0).with_cpu_nice(0), expander, cpu);
+    let (_p, tasks) = start(WorkerConfig::new(1, 0).with_cpu_nice(0), expander, cpu);
     let s = submit(&tasks, embedding(1));
     assert!(matches!(await_result(& s), Err(TaskError::Engine(_))));
 }
@@ -260,7 +262,7 @@ fn gpu_ops_without_gpu_workers_fail_the_task() {
     }
     let cpu = TestEngine::new(Side::Cpu, Mode::Run);
     let (_p, tasks) = start(
-        ProcessorConfig::new(1, 0).with_cpu_nice(0),
+        WorkerConfig::new(1, 0).with_cpu_nice(0),
         Arc::new(GpuExpander),
         cpu,
     );
@@ -271,7 +273,7 @@ fn gpu_ops_without_gpu_workers_fail_the_task() {
 fn shutdown_joins_idle_workers() {
     let cpu = TestEngine::new(Side::Cpu, Mode::Run);
     let (mut p, _tasks) = start(
-        ProcessorConfig::new(3, 0).with_cpu_nice(0),
+        WorkerConfig::new(3, 0).with_cpu_nice(0),
         TestExpander::new(1),
         cpu,
     );
@@ -280,7 +282,7 @@ fn shutdown_joins_idle_workers() {
 }
 #[test]
 fn pass_prefers_harvest_then_feed_then_step() {
-    let cfg = ProcessorConfig::new(1, 1).with_min_op_buffer(1);
+    let cfg = WorkerConfig::new(1, 1).with_min_op_buffer(1);
     let (hub, tasks) = hub(cfg, TestExpander::new(1));
     let engine = TestEngine::new(Side::Cpu, Mode::Run);
     engine.harvest.store(1, Ordering::Release);
@@ -295,7 +297,7 @@ fn pass_prefers_harvest_then_feed_then_step() {
 }
 #[test]
 fn expansion_only_on_hint_or_low_buffer() {
-    let cfg = ProcessorConfig::new(1, 0).with_min_op_buffer(0);
+    let cfg = WorkerConfig::new(1, 0).with_min_op_buffer(0);
     let expander = TestExpander::new(1);
     let (hub, tasks) = hub(cfg, expander.clone());
     let quiet = TestEngine::new(Side::Cpu, Mode::Idle(None));
@@ -309,7 +311,7 @@ fn expansion_only_on_hint_or_low_buffer() {
 }
 #[test]
 fn low_buffer_triggers_expansion_without_hint() {
-    let cfg = ProcessorConfig::new(1, 0).with_min_op_buffer(2);
+    let cfg = WorkerConfig::new(1, 0).with_min_op_buffer(2);
     let expander = TestExpander::new(1);
     let (hub, tasks) = hub(cfg, expander.clone());
     let quiet = TestEngine::new(Side::Cpu, Mode::Idle(None));
@@ -322,7 +324,7 @@ fn low_buffer_triggers_expansion_without_hint() {
 }
 #[test]
 fn hint_selects_task_needing_the_starved_resource() {
-    let cfg = ProcessorConfig::new(1, 0).with_min_op_buffer(0);
+    let cfg = WorkerConfig::new(1, 0).with_min_op_buffer(0);
     let expander = TestExpander::new(1);
     let (hub, tasks) = hub(cfg, expander.clone());
     submit(&tasks, embedding(1));
@@ -336,7 +338,7 @@ fn hint_selects_task_needing_the_starved_resource() {
 }
 #[test]
 fn pick_of_a_kind_clears_its_hint() {
-    let cfg = ProcessorConfig::new(1, 0).with_min_op_buffer(1);
+    let cfg = WorkerConfig::new(1, 0).with_min_op_buffer(1);
     let (hub, tasks) = hub(cfg, TestExpander::new(1));
     submit(&tasks, embedding(1));
     let quiet = TestEngine::new(Side::Cpu, Mode::Idle(None));
@@ -348,4 +350,49 @@ fn pick_of_a_kind_clears_its_hint() {
     assert!(! snap.contains(ResourceKind::Tokenizer));
     assert!(snap.contains(ResourceKind::Encoder));
     hub.complete_op(job, vec![]);
+}
+
+#[test]
+fn overdue_task_times_out_at_claim() {
+    let cfg = WorkerConfig::new(1, 0)
+        .with_min_op_buffer(1)
+        .with_task_timeout(Duration::ZERO);
+    let (hub, tasks) = hub(cfg, TestExpander::new(2));
+    let state = submit(&tasks, embedding(1));
+    let quiet = TestEngine::new(Side::Cpu, Mode::Idle(None));
+    assert!(pass(&hub, Side::Cpu, &*quiet));
+    assert!(hub.claim(Side::Cpu, &|_| true).is_none());
+    assert!(matches!(state.result().unwrap(), Err(TaskError::Timeout)));
+    assert_eq!(hub.queues().total_queued(), 0);
+}
+
+fn device_job(gen: u32) -> (OpJob, Arc<TaskRun>) {
+    let (run, _state) = new_run(1);
+    run.ctx().add_ops(1);
+    let params = OpParams::new(Requirements::new(ResourceKind::Scorer, EngineSelector::Cpu));
+    let op: Arc<dyn Op> = Arc::new(OpDesc::new(OpKind::Similarity, params));
+    let region = Region { arena: ArenaId(0), offset: 0, len: 16, gen };
+    let lease = Lease::new(region, PinCount::new(), None);
+    let node = OperationNode::new(op, Value::Device(lease), false, run.ctx().clone());
+    (OpJob::new(Arc::new(node), run.clone()), run)
+}
+
+#[test]
+fn current_device_handle_passes_region_check() {
+    let (hub, _tasks) = hub(WorkerConfig::new(1, 0), TestExpander::new(1));
+    hub.set_region_check(Arc::new(|r| r.gen == 2));
+    let (job, _run) = device_job(2);
+    hub.queues().push(job).unwrap();
+    assert!(hub.claim(Side::Cpu, &|_| true).is_some());
+}
+
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "stale device handle")]
+fn stale_device_handle_trips_debug_assertion() {
+    let (hub, _tasks) = hub(WorkerConfig::new(1, 0), TestExpander::new(1));
+    hub.set_region_check(Arc::new(|r| r.gen == 2));
+    let (job, _run) = device_job(1);
+    hub.queues().push(job).unwrap();
+    let _ = hub.claim(Side::Cpu, &|_| true);
 }

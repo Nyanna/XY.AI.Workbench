@@ -22,6 +22,8 @@ pub enum OrchestrationError {
         #[source]
         source: Arc<ResidentError>,
     },
+    #[error("task {task} timed out")]
+    Timeout { task: u64 },
     #[error("processor is shutting down")]
     Shutdown,
 }

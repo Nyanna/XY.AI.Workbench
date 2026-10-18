@@ -2,7 +2,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use crate::resident::facade::TaskQueue;
-use super::config::ProcessorConfig;
+use super::config::WorkerConfig;
 use super::hub::{Engine, Expander, Hub, Step, Wakeups};
 use super::ops::Side;
 pub struct Processor {
@@ -13,7 +13,7 @@ impl Processor {
     /// `wakeups.relays()` must be the relays of `tasks` so submissions wake the workers.
     /// `gpu` is required when `cfg.gpu_workers > 0`.
     pub fn start(
-        cfg: ProcessorConfig,
+        cfg: WorkerConfig,
         tasks: Arc<TaskQueue>,
         wakeups: Wakeups,
         expander: Arc<dyn Expander>,
@@ -21,7 +21,7 @@ impl Processor {
         gpu: Option<Arc<dyn Engine>>,
     ) -> std::io::Result<Self> {
         let gpu_workers = if gpu.is_some() { cfg.gpu_workers } else { 0 };
-        let cfg = ProcessorConfig {
+        let cfg = WorkerConfig {
             gpu_workers,
             ..cfg
         };

@@ -60,9 +60,9 @@ impl Index for InMemoryIndex {
         self.inner.lock().entries.get(&entry).map(|(s, _)| *s)
     }
 
-    fn stamps(&self) -> impl Iterator<Item = (EntryId, Stamp)> {
+    fn stamps(&self) -> Box<dyn Iterator<Item = (EntryId, Stamp)> + '_> {
         let snapshot: Vec<_> = self.inner.lock().entries.iter().map(|(id, (s, _))| (*id, *s)).collect();
-        snapshot.into_iter()
+        Box::new(snapshot.into_iter())
     }
 
     fn read(&self, entry: EntryId) -> EntryData<'_> {

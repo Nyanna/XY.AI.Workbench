@@ -1,5 +1,7 @@
 //! Orchestration: task queue + op queues.
 mod completion;
+#[cfg(feature = "cuda")]
+mod completion_cuda;
 mod config;
 mod error;
 mod hub;
@@ -12,9 +14,11 @@ mod tests;
 pub use completion::{
     Completion, LaneBoard, LaneId, LaneOutcome, ManualCompletion, PollState,
 };
-pub use config::ProcessorConfig;
+#[cfg(feature = "cuda")]
+pub use completion_cuda::{HostFnCompletion, PolledCompletion};
+pub use config::WorkerConfig;
 pub use error::OrchestrationError;
-pub use hub::{Engine, Expander, Expansion, Hub, Step, Wakeups};
+pub use hub::{Engine, Expander, Expansion, Hub, RegionCheck, Step, Wakeups};
 pub use ops::{Collect, OpJob, OpQueue, OpQueues, Side, TaskRun};
 pub use resource::{ResourceSlot, ResourceState};
 pub use starved::{StarvedSet, StarvedSnapshot};
