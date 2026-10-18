@@ -1,5 +1,6 @@
 //! Stateless task expansion.
 
+mod adapter;
 mod config;
 mod expand;
 mod offers;
@@ -12,6 +13,7 @@ use arc_swap::ArcSwap;
 use crate::resident::error::PlannerError;
 use crate::resident::processor::StarvedSnapshot;
 
+pub use adapter::PlannerExpander;
 pub use config::{PipelineConfig, PipelineDtype, Pooling, Prefixes, ScorerKind};
 pub use expand::{first_resource, ExpandContext, PlanExpander, PlannedOp, TaskSpec};
 pub use offers::EngineOffers;

@@ -29,6 +29,17 @@ pub trait Expander: Send + Sync {
     }
 
     fn expand(&self, meta: &TaskMeta, payload: Payload, ctx: &Arc<TaskCtx>) -> Result<Expansion, ResidentError>;
+
+    /// Like [`Expander::expand`], with the starved hint that triggered the expansion.
+    fn expand_hinted(
+        &self,
+        meta: &TaskMeta,
+        payload: Payload,
+        ctx: &Arc<TaskCtx>,
+        _hint: StarvedSnapshot,
+    ) -> Result<Expansion, ResidentError> {
+        self.expand(meta, payload, ctx)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,7 +248,7 @@ impl Hub {
         };
         telemetry::task_span(&meta.id.to_string()).in_scope(|| {
             let ctx = TaskCtx::new(meta.id, 0, 0);
-            match self.expander.expand(&meta, payload, &ctx) {
+            match self.expander.expand_hinted(&meta, payload, &ctx, hint) {
                 Ok(Expansion { ops, collect }) => {
                     let deadline = self.cfg.task_timeout.map(|t| Instant::now() + t);
                         let run = TaskRun::new(ctx, state, collect, deadline);

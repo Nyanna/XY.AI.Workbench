@@ -133,6 +133,11 @@ impl TaskCtx {
         first
     }
 }
+/// Builds the operation that consumes a finished operation's output.
+pub trait Successor: Send + Sync {
+    /// Empty when the chain ends; the implementation then keeps `output` as the task result.
+    fn follow(&self, output: Value, task: &Arc<TaskCtx>) -> Vec<Arc<OperationNode>>;
+}
 pub struct OperationNode {
     pub op: Arc<dyn Op>,
     pub input: Value,
@@ -140,6 +145,7 @@ pub struct OperationNode {
     /// `true`: result returns to host; `false`: device handle stays resident.
     pub materialize: bool,
     pub task: Arc<TaskCtx>,
+    pub successor: Option<Arc<dyn Successor>>,
 }
 impl OperationNode {
     pub fn new(
@@ -158,7 +164,12 @@ impl OperationNode {
             output: OnceLock::new(),
             materialize,
             task,
+            successor: None,
         }
+    }
+    pub fn with_successor(mut self, successor: Arc<dyn Successor>) -> Self {
+        self.successor = Some(successor);
+        self
     }
     /// Sets the output once; a second call returns the rejected value.
     pub fn set_output(&self, value: Value) -> Result<(), Value> {
