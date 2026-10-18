@@ -138,6 +138,8 @@ pub enum ResidentError {
     Model(#[from] crate::resident::model::ModelError),
     #[error(transparent)]
     Tokenize(#[from] crate::resident::tokenize::TokenizeError),
+    #[error(transparent)]
+    Kernel(#[from] crate::resident::kernel::KernelError),
 }
 impl IsRetryable for ResidentError {
     fn is_retryable(&self) -> bool {
@@ -153,6 +155,7 @@ impl IsRetryable for ResidentError {
             ResidentError::Memory(e) => e.is_retryable(),
             ResidentError::Model(e) => e.is_retryable(),
             ResidentError::Tokenize(e) => e.is_retryable(),
+            ResidentError::Kernel(e) => e.is_retryable(),
         }
     }
 }
@@ -173,6 +176,7 @@ mod tests {
         assert_send_sync_static::<crate::resident::memory::MemoryError>();
         assert_send_sync_static::<crate::resident::model::ModelError>();
         assert_send_sync_static::<crate::resident::tokenize::TokenizeError>();
+        assert_send_sync_static::<crate::resident::kernel::KernelError>();
     }
     #[test]
     fn layer_errors_convert_into_resident_error() {
