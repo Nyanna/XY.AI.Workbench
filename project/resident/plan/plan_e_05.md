@@ -1,6 +1,7 @@
 # Umsetzungsplan E5 · Kommunikationsslot (feste Reihenfolge)
 
 > **Quellen:** `resident_index.md` (Kommunikationsslot). **Recherche:** `context_e.md` §E5 (Punkte 18–20). **Querschnitt:** Q1, Q2, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** E4 (Mutationsdisziplin), B4 (Index), B5 (Kernel/`KernelHit`). **Ergebnis:** Slot-Protokoll-Spezifikation.
 
 ## 1. Ziel & Abgrenzung

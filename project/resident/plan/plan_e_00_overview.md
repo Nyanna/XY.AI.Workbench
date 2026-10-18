@@ -3,6 +3,7 @@
 > **Zielhardware:** sm_75 (Turing, GTX 1660 / TU116, 22 SMs, 6 GB VRAM).
 > **Projekt:** Rust-Crate unter `/home/user/xyan/xy.ai.workbench/rag`.
 > **Primärquelle:** `resident_index.md`. **Recherche je Paket:** `context/context_e.md`. **Querschnitt:** `context/context_h_q.md` (Q1–Q4).
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Hinweis:** `resident_index.md` ist die Spezifikation des **Vektorindex/Index-Managers**, keine Inhaltsübersicht. `resident_index.md` bezeichnet die reale Datei `resident_precision.md` fälschlich als `resident_precision_calibration.md`.
 
 Diese Übersicht bündelt die gruppenweiten Entscheidungen und verweist auf die neun Einzelpläne `plan_e1.md … plan_e9.md`. Jeder Einzelplan ist isoliert abarbeitbar (eigene Quellen, Voraussetzungen, Artefakte, Tests, Definition of Done).

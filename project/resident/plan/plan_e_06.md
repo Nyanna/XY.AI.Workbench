@@ -1,6 +1,7 @@
 # Umsetzungsplan E6 · Synchronisation & Echo-Vermeidung (Hochrisiko)
 
 > **Quellen:** `resident_index.md` (Synchronisation und Echo-Vermeidung). **Recherche:** `context_e.md` §E6 (Punkte 21–25, **Hochrisiko für Konsistenzmodell**). **Querschnitt:** Q1, Q2, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** B4 (Stamps, `watch<u64>`, `apply`), E5 (Slot, Tracker). **Ergebnis:** Sync-Spezifikation + Testmatrix.
 
 ## 1. Ziel & Abgrenzung

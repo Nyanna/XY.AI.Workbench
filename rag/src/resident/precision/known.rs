@@ -27,6 +27,7 @@ known_ids!(ValueId:
     FP16 = "fp16",
     FP16_TO_FP32 = "fp16->fp32",
     INT8 = "int8",
+    // TODO: verify dp4a usage and bf16 behaviour on sm_75 hardware.
     INT8_DP4A = "int8-dp4a",
     ON = "on",
     OFF = "off",

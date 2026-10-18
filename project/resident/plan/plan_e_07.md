@@ -1,6 +1,7 @@
 # Umsetzungsplan E7 · Residency & Ladestrategie
 
 > **Quellen:** `resident_index.md` (Residency und Ladestrategie); **überlappt Kalibrierung** (`resident_precision.md`, Verweis F). **Recherche:** `context_e.md` §E7 (Punkte 26–30). **Querschnitt:** Q1, Q2, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** E3 (Arena/Staging), E5 (Slot). **Ergebnis:** Lade-/Eviction-Strategie.
 
 ## 1. Ziel & Abgrenzung

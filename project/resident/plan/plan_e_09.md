@@ -1,6 +1,7 @@
 # Umsetzungsplan E9 · Addons (Iteration / Kaskade / Rekursion)
 
 > **Quellen:** `resident_index.md` (Addons). **Recherche:** `context_e.md` §E9 (Punkte 34–36). **Querschnitt:** Q1, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** B1 (Queue/Task), C3 (Planner, erweiterbares Parameterobjekt). **Ergebnis:** Addon-Konzeptnotiz — **keine Kernänderung**.
 
 ## 1. Ziel & Abgrenzung

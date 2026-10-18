@@ -1,6 +1,7 @@
 # Umsetzungsplan E2 · Scope & Resolver
 
 > **Quellen:** `resident_index.md` (Scope und Auflösung). **Recherche:** `context_e.md` §E2 (Punkte 5–7). **Querschnitt:** Q1, Q2, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** B4 (Index-Trait, `Scope`, `AccessMethod`), E1 (Manager). **Ergebnis:** Scope-Resolver-Spezifikation + Registry.
 
 ## 1. Ziel & Abgrenzung

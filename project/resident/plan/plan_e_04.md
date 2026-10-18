@@ -1,6 +1,7 @@
 # Umsetzungsplan E4 · Manager-Disziplin (Hochrisiko)
 
 > **Quellen:** `resident_index.md` (Manager-Disziplin). **Recherche:** `context_e.md` §E4 (Punkte 13–17, **Hochrisiko**), ergänzend `context_h_q.md` H1 (3–5). **Querschnitt:** Q1, Q2, Q3, Q4.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** E1, E3, B5 (Kernel-Trait). **Ergebnis:** Mutations-/Swap-Disziplin.
 
 ## 1. Ziel & Abgrenzung

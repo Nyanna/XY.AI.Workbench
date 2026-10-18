@@ -1,6 +1,7 @@
 # Umsetzungsplan E3 · ArenaAllocator (GPU, Index-Segmente)
 
 > **Quellen:** `resident_index.md` (Manager-Disziplin/Arena); **überlappt D3** (`resident_subengine.md` §4.2). **Recherche:** `context_e.md` §E3 (Punkte 8–12). **Querschnitt:** Q1, Q2, Q4.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** D3 (gemeinsamer Allocator/MemoryManager). **Ergebnis:** Index-Arena-Spezifikation, konsolidiert mit D3.
 
 ## 1. Ziel & Abgrenzung

@@ -1,3 +1,6 @@
 [build]
 target-dir = ".bin"
 rustflags = ["--check-cfg=cfg(loom)"]
+
+[env]
+CUDA_COMPUTE_CAP = { value = "75", force = false }

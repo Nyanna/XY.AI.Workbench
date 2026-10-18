@@ -34,12 +34,11 @@ resolver unifies on a single version instead of letting candle's `^0.19.8` range
 potential 0.19.10 release from candle's main branch. No `default-features = false` was set for
 `cudarc`, so Cargo's feature unification keeps whatever feature set candle itself requires.
 
-**Action required before first GPU build:** run `cargo tree -i cudarc` and `cargo tree -d` on a
-machine with network access to confirm exactly one resolved `cudarc` version and no other
-duplicated crate; record the resolved version from `Cargo.lock` here. Not executed in this
-authoring environment (no network/CUDA toolchain available).
+**GPU CI step:** run `cargo tree -i cudarc` and `cargo tree -d` with `--features cuda` to confirm exactly one
+resolved `cudarc` version and record it from `Cargo.lock`. Not possible on hosts without the CUDA
+toolkit. Duplicates without `cuda` are reviewed in §5.
 
-**Status: open**, tracked as restrisk #1 (see §5).
+**Status: residual risk** (see §5).
 
 ## 3. CUDA Toolkit / Compute Capability
 
@@ -48,45 +47,54 @@ authoring environment (no network/CUDA toolchain available).
 - Consequence: bf16 kernels are excluded (`-DNO_BF16_KERNEL`); only f16/f32 paths are planned
   for D4 (model/encoder) and D6 (kernels/scorer).
 - This is a build-environment setting (not expressible purely in `Cargo.toml`); it must be set
-  wherever `cargo build --features cuda` runs, e.g. in CI job config or a local `.cargo/config.toml`
-  `[env]` section.
+  wherever `cargo build --features cuda` runs. `.cargo/config.toml` sets it as a non-forced default;
+  CI sets it explicitly.
 
 ## 4. Roundtrip / Compatibility Tests
 
-Minimal, `#[ignore]`d verification tests were added in `tests/stack_verification.rs`:
+`tests/deps_smoke.rs` (runs in the default suite):
 
-- `parquet_f16_roundtrip`: writes/reads a `FixedSizeList<Float16, 384>` column via parquet 60.0.0
-  and reads it back through `memmap2` + `bytes::Bytes`, confirming the mmap-based read path.
-- `tokenizer_loads_without_onig`: loads a `tokenizer.json` via `Tokenizer::from_file` with
-  `tokenizers` compiled `default-features = false`, and exercises `encode`/`get_ids`/
-  `get_attention_mask`.
+- `parquet_f16_fixed_size_list_round_trips_bit_exact`: writes and reads a `FixedSizeList<Float16>` column
+  through parquet and compares the raw bits.
+- `tokenizer_loads_from_serialized_json`: builds a word-level tokenizer, serializes it, loads it with
+  `Tokenizer::from_file` (`tokenizers` with `default-features = false` plus `fancy-regex`) and encodes.
 
-Both are `#[ignore]`d because they require local fixture files (a `tokenizer.json` for the
-XLM-R-based `intfloat/multilingual-e5-small` tokenizer) not present in this environment; they are
-CI-tauglich (Q3) once such a fixture is added under `tests/fixtures/`.
+Not covered by an automated test (residual risk):
 
-Not covered by an automated test here (documented as restrisk instead):
+- Tensor-name prefixes of the target BERT model against `candle_transformers::models::bert::BertModel::load`
+  (needs `model.safetensors`/`config.json`).
+- `VarBuilder::from_mmaped_safetensors` transfer to the GPU (needs a CUDA device).
 
-- BertModel/e5-small tensor-name prefix check against `candle_transformers::models::bert::BertModel::load`
-  — requires downloading `model.safetensors`/`config.json`, deferred to D4.
-- `VarBuilder::from_mmaped_safetensors` GPU transfer copy — requires a CUDA device, deferred to D4.
-
-## 5. Open Points / Risk List (from context_a.md)
+## 5. Open Points / Risk List
 
 | # | Open point | Status |
 |---|---|---|
-| 1 | cudarc 0.19.9 vs. 0.19.10 + candle re-export | **Open.** Pinned to `=0.19.9`; `cargo tree -i cudarc` must be run in a networked build environment before D-group work starts. Mitigation: exact pin prevents silent drift even if unresolved. |
-| 2 | parquet-f16 roundtrip + mmap strategy | **Partially resolved.** Test written (`#[ignore]`); not executed here. Zero-copy only holds for uncompressed columns — documented in D7 handoff. |
-| 3 | CUDA toolkit version + `CUDA_COMPUTE_CAP=75` | **Resolved** as a decision (§3); still needs to be wired into the actual CI/build config in A4/D-group. |
-| 4 | `tokenizers` `default-features = false` vs. XLM-R `tokenizer.json` | **Partially resolved.** Feature flag set in `Cargo.toml`; test written (`#[ignore]`), pending fixture + execution. |
-| 5 | thiserror 1→2 migration notes | **Resolved for this project**: `thiserror` is a fresh dependency here (A2 did not yet use thiserror), so no 1→2 migration applies. The A4 error taxonomy must use thiserror 2.0 syntax directly (named captures use `{field}`; raw identifiers use `{r#type}`). |
+| 1 | cudarc 0.19.9 vs. 0.19.10 + candle re-export | **Residual risk.** Pinned to `=0.19.9`; `cargo tree -i cudarc` can only be resolved with the `cuda` feature on the GPU CI job (no `nvcc` on the dev host). The exact pin prevents silent drift. |
+| 2 | parquet f16 round-trip | **Resolved.** `tests/deps_smoke.rs` round-trips a `FixedSizeList<Float16>` column bit-exactly. Zero-copy mmap only holds for uncompressed columns. |
+| 3 | CUDA toolkit version + `CUDA_COMPUTE_CAP=75` | **Resolved.** Anchored in `.cargo/config.toml` (`[env]`, not forced) and in the GPU CI job. |
+| 4 | `tokenizers` without default features | **Resolved for loading.** Requires the `fancy-regex` feature; `tests/deps_smoke.rs` loads a serialized tokenizer. **Residual risk:** the XLM-R `tokenizer.json` of the target model is not covered (needs a fixture). |
+| 5 | thiserror 1→2 | **Resolved.** Fresh dependency, taxonomy uses 2.x syntax. |
+| 6 | Model tensor-name prefixes, `VarBuilder` mmap transfer to GPU | **Residual risk.** Needs model download and a CUDA device. |
+| 7 | dp4a / bf16 behaviour on sm_75 | **Residual risk.** Needs hardware; marked with `TODO` in `precision::known`. |
+
+### Duplicate crates (`cargo tree -d`, default features)
+
+Reviewed and accepted: all duplicates are transitive and pure Rust, and none of their types cross a
+public boundary of this crate.
+
+| Crate | Versions | Origin |
+|---|---|---|
+| `rand`, `rand_core`, `rand_chacha`, `getrandom` | 0.8 / 0.9 (and 0.2 / 0.3 / 0.4) | direct `rand` 0.8 vs. parquet/arrow/tokenizers stack |
+| `hashbrown`, `ahash`, `foldhash` | several | arrow, rusqlite, lru, tokenizers |
+| `syn` | 1 / 2 / 3 | proc-macro build dependencies only |
+| `base64`, `itertools` | two each | parquet/arrow vs. tokenizers/criterion |
+
+Re-run `cargo tree -d` when bumping `arrow`/`parquet`/`tokenizers`; any duplicate of `cudarc` or `candle-*`
+is a blocker.
 
 ## 6. Acceptance Status
 
-1. No known duplicate-crate issue by construction (exact `cudarc` pin); live `cargo tree -d`
-   confirmation remains an open action item for the first networked build (#1 above).
-2. Roundtrip/load tests exist as code but are `#[ignore]`d pending fixtures — documented workaround,
-   not yet a green run.
-3. Toolkit/compute-cap decision is recorded (§3); wiring into CI/build config is a follow-up for A4.
-4. All five open points from `context_a.md` carry an explicit status above; none are silently
-   unaddressed.
+1. Duplicate review done and recorded above; `cudarc`/`candle` single-version check is a GPU CI step.
+2. Round-trip and tokenizer-load tests are green and run in the default suite.
+3. Toolkit/compute-cap decision is wired into the build configuration.
+4. Every open point carries an explicit status; residual risks are listed.

@@ -3,10 +3,7 @@
 //! The kernel knows only segments, offsets and spans. Mapping an address back to an entry is the
 //! manager's job (`entry_of`, `entry_of_fixed`); the public API carries no pointers.
 
-#[cfg(feature = "cuda")]
-mod cuda;
-#[cfg(feature = "cuda")]
-pub use cuda::*;
+pub mod cuda;
 
 #[cfg(any(test, feature = "mock"))]
 pub mod mock;

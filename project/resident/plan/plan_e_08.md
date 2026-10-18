@@ -1,6 +1,7 @@
 # Umsetzungsplan E8 · Kernel schreibt Segmente (Indexaufbau)
 
 > **Quellen:** `resident_index.md` (Kernel schreibt Segmente, Rückabbildung). **Recherche:** `context_e.md` §E8 (Punkte 31–33). **Querschnitt:** Q1, Q2, Q3.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** E5 (Slot-Reihenfolge), B5 (Kernel-Trait, `SegmentDesc`/`Layout`). **Ergebnis:** Indexaufbau-Pfad-Spezifikation.
 
 ## 1. Ziel & Abgrenzung

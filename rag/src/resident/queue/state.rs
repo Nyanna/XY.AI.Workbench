@@ -102,7 +102,7 @@ impl<O, E> TaskState<O, E> {
         }
     }
 }
-#[cfg(test)]
+#[cfg(all(test, not(loom)))]
 mod tests {
     use super::*;
     #[test]
@@ -155,5 +155,60 @@ mod tests {
         tokio::task::yield_now().await;
         s.complete(Ok(1));
         waiter.await.unwrap();
+    }
+}
+
+#[cfg(loom)]
+mod loom_tests {
+    use super::*;
+    use loom::thread;
+    use std::sync::Arc;
+
+    fn state() -> Arc<TaskState<u32, ()>> {
+        Arc::new(TaskState::new())
+    }
+
+    #[test]
+    fn concurrent_claims_have_one_winner() {
+        loom::model(|| {
+            let s = state();
+            let hs: Vec<_> = (0..2)
+                .map(|_| {
+                    let s = s.clone();
+                    thread::spawn(move || s.claim())
+                })
+                .collect();
+            let wins = hs.into_iter().map(|h| h.join().unwrap()).filter(|w| *w).count();
+            assert_eq!(wins, 1);
+        });
+    }
+
+    #[test]
+    fn claim_and_cancel_are_exclusive() {
+        loom::model(|| {
+            let s = state();
+            let c = s.clone();
+            let t = thread::spawn(move || c.cancel());
+            let claimed = s.claim();
+            let cancelled = t.join().unwrap();
+            assert!(claimed ^ cancelled);
+            let expect = if claimed { ClaimState::Taken } else { ClaimState::Cancelled };
+            assert_eq!(s.claim_state(), expect);
+        });
+    }
+
+    #[test]
+    fn done_implies_result_visible() {
+        loom::model(|| {
+            let s = state();
+            assert!(s.claim());
+            let c = s.clone();
+            let t = thread::spawn(move || c.complete(Ok(5)));
+            if s.claim_state() == ClaimState::Done {
+                assert_eq!(s.result(), Some(&Ok(5)));
+            }
+            t.join().unwrap();
+            assert_eq!(s.result(), Some(&Ok(5)));
+        });
     }
 }

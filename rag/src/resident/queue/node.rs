@@ -6,7 +6,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
 
-use super::state::TaskState;
+use super::state::{ClaimState, TaskState};
 
 enum Content<P, D, O, E> {
     Sentinel,
@@ -53,6 +53,17 @@ impl<P, D, O, E> Node<P, D, O, E> {
         match &self.content {
             Content::Real { state, .. } => Some(state),
             Content::Sentinel => None,
+        }
+    }
+
+    /// `false` once the task is `Done`/`Cancelled`; such nodes stay in the chain
+    /// (append-only, reclaimed with the queue) but are skipped by live iteration.
+    pub fn is_live(&self) -> bool {
+        match &self.content {
+            Content::Real { state, .. } => {
+                matches!(state.claim_state(), ClaimState::Queued | ClaimState::Taken)
+            }
+            Content::Sentinel => false,
         }
     }
 

@@ -6,6 +6,7 @@ use super::dtype::DType;
 use super::freelist::FreeList;
 use super::region::{ArenaId, Region};
 use crate::resident::error::{IndexError, ManagerError};
+use crate::resident::failpoint;
 
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -83,10 +84,14 @@ impl MemoryManager for BookkeepingArena {
     fn alloc(&self, _dev: DeviceKind, bytes: u64, align: u64) -> Result<Region, IndexError> {
         let mut g = self.inner.lock();
         let available = g.list.available();
-        let offset = g.list.alloc(bytes, align).ok_or(IndexError::ArenaExhausted {
+        let exhausted = IndexError::ArenaExhausted {
             requested: bytes as usize,
             available: available as usize,
-        })?;
+        };
+        if failpoint::hit("memory.alloc", u64::from(self.id.0)) {
+            return Err(exhausted);
+        }
+        let offset = g.list.alloc(bytes, align).ok_or(exhausted)?;
         let gen = match g.slots.iter_mut().find(|s| !s.live && s.offset == offset && s.len == bytes) {
             Some(s) => {
                 s.gen = s.gen.wrapping_add(1);
@@ -130,6 +135,38 @@ mod tests {
         assert!(a.try_free(r1).is_err());
         assert!(a.is_live(r2));
         assert!(a.try_free(r2).is_ok());
+    }
+
+    #[test]
+    fn failpoint_injects_exhaustion_without_consuming_space() {
+        let a = BookkeepingArena::new(ArenaId(9001), 64);
+        let guard = failpoint::arm("memory.alloc", 9001, 1);
+        assert!(matches!(a.alloc(DeviceKind::Cpu, 8, 1), Err(IndexError::ArenaExhausted { .. })));
+        assert_eq!(a.available(), 64);
+        assert!(a.alloc(DeviceKind::Cpu, 8, 1).is_ok());
+        drop(guard);
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn live_regions_never_overlap(ops in proptest::collection::vec((1u64..24, proptest::bool::ANY), 1..80)) {
+            let a = BookkeepingArena::new(ArenaId(1), 256);
+            let mut live: Vec<Region> = Vec::new();
+            for (bytes, free_one) in ops {
+                if free_one && !live.is_empty() {
+                    let r = live.swap_remove(0);
+                    a.free(r);
+                } else if let Ok(r) = a.alloc(DeviceKind::Cpu, bytes, 1) {
+                    for o in &live {
+                        proptest::prop_assert!(r.offset + r.len <= o.offset || o.offset + o.len <= r.offset);
+                    }
+                    proptest::prop_assert!(r.offset + r.len <= 256);
+                    live.push(r);
+                }
+            }
+            let used: u64 = live.iter().map(|r| r.len).sum();
+            proptest::prop_assert_eq!(a.available(), 256 - used);
+        }
     }
 
     #[test]

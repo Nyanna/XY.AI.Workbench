@@ -82,6 +82,7 @@ pub(crate) mod candle_adapter {
     }
 
     /// Candle layouts count elements; the engine counts bytes.
+    // TODO: confirm the bytes-vs-elements convention against candle narrow/transpose/permute.
     pub(crate) fn elems_to_bytes(elems: usize, dtype: DType) -> usize {
         elems * dtype.size_bytes()
     }

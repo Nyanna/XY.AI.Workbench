@@ -1,6 +1,7 @@
 # Umsetzungsplan E1 · StreamedIndexManager-Grundgerüst
 
 > **Quellen:** `resident_index.md` (Drei Schichten, Leitprinzipien, Umsetzungsvorgaben). **Recherche:** `context_e.md` §E1 (Punkte 1–4). **Querschnitt:** Q1, Q2, Q4.
+> **Boundary:** see `rag/docs/architecture/scope_charta.md` (engine vs. search-layer scope, ring buffer vs. pull queue).
 > **Abhängt von:** B4 (Index-Trait), D7 (Segment-Repräsentation). **Ergebnis:** Manager-Rollen-Spezifikation + lauffähiges Grundgerüst.
 
 ## 1. Ziel & Abgrenzung

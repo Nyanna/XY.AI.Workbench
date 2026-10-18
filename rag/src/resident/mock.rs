@@ -1,4 +1,4 @@
-//! Mock/test-double conventions (Q3).
+//! Mock/test-double conventions.
 //!
 //! Narrow traits for GPU/measurement interfaces use generics (static dispatch) in the hot
 //! path; `dyn` only at the edges. Deterministic fakes (fixed output, simulated failure) are
@@ -27,68 +27,12 @@ impl ComputeBackend for MockBackend {
         input.to_vec()
     }
 }
-/// Kernel-level trait (batch lifecycle + results), abstracted so orchestration/sync logic
-/// is testable without a GPU. Concrete kernel implementations define their own result type.
-pub trait Kernel {
-    type Hit;
-    fn batch_start(&mut self) -> u64;
-    fn batch_end(&mut self, batch_id: u64);
-    fn results(&self, batch_id: u64) -> Vec<Self::Hit>;
-    fn written_ranges(&self, batch_id: u64) -> Vec<(usize, usize)>;
-    fn progress(&self, batch_id: u64) -> usize;
-}
-/// Scriptable kernel fake: results/ranges/progress for a batch are programmed up front
-/// rather than computed, so sync-point tests control exactly what the kernel "found".
-#[derive(Default)]
-pub struct FakeKernel<H> {
-    next_batch_id: u64,
-    scripted: std::collections::HashMap<u64, (Vec<H>, Vec<(usize, usize)>, usize)>,
-}
-impl<H> FakeKernel<H> {
-    pub fn new() -> Self {
-        Self {
-            next_batch_id: 0,
-            scripted: std::collections::HashMap::new(),
-        }
-    }
-    /// Programs the outcome of the next-started batch before it runs.
-    pub fn script(
-        &mut self,
-        batch_id: u64,
-        hits: Vec<H>,
-        ranges: Vec<(usize, usize)>,
-        progress: usize,
-    ) {
-        self.scripted.insert(batch_id, (hits, ranges, progress));
-    }
-}
-impl<H: Clone> Kernel for FakeKernel<H> {
-    type Hit = H;
-    fn batch_start(&mut self) -> u64 {
-        let id = self.next_batch_id;
-        self.next_batch_id += 1;
-        id
-    }
-    fn batch_end(&mut self, _batch_id: u64) {}
-    fn results(&self, batch_id: u64) -> Vec<H> {
-        self.scripted.get(&batch_id).map(|(hits, _, _)| hits.clone()).unwrap_or_default()
-    }
-    fn written_ranges(&self, batch_id: u64) -> Vec<(usize, usize)> {
-        self.scripted
-            .get(&batch_id)
-            .map(|(_, ranges, _)| ranges.clone())
-            .unwrap_or_default()
-    }
-    fn progress(&self, batch_id: u64) -> usize {
-        self.scripted.get(&batch_id).map(|(_, _, p)| *p).unwrap_or(0)
-    }
-}
 /// Measurement trait calibration logic depends on; `FakeMeasure` stands in for real
 /// hardware probing with seeded, reproducible noise.
 pub trait Measure {
     fn sample(&mut self) -> f64;
 }
-/// Noise models covering the calibration-stability test matrix (F2-F5).
+/// Noise models for calibration-stability tests.
 pub enum NoiseModel {
     Constant,
     Outlier { every_n: u32, magnitude: f64 },
@@ -135,7 +79,7 @@ impl Measure for FakeMeasure {
         }
     }
 }
-/// `std::sync` vs. `loom::sync` shim for CAS-protocol modules (B1-style queues): swap the
+/// `std::sync` vs. `loom::sync` shim for CAS-protocol modules: swap the
 /// import under `cfg(loom)` so the same production code runs exhaustively under loom without
 /// a second implementation. Run with `RUSTFLAGS="--cfg loom" cargo test --test <loom_test>`.
 #[cfg(loom)]

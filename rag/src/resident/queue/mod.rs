@@ -1,7 +1,9 @@
 //! Queue & task primitives.
 //!
-//! Single singly-linked, lock-free, append-only list (CAS on `tail.next`,
-//! logical unlink via node state). Order equals age. No version, no snapshot,
+//! Single singly-linked, lock-free, append-only list (CAS on `tail.next`).
+//! Unlink is logical: finished nodes (`Done`/`Cancelled`) stay in the chain and are
+//! skipped by `Queue::iter_live`; no mutex guards the chain, memory is reclaimed when the
+//! queue drops. Order equals age. No version, no snapshot,
 //! no lock on the chain itself. Priority/resource/model/mode are metadata in
 //! `params`, opaque to the queue.
 //!

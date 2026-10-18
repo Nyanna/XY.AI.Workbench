@@ -37,16 +37,12 @@ impl IsRetryable for IndexError {
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub(crate) enum ManagerError {
-    #[error("stale mapping for scope '{scope}'")]
-    StaleMapping { scope: String },
     #[error("stale region in arena {arena} (gen {gen})")]
     StaleRegion { arena: u32, gen: u32 },
 }
 impl IsRetryable for ManagerError {
     fn is_retryable(&self) -> bool {
-        matches!(
-            self, ManagerError::StaleMapping { .. } | ManagerError::StaleRegion { .. }
-        )
+        matches!(self, ManagerError::StaleRegion { .. })
     }
 }
 /// Precision/calibration layer errors.
@@ -137,5 +133,61 @@ impl IsRetryable for ResidentError {
             ResidentError::Config(e) => e.is_retryable(),
             ResidentError::Capability(e) => e.is_retryable(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_send_sync_static<T: Send + Sync + 'static>() {}
+
+    #[test]
+    fn all_errors_are_send_sync_static() {
+        assert_send_sync_static::<ResidentError>();
+        assert_send_sync_static::<IndexError>();
+        assert_send_sync_static::<ManagerError>();
+        assert_send_sync_static::<PrecisionError>();
+        assert_send_sync_static::<PlannerError>();
+        assert_send_sync_static::<CapabilityError>();
+        assert_send_sync_static::<ConfigError>();
+    }
+
+    #[test]
+    fn layer_errors_convert_into_resident_error() {
+        let e: ResidentError = IndexError::UnknownBatch { batch: 3 }.into();
+        assert!(matches!(e, ResidentError::Index(IndexError::UnknownBatch { batch: 3 })));
+        let e: ResidentError = ConfigError::MissingField { field: "model".into() }.into();
+        assert!(matches!(e, ResidentError::Config(_)));
+        let e: ResidentError = PrecisionError::NoActiveProfile.into();
+        assert!(matches!(e, ResidentError::Precision(_)));
+        let e: ResidentError = PlannerError::UnknownModel { model: "m".into() }.into();
+        assert!(matches!(e, ResidentError::Planner(_)));
+        let e: ResidentError = CapabilityError::Missing { capability: "c".into() }.into();
+        assert!(matches!(e, ResidentError::Capability(_)));
+    }
+
+    #[test]
+    fn transparent_wrapper_keeps_message() {
+        let inner = IndexError::ArenaExhausted { requested: 8, available: 2 };
+        let msg = inner.to_string();
+        assert_eq!(ResidentError::from(inner).to_string(), msg);
+        assert!(msg.contains('8') && msg.contains('2'));
+    }
+
+    #[test]
+    fn retryability_classification() {
+        assert!(IndexError::ArenaExhausted { requested: 1, available: 0 }.is_retryable());
+        assert!(IndexError::IndexUnavailable { scope: "s".into() }.is_retryable());
+        assert!(!IndexError::KernelFailed { reason: "r".into() }.is_retryable());
+        assert!(ManagerError::StaleRegion { arena: 1, gen: 2 }.is_retryable());
+        assert!(PrecisionError::CalibrationUnstable { reason: "r".into() }.is_retryable());
+        assert!(!PrecisionError::NoActiveProfile.is_retryable());
+        assert!(!ConfigError::InvalidValue { field: "f".into(), reason: "r".into() }.is_retryable());
+        assert!(!CapabilityError::Unknown { capability: "c".into() }.is_retryable());
+        let wrapped: ResidentError = IndexError::ArenaExhausted { requested: 1, available: 0 }.into();
+        assert!(wrapped.is_retryable());
+        let fatal: ResidentError = PlannerError::InvalidConfig { reason: "r".into() }.into();
+        assert!(!fatal.is_retryable());
     }
 }
