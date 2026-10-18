@@ -9,9 +9,11 @@ from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 import re
+from xy.ai.mcpc.tools.ast import core
 __all__ = [
     'GrepError',
     'GrepLineMatch',
+    'GrepNodeMatch',
     'GrepMatch',
     'GrepItem',
     'GrepResult',
@@ -33,11 +35,22 @@ class GrepLineMatch:
     match: str
 
 @dataclass(frozen=True)
+class GrepNodeMatch:
+    """Matching lines attributed to the most specific enclosing AST node."""
+    node_id: str
+    matches: list[GrepLineMatch]
+
+@dataclass(frozen=True)
 class GrepMatch:
-    """All matches found within a single file."""
+    """All matches found within a single file.
+
+    ``nodes`` is set instead of relying on ``matches`` only if the file could be
+    resolved to AST nodes; lines outside any node are kept under ``matches``.
+    """
     directory: str
     filename: str
     matches: list[GrepLineMatch]
+    nodes: list[GrepNodeMatch] | None = None
 
 @dataclass(frozen=True)
 class GrepItem:
@@ -182,11 +195,34 @@ def _grep_one(item: GrepItem) -> GrepResult:
             item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
     return GrepResult(directory=item.directory, matches=matches, warning=warning)
 
-def grep(items: list[GrepItem]) -> GrepBatchResult:
+def _resolve_nodes(match: GrepMatch) -> GrepMatch:
+    """Regroup a file's line matches by the most specific enclosing AST node.
+
+    Files that cannot be parsed are returned unchanged. Lines not covered by any
+    node stay in ``matches``.
+    """
+    path = f'{match.directory}/{match.filename}' if match.directory else match.filename
+    try:
+        located = core.locate_all(core.load(path)[1])
+    except (core.AstError, OSError):
+        return match
+    by_node: dict[str, list[GrepLineMatch]] = {}
+    unresolved: list[GrepLineMatch] = []
+    for lm in match.matches:
+        loc = core.most_specific(located, lm.lineno, lm.lineno)
+        if loc is None:
+            unresolved.append(lm)
+        else:
+            by_node.setdefault(loc.node_id, []).append(lm)
+    nodes = [GrepNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
+    return GrepMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
+
+def grep(items: list[GrepItem], *, with_ast: bool=False) -> GrepBatchResult:
     """Run one or more independent grep searches. Limits apply per item, not per batch.
 
     Args:
         items: Grep searches to run. Must be non-empty.
+        with_ast: Resolve matched lines to AST node ids (see :class:`GrepMatch`).
 
     Returns:
         GrepBatchResult: one result per successful search, one error per failed search.
@@ -200,7 +236,14 @@ def grep(items: list[GrepItem]) -> GrepBatchResult:
     errors: list[GrepItemError] = []
     for item in items:
         try:
-            results.append(_grep_one(item))
+            result = _grep_one(item)
+            if with_ast:
+                result = GrepResult(
+                    directory=result.directory,
+                    matches=[
+                        _resolve_nodes(m) for m in result.matches],
+                    warning=result.warning)
+            results.append(result)
         except GrepError as exc:
             errors.append(GrepItemError(directory=item.directory, pattern=item.pattern, error=str(exc)))
     return GrepBatchResult(results=results, errors=errors)
@@ -241,6 +284,7 @@ class GrepTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
+        with_ast = bool({'tools', 'ast_read'} & ctx.session.enabled_tools)
 
         def item_factory(it: dict[str, Any]) -> GrepItem:
             return GrepItem(
@@ -253,19 +297,36 @@ class GrepTool(ToolDefinition):
                         'limit',
                         _DEFAULT_LIMIT)))
 
+        def line_dicts(lms: list[GrepLineMatch]) -> list[dict[str, Any]]:
+            return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
+
+        def file_dict(m: GrepMatch) -> dict[str, Any]:
+            entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
+            if m.nodes is not None:
+                entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(n.matches)} for n in m.nodes]
+                if m.matches:
+                    entry['matches'] = line_dicts(m.matches)
+            else:
+                entry['matches'] = line_dicts(m.matches)
+            return entry
+
         def result_serializer(r: GrepResult) -> dict[str, Any]:
-            entry: dict[str,
-                        Any] = {'directory': r.directory,
-                                'matches': [{'path': f'{m.directory}/{m.filename}' if m.directory else m.filename,
-                                             'matches': [{'lineno': lm.lineno,
-                                                          'match': lm.match} for lm in m.matches]} for m in r.matches]}
+            entry: dict[str, Any] = {'directory': r.directory, 'matches': [file_dict(m) for m in r.matches]}
             if r.warning is not None:
                 entry['warning'] = r.warning
             return entry
 
         def error_serializer(e: GrepError) -> dict[str, Any]:
             return {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
-        return handle_batch_tool(ctx, item_factory, grep, GrepError, result_serializer, error_serializer)
+        return handle_batch_tool(
+            ctx,
+            item_factory,
+            lambda items: grep(
+                items,
+                with_ast=with_ast),
+            GrepError,
+            result_serializer,
+            error_serializer)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())
