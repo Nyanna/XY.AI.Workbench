@@ -3827,6 +3827,7 @@ dependencies = [
  "arrow",
  "async-trait",
  "candle-core",
+ "candle-nn",
  "candle-transformers",
  "clap",
  "criterion",

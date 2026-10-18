@@ -15,4 +15,5 @@ pub mod facade;
 pub mod processor;
 pub mod planner;
 pub mod subengine;
+pub mod model;
 pub mod manager;
