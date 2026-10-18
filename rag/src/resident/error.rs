@@ -132,6 +132,8 @@ pub enum ResidentError {
     Subengine(#[from] SubengineError),
     #[error(transparent)]
     Device(#[from] DeviceError),
+    #[error(transparent)]
+    Memory(#[from] crate::resident::memory::MemoryError),
 }
 impl IsRetryable for ResidentError {
     fn is_retryable(&self) -> bool {
@@ -144,6 +146,7 @@ impl IsRetryable for ResidentError {
             ResidentError::Orchestration(e) => e.is_retryable(),
             ResidentError::Subengine(e) => e.is_retryable(),
             ResidentError::Device(e) => e.is_retryable(),
+            ResidentError::Memory(e) => e.is_retryable(),
         }
     }
 }
@@ -161,6 +164,7 @@ mod tests {
         assert_send_sync_static::<CapabilityError>();
         assert_send_sync_static::<ConfigError>();
         assert_send_sync_static::<DeviceError>();
+        assert_send_sync_static::<crate::resident::memory::MemoryError>();
     }
     #[test]
     fn layer_errors_convert_into_resident_error() {

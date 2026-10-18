@@ -6,6 +6,9 @@ use thiserror::Error;
 #[error("unsupported dtype: {0}")]
 pub struct UnsupportedDType(pub &'static str);
 
+/// Additive attention-mask value that stays finite in f16 (`-inf` would turn rows into NaN).
+pub const F16_MASK_VALUE: f32 = -1e4;
+
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DType {

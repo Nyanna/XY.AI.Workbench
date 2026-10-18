@@ -77,6 +77,11 @@ impl DeviceHandle {
     pub fn kind(&self) -> DeviceKind {
         self.kind
     }
+    #[cfg(feature = "cuda")]
+    pub(crate) fn cuda_context(&self) -> Option<&std::sync::Arc<cudarc::driver::CudaContext>> {
+        self.ctx.as_ref()
+    }
+
     pub fn ordinal(&self) -> usize {
         self.ordinal
     }

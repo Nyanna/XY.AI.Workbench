@@ -4,3 +4,7 @@ I deviated from the plan in three places:
 - **`Subengine` trait:** it has no `device()`, `resource()` or `run_ops()` yet, since D2 and the op types aren't wired in. There is also no `Subengine` implementation yet, only the trait.
 
 D2 ist umgesetzt, aber ich konnte weder `cargo build` noch `cargo test` ausführen. Geprüft ist nur die Syntax der geänderten Dateien. Die Gates G-STREAM und G-PTR sind nicht durchlaufen, weil dafür eine GPU nötig ist.
+
+- Der bestehende Trait `MemoryManager` kennt keine Arena-Klasse. Deshalb gibt es daneben `DeviceMemory` mit `alloc_in`, `release_after` und `budget`. `MemoryManager` habe ich nicht geändert.
+- `StagingRing` ist generisch und ohne `cuda` testbar. Nur die pinned Variante (`PinnedStaging`) liegt hinter `cuda`.
+- `copy_d2d` verlangt, dass Quelle und Ziel in verschiedenen Arena-Klassen liegen.
