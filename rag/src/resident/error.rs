@@ -5,6 +5,7 @@
 //! Public enums are `#[non_exhaustive]` so new variants don't break downstream matches.
 use thiserror::Error;
 pub use crate::resident::processor::OrchestrationError;
+pub use crate::resident::subengine::SubengineError;
 /// Classifies an error as retryable (transient) vs. fatal, for backoff decisions.
 pub trait IsRetryable {
     fn is_retryable(&self) -> bool;
@@ -126,6 +127,8 @@ pub enum ResidentError {
     Capability(#[from] CapabilityError),
     #[error(transparent)]
     Orchestration(#[from] OrchestrationError),
+    #[error(transparent)]
+    Subengine(#[from] SubengineError),
 }
 impl IsRetryable for ResidentError {
     fn is_retryable(&self) -> bool {
@@ -136,6 +139,7 @@ impl IsRetryable for ResidentError {
             ResidentError::Config(e) => e.is_retryable(),
             ResidentError::Capability(e) => e.is_retryable(),
             ResidentError::Orchestration(e) => e.is_retryable(),
+            ResidentError::Subengine(e) => e.is_retryable(),
         }
     }
 }
