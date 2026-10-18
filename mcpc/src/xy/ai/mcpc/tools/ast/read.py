@@ -108,7 +108,7 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     title = 'Reads the code, text, and content of the nodes identified by the given IDs within the specified files.'
-    description = "After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs."
+    description = 'After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs.'
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'ids': {
@@ -116,7 +116,7 @@ class ReadNodeTool(ToolDefinition):
             'items': {
                 'type': 'string'},
             'description': 'List of AST node IDs to read.'}}
-    _ITEM_REQUIRED = ['path', 'ids']
+    _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Per-file node IDs to read.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
@@ -147,8 +147,12 @@ class ReadNodeTool(ToolDefinition):
             if _looks_like_root_intent(ids) and (item_result is None or not item_result.nodes):
                 list_batch = ast_outline([path], with_lines=with_lines)
                 for lr in list_batch.results:
-                    results.append({'path': lr.path, 'nodes': [core.to_dict(n) for n in lr.nodes], 'errors': [
-                                   f'ids {ids!r} resolved to no node; redirected to ast_outline, returning the full outline instead.']})
+                    entry: dict[str, Any] = {'path': lr.path, 'nodes': [core.to_dict(n) for n in lr.nodes]}
+                    if ids:
+                        entry['errors'] = [
+                            f'ids {
+                                ids!r} resolved to no node; redirected to ast_outline, returning the full outline instead.']
+                    results.append(entry)
                 for le in list_batch.errors:
                     errors.append({'path': le.path, 'error': le.error})
                 continue
