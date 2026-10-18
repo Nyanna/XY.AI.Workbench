@@ -1,4 +1,4 @@
-//! Shared subengine lifecycle & pull model, tokenizer/normalizer (CPU).
+//! Subengine resource lifecycle, pull capacity reporting, device handles and execution lanes.
 use crate::resident::backend::ComputeBackend;
 /// CPU backend; default without `cuda`, and the fallback target if CUDA init fails.
 /// Placeholder until the real embedding path is wired in.
@@ -37,6 +37,7 @@ pub enum SubengineKind {
 /// processor's op queues; the subengine only reports how much it can take.
 pub trait Subengine: Send + Sync {
     fn kind(&self) -> SubengineKind;
+    fn device(&self) -> &DeviceHandle;
     fn capacity(&self) -> Capacity;
     /// Smoothed items per second.
     fn throughput(&self) -> f32;

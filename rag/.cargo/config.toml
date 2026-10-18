@@ -1,9 +1,9 @@
 [build]
 target-dir = ".bin"
-rustflags = ["--check-cfg=cfg(loom)", "-L", "native=/usr/local/cuda-13.4/lib64"]
+rustflags = ["--check-cfg=cfg(loom)", "-L", "native=/usr/local/cuda-13.3/lib64", "-C", "link-arg=-Wl,-rpath,/usr/local/cuda-13.3/lib64"]
 
 [env]
-CUDA_PATH = { value = "/usr/local/cuda-13.4", force = false }
-CUDA_HOME = { value = "/usr/local/cuda-13.4", force = false }
+CUDA_PATH = { value = "/usr/local/cuda-13.3", force = false }
+CUDA_HOME = { value = "/usr/local/cuda-13.3", force = false }
 CUDA_COMPUTE_CAP = { value = "75", force = false }
 CUDARC_CUDA_VERSION = { value = "13030", force = false }

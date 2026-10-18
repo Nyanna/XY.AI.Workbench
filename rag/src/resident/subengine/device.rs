@@ -1,4 +1,4 @@
-//! Device/Lane, execution context, loaded encoder, GPU memory arenas.
+//! Compute backends, device handle and CUDA execution lanes.
 use crate::resident::backend::ComputeBackend;
 /// Real CUDA backend; the single Candle/CUDA adapter point for the subengine. Construction fails if no compatible GPU is available,
 /// which lets `create_backend` fall back to `CpuBackend`.
@@ -78,10 +78,11 @@ impl DeviceHandle {
         self.kind
     }
     #[cfg(feature = "cuda")]
-    pub(crate) fn cuda_context(&self) -> Option<&std::sync::Arc<cudarc::driver::CudaContext>> {
+    pub(crate) fn cuda_context(
+        &self,
+    ) -> Option<&std::sync::Arc<cudarc::driver::CudaContext>> {
         self.ctx.as_ref()
     }
-
     pub fn ordinal(&self) -> usize {
         self.ordinal
     }
