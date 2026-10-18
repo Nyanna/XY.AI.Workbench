@@ -35,10 +35,14 @@ impl IsRetryable for IndexError {
 pub(crate) enum ManagerError {
     #[error("stale mapping for scope '{scope}'")]
     StaleMapping { scope: String },
+    #[error("stale region in arena {arena} (gen {gen})")]
+    StaleRegion { arena: u32, gen: u32 },
 }
 impl IsRetryable for ManagerError {
     fn is_retryable(&self) -> bool {
-        matches!(self, ManagerError::StaleMapping { .. })
+        matches!(
+            self, ManagerError::StaleMapping { .. } | ManagerError::StaleRegion { .. }
+        )
     }
 }
 /// Precision/calibration layer errors.

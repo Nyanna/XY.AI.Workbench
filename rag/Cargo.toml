@@ -49,7 +49,8 @@ cudarc = { version = "=0.19.9", optional = true }
 
 [features]
 default = []
-cuda = ["dep:candle-core", "dep:candle-transformers", "dep:cudarc", "candle-core/cuda", "candle-transformers/cuda"]
+candle = ["dep:candle-core"]
+cuda = ["candle", "dep:candle-transformers", "dep:cudarc", "candle-core/cuda", "candle-transformers/cuda"]
 mock = []
 json = ["tracing-subscriber/json"]
 
