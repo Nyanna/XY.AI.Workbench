@@ -1,21 +1,12 @@
 //! CapabilitySet/Profile.
-use std::collections::BTreeSet;
-/// Named capabilities; an empty set is satisfied by any provider.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct CapabilitySet(BTreeSet<String>);
-impl CapabilitySet {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn with(mut self, cap: impl Into<String>) -> Self {
-        self.0.insert(cap.into());
-        self
-    }
-    pub fn contains(&self, cap: &str) -> bool {
-        self.0.contains(cap)
-    }
-    /// `self` (required) is a subset of `available`.
-    pub fn satisfies(&self, available: &CapabilitySet) -> bool {
-        self.0.is_subset(&available.0)
-    }
-}
+
+mod axis;
+mod capability;
+pub mod known;
+mod pareto;
+mod profile;
+
+pub use axis::{AxisId, ValueId};
+pub use capability::CapabilitySet;
+pub use pareto::{pareto, positions};
+pub use profile::{Profile, ProfileConfig};

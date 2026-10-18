@@ -13,5 +13,11 @@
     }, {
       "path" : "/home/user/xyan/xy.ai.workbench/rag/docs/architecture",
       "entries" : [ ".:", "conventions.md", "dependency_verification.md", "feature_matrix.md", "scope_charta.md" ]
+    }, {
+      "path" : "/home/user/xyan/xy.ai.workbench/rag",
+      "entries" : [ ".: (5 files below)", "./.bin: (10413 files below)", "./.cargo: (1 file below)", "./.settings: (1 file below)", "./.xyrag: (31 files below)", "./benches: (1 file below)", "./docs: (4 files below)", "./src: (55 files below)", "./tests: (1 file below)" ],
+    }, {
+      "path" : "/home/user/xyan/xy.ai.workbench/rag/src",
+      "entries" : [ ".: (1 file)", "lib.rs", "./bin: (1 file)", "xyrag.rs", "./core: (9 files)", "engine.rs", "./layers: (5 files)", "dir_cache.rs", "./layers/trigram: (7 files)", "index.rs", "./resident: (5 files)", "backend.rs", "./resident/facade: (1 file)", "mod.rs", "./resident/index: (3 files)", "memory.rs", "./resident/kernel: (3 files)", "cuda.rs", "./resident/manager: (1 file)", "mod.rs", "./resident/memory: (6 files)", "dtype.rs", "./resident/op: (3 files)", "lease.rs", "./resident/planner: (1 file)", "mod.rs", "./resident/precision: (1 file)", "mod.rs", "./resident/processor: (1 file)", "mod.rs", "./resident/queue: (5 files)", "mod.rs", "./resident/subengine: (2 files)", "device.rs" ],
     } ]
 ```

@@ -20,6 +20,10 @@ pub enum IndexError {
     ArenaExhausted { requested: usize, available: usize },
     #[error("transfer failed: {reason}")]
     TransferFailed { reason: String },
+    #[error("kernel failed: {reason}")]
+    KernelFailed { reason: String },
+    #[error("unknown kernel batch {batch}")]
+    UnknownBatch { batch: u64 },
 }
 impl IsRetryable for IndexError {
     fn is_retryable(&self) -> bool {
