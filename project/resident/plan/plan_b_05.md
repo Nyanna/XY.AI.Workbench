@@ -118,6 +118,9 @@ Handgeschriebenes Fake statt Mock-Framework:
 - `MockKernel` mit Determinismus, Partial, Fortschritt, Fehlerinjektion, Aufruf-Log.
 - Trait ist adress-/offset-agnostisch (keine Pointer in öffentlicher API); Rückabbildung als Manager-Aufgabe dokumentiert.
 - Testmatrix §8 grün; baut ohne `cuda`/`candle`.
+
+# Umsetzung
+
 SystemInit:  id=de4cdb87-1974-4aa6-b605-b3aca180b2ee, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den aktuellen Stand des Rust-Projekts an.

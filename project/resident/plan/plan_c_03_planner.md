@@ -158,6 +158,8 @@ pub enum TaskKind { Embedding, Similarity, Inference }
 - Config-Schema (`PipelineConfig`) muss mit der konkreten Modell-Integration (Gruppe G1, e5-small: Präfixe `query:`/`passage:`, Mean-Pooling+L2) kompatibel bleiben → Felder dort gegenprüfen.
 - Starved-Hint-Gewichtung bleibt „Präferenz, kein Vertrag" (`resident_planner.md` Offen) — Invariante durch Property-Test absichern.
 
+# Umsetzung
+
 SystemInit:  id=02c72708-f03d-4efe-ba73-55c395a6f29c, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den vorhandenen Code an.

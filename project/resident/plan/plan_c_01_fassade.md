@@ -195,6 +195,8 @@ impl Drop for TaskHandle { /* Cancel: CAS Queued→Cancelled */ }
 - Genaue Form von B1-`Task`/`TaskState` kann die `TaskHandle`-Implementierung beeinflussen → nach B1-Fertigstellung angleichen.
 - Grenze Engine ↔ Suchschicht (A1′ „Scope-Charta") blockiert laut Metaplan das endgültige API-Design der `SimilarityParams.scope` → vor Freeze der öffentlichen API bestätigen.
 
+# Umsetzung
+
 SystemInit:  id=228d7642-db5c-48ab-ad16-d8d4c4b4e668, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  I'll start by inspecting the existing facade and related modules.

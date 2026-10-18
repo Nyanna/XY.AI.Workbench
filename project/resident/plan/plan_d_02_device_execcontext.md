@@ -82,6 +82,8 @@ Ergebnis jedes Gates dokumentieren; bei Fehlschlag Fallback (eigener Context/man
 
 - Gates dokumentiert; `ExecContext`-Trait + CPU/CUDA-Lanes; Prioritäts-Streams gesetzt; Warmup vorhanden; keine Raw-Pointer/`Tensor` in öffentlichen Signaturen.
 
+# Umsetzung
+
 SystemInit:  id=980d8a64-da3f-4180-972d-24415db78a8f, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den vorhandenen Code an.

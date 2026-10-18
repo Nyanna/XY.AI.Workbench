@@ -83,6 +83,8 @@ Setze D4 um.
 
 - e5-Encoder lädt und kodiert korrekt (Golden-Tests grün); `encode_into`/`WriteSlotOp` schreibt in Slots; Candle nur im Adapter; ColBERT-Pfad als Registry-/Head-Hook vorbereitet.
 
+# Umsetzung
+
 SystemInit:  id=dcc32120-3d17-40f1-aa61-194203a70c49, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  I'll start by looking at the current state of the resident module.

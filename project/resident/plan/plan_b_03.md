@@ -130,6 +130,9 @@ pub struct OperationNode {
 - `Op`-Trait, `OpKind`, `OpParams`, `Requirements`/`ResourceKind`/`EngineSelector`/`Affinity`, `Value`, `Lease`, `OperationNode` implementiert.
 - Kein `Tensor`/Pointer in `Value`/öffentlicher API; Lease-RAII getestet.
 - Erweiterungspunkt Affinität vorhanden, aber inaktiv; baut ohne `cuda`/`candle`.
+
+# Umsetzung
+
 SystemInit:  id=eb74b449-aa62-41c4-8a82-0783f7fcf37d, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 ReasoningToken: 50
 Control Request:

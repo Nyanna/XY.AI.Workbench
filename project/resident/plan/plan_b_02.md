@@ -122,6 +122,8 @@ pub trait MemoryManager {
 - Kein `Tensor`/Pointer in öffentlicher API; gen-Entwertung + `ArenaExhausted` getestet.
 - Baut ohne `cuda`/`candle`-Feature.
 
+# Umsetzung
+
 SystemInit:  id=697451e3-69d6-434b-a1ca-1702a7e4fd2e, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 ReasoningToken: 35
 Control Request:

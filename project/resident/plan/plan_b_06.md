@@ -133,6 +133,8 @@ Als `LazyLock`-Konstanten bereitstellen (F1 erhebt die realen Werte; B6 liefert 
 - Well-known sm75-Achsen/Werte als `LazyLock`-Konstanten (ohne `bf16`-Rechenpfad).
 - Keine festen Profilnamen/-Enums; stabile (BTreeMap-)Serialisierung; baut ohne `cuda`/`candle`.
 
+# Umsetzung
+
 SystemInit:  id=d5903832-a956-43fc-a385-bedf7064c619, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 ReasoningToken: 66
 Control Request:

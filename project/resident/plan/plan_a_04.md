@@ -128,6 +128,8 @@ Querschnitte Q1–Q4 und wird je Gruppe fortgeschrieben.
 - Dieses Paket **ist** die initiale Fixierung von Q1–Q4; nachfolgende Gruppen schreiben die
   Taxonomie, Logging-Ereignisse und Testmatrizen in ihren Modulen fort.
 
+# Umsetzung
+
 SystemInit:  id=d4cf95bf-7020-43a0-9605-ac29d8622cb5, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5
 Control Request:
 ```yaml

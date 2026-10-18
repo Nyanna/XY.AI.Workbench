@@ -164,6 +164,8 @@ Alternative: kurzer sync-`Mutex` um `apply` (nie über `.await` halten; sonst `t
 - `watch<u64>`-Level-Signal-Kontrakt + `borrow_and_update`-Muster dokumentiert.
 - Referenz-In-Memory-Index (Testdouble) implementiert; eigenständig vom Kern; baut ohne `cuda`/`candle`.
 
+# Umsetzung
+
 SystemInit:  id=e5d4d580-c47a-4629-8b94-e1a23fb4ca60, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Control Request:
 ```yaml

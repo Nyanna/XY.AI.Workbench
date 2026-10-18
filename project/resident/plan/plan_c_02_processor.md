@@ -201,6 +201,8 @@ Span pro Task-ID und pro Ressource; **ein** Span pro Worker-Thread-Lebenszeit (n
 - Forum-Aussage „ein Callback-Thread pro Device" ist **ungeprüft** — nicht als Fakt übernehmen.
 - Reihenfolge-Invarianz bei Index-Rückspiegelung berührt Gruppe E (Kommunikationsslot) — Schnittstelle sauber halten.
 
+# Umsetzung
+
 SystemInit:  id=0c4e46b9-8322-4727-9459-cd1119c8b4d7, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den vorhandenen Code im Modul `resident` an.

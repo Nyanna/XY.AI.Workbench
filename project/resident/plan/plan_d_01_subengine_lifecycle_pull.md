@@ -83,6 +83,8 @@ Setze D1 um.
 - `Subengine`-Trait + `ResourceCell`/`Lease`/`evict_idle` implementiert und getestet (No-GPU).
 - Lifecycle-Invarianten geprüft; Revisionshinweis in Code-Doku verankert; `claim`-Schnittstelle mit Processor (C2) abgestimmt.
 
+# Umsetzung
+
 SystemInit:  id=85283fc8-f4ab-45d8-9965-40450393f998, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Control Request:
 ```yaml

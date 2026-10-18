@@ -182,6 +182,8 @@ Die **shared**-Queue wird angelegt, bleibt leer und ohne Logik; Subengine prüft
 - Testmatrix §7 grün, inkl. `loom`-Test (Feature-gated) und Drop-Stresstest.
 - Task- und Op-Instanziierung dokumentiert (für C2/B3).
 
+# Umsetzung
+
 SystemInit:  id=7921ee64-ccea-43fe-95a2-678522fb5e06, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5
 Control Request:
 ```yaml

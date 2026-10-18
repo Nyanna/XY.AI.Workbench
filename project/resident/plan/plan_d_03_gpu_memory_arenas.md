@@ -86,6 +86,8 @@ Setze D3 um.
 
 - G-WRAP dokumentiert; `MemoryManager`/`ArenaAllocator`/`StagingRing` implementiert; Budget inkl. 2-Generationen-Reserve; dtype-Politik verankert; mit E3 konsolidiert (eine Spezifikation).
 
+# Umsetzung
+
 SystemInit:  id=1e6ec56d-772f-444c-b948-f179da853722, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den vorhandenen Code im Crate an.
