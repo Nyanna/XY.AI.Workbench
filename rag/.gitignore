@@ -3,4 +3,5 @@
 .idea
 .claude
 .xyrag
-/model
+/model/*
+!/model/README.md

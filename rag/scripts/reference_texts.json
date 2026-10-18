@@ -1,0 +1,8 @@
+[
+  {"role": "query", "text": "hello world"},
+  {"role": "passage", "text": "a much longer passage about retrieval of documents with embeddings"},
+  {"role": "query", "text": "how do plants make energy"},
+  {"role": "passage", "text": "Photosynthesis converts light into chemical energy in plants."},
+  {"role": "passage", "text": "The stock market closed lower on Tuesday."},
+  {"role": "query", "text": "Wie funktioniert die semantische Suche?"}
+]
