@@ -317,4 +317,61 @@ mod tests {
             Err(MemoryError::BudgetExceeded { .. }))
         );
     }
+    #[test]
+    #[ignore = "requires a CUDA device"]
+    fn context_footprint_and_pool_support() {
+        let dev = DeviceHandle::cuda(0).unwrap();
+        let ctx = dev.cuda_context().unwrap();
+        let mib = |b: usize| b >> 20;
+        let (free_ctx, total) = ctx.mem_get_info().unwrap();
+        let pools = ctx
+            .attribute(
+                sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED,
+            )
+            .unwrap();
+        eprintln!(
+            "after context: free {} MiB / total {} MiB", mib(free_ctx), mib(total)
+        );
+        eprintln!("memory pools supported: {pools}");
+        let candle = candle_core::Device::new_cuda(0).unwrap();
+        let a = candle_core::Tensor::zeros((256, 256), candle_core::DType::F32, &candle)
+            .unwrap();
+        a.matmul(&a).unwrap();
+        candle.synchronize().unwrap();
+        let (free_libs, _) = ctx.mem_get_info().unwrap();
+        eprintln!(
+            "after cublas matmul: free {} MiB (libraries cost {} MiB)", mib(free_libs),
+            mib(free_ctx.saturating_sub(free_libs))
+        );
+        assert_eq!(pools, 1);
+    }
+    #[test]
+    #[ignore = "requires a CUDA device"]
+    fn index_arena_copy_on_write_on_device() {
+        use crate::resident::manager::arena::IndexArena;
+        let (dev, m) = manager();
+        let arena = IndexArena::new(m.arenas().get(ArenaKind::IndexSegment), 0);
+        let ctx = dev.cuda_context().unwrap();
+        let stream = ctx.new_stream().unwrap();
+        let ring = m.staging_ring(1, 512).unwrap();
+        let old = arena.alloc_segment(512, 1).unwrap();
+        let ticket = arena.begin_cow(old).unwrap();
+        let slot = ring.acquire().unwrap();
+        let host: Vec<u8> = ring
+            .with_slot(
+                slot,
+                |p| {
+                    p.as_mut_slice().unwrap().fill(9);
+                    p.as_slice().unwrap().to_vec()
+                },
+            )
+            .unwrap();
+        unsafe { m.upload(&stream, &host, ticket.new_region()).unwrap() };
+        let mut out = vec![0u8; 512];
+        unsafe { m.download(&stream, ticket.new_region(), &mut out).unwrap() };
+        stream.synchronize().unwrap();
+        assert_eq!(out, host);
+        ticket.commit(1).unwrap();
+        assert_eq!(arena.reclaim(1), 1);
+    }
 }

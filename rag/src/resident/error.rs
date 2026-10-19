@@ -41,10 +41,21 @@ impl IsRetryable for IndexError {
 pub(crate) enum ManagerError {
     #[error("stale region in arena {arena} (gen {gen})")]
     StaleRegion { arena: u32, gen: u32 },
+    #[error(
+        "index arena exhausted: requested {requested} bytes, {available} bytes available after copy-on-write headroom"
+    )]
+    ArenaExhausted { requested: u64, available: u64 },
+    #[error(transparent)]
+    Memory(#[from] crate::resident::memory::MemoryError),
 }
 impl IsRetryable for ManagerError {
     fn is_retryable(&self) -> bool {
-        matches!(self, ManagerError::StaleRegion { .. })
+        match self {
+            ManagerError::StaleRegion { .. } | ManagerError::ArenaExhausted { .. } => {
+                true
+            }
+            ManagerError::Memory(e) => e.is_retryable(),
+        }
     }
 }
 /// Precision/calibration layer errors.
