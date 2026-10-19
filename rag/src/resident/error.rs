@@ -45,6 +45,8 @@ pub(crate) enum ManagerError {
         "index arena exhausted: requested {requested} bytes, {available} bytes available after copy-on-write headroom"
     )]
     ArenaExhausted { requested: u64, available: u64 },
+    #[error("stale table build: based on epoch {base}, published epoch is {published}")]
+    StaleMapping { base: u64, published: u64 },
     #[error(transparent)]
     Memory(#[from] crate::resident::memory::MemoryError),
 }
@@ -54,6 +56,7 @@ impl IsRetryable for ManagerError {
             ManagerError::StaleRegion { .. } | ManagerError::ArenaExhausted { .. } => {
                 true
             }
+            ManagerError::StaleMapping { .. } => true,
             ManagerError::Memory(e) => e.is_retryable(),
         }
     }
