@@ -1993,3 +1993,14 @@ ReasoningToken: 83
 Text:
  Alles vollständig. Finale Validierung des Resident-Moduls.
 ReasoningToken: 94
+
+A4 ist umgesetzt:
+
+- **`docs/architecture/conventions.md`** — Q1–Q4 vollständig dokumentiert.
+- **`src/resident/error.rs`** — Taxonomie-Basis (`IndexError`, `MemoryError`, `CalibrationError`, `PlannerError`-/`CapabilityError`-Platzhalter, `ResidentError`), `IsRetryable`-Trait.
+- **`src/resident/telemetry.rs`** — Feld-Konstanten (`task_id`, `resource`), `init_tracing()`, `for_blocking()`.
+- **`src/resident/mock.rs`** — Mock-Konvention + Beispiel-Fake, gated `#[cfg(any(test, feature = "mock"))]`.
+- **`src/resident/mod.rs`** — `mock`-Modul eingebunden.
+- `mock`-Feature in `Cargo.toml` war bereits aus A2/A3 vorhanden.
+
+Alle vier Dateien syntaktisch validiert.
