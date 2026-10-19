@@ -46,7 +46,7 @@ public class Elements {
 	public static class Agent {
 		public static final PrefixBlock THINKING_META = new PrefixBlock(EditorInterface.THINKING_META, false);
 		public static final LineSection THINKING = new LineSection(EditorInterface.THINKING, false,
-				of(Basics.PARAGRAPH), of(THINKING_META));
+				of(Basics.PARAGRAPH), of(NONE));
 		public static final LineSection TEXT = new LineSection(EditorInterface.TEXT, false, of(Basics.PARAGRAPH),
 				of(NONE)); // replaced
 		public static final PrefixBlock TOOLUSE = new PrefixBlock(EditorInterface.TOOLUSE, false);
@@ -119,6 +119,7 @@ public class Elements {
 
 		static {
 			USER.terminalNodes = of(AGENT);
+			Agent.THINKING.terminalNodes = AGENT_ONLY;
 			Agent.TEXT.terminalNodes = AGENT_ONLY;
 			Tools.CONTROL_REQUEST.terminalNodes = concat(//
 					of(USER, AGENT, //
