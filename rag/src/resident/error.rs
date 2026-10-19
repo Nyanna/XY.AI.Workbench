@@ -140,6 +140,8 @@ pub enum ResidentError {
     Tokenize(#[from] crate::resident::tokenize::TokenizeError),
     #[error(transparent)]
     Kernel(#[from] crate::resident::kernel::KernelError),
+    #[error(transparent)]
+    Segment(#[from] crate::resident::segment::SegmentError),
 }
 impl IsRetryable for ResidentError {
     fn is_retryable(&self) -> bool {
@@ -156,6 +158,7 @@ impl IsRetryable for ResidentError {
             ResidentError::Model(e) => e.is_retryable(),
             ResidentError::Tokenize(e) => e.is_retryable(),
             ResidentError::Kernel(e) => e.is_retryable(),
+            ResidentError::Segment(e) => e.is_retryable(),
         }
     }
 }

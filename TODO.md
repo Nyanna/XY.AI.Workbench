@@ -1,4 +1,11 @@
 # TODO
+- neues konzept (code as tool), claude nutzt die bash mit sed um selbst output/kontext input zu filtern
+	- ohne bash kann er das nicht
+	- batch support für bash um kommandos voneinander zu trennen
+		- mit name pipe mechanismus?
+		- oder übergreifender mechanismus?
+			- gemeinsame basis ist nicht struktur und strukturverständnis, sondern eine text pipe
+		- output filter optionen für tools die filter können/wollen?
 - MCP automatisch starten wenn nicht running und MCPC profil
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)

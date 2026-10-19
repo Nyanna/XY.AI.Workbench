@@ -18,3 +18,4 @@ pub mod subengine;
 pub mod model;
 pub mod tokenize;
 pub mod manager;
+pub mod segment;
