@@ -285,18 +285,19 @@ class GrepTool(ToolDefinition):
             'maximum': _MAX_LIMIT}}
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
+    _INTENTS = ('locate', 'read_lines', 'ast_navigate')
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
-    input_schema['properties']['with_nodeId'] = {'type': 'boolean', 'default': False,
-                                              'description': 'Return node id (usable with ast_read and other ast_* tools).'}
-    input_schema['properties']['with_lineno'] = {
-        'type': 'boolean',
-        'default': False,
-        'description': 'Include the line number of each match.'}
+    input_schema['properties']['intent'] = {
+        'type': 'string',
+        'enum': list(_INTENTS),
+        'default': 'locate',
+        'description': "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'read_lines': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_navigate': you will continue with ast_* tools; returns path + nodeId."}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
-        with_nodeId = bool(ctx.arguments.get('with_nodeId', False))
-        with_lineno = bool(ctx.arguments.get('with_lineno', False))
+        intent = ctx.arguments.get('intent', 'locate')
+        with_nodeId = intent == 'ast_navigate'
+        with_lineno = intent == 'read_lines'
 
         def item_factory(it: dict[str, Any]) -> GrepItem:
             return GrepItem(
