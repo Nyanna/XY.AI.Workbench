@@ -1,12 +1,3 @@
-Setze Q2 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan Q2 · Logging (`tracing`)
 
 **Querschnitt Q — verbindliche Konvention.** Nach A4 initial zu fixieren, je Gruppe fortzuschreiben.
@@ -67,3 +58,13 @@ Einheitliches strukturiertes Logging/Tracing: Spans pro Task-ID, Ressource und M
 
 - Span-Topologie + stabile Feldnamen + Ereignis-Katalog + Propagations-Regeln sind umgesetzt und dokumentiert; Lib setzt keinen Subscriber; Completion-Callback loggt nicht selbst; Tests aus §5 grün.
 
+## Result
+
+Q2 (Logging) ist umgesetzt:
+
+- **`Cargo.toml`**: `tracing-appender` ergänzt, `tracing-subscriber/env-filter` explizit, neues `json`-Feature (→ `tracing-subscriber/json`).
+- **`src/resident/telemetry.rs`**: vollständiger stabiler Feldnamen-Satz (`task_id`, `resource_kind`, `model_id`, `index_id`, `segment_gen`, `slot`, `lane`, `manager_cycle`, `op`, `precision`, `profile`); Span-Topologie-Konstruktoren `task_span`/`resource_span`/`manager_cycle_span`; `init_tracing_non_blocking` (EnvFilter + fmt/json + non-blocking Appender, `WorkerGuard`); Moduldoc mit Propagations- und Callback-Regel; Tests für Feldnamen, Span-Felder und Thread-Propagation.
+- **`src/bin/xyrag.rs`**: Subscriber-Setup (`init_tracing_non_blocking`, Guard gehalten) ausschließlich im Binary verdrahtet.
+- **`docs/architecture/conventions.md`**: Q2-Abschnitt auf den vollen Stand (Feldnamen, Topologie, Callback-Regel, Subscriber-Setup) aktualisiert.
+
+Instrumentierung der konkreten Ereigniskataloge (Queue/Processor/Subengine/Index/Precision) folgt, sobald die jeweiligen Gruppen (B–F) implementiert sind — diese Module sind aktuell nur Platzhalter.

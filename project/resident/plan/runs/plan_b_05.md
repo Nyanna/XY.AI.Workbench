@@ -1,3 +1,11 @@
+Setze B5 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+
 SystemInit:  id=de4cdb87-1974-4aa6-b605-b3aca180b2ee, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den aktuellen Stand des Rust-Projekts an.

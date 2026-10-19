@@ -1,13 +1,3 @@
-Setze E2 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor; Nutze kein `cat` zum auslesen ganzer Dateien
-
 # Umsetzungsplan E2 · Scope & Resolver
 
 > **Quellen:** `resident_index.md` (Scope und Auflösung). **Recherche:** `context_e.md` §E2 (Punkte 5–7). **Querschnitt:** Q1, Q2, Q3.

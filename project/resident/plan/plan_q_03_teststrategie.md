@@ -1,12 +1,3 @@
-Setze Q3 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan Q3 · Teststrategie & Mocks
 
 **Querschnitt Q — verbindliche Konvention.** Nach A4 initial zu fixieren, je Gruppe fortzuschreiben.
@@ -58,3 +49,14 @@ Einheitliche Test-/Mock-Strategie, die (a) die gesamte Logik **ohne GPU** testba
 
 - Abstraktions-Traits + Fakes vorhanden; `loom`/`shuttle`/`proptest` eingebunden; Failpoints an Sync-Punkten; die Testmatrizen (B1, E5/E6, F2–F5, C2/C3) sind als Tests angelegt; alle Tests laufen **ohne** GPU im Default-Profil.
 
+## Result
+
+Q3 ist umgesetzt:
+
+- **`Cargo.toml`**: `loom`, `shuttle`, `rand` als dev-dependencies ergänzt; `tokio` dev-Feature `test-util` für virtuelle Zeit.
+- **`src/resident/mock.rs`**: Testkit erweitert um `ComputeBackend`/`MockBackend`, `Kernel`/`FakeKernel<H>` (skriptbare Batch-Ergebnisse/Ranges/Fortschritt), `Measure`/`FakeMeasure` mit `NoiseModel::{Constant,Outlier,Drift}` (seeded `StdRng`), sowie `sync`-Shim-Modul (`loom::sync` unter `cfg(loom)`, sonst `std::sync`) für CAS-Protokolle.
+- **`.cargo/config.toml`**: `--check-cfg=cfg(loom)` registriert.
+- **`docs/architecture/conventions.md`**: Q3-Abschnitt um Concurrency-Strategie (loom/shuttle/proptest), deterministische Zeit, No-Bit-Equality-Regel ergänzt.
+- **`docs/architecture/feature_matrix.md`**: Job D (loom, on-demand, separat vom Default-Lauf) hinzugefügt.
+
+Die konkreten Testmatrizen pro Paket (B1, E5/E6, F2–F5, C2/C3) bleiben wie in der Konvention vorgesehen den jeweiligen Gruppen vorbehalten, da die zugehörigen Module noch leere Stubs sind.

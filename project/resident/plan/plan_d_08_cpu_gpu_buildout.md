@@ -1,13 +1,3 @@
-Setze D8 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor
-
 # D8 — CPU-vs-GPU-Unterschiede & Ausbaupfad
 
 **Zweck:** Unterschiede (§8) konsolidieren und den API-bruchfreien Ausbaupfad (§9, Phasen 1–5) in konkrete Planungsstufen überführen.

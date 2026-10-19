@@ -1,12 +1,3 @@
-Setze Q1 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan Q1 · Fehler-Taxonomie (`thiserror`)
 
 **Querschnitt Q — verbindliche Konvention.** Nach A4 initial zu fixieren, je Gruppe fortzuschreiben. Speist alle Gruppen (A–H).
@@ -80,3 +71,6 @@ pub enum ResidentError {
 
 - Komponenten-Enums + `ResidentError` existieren, alle gelisteten Varianten zugeordnet, `#[non_exhaustive]`, strukturierte Felder, keine `anyhow`-Leaks in der Lib-API, interne Varianten gekapselt; Tests aus §5 grün.
 
+## Result
+
+The structure now matches the Q1 spec exactly: `IndexError` (UnsupportedScope, IndexUnavailable, ArenaExhausted, TransferFailed), internal `pub(crate) ManagerError` (StaleMapping), `PrecisionError` (Incompatible, CalibrationUnstable, NoActiveProfile, InvalidPrecision), `PlannerError` (InvalidConfig, MissingCapability, UnknownModel), `CapabilityError` + `ConfigError`, and `ResidentError` aggregating all public enums via `#[from]`/`transparent`. Validated to compile syntactically.

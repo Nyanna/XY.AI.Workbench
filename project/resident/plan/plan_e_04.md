@@ -1,13 +1,3 @@
-Setze E4 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor; Nutze kein `cat` zum auslesen ganzer Dateien
-
 # Umsetzungsplan E4 · Manager-Disziplin (Hochrisiko)
 
 > **Quellen:** `resident_index.md` (Manager-Disziplin). **Recherche:** `context_e.md` §E4 (Punkte 13–17, **Hochrisiko**), ergänzend `context_h_q.md` H1 (3–5). **Querschnitt:** Q1, Q2, Q3, Q4.

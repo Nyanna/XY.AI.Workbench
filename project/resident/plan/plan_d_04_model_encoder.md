@@ -1,12 +1,3 @@
-Setze D4 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-
 # D4 — Modell-Ressourcen (Encoder)
 
 **Zweck:** `ModelSpec`+Registry, `LoadedEncoder` (Candle-Adapter als **einzige** Candle-Stelle), `ProjectionHead`, L2-Kernel, `encode_into`/`WriteSlotOp`, Batching per Token-Budget/Bucketing.

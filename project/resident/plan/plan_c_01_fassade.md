@@ -1,11 +1,3 @@
-Setze C1 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan C1 — Fassade „Resident"
 
 Stand: 10.10.2026 · Modul: `facade` (bzw. Crate-Root `resident`) · Zielsprache Rust

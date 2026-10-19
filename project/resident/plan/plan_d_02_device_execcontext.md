@@ -1,11 +1,3 @@
-Setze D2 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
 # D2 — Device & Ausführung (`DeviceHandle`, `ExecContext`/Lane)
 
 **Zweck:** Ausführungskontext je Subengine: `DeviceHandle`, `ExecContext`/Lane (Stream, Priorität, Events, ParamBlock, Scratch), Lane-Klassen (Query/Index/Copy), CUDA-Init-Kosten.

@@ -1,13 +1,3 @@
-Setze D5 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST Tools vor
-
 # D5 — Tokenizer & Normalizer (CPU, geteilt)
 
 **Zweck:** `tokenizers`-Crate, genau eine Instanz, Query/Doc-Modus (Marker/`[MASK]`/doc_maxlen), Normalizer CPU, Ausgabe `u32`-IDs + Attention-Maske, Längen-Bucketing. **Widerspruch GPU-Tokenizer aufgelöst.**

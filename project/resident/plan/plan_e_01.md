@@ -1,13 +1,3 @@
-Setze E1 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor
-
 # Umsetzungsplan E1 · StreamedIndexManager-Grundgerüst
 
 > **Quellen:** `resident_index.md` (Drei Schichten, Leitprinzipien, Umsetzungsvorgaben). **Recherche:** `context_e.md` §E1 (Punkte 1–4). **Querschnitt:** Q1, Q2, Q4.

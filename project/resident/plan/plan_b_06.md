@@ -1,11 +1,3 @@
-Setze B6 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan B6 · CapabilitySet & Profile-Typen
 
 | | |

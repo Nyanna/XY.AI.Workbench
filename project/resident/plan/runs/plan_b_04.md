@@ -1,3 +1,11 @@
+Setze B4 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+
 SystemInit:  id=e5d4d580-c47a-4629-8b94-e1a23fb4ca60, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Control Request:
 ```yaml

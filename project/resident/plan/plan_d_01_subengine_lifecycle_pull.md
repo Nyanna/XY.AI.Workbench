@@ -1,11 +1,3 @@
-Setze D1 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
 # D1 — Subengine-Gemeinsames: Lebenszyklus, Leases, Lazy-Init, Pull
 
 **Zweck:** Gemeinsamer Vertrag beider Subengines (CPU, GPU): Invarianten, Ressourcen-Lebenszyklus, Leases, Lazy-Init mit Semaphore, Aggregation und die Kapazitäts-/Pull-Schnittstelle zum Processor.

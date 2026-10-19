@@ -1,3 +1,12 @@
+Setze D4 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+- nvcc fehlt nicht und ist im Projekt konfiguriert
+
 SystemInit:  id=dcc32120-3d17-40f1-aa61-194203a70c49, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  I'll start by looking at the current state of the resident module.

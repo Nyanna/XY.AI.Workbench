@@ -1,13 +1,3 @@
-Setze D7 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor
-
 # D7 — Index-Segmente in der Subengine
 
 **Zweck:** `SegmentView`/Slot/Slot-Klassen, Schreiben/Upsert/Gültigkeitsbit, Mapping `(segment,slot)→EntryRef`, Segment-Basistabelle, bidirektionale Sync. **Brücke zu Gruppe E.**

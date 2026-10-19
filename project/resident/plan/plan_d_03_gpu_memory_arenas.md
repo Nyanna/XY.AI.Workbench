@@ -1,11 +1,3 @@
-Setze D3 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
 # D3 — GPU-Speicher & Arenen
 
 **Zweck:** Arenen nach Lebensdauer (Weights/Index-Segment/Workspace/Staging/ParamBlock), VRAM-Budget via `cuMemGetInfo`, stream-geordnete Wiederverwendung, Pinned Staging, dtype pro Device. **Konsolidiert mit E3** (eine Arena-Spezifikation).

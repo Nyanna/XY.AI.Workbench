@@ -1,12 +1,3 @@
-Setze A4 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
-- Projektdokumente immer in englisch ausgeben
-
 # Umsetzungsplan A4 — Querschnittskonventionen festlegen
 
 > Teil von Gruppe A (Fundament & Kontext).

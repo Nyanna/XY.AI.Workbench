@@ -1,3 +1,12 @@
+Setze A4 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Scope-Charta erstellt unter `/home/user/xyan/xy.ai.workbench/rag/docs/architecture/scope_charta.md`
+- Projektdokumente immer in englisch ausgeben
+
 SystemInit:  id=d4cf95bf-7020-43a0-9605-ac29d8622cb5, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5
 Control Request:
 ```yaml

@@ -1,12 +1,3 @@
-Setze Q4 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_a_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-
-
 # Umsetzungsplan Q4 · Feature-Flags
 
 **Querschnitt Q — verbindliche Konvention.** Nach A4 initial zu fixieren (hängt an A2 Modulstruktur). Voraussetzung dafür, dass die Logik ohne GPU testbar bleibt.
@@ -61,3 +52,15 @@ Reale CUDA-Pfade hinter ein Feature-Flag legen, sodass (a) der Default-Build **o
 
 - Feature-Matrix wie §3; einziger `cfg`-Entscheidungspunkt in der Factory; CI-Matrix mit/ohne `cuda` grün; No-GPU-Default führt alle Unit-Tests aus; `cfg`-Streuungs-Check besteht.
 
+## Result
+
+Q4 ist umgesetzt:
+
+- **`src/resident/backend.rs`** (neu): `ComputeBackend`-Trait (feature-unabhängig) und `create_backend()` als einziger `#[cfg(feature = "cuda")]`-Entscheidungspunkt mit Fallback auf `CpuBackend`.
+- **`src/resident/subengine/mod.rs`**: `CpuBackend` (immer gebaut, Default + Fallback-Ziel).
+- **`src/resident/subengine/device.rs`**: `CudaBackend` als einziger Candle/CUDA-Adapterpunkt der Subengine; `try_new()` liefert bei fehlender GPU einen Fehler, den die Factory abfängt.
+- **`src/resident/mock.rs`**: doppelte `ComputeBackend`-Definition entfernt, importiert jetzt die produktive Trait-Definition aus `backend.rs`; `MockBackend` bleibt unverändert.
+- **`src/resident/mod.rs`**: `backend`-Modul registriert.
+- **`docs/architecture/conventions.md`**: Q4-Abschnitt auf die tatsächlich implementierte Factory aktualisiert.
+
+`Cargo.toml`-Feature-Matrix und `docs/architecture/feature_matrix.md` (CI-Jobs A–D) waren bereits aus einem vorherigen Durchlauf korrekt vorhanden.

@@ -1,3 +1,13 @@
+Setze D5 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+- nvcc fehlt nicht und ist im Projekt konfiguriert
+- ziehe AST Tools vor
+
 SystemInit:  id=9012a3e3-c486-42b5-b518-549928272b70, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  I'll start by looking at the existing crate layout and conventions.

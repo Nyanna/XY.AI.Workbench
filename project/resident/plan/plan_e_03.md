@@ -1,13 +1,3 @@
-Setze E3 um.
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
-
-- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
-- Projektdokumente immer in englisch ausgeben
-- nvcc fehlt nicht und ist im Projekt konfiguriert
-- ziehe AST-Tools und spezifische Tools vor; Nutze kein `cat` zum auslesen ganzer Dateien
-
 # Umsetzungsplan E3 · ArenaAllocator (GPU, Index-Segmente)
 
 > **Quellen:** `resident_index.md` (Manager-Disziplin/Arena); **überlappt D3** (`resident_subengine.md` §4.2). **Recherche:** `context_e.md` §E3 (Punkte 8–12). **Querschnitt:** Q1, Q2, Q4.

@@ -1,3 +1,13 @@
+Setze D7 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_d_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+- nvcc fehlt nicht und ist im Projekt konfiguriert
+- ziehe AST-Tools und spezifische Tools vor
+
 SystemInit:  id=f68060de-1976-4bd0-984c-709490e814ba, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Text:
  I'll start by looking at the existing crate structure and the related modules.

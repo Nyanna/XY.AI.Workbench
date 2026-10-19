@@ -1,3 +1,13 @@
+Setze E1 um.
+
+[include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
+[include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
+
+- minimiere die Kommentare und keine direkte Referenzierung von Planelementen in Kommentaren
+- Projektdokumente immer in englisch ausgeben
+- nvcc fehlt nicht und ist im Projekt konfiguriert
+- ziehe AST-Tools und spezifische Tools vor
+
 SystemInit:  id=2bc6fb48-e6ae-4175-8c0d-8433c0f4ea11, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
 Control Request:
 ```yaml
