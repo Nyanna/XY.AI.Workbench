@@ -134,10 +134,30 @@ fn first_line(printed: &str) -> String {
     String::new()
 }
 fn header(printed: &str) -> String {
-    match printed.find('{') {
-        Some(idx) => printed[..=idx].to_string(),
-        None => first_line(printed),
+    let mut rest = printed;
+    loop {
+        let trimmed = rest.trim_start();
+        let is_leading_meta = trimmed.starts_with("///") || trimmed.starts_with("//!")
+            || trimmed.starts_with("#[") || trimmed.starts_with("#![");
+        if !is_leading_meta {
+            rest = trimmed;
+            break;
+        }
+        match trimmed.find('\n') {
+            Some(idx) => rest = &trimmed[idx + 1..],
+            None => return String::new(),
+        }
     }
+    let mut depth = 0usize;
+    for (idx, ch) in rest.char_indices() {
+        match ch {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth = depth.saturating_sub(1),
+            '{' | ';' if depth == 0 => return rest[..=idx].to_string(),
+            _ => {}
+        }
+    }
+    first_line(rest)
 }
 fn truncate(text: &str, limit: usize) -> String {
     let flat = text.replace('\n', " ").replace('\r', " ");
@@ -335,9 +355,6 @@ pub fn replace(
     if path.owner == Owner::FileAttrs {
         let (attr_fragments, item_fragments) = parse_inner_attrs_and_items(code)?;
         file.attrs.splice(path.start..path.end, attr_fragments);
-        // Items carried alongside the module doc (e.g. `use`/`const`/`fn` that an
-        // agent re-sent together with the doc comment) belong at the top of the
-        // file, right where a module doc is always followed by such declarations.
         file.items.splice(0..0, item_fragments);
         return Ok(());
     }
@@ -417,7 +434,6 @@ pub fn delete(file: &mut syn::File, node: &AddressableNode) -> AstResult<()> {
 #[cfg(test)]
 mod parse_inner_attrs_tests {
     use super::parse_inner_attrs_and_items;
-
     #[test]
     fn parses_doc_comments_only() {
         let code = "//! line one\n//! line two\n";
@@ -425,7 +441,6 @@ mod parse_inner_attrs_tests {
         assert_eq!(attrs.len(), 2);
         assert_eq!(items.len(), 0);
     }
-
     /// Regression test: a source blob where inner doc comments are followed by
     /// non-attribute code (e.g. an agent re-sends `use`/`fn` items alongside a
     /// module doc replacement) must no longer hang forever in the parser loop,
@@ -444,7 +459,6 @@ mod replace_file_attrs_tests {
     use super::*;
     use crate::engine::addressable_node::AddressableNode;
     use crate::engine::node_path::{NodePath, Owner};
-
     /// End-to-end regression test for the original hang: replacing the file-level
     /// `ModuleDoc` (`Attrs`) node with a block that mixes `//!` doc comments and
     /// real items must succeed -- not hang, not error -- splitting the result
@@ -464,7 +478,8 @@ mod replace_file_attrs_tests {
             is_definition: true,
         };
         let code = "//! Tracing conventions and init.\n//!\n//! Second line.\n\nuse tracing::Span;\n\npub const FIELD_TASK_ID: &str = \"task_id\";\n\npub fn init_tracing() {}\n";
-        replace(&mut file, &node, code).expect("replace should succeed, not hang or error");
+        replace(&mut file, &node, code)
+            .expect("replace should succeed, not hang or error");
         assert_eq!(file.attrs.len(), 3, "each //! line is its own attr in file.attrs");
         assert_eq!(file.items.len(), 3, "use + const + fn go to file.items");
     }
