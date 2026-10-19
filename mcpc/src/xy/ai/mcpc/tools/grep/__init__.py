@@ -1,5 +1,6 @@
 """Grep tool – recursive extended-regex search for retrieval, for a batch of items."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools._directories import normalize_directories
@@ -23,6 +24,9 @@ __all__ = [
     'GrepTool',
     'register_grep_tool']
 _DEFAULT_LIMIT = 15
+_INTENTS = ('locate', 'read_lines', 'ast_navigate')
+_DEFAULT_INTENT = 'locate'
+_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'read_lines': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_navigate': you will continue with ast_* tools; returns path + nodeId (matches outside any AST node keep their line numbers)."
 _MAX_LIMIT = 50
 
 class GrepError(Exception):
@@ -62,12 +66,14 @@ class GrepItem:
         exclude: Globs of file names to exclude from the search, if given.
         include: Globs of file names to include in the search, if given.
         limit: Maximum number of matches to return (1..``_MAX_LIMIT``). Applies per item, not per batch.
+        intent: Overrides the batch-level intent for this item, if given.
     """
     directory: list[str]
     pattern: str
     exclude: list[str] | None = None
     include: list[str] | None = None
     limit: int = _DEFAULT_LIMIT
+    intent: str | None = None
 
 @dataclass(frozen=True)
 class GrepResult:
@@ -220,38 +226,40 @@ def _resolve_nodes(match: GrepMatch, roots: list[str]) -> GrepMatch:
     nodes = [GrepNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
     return GrepMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
 
-def grep(items: list[GrepItem], *, with_nodeId: bool=False) -> GrepBatchResult:
+def grep(items: list[GrepItem], *, intent: str=_DEFAULT_INTENT) -> GrepBatchResult:
     """Run one or more independent grep searches. Limits apply per item, not per batch.
 
     Args:
         items: Grep searches to run. Must be non-empty.
-        with_nodeId: Resolve matched lines to AST node ids (see :class:`GrepMatch`).
+        intent: Default intent for all items; ``GrepItem.intent`` takes precedence.
+            ``'ast_navigate'`` resolves matched lines to AST node ids (see :class:`GrepMatch`).
 
     Returns:
         GrepBatchResult: one result per successful search, one error per failed search.
 
     Raises:
-        GrepError: If items is empty.
+        GrepError: If items is empty or the batch-level intent is invalid.
     """
     if not items:
         raise GrepError("'items' must be a non-empty list.")
+    _check_intent(intent)
     results: list[GrepResult] = []
     errors: list[GrepItemError] = []
     for item in items:
         try:
+            effective = item.intent if item.intent is not None else intent
+            _check_intent(effective)
             result = _grep_one(item)
-            if with_nodeId:
-                result = GrepResult(
-                    directory=result.directory,
-                    matches=[
-                        _resolve_nodes(
-                            m,
-                            item.directory) for m in result.matches],
-                    warning=result.warning)
+            if effective == 'ast_navigate':
+                result = replace(result, matches=[_resolve_nodes(m, item.directory) for m in result.matches])
             results.append(result)
         except GrepError as exc:
             errors.append(GrepItemError(directory=item.directory, pattern=item.pattern, error=str(exc)))
     return GrepBatchResult(results=results, errors=errors)
+
+def _check_intent(intent: str) -> None:
+    if intent not in _INTENTS:
+        raise GrepError(f'Invalid intent {intent!r}; expected one of {', '.join(_INTENTS)}.')
 
 class GrepTool(ToolDefinition):
     name = 'grep'
@@ -282,22 +290,23 @@ class GrepTool(ToolDefinition):
             'description': 'Maximum number of matching lines to return for this item.',
             'default': _DEFAULT_LIMIT,
             'minimum': 1,
-            'maximum': _MAX_LIMIT}}
+            'maximum': _MAX_LIMIT},
+        'intent': {
+            'type': 'string',
+            'enum': list(_INTENTS),
+            'description': 'Intent for this item; overrides the batch-level intent.'}}
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
-    _INTENTS = ('locate', 'read_lines', 'ast_navigate')
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
     input_schema['properties']['intent'] = {
         'type': 'string',
         'enum': list(_INTENTS),
-        'default': 'locate',
-        'description': "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'read_lines': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_navigate': you will continue with ast_* tools; returns path + nodeId."}
+        'default': _DEFAULT_INTENT,
+        'description': 'Default intent for all items; an item-level intent takes precedence. ' + _INTENT_DESCRIPTION}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
-        intent = ctx.arguments.get('intent', 'locate')
-        with_nodeId = intent == 'ast_navigate'
-        with_lineno = intent == 'read_lines'
+        intent = ctx.arguments.get('intent', _DEFAULT_INTENT)
 
         def item_factory(it: dict[str, Any]) -> GrepItem:
             return GrepItem(
@@ -308,40 +317,45 @@ class GrepTool(ToolDefinition):
                 limit=int(
                     it.get(
                         'limit',
-                        _DEFAULT_LIMIT)))
+                        _DEFAULT_LIMIT)),
+                intent=it.get('intent'))
 
-        def line_dicts(lms: list[GrepLineMatch]) -> list[dict[str, Any]]:
+        def line_dicts(lms: list[GrepLineMatch], with_lineno: bool) -> list[dict[str, Any]]:
             if with_lineno:
                 return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
             return [{'match': lm.match} for lm in lms]
 
-        def file_dict(m: GrepMatch) -> dict[str, Any]:
+        def file_dict(m: GrepMatch, item_intent: str) -> dict[str, Any]:
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
-            if m.nodes is not None:
-                entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(n.matches)} for n in m.nodes]
-                if m.matches:
-                    entry['matches'] = line_dicts(m.matches)
-            else:
-                entry['matches'] = line_dicts(m.matches)
+            if m.nodes:
+                entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
+                    n.matches, item_intent == 'read_lines')} for n in m.nodes]
+            if m.matches:
+                entry['matches'] = line_dicts(m.matches, item_intent != 'locate')
             return entry
 
-        def result_serializer(r: GrepResult) -> dict[str, Any]:
-            entry: dict[str, Any] = {'directory': r.directory, 'matches': [file_dict(m) for m in r.matches]}
+        def result_serializer(rendered: tuple[GrepResult, str]) -> dict[str, Any]:
+            r, item_intent = rendered
+            entry: dict[str, Any] = {'directory': r.directory}
+            if r.matches:
+                entry['matches'] = [file_dict(m, item_intent) for m in r.matches]
             if r.warning is not None:
                 entry['warning'] = r.warning
             return entry
 
-        def error_serializer(e: GrepError) -> dict[str, Any]:
+        def error_serializer(e: GrepItemError) -> dict[str, Any]:
             return {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            lambda items: grep(
-                items,
-                with_nodeId=with_nodeId),
-            GrepError,
-            result_serializer,
-            error_serializer)
+
+        def run(items: list[GrepItem]) -> SimpleNamespace:
+            results: list[tuple[GrepResult, str]] = []
+            errors: list[GrepItemError] = []
+            for item in items:
+                batch = grep([item], intent=intent)
+                effective = item.intent if item.intent is not None else intent
+                results += [(r, effective) for r in batch.results]
+                errors += batch.errors
+            return SimpleNamespace(results=results, errors=errors)
+        return handle_batch_tool(ctx, item_factory, run, GrepError, result_serializer, error_serializer)
 
 def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(GrepTool())
