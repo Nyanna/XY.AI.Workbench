@@ -6,6 +6,8 @@ pub mod cosine;
 pub mod cpu_simd;
 pub mod cuda;
 pub mod error;
+pub mod golden;
+pub mod launcher;
 pub mod maxsim;
 pub mod registry;
 pub mod slice;
