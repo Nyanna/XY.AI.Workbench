@@ -87,6 +87,27 @@ impl SlotMap {
         };
         idx.map(|i| i as u32)
     }
+    /// Absolute byte range of `slot`.
+    pub fn slot_span(&self, slot: u32) -> Option<std::ops::Range<u64>> {
+        match &self.addressing {
+            Addressing::Fixed { base, stride, count } => {
+                if slot >= *count {
+                    return None;
+                }
+                let start = base + u64::from(slot) * u64::from(*stride);
+                Some(start..start + u64::from(*stride))
+            }
+            Addressing::Variable { offsets } => {
+                let i = slot as usize;
+                Some(*offsets.get(i)?..*offsets.get(i + 1)?)
+            }
+        }
+    }
+    /// Absolute byte range covered by all slots; `None` when empty.
+    pub fn bounds(&self) -> Option<std::ops::Range<u64>> {
+        let last = self.len().checked_sub(1)?;
+        Some(self.slot_span(0)?.start..self.slot_span(last)?.end)
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Resolution {
