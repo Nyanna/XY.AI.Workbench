@@ -44,7 +44,8 @@ def bash(cwd: str, script: str) -> ProcessResult:
 class BashTool(ToolDefinition):
     name = 'bash'
     title = 'Run Bash script'
-    description = f'Execute a Bash script in the specified working directory. Returns the exit code, standard output and, if present, standard error output. As a safety limit, STDOUT/STDERR longer than {_MAX_STREAM_CHARS} characters are written to a temp file.'
+    description = f'Execute a Bash script in the specified working directory. Returns exit code, stdout and stderr. Reduce the resulting token amount by filtering (grep, head, tail, wc -l). STDOUT and STDERR each have an output limit of {_MAX_STREAM_CHARS} characters.'
+    
     input_schema = {
         'type': 'object',
         'properties': {

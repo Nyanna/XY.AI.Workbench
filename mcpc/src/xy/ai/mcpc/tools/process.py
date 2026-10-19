@@ -146,7 +146,7 @@ def pack_process_result(result: ProcessResult, ctx: ToolContext, *, normalize_ou
         stdout_file = _spill_to_file(stdout, 'stdout')
         content.append(
             text_content(
-                f'Full output written to file ({stdout_file}). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                f'STDOUT limit of characters exceeded, output saved to `{stdout_file}`. Reduce the resulting token amount: filter it with targeted commands (grep, head, tail, awk, ast_outline)'))
         structured['stdout_file'] = stdout_file
         for key, value in _spill_extra_info(stdout_file, ctx).items():
             structured[f'stdout_file_{key}'] = value
@@ -157,7 +157,7 @@ def pack_process_result(result: ProcessResult, ctx: ToolContext, *, normalize_ou
             stderr_file = _spill_to_file(stderr, 'stderr')
             content.append(
                 text_content(
-                    f'Full output written to file ({stderr_file}). Reduce the content to what is strictly needed: use targeted commands (grep, head, tail, awk, ast_outline) to extract only the relevant parts. This is a general output limit for all commands to prevent context bloat.'))
+                    f'STDERR limit of characters exceeded, output saved to `{stderr_file}`. Reduce the resulting token amount: filter it with targeted commands (grep, head, tail, awk, ast_outline).'))
             structured['stderr_file'] = stderr_file
             for key, value in _spill_extra_info(stderr_file, ctx).items():
                 structured[f'stderr_file_{key}'] = value
