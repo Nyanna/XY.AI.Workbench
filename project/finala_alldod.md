@@ -1,0 +1,1 @@
+- alle DODs prüfen da CLaude möglicherweise sachen ausgelassen hat, pro Gruppe

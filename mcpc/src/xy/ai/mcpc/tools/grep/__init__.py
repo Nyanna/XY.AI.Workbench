@@ -320,10 +320,10 @@ class GrepTool(ToolDefinition):
                         _DEFAULT_LIMIT)),
                 intent=it.get('intent'))
 
-        def line_dicts(lms: list[GrepLineMatch], with_lineno: bool) -> list[dict[str, Any]]:
+        def line_dicts(lms: list[GrepLineMatch], with_lineno: bool) -> list[Any]:
             if with_lineno:
                 return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
-            return [{'match': lm.match} for lm in lms]
+            return [lm.match for lm in lms]
 
         def file_dict(m: GrepMatch, item_intent: str) -> dict[str, Any]:
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
