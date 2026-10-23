@@ -1,4 +1,12 @@
 # TODO
+- mit compaction experimentieren wenn kontexte minimiert (also anteile) gelöscht werden
+- neuer modus, platzhalter semantik für code, KI bekommt kontext und ein give_answer tool
+	- der platzhalten wird mit dem give_answer ersetzt
+- splitting von bash mcp anhand von ; und batching für bach machen, (parrallel execution)
+- regel für autoapprover: keine CLAUDE.md oder AGENTS.md oder andere uppercase markdown dateien laden oder in argumenteninput (reads)
+	- Kontext Input größer als 3k zeichen
+	- autoapprover abgestufte ausführung 1. nur warnung raussuchen und anzeigen, 2. timouts, 3. fully automated
+
 - neues konzept (code as tool), claude nutzt die bash mit sed um selbst output/kontext input zu filtern
 	- ohne bash kann er das nicht
 	- batch support für bash um kommandos voneinander zu trennen
@@ -6,7 +14,7 @@
 		- oder übergreifender mechanismus?
 			- gemeinsame basis ist nicht struktur und strukturverständnis, sondern eine text pipe
 		- output filter optionen für tools die filter können/wollen?
-- MCP automatisch starten wenn nicht running und MCPC profil
+- MCP automatisch starten wenn nicht running und MCPC profil, oder profil programatisch anlegen
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis

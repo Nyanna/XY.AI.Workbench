@@ -185,7 +185,7 @@ if [[ -n "$AGENT_ARG" ]]; then
     AGENT_FILE="${AGENT_PLUGIN_DIR}/agents/${AGENT_ARG}.md"
 
     # Add the main agent plugin directory
-    CLAUDE_ARGS+=(--plugin-dir "$AGENT_PLUGIN_DIR")
+    CLAUDE_ARGS+=(--plugin-dir "$AGENT_PLUGIN_DIR" --setting-sources user)
     PLUGIN_DIRS+=("$AGENT_PLUGIN_DIR")
 
     if [[ -f "$AGENT_FILE" ]]; then
