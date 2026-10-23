@@ -24,9 +24,9 @@ __all__ = [
     'GrepTool',
     'register_grep_tool']
 _DEFAULT_LIMIT = 15
-_INTENTS = ('locate', 'read_lines', 'ast_navigate')
+_INTENTS = ('locate', 'line_numbers', 'ast_node_ids')
 _DEFAULT_INTENT = 'locate'
-_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'read_lines': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_navigate': you will continue with ast_* tools; returns path + nodeId (matches outside any AST node keep their line numbers)."
+_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'line_numbers': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_node_ids': you will continue with ast_* tools; returns path + nodeId (matches outside any AST node keep their line numbers)."
 _MAX_LIMIT = 50
 
 class GrepError(Exception):
@@ -232,7 +232,7 @@ def grep(items: list[GrepItem], *, intent: str=_DEFAULT_INTENT) -> GrepBatchResu
     Args:
         items: Grep searches to run. Must be non-empty.
         intent: Default intent for all items; ``GrepItem.intent`` takes precedence.
-            ``'ast_navigate'`` resolves matched lines to AST node ids (see :class:`GrepMatch`).
+            ``'ast_node_ids'`` resolves matched lines to AST node ids (see :class:`GrepMatch`).
 
     Returns:
         GrepBatchResult: one result per successful search, one error per failed search.
@@ -250,7 +250,7 @@ def grep(items: list[GrepItem], *, intent: str=_DEFAULT_INTENT) -> GrepBatchResu
             effective = item.intent if item.intent is not None else intent
             _check_intent(effective)
             result = _grep_one(item)
-            if effective == 'ast_navigate':
+            if effective == 'ast_node_ids':
                 result = replace(result, matches=[_resolve_nodes(m, item.directory) for m in result.matches])
             results.append(result)
         except GrepError as exc:
@@ -329,7 +329,7 @@ class GrepTool(ToolDefinition):
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
             if m.nodes:
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
-                    n.matches, item_intent == 'read_lines')} for n in m.nodes]
+                    n.matches, item_intent == 'line_numbers')} for n in m.nodes]
             if m.matches:
                 entry['matches'] = line_dicts(m.matches, item_intent != 'locate')
             return entry
