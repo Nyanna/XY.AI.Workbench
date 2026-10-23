@@ -49,6 +49,8 @@ pub(crate) enum ManagerError {
     StaleMapping { base: u64, published: u64 },
     #[error(transparent)]
     Memory(#[from] crate::resident::memory::MemoryError),
+    #[error(transparent)]
+    Kernel(#[from] IndexError),
 }
 impl IsRetryable for ManagerError {
     fn is_retryable(&self) -> bool {
@@ -58,6 +60,7 @@ impl IsRetryable for ManagerError {
             }
             ManagerError::StaleMapping { .. } => true,
             ManagerError::Memory(e) => e.is_retryable(),
+            ManagerError::Kernel(e) => e.is_retryable(),
         }
     }
 }

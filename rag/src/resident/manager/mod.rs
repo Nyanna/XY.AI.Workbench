@@ -2,6 +2,7 @@
 pub mod advice;
 pub mod blocking;
 pub mod doorbell;
+pub mod build;
 pub(crate) mod arena;
 pub mod scope;
 pub mod slot;

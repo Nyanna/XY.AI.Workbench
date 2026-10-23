@@ -80,6 +80,9 @@ pub trait Kernel: Send + Sync {
         input: &[RegionSpan],
     ) -> Result<KernelOutput, IndexError>;
     /// Monotonically non-decreasing.
+    /// Hands the kernel the writable range it appends to; the first grant precedes `run`, further
+    /// ones answer a `Partial`.
+    fn grant_region(&self, batch: BatchId, region: RegionSpan) -> Result<(), IndexError>;
     fn progress(&self, batch: BatchId) -> u64;
     fn end(&self, batch: BatchId) -> Result<Vec<WrittenRange>, IndexError>;
 }
