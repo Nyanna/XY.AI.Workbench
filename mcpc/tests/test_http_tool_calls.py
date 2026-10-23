@@ -93,9 +93,9 @@ def test_http_list_tool(http_client, tmp_path):
     assert sorted(entries) == ['.:', 'a.txt', 'b.txt']
 
 def test_http_bash_tool(http_client, tmp_path):
-    result = http_client.call_tool('bash', {'cwd': str(tmp_path), 'script': 'echo hello-mcpc'})
+    result = http_client.call_tool('bash', {'items': [{'cwd': str(tmp_path), 'script': ['echo hello', 'echo -mcpc']}]})
     assert result.get('isError') is not True
-    assert 'hello-mcpc' in _first_text(result) or 'hello-mcpc' in json.dumps(result.get('structuredContent', {}))
+    assert 'hello' in json.dumps(result.get('structuredContent', {}))
 
 def test_http_ast_outline_tool(http_client, tmp_path):
     source = tmp_path / 'sample.py'

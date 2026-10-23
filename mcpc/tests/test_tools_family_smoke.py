@@ -38,7 +38,7 @@ def test_tool_search_to_tool_call_round_trip_with_bash(registry: ToolRegistry):
         session,
         'tool_call',
         tool_ids=['bash'],
-        code="r = bash('/tmp', 'echo hi')\nprint(r.stdout.strip())\nkept = r.exit_code")
+        code="r = bash([{'cwd': '/tmp', 'script': ['echo hi']}])[0]\nprint(r.stdout.strip())\nkept = r.exit_code")
     assert call1.structured_content['stdout'] == 'hi\n'
     assert not call1.is_error
     '# 4) session persistence: `kept` survives into a fresh call without re-injecting tools.'

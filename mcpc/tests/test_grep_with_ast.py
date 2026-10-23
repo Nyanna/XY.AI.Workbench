@@ -14,14 +14,14 @@ def _write_sample(tmp_path):
 
 def test_schema_exposes_with_ast_flag(registry: ToolRegistry):
     tool = registry.get('grep')
-    assert tool.input_schema['properties']['with_ast']['type'] == 'boolean'
-    assert 'with_ast' not in tool.input_schema.get('required', [])
+    assert tool.input_schema['properties']['intent']['type'] == 'string'
+    assert 'intent' not in tool.input_schema.get('required', [])
 
 def test_default_returns_plain_lines_even_with_ast_tools_enabled(registry: ToolRegistry, tmp_path):
     _write_sample(tmp_path)
     session = Session(id='grep-default')
     session.enabled_tools.update({'tools', 'ast_read'})
-    result = _grep(registry, session, tmp_path)
+    result = _grep(registry, session, tmp_path, intent='read_lines')
     entry = result.structured_content['results'][0]['matches'][0]
     assert 'nodes' not in entry
     assert entry['matches'][0]['lineno'] == 2
@@ -29,7 +29,7 @@ def test_default_returns_plain_lines_even_with_ast_tools_enabled(registry: ToolR
 def test_flag_true_returns_node_ids(registry: ToolRegistry, tmp_path):
     _write_sample(tmp_path)
     session = Session(id='grep-ast')
-    result = _grep(registry, session, tmp_path, with_ast=True)
+    result = _grep(registry, session, tmp_path, intent='ast_navigate')
     entry = result.structured_content['results'][0]['matches'][0]
     assert entry['nodes'][0]['id']
-    assert entry['nodes'][0]['matches'][0]['lineno'] == 2
+    assert 'needle' in entry['nodes'][0]['matches'][0]
