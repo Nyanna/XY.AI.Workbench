@@ -67,3 +67,40 @@ pub struct Stamps; // globaler monotoner AtomicU64 (Vergabe bei jeder Mutation)
 
 ## 9. Definition of Done
 - Zustandsbasierter Scanner mit Quittierung-vor-Scan, korrekter Lade-Lesereihenfolge, Echo-Unterdrückung über `apply`-Rückgabe; globale Stamps `!=`; vollständige Testmatrix oben grün ohne GPU.
+
+## Result
+
+E6 ist umgesetzt, aber noch nicht kompiliert und nicht getestet. Ich hatte kein Tool für `cargo`. Geprüft habe ich nur die Syntax der neuen Dateien mit `ast_validate`. Ein `cargo test` (und `RUSTFLAGS="--cfg loom" cargo test seqlock` für den Loom-Test) steht noch aus.
+
+**Neue Dateien in `rag/src/resident/manager/`:**
+- **`sync.rs`:**
+  - `SyncScanner::scan` bestätigt das Signal mit `borrow_and_update` vor dem Vergleich. Verglichen werden nur Stamps residenter Entries, ausschließlich mit `!=`.
+  - `ScanOutcome` meldet `reload` und `removed`. `enqueue_removals` legt die Entfernungen als `Update::Unbind` in die `UpdateQueue`.
+  - `load_entry` liest erst den Stamp, dann die Daten und prüft den Stamp danach erneut. Bei Abweichung wiederholt es das Laden, höchstens 8-mal. Danach liefert es den zuerst gelesenen, älteren Stamp, was höchstens einen überzähligen Reload kostet.
+  - Pro Subscriber gibt es einen eigenen Scanner mit eigenem Receiver.
+- **`seqlock.rs`:** Seqlock mit Wort-Atomics für mmap-Daten, mit `from_raw` für gemappten Speicher.
+- **`test/sync.rs`:**
+  - Echo und fremder Write.
+  - Zwei Manager konvergieren.
+  - Zusammengefasste Signale.
+  - Änderung während des Scans über Failpoint.
+  - Änderung zwischen Stamp- und Datenlesen über Failpoint.
+  - Entfernen und Wiederanlegen (ABA).
+  - Entfernte Entries.
+  - Proptest mit festem Seed.
+
+`mod.rs` registriert `seqlock` und `sync`.
+
+Abweichungen vom Plan:
+- `scan` nimmt `&ResidencyTracker` statt `&mut`. Die Tracker- und Mapping-Änderungen laufen über die `UpdateQueue` und werden in der Lücke zwischen zwei Batches angewendet, damit der Scan das Mapping nicht verändert.
+- Der Stamp-Zähler (`StampCounter`), `ResidencyTracker` und die Echo-Registrierung über den Rückgabewert von `apply` waren schon vorhanden. Ich habe sie nicht neu gebaut.
+- Ein Echo-Treffer wird nicht einzeln gezählt. Er geht in `ScanOutcome::current` ein, zusammen mit allen anderen Entries, deren Stamp schon aktuell ist.
+- Die Seqlock-Tests liegen inline in `seqlock.rs` statt unter `test/`, wie bei den Loom-Tests in `doorbell.rs`.
+
+E6 ist jetzt kompiliert und getestet.
+
+- **`cargo test --lib manager`:** 59 Tests grün. Dazu gehören alle Sync-Tests (Echo, Konvergenz, zusammengefasste Signale, Änderung während des Scans, Änderung zwischen Stamp- und Datenlesen, ABA, Entfernen, Proptest) und die Seqlock-Tests.
+- **Loom (`RUSTFLAGS="--cfg loom" cargo test --lib seqlock`):** `reader_never_sees_a_torn_pair` ist grün.
+- **Warnungen:** Der Testbuild meldet 40 Warnungen. Die gezeigten betreffen ungenutzte Methoden in bestehendem Code (`root`, `epochs`, `current`, `snapshot`, `begin_batch`). Mein Filter auf `sync.rs`, `seqlock.rs` und `test/sync.rs` hat keine Treffer geliefert. Ich habe nur den Ausschnitt gesehen, nicht die vollständige Liste.
+
+Nicht gelaufen sind der Rest der Testsuite (nur `manager` wurde gefiltert) und `cargo clippy`.
