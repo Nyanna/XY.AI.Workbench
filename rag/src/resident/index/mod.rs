@@ -55,7 +55,7 @@ pub enum Scope {
     Centroid { k: u32, radius: Option<f32> },
 }
 /// Compact set of entry ids stored as sorted, merged, half-open ranges.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct EntrySet {
     ranges: Vec<Range<u64>>,
 }

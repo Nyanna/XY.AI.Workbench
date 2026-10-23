@@ -9,3 +9,7 @@ pub(crate) mod swap;
 pub mod seqlock;
 pub mod sync;
 pub mod tracker;
+pub(crate) mod evict;
+pub(crate) mod flight;
+pub(crate) mod residency;
+pub(crate) mod upload;

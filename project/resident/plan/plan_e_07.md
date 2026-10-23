@@ -54,9 +54,33 @@ pub struct Evictor { /* LRU + TTL + Hysterese, cost-aware */ }
 - Aggregation: zwei Tasks mit überlappenden Scopes → ein Ladevorgang über die Union.
 - Eviction: TTL + Hysterese kein Thrashing (virtuelle Zeit); Summaries werden nicht evictet; laufender Batch gepinnt.
 
-## 8. Offene Verifikationen
-- Gather-vs-Segment-Schwelle **empirisch auf GTX 1660 messen** (context_e.md offener Punkt 4) und als Kalibrierungsachse an F übergeben.
-- `OnceCell::get_or_try_init` vs. `Shared`-Verhalten bei Fehlern gegen aktuelle Crate-Version prüfen.
+## 8. Open verifications
+- Gather-versus-segment threshold: **measured** on the GTX 1660 SUPER (sm_75) with 1536-byte entries in a 16 MiB segment, pageable host source for the whole-segment copy, pinned staging for the gather. Whole segment 1.42–1.47 ms; gather reaches that between 100 and 150 permille density (0.92–1.33 ms at 100, 1.47–1.82 ms at 150). Default set to 0.12, exported as the `density` axis. The value depends on entry size and host memory kind; a profile that carries `density` overrides it. Re-measure with `cargo test --lib --features cuda gather_versus_segment_crossover -- --ignored --nocapture`.
+- `OnceCell::get_or_try_init` versus `Shared`: **decided** for `futures::future::Shared`; one error value reaches every waiter and the next call starts a new load, covered by `error_reaches_every_waiter_and_next_call_retries`.
+- Zero-copy mapping (`cudaHostAllocMapped`) is **open**: it needs the segment and device manager that does not exist yet.
 
 ## 9. Definition of Done
-- `plan_load`, Aggregation, Single-Flight, Evictor implementiert; Dichteschwelle als Kalibrierungsachse exportiert; alle Tests grün über Host-Mock ohne GPU.
+- `plan_load`, aggregation, single-flight and evictor are implemented; the density threshold is exported as a calibration axis; all tests are green through the host mock without a GPU. **Met**, except the concrete segment and zero-copy `LoadTransfer` implementations (see Result).
+
+## Result
+E7 is implemented in `rag/src/resident/manager/`. `cargo test --lib` passes without a GPU (398 tests) and `cargo check --features cuda` compiles. On the GPU, the gather upload test and the density measurement ran and passed.
+
+**New files:**
+- `residency.rs`: `LoadPolicy`, `plan_load` (per-segment choice between whole segment and gather, zero-copy for small rarely read sets), `LoadAggregator` (scope union per index), `ResidencyLoader` (executes plans through `LoadTransfer`, single-flight per request).
+- `flight.rs`: `SingleFlight` on `futures::Shared`; an error reaches all waiters, the next call retries.
+- `evict.rs`: `Evictor` with GDSF scoring, idle TTL, high/low watermark hysteresis and pins. Summaries and pinned entries are never evicted; `make_room` changes nothing and returns `ArenaExhausted` when it cannot free enough.
+- `upload.rs`: `StagedGather` packs entries into one pinned staging slot and uploads them with a single copy; `CudaUploadPort` sits behind the `cuda` feature.
+- Tests in `manager/test/` for each module, plus two ignored device tests in `test/upload.rs` (gather round trip, density crossover).
+
+**Changes to existing code:**
+- `EntrySet` is `Hash`.
+- `precision/known.rs` and `resident_precision.md` export the `density` axis (permille); `LoadPolicy::apply_profile` takes the profile value.
+- `CudaLane::new` is `pub(crate)` so the upload port can be built outside the subengine.
+
+**Deviations from the plan:**
+- No `roaring` dependency exists, so the range-based `EntrySet` is used.
+- Overlapping entries are duplicated, as planned; shared references remain a later optimization.
+
+**Not done:**
+- The concrete `LoadTransfer` implementations for segment loading and zero-copy mapping. They need the segment and device manager; tests use a recording mock.
+- `cargo clippy` was not run.

@@ -142,7 +142,7 @@ mod cuda_lane {
         }
     }
     impl CudaLane {
-        pub(super) fn new(
+        pub(crate) fn new(
             ctx: &Arc<CudaContext>,
             class: LaneClass,
             cfg: LaneConfig,

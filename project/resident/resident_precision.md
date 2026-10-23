@@ -26,6 +26,7 @@ Ergänzung zum Konzept der "Resident"-Engine (`resident.md`). Wird separat umges
 - Beispiele CPU: Operanden `{fp32, fp16→fp32}`, Scoring `{fp32, int8}`, Threads, Tile-Größe.
 - Es gibt **keine** vordefinierten Profilnamen und kein fest codiertes Profil-Enum.
 - Achsen und Werte sind pro Hardware erweiterbar, ohne Änderung an Fassade oder Task-Schnittstelle.
+- The index manager's gather-versus-segment load decision contributes the numeric axis `density` (permille of a segment's bytes that must be requested for the whole segment to be loaded instead of gathered). Like `batch` and `tile` it carries a measured value and is not listed in the static capability sets; a profile configuration that contains it overrides the manager default.
 
 ## Calibrator (eigene Komponente)
 
