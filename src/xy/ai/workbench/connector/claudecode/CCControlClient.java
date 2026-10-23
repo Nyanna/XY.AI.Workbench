@@ -1,5 +1,13 @@
 package xy.ai.workbench.connector.claudecode;
 
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.debug.core.DebugPlugin;
+import org.eclipse.debug.core.ILaunch;
+import org.eclipse.debug.core.ILaunchConfiguration;
+import org.eclipse.debug.core.ILaunchConfigurationType;
+import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
+import org.eclipse.debug.core.ILaunchManager;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -33,9 +41,11 @@ import xy.ai.workbench.commands.AnswerCommand;
 public class CCControlClient {
   private static final String CONTROL_URL = "http://localhost:9093/control/tool";
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
+  private static final String MCPC_LAUNCH_NAME = "MCPC";
   private final ObjectMapper mapper = JsonUtil.mapper();
   private YamlRenderer yaml = new YamlRenderer();
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
+  private boolean launchAttempted;
 
   public void checkControlEndpoint(CCResponse resp, String sessionId) {
     JsonNode pending = poll(sessionId);
@@ -58,8 +68,63 @@ public class CCControlClient {
   }
 
   public boolean isMCPCAvailable() {
-    // never null, just check exceptions
-    return poll(null) != null;
+    if (ping())
+      return true;
+    synchronized (this) {
+      if (launchAttempted)
+        return false;
+      launchAttempted = true;
+    }
+    return startMcpcLaunch();
+  }
+
+  private boolean ping() {
+    try {
+      return poll(null) != null;
+    } catch (IllegalStateException e) {
+      return false;
+    }
+  }
+
+  private boolean startMcpcLaunch() {
+    try {
+      ILaunchManager lm = DebugPlugin.getDefault().getLaunchManager();
+      for (ILaunch l : lm.getLaunches()) {
+        ILaunchConfiguration c = l.getLaunchConfiguration();
+        if (c != null && MCPC_LAUNCH_NAME.equals(c.getName()) && !l.isTerminated())
+          return false;
+      }
+      ILaunchConfiguration cfg = null;
+      for (ILaunchConfiguration c : lm.getLaunchConfigurations()) {
+        if (MCPC_LAUNCH_NAME.equals(c.getName())) {
+          cfg = c;
+          break;
+        }
+      }
+      if (cfg == null) {
+        ILaunchConfigurationType type = lm.getLaunchConfigurationType("org.eclipse.ui.externaltools.ProgramLaunchConfigurationType");
+        ILaunchConfigurationWorkingCopy wc = type.newInstance(null, MCPC_LAUNCH_NAME);
+        String dir = "/home/user/xyan/xy.ai.workbench/mcpc";
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_LOCATION", "/usr/bin/bash");
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS", "-lc \"" + dir + "/start.sh\"");
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY", dir);
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_LAUNCH_CONFIGURATION_BUILD_SCOPE", "${none}");
+        wc.setAttribute("org.eclipse.debug.core.environmentVariables", java.util.Map.of("TERM", "xterm-256color"));
+        cfg = wc.doSave();
+      }
+      cfg.launch(ILaunchManager.RUN_MODE, new NullProgressMonitor());
+      long end = System.currentTimeMillis() + 3000;
+      while (System.currentTimeMillis() < end) {
+        if (ping())
+          return true;
+        Thread.sleep(250);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (CoreException e) {
+      LOG.error("Failed to start MCPC run configuration", e);
+    }
+    return false;
   }
 
   private ArrayNode poll(String sessionId) {

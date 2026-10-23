@@ -11,3 +11,4 @@ Setze E6 um.
 [include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_00_overview.md)
 
 [include](/home/user/xyan/xy.ai.workbench/project/resident/plan/plan_e_06.md)
+[xy.ai.req:ClaudeCode:e341ccd4-123b-4ec9-8361-0f021fdce301]
