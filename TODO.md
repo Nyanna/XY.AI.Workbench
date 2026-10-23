@@ -1,5 +1,4 @@
 # TODO
-- MCP automatisch starten wenn nicht running und MCPC profil, oder profil programatisch anlegen
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis

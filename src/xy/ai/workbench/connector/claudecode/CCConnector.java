@@ -24,6 +24,14 @@ import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.harness.Role;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.debug.core.DebugPlugin;
+import org.eclipse.debug.core.ILaunch;
+import org.eclipse.debug.core.ILaunchConfiguration;
+import org.eclipse.debug.core.ILaunchConfigurationType;
+import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
+import org.eclipse.debug.core.ILaunchManager;
 import xy.ai.workbench.connector.harness.IIncludeAdapter;
 import xy.ai.workbench.connector.harness.IncludeProcessor;
 import xy.ai.workbench.models.AIAnswer;
@@ -32,6 +40,7 @@ import java.util.List;
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   private static final long CONTROL_CHECK_INTERVAL_MS = 300;
   private static final long IDLE_WAIT_MS = 50;
+  private static final String MCPC_LAUNCH_NAME = "MCPC";
   private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
   private final ProtocolParser jsonParser = new ProtocolParser();
   private final CCControlClient controlClient = new CCControlClient();
@@ -75,6 +84,47 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     public String message(Role role, String text) {
       return text;
     }
+  }
+
+  private boolean startMcpcLaunch(TimeStats ts) {
+    try {
+      ILaunchManager lm = DebugPlugin.getDefault().getLaunchManager();
+      for (ILaunch l : lm.getLaunches()) {
+        ILaunchConfiguration c = l.getLaunchConfiguration();
+        if (c != null && MCPC_LAUNCH_NAME.equals(c.getName()) && !l.isTerminated())
+          return false;
+      }
+      ILaunchConfiguration cfg = null;
+      for (ILaunchConfiguration c : lm.getLaunchConfigurations()) {
+        if (MCPC_LAUNCH_NAME.equals(c.getName())) {
+          cfg = c;
+          break;
+        }
+      }
+      if (cfg == null) {
+        ILaunchConfigurationType type = lm.getLaunchConfigurationType("org.eclipse.ui.externaltools.ProgramLaunchConfigurationType");
+        ILaunchConfigurationWorkingCopy wc = type.newInstance(null, MCPC_LAUNCH_NAME);
+        String dir = "/home/user/xyan/xy.ai.workbench/mcpc";
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_LOCATION", "/usr/bin/bash");
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS", "-lc \"" + dir + "/start.sh\"");
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY", dir);
+        wc.setAttribute("org.eclipse.ui.externaltools.ATTR_LAUNCH_CONFIGURATION_BUILD_SCOPE", "${none}");
+        wc.setAttribute("org.eclipse.debug.core.environmentVariables", java.util.Map.of("TERM", "xterm-256color"));
+        cfg = wc.doSave();
+      }
+      cfg.launch(ILaunchManager.RUN_MODE, new NullProgressMonitor());
+      long end = System.currentTimeMillis() + 3000;
+      while (System.currentTimeMillis() < end) {
+        if (ts.control(() -> controlClient.isMCPCAvailable()))
+          return true;
+        Thread.sleep(250);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (CoreException e) {
+      LOG.error("Failed to start MCPC run configuration", e);
+    }
+    return false;
   }
 
   @Override
@@ -125,7 +175,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     try {
       session.setInPrompt(true);
       if (command == null) {
-        if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !ts.control(() -> controlClient.isMCPCAvailable()))
+        if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !ts.control(() -> controlClient.isMCPCAvailable()) && !startMcpcLaunch(ts))
           throw new IllegalStateException("MCPC not reachable for AgentProfile");
         sub.subTask("Sending prompt");
         String promptJson = requestBuilder.buildPromptJson(req.promptText);
