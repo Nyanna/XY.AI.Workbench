@@ -63,9 +63,16 @@ profiles.iter()
 - **Leere Profilmenge:** `Err(NoActiveProfile)`.
 - **f64-Distanz:** konstruierte Fälle, in denen f32-Distanz einen Gleichstand erzeugen würde, f64 aber nicht (und umgekehrt der Tie-Break greift).
 
-## 9. Offene Verifikation / Risiken
-- `[prüfen]` `f32::clamp`-Verhalten bei NaN gegen aktuelle Rust-Doku (Kontext markiert dies ausdrücklich als zu verifizieren).
-- `[W]` gesamter F4-Abschnitt ist Fachwissen → Tie-Break-Determinismus mit mehreren gleichweit entfernten Profilen testen.
+## 9. Verifikationsergebnisse
+Geprüft mit rustc 1.99.0 (Testprogramm, `-O`).
+- **`f32::clamp` bei NaN:** gibt NaN zurück (kein Panic). Die NaN-Prüfung muss daher vor `clamp` stehen. `clamp` panikt nur, wenn `min > max` oder eine Grenze NaN ist. Das ist bei den festen Grenzen `0.0`/`1.0` ausgeschlossen.
+- **Klemmen:** `-0.3 → 0.0`, `1.7 → 1.0`, `+∞ → 1.0`, `−∞ → 0.0`. Das stimmt mit den Testvorgaben in §8 überein.
+- **Tie-Break:** Bei Profilen `{0.0, 0.25, 0.75}` und `t = 0.5` gewinnt in drei Läufen immer `0.75`. Das Ergebnis hängt nicht von der Eingabereihenfolge ab (auch nicht bei `[0.75, 0.25]`). `min_by` mit `total_cmp` und nachgeschaltetem Vergleich auf `p` ist also deterministisch.
+- **Leere Profilmenge:** `min_by` liefert `None`, das auf `NoActiveProfile` abgebildet wird.
+- **f64-Distanz:** Die Differenz zweier f32-Werte, nach f64 gehoben, ist praktisch exakt. Gleichstände entstehen daher nur bei echter Gleichheit der Distanzen. Das Beispiel `t = 0.3` mit `p = 0.1` und `p = 0.5` zeigt Distanzen von `0.20000001…` und `0.19999998…`. Beide Rechnungen unterscheiden die Distanzen. Der Tie-Break greift nur bei exakt gleichen f64-Distanzen, etwa bei dyadischen Werten wie `0.25/0.75` um `0.5`.
+- **Restrisiko:** Keines offen. Die Tests aus §8 decken die geprüften Fälle ab, auch mit mehreren gleich weit entfernten Profilen.
+
+
 
 ## 10. Definition of Done
 - `match_profile` implementiert mit NaN-Fehler-vor-Klemmen, f64-Distanz, Tie-Break zum genaueren.

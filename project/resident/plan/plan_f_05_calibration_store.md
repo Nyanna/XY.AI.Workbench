@@ -78,7 +78,7 @@ pub trait CalibrationStore {
 - Alle Tests ohne GPU (GPU-Felder `None`).
 
 ## 9. Offene Verifikation / Risiken
-- `[prüfen]` `nvml-wrapper`-API (`sys_driver_version`, `sys_cuda_driver_version`) und Verfügbarkeit (Windows ohne DLL → Fallback `cuDriverGetVersion`).
+- `[prüfen]` `nvml-wrapper`-API (`sys_driver_version`, `sys_cuda_driver_version`) und Verfügbarkeit.
 - `[W]` gesamter F5-Abschnitt ist Fachwissen → Fingerprint-Feldauswahl/Serde-Schema vor Festschreibung bestätigen.
 - Kanonische Serialisierung für den Hash festlegen (Feldreihenfolge stabil!), sonst instabile Hashes.
 - Dateirechte/Ablageort pro OS; `rename` muss auf dem Zielvolume atomar sein (gleiches Verzeichnis für Temp-Datei).
