@@ -26,7 +26,7 @@ __all__ = [
 _DEFAULT_LIMIT = 15
 _INTENTS = ('locate', 'line_numbers', 'ast_node_ids')
 _DEFAULT_INTENT = 'locate'
-_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist (paths + text). 'line_numbers': you will read surrounding code next with the read tool; returns path + line numbers + text. 'ast_node_ids': you will continue with ast_* tools; returns path + nodeId (matches outside any AST node keep their line numbers)."
+_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist. 'line_numbers': you will address by line numbers. 'ast_node_ids'(recommended): you will continue with ast_* tools."
 _MAX_LIMIT = 50
 
 class GrepError(Exception):
@@ -263,8 +263,8 @@ def _check_intent(intent: str) -> None:
 
 class GrepTool(ToolDefinition):
     name = 'grep'
-    title = 'Search files with grep'
-    description = "Run one or more independent grep searches for lines matching an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters. Limits apply per item, not per batch."
+    title = 'Search in directories'
+    description = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
     _ITEM_PROPERTIES = {
         'directory': {
             'type': 'array',
@@ -302,7 +302,7 @@ class GrepTool(ToolDefinition):
         'type': 'string',
         'enum': list(_INTENTS),
         'default': _DEFAULT_INTENT,
-        'description': 'Default intent for all items; an item-level intent takes precedence. ' + _INTENT_DESCRIPTION}
+        'description': 'Default intent for all items.' + _INTENT_DESCRIPTION}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
@@ -331,7 +331,8 @@ class GrepTool(ToolDefinition):
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
                     n.matches, item_intent == 'line_numbers')} for n in m.nodes]
             if m.matches:
-                entry['matches'] = line_dicts(m.matches, item_intent != 'locate')
+                lines = line_dicts(m.matches, item_intent != 'locate')
+                entry['matches'] = list(dict.fromkeys(lines)) if item_intent == 'locate' else lines
             return entry
 
         def result_serializer(rendered: tuple[GrepResult, str]) -> dict[str, Any]:
