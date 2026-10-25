@@ -24,9 +24,11 @@ __all__ = [
     'SearchTool',
     'register_search_tool']
 _DEFAULT_LIMIT = 15
-_INTENTS = ('locate', 'line_numbers', 'ast_node_ids')
-_DEFAULT_INTENT = 'locate'
-_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist. 'line_numbers(discouraged)': you will address by line numbers. 'ast_node_ids'(recommended): you will continue with ast_* tools."
+_INTENTS = ('survey', 'editing')
+_DEFAULT_INTENT = 'survey'
+_LINE_TOOLS = frozenset({'read_file', 'edit_marks', 'edit_line', 'edit_block', 'edit_lines'})
+_NODE_TOOLS = frozenset({'ast_read', 'ast_edit_block', 'ast_edit_marks', 'ast_insert', 'ast_replace'})
+_INTENT_DESCRIPTION = "What you will do with the results. 'survey': only need to know which files/matches exist. 'editing': you will edit the matched code next; results then include the addressing info (line numbers and/or AST node ids) required by the enabled edit tools."
 _MAX_LIMIT = 50
 
 class SearchError(Exception):
@@ -226,13 +228,14 @@ def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     nodes = [SearchNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
     return SearchMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
 
-def search(items: list[SearchItem], *, intent: str=_DEFAULT_INTENT) -> SearchBatchResult:
+def search(items: list[SearchItem], *, intent: str=_DEFAULT_INTENT, with_nodes: bool=False) -> SearchBatchResult:
     """Run one or more independent searches. Limits apply per item, not per batch.
 
     Args:
         items: Searches to run. Must be non-empty.
         intent: Default intent for all items; ``SearchItem.intent`` takes precedence.
-            ``'ast_node_ids'`` resolves matched lines to AST node ids (see :class:`SearchMatch`).
+        with_nodes: If true, items with intent ``'editing'`` resolve matched lines to AST node ids
+            (see :class:`SearchMatch`).
 
     Returns:
         SearchBatchResult: one result per successful search, one error per failed search.
@@ -250,7 +253,7 @@ def search(items: list[SearchItem], *, intent: str=_DEFAULT_INTENT) -> SearchBat
             effective = item.intent if item.intent is not None else intent
             _check_intent(effective)
             result = _search_one(item)
-            if effective == 'ast_node_ids':
+            if effective == 'editing' and with_nodes:
                 result = replace(result, matches=[_resolve_nodes(m, item.directory) for m in result.matches])
             results.append(result)
         except SearchError as exc:
@@ -307,6 +310,9 @@ class SearchTool(ToolDefinition):
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func: translating the MCP schema to/from the Python API."""
         intent = ctx.arguments.get('intent', _DEFAULT_INTENT)
+        enabled = ctx.session.enabled_tools
+        with_lines = bool(_LINE_TOOLS & enabled)
+        with_nodes = bool(_NODE_TOOLS & enabled)
 
         def item_factory(it: dict[str, Any]) -> SearchItem:
             return SearchItem(
@@ -326,13 +332,14 @@ class SearchTool(ToolDefinition):
             return [lm.match for lm in lms]
 
         def file_dict(m: SearchMatch, item_intent: str) -> dict[str, Any]:
+            editing = item_intent == 'editing'
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
             if m.nodes:
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
-                    n.matches, item_intent == 'line_numbers')} for n in m.nodes]
+                    n.matches, editing and with_lines)} for n in m.nodes]
             if m.matches:
-                lines = line_dicts(m.matches, item_intent != 'locate')
-                entry['matches'] = list(dict.fromkeys(lines)) if item_intent == 'locate' else lines
+                lines = line_dicts(m.matches, editing and (with_lines or with_nodes))
+                entry['matches'] = lines if editing else list(dict.fromkeys(lines))
             return entry
 
         def result_serializer(rendered: tuple[SearchResult, str]) -> dict[str, Any]:
@@ -351,7 +358,7 @@ class SearchTool(ToolDefinition):
             results: list[tuple[SearchResult, str]] = []
             errors: list[SearchItemError] = []
             for item in items:
-                batch = search([item], intent=intent)
+                batch = search([item], intent=intent, with_nodes=with_nodes)
                 effective = item.intent if item.intent is not None else intent
                 results += [(r, effective) for r in batch.results]
                 errors += batch.errors

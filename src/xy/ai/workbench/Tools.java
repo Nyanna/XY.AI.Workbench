@@ -3,9 +3,9 @@ package xy.ai.workbench;
 public class Tools {
 	private static String toolList = //
 			"ask_user,tools," // top
-					+ "file_stats,read_file,list,grep," // retrieve
+					+ "file_stats,read_file,list,grep,search," // retrieve
 					+ "write,edit_marks,edit_line,edit_block,edit_lines," // edit tools
-					+ "ast,ast_read,ast_script," // python ast
+					+ "ast,ast_read,ast_create,ast_delete,ast_edit_block,ast_edit_marks,ast_find,ast_insert,ast_outline,ast_replace,ast_validate, ast_script," // python ast
 					+ "bash,python," // scripting
 					+ "markdown,markdown_format," // Dynamic code tools
 					+ "colgrep,exa," // research cpabilities
