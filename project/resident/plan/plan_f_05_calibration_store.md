@@ -17,18 +17,14 @@ Der `CalibrationStore` persistiert das Kalibrierergebnis **pro `Modell × Subeng
 ```rust
 pub enum StoreState { Calibrated, Stale, Missing }
 
+#[derive(PartialEq, Eq)]
 pub struct Fingerprint {
-    pub schema_version: u32,     // Klartext, NICHT nur im Hash
+    pub schema_version: u32,
     pub gpu_name: Option<String>,
     pub gpu_cc: Option<(u32,u32)>,
-    pub gpu_vram: Option<u64>,
-    pub driver_version: Option<String>,
-    pub cuda_driver_version: Option<String>,
-    pub cuda_runtime_version: Option<String>,
-    pub cpu_brand: String,
-    pub cpu_features: Vec<String>,  // AVX2/F16C/VNNI ...
-    pub cpu_threads: usize,
-    pub model_id: String,           // + Hash
+    pub cuda_driver_version: Option<u32>,
+    pub cpu_features: Vec<&'static str>,  // fixe Reihenfolge, std-Detection
+    pub model_id: String,
     pub engine_version: String,
 }
 
@@ -47,15 +43,16 @@ pub trait CalibrationStore {
 }
 ```
 
-## 4. Fingerprint-Erhebung (context §F5/Q22–Q23)
-- **GPU/Treiber/CUDA:** NVML via `nvml-wrapper` (`device.name()`, `sys_driver_version()`, `sys_cuda_driver_version()`); **CC** via `cudarc` (F1). Fallback bei fehlendem NVML (z. B. Windows ohne DLL): `cudarc::driver::sys::cuDriverGetVersion`.
-- **CPU:** `raw-cpuid` (Brand-String, Feature-Flags AVX2/F16C/VNNI), `sysinfo` (Kernzahl).
-- **Schlüssel** = Hash (empfohlen **blake3**) über **kanonisch serialisierte** Felder, **plus `schema_version` im Klartext** (nicht nur im Hash). Zustände: `Calibrated` (Hash gleich), `Stale` (Hash weicht ab), `Missing` (keine Datei). [§F5/Q23]
+## 4. Fingerprint-Erhebung (minimal, ohne Zusatzabhängigkeiten)
+- **GPU:** über `cudarc`, das die Engine ohnehin nutzt: `CudaContext::name()`, `compute_capability()` und `sys::cuDriverGetVersion` (u32, z. B. 13030). Ohne CUDA sind die GPU-Felder `None`.
+- **CPU:** `std::arch::is_x86_feature_detected!` (z. B. `avx2`, `f16c`, `avx512vnni`) in fester Reihenfolge. Kein CPU-Modellname, keine Threadzahl.
+- **Kein Treiber-String, kein VRAM, keine Hash-Funktion.** Ein Treiberwechsel ohne Änderung der CUDA-Driver-Version gilt nicht als Systemwechsel. Wer neu kalibrieren will, löscht die Kalibrierdatei.
+- **Vergleich:** `Fingerprint` wird direkt per `==` mit dem gespeicherten verglichen. Zustände: `Calibrated` (gleich), `Stale` (abweichend), `Missing` (keine Datei). `schema_version` steht als Klartextfeld im Fingerprint. Ein anderer Wert ergibt `Stale`.
 
 ## 5. Serde-Format (context §F5/Q24 [W])
 - **JSON** (debugbar) mit `schema_version`; `#[serde(default)]` für neue Felder (vorwärtskompatibel), **unbekannte Felder tolerieren**. (`postcard`/`bincode` wären kompakter, aber nicht selbstbeschreibend → verworfen für die Diagnosefähigkeit.)
 - `unstable`, `rejections` (Maximalabweichungs-Verwerfungen) und `pruning` als **explizite Felder** (Pflicht für Diagnose/Nachmessung).
-- Ablageort: pro Maschine, Dateiname/Pfad enthält `model_id` + `engine` + `schema_version`.
+- Ablageort und Dateiname bestimmt die Applikation. Der Store bekommt den Pfad übergeben.
 
 ## 6. Zustandsverhalten (context §F5/Q25 + `resident_precision.md`)
 - **`Calibrated`:** laden und verwenden.
@@ -66,10 +63,10 @@ pub trait CalibrationStore {
 ## 7. Querschnitt
 - **Fehler (Q1):** `PrecisionError::Store(std::io::Error)` für IO/Serde; `Stale`/`Missing` sind **Zustände**, keine Fehler. `NoActiveProfile` entsteht nicht hier, sondern im Matching (F4), wenn ein geladenes/Default-Record keine aktiven Profile hat.
 - **Logging (Q2):** `warn!` bei `Missing` (konservativer Default aktiv); `info!` bei `Stale` (Hintergrund-Rekalibrierung gestartet) und beim atomaren Ersetzen; Fingerprint-Hash + `schema_version` im Log.
-- **Feature-Flags (Q4):** NVML/`cudarc`-Felder des Fingerprints hinter `cuda` optional; ohne GPU bleiben die GPU-Felder `None`, der CPU-Teil bleibt gültig. Store-Logik selbst ist GPU-frei testbar.
+- **Feature-Flags (Q4):** GPU-Felder des Fingerprints (`cudarc`) hinter `cuda` optional; ohne GPU bleiben die GPU-Felder `None`, der CPU-Teil bleibt gültig. Store-Logik selbst ist GPU-frei testbar.
 
 ## 8. Teststrategie (Q3, `resident_precision.md` „Tests“)
-- **Fingerprint-Wechsel → `Stale`:** abweichendes Feld (z. B. Treiberversion) ⇒ Hash weicht ab ⇒ `Stale`; altes Record bleibt nutzbar.
+- **Fingerprint-Wechsel → `Stale`:** abweichendes Feld (z. B. `cuda_driver_version`) ⇒ Fingerprints ungleich ⇒ `Stale`; altes Record bleibt nutzbar.
 - **Fehlende Datei → `Missing`:** `load` liefert `None` ⇒ `state == Missing` ⇒ konservativer Default + Warnung.
 - **Round-Trip:** `save_atomic` → `load` liefert identisches Record (inkl. `unstable`, `rejections`, `pruning`).
 - **Vorwärtskompatibilität:** JSON mit zusätzlichem unbekanntem Feld lädt ohne Fehler (`#[serde(default)]`, unbekannte toleriert).
@@ -77,14 +74,20 @@ pub trait CalibrationStore {
 - **`unstable`-Persistenz:** ein in F2 als `unstable` markiertes Ergebnis wird gespeichert und wieder geladen.
 - Alle Tests ohne GPU (GPU-Felder `None`).
 
-## 9. Offene Verifikation / Risiken
-- `[prüfen]` `nvml-wrapper`-API (`sys_driver_version`, `sys_cuda_driver_version`) und Verfügbarkeit.
-- `[W]` gesamter F5-Abschnitt ist Fachwissen → Fingerprint-Feldauswahl/Serde-Schema vor Festschreibung bestätigen.
-- Kanonische Serialisierung für den Hash festlegen (Feldreihenfolge stabil!), sonst instabile Hashes.
-- Dateirechte/Ablageort pro OS; `rename` muss auf dem Zielvolume atomar sein (gleiches Verzeichnis für Temp-Datei).
+## 9. Verifikationsergebnisse
+Geprüft per Probe-Crate (Linux, GTX 1660 SUPER, CC 7.5, CUDA 13.3, `cudarc =0.19.9`), das kompiliert und ausgeführt wurde.
+
+| Punkt | Ergebnis |
+|---|---|
+| GPU-Felder | `CudaContext::new(0)` liefert `name()` = `"NVIDIA GeForce GTX 1660 SUPER"` und `compute_capability()` = (7, 5). `sys::cuDriverGetVersion` liefert `CUDA_SUCCESS` und `13030`. `cudarc` reicht aus, `nvml-wrapper` entfällt. |
+| CPU-Felder | `is_x86_feature_detected!` liefert `avx2`, `f16c` = true und `avx512vnni` = false. Es ist Teil von `std`. `raw-cpuid` und `sysinfo` entfallen. Auf Nicht-x86-Hosts ist das Makro nicht verfügbar, dort bleibt `cpu_features` leer (`cfg(target_arch)`). |
+| Vergleich | Direkter `==`-Vergleich des Fingerprints. Hash und kanonische Serialisierung entfallen, damit auch `blake3`. |
+| Serde | Ein unbekanntes Feld im JSON lädt fehlerfrei (ohne `deny_unknown_fields`), `#[serde(default)]` füllt fehlende Felder. `deny_unknown_fields` darf nicht gesetzt werden. |
+| Atomarität | Temp-Datei im Zielverzeichnis, `sync_all()`, `rename()` funktioniert unter Linux. `rename` ist nur innerhalb desselben Dateisystems atomar, daher liegt die Temp-Datei im Verzeichnis des Ziels. |
+| Fingerprint-Umfang | Bewusst minimal: ein Treiber-Update ohne neue CUDA-Driver-Version bleibt unbemerkt. Das ist akzeptiert, der Nutzer kann die Kalibrierdatei löschen. |
 
 ## 10. Definition of Done
 - `CalibrationStore` (load/state/save_atomic), `Fingerprint`, Serde-Schema (JSON + `schema_version` + `#[serde(default)]`) implementiert.
-- Fingerprint-Erhebung mit NVML/`cudarc`/`raw-cpuid`/`sysinfo` + NVML-Fallback; GPU-Felder optional hinter `cuda`.
+- Fingerprint-Erhebung nur mit `cudarc` und `std` (keine Zusatzabhängigkeit); GPU-Felder optional hinter `cuda`.
 - Zustandsverhalten `Calibrated/Stale/Missing` inkl. atomarem Ersetzen und Hintergrund-Rekalibrierung ohne Blockieren.
 - `unstable`/`rejections`/`pruning` persistiert. Pflicht-Tests grün.
