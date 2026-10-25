@@ -9,6 +9,7 @@ pub mod memory;
 pub mod stamp;
 use std::ops::Range;
 use std::sync::Arc;
+use roaring::RoaringTreemap;
 use tokio::sync::watch;
 pub use stamp::{content_hash, FileStamp, StampCounter, Verdict, RACY_WINDOW_NS};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -54,70 +55,69 @@ pub enum Scope {
     Prefix(Vec<u8>),
     Centroid { k: u32, radius: Option<f32> },
 }
-/// Compact set of entry ids stored as sorted, merged, half-open ranges.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+/// Compact set of entry ids backed by a Roaring treemap (array, bitmap and run containers).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EntrySet {
-    ranges: Vec<Range<u64>>,
+    bits: RoaringTreemap,
+}
+impl std::hash::Hash for EntrySet {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.bits.len().hash(state);
+        self.bits.min().hash(state);
+        self.bits.max().hash(state);
+    }
 }
 impl EntrySet {
     pub fn new() -> Self {
         Self::default()
     }
     pub fn from_ranges(ranges: impl IntoIterator<Item = Range<u64>>) -> Self {
-        let mut v: Vec<Range<u64>> = ranges
-            .into_iter()
-            .filter(|r| r.start < r.end)
-            .collect();
-        v.sort_by_key(|r| r.start);
-        let mut merged: Vec<Range<u64>> = Vec::with_capacity(v.len());
-        for r in v {
-            match merged.last_mut() {
-                Some(last) if r.start <= last.end => last.end = last.end.max(r.end),
-                _ => merged.push(r),
+        let mut bits = RoaringTreemap::new();
+        for r in ranges {
+            if r.start < r.end {
+                bits.insert_range(r);
             }
         }
-        Self { ranges: merged }
+        Self { bits }
     }
     pub fn from_ids(ids: impl IntoIterator<Item = EntryId>) -> Self {
-        Self::from_ranges(ids.into_iter().map(|id| id.0..id.0.saturating_add(1)))
+        Self {
+            bits: ids.into_iter().map(|id| id.0).collect(),
+        }
     }
-    pub fn ranges(&self) -> &[Range<u64>] {
-        &self.ranges
-    }
-    pub fn is_empty(&self) -> bool {
-        self.ranges.is_empty()
-    }
-    pub fn len(&self) -> u64 {
-        self.ranges.iter().map(|r| r.end - r.start).sum()
-    }
-    pub fn contains(&self, id: EntryId) -> bool {
-        let i = self.ranges.partition_point(|r| r.end <= id.0);
-        self.ranges.get(i).is_some_and(|r| r.start <= id.0)
-    }
-    pub fn iter(&self) -> impl Iterator<Item = EntryId> + '_ {
-        self.ranges.iter().flat_map(|r| r.clone().map(EntryId))
-    }
-    pub fn union(&self, other: &Self) -> Self {
-        Self::from_ranges(self.ranges.iter().chain(&other.ranges).cloned())
-    }
-    pub fn intersection(&self, other: &Self) -> Self {
-        let (mut a, mut b) = (
-            self.ranges.iter().peekable(),
-            other.ranges.iter().peekable(),
-        );
-        let mut out = Vec::new();
-        while let (Some(x), Some(y)) = (a.peek(), b.peek()) {
-            let (start, end) = (x.start.max(y.start), x.end.min(y.end));
-            if start < end {
-                out.push(start..end);
-            }
-            if x.end <= y.end {
-                a.next();
-            } else {
-                b.next();
+    /// Maximal contiguous runs in ascending order; walks every id, so prefer `iter` or `len` on
+    /// large sets.
+    pub fn ranges(&self) -> Vec<Range<u64>> {
+        let mut out: Vec<Range<u64>> = Vec::new();
+        for id in self.bits.iter() {
+            match out.last_mut() {
+                Some(last) if last.end == id => last.end = id + 1,
+                _ => out.push(id..id + 1),
             }
         }
-        Self { ranges: out }
+        out
+    }
+    pub fn is_empty(&self) -> bool {
+        self.bits.is_empty()
+    }
+    pub fn len(&self) -> u64 {
+        self.bits.len()
+    }
+    pub fn contains(&self, id: EntryId) -> bool {
+        self.bits.contains(id.0)
+    }
+    pub fn iter(&self) -> impl Iterator<Item = EntryId> + '_ {
+        self.bits.iter().map(EntryId)
+    }
+    pub fn union(&self, other: &Self) -> Self {
+        Self {
+            bits: &self.bits | &other.bits,
+        }
+    }
+    pub fn intersection(&self, other: &Self) -> Self {
+        Self {
+            bits: &self.bits & &other.bits,
+        }
     }
 }
 /// Variable-length vector region of one entry; never a copy of backing storage.

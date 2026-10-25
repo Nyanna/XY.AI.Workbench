@@ -1,6 +1,7 @@
 //! Index-segment use of the shared arena allocator: aligned segments, copy-on-write headroom
 //! and epoch-gated release of replaced versions. No allocator of its own.
-use std::ops::Range;
+use std::ops::{Deref, Range};
+use std::sync::Arc;
 use parking_lot::{Mutex, MutexGuard};
 use crate::resident::error::ManagerError;
 use crate::resident::memory::{ArenaAllocator, MemoryError, Region};
@@ -47,8 +48,21 @@ impl State {
         self.retired.iter().any(|r| r.region == region)
     }
 }
+enum AllocRef<'a> {
+    Borrowed(&'a ArenaAllocator),
+    Shared(Arc<ArenaAllocator>),
+}
+impl Deref for AllocRef<'_> {
+    type Target = ArenaAllocator;
+    fn deref(&self) -> &ArenaAllocator {
+        match self {
+            AllocRef::Borrowed(a) => a,
+            AllocRef::Shared(a) => a,
+        }
+    }
+}
 pub struct IndexArena<'a> {
-    inner: &'a ArenaAllocator,
+    inner: AllocRef<'a>,
     reserve: u64,
     max_concurrent_cow: u32,
     state: Mutex<State>,
@@ -57,6 +71,13 @@ pub struct IndexArena<'a> {
 impl<'a> IndexArena<'a> {
     /// `reserve` bytes of the arena are never handed out.
     pub fn new(inner: &'a ArenaAllocator, reserve: u64) -> Self {
+        Self::with_ref(AllocRef::Borrowed(inner), reserve)
+    }
+    /// Owns a share of the allocator, so the arena can sit behind `'static` trait objects.
+    pub fn shared(inner: Arc<ArenaAllocator>, reserve: u64) -> IndexArena<'static> {
+        IndexArena::with_ref(AllocRef::Shared(inner), reserve)
+    }
+    fn with_ref(inner: AllocRef<'a>, reserve: u64) -> Self {
         Self {
             inner,
             reserve,
