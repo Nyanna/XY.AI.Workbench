@@ -26,7 +26,7 @@ __all__ = [
 _DEFAULT_LIMIT = 15
 _INTENTS = ('locate', 'line_numbers', 'ast_node_ids')
 _DEFAULT_INTENT = 'locate'
-_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist. 'line_numbers': you will address by line numbers. 'ast_node_ids'(recommended): you will continue with ast_* tools."
+_INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist. 'line_numbers(discouraged)': you will address by line numbers. 'ast_node_ids'(recommended): you will continue with ast_* tools."
 _MAX_LIMIT = 50
 
 class SearchError(Exception):
