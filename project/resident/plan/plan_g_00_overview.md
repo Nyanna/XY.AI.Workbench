@@ -83,16 +83,23 @@ Neue/berührte Varianten, die G beisteuert (in die projektweite Taxonomie einhä
 
 ---
 
-## 5. Gemeinsame Verifikationscheckliste (vor Abschluss von Gruppe G)
+## 5. Verifikationsergebnisse
 
-Aus `context_g.md`, Abschnitt „Offene Punkte". Jeder Punkt ist einem Paket zugeordnet und muss abgehakt werden:
+Alle sechs Punkte aus `context_g.md` („Offene Punkte") sind geklärt (Stand 25.10.2026; Umgebung: `parquet`/`arrow` 60.0.0, `candle` 0.11.0, `bytes` 1.12.1, GTX 1660 SUPER, CUDA 13.3). Einzige offene Restprüfung: pyarrow/DuckDB-Interop der geschriebenen Dateien (optional, nicht Teil der Kernentscheidung).
 
-1. ⚠️ Safetensors-Header von e5-small auslesen (`SafeTensors::deserialize(...).names()`), Key-Namen gegen candle-BERT-Schema prüfen, I64-Tensor identifizieren. → **G1**
-2. ⚠️ Roundtrip-Test `FixedSizeList<Float16,384>` in gepinnter parquet/arrow-Version (ggf. Interop). → **G2**
-3. ⚠️ Golden-Embeddings per Python-Referenz erzeugen; Rust-Pipeline dagegen testen. → **G1**
-4. ⚠️ f16-Toleranz am eigenen Korpus messen (Cosine-Abweichung, Top-k-Overlap). → **G1/G3**
-5. ⚠️ sentence-transformers `Pooling.py` bei Bedarf erneut prüfen (Abruf scheiterte 404) — Clamp `min=1e-9` im Nenner bestätigen. → **G1**
-6. ⚠️ Parquet-mmap-Weg (`Bytes::from_owner`/`memmap2`) praktisch prüfen. → **G2**
+| # | Paket | Ergebnis |
+|---|---|---|
+| 1 | G1 | ✅ `model.safetensors`: 200 Tensoren, 199× F32 + 1× I64 (`embeddings.position_ids`). Schlüssel ohne Präfix (`embeddings.*`, `encoder.layer.N.*`, `pooler.*`), keine `gamma`/`beta`-Namen → passt zum candle-BERT-Schema (`BertModel::load` direkt auf dem Root-`VarBuilder`). Der I64-Buffer wird von candle nicht angefordert; Positions-IDs werden intern von 0 aus erzeugt (korrekt für `bert`, kein XLM-R-Offset). `word_embeddings` = [250037, 384]. |
+| 2 | G2 | ✅ `FixedSizeList<Float16,384>` Write→Read ist **bit-exakt** (4000 Zeilen, 4 Row-Groups, auch mit zusätzlicher `UInt64`-Stampspalte). Arrow-Typ wird über `ARROW:schema` exakt zurückgewonnen. Interop (pyarrow/DuckDB) nicht geprüft. |
+| 3 | G1 | ✅ Golden per PyTorch (f32, CPU, `transformers` + Masked-Mean + L2) erzeugt (8 Texte DE/EN/CJK/Umlaute, Kurztext, 700-Wort-Text mit Trunkierung). Rust-Pipeline (candle, f32, CPU, `BatchLongest`, Trunkierung 512) weicht um **max 1.8e-7** je Komponente ab, min-Cosine 0.9999998 → Toleranz `1e-4` ist großzügig, `1e-5` wäre haltbar. Tokenizer-Pad-ID ist 1 (nicht `pad_token_id` 0 aus `config.json`); irrelevant, solange die Attention-Mask übergeben wird. |
+| 4 | G1/G3 | ✅ Korpus: 1500 Absätze + 20 Queries. **Storage f16** (Vektor f32→f16→renormalisiert): min-Cosine 0.9999998, Top-10-Overlap 1.0 (auch mit f16-Query). **Forward f16 auf GPU** (PyTorch): min-Cosine 0.9999996, max Komponentenfehler 1.3e-4, Top-10-Overlap 1.0. **Forward f16 in candle auf GPU** gegen f32-Golden: min-Cosine 0.9999993, max Komponentenfehler 1.8e-4. Die Zielschwelle `cos ≥ 0.999` wird um Größenordnungen unterschritten → f16-Forward auf GPU und gemischte CPU(f32)/GPU(f16)-Indexierung sind zulässig. Einschränkung: Passagen ≤ 1500 Zeichen; Verhalten bei 512-Token-Sequenzen nur über den 700-Wort-Text abgedeckt. |
+| 5 | G1 | ✅ `sentence_transformers/models/Pooling.py` (4.1.0): `sum_mask = torch.clamp(sum_mask, min=1e-9)`; `sum_embeddings / sum_mask`. `1_Pooling/config.json`: nur `pooling_mode_mean_tokens=true`, `word_embedding_dimension=384`. `sentence_bert_config.json`: `max_seq_length=512`, `do_lower_case=false`. Die Rust-Variante mit `clamp(1e-9)` ist verifiziert (Punkt 3). |
+| 6 | G2 | ✅ `memmap2::Mmap` → `Bytes::from_owner` (`bytes` ≥ 1.9; ohne eigene Dependency über `tokio_util::bytes` erreichbar) → `ParquetRecordBatchReaderBuilder::try_new` funktioniert; Schreiben in `*.tmp` + `rename` ebenfalls. Ein Stamp-only-Scan (`ProjectionMask` auf die Stampspalte) lädt **38 KB von 3,1 MB** (1,2 %), ein Voll-Scan 3,1 MB → die Stampspalte lässt sich ohne Vektor-Decode iterieren. |
+
+**Folgerungen für die Pakete:**
+- **G2-Header:** Eigene Header-Keys werden per `WriterProperties::set_key_value_metadata` als Footer-Keys geschrieben (`KeyValue::new(String, String)`, Pfad `parquet::file::metadata::KeyValue`; `parquet::format` existiert in 60.0.0 nicht mehr). Über `Schema::with_metadata` gesetzte Keys landen **nicht** als eigene Footer-Keys, sondern nur im `ARROW:schema`-Blob und erscheinen beim Lesen in `schema().metadata()`; für die strikte Header-Prüfung sind die Footer-Keys maßgeblich.
+- **G2-Layout:** `FixedSizeList<Float16,384>` ist bestätigt; `FixedSizeBinary(768)` ist nicht nötig.
+- **G1:** Config für `bert::Config` kann direkt aus `config.json` deserialisiert werden; `max_seq_length` kommt aus `sentence_bert_config.json`.
 
 ---
 
@@ -121,7 +128,7 @@ Die konkrete Encoder-Adaption (einzige candle-Stelle) liegt in D4; G1 liefert nu
 ## 7. Definition of Done (Gruppe G)
 
 - G1/G2/G3-Pläne vollständig abgearbeitet, je eigene DoD erfüllt.
-- Verifikationscheckliste (§5) vollständig abgehakt.
+- Verifikationsergebnisse (§5) in den Paketplänen berücksichtigt.
 - Modell-ID, Dim, Pooling, Präfixe, dtype sind an genau einer Stelle definiert (G1) und werden von G2 in den Index-Header und von G3 beim Laden geprüft (`IncompatibleSchema` bei Mismatch).
 - Erweiterungspunkte für ColBERT/MaxSim und Cross-Encoder sind gesichert (🔌), aber nicht ausimplementiert.
 - Q1–Q4 für G umgesetzt; No-GPU-Tests grün.
