@@ -86,3 +86,36 @@ fn follow_up_equals_application_task_without_addon_marker() {
     assert_eq!(params.get_scope(), & scope);
     assert!(params.ext().is_empty());
 }
+/// Exhaustive patterns fail to compile when a parent/child link is added to the core types.
+#[test]
+fn core_task_types_carry_no_parent_child_structure() {
+    let r = resident();
+    let _h = r
+        .submit_similarity(
+            VectorInput::new(vec![vec![1.0]]),
+            SimilarityParams::new(IndexId("members".into())),
+        );
+    let (meta, payload) = claim_and_complete(&r, Output::Hits(vec![]));
+    let TaskMeta { id: _, kind: _ } = meta;
+    match payload {
+        Payload::Similarity { input: _, params: _ } => {}
+        _ => panic!("wrong payload"),
+    }
+}
+/// Follow-ups are submitted by the addon itself, so it returns the handles of the
+/// tasks it enqueued; the core never receives a task list or a link to the origin.
+#[test]
+fn cascade_returns_handles_of_independent_tasks() {
+    let r = resident();
+    let summary = SimilarityParams::new(IndexId("summary".into()));
+    let out = Output::Hits(vec![(EntryId::new(2), 1.0)]);
+    let handles: Vec<TaskHandle> = cascade(
+        &r,
+        &out,
+        &summary,
+        IndexId("members".into()),
+    );
+    assert_eq!(handles.len(), 1);
+    let (meta, _) = claim_and_complete(&r, Output::Hits(vec![]));
+    assert_eq!(meta.id, handles[0].id());
+}

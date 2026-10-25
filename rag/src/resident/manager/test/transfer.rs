@@ -559,6 +559,54 @@ mod device {
     }
     #[test]
     #[ignore = "requires a CUDA device"]
+    fn bulk_segment_reaches_the_device_in_one_direct_copy() {
+        let dev = DeviceHandle::cuda(0).unwrap();
+        let sizes = ArenaSizes {
+            weights: 1 << 20,
+            index_segment: 4 << 20,
+            workspace: 1 << 20,
+            staging: 0,
+            param_block: 4096,
+            mapped: 0,
+        };
+        let memory = Arc::new(CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap());
+        let scratch = memory.alloc_in(ArenaKind::ParamBlock, 256, 8).unwrap();
+        let ctx = dev.cuda_context().unwrap();
+        let lane = CudaLane::new(&ctx, LaneClass::Index, LaneConfig::new(scratch))
+            .unwrap();
+        let gather = StagedGather::new(memory.staging_ring(2, BYTES).unwrap());
+        let port = Arc::new(CudaUploadPort::new(memory.clone(), lane));
+        let queue = Arc::new(LoadedQueue::new());
+        let transfer = GatherTransfer::new(
+            FlatIndex::new(30, BYTES, 0),
+            Arc::new(UniformGeometry {
+                entries_per_segment: 10,
+                entry_bytes: BYTES as u64,
+            }),
+            gather,
+            port,
+            Arc::new(MemRegions(memory.clone())),
+            queue.clone(),
+            256,
+        );
+        let moved = transfer.load_segments(&[1]).unwrap();
+        assert_eq!(moved, (10 * BYTES) as u64);
+        let seg = queue.drain().pop().unwrap();
+        let stream = ctx.new_stream().unwrap();
+        let mut out = vec![0u8; seg.region.len as usize];
+        unsafe { memory.download(&stream, seg.region, &mut out).unwrap() };
+        stream.synchronize().unwrap();
+        assert_eq!(seg.binds.len(), 10);
+        for (entry, slot, _) in &seg.binds {
+            let at = (seg.map.slot_span(*slot).unwrap().start - seg.region.offset)
+                as usize;
+            let expect = (entry.get() + 1) as u8;
+            assert!(out[at..at + BYTES].iter().all(| b | * b == expect));
+        }
+        memory.free(seg.region).unwrap();
+    }
+    #[test]
+    #[ignore = "requires a CUDA device"]
     fn zero_copy_segment_is_readable_through_the_device_address() {
         let dev = DeviceHandle::cuda(0).unwrap();
         let sizes = ArenaSizes {

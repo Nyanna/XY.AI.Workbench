@@ -26,7 +26,9 @@ const TOML: &str = r#"
 /// Executes every operation with canned output and records what each one received.
 struct Scripted {
     seen: Mutex<Vec<(OpKind, &'static str)>>,
+    echo: Option<Echo>,
 }
+type Echo = Box<dyn Fn(&[f32]) -> Vec<f32> + Send + Sync>;
 fn shape(value: &Value) -> &'static str {
     match value {
         Value::Host(HostData::Text(_)) => "text",
@@ -46,7 +48,15 @@ impl Engine for Scripted {
         let data = match kind {
             OpKind::Tokenize => HostData::Tokens(vec![vec![1]]),
             OpKind::TopK => HostData::Hits(vec![(7, 0.9)]),
-            _ => HostData::F32(vec![0.5; 4]),
+            _ => {
+                let canned = [0.5f32; 4];
+                HostData::F32(
+                    match &self.echo {
+                        Some(echo) => echo(&canned),
+                        None => canned.to_vec(),
+                    },
+                )
+            }
         };
         let followups = match &job.node.successor {
             Some(next) => next.follow(Value::Host(data), &job.node.task),
@@ -60,6 +70,13 @@ fn run(
     payload: Payload,
     kind: TaskKind,
 ) -> (Result<Output, TaskError>, Vec<(OpKind, &'static str)>) {
+    run_with(payload, kind, None)
+}
+fn run_with(
+    payload: Payload,
+    kind: TaskKind,
+    echo: Option<Echo>,
+) -> (Result<Output, TaskError>, Vec<(OpKind, &'static str)>) {
     let planner = Arc::new(Planner::new(RuleSet::from_toml(TOML).unwrap()));
     let offers = EngineOffers::new()
         .with_cpu([
@@ -70,6 +87,7 @@ fn run(
         ]);
     let engine = Arc::new(Scripted {
         seen: Mutex::new(vec![]),
+        echo,
     });
     let wakeups = Wakeups::new();
     let tasks: Arc<TaskQueue> = Arc::new(Queue::new(wakeups.relays()));
@@ -123,6 +141,71 @@ fn foreign_extension_does_not_change_the_planned_chain() {
     let (ext_result, ext_seen) = run(extended, TaskKind::Embedding);
     assert_eq!(plain_seen, ext_seen);
     assert_eq!(plain_result.unwrap(), ext_result.unwrap());
+}
+#[cfg(feature = "cuda")]
+mod device {
+    use std::sync::Arc;
+    use super::*;
+    use crate::resident::memory::arena::DeviceMemory;
+    use crate::resident::memory::cuda::CudaMemoryManager;
+    use crate::resident::memory::{ArenaKind, ArenaSizes};
+    use crate::resident::subengine::DeviceHandle;
+    fn device_echo() -> Echo {
+        let dev = DeviceHandle::cuda(0).unwrap();
+        let sizes = ArenaSizes {
+            weights: 1 << 20,
+            index_segment: 1 << 20,
+            workspace: 1 << 20,
+            staging: 0,
+            param_block: 4096,
+            mapped: 0,
+        };
+        let memory = Arc::new(CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap());
+        let stream = Mutex::new(dev.cuda_context().unwrap().new_stream().unwrap());
+        Box::new(move |values| {
+            let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_le_bytes()).collect();
+            let region = memory
+                .alloc_in(ArenaKind::IndexSegment, bytes.len() as u64, 256)
+                .unwrap();
+            let mut back = vec![0u8; bytes.len()];
+            let stream = stream.lock();
+            unsafe {
+                memory.upload(&stream, &bytes, region).unwrap();
+                memory.download(&stream, region, &mut back).unwrap();
+            }
+            stream.synchronize().unwrap();
+            memory.free(region).unwrap();
+            back.chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect()
+        })
+    }
+    #[test]
+    #[ignore = "requires a CUDA device"]
+    fn extension_task_runs_through_workers_with_device_round_trips() {
+        let payload = |ext: bool| {
+            let params = EmbeddingParams::new(TextRole::Passage);
+            Payload::Embedding {
+                input: TextInput::new(["a"]),
+                params: if ext { params.with_ext(42_u64) } else { params },
+            }
+        };
+        let (plain, plain_seen) = run_with(
+            payload(false),
+            TaskKind::Embedding,
+            Some(device_echo()),
+        );
+        let (ext, ext_seen) = run_with(
+            payload(true),
+            TaskKind::Embedding,
+            Some(device_echo()),
+        );
+        assert_eq!(plain_seen, ext_seen);
+        let (plain, ext) = (plain.unwrap(), ext.unwrap());
+        assert_eq!(plain, ext);
+        let (_, reference) = run(payload(true), TaskKind::Embedding);
+        assert_eq!(ext_seen, reference);
+    }
 }
 #[test]
 fn similarity_returns_hits() {
