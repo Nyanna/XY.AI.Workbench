@@ -40,7 +40,7 @@ impl Doorbell {
     /// # Safety
     /// Both pointers must satisfy the contract of [`RootPointer::from_mapped`] and be distinct.
     #[cfg(all(feature = "cuda", not(loom)))]
-    pub unsafe fn from_mapped(done: *mut u64, ack: *mut u64) -> Self {
+    pub(crate) unsafe fn from_mapped(done: *mut u64, ack: *mut u64) -> Self {
         Self {
             done: unsafe { RootPointer::from_mapped(done) },
             ack: unsafe { RootPointer::from_mapped(ack) },

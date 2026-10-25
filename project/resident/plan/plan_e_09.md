@@ -55,3 +55,34 @@ pub struct Extensions(HashMap<TypeId, Box<dyn Any + Send + Sync>>);
 
 ## 9. Definition of Done
 - Erweiterbares Parameterobjekt nachgewiesen; Referenz-Kaskade als Addon über die normale Queue demonstriert; Konzeptnotiz zur Kern/Addon/Oberschicht-Grenze vorhanden; **keine** Iteration/Kaskade/Rekursion im Kern.
+
+## Result
+
+# Zusammenfassung E9 (Addons)
+
+## Erledigt
+- **`Extensions` (neu, `facade/extensions.rs`):** typsichere Map `TypeId → Arc<dyn Any + Send + Sync>` mit `insert`, `get`, `remove`, `len` und `is_empty`. Sie ist `Clone`, `Debug`, `Send + Sync`.
+- **Parameterobjekte:** `EmbeddingParams`, `SimilarityParams` und `InferenceParams` haben ein `ext`-Feld sowie `with_ext<T>()` und `ext()`. Sie waren schon `#[non_exhaustive]`. Queue und Planner reichen sie unverändert durch. `Extensions` ist über `facade` exportiert.
+- **Kern unverändert:** keine Iteration, Kaskade, Rekursion oder Parent-Child-Struktur im Kern.
+- **Konzeptnotiz:** `rag/docs/architecture/addons.md` beschreibt die Grenze zwischen Kern, Addon und Oberschicht.
+- **Tests (neu):**
+  - vier Unit-Tests für `Extensions`
+  - Transport einer fremden Extension durch die Queue
+  - Referenz-Kaskade als reiner Test (`facade/test/addon.rs`): Der Folgetask hat einen abgeleiteten `Scope::Set` und trägt die Korrelations-ID weiter.
+  - Addon-Task und App-Task sind in `TaskKind` und Payload-Typ gleich.
+  - Mit und ohne Extension durchläuft derselbe Task denselben Planner-Ablauf.
+- **`api_hygiene` repariert:** `Doorbell::from_mapped`, `RootPointer::from_mapped` und `Seqlock::from_raw` sind jetzt `pub(crate)` statt `pub`. Der Fehler bestand schon vor E9 und gehört zu E4. Die Allowlist des Tests habe ich nicht verändert.
+
+## Verifikation
+- Alle Test-Binaries laufen grün: 419 Lib-Tests, `api_hygiene` (2), `deps_smoke` (2) und `trigram_e2e` (4).
+- Mit dem Feature `cuda` und `nvcc` aus `/usr/local/cuda-13.3/bin` im PATH: `cargo check --features cuda --all-targets` baut. `cargo test --features cuda --lib` ergibt 431 Tests grün und 22 ignoriert.
+- `nvcc` 13.3 ist vorhanden und über `.cargo/config.toml` konfiguriert, aber nicht im Shell-PATH.
+- Clippy meldet in den geänderten Dateien keine Warnungen. Im übrigen Projekt gibt es bestehende Warnungen, die ich nicht angefasst habe.
+
+## Abweichungen und Hinweise
+- **Eigenes `Extensions` statt `anymap`-Crate:** Das vermeidet eine neue Abhängigkeit, und die Wahl ist begründet.
+- **Serialisierung nicht umgesetzt:** Sie war im Plan nur bedingt gefordert. Als Option steht sie in der Konzeptnotiz.
+- **Kein einheitliches `TaskParams`:** Der Plan ging davon aus, im Code gibt es drei Param-Structs. Das `ext`-Feld sitzt deshalb in allen dreien.
+- **Rückgabetyp des Addons:** Das Referenz-Addon reicht `Vec<TaskHandle>` statt `Vec<Task>` zurück, weil es die Folgetasks selbst einreiht. Einen eigenen Test dafür, dass der Kern keine Parent-Child-Struktur hat, gibt es nicht.
+- **Keine Abstimmung mit der Planner-Gruppe:** Die Params-Structs waren bereits `#[non_exhaustive]`. Den Zustand habe ich im Code geprüft.
+- **22 ignorierte CUDA-Tests nicht untersucht:** Vermutlich brauchen sie echte GPU-Hardware. Einen Hardware-Smoke-Test auf der GTX 1660 habe ich nicht gesehen.

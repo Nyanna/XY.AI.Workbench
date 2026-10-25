@@ -36,7 +36,7 @@ impl RootPointer {
     /// `ptr` must be 8-byte aligned, valid and unmoved for the lifetime of the pointer, and
     /// written only through this wrapper.
     #[cfg(all(feature = "cuda", not(loom)))]
-    pub unsafe fn from_mapped(ptr: *mut u64) -> Self {
+    pub(crate) unsafe fn from_mapped(ptr: *mut u64) -> Self {
         debug_assert_eq!(ptr as usize % 8, 0);
         Self {
             cell: Cell::Mapped(ptr as *const AtomicU64),
