@@ -90,13 +90,22 @@ Stage-Kette (geteilt CPU/GPU; nur Adapter pro Stage gerätespezifisch):
 
 ---
 
-## 5. Verifikationsschritte (verpflichtend, ⚠️)
+## 5. Verifikationsergebnisse
 
-1. **Safetensors-Header-Dump:** `SafeTensors::deserialize(mmap).names()` lesen, gegen candle-BERT-Key-Liste (§2.3) prüfen; I64-Tensor identifizieren (vermutlich `embeddings.position_ids`-Buffer — wird von `VarBuilder::from_mmaped_safetensors` nicht angefragt).
-2. **Golden-Embeddings:** 5–10 Texte (DE/EN) **mit Präfix** per Python-Referenz (HF-Karte `average_pool` + `F.normalize`, `max_length=512, padding=True, truncation=True`) erzeugen. Rust-Pipeline dagegen testen, Toleranz `~1e-4` (f32).
-3. **Pooling-Clamp:** `sentence-transformers Pooling.py` erneut prüfen (Abruf scheiterte 404); Nenner-Clamp `min=1e-9` bestätigen.
-4. **f16-Toleranz:** am eigenen Korpus `cos(a_f32, a_f16) ≥ 0.999` und Top-k-Overlap messen; Schwelle dokumentieren.
-5. **Präfix-Pfad:** Index- vs. Query-Präfix testen (asymmetrisch: query/passage; symmetrisch: `query: ` auf beiden Seiten).
+Umgebung: GTX 1660 SUPER (cc 7.5), CUDA 13.3, `candle` 0.11 (gepatchter Fork unter `third_party`), `model.safetensors` aus `model/multilingual-e5-small`.
+
+| # | Prüfpunkt | Ergebnis |
+|---|---|---|
+| 1 | Safetensors-Header | ✅ 200 Tensoren: 199× F32, 1× I64. Der I64-Tensor ist `embeddings.position_ids` `[1, 512]` (Buffer; candle erzeugt Positionen selbst, `0..seq_len`, und fragt ihn nicht an). Keys ohne `bert.`-Präfix: `embeddings.{word_embeddings [250037,384], position_embeddings [512,384], token_type_embeddings [2,384], LayerNorm}`, `encoder.layer.{i}.attention.self.{query,key,value}`, `attention.output.{dense,LayerNorm}`, `intermediate.dense`, `output.{dense,LayerNorm}` — deckungsgleich mit dem candle-BERT-Ladeschema, kein Remapping nötig. Zusätzlich `pooler.dense.{weight,bias}` vorhanden und ungenutzt. |
+| 2 | Golden-Embeddings | ✅ 6 Referenztexte mit Präfix (`tests/data/reference/multilingual-e5-small.json`, Mean-Pooling + L2). Rust-Pipeline (BertModel, f32) erreicht auf CPU Cosine > 0,9999 je Text, auf GPU (f32) ebenfalls; GPU gegen CPU Cosine > 0,999. Embeddings sind normiert (Norm = 1 ± 1e-4) und batch-/padding-invariant. |
+| 3 | Pooling-Nenner | ✅ (eigene Implementierung) Der Nenner ist die Anzahl maskierter Tokens, geclampt per `max(1)`; bei Maske ≥ 1 identisch zu `clamp(min=1e-9)`, bei leerer Maske ergibt sich der Nullvektor ohne Division durch 0. L2 klemmt die Norm auf `≥ 1e-12`, Nullzeilen bleiben Null. Die Datei `Pooling.py` von sentence-transformers wurde nicht erneut abgerufen (kein Netz-/Paketzugriff in dieser Umgebung); die Entscheidung hängt nicht davon ab. `1_Pooling/config.json` bestätigt reines Mean-Pooling (`mean_tokens = true`, kein CLS/Max/sqrt-len), Dimension 384. |
+| 4 | f16-Toleranz | ✅ **Storage (f16 im Index):** auf den Referenzvektoren Cosine(f32, f16) ≥ 0,99999 (Minimum 1,0 im Rahmen der f32-Auflösung), Normabweichung ≤ 1,2e-5, max. Score-Differenz 2,2e-5, Rangfolge aller 6 Texte unverändert. ⚠️ Top-k-Overlap auf eigenem Korpus bleibt offen, da nur 6 Referenztexte existieren; wird in G3 am echten Index gemessen. **Compute (f16-Forward auf GPU):** Abweichung der normierten Vektoren zu f32 im L2-Abstand mittel 5,4e-4, max 6,6e-4 (entspricht Cosine ≈ 1 − 2e-7) — numerisch unkritisch. Zeit bei Batch 16, Seq 209: f32 152 ms, f16 378 ms (Median) → **f16 ist auf dieser Karte 2,5× langsamer**. bf16 ist nicht verfügbar (`CUDA_ERROR_NOT_FOUND`, cc 7.5 ohne bf16-Kernel). |
+| 5 | Präfix-Pfad | ✅ `query: ` / `passage: ` sind als Daten in der `ModelSpec` hinterlegt und werden vom Tokenizer-Pfad angewendet; Padding-ID des Tokenizers ist 1 (`<pad>`), die Attention-Maske macht sie wirkungslos. ⚠️ Qualitätsvergleich asymmetrisch gegen symmetrisch (`query: ` auf beiden Seiten) ist nicht gemessen und bleibt eine Korpusfrage für G3. |
+
+**Daraus folgende Festlegungen:**
+- Compute-dtype GPU: **F32** (Default und Festlegung für diese Hardware); f16-Forward nur auf Karten mit schnellem f16-Pfad nach erneuter Messung mit dem vorhandenen Messtest aktivieren.
+- Storage-dtype im Index: **F16**, ohne messbaren Qualitätsverlust.
+- Offen bleiben nur korpusabhängige Messungen (Top-k-Overlap, Präfix-Symmetrie), die ohne den echten Index nicht aussagekräftig sind.
 
 ---
 
