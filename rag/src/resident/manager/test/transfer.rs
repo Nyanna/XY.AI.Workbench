@@ -4,6 +4,7 @@ use super::*;
 use crate::resident::backend::ComputeBackend;
 use crate::resident::index::memory::InMemoryIndex;
 use crate::resident::index::Index;
+use crate::resident::manager::flat_index::FlatIndex;
 use crate::resident::kernel::WrittenRange;
 use crate::resident::manager::evict::EvictPolicy;
 use crate::resident::manager::residency::{LoadPolicy, ResidencyLoader, UniformGeometry};
@@ -261,6 +262,109 @@ fn zero_copy_skips_removed_entries() {
     let moved = transfer.map_zero_copy(&EntrySet::from_ids([id(50)])).unwrap();
     assert_eq!(moved, 0);
     assert!(f.queue.is_empty());
+}
+const FLAT_ENTRY: usize = 256;
+#[derive(Default)]
+struct Hints(Mutex<Vec<(Range<usize>, Hint)>>);
+impl AdviceSink for Hints {
+    fn advise(&self, range: Range<usize>, hint: Hint) -> std::io::Result<()> {
+        self.0.lock().push((range, hint));
+        Ok(())
+    }
+}
+struct Flat {
+    transfer: GatherTransfer<Vec<u8>>,
+    queue: Arc<LoadedQueue>,
+    port: Arc<HostPort>,
+    hints: Arc<Hints>,
+}
+fn flat_transfer(index: Arc<FlatIndex>, staging_bytes: usize) -> Flat {
+    let alloc = Arc::new(
+        ArenaAllocator::new(ArenaKind::IndexSegment, DeviceKind::Cpu, ARENA_BYTES),
+    );
+    let arena = Arc::new(IndexArena::shared(alloc, 0));
+    let scratch = Region {
+        arena: ArenaId(0),
+        offset: 0,
+        len: 1,
+        gen: 0,
+    };
+    let port = Arc::new(HostPort {
+        lane: CpuLane::new(LaneClass::Index, LaneConfig::new(scratch)).unwrap(),
+        memory: Mutex::new(vec![0; ARENA_BYTES as usize]),
+        fail: AtomicBool::new(false),
+    });
+    let queue = Arc::new(LoadedQueue::new());
+    let hints = Arc::new(Hints::default());
+    let gather = StagedGather::new(
+        StagingRing::new((0..2).map(|_| vec![0u8; staging_bytes])),
+    );
+    let geometry = UniformGeometry {
+        entries_per_segment: 10,
+        entry_bytes: FLAT_ENTRY as u64,
+    };
+    let transfer = GatherTransfer::new(
+            index,
+            Arc::new(geometry),
+            gather,
+            port.clone(),
+            arena,
+            queue.clone(),
+            256,
+        )
+        .with_advice(hints.clone());
+    Flat {
+        transfer,
+        queue,
+        port,
+        hints,
+    }
+}
+#[test]
+fn backed_segments_go_to_the_device_in_one_direct_copy() {
+    let flat = flat_transfer(FlatIndex::new(30, FLAT_ENTRY, 0), 16);
+    let moved = flat.transfer.load_segments(&[1]).unwrap();
+    assert_eq!(moved, 10 * FLAT_ENTRY as u64);
+    let seg = flat.queue.drain().pop().unwrap();
+    let entries: Vec<_> = seg.binds.iter().map(|b| b.0).collect();
+    assert_eq!(entries, (10..20).map(id).collect::< Vec < _ >> ());
+    let at = seg.region.offset as usize;
+    let memory = flat.port.memory.lock();
+    assert_eq!(memory[at], 11);
+    assert_eq!(memory[at + 9 * FLAT_ENTRY], 20);
+    assert_eq!(
+        flat.hints.0.lock().as_slice(), & [(10 * FLAT_ENTRY..20 * FLAT_ENTRY,
+        Hint::Sequential)]
+    );
+}
+#[test]
+fn backed_segments_with_gaps_fall_back_to_the_gather() {
+    let flat = flat_transfer(FlatIndex::new(30, FLAT_ENTRY, FLAT_ENTRY), 4096);
+    flat.transfer.load_segments(&[1]).unwrap();
+    let seg = flat.queue.drain().pop().unwrap();
+    assert_eq!(seg.binds.len(), 10);
+    let hints = flat.hints.0.lock();
+    assert_eq!(hints.len(), 10);
+    assert!(hints.iter().all(| (_, h) | * h == Hint::Random));
+}
+#[test]
+fn unbacked_indexes_never_produce_hints() {
+    let f = fixture(4096, 30);
+    let hints = Arc::new(Hints::default());
+    let transfer = Arc::new(
+        GatherTransfer::new(
+                f.index.clone(),
+                Arc::new(geometry()),
+                StagedGather::new(StagingRing::new((0..2).map(|_| vec![0u8; 4096]))),
+                f.port.clone(),
+                f.arena.clone(),
+                f.queue.clone(),
+                256,
+            )
+            .with_advice(hints.clone()),
+    );
+    transfer.load_segments(&[0]).unwrap();
+    assert!(hints.0.lock().is_empty());
 }
 #[test]
 fn published_segment_resolves_kernel_addresses_after_the_next_slot() {

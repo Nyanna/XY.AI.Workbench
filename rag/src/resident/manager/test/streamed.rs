@@ -6,6 +6,7 @@ use crate::resident::manager::residency::{
     LoadPolicy, LoadTransfer, SegmentId, UniformGeometry,
 };
 use crate::resident::manager::tracker::SlotRef;
+use crate::resident::manager::flat_index::FlatIndex;
 const SLOT: SlotRef = SlotRef { segment: 0, slot: 0 };
 struct NullBackend;
 impl ComputeBackend for NullBackend {
@@ -132,6 +133,29 @@ async fn dense_sets_hint_sequential_and_scattered_sets_hint_random() {
     assert!(m.read_set(Vec::new(), ReadPattern::Dense). await .unwrap().is_empty());
     assert!(hints.0.lock().is_empty());
 }
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn read_entries_hint_with_the_extents_the_index_reports() {
+    let hints = Arc::new(Hints::default());
+    let m = CpuIndexManager::new(core(), Handle::current(), Some(hints.clone()));
+    m.attach_index(FlatIndex::new(4, 10, 0));
+    let dense = m.read_entries(vec![id(0), id(3)], ReadPattern::Dense).await.unwrap();
+    assert_eq!(dense, vec![vec![1; 10], vec![4; 10]]);
+    assert_eq!(* hints.0.lock(), vec![(0..40, Hint::Sequential)]);
+    hints.0.lock().clear();
+    m.read_entries(vec![id(1), id(2)], ReadPattern::Scattered).await.unwrap();
+    assert_eq!(* hints.0.lock(), vec![(10..20, Hint::Random), (20..30, Hint::Random)]);
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn read_entries_without_backing_storage_read_unhinted() {
+    let index = Arc::new(InMemoryIndex::new());
+    index.apply(id(1), b"a");
+    let hints = Arc::new(Hints::default());
+    let m = CpuIndexManager::new(core(), Handle::current(), Some(hints.clone()));
+    m.attach_index(index);
+    let data = m.read_entries(vec![id(1), id(2)], ReadPattern::Dense).await.unwrap();
+    assert_eq!(data, vec![b"a".to_vec(), Vec::new()]);
+    assert!(hints.0.lock().is_empty());
+}
 #[tokio::test]
 async fn cycle_without_an_index_is_unavailable() {
     let m = gpu(&Arc::default());
@@ -165,11 +189,11 @@ async fn cycle_reloads_foreign_changes_and_queues_removals() {
     assert_eq!(m.pending_updates(), 1);
 }
 #[tokio::test]
-async fn loaded_bytes_feed_the_evictor() {
+async fn loading_alone_leaves_the_evictor_to_segment_publication() {
     let m = gpu(&Arc::default());
     m.attach_index(Arc::new(InMemoryIndex::new()));
     let set = EntrySet::from_ids([id(1), id(2)]);
     let outcome = m.ensure(set, Access::Regular).await.unwrap();
     assert_eq!(outcome.bytes, 2048);
-    assert_eq!(m.evictor.lock().tracked_bytes(), 2048);
+    assert_eq!(m.resident_bytes(), 0, "only published segments are accounted");
 }

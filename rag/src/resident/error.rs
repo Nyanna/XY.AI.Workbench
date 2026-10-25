@@ -34,11 +34,11 @@ impl IsRetryable for IndexError {
         )
     }
 }
-/// Internal index-manager errors; mapped to a public variant or retried at the API boundary,
-/// never exposed directly.
+/// Index-manager layer errors. The facade maps them to public variants or retries; code that
+/// builds on the manager layer directly (engines) sees them as is.
 #[derive(Error, Debug)]
 #[non_exhaustive]
-pub(crate) enum ManagerError {
+pub enum ManagerError {
     #[error("stale region in arena {arena} (gen {gen})")]
     StaleRegion { arena: u32, gen: u32 },
     #[error(

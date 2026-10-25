@@ -173,4 +173,14 @@ pub trait Index {
     fn summary(&self, kind: AccessMethod) -> Option<SummaryRef>;
     /// Hint only; may be a no-op.
     fn prefetch(&self, set: &EntrySet);
+    /// Byte range of `entry` inside contiguous backing storage (e.g. a mapped file).
+    /// `None` when the index has no such storage or the entry is missing.
+    fn extent(&self, _entry: EntryId) -> Option<Range<usize>> {
+        None
+    }
+    /// Bytes of a range obtained from [`extent`](Index::extent), or of a run of adjacent
+    /// extents. `None` when the range is not backed. Never copies.
+    fn backing(&self, _range: Range<usize>) -> Option<&[u8]> {
+        None
+    }
 }

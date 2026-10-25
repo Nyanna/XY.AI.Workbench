@@ -1,5 +1,6 @@
 //! Index manager skeleton and its CPU and GPU variants. The index is attached lazily; until then
 //! no resource is held and no subscription exists.
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::ops::Range;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -26,6 +27,7 @@ use crate::resident::manager::swap::{Snapshot, TableSwap};
 use crate::resident::manager::transfer::{LoadedSegment, RegionSource};
 use crate::resident::manager::sync::{ScanOutcome, SyncScanner};
 use crate::resident::manager::tracker::{ResidencyTracker, SlotRef};
+use crate::resident::memory::Region;
 pub type SharedIndex = Arc<dyn Index + Send + Sync>;
 /// Interface shared by the CPU and GPU variants.
 pub trait IndexManager: Send + Sync {
@@ -152,17 +154,40 @@ impl<B: ComputeBackend + ?Sized> CpuIndexManager<B> {
         items: Vec<(EntryId, Range<usize>)>,
         pattern: ReadPattern,
     ) -> Result<Vec<Vec<u8>>, IndexError> {
-        let index = self.core.index()?.clone();
-        let Some(span) = covering(&items) else { return Ok(Vec::new()) };
+        self.core.index()?;
+        let Some(_) = covering(&items) else { return Ok(Vec::new()) };
+        self.advise_pattern(&items, pattern);
+        let ids: Vec<EntryId> = items.iter().map(|(id, _)| *id).collect();
+        self.read_ids(ids).await
+    }
+    /// Reads entries and takes the byte ranges for the page-cache hints from the index. Entries
+    /// the index does not back with contiguous storage are read without a hint.
+    pub async fn read_entries(
+        &self,
+        entries: Vec<EntryId>,
+        pattern: ReadPattern,
+    ) -> Result<Vec<Vec<u8>>, IndexError> {
+        let index = self.core.index()?;
+        let hinted: Vec<(EntryId, Range<usize>)> = entries
+            .iter()
+            .filter_map(|e| index.extent(*e).map(|r| (*e, r)))
+            .collect();
+        self.advise_pattern(&hinted, pattern);
+        self.read_ids(entries).await
+    }
+    fn advise_pattern(&self, items: &[(EntryId, Range<usize>)], pattern: ReadPattern) {
+        let Some(span) = covering(items) else { return };
         match pattern {
             ReadPattern::Dense => self.reads.advise(span, Hint::Sequential),
             ReadPattern::Scattered => {
-                for (_, range) in &items {
+                for (_, range) in items {
                     self.reads.advise(range.clone(), Hint::Random);
                 }
             }
         }
-        let ids: Vec<EntryId> = items.iter().map(|(id, _)| *id).collect();
+    }
+    async fn read_ids(&self, ids: Vec<EntryId>) -> Result<Vec<Vec<u8>>, IndexError> {
+        let index = self.core.index()?.clone();
         self.reads
             .run(move || {
                 ids.iter().map(|id| index.read(*id).as_bytes().to_vec()).collect()
@@ -190,13 +215,20 @@ impl<B: ComputeBackend + ?Sized> IndexManager for CpuIndexManager<B> {
         self.core.is_active()
     }
 }
+/// Eviction unit: one published segment of one index.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SegmentKey {
+    pub index: String,
+    pub segment: u32,
+}
 /// Streaming manager: resolves scopes, reconciles the resident mirror with the index, loads and
 /// evicts. The device transfer is injected through the loader, so the shell builds without `cuda`.
 pub struct GpuIndexManager<B: ?Sized> {
     core: StreamedIndexManager<B>,
     resolvers: ResolverRegistry,
     loader: ResidencyLoader<String>,
-    evictor: Mutex<Evictor<String>>,
+    evictor: Mutex<Evictor<SegmentKey>>,
+    segments: Mutex<BTreeMap<u32, Region>>,
     updates: Mutex<UpdateQueue>,
     next_segment: AtomicU32,
     scanner: tokio::sync::Mutex<Option<SyncScanner>>,
@@ -213,6 +245,7 @@ impl<B: ComputeBackend + ?Sized> GpuIndexManager<B> {
             resolvers,
             loader,
             evictor: Mutex::new(Evictor::new(evict)),
+            segments: Mutex::new(BTreeMap::new()),
             updates: Mutex::new(UpdateQueue::new()),
             next_segment: AtomicU32::new(0),
             scanner: tokio::sync::Mutex::new(None),
@@ -235,19 +268,14 @@ impl<B: ComputeBackend + ?Sized> GpuIndexManager<B> {
         access: Access,
     ) -> Result<Arc<LoadOutcome>, IndexError> {
         self.core.index()?;
-        let key = self.core.index_id().to_owned();
         let outcome = self
             .loader
-            .ensure(key.clone(), set, access)
+            .ensure(self.core.index_id().to_owned(), set, access)
             .await
             .map_err(|e| index_error(&e))?;
-        let now = Instant::now();
-        let mut evictor = self.evictor.lock();
+        self.touch_segments(Instant::now());
         if outcome.bytes > 0 {
-            evictor.insert(key, outcome.bytes, Tier::Vector, outcome.bytes as f64, now);
             tracing::debug!(bytes = outcome.bytes, "entries loaded");
-        } else {
-            evictor.touch(&key, now);
         }
         Ok(outcome)
     }
@@ -284,15 +312,31 @@ impl<B: ComputeBackend + ?Sized> GpuIndexManager<B> {
         &self,
         now: Instant,
         occupancy: Occupancy,
-    ) -> Vec<Eviction<String>> {
+    ) -> Vec<Eviction<SegmentKey>> {
         let _span = self.core.cycle_span().entered();
         let evicted = self.evictor.lock().tick(now, occupancy);
         for e in &evicted {
             tracing::info!(
-                key = % e.key, bytes = e.bytes, reason = ? e.reason, "evicted"
+                index = % e.key.index, segment = e.key.segment, bytes = e.bytes, reason =
+                ? e.reason, "evicted"
             );
         }
         evicted
+    }
+    /// Victims for an allocation of `need` bytes; evicts nothing when that cannot succeed.
+    pub(crate) fn make_room(
+        &self,
+        need: u64,
+        occupancy: Occupancy,
+    ) -> Result<Vec<Eviction<SegmentKey>>, ManagerError> {
+        let evicted = self.evictor.lock().make_room(need, occupancy)?;
+        for e in &evicted {
+            tracing::info!(
+                index = % e.key.index, segment = e.key.segment, bytes = e.bytes,
+                "evicted for space"
+            );
+        }
+        Ok(evicted)
     }
     /// Makes a loaded segment visible: table first, then the matching mapping epoch. The bindings
     /// are queued and take effect in the next slot gap. A failure returns the region.
@@ -323,6 +367,7 @@ impl<B: ComputeBackend + ?Sized> GpuIndexManager<B> {
             let _ = regions.free_segment(region);
             return Err(e);
         }
+        self.track_segment(id, region);
         let mut updates = self.updates.lock();
         for (entry, slot, stamp) in binds {
             updates
@@ -337,6 +382,58 @@ impl<B: ComputeBackend + ?Sized> GpuIndexManager<B> {
     }
     pub fn pending_updates(&self) -> usize {
         self.updates.lock().depth()
+    }
+    fn key_of(&self, segment: u32) -> SegmentKey {
+        SegmentKey {
+            index: self.core.index_id().to_owned(),
+            segment,
+        }
+    }
+    /// Registers a live segment; a segment is the unit of eviction, so its bytes add up.
+    pub(crate) fn track_segment(&self, segment: u32, region: Region) {
+        self.segments.lock().insert(segment, region);
+        self.evictor
+            .lock()
+            .insert(
+                self.key_of(segment),
+                region.len,
+                Tier::Vector,
+                region.len as f64,
+                Instant::now(),
+            );
+    }
+    fn touch_segments(&self, now: Instant) {
+        let ids: Vec<u32> = self.segments.lock().keys().copied().collect();
+        let mut evictor = self.evictor.lock();
+        for id in ids {
+            evictor.touch(&self.key_of(id), now);
+        }
+    }
+    pub(crate) fn segment_region(&self, segment: u32) -> Option<Region> {
+        self.segments.lock().get(&segment).copied()
+    }
+    pub fn segment_count(&self) -> usize {
+        self.segments.lock().len()
+    }
+    /// Bytes of all live segments as the evictor accounts them.
+    pub fn resident_bytes(&self) -> u64 {
+        self.evictor.lock().tracked_bytes()
+    }
+    /// Forgets an unpublished segment and the residency of its entries. Pending binds into it
+    /// fail harmlessly because the mapping no longer holds the segment.
+    pub(crate) fn release_segment(&self, segment: u32) -> Option<Region> {
+        let region = self.segments.lock().remove(&segment)?;
+        self.evictor.lock().remove(&self.key_of(segment));
+        let mut residency = self.core.residency.lock();
+        let entries: Vec<EntryId> = residency
+            .iter()
+            .filter(|(_, r)| r.slot.segment == segment)
+            .map(|(e, _)| e)
+            .collect();
+        for entry in entries {
+            residency.remove(entry);
+        }
+        Some(region)
     }
     /// A `StaleMapping` error means the mapping moved on; retry with a fresh snapshot.
     pub(crate) fn complete_slot(
@@ -370,7 +467,7 @@ impl<B: ComputeBackend + ?Sized> IndexManager for GpuIndexManager<B> {
         self.core.is_active()
     }
 }
-fn index_error(e: &ManagerError) -> IndexError {
+pub(crate) fn index_error(e: &ManagerError) -> IndexError {
     match e {
         ManagerError::ArenaExhausted { requested, available } => {
             IndexError::ArenaExhausted {

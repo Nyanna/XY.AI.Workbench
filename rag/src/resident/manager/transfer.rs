@@ -1,10 +1,12 @@
 //! Device-side execution of load plans. Entries are packed on the host, leave as one copy per
 //! staging slot and are reported as segments whose slot bindings follow through the update queue.
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
+use std::ops::Range;
 use std::sync::Arc;
 use parking_lot::Mutex;
 use crate::resident::error::ManagerError;
 use crate::resident::index::{EntryId, EntrySet, Stamp};
+use crate::resident::manager::advice::{AdviceSink, Hint};
 use crate::resident::manager::arena::IndexArena;
 use crate::resident::manager::residency::{LoadGeometry, LoadTransfer, SegmentId};
 use crate::resident::manager::streamed::SharedIndex;
@@ -36,6 +38,7 @@ pub trait MappedHost: Send + Sync {
     ) -> Result<(), MemoryError>;
     fn map_free(&self, region: Region) -> Result<(), MemoryError>;
 }
+#[cfg(feature = "cuda")]
 impl MappedHost for crate::resident::memory::cuda::CudaMemoryManager {
     fn map_alloc(&self, bytes: u64, align: u64) -> Result<Region, MemoryError> {
         use crate::resident::memory::{budget::ArenaKind, DeviceMemory};
@@ -98,6 +101,7 @@ pub struct GatherTransfer<S: StagingBuffer> {
     sink: Arc<dyn SegmentSink>,
     align: u64,
     mapped: Option<Arc<dyn MappedHost>>,
+    advice: Option<Arc<dyn AdviceSink>>,
 }
 impl<S: StagingBuffer> GatherTransfer<S> {
     pub fn new(
@@ -118,17 +122,93 @@ impl<S: StagingBuffer> GatherTransfer<S> {
             sink,
             align,
             mapped: None,
+            advice: None,
         }
     }
     pub fn with_mapped(mut self, mapped: Arc<dyn MappedHost>) -> Self {
         self.mapped = Some(mapped);
         self
     }
+    /// Page-cache hints for indexes with backing storage: sequential for bulk runs, random
+    /// for gathers.
+    pub fn with_advice(mut self, advice: Arc<dyn AdviceSink>) -> Self {
+        self.advice = Some(advice);
+        self
+    }
+    fn advise(&self, range: Range<usize>, hint: Hint) {
+        let Some(sink) = &self.advice else { return };
+        if let Err(e) = sink.advise(range.clone(), hint) {
+            tracing::debug!(error = % e, ? range, ? hint, "advice rejected");
+        }
+    }
+    /// Entries that tile one backed range back to back, each starting at `align` relative to
+    /// the range start; `None` when the index has no such layout.
+    fn bulk_run(&self, entries: &[EntryId]) -> Option<(Range<usize>, Vec<Placement>)> {
+        let align = self.align.max(1) as usize;
+        let mut placements = Vec::with_capacity(entries.len());
+        let mut base = None;
+        let mut end = 0usize;
+        for &entry in entries {
+            let extent = self.index.extent(entry).filter(|r| r.start < r.end)?;
+            match base {
+                None => base = Some(extent.start),
+                Some(_) if extent.start != end => return None,
+                Some(_) => {}
+            }
+            let base = base?;
+            if (extent.start - base) % align != 0 {
+                return None;
+            }
+            placements
+                .push(Placement {
+                    entry,
+                    range: (extent.start - base) as u64..(extent.end - base) as u64,
+                });
+            end = extent.end;
+        }
+        Some((base?..end, placements))
+    }
+    /// Direct copy of a backed run into one region. `Ok(None)` when the entries are not
+    /// stored back to back, so the caller gathers instead.
+    fn upload_bulk(&self, entries: &[EntryId]) -> Result<Option<u64>, ManagerError> {
+        let Some((span, placements)) = self.bulk_run(entries) else { return Ok(None) };
+        let stamps = self.stamps_of(entries);
+        let Some(src) = self.index.backing(span.clone()) else { return Ok(None) };
+        if src.len() != span.len() {
+            return Ok(None);
+        }
+        self.advise(span, Hint::Sequential);
+        let bytes = src.len() as u64;
+        let region = self.regions.alloc_segment(bytes, self.align)?;
+        let sent = self
+            .port
+            .upload(src, region)
+            .and_then(|event| {
+                event
+                    .synchronize()
+                    .map_err(|e| MemoryError::TransferFailed {
+                        dir: TransferDir::HostToDevice,
+                        reason: e.to_string(),
+                    })
+            });
+        if let Err(e) = sent {
+            let _ = self.regions.free_segment(region);
+            return Err(e.into());
+        }
+        tracing::debug!(entries = placements.len(), bytes, "segment loaded in bulk");
+        self.sink.loaded(layout(region, &placements, bytes, &stamps));
+        Ok(Some(bytes))
+    }
     fn stamps_of(&self, entries: &[EntryId]) -> HashMap<EntryId, Stamp> {
         entries.iter().filter_map(|e| self.index.stamp(*e).map(|s| (*e, s))).collect()
     }
     fn upload(&self, entries: &[EntryId]) -> Result<u64, ManagerError> {
         let stamps = self.stamps_of(entries);
+        if self.advice.is_some() {
+            for extent in entries.iter().filter_map(|e| self.index.extent(*e)) {
+                self.advise(extent, Hint::Random);
+            }
+        }
         let mut rest = entries;
         let mut moved = 0;
         while !rest.is_empty() {
@@ -197,15 +277,25 @@ fn layout(
 }
 impl<S: StagingBuffer + 'static> LoadTransfer for GatherTransfer<S> {
     fn load_segments(&self, segments: &[SegmentId]) -> Result<u64, ManagerError> {
-        let wanted: HashSet<SegmentId> = segments.iter().copied().collect();
-        let mut entries: Vec<EntryId> = self
-            .index
-            .stamps()
-            .map(|(e, _)| e)
-            .filter(|e| wanted.contains(&self.geometry.segment_of(*e)))
+        let mut by_segment: BTreeMap<SegmentId, Vec<EntryId>> = segments
+            .iter()
+            .map(|s| (*s, Vec::new()))
             .collect();
-        entries.sort_unstable();
-        self.upload(&entries)
+        for (entry, _) in self.index.stamps() {
+            if let Some(group) = by_segment.get_mut(&self.geometry.segment_of(entry)) {
+                group.push(entry);
+            }
+        }
+        let mut moved = 0;
+        let mut rest = Vec::new();
+        for (_, mut entries) in by_segment {
+            entries.sort_unstable();
+            match self.upload_bulk(&entries)? {
+                Some(bytes) => moved += bytes,
+                None => rest.extend(entries),
+            }
+        }
+        Ok(moved + self.upload(&rest)?)
     }
     fn load_gather(&self, set: &EntrySet) -> Result<u64, ManagerError> {
         self.upload(&set.iter().collect::<Vec<_>>())
