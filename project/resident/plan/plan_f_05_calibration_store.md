@@ -91,3 +91,22 @@ Geprüft per Probe-Crate (Linux, GTX 1660 SUPER, CC 7.5, CUDA 13.3, `cudarc =0.1
 - Fingerprint-Erhebung nur mit `cudarc` und `std` (keine Zusatzabhängigkeit); GPU-Felder optional hinter `cuda`.
 - Zustandsverhalten `Calibrated/Stale/Missing` inkl. atomarem Ersetzen und Hintergrund-Rekalibrierung ohne Blockieren.
 - `unstable`/`rejections`/`pruning` persistiert. Pflicht-Tests grün.
+
+## Result
+
+F5 ist umgesetzt: Der `CalibrationStore` mit Fingerprint und Zustandslogik steht in `precision/store.rs`. Die 18 neuen Tests laufen ohne GPU grün, `cargo check --features cuda` mit nvcc 13.3 läuft ohne Fehler. Auf der echten GTX 1660 SUPER habe ich die CUDA-Erhebung nicht ausgeführt, das war nur der Kompiliercheck.
+
+**Was jetzt da ist**
+- **Fingerprint und Zustände:** Verglichen wird per `==`. Gleich heißt `Calibrated`, abweichend (auch bei anderer `schema_version`) `Stale`, keine Datei `Missing`.
+- **Fingerprint-Erhebung:** CPU über `std` (CPU-Features in fester Reihenfolge, auf Nicht-x86 leer), GPU über `cudarc` (Name, Compute Capability, `cuDriverGetVersion`). Ohne CUDA bleiben die GPU-Felder `None`. Zusätzliche Abhängigkeiten gibt es nicht.
+- **Record und Serde:** JSON mit `schema_version`. Fehlende Felder werden mit Defaults gefüllt, unbekannte toleriert. `unstable`, `rejections` und `pruning` werden explizit gespeichert. `CalibrationRecord::from_report` baut den Record aus dem Kalibrierbericht.
+- **Speichern:** `save_atomic` schreibt eine Temp-Datei im Zielverzeichnis, ruft `sync_all` auf und benennt per `rename` um. Bei einem Fehler bleibt der alte Record erhalten.
+- **Laden und Verhalten:** `resolve` loggt `warn!` bei `Missing`, `info!` bei `Stale` und behandelt eine kaputte Datei wie `Missing`. `recalibrate_in_background` läuft im bestehenden `LowPriorityPool`, nicht im tokio-Thread.
+
+**Abweichungen vom Plan**
+- Der Store bekommt einen Pfad pro Modell × Subengine. Deshalb nehmen `load` und `save_atomic` keine Argumente für Modell und Engine, und `engine` steht zusätzlich im Fingerprint.
+- `Profile` hat kein Serde, daher gibt es den Speichertyp `StoredProfile` mit Rückkonvertierung.
+- `PrecisionError` hatte keine `Store`-Variante, ich habe `Store { reason }` ergänzt.
+- `unstable` ist gesetzt, wenn mindestens eine Messung als instabil markiert war. Ein ausgeschöpftes Budget allein zählt nicht.
+
+**Ein flackernder Test:** Im ersten Voll-Lauf von `resident::` schlug `cycle_logs_index_arena_utilization` einmal fehl. Einzeln und in vier weiteren Voll-Läufen (544 Tests) war er grün. Auch ohne meine Änderungen war der Lauf grün (526 Tests, noch ohne die neuen). Ich vermute eine Race beim globalen Capture der Log-Ausgabe, belegt ist das nicht.

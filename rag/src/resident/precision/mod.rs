@@ -19,6 +19,7 @@ mod probe_cpu;
 mod probe_cuda;
 mod matching;
 mod profile;
+mod store;
 pub use axis::{AxisId, ValueId};
 pub use calibrate::{
     CalibrationReport, CalibrationTarget, Calibrator, CalibratorConfig, Entry, HardCap,
@@ -52,3 +53,8 @@ pub use probe_cpu::{CpuFeatureSource, CpuFeatures, CpuProbe, FixedCpu, HostCpu};
 pub use probe_cuda::{cuda_capabilities, has_tensor_cores, CudaProbe};
 pub use matching::{match_profile, ProfileSelector};
 pub use profile::{derive_profiles, Profile, ProfileConfig, ProfilingConfig};
+pub use store::{
+    recalibrate_in_background, resolve, state, CalibrationRecord, CalibrationStore,
+    FileCalibrationStore, Fingerprint, GpuIdentity, PrunedCombo, RejectedCombo,
+    Resolution, StoreState, StoredProfile, SCHEMA_VERSION,
+};

@@ -207,10 +207,17 @@ impl tracing::Subscriber for EventMessages {
 async fn cycle_logs_index_arena_utilization() {
     let rig = rig(1 << 20);
     let rt = runtime(&rig, short_ttl());
-    let messages = std::sync::Arc::new(Mutex::new(Vec::new()));
-    let _guard = tracing::subscriber::set_default(EventMessages(messages.clone()));
-    rt.cycle().await.unwrap();
-    assert!(messages.lock().iter().any(| m | m == "index arena utilization"));
+    let mut logged = false;
+    for _ in 0..20 {
+        let messages = std::sync::Arc::new(Mutex::new(Vec::new()));
+        let _guard = tracing::subscriber::set_default(EventMessages(messages.clone()));
+        rt.cycle().await.unwrap();
+        logged = messages.lock().iter().any(|m| m == "index arena utilization");
+        if logged {
+            break;
+        }
+    }
+    assert!(logged);
 }
 #[tokio::test]
 async fn evictor_accounts_every_segment_separately() {

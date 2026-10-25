@@ -78,6 +78,8 @@ pub enum PrecisionError {
     InvalidPrecision { requested: f32 },
     #[error("capability probe failed: {reason}")]
     Capability { reason: String },
+    #[error("calibration store failed: {reason}")]
+    Store { reason: String },
 }
 impl IsRetryable for PrecisionError {
     fn is_retryable(&self) -> bool {
