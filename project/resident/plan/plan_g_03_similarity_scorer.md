@@ -111,3 +111,47 @@ Für spätere Umsetzung (H3) dokumentieren, Hooks sichern:
 - Rerank nur als zweiter Similarity-Task über die normale Queue (Addon), kein neuer Tasktyp.
 - CrossEncoder/MaxSim als 🔌 Erweiterungspunkt gesichert, nicht implementiert.
 - Q1/Q2/Q3 erfüllt; No-GPU-Tests grün.
+
+## Result
+Ich lag falsch: Die Produktions-Ausführung fehlt nicht ganz. Meine Suche hatte nur ein Treffer-Limit erreicht, und ich hatte `planner/adapter.rs` nicht gelesen.
+
+**Was es gibt**
+- `PlannerExpander` plant die Op-Kette `Similarity → TopK`. Am Ende wandelt `into_output` die Hits in `Output::Hits(Vec<(EntryId, f32)>)` um.
+- Dieser Pfad ist in `planner/test/adapter.rs` getestet. Welche Engine ihn in Produktion tatsächlich bedient, habe ich nicht geprüft.
+
+**Was fehlt**
+- Der Report aus G3 ist an diesen Pfad nicht angeschlossen. `HostData::Hits` trägt nur `(u64, f32)`. Es fehlen:
+  - `outdated`
+  - die Anzahl verworfener Treffer
+  - die Kandidatenzahl
+  - die Payload (Zieldatei und Offsets)
+  - die Task-ID
+- `into_output` liefert deshalb weiterhin nur `Output::Hits`. Meine Aussage in der Zusammenfassung, der Report sei noch nirgends angeschlossen, stimmt, aber der Grund war falsch begründet.
+- Wegen der Lücke ist die Plan-DoD „Engine liefert Rohwerte + Entscheidungsgrundlagen (count, s1, sk, mean, std, task_id, Top-k-Liste mit Payload)" für den Laufzeitpfad noch nicht erfüllt.
+
+**Für den Anschluss nötig**
+- Die Similarity-Op muss mehr als `(u64, f32)` weitergeben: das `Hit` des Managers (inklusive `outdated`), die Kandidaten- und Verworfen-Zähler und einen Payload-Resolver.
+- `into_output` baut daraus `SimilarityReport::build` und gibt `Output::Similarity` zurück.
+- Das berührt `HostData` in `op/` und den Engine-Pfad, den ich noch nicht gelesen habe.
+
+Der Laufzeitpfad ist jetzt angeschlossen. `resident::`-Tests grün: 584 ohne und 598 mit `--features cuda` (34 ignoriert). Der Lib-Build zeigt keine Fehler oder Warnungen in den geänderten Dateien. Die zwei Warnungen im Testlauf stammen aus `subengine/exec.rs` und `manager/seqlock.rs`, die ich nicht angefasst habe.
+
+**Neuer Datenvertrag (`op/mod.rs`)**
+- `ScoredHit` trägt `entry`, `score`, `outdated` und die Quell-Payload (Zieldatei, Zeichenoffsets).
+- `ScoredHits` enthält zusätzlich die Zähler `candidates` und `discarded`.
+- Beide stecken in der neuen Variante `HostData::Scored`. Die Variante `HostData::Hits` bleibt unverändert.
+
+**Adapter (`planner/adapter.rs`)**
+- Der `Collect`-Closure bekommt jetzt die Task-ID und die `SimilarityParams` mit.
+- `into_output` wandelt `Scored` über `SimilarityReport::build` in `Output::Similarity` um.
+- Der Report enthält Top-k-Liste mit Payload, `s1`, `sk`, `mean`, `std`, `task_id` und die Zähler. Auch das Logging läuft darüber.
+- Ohne Parameter schlägt der Task mit einem klaren Fehler fehl.
+- Der alte Pfad `HostData::Hits` → `Output::Hits` bleibt unverändert, damit die Addon-Kaskade und ihre Tests weiter funktionieren.
+
+**Tests**
+- Der neue End-to-End-Test läuft durch Planner und Processor bis zum Output. Er prüft:
+  - Sortierung, `top_k`-Kürzung und Payload
+  - `task_id`, Kandidatenzahl, `discarded`, `s1` und `sk`
+- `missing_result_is_an_error` deckt zusätzlich ab, dass `Scored` ohne Parameter scheitert.
+
+Es gibt weiterhin keine produktive Engine, die `HostData::Scored` tatsächlich liefert. Im Repo erzeugt nur die Test-Engine `Scripted` die End-Daten der TopK-Op. Die echte Engine fehlt im Code, den ich gelesen habe. Sie müsste die Treffer des Managers (`run_slot` → `Hit`) und Payload und Zähler aus dem Index in `ScoredHits` übersetzen. Ich habe diesen Anschluss nicht gebaut, weil ich die Engine-Schicht dafür nicht gefunden habe. Falls sie anderswo liegt, sag mir wo.

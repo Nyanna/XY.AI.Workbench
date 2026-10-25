@@ -64,6 +64,23 @@ impl Op for OpDesc {
         &self.params
     }
 }
+/// One resolved hit: manager-level entry, its score, staleness and the source back-reference.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScoredHit {
+    pub entry: u64,
+    pub score: f32,
+    pub outdated: bool,
+    pub source: Option<crate::resident::index::payload::Payload>,
+}
+/// Result of a similarity chain before the facade ranks and summarises it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScoredHits {
+    /// Entries of the resolved scope that were scored.
+    pub candidates: u64,
+    /// Hits already dropped while resolving (entry removed).
+    pub discarded: usize,
+    pub hits: Vec<ScoredHit>,
+}
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostData {
@@ -71,6 +88,7 @@ pub enum HostData {
     Tokens(Vec<Vec<u32>>),
     F32(Vec<f32>),
     Hits(Vec<(u64, f32)>),
+    Scored(ScoredHits),
 }
 /// Op input/output; never carries a tensor or raw pointer.
 #[derive(Debug)]

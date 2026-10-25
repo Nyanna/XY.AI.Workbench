@@ -4,7 +4,8 @@ use crate::resident::facade::{
     EmbeddingParams, InferenceParams, SimilarityParams, TaskQueue, TextInput, TextRole,
     VectorInput,
 };
-use crate::resident::op::{IndexId, OpKind};
+use crate::resident::index::payload::Payload as SourceRef;
+use crate::resident::op::{IndexId, OpKind, ScoredHit, ScoredHits};
 use crate::resident::planner::RuleSet;
 use crate::resident::processor::{
     Engine, Hub, Processor, Side, Step as EngineStep, Wakeups, WorkerConfig,
@@ -27,6 +28,7 @@ const TOML: &str = r#"
 struct Scripted {
     seen: Mutex<Vec<(OpKind, &'static str)>>,
     echo: Option<Echo>,
+    scored: Option<ScoredHits>,
 }
 type Echo = Box<dyn Fn(&[f32]) -> Vec<f32> + Send + Sync>;
 fn shape(value: &Value) -> &'static str {
@@ -47,7 +49,12 @@ impl Engine for Scripted {
         self.seen.lock().push((kind, shape(&job.node.input)));
         let data = match kind {
             OpKind::Tokenize => HostData::Tokens(vec![vec![1]]),
-            OpKind::TopK => HostData::Hits(vec![(7, 0.9)]),
+            OpKind::TopK => {
+                match &self.scored {
+                    Some(scored) => HostData::Scored(scored.clone()),
+                    None => HostData::Hits(vec![(7, 0.9)]),
+                }
+            }
             _ => {
                 let canned = [0.5f32; 4];
                 HostData::F32(
@@ -77,6 +84,14 @@ fn run_with(
     kind: TaskKind,
     echo: Option<Echo>,
 ) -> (Result<Output, TaskError>, Vec<(OpKind, &'static str)>) {
+    run_scripted(payload, kind, echo, None)
+}
+fn run_scripted(
+    payload: Payload,
+    kind: TaskKind,
+    echo: Option<Echo>,
+    scored: Option<ScoredHits>,
+) -> (Result<Output, TaskError>, Vec<(OpKind, &'static str)>) {
     let planner = Arc::new(Planner::new(RuleSet::from_toml(TOML).unwrap()));
     let offers = EngineOffers::new()
         .with_cpu([
@@ -88,6 +103,7 @@ fn run_with(
     let engine = Arc::new(Scripted {
         seen: Mutex::new(vec![]),
         echo,
+        scored,
     });
     let wakeups = Wakeups::new();
     let tasks: Arc<TaskQueue> = Arc::new(Queue::new(wakeups.relays()));
@@ -221,6 +237,35 @@ fn similarity_returns_hits() {
     }
 }
 #[test]
+fn scored_hits_become_a_report_with_payload_and_decision_facts() {
+    let scored = ScoredHits {
+        candidates: 40,
+        discarded: 1,
+        hits: vec![
+            ScoredHit { entry : 4, score : 0.70, outdated : true, source : None },
+            ScoredHit { entry : 9, score : 0.90, outdated : false, source :
+            Some(SourceRef::new("doc.md", 5, 80)), }, ScoredHit { entry : 2, score :
+            0.80, outdated : false, source : None },
+        ],
+    };
+    let payload = Payload::Similarity {
+        input: VectorInput::new(vec![vec![0.1, 0.2]]),
+        params: SimilarityParams::new(IndexId("i".into())).top_k(2),
+    };
+    let (result, _) = run_scripted(payload, TaskKind::Similarity, None, Some(scored));
+    let Output::Similarity(report) = result.unwrap() else { panic!("expected report") };
+    assert_eq!(report.task_id, 1);
+    assert_eq!(report.candidates, 40);
+    assert_eq!(report.discarded, 1);
+    assert_eq!(report.count(), 2);
+    assert_eq!(report.hits[0].entry, EntryId::new(9));
+    assert_eq!(report.hits[0].source, Some(SourceRef::new("doc.md", 5, 80)));
+    assert_eq!(report.hits[1].entry, EntryId::new(2));
+    assert_eq!(report.outdated, 0);
+    assert!((report.s1().unwrap() - 0.9).abs() < 1e-6);
+    assert!((report.sk().unwrap() - 0.8).abs() < 1e-6);
+}
+#[test]
 fn planner_error_fails_the_task() {
     let payload = Payload::Inference {
         input: crate::resident::facade::PairInput::new("q", "c"),
@@ -232,6 +277,13 @@ fn planner_error_fails_the_task() {
 }
 #[test]
 fn missing_result_is_an_error() {
-    let err = into_output(TaskKind::Similarity, 1, None).unwrap_err();
+    let err = into_output(TaskKind::Similarity, 1, 1, None, None).unwrap_err();
+    assert!(matches!(err, TaskError::Engine(_)));
+    let scored = HostData::Scored(ScoredHits {
+        candidates: 0,
+        discarded: 0,
+        hits: vec![],
+    });
+    let err = into_output(TaskKind::Similarity, 1, 1, None, Some(scored)).unwrap_err();
     assert!(matches!(err, TaskError::Engine(_)));
 }

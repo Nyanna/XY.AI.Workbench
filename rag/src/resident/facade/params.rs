@@ -1,6 +1,7 @@
 use crate::resident::index::{EntryId, Scope};
 use crate::resident::op::{IndexId, ModelId};
 use super::extensions::Extensions;
+use super::report::SimilarityReport;
 use std::any::Any;
 const DEFAULT_PRECISION: f32 = 1.0;
 const DEFAULT_TOP_K: usize = 10;
@@ -10,6 +11,24 @@ pub enum TextRole {
     Query,
     #[default]
     Passage,
+}
+/// Scoring method of a similarity task. Rerank is not a task kind of its own: it is a second
+/// similarity task with another scorer on a narrowed scope.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[non_exhaustive]
+pub enum ScorerKind {
+    #[default]
+    Cosine,
+    /// Extension point; planning fails with `ScorerUnavailable` until implemented.
+    CrossEncoder(ModelId),
+}
+impl ScorerKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ScorerKind::Cosine => "cosine",
+            ScorerKind::CrossEncoder(_) => "cross_encoder",
+        }
+    }
 }
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]
@@ -116,6 +135,7 @@ pub struct SimilarityParams {
     index: IndexId,
     top_k: usize,
     scope: Scope,
+    scorer: ScorerKind,
     precision: f32,
     ext: Extensions,
 }
@@ -125,6 +145,7 @@ impl SimilarityParams {
             index,
             top_k: DEFAULT_TOP_K,
             scope: Scope::All,
+            scorer: ScorerKind::Cosine,
             precision: DEFAULT_PRECISION,
             ext: Extensions::new(),
         }
@@ -141,6 +162,10 @@ impl SimilarityParams {
         self.precision = precision;
         self
     }
+    pub fn scorer(mut self, scorer: ScorerKind) -> Self {
+        self.scorer = scorer;
+        self
+    }
     pub fn index(&self) -> &IndexId {
         &self.index
     }
@@ -149,6 +174,9 @@ impl SimilarityParams {
     }
     pub fn get_scope(&self) -> &Scope {
         &self.scope
+    }
+    pub fn get_scorer(&self) -> &ScorerKind {
+        &self.scorer
     }
     pub fn get_precision(&self) -> f32 {
         self.precision
@@ -208,5 +236,6 @@ impl Default for InferenceParams {
 pub enum Output {
     Embeddings(Vec<Vec<f32>>),
     Hits(Vec<(EntryId, f32)>),
+    Similarity(SimilarityReport),
     Scores(Vec<f32>),
 }

@@ -100,6 +100,8 @@ pub enum PlannerError {
     InvalidConfig { reason: String },
     #[error("missing capability: {capability}")]
     MissingCapability { capability: String },
+    #[error("scorer '{scorer}' is not available in this build")]
+    ScorerUnavailable { scorer: String },
     #[error("unknown model: {model}")]
     UnknownModel { model: String },
 }

@@ -61,6 +61,19 @@ pub enum Scope {
     Prefix(Vec<u8>),
     Centroid { k: u32, radius: Option<f32> },
 }
+impl Scope {
+    /// Stable label for logging and metrics.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Scope::All => "all",
+            Scope::Range(_) => "range",
+            Scope::Set(_) => "set",
+            Scope::Subtree(_) => "subtree",
+            Scope::Prefix(_) => "prefix",
+            Scope::Centroid { .. } => "centroid",
+        }
+    }
+}
 /// Compact set of entry ids backed by a Roaring treemap (array, bitmap and run containers).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EntrySet {
