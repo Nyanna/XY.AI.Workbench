@@ -76,6 +76,8 @@ pub enum PrecisionError {
     NoActiveProfile,
     #[error("invalid precision requested: {requested}")]
     InvalidPrecision { requested: f32 },
+    #[error("capability probe failed: {reason}")]
+    Capability { reason: String },
 }
 impl IsRetryable for PrecisionError {
     fn is_retryable(&self) -> bool {

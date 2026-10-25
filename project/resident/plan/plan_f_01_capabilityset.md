@@ -135,3 +135,25 @@ Folge für den CPU-Katalog: `f16→f32` (F16C) und `int8` über AVX2 (`maddubs`)
 - Default-Katalog GPU/CPU gemäß Tabelle, inkl. ausdrücklichem Ausschluss von Tensor-Cores/bf16 auf sm_75 mit Quellenkommentar.
 - Registry-Schnitt gegen D6 implementiert; Achsen/Werte erweiterbar ohne API-Bruch (Test vorhanden).
 - Liefert ein `CapabilitySet`, das F2 direkt aufzählen kann.
+
+## Result
+
+F1 ist umgesetzt. Die Tests laufen grün: 477 ohne GPU, und 36 `precision`-Tests mit `--features cuda` (nvcc 13.3). `cargo check --features cuda` zeigt keine Fehler. Der Test gegen die echte GTX 1660 SUPER (`real_device_probe_matches_hardware_table`) lief mit. Die Tests prüfen Schranken und Katalogmengen, keine Bit-Gleichheit.
+
+Das Modul `resident/precision` hatte `CapabilitySet`, `AxisId`/`ValueId` (String-Newtypes), `known` und `PrecisionError` schon. Ich habe F1 deshalb daran angepasst und nicht die Typen aus der Planskizze (`AxisValue`, `EngineKind`) neu gebaut. Stattdessen nutze ich `SubengineKind`.
+
+Neu ist Folgendes:
+- **Probe-Trait und Konfiguration** (`probe.rs`): `CapabilityProbe`, `ProbeConfig` mit `batches`, `tiles` und `max_seq_len`, dazu `FakeCapabilityProbe` für die F2- und F3-Tests.
+- **Kernel-Schnitt** (`probe.rs`): `intersect_with_kernels` und `KernelFilteredProbe`. Sie entfernen Werte ohne Kernel. Ein Kernel-Katalog liegt neu in `kernel/catalog.rs`.
+- **CPU-Probe** (`probe_cpu.rs`): Die CPU-Features kommen über das injizierbare Trait `CpuFeatureSource`. Die Tests decken damit auch einen VNNI-Host ab, den dieser Rechner nicht hat. `int8-vnni` ist ein neuer Wert in `known`.
+- **CUDA-Probe** (`probe_cuda.rs`): Die Hardware-Tabelle (CC 5.3 für fp16, CC 6.1 für dp4a) ist eine reine Funktion und braucht keine GPU. Tensor-Cores werden nur über eine Namensliste erkannt, nie aus der CC, und es gibt weder bf16 noch einen WMMA-Pfad.
+- **Factory** (`make_probe`): Sie ist die einzige Stelle mit einer `cfg`-Verzweigung für `cuda`. Ohne GPU oder ohne das Feature liefert sie einen Fehler und paniert nicht.
+- **Fehlervariante**: `PrecisionError::Capability { reason }`.
+
+Zwei Abweichungen vom Plan:
+- **dp4a fällt im Endergebnis weg:** Der Schnitt mit dem Kernel-Katalog entfernt `int8-dp4a` in der gefilterten Probe, weil es dafür noch keinen Kernel gibt. Der NVRTC-Loader kompiliert nur F32 und F16. `known::gpu_sm75()` und die Hardware-Tabelle behalten den Wert. Sobald ein dp4a-Kernel existiert, erscheint er automatisch. Dasselbe gilt für die CPU: Die gefilterte CPU-Probe liefert nur fp32, weil `cpu_simd` nur f32 rechnet. Die Hardware-Probe listet f16-to-f32 und int8 trotzdem korrekt.
+- **Kein neues Crate:** `make_probe` bekommt zusätzlich das `DeviceHandle`, weil die CUDA-Probe den Kontext braucht. Statt `raw-cpuid` und `sysinfo` nutze ich `std::is_x86_feature_detected!` und `available_parallelism`, damit keine neue Abhängigkeit nötig ist.
+
+Zwei Mal habe ich versehentlich eine Platzhalterdatei mit erfundenem Import angelegt (`kernel/catalog.rs` und `test/probe_cpu.rs`). Beide sind sofort durch die richtigen Versionen überschrieben, und der Build ist sauber.
+
+Die Bindung zwischen Kernel-Katalog und NVRTC-Loader ist nur eine Konstante (`CUDA_KERNEL_DTYPES`). Der Loader wurde nicht umgebaut, daher kann beides auseinanderlaufen, wenn jemand einen Typ nur an einer Stelle ergänzt.

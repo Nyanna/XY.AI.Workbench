@@ -15,7 +15,7 @@ known_ids!(
 );
 known_ids!(
     ValueId : FP32 = "fp32", FP16 = "fp16", FP16_TO_FP32 = "fp16->fp32", INT8 = "int8",
-    INT8_DP4A = "int8-dp4a", ON = "on", OFF = "off",
+    INT8_DP4A = "int8-dp4a", INT8_VNNI = "int8-vnni", ON = "on", OFF = "off",
 );
 /// Upper bound of what the GPU can offer; the real set is measured at runtime.
 /// Numeric axes (`batch`, `tile`) carry measured values and are not listed.
@@ -39,7 +39,7 @@ pub fn cpu() -> CapabilitySet {
     for v in [&FP32, &FP16_TO_FP32] {
         c.insert(&*OPERANDS, &**v);
     }
-    for v in [&FP32, &INT8] {
+    for v in [&FP32, &INT8, &INT8_VNNI] {
         c.insert(&*SCORING, &**v);
     }
     c

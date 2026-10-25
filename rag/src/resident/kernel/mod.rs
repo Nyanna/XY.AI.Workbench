@@ -2,6 +2,7 @@
 //!
 //! The kernel knows only segments, offsets and spans. Mapping an address back to an entry is the
 //! manager's job (`entry_of`, `entry_of_fixed`); the public API carries no pointers.
+pub mod catalog;
 pub mod cosine;
 pub mod cpu_simd;
 pub mod cuda;
