@@ -94,6 +94,8 @@ pub struct MeasureResult {
     /// `false` when the repetition or time cap ended the measurement first.
     pub stable: bool,
     pub samples: u32,
+    /// Relative scatter of the timing series; times closer than this count as equal.
+    pub uncertainty: f64,
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WindowTuning {

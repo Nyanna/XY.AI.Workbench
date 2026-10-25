@@ -127,6 +127,8 @@ pub struct ParetoPoint {
     pub time: Duration,
     pub deviation: f64,
     pub stable: bool,
+    /// Relative timing uncertainty of the measurement.
+    pub uncertainty: f64,
 }
 #[derive(Clone, Debug)]
 pub struct CalibrationReport {
@@ -272,6 +274,7 @@ impl<M: Measure> Calibrator<M> {
                         time: r.time,
                         deviation: r.deviation,
                         stable: r.stable,
+                        uncertainty: r.uncertainty,
                     })
                 }
                 _ => None,
@@ -619,6 +622,9 @@ impl<M: Measure> Calibrator<M> {
                             valid: Validity::Ok,
                             stable,
                             samples: t.samples.len() as u32,
+                            uncertainty: Some(spread(&t.samples, self.cfg.spread))
+                                .filter(|u| u.is_finite())
+                                .unwrap_or(self.cfg.dominance_margin),
                         })
                     }
                 };

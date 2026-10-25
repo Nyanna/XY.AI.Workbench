@@ -116,3 +116,36 @@ Reale Dreipunkt-Front des Scorings (Zeit logarithmisch, Abweichung linear, Refer
 - `spread_threshold` ist der einzige Konfigparameter, in normierter Skala.
 - Emulations-/Herabstufungsregel umgesetzt; redundante Profile nicht aktiviert.
 - Pflicht-Tests grün. Liefert `Vec<Profile>` an F4 und F5.
+
+## Result
+
+F3 ist umgesetzt. Die 105 Tests im `precision`-Modul laufen durch, darunter 11 neue für F3. `cargo check --features cuda` läuft ebenfalls durch. Ich habe die Gates auf der GPU nicht neu ausgeführt und die Clippy-Warnungen nicht geprüft.
+
+**`profile.rs`**
+- `derive_profiles(front, &ProfilingConfig) -> Vec<Profile>` läuft in dieser Reihenfolge:
+  1. **Dominanzprüfung:** Ein Punkt fällt weg, wenn ein genauerer Punkt innerhalb der Messunsicherheit gleich schnell ist.
+  2. **Positionen:** Sie kommen aus `positions` mit logarithmischer Zeit und Bogenlänge.
+  3. **Single-Linkage:** Nachbarn mit `Δp < spread_threshold` verschmelzen zu einem Cluster.
+  4. **Repräsentant:** Es wird der schnellste Punkt des Clusters gewählt. Das Cluster mit dem genauesten Punkt wird durch diesen vertreten.
+  5. **Neuberechnung:** Die Positionen werden über die Repräsentanten neu berechnet.
+- Ein einzelnes Profil bekommt `p = 0.5`, eine leere Front liefert einen leeren Vektor.
+- `ProfilingConfig { spread_threshold }` mit Default `0.1` ist der einzige Parameter. Ich habe es so genannt, weil `ProfileConfig` schon die Achsenkombination bezeichnet.
+- Geloggt wird mit `info!` (Anzahl und Positionen) und `debug!` (je Cluster und je verworfenem Punkt).
+- Der Export steht in `mod.rs`.
+
+**F2-Ergänzung für die Messunsicherheit**
+- Das neue Feld `uncertainty` steht in `MeasureResult` und `ParetoPoint`.
+- Es ist die relative Streuung der Zeitreihe. Bei zu wenigen Samples gilt `dominance_margin` als Ersatz.
+
+**Neue Tests in `test/profile.rs`**
+- Sie decken ab:
+  - leere Front
+  - Einzelprofil
+  - Schwelle steuert die Profilanzahl
+  - die reale Dreipunkt-Front (int8, F16, F32)
+  - Repräsentantenwahl
+  - dichte Kette
+  - Bogenlänge statt Rang
+  - Rauschen
+  - identische Koordinaten
+  - nicht endliche Punkte

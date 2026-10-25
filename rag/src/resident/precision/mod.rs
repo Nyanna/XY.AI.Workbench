@@ -49,4 +49,4 @@ pub use probe::{
 pub use probe::FakeCapabilityProbe;
 pub use probe_cpu::{CpuFeatureSource, CpuFeatures, CpuProbe, FixedCpu, HostCpu};
 pub use probe_cuda::{cuda_capabilities, has_tensor_cores, CudaProbe};
-pub use profile::{Profile, ProfileConfig};
+pub use profile::{derive_profiles, Profile, ProfileConfig, ProfilingConfig};
