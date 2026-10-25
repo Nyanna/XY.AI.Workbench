@@ -33,10 +33,15 @@ pub trait Measure {
     fn sample(&mut self) -> f64;
 }
 /// Noise models for calibration-stability tests.
+#[derive(Clone, Debug)]
 pub enum NoiseModel {
     Constant,
     Outlier { every_n: u32, magnitude: f64 },
     Drift { per_sample: f64 },
+    /// With probability `p` a sample lands on `base + offset`, otherwise on `base`.
+    Bimodal { offset: f64, p: f64 },
+    /// Uniform noise of `±amplitude` around `base`; never settles for a large amplitude.
+    Erratic { amplitude: f64 },
 }
 /// Seeded-RNG measurement fake: `base` plus a `NoiseModel`-shaped perturbation, so
 /// stability/convergence tests are deterministic across runs for a fixed seed.
@@ -75,6 +80,17 @@ impl Measure for FakeMeasure {
             NoiseModel::Drift { per_sample } => {
                 self.drift_accum += per_sample;
                 self.base + self.drift_accum + self.rng.gen_range(-0.01..0.01)
+            }
+            NoiseModel::Bimodal { offset, p } => {
+                let jitter = self.rng.gen_range(-0.01..0.01);
+                if self.rng.gen_bool(p.clamp(0.0, 1.0)) {
+                    self.base + offset + jitter
+                } else {
+                    self.base + jitter
+                }
+            }
+            NoiseModel::Erratic { amplitude } => {
+                self.base + self.rng.gen_range(-*amplitude..=*amplitude)
             }
         }
     }

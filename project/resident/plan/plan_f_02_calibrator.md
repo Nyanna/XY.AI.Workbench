@@ -145,3 +145,46 @@ Vorhersage „unabhängige Faktoren multiplizieren sich“ gegenüber Messung (Q
 - Slice-/Abbruch-Logik (keine Preemption) und eigener Thread-Pool mit niedriger Priorität.
 - Pflicht-Tests (Stabilität, Pareto, Verwerfung, Pruning) grün mit ≥ 3 Seeds.
 - Liefert `Vec<ParetoPoint>` an F3 und Rohergebnisse (inkl. Verwerfungen/Pruning/`unstable`) an F5.
+
+## Result
+
+F2 (Calibrator) ist umgesetzt und läuft Ende-zu-Ende auf der GTX 1660 SUPER. Ohne `cuda` sind alle 506 Resident-Tests grün, 93 davon im Precision-Modul. Mit `--features cuda` baut es sauber, und die 5 Device-Tests laufen durch.
+
+Die Axis-Gruppen der echten GPU-Messung enden teils als `unstable` (Cap erreicht, bester Zwischenstand verwendet). Das Verhalten ist plangemäß. Es schwankt aber von Lauf zu Lauf, weil die Karte nicht exklusiv ist. Ein längeres Messfenster hat daran nichts geändert; der Default liegt jetzt bei 10 ms.
+
+## Was gebaut ist (`rag/src/resident/precision/`)
+
+| Datei | Inhalt |
+|---|---|
+| `measure.rs` | `Cfg`, `Validity`, `MeasureResult`, `Measure`-Trait, `YieldCheck`, `Clock` und die Factory `make_measure` (einzige `cuda`-Verzweigung) |
+| `calibrate.rs` | `Calibrator`, `CalibratorConfig`, `HardCap`, `ParetoPoint`, `CalibrationReport` |
+| `stats.rs`, `metrics.rs` | Median/Min, getrimmte Streuung (CV oder Range/Median), `1−cos` mit Rauschgrenze 1e-6, relativer Fehler, Top-k-Overlap, Plausibilitätsprüfung |
+| `workload.rs` | duplikatfreie Einheitsvektoren mit fp32-Hostreferenz |
+| `measure_cuda.rs` | CUDA-Events, Warmup über 100 ms, L2-Flush (64 MiB), Gruppen innerhalb des Slice-Budgets mit Prüfpunkt dazwischen |
+| `measure_cpu.rs` | CPU-Messung des fp32-Scorings (nicht explizit gefordert, ergänzt) |
+| `measure_mock.rs` | `FakeMeasure` mit seeded RNG und `ManualClock` |
+| `pool.rs` | `LowPriorityPool` (`std::thread::Builder`, nice 19, getrennt von tokio) |
+
+- **Messung:** Der Calibrator misst round-robin mit ABBA-Reihenfolge. Die Abweichung wird vor der Zeit gemessen.
+- **Stabilität:** Sie wird am Zeitverhältnis zum Anker beurteilt, nicht an Einzelzeiten.
+- **Verwerfen:** NaN/Inf, degenerierte Vektoren, Abweichung über `max_deviation` (Default 5e-2) und nicht lauffähige Kombinationen werden verworfen und nicht gesampelt.
+- **Pruning:** Separable Achsen (`batch`, `tile`, `threads`) werden einzeln gemessen, nur die Gewinner kombiniert und verifiziert. Der Modus `exhaustive` dient als Referenz.
+- **Caps:** `HardCap` (Wiederholungen oder Zeit) und `total_budget` beenden eine Messung, ohne zu blockieren. Der Rest wird `Skipped`, nie ein Fehler.
+- **Pareto:** `pareto_by` in `pareto.rs` ist die generische Variante mit Identität.
+- **Logging:** Span `calibrate{engine, model_id}`; Verworfene und Unstabile werden mit Grund geloggt.
+- **Tests:** Die Pflichttests laufen mit drei Seeds: stabil, Ausreißer, driftend, bimodal, nie stabil, Pareto, Verwerfung, Pruning gegen Vollenumeration, ABBA und Yield.
+
+## Abweichungen vom Plan
+
+- **`Measure`-Trait:** Er hat `deviation()` und `sample()` statt eines einzelnen `measure()`. Nur so lässt sich interleaved und mit Early-Abort messen. `MeasureResult` ist das aggregierte Ergebnis pro Kombination.
+- **`Validity::Failed`:** Die zusätzliche Variante steht für Kombinationen, die gar nicht laufen (zum Beispiel Alloc- oder Launch-Fehler).
+- **`mock.rs`:** `NoiseModel` hat zwei neue Varianten, `Bimodal` und `Erratic`.
+- **Reale Messung:** Sie misst den `cosine_dot`-Scoring-Pfad. Die Sequenzlängen im `Cfg` werden dort nicht ausgewertet, weil das Scoring keine hat. Sie gehören in eine künftige Encoder-Messung.
+- **Thread-Priorität:** Sie läuft über `libc::setpriority`, weil kein `thread-priority`-Crate im Projekt ist.
+
+## Noch offen
+
+- **CPU-Messung:** Sie kennt nur fp32, weil für die CPU kein anderer Kernel existiert.
+- **F5-Persistenz:** `CalibrationReport` ist nicht serialisierbar, weil `AxisId` und `ValueId` kein serde haben. F5 muss das abbilden.
+- **Pareto-Positionen:** Die Profile und ihre Positionen berechnet erst F3; `pareto::positions` existiert bereits.
+- **Nicht angefasst:** Die Plandatei `runs/plan_f_02_calibrator.md` zeigt in `git status` als geändert, die Änderung stammt nicht von mir.
