@@ -88,11 +88,47 @@ pub trait CapabilityProbe { fn probe(&self) -> Result<CapabilitySet, PrecisionEr
 - Erweiterbarkeits-Test: neue Achse/neuer Wert lässt sich hinzufügen, ohne bestehende Signaturen zu ändern (Kompilationsnachweis).
 - **Kein** echter GPU-Test im Default-Lauf.
 
-## 8. Offene Verifikation / Risiken
-- `[prüfen]` `cudarc`-Version & genaue API (`compute_capability()` vs. `result::device::get_attribute`). Quellen: docs.rs prism-q/numr/pandrs/hive-gpu.
-- `[unverifiziert]` `dp4a`-Durchsatz auf TU116, WMMA-Verhalten (AnandTech-Spekulation) → nur messen, nie annehmen.
-- `[W]` candle-dtype-Pfade (f16 cuBLAS-Compute-Typ, bf16-Emulation auf sm_75) vor Nutzung im Katalog gegen `candle-kernels`/`cuda_backend` prüfen.
-- Whitelist der TU116-Dies (fehlende TC) pflegbar halten; alternativ Mikrobenchmark-Hook für TC-Flag.
+## 8. Verifikationsergebnisse
+Geprüft am 2026-10-25 auf GTX 1660 SUPER (TU116, CC 7.5, 22 SMs), Treiber 610.57.04, `nvcc` 13.3.73, `cudarc 0.19.9`, `candle-core 0.11.0`. Keine offenen Punkte.
+
+### CUDA-Probe (`cudarc`)
+Gelesen in `cudarc-0.19.9/src/driver/safe/core.rs`:
+- `CudaContext::new(ordinal: usize) -> Result<Arc<Self>, DriverError>`
+- `CudaContext::compute_capability(&self) -> Result<(i32, i32), DriverError>`
+- `CudaContext::name(&self) -> Result<String, DriverError>`
+- `CudaContext::attribute(&self, CUdevice_attribute) -> Result<i32, DriverError>`
+
+Die Probe nutzt ausschließlich diese Safe-API; `result::device::get_attribute` ist nicht nötig. Typen sind `i32`, nicht `u32`. Das Projekt pinnt `cudarc =0.19.9` hinter dem Feature `cuda`; transitiv liegt zusätzlich `0.17.8` in der Lockfile.
+
+### Durchsatz auf TU116 (Mikrobenchmark, `-arch=sm_75`, bestes von 5 Läufen)
+| Pfad | Rate | Elemente/MACs je Instruktion | Spitzen-Durchsatz relativ zu f32 |
+|---|---|---|---|
+| f32 `fma` | 2,1–2,2 T Instr/s | 1 | 1× |
+| f16x2 `hfma2` | 2,1–2,2 T Instr/s | 2 | 2× |
+| int8 `dp4a` | 2,1–2,2 T Instr/s | 4 | 4× |
+| WMMA f16/f32-Akku | 0,96 TFLOPS | – | ≈ 0,11× des f16x2-Peaks (≈ 8,6 TFLOPS) |
+
+- `dp4a` und f16x2 sind auf TU116 schnell; der Wert `int8-dp4a/i32-Akku` bleibt im Katalog. Das ist Rechenspitze ohne Speichertraffic; der Nutzen im realen Scoring-Kernel bleibt Messgegenstand von F2.
+- WMMA läuft zwar fehlerfrei, aber um rund eine Größenordnung langsamer als einfache f16x2-FMA. Das belegt, dass TU116 keine Tensor-Core-Rate liefert. Kein WMMA/MMA-Pfad im Katalog.
+- Die erste f16x2-Messung (≈ 4×) war ein Artefakt: identische Startwerte ließen den Compiler die Ketten zusammenfassen. Mit verschiedenen Startwerten korrigiert.
+
+### Tensor-Core-Flag
+Whitelist/Negativliste über `CudaContext::name`, nie aus der CC. TU116 (GTX 1660/1660 Ti/1660 SUPER, 1650-Varianten) steht auf der Negativliste. Der WMMA-Durchsatztest ist als optionaler Mikrobenchmark-Hook für unbekannte CC-7.x-Geräte geeignet: Rate ≈ f16x2-Peak oder darunter ⇒ keine Tensor-Cores.
+
+### candle-Pfade
+- `candle-core 0.11.0`, `cuda_backend/mod.rs`: f16-Gemm wählt `CUBLAS_COMPUTE_16F`, wenn `gemm_reduced_precision_f16()` gesetzt ist, sonst `CUBLAS_COMPUTE_32F`. Der Default des Flags ist `false`. f16-Operanden akkumulieren also standardmäßig in f32; `accumulator=f16` ist über `set_gemm_reduced_precision_f16(true)` erreichbar. Beide Akkumulator-Werte stehen im Katalog; die Umschaltung ist ein globaler Prozess-Schalter, keine Pro-Aufruf-Option.
+- bf16: `CUBLAS_COMPUTE_32F_FAST_16BF` nur bei gesetztem Flag; `candle-kernels/build.rs` deaktiviert die bf16-WMMA-Kernel unter sm_80. bf16 wird auf sm_75 nicht als Schnellpfad gelistet.
+- f32: `CUBLAS_COMPUTE_32F_FAST_TF32` bei gesetztem Flag. TF32 existiert auf sm_75 nicht und wird nicht gelistet.
+
+### CPU-Probe (Host, `__builtin_cpu_supports`)
+| Feature | Verfügbar |
+|---|---|
+| AVX2 | ja |
+| F16C | ja |
+| FMA | ja |
+| AVX512F / AVX512-VNNI / AVX-VNNI | nein |
+
+Folge für den CPU-Katalog: `f16→f32` (F16C) und `int8` über AVX2 (`maddubs`) sind verfügbar; ein VNNI-Pfad wird nur bei erkanntem Flag gelistet und ist auf diesem Host nicht erreichbar. Die CPU-Probe-Tests müssen deshalb über die injizierbare `CpuFeatures`-Quelle auch Hosts mit VNNI abdecken.
 
 ## 9. Definition of Done
 - `CapabilityProbe` für CPU implementiert und getestet; CUDA-Probe hinter `cuda` baubar (`cargo check`).

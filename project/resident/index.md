@@ -23,3 +23,16 @@
 ```
 
 - e5-small repo in: `/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small`
+
+```yaml
+id: b56c-6a
+result:
+  structuredContent:
+    results:
+    - stdout: |-
+        Cuda compilation tools, release 13.3, V13.3.73
+        Build cuda_13.3.r13.3/compiler.38244171_0
+        name, compute_cap, driver_version
+        NVIDIA GeForce GTX 1660 SUPER, 7.5, 610.57.04
+        compute_75 compute_80 compute_86 compute_87 compute_88 compute_89 compute_90 compute_100 compute_110 compute_103 compute_120 compute_121
+```
