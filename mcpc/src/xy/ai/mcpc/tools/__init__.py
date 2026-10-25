@@ -20,7 +20,7 @@ from xy.ai.mcpc.tools.edit_line import register_edit_line_tool
 from xy.ai.mcpc.tools.skills import register_skills
 from xy.ai.mcpc.tools.write import register_write_tool
 from xy.ai.mcpc.tools.agent import register_agent_tools
-from xy.ai.mcpc.tools.grep import register_grep_tool
+from xy.ai.mcpc.tools.search import register_search_tool
 from xy.ai.mcpc.tools.tool_search import register as register_tool_search_tool
 from xy.ai.mcpc.tools.tool_usage import register as register_tool_usage_tool
 from xy.ai.mcpc.tools.tool_call import register as register_tool_call_tool
@@ -55,7 +55,7 @@ def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     register_context7_tools(registry, environment)
     register_openalex_tools(registry, environment)
     register_agent_tools(registry, environment)
-    register_grep_tool(registry, functions)
+    register_search_tool(registry, functions)
     register_tool_search_tool(registry, functions)
     register_tool_usage_tool(registry, functions)
     register_tool_call_tool(registry, functions)

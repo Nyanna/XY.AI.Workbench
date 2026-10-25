@@ -1,4 +1,4 @@
-"""Grep tool – recursive extended-regex search for retrieval, for a batch of items."""
+"""Search tool – recursive extended-regex search for retrieval, for a batch of items."""
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from pathlib import Path
@@ -12,40 +12,40 @@ from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 import re
 from xy.ai.mcpc.tools.ast import core
 __all__ = [
-    'GrepError',
-    'GrepLineMatch',
-    'GrepNodeMatch',
-    'GrepMatch',
-    'GrepItem',
-    'GrepResult',
-    'GrepItemError',
-    'GrepBatchResult',
-    'grep',
-    'GrepTool',
-    'register_grep_tool']
+    'SearchError',
+    'SearchLineMatch',
+    'SearchNodeMatch',
+    'SearchMatch',
+    'SearchItem',
+    'SearchResult',
+    'SearchItemError',
+    'SearchBatchResult',
+    'search',
+    'SearchTool',
+    'register_search_tool']
 _DEFAULT_LIMIT = 15
 _INTENTS = ('locate', 'line_numbers', 'ast_node_ids')
 _DEFAULT_INTENT = 'locate'
 _INTENT_DESCRIPTION = "What you will do with the results. 'locate': only need to know which files/matches exist. 'line_numbers': you will address by line numbers. 'ast_node_ids'(recommended): you will continue with ast_* tools."
 _MAX_LIMIT = 50
 
-class GrepError(Exception):
-    """Raised when a grep search cannot be executed or its output cannot be parsed."""
+class SearchError(Exception):
+    """Raised when a search cannot be executed or its output cannot be parsed."""
 
 @dataclass(frozen=True)
-class GrepLineMatch:
+class SearchLineMatch:
     """A single matching line within a file."""
     lineno: int
     match: str
 
 @dataclass(frozen=True)
-class GrepNodeMatch:
+class SearchNodeMatch:
     """Matching lines attributed to the most specific enclosing AST node."""
     node_id: str
-    matches: list[GrepLineMatch]
+    matches: list[SearchLineMatch]
 
 @dataclass(frozen=True)
-class GrepMatch:
+class SearchMatch:
     """All matches found within a single file.
 
     ``nodes`` is set instead of relying on ``matches`` only if the file could be
@@ -53,12 +53,12 @@ class GrepMatch:
     """
     directory: str
     filename: str
-    matches: list[GrepLineMatch]
-    nodes: list[GrepNodeMatch] | None = None
+    matches: list[SearchLineMatch]
+    nodes: list[SearchNodeMatch] | None = None
 
 @dataclass(frozen=True)
-class GrepItem:
-    """One independent grep search to run.
+class SearchItem:
+    """One independent search to run.
 
     Attributes:
         directory: Absolute paths of the directories to search recursively.
@@ -76,8 +76,8 @@ class GrepItem:
     intent: str | None = None
 
 @dataclass(frozen=True)
-class GrepResult:
-    """Result of a single grep search.
+class SearchResult:
+    """Result of a single search.
 
     Attributes:
         directory: The directory list exactly as given in the input.
@@ -85,53 +85,53 @@ class GrepResult:
         warning: Set if ``limit`` was reached and further matches may exist.
     """
     directory: list[str]
-    matches: list[GrepMatch]
+    matches: list[SearchMatch]
     warning: str | None = None
 
 @dataclass(frozen=True)
-class GrepItemError:
-    """Error running a single grep search, mirroring its input for result association."""
+class SearchItemError:
+    """Error running a single search, mirroring its input for result association."""
     directory: list[str]
     pattern: str
     error: str
 
 @dataclass(frozen=True)
-class GrepBatchResult:
-    """Result of :func:`grep`.
+class SearchBatchResult:
+    """Result of :func:`search`.
 
     Attributes:
-        results: One :class:`GrepResult` per successfully executed search.
-        errors: One :class:`GrepItemError` per search that failed.
+        results: One :class:`SearchResult` per successfully executed search.
+        errors: One :class:`SearchItemError` per search that failed.
     """
-    results: list[GrepResult]
-    errors: list[GrepItemError]
+    results: list[SearchResult]
+    errors: list[SearchItemError]
 
-def _parse_grep_stdout(stdout: str) -> list[GrepMatch]:
-    """Parse grep's 'path:line:content' stdout into :class:`GrepMatch` objects, grouped by file."""
-    grouped: dict[tuple[str, str], list[GrepLineMatch]] = {}
+def _parse_search_stdout(stdout: str) -> list[SearchMatch]:
+    """Parse 'path:line:content' stdout into :class:`SearchMatch` objects, grouped by file."""
+    grouped: dict[tuple[str, str], list[SearchLineMatch]] = {}
     order: list[tuple[str, str]] = []
     for line in stdout.splitlines():
         if not line:
             continue
         path, sep, rest = line.partition(':')
         if not sep:
-            raise GrepError(f'Cannot parse grep output line: {line!r}')
+            raise SearchError(f'Cannot parse search output line: {line!r}')
         lineno_str, sep, match = rest.partition(':')
         if not sep or not lineno_str.isdigit():
-            raise GrepError(f'Cannot parse grep output line: {line!r}')
+            raise SearchError(f'Cannot parse search output line: {line!r}')
         directory, _, filename = path.rpartition('/')
         key = (directory, filename)
         if key not in grouped:
             grouped[key] = []
             order.append(key)
-        grouped[key].append(GrepLineMatch(lineno=int(lineno_str), match=match.strip()))
-    return [GrepMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
+        grouped[key].append(SearchLineMatch(lineno=int(lineno_str), match=match.strip()))
+    return [SearchMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
 def _as_list(value: list[str] | None) -> list[str]:
     """Normalize an optional list into a list (empty if ``None``)."""
     return list(value) if value is not None else []
 
-def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
+def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
 
     Args:
@@ -144,7 +144,7 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
 
     Returns:
         ProcessResult with:
-            exit_code: 0 if matches were found, 1 if none were found, >=2 on grep error.
+            exit_code: 0 if matches were found, 1 if none were found, >=2 on search error.
             stdout: Matching lines as 'path:line:content', with ``path`` relative to
                 whichever searched directory it was found under, truncated to at most
                 ``limit`` lines.
@@ -153,25 +153,25 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
             stderr_file: Absolute path to temp file with full stderr if to large.
 
     Raises:
-        GrepError: If a directory is not absolute.
-        GrepError: If a directory does not exist or is not a directory.
-        GrepError: If no directory is given.
-        GrepError: If pattern is empty.
-        GrepError: If limit is not between 1 and ``_MAX_LIMIT``.
-        GrepError: If grep binary cannot be launched.
+        SearchError: If a directory is not absolute.
+        SearchError: If a directory does not exist or is not a directory.
+        SearchError: If no directory is given.
+        SearchError: If pattern is empty.
+        SearchError: If limit is not between 1 and ``_MAX_LIMIT``.
+        SearchError: If search binary cannot be launched.
     """
     directory_paths = normalize_directories([Path(d) for d in _as_list(directory)])
     if not directory_paths:
-        raise GrepError('At least one directory is required.')
+        raise SearchError('At least one directory is required.')
     for directory_path in directory_paths:
         if not directory_path.is_absolute():
-            raise GrepError('directory must be an absolute path.')
+            raise SearchError('directory must be an absolute path.')
         if not directory_path.is_dir():
-            raise GrepError('Directory not found or not a directory.')
+            raise SearchError('Directory not found or not a directory.')
     if not pattern:
-        raise GrepError('pattern must not be empty.')
+        raise SearchError('pattern must not be empty.')
     if not 1 <= limit <= _MAX_LIMIT:
-        raise GrepError(f'limit must be between 1 and {_MAX_LIMIT}.')
+        raise SearchError(f'limit must be between 1 and {_MAX_LIMIT}.')
     cmd = ['grep', '--recursive', '--line-number', '--extended-regexp', '--binary-files=without-match', '--color=never']
     for pattern_glob in _as_list(include):
         cmd.append(f'--include={pattern_glob}')
@@ -181,7 +181,7 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
     try:
         result = run_process(cmd)
     except LaunchError as exc:
-        raise GrepError(f'Failed to launch grep: {exc}') from exc
+        raise SearchError(f'Failed to launch: {exc}') from exc
     prefixes = sorted((str(p).rstrip('/') + '/' for p in directory_paths), key=len, reverse=True)
     prefix_pattern = '|'.join((re.escape(p) for p in prefixes))
     stdout = re.sub(f'^(?:{prefix_pattern})', '', result.stdout, flags=re.MULTILINE)
@@ -189,19 +189,19 @@ def _run_grep(directory: list[str], pattern: str, *, exclude: list[str] | None=N
     stdout = '\n'.join(lines[:limit])
     return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
 
-def _grep_one(item: GrepItem) -> GrepResult:
-    result = _run_grep(item.directory, item.pattern, exclude=item.exclude, include=item.include, limit=item.limit)
+def _search_one(item: SearchItem) -> SearchResult:
+    result = _run_search(item.directory, item.pattern, exclude=item.exclude, include=item.include, limit=item.limit)
     if result.exit_code >= 2:
-        raise GrepError(f'grep failed (exit code {result.exit_code}): {result.stderr}')
-    matches = _parse_grep_stdout(result.stdout)
+        raise SearchError(f'search failed (exit code {result.exit_code}): {result.stderr}')
+    matches = _parse_search_stdout(result.stdout)
     total_matches = sum((len(m.matches) for m in matches))
     warning = None
     if total_matches >= item.limit:
         warning = f'Limit of {
             item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
-    return GrepResult(directory=item.directory, matches=matches, warning=warning)
+    return SearchResult(directory=item.directory, matches=matches, warning=warning)
 
-def _resolve_nodes(match: GrepMatch, roots: list[str]) -> GrepMatch:
+def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     """Regroup a file's line matches by the most specific enclosing AST node.
 
     ``match`` paths are relative to one of ``roots``. Files that cannot be parsed
@@ -215,54 +215,54 @@ def _resolve_nodes(match: GrepMatch, roots: list[str]) -> GrepMatch:
         located = core.locate_all(core.load(path)[1])
     except (core.AstError, OSError):
         return match
-    by_node: dict[str, list[GrepLineMatch]] = {}
-    unresolved: list[GrepLineMatch] = []
+    by_node: dict[str, list[SearchLineMatch]] = {}
+    unresolved: list[SearchLineMatch] = []
     for lm in match.matches:
         loc = core.most_specific(located, lm.lineno, lm.lineno)
         if loc is None:
             unresolved.append(lm)
         else:
             by_node.setdefault(loc.node_id, []).append(lm)
-    nodes = [GrepNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
-    return GrepMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
+    nodes = [SearchNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
+    return SearchMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
 
-def grep(items: list[GrepItem], *, intent: str=_DEFAULT_INTENT) -> GrepBatchResult:
-    """Run one or more independent grep searches. Limits apply per item, not per batch.
+def search(items: list[SearchItem], *, intent: str=_DEFAULT_INTENT) -> SearchBatchResult:
+    """Run one or more independent searches. Limits apply per item, not per batch.
 
     Args:
-        items: Grep searches to run. Must be non-empty.
-        intent: Default intent for all items; ``GrepItem.intent`` takes precedence.
-            ``'ast_node_ids'`` resolves matched lines to AST node ids (see :class:`GrepMatch`).
+        items: Searches to run. Must be non-empty.
+        intent: Default intent for all items; ``SearchItem.intent`` takes precedence.
+            ``'ast_node_ids'`` resolves matched lines to AST node ids (see :class:`SearchMatch`).
 
     Returns:
-        GrepBatchResult: one result per successful search, one error per failed search.
+        SearchBatchResult: one result per successful search, one error per failed search.
 
     Raises:
-        GrepError: If items is empty or the batch-level intent is invalid.
+        SearchError: If items is empty or the batch-level intent is invalid.
     """
     if not items:
-        raise GrepError("'items' must be a non-empty list.")
+        raise SearchError("'items' must be a non-empty list.")
     _check_intent(intent)
-    results: list[GrepResult] = []
-    errors: list[GrepItemError] = []
+    results: list[SearchResult] = []
+    errors: list[SearchItemError] = []
     for item in items:
         try:
             effective = item.intent if item.intent is not None else intent
             _check_intent(effective)
-            result = _grep_one(item)
+            result = _search_one(item)
             if effective == 'ast_node_ids':
                 result = replace(result, matches=[_resolve_nodes(m, item.directory) for m in result.matches])
             results.append(result)
-        except GrepError as exc:
-            errors.append(GrepItemError(directory=item.directory, pattern=item.pattern, error=str(exc)))
-    return GrepBatchResult(results=results, errors=errors)
+        except SearchError as exc:
+            errors.append(SearchItemError(directory=item.directory, pattern=item.pattern, error=str(exc)))
+    return SearchBatchResult(results=results, errors=errors)
 
 def _check_intent(intent: str) -> None:
     if intent not in _INTENTS:
-        raise GrepError(f'Invalid intent {intent!r}; expected one of {', '.join(_INTENTS)}.')
+        raise SearchError(f'Invalid intent {intent!r}; expected one of {', '.join(_INTENTS)}.')
 
-class GrepTool(ToolDefinition):
-    name = 'grep'
+class SearchTool(ToolDefinition):
+    name = 'search'
     title = 'Search in directories'
     description = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
     _ITEM_PROPERTIES = {
@@ -296,7 +296,7 @@ class GrepTool(ToolDefinition):
             'enum': list(_INTENTS),
             'description': 'Intent for this item; overrides the batch-level intent.'}}
     _ITEM_REQUIRED = ['directory', 'pattern']
-    _ITEMS_DESCRIPTION = 'Independent grep searches to run.'
+    _ITEMS_DESCRIPTION = 'Independent searches to run.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
     input_schema['properties']['intent'] = {
         'type': 'string',
@@ -305,11 +305,11 @@ class GrepTool(ToolDefinition):
         'description': 'Default intent for all items.' + _INTENT_DESCRIPTION}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
-        """Delegate to :func:`grep`, translating the MCP schema to/from the Python API."""
+        """Delegate to :func: translating the MCP schema to/from the Python API."""
         intent = ctx.arguments.get('intent', _DEFAULT_INTENT)
 
-        def item_factory(it: dict[str, Any]) -> GrepItem:
-            return GrepItem(
+        def item_factory(it: dict[str, Any]) -> SearchItem:
+            return SearchItem(
                 directory=it['directory'],
                 pattern=it['pattern'],
                 exclude=it.get('exclude'),
@@ -320,12 +320,12 @@ class GrepTool(ToolDefinition):
                         _DEFAULT_LIMIT)),
                 intent=it.get('intent'))
 
-        def line_dicts(lms: list[GrepLineMatch], with_lineno: bool) -> list[Any]:
+        def line_dicts(lms: list[SearchLineMatch], with_lineno: bool) -> list[Any]:
             if with_lineno:
                 return [{'lineno': lm.lineno, 'match': lm.match} for lm in lms]
             return [lm.match for lm in lms]
 
-        def file_dict(m: GrepMatch, item_intent: str) -> dict[str, Any]:
+        def file_dict(m: SearchMatch, item_intent: str) -> dict[str, Any]:
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
             if m.nodes:
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
@@ -335,7 +335,7 @@ class GrepTool(ToolDefinition):
                 entry['matches'] = list(dict.fromkeys(lines)) if item_intent == 'locate' else lines
             return entry
 
-        def result_serializer(rendered: tuple[GrepResult, str]) -> dict[str, Any]:
+        def result_serializer(rendered: tuple[SearchResult, str]) -> dict[str, Any]:
             r, item_intent = rendered
             entry: dict[str, Any] = {'directory': r.directory}
             if r.matches:
@@ -344,20 +344,20 @@ class GrepTool(ToolDefinition):
                 entry['warning'] = r.warning
             return entry
 
-        def error_serializer(e: GrepItemError) -> dict[str, Any]:
+        def error_serializer(e: SearchItemError) -> dict[str, Any]:
             return {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
 
-        def run(items: list[GrepItem]) -> SimpleNamespace:
-            results: list[tuple[GrepResult, str]] = []
-            errors: list[GrepItemError] = []
+        def run(items: list[SearchItem]) -> SimpleNamespace:
+            results: list[tuple[SearchResult, str]] = []
+            errors: list[SearchItemError] = []
             for item in items:
-                batch = grep([item], intent=intent)
+                batch = search([item], intent=intent)
                 effective = item.intent if item.intent is not None else intent
                 results += [(r, effective) for r in batch.results]
                 errors += batch.errors
             return SimpleNamespace(results=results, errors=errors)
-        return handle_batch_tool(ctx, item_factory, run, GrepError, result_serializer, error_serializer)
+        return handle_batch_tool(ctx, item_factory, run, SearchError, result_serializer, error_serializer)
 
-def register_grep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    registry.register(GrepTool())
-    functions.register(grep)
+def register_search_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
+    registry.register(SearchTool())
+    functions.register(search)
