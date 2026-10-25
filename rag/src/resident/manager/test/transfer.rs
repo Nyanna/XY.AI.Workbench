@@ -177,6 +177,91 @@ fn zero_copy_falls_back_to_the_copy_path() {
     f.transfer.map_zero_copy(&EntrySet::from_ids([id(4)])).unwrap();
     assert_eq!(f.queue.len(), 1);
 }
+struct HostMapped {
+    alloc: ArenaAllocator,
+    memory: Mutex<Vec<u8>>,
+}
+impl HostMapped {
+    fn new(bytes: u64) -> Arc<Self> {
+        Arc::new(Self {
+            alloc: ArenaAllocator::new(ArenaKind::Mapped, DeviceKind::Cpu, bytes),
+            memory: Mutex::new(vec![0; bytes as usize]),
+        })
+    }
+}
+impl MappedHost for HostMapped {
+    fn map_alloc(&self, bytes: u64, align: u64) -> Result<Region, MemoryError> {
+        self.alloc.alloc(bytes, align)
+    }
+    fn map_write(
+        &self,
+        region: Region,
+        offset: u64,
+        src: &[u8],
+    ) -> Result<(), MemoryError> {
+        let at = (region.offset + offset) as usize;
+        self.memory.lock()[at..at + src.len()].copy_from_slice(src);
+        Ok(())
+    }
+    fn map_free(&self, region: Region) -> Result<(), MemoryError> {
+        self.alloc.free(region)
+    }
+}
+fn mapped_transfer(
+    f: &Fixture,
+    mapped: Arc<HostMapped>,
+    slot_bytes: usize,
+) -> GatherTransfer<Vec<u8>> {
+    GatherTransfer::new(
+            f.index.clone(),
+            Arc::new(geometry()),
+            StagedGather::new(StagingRing::new((0..2).map(|_| vec![0u8; slot_bytes]))),
+            f.port.clone(),
+            f.arena.clone(),
+            f.queue.clone(),
+            256,
+        )
+        .with_mapped(mapped)
+}
+#[test]
+fn zero_copy_writes_in_place_without_staging_or_upload() {
+    let f = fixture(4096, 30);
+    let mapped = HostMapped::new(1 << 16);
+    let transfer = mapped_transfer(&f, mapped.clone(), 4096);
+    let moved = transfer.map_zero_copy(&EntrySet::from_ids([id(4), id(9)])).unwrap();
+    assert_eq!(moved, 256 + ENTRY_BYTES as u64);
+    let loaded = f.queue.drain();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].region.arena, ArenaKind::Mapped.id());
+    assert_eq!(loaded[0].binds.len(), 2);
+    let base = loaded[0].region.offset as usize;
+    let memory = mapped.memory.lock();
+    assert!(memory[base..base + ENTRY_BYTES].iter().all(| b | * b == 4));
+    assert!(memory[base + 256..base + 256 + ENTRY_BYTES].iter().all(| b | * b == 9));
+    assert!(
+        f.port.memory.lock().iter().all(| b | * b == 0),
+        "nothing went through the copy port"
+    );
+}
+#[test]
+fn zero_copy_falls_back_when_the_mapped_arena_is_full() {
+    let f = fixture(4096, 30);
+    let mapped = HostMapped::new(64);
+    let transfer = mapped_transfer(&f, mapped, 4096);
+    transfer.map_zero_copy(&EntrySet::from_ids([id(4)])).unwrap();
+    let loaded = f.queue.drain();
+    assert_eq!(loaded.len(), 1);
+    assert_ne!(loaded[0].region.arena, ArenaKind::Mapped.id());
+}
+#[test]
+fn zero_copy_skips_removed_entries() {
+    let f = fixture(4096, 3);
+    let mapped = HostMapped::new(1 << 12);
+    let transfer = mapped_transfer(&f, mapped, 4096);
+    let moved = transfer.map_zero_copy(&EntrySet::from_ids([id(50)])).unwrap();
+    assert_eq!(moved, 0);
+    assert!(f.queue.is_empty());
+}
 #[test]
 fn published_segment_resolves_kernel_addresses_after_the_next_slot() {
     let f = fixture(4096, 30);
@@ -323,6 +408,7 @@ mod device {
             workspace: 1 << 20,
             staging: 0,
             param_block: 4096,
+            mapped: 0,
         };
         let memory = Arc::new(CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap());
         let scratch = memory.alloc_in(ArenaKind::ParamBlock, 256, 8).unwrap();
@@ -366,5 +452,63 @@ mod device {
             memory.free(seg.region).unwrap();
         }
         assert!(checked >= 3 + 32);
+    }
+    #[test]
+    #[ignore = "requires a CUDA device"]
+    fn zero_copy_segment_is_readable_through_the_device_address() {
+        let dev = DeviceHandle::cuda(0).unwrap();
+        let sizes = ArenaSizes {
+            weights: 1 << 20,
+            index_segment: 4 << 20,
+            workspace: 1 << 20,
+            staging: 0,
+            param_block: 4096,
+            mapped: 1 << 20,
+        };
+        let memory = Arc::new(CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap());
+        let scratch = memory.alloc_in(ArenaKind::ParamBlock, 256, 8).unwrap();
+        let ctx = dev.cuda_context().unwrap();
+        let lane = CudaLane::new(&ctx, LaneClass::Index, LaneConfig::new(scratch))
+            .unwrap();
+        let gather = StagedGather::new(memory.staging_ring(2, 16 << 10).unwrap());
+        let port = Arc::new(CudaUploadPort::new(memory.clone(), lane));
+        let index = Arc::new(InMemoryIndex::new());
+        for n in 0..8u64 {
+            index.apply(id(n), &vec![(n + 1) as u8; BYTES]);
+        }
+        let queue = Arc::new(LoadedQueue::new());
+        let transfer = GatherTransfer::new(
+                index,
+                Arc::new(UniformGeometry {
+                    entries_per_segment: 8,
+                    entry_bytes: BYTES as u64,
+                }),
+                gather,
+                port,
+                Arc::new(MemRegions(memory.clone())),
+                queue.clone(),
+                256,
+            )
+            .with_mapped(memory.clone());
+        transfer.map_zero_copy(&EntrySet::from_ids([id(2), id(5)])).unwrap();
+        let segments = queue.drain();
+        assert_eq!(segments.len(), 1);
+        let seg = &segments[0];
+        assert_eq!(seg.region.arena, ArenaKind::Mapped.id());
+        let device = memory.mapped_device_ptr(seg.region).unwrap();
+        ctx.bind_to_thread().unwrap();
+        for (entry, slot, _) in &seg.binds {
+            let at = seg.map.slot_span(*slot).unwrap().start - seg.region.offset;
+            let mut out = vec![0u8; BYTES];
+            unsafe {
+                cudarc::driver::result::memcpy_dtoh_sync(&mut out, device + at).unwrap();
+            }
+            let expect = (entry.get() + 1) as u8;
+            assert!(
+                out.iter().all(| b | * b == expect),
+                "entry {entry:?} differs on the device"
+            );
+        }
+        memory.free(seg.region).unwrap();
     }
 }

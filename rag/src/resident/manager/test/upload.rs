@@ -155,6 +155,7 @@ mod device {
             workspace: 1 << 20,
             staging: 0,
             param_block: 4096,
+            mapped: 0,
         };
         let memory = Arc::new(CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap());
         let scratch = memory.alloc_in(ArenaKind::ParamBlock, 256, 8).unwrap();

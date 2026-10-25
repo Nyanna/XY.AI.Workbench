@@ -1,12 +1,17 @@
 use super::*;
-
 fn mgr() -> CpuMemoryManager {
     CpuMemoryManager::new(
-        ArenaSizes { weights: 64, index_segment: 128, workspace: 64, staging: 0, param_block: 16 },
+        ArenaSizes {
+            weights: 64,
+            index_segment: 128,
+            workspace: 64,
+            staging: 0,
+            param_block: 16,
+            mapped: 0,
+        },
         2,
     )
 }
-
 #[test]
 fn write_read_roundtrip_and_stale_rejection() {
     let m = mgr();
@@ -16,17 +21,15 @@ fn write_read_roundtrip_and_stale_rejection() {
     m.read(r, &mut out).unwrap();
     assert_eq!(out, [1, 2, 3, 4]);
     m.free(r).unwrap();
-    assert!(m.read(r, &mut out).is_err());
-    assert!(m.write(r, &[0]).is_err());
+    assert!(m.read(r, & mut out).is_err());
+    assert!(m.write(r, & [0]).is_err());
 }
-
 #[test]
 fn oversized_access_is_rejected() {
     let m = mgr();
     let r = m.alloc_in(ArenaKind::Workspace, 4, 4).unwrap();
-    assert!(m.write(r, &[0; 5]).is_err());
+    assert!(m.write(r, & [0; 5]).is_err());
 }
-
 #[test]
 fn copy_across_and_within_arenas() {
     let m = mgr();
@@ -42,7 +45,6 @@ fn copy_across_and_within_arenas() {
     m.read(c, &mut out).unwrap();
     assert_eq!(out, [9, 8, 7, 6]);
 }
-
 #[test]
 fn budget_reserves_the_second_generation() {
     let m = mgr();

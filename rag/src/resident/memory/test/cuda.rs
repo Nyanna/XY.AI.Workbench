@@ -8,6 +8,7 @@ fn manager() -> (DeviceHandle, CudaMemoryManager) {
         workspace: 1 << 20,
         staging: 0,
         param_block: 4096,
+        mapped: 0,
     };
     let m = CudaMemoryManager::new(&dev, sizes, 0, 2).unwrap();
     (dev, m)
@@ -24,10 +25,7 @@ fn upload_copy_download_roundtrip() {
     let a = m.alloc_in(ArenaKind::Workspace, 64, 16).unwrap();
     let b = m.alloc_in(ArenaKind::IndexSegment, 64, 16).unwrap();
     let slot = ring.acquire().unwrap();
-    ring.with_slot(
-            slot,
-            |p| p.as_mut_slice().unwrap()[..64].copy_from_slice(&[7u8; 64]),
-        )
+    ring.with_slot(slot, |p| p.as_mut_slice().unwrap()[..64].copy_from_slice(&[7u8; 64]))
         .unwrap();
     let host: Vec<u8> = ring
         .with_slot(slot, |p| p.as_slice().unwrap()[..64].to_vec())
@@ -62,13 +60,9 @@ fn context_footprint_and_pool_support() {
     let mib = |b: usize| b >> 20;
     let (free_ctx, total) = ctx.mem_get_info().unwrap();
     let pools = ctx
-        .attribute(
-            sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED,
-        )
+        .attribute(sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED)
         .unwrap();
-    eprintln!(
-        "after context: free {} MiB / total {} MiB", mib(free_ctx), mib(total)
-    );
+    eprintln!("after context: free {} MiB / total {} MiB", mib(free_ctx), mib(total));
     eprintln!("memory pools supported: {pools}");
     let candle = candle_core::Device::new_cuda(0).unwrap();
     let a = candle_core::Tensor::zeros((256, 256), candle_core::DType::F32, &candle)

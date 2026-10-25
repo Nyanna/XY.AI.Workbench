@@ -13,10 +13,14 @@ fn model_dir() -> Option<PathBuf> {
         .join("model/multilingual-e5-small");
     dir.join("model.safetensors").exists().then_some(dir)
 }
-fn embed(texts: &[&str], dir: &std::path::Path, dtype: DType, device: DeviceKind) -> Vec<Vec<f32>> {
+fn embed(
+    texts: &[&str],
+    dir: &std::path::Path,
+    dtype: DType,
+    device: DeviceKind,
+) -> Vec<Vec<f32>> {
     embed_with(&ModelSpec::e5_small(dir, dtype), texts, device)
 }
-
 fn embed_with(spec: &ModelSpec, texts: &[&str], device: DeviceKind) -> Vec<Vec<f32>> {
     let dir = spec.paths.config.parent().unwrap();
     let dim = spec.dim;
@@ -40,6 +44,7 @@ fn embed_with(spec: &ModelSpec, texts: &[&str], device: DeviceKind) -> Vec<Vec<f
         workspace: 1 << 20,
         staging: 1 << 20,
         param_block: 1 << 12,
+        mapped: 0,
     };
     let mem = Arc::new(CpuMemoryManager::new(sizes, 1));
     let scratch = mem.alloc_in(ArenaKind::Workspace, 1024, 16).unwrap();
@@ -124,8 +129,8 @@ fn wrong_hidden_size_is_incompatible() {
     let mut spec = ModelSpec::e5_small(&dir, DType::F32);
     spec.dim = 128;
     assert!(
-        matches!(CandleBert::load(& spec, DeviceKind::Cpu),
-        Err(ModelError::Incompatible { .. }))
+        matches!(CandleBert::load(& spec, DeviceKind::Cpu), Err(ModelError::Incompatible
+        { .. }))
     );
 }
 fn spec_for(name: &str, dir: &std::path::Path) -> Option<ModelSpec> {
@@ -134,7 +139,6 @@ fn spec_for(name: &str, dir: &std::path::Path) -> Option<ModelSpec> {
         _ => None,
     }
 }
-
 fn installed_models() -> Vec<(String, PathBuf)> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("model");
     let mut found: Vec<_> = std::fs::read_dir(root)
@@ -147,26 +151,47 @@ fn installed_models() -> Vec<(String, PathBuf)> {
     found.sort();
     found
 }
-
 fn reference(name: &str) -> Option<(Vec<String>, Vec<Vec<f32>>)> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("tests/data/reference/{name}.json"));
-    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
-    let texts = json["texts"].as_array()?.iter().map(|t| t.as_str().map(str::to_owned)).collect::<Option<_>>()?;
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("tests/data/reference/{name}.json"));
+    let json: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(path).ok()?,
+        )
+        .ok()?;
+    let texts = json["texts"]
+        .as_array()?
+        .iter()
+        .map(|t| t.as_str().map(str::to_owned))
+        .collect::<Option<_>>()?;
     let embeddings = json["embeddings"]
         .as_array()?
         .iter()
-        .map(|row| row.as_array()?.iter().map(|x| x.as_f64().map(|x| x as f32)).collect::<Option<Vec<_>>>())
+        .map(|row| {
+            row
+                .as_array()?
+                .iter()
+                .map(|x| x.as_f64().map(|x| x as f32))
+                .collect::<Option<Vec<_>>>()
+        })
         .collect::<Option<_>>()?;
     Some((texts, embeddings))
 }
-
 fn assert_matches_reference(device: DeviceKind, min_cosine: f32) {
     let models = installed_models();
-    assert!(!models.is_empty(), "no model installed under model/ (see model/README.md)");
+    assert!(
+        ! models.is_empty(), "no model installed under model/ (see model/README.md)"
+    );
     for (name, dir) in models {
         let (texts, expected) = reference(&name)
-            .unwrap_or_else(|| panic!("model `{name}` has no tests/data/reference/{name}.json (see model/README.md)"));
-        let spec = spec_for(&name, &dir).unwrap_or_else(|| panic!("no ModelSpec registered for `{name}` in spec_for"));
+            .unwrap_or_else(|| {
+                panic!(
+                    "model `{name}` has no tests/data/reference/{name}.json (see model/README.md)"
+                )
+            });
+        let spec = spec_for(&name, &dir)
+            .unwrap_or_else(|| {
+                panic!("no ModelSpec registered for `{name}` in spec_for")
+            });
         let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
         let got = embed_with(&spec, &refs, device);
         assert_eq!(got.len(), expected.len(), "{name}");
@@ -176,19 +201,16 @@ fn assert_matches_reference(device: DeviceKind, min_cosine: f32) {
         }
     }
 }
-
 #[test]
 fn installed_models_cpu_match_reference() {
     assert_matches_reference(DeviceKind::Cpu, 0.9999);
 }
-
 #[cfg(feature = "cuda")]
 #[test]
 #[ignore = "requires a CUDA device"]
 fn installed_models_gpu_match_reference() {
     assert_matches_reference(DeviceKind::Gpu, 0.999);
 }
-
 #[cfg(feature = "cuda")]
 #[test]
 #[ignore = "requires a CUDA device"]
