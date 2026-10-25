@@ -138,3 +138,37 @@ Umgebung: GTX 1660 SUPER (cc 7.5), CUDA 13.3, `candle` 0.11 (gepatchter Fork unt
 - Masked Mean ignoriert Padding nachweislich; Zero-Vektor abgefangen (Epsilon).
 - f16-Toleranz gemessen und dokumentiert.
 - Verifikationscheckliste §5 abgehakt; Q1/Q2/Q3/Q4 erfüllt; No-GPU-Tests grün.
+
+## Result
+
+G1 ist umgesetzt. Die ganze Testsuite ist grün: 589 Tests mit `--features candle`, und die beiden GPU-Tests laufen auf der GTX 1660 SUPER. Das Gerüst (BERT-Adapter, Masked-Mean, L2, Präfixe im Tokenizer, Golden-Tests) war schon da. Ich habe nur die Abweichungen vom Plan geschlossen.
+
+Die Plan-Datei habe ich nicht angefasst, die DoD-Punkte sind dort also noch nicht abgehakt. Meine Suche danach wurde abgelehnt mit dem Hinweis, das Ergebnis hier auszugeben.
+
+**Änderungen**
+
+- **Compute-dtype:** Der GPU-Backbone war fest auf F16 verdrahtet. Die Messung zeigt aber, dass F16 auf dieser Karte 2,5× langsamer ist. `ModelSpec` hat jetzt ein Feld `compute` mit je einer Dtype für CPU und GPU, beide Default F32. Der Adapter liest sie daraus.
+- **`ModelSpec`:**
+  - Neu sind `model_id` und `normalize` (L2 oder keine).
+  - `e5_small` setzt die Werte aus dem Plan.
+  - `validate()` prüft `dim` und `max_seq_len` auf positive Werte. Ein nicht leeres Präfix muss mit Leerzeichen enden. Die Registry ruft es beim Laden auf.
+- **`max_seq_len` im Adapter:** Der Adapter lehnt jetzt `max_seq_len` ab, das größer ist als `max_position_embeddings`.
+- **Zero-Vektor:** `l2_normalize_rows` liefert die Zahl der Nullzeilen zurück. Das Epsilon bleibt, es gibt also keine Division durch 0. `write_slot` schreibt dafür eine Warnung. Einen Fehler gibt es dafür nicht: Die Zeile wird als Nullvektor gespeichert. Ich habe bewusst keinen eigenen Fehler-Variant `EmptyEmbedding` angelegt, weil ein einzelner leerer Text sonst den ganzen Batch scheitern ließe.
+- **Logging:**
+  - Der Batch-Span `embed_batch` trägt `batch_size`, `len_bucket`, `device` und `compute_dtype`.
+  - Das Feld `truncated` hängt am Tokenizer-Span `encode`, zusammen mit `mode` (Query oder Passage).
+  - Beides ist also auf zwei Spans verteilt, nicht auf einem.
+
+**Neue Tests**
+
+- Spec-Vertrag von e5-small.
+- Präfix ohne Leerzeichen wird abgelehnt, leere Präfixe sind erlaubt.
+- Zero-Hidden-States ergeben einen Nullvektor ohne NaN.
+- `Normalize::None` behält die Länge.
+- Zählung der Nullzeilen und Padding-Invarianz des Mittelwerts.
+- Zu großes `max_seq_len` wird abgelehnt.
+- Ein langer Text wird gekürzt und bleibt normiert.
+
+Die Golden-Tests für CPU und GPU sowie der Vergleich GPU gegen CPU laufen mit dem F32-Backbone weiter durch.
+
+Nicht umgesetzt, weil der Plan sie als Korpusfragen für G3 ausweist: Top-k-Overlap am eigenen Index und der Qualitätsvergleich der Präfix-Symmetrie.

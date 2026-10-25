@@ -1,4 +1,6 @@
 # TODO
+- fehlendes F32 weil fehlender Kernel
+- Idee alle retrieval calls in einer session zu mergen, so lassen sich kontext dumps erstellen udn wiederverwenden, spart retreval und lopps
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis

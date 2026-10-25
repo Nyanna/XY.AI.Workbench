@@ -133,6 +133,24 @@ fn wrong_hidden_size_is_incompatible() {
         { .. }))
     );
 }
+#[test]
+fn max_seq_len_beyond_position_table_is_incompatible() {
+    let Some(dir) = model_dir() else { return };
+    let mut spec = ModelSpec::e5_small(&dir, DType::F32);
+    spec.max_seq_len = 513;
+    assert!(
+        matches!(CandleBert::load(& spec, DeviceKind::Cpu), Err(ModelError::Incompatible
+        { .. }))
+    );
+}
+#[test]
+fn e5_small_long_text_is_truncated_and_stays_normalised() {
+    let Some(dir) = model_dir() else { return };
+    let long = vec!["Dokument"; 900].join(" ");
+    let v = embed(&[long.as_str()], &dir, DType::F32, DeviceKind::Cpu);
+    assert_eq!(v[0].len(), 384);
+    assert!((v[0].iter().map(| x | x * x).sum::< f32 > () - 1.0).abs() < 1e-4);
+}
 fn spec_for(name: &str, dir: &std::path::Path) -> Option<ModelSpec> {
     match name {
         "multilingual-e5-small" => Some(ModelSpec::e5_small(dir, DType::F32)),

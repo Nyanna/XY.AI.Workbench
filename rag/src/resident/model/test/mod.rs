@@ -246,3 +246,80 @@ fn registered_factory_produces_a_keyed_resource() {
     assert_eq!(loaded.encoder().dim(), DIM);
     assert_eq!(loaded.key(), ResourceKey::new("model:bert:Cpu"));
 }
+struct ZeroBackbone;
+impl Backbone for ZeroBackbone {
+    fn dim(&self) -> usize {
+        DIM
+    }
+    fn forward(
+        &self,
+        _ids: &[u32],
+        _mask: &[u32],
+        batch: usize,
+        seq: usize,
+    ) -> Result<Vec<f32>, ModelError> {
+        Ok(vec![0.0; batch * seq * DIM])
+    }
+}
+fn encode_one(f: &Fixture, enc: &dyn Encoder, seqs: &[Vec<u32>]) -> Vec<f32> {
+    let b = batch(seqs);
+    let (tokens, out) = (put_tokens(f, &b), out_ref(f, &[b.rows(), DIM], DType::F32));
+    let lane = RecordingLane::new(LaneClass::Query, f.lane_cfg);
+    let mem: Arc<dyn RegionIo> = f.mem.clone();
+    enc.encode_into(&mem, &tokens, &out, &lane).unwrap().wait().unwrap();
+    read_f32(f, &out)
+}
+#[test]
+fn zero_hidden_states_yield_zero_vectors_without_nan() {
+    let f = fixture();
+    let enc = PooledEncoder::new(ZeroBackbone, None, Pooling::MeanMasked, DType::F32)
+        .unwrap();
+    let v = encode_one(&f, &enc, &[vec![1, 2, 3]]);
+    assert!(v.iter().all(| x | * x == 0.0));
+}
+#[test]
+fn normalize_none_keeps_the_pooled_magnitude() {
+    let f = fixture();
+    let enc = PooledEncoder::new(FakeBackbone, None, Pooling::MeanMasked, DType::F32)
+        .unwrap()
+        .with_normalize(Normalize::None);
+    let v = encode_one(&f, &enc, &[vec![1, 2, 3]]);
+    assert!(
+        (v[0] - 1.0).abs() < 1e-6 && (v[1] - 1.0).abs() < 1e-6 && (v[2] - 1.0).abs() <
+        1e-6
+    );
+}
+#[test]
+fn e5_small_spec_pins_the_model_contract() {
+    let spec = ModelSpec::e5_small(Path::new("/nonexistent"), DType::F16);
+    assert_eq!(spec.model_id, "intfloat/multilingual-e5-small");
+    assert_eq!((spec.arch_id.as_str(), spec.dim, spec.max_seq_len), ("bert", 384, 512));
+    assert_eq!((spec.pooling, spec.normalize), (Pooling::MeanMasked, Normalize::L2));
+    assert_eq!(
+        (spec.prefixes.query.as_str(), spec.prefixes.passage.as_str()), ("query: ",
+        "passage: ")
+    );
+    assert_eq!(spec.dtype, DType::F16);
+    assert_eq!(spec.compute.for_device(DeviceKind::Cpu), DType::F32);
+    assert_eq!(spec.compute.for_device(DeviceKind::Gpu), DType::F32);
+    spec.validate().unwrap();
+}
+#[test]
+fn prefix_without_trailing_space_is_rejected() {
+    let mut spec = ModelSpec::e5_small(Path::new("/nonexistent"), DType::F32);
+    spec.prefixes.query = "query:".into();
+    assert!(matches!(spec.validate(), Err(ModelError::Incompatible { .. })));
+    let reg = ModelRegistry::with_defaults();
+    assert!(
+        matches!(reg.load(& spec, DeviceKind::Cpu), Err(ModelError::Incompatible { .. }))
+    );
+}
+#[test]
+fn empty_prefixes_are_allowed_for_prefixless_models() {
+    let mut spec = ModelSpec::e5_small(Path::new("/nonexistent"), DType::F32);
+    spec.prefixes = Prefixes {
+        query: String::new(),
+        passage: String::new(),
+    };
+    spec.validate().unwrap();
+}

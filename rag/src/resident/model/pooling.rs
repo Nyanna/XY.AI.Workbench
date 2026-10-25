@@ -1,9 +1,13 @@
 //! Host reference for masked mean pooling and L2 normalisation.
-
 const L2_EPS: f32 = 1e-12;
-
 /// `hidden` is `[batch, seq, dim]`, `mask` is `[batch, seq]` with 0/1 entries.
-pub fn mean_pool(hidden: &[f32], mask: &[u32], batch: usize, seq: usize, dim: usize) -> Vec<f32> {
+pub fn mean_pool(
+    hidden: &[f32],
+    mask: &[u32],
+    batch: usize,
+    seq: usize,
+    dim: usize,
+) -> Vec<f32> {
     debug_assert_eq!(hidden.len(), batch * seq * dim);
     debug_assert_eq!(mask.len(), batch * seq);
     let mut out = vec![0f32; batch * dim];
@@ -23,15 +27,19 @@ pub fn mean_pool(hidden: &[f32], mask: &[u32], batch: usize, seq: usize, dim: us
     }
     out
 }
-
-/// Normalises each `dim`-sized row in place; all-zero rows stay zero.
-pub fn l2_normalize_rows(rows: &mut [f32], dim: usize) {
+/// Normalises each `dim`-sized row in place; all-zero rows stay zero and are counted in the result.
+pub fn l2_normalize_rows(rows: &mut [f32], dim: usize) -> usize {
+    let mut degenerate = 0;
     for row in rows.chunks_exact_mut(dim) {
-        let norm = row.iter().map(|x| x * x).sum::<f32>().sqrt().max(L2_EPS);
+        let norm = row.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm < L2_EPS {
+            degenerate += 1;
+        }
+        let norm = norm.max(L2_EPS);
         row.iter_mut().for_each(|x| *x /= norm);
     }
+    degenerate
 }
-
 #[cfg(test)]
 #[path = "test/pooling.rs"]
 mod tests;

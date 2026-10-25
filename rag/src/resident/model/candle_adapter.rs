@@ -5,11 +5,11 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
 use super::{Backbone, Encoder, ModelError, ModelSpec, PooledEncoder, ProjectionHead};
 use crate::resident::memory::DeviceKind;
-fn backbone_dtype(kind: DeviceKind) -> CDType {
-    match kind {
-        DeviceKind::Cpu => CDType::F32,
-        _ => CDType::F16,
-    }
+fn backbone_dtype(spec: &ModelSpec, kind: DeviceKind) -> Result<CDType, ModelError> {
+    CDType::try_from(spec.compute.for_device(kind))
+        .map_err(|e| ModelError::Incompatible {
+            reason: e.to_string(),
+        })
 }
 pub struct CandleBert {
     model: BertModel,
@@ -56,8 +56,16 @@ impl CandleBert {
                 ),
             });
         }
+        if spec.max_seq_len > config.max_position_embeddings {
+            return Err(ModelError::Incompatible {
+                reason: format!(
+                    "max_seq_len {} exceeds max_position_embeddings {}", spec
+                    .max_seq_len, config.max_position_embeddings
+                ),
+            });
+        }
         let device = device_for(kind)?;
-        let dtype = backbone_dtype(kind);
+        let dtype = backbone_dtype(spec, kind)?;
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&spec.paths.weights, dtype, &device)
         }
@@ -139,7 +147,10 @@ pub fn bert_factory(
             ProjectionHead::from_file(path, h)
         })
         .transpose()?;
-    Ok(Arc::new(PooledEncoder::new(backbone, head, spec.pooling, spec.dtype)?))
+    let encoder = PooledEncoder::new(backbone, head, spec.pooling, spec.dtype)?
+        .with_normalize(spec.normalize)
+        .with_run_info(kind, spec.compute.for_device(kind));
+    Ok(Arc::new(encoder))
 }
 #[cfg(test)]
 #[path = "test/candle_adapter.rs"]
