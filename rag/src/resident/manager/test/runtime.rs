@@ -167,6 +167,51 @@ async fn cycle_publishes_reloaded_entries() {
     assert!(! outcome.is_clean());
     assert_eq!(rt.manager().segment_count(), 2);
 }
+struct EventMessages(std::sync::Arc<Mutex<Vec<String>>>);
+struct MessageOf<'a>(&'a mut String);
+impl tracing::field::Visit for MessageOf<'_> {
+    fn record_debug(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &dyn std::fmt::Debug,
+    ) {
+        if field.name() == "message" {
+            *self.0 = format!("{value:?}");
+        }
+    }
+}
+impl tracing::Subscriber for EventMessages {
+    fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+        true
+    }
+    fn register_callsite(
+        &self,
+        _: &'static tracing::Metadata<'static>,
+    ) -> tracing::subscriber::Interest {
+        tracing::subscriber::Interest::always()
+    }
+    fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+        tracing::span::Id::from_u64(1)
+    }
+    fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+    fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+    fn event(&self, event: &tracing::Event<'_>) {
+        let mut message = String::new();
+        event.record(&mut MessageOf(&mut message));
+        self.0.lock().push(message);
+    }
+    fn enter(&self, _: &tracing::span::Id) {}
+    fn exit(&self, _: &tracing::span::Id) {}
+}
+#[tokio::test]
+async fn cycle_logs_index_arena_utilization() {
+    let rig = rig(1 << 20);
+    let rt = runtime(&rig, short_ttl());
+    let messages = std::sync::Arc::new(Mutex::new(Vec::new()));
+    let _guard = tracing::subscriber::set_default(EventMessages(messages.clone()));
+    rt.cycle().await.unwrap();
+    assert!(messages.lock().iter().any(| m | m == "index arena utilization"));
+}
 #[tokio::test]
 async fn evictor_accounts_every_segment_separately() {
     let rig = rig(1 << 20);

@@ -64,8 +64,10 @@ pub struct GpuIndexManager<B> { /* Streaming-Hülle */ }
 - `FakeIndex` ohne echte Datei für alle Logiktests.
 
 ## 8. Offene Verifikationen
-- Linux-`madvise`-Semantik gegen man7 prüfen; `memmap2`-`Advice`-API gegen aktuelle Crate-Version (context_e.md offener Punkt 3).
-- `MADV_COLD`/`PAGEOUT` erst ab Kernel ≥ 5.4 — Zielkernel bestätigen.
+Stand der Prüfung: 2026-10-25, Kernel 6.8.0-147-generic, `memmap2` 0.9.11 (Cargo.toml `0.9.3`, Cargo.lock 0.9.11).
+
+- **Semantik/API** — Status: verifiziert. `man 2 madvise`: `MADV_WILLNEED` kündigt Zugriffe in naher Zukunft an (Read-ahead); `MADV_COLD` (seit Linux 5.4) deaktiviert Seiten und macht sie zu wahrscheinlicheren Reclaim-Kandidaten, eine nicht-destruktive Operation, die für einzelne Seiten ignoriert werden kann. `memmap2` 0.9.11 enthält `Advice::WillNeed`, `Advice::Sequential` und `Advice::Random`, aber kein `Cold`; `MADV_COLD` wird deshalb direkt über `libc::madvise` gesetzt. Tests `will_need_brings_pages_into_the_page_cache` und `cold_keeps_contents_and_does_not_drop_pages` bestanden (`cargo test --lib residency`: 19 bestanden, 0 fehlgeschlagen); sie belegen die Wirkung per `mincore`.
+- **Kernel ≥ 5.4 für `MADV_COLD`** — Status: verifiziert für diese Maschine. `uname -r` liefert 6.8.0-147-generic, der Kernel ist also neuer als 5.4, und der Cold-Test läuft dort durch. Ein anderer Zielkernel wurde nicht geprüft.
 
 ## 9. Definition of Done
 - Lazy-Manager konstruierbar, CPU-Variante liest Index korrekt, mmap-Residency-Hooks getestet, GPU-Hülle kompiliert mit und ohne `cuda`. Keine Ressourcenbelegung vor erstem Zugriff.

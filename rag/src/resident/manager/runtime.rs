@@ -73,6 +73,7 @@ impl<'a, 'b, B: ComputeBackend + ?Sized> IndexRuntime<'a, 'b, B> {
     pub async fn cycle(&self) -> Result<ScanOutcome, IndexError> {
         let outcome = self.manager.cycle().await?;
         self.publish_pending().map_err(|e| index_error(&e))?;
+        self.manager.core().cycle_span().in_scope(|| self.arena.trace_utilization());
         Ok(outcome)
     }
     /// The slot gap of a kernel batch that started on `at`. A mapping that moved on since is

@@ -271,12 +271,14 @@ impl TableSwap for SwapManager<'_, '_> {
             self.arena.retire(old, epoch)?;
         }
         tracing::debug!(epoch, segments, offset = region.offset, "table published");
+        self.arena.trace_utilization();
         Ok(epoch)
     }
     fn reclaim(&self, upto: u64) -> usize {
         let reached = self.epochs.reader_min().min(upto);
         let freed = self.arena.reclaim(reached);
         tracing::debug!(freed, reached, "reclaim");
+        self.arena.trace_utilization();
         freed
     }
 }

@@ -58,9 +58,13 @@ pub trait TableSwap {
 - `loom`/`shuttle` auf dem Swap-/Reclaim-Protokoll (kleines CAS-/Store-Protokoll).
 
 ## 8. Offene Verifikationen (zuerst, Hochrisiko)
-- **`ld.acquire.sys` und mapped-Atomics** direkt in der PTX-ISA (parallel-thread-execution) bestätigen **und auf der echten GTX 1660 testen** (context_e.md offener Punkt 1).
-- `cudaDevAttrHostNativeAtomicSupported` prüfen (H1 Punkt 4) — bestätigt die Single-Writer-Store-Strategie (kein GPU-CAS über PCIe).
-- Event-/Fence-Sichtbarkeit zwischen Copy-Stream und persistentem Kernel auf Zielhardware messen.
+Stand der Messung: 2026-10-25, GTX 1660 SUPER (sm_75, Treiber 610.57.04), nvcc 13.3. Beide Tests liefen einzeln mit `cargo test --lib --features cuda <name> -- --ignored --nocapture`.
+
+- **`ld.acquire.sys` und mapped-Atomics** — Status: verifiziert (empirisch). Messdatum 2026-10-25, GTX 1660 SUPER (sm_75). Ergebnis: `device_sees_content_written_before_the_host_release_store` bestanden; das Gerät sieht per `ld.acquire.sys` den Inhalt, der vor dem Host-Release-Store geschrieben wurde. Die Bestätigung in der PTX-ISA-Dokumentation selbst ist in diesem Lauf nicht neu geprüft worden.
+- **`HostNativeAtomicSupported`** — Status: verifiziert. Messdatum 2026-10-25, GTX 1660 SUPER (sm_75). Ergebnis: Wert 0 (`host native atomics supported: 0`, ausgegeben von `copy_stream_event_orders_device_table_before_the_root`). Die Single-Writer-Strategie (Host schreibt, GPU liest per `ld.acquire.sys`) ist davon nicht berührt, weil es kein GPU-CAS über PCIe gibt und die GPU den Root nie schreibt.
+- **Event-/Fence-Sichtbarkeit zwischen Copy-Stream und Kernel** — Status: verifiziert für den getesteten Fall. Messdatum 2026-10-25, GTX 1660 SUPER (sm_75). Ergebnis: `copy_stream_event_orders_device_table_before_the_root` bestanden; das Event ordnet die Gerätetabelle vor den Root. Getestet ist ein einzelner Lauf mit Copy-Stream und Kernel-Launch, kein Dauerlauf mit persistentem Kernel.
+
+Hinweis: Der Filter `device_` startet alle zehn GPU-Tests des Crates parallel. Dieser Lauf hing bei mehreren Tests über 60 Sekunden und wurde mit SIGKILL beendet; ein Test (`extension_task_runs_through_workers_with_device_round_trips`) schlug mit „task did not complete“ fehl. Diese Tests gehören nicht zu E4 und wurden nicht weiter untersucht. Die zwei E4-Tests laufen einzeln stabil.
 
 ## 9. Definition of Done
 - CoW + atomarer Root-Swap + Epoch-Reclaim implementiert und per `loom`/Host-Mock verifiziert; Publish-Reihenfolge erzwungen; Pointer-Lesezeitpunkt beider Modi korrekt; reale Atomics hinter `cuda`, Logik ohne GPU grün.

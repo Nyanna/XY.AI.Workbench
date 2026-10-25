@@ -2,6 +2,7 @@ Setze E9 um.
 
 - keine direkte Referenzierung von Planelementen in Kommentaren
 - nvcc liegt unter `/usr/local/cuda-13.3/bin/nvcc`
+- Nutze Bash nicht für retrieval Tasks
 - Erledige alle Punkte und Verifikationen
 
 [include](/home/user/xyan/xy.ai.workbench/project/resident/index.md)
