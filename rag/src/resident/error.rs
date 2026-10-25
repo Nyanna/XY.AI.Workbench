@@ -26,6 +26,12 @@ pub enum IndexError {
     KernelFailed { reason: String },
     #[error("unknown kernel batch {batch}")]
     UnknownBatch { batch: u64 },
+    #[error(
+        "index schema does not match the active model configuration (expected {expected}; found {found})"
+    )]
+    IncompatibleSchema { expected: String, found: String },
+    #[error("checksum mismatch for entry {entry}")]
+    ChecksumMismatch { entry: u64 },
 }
 impl IsRetryable for IndexError {
     fn is_retryable(&self) -> bool {

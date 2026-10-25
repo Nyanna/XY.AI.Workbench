@@ -6,11 +6,17 @@
 //! Write order is binding: data first, then stamp, then signal.
 //! `read` may block on page faults and disk I/O; callers use a blocking pool.
 pub mod memory;
+pub mod parquet_io;
+pub mod payload;
+pub mod schema;
 pub mod stamp;
 use std::ops::Range;
 use std::sync::Arc;
 use roaring::RoaringTreemap;
 use tokio::sync::watch;
+pub use parquet_io::{Access, IndexOptions, ParquetIndex};
+pub use payload::Payload;
+pub use schema::{tokenizer_fingerprint, SchemaHeader, SCHEMA_VERSION};
 pub use stamp::{content_hash, FileStamp, StampCounter, Verdict, RACY_WINDOW_NS};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EntryId(u64);

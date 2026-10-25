@@ -21,9 +21,7 @@ fn layer_errors_convert_into_resident_error() {
         batch: 3,
     }
         .into();
-    assert!(
-        matches!(e, ResidentError::Index(IndexError::UnknownBatch { batch : 3 }))
-    );
+    assert!(matches!(e, ResidentError::Index(IndexError::UnknownBatch { batch : 3 })));
     let e: ResidentError = ConfigError::MissingField {
         field: "model".into(),
     }
@@ -54,15 +52,11 @@ fn transparent_wrapper_keeps_message() {
 }
 #[test]
 fn retryability_classification() {
-    assert!(
-        IndexError::ArenaExhausted { requested : 1, available : 0 } .is_retryable()
-    );
+    assert!(IndexError::ArenaExhausted { requested : 1, available : 0 } .is_retryable());
     assert!(IndexError::IndexUnavailable { scope : "s".into() } .is_retryable());
     assert!(! IndexError::KernelFailed { reason : "r".into() } .is_retryable());
     assert!(ManagerError::StaleRegion { arena : 1, gen : 2 } .is_retryable());
-    assert!(
-        PrecisionError::CalibrationUnstable { reason : "r".into() } .is_retryable()
-    );
+    assert!(PrecisionError::CalibrationUnstable { reason : "r".into() } .is_retryable());
     assert!(! PrecisionError::NoActiveProfile.is_retryable());
     assert!(
         ! ConfigError::InvalidValue { field : "f".into(), reason : "r".into() }
@@ -80,4 +74,23 @@ fn retryability_classification() {
     }
         .into();
     assert!(! fatal.is_retryable());
+}
+#[test]
+fn index_integrity_errors_are_fatal_and_descriptive() {
+    let schema = IndexError::IncompatibleSchema {
+        expected: "embedding.dim=384".into(),
+        found: "embedding.dim=768".into(),
+    };
+    assert!(! schema.is_retryable());
+    assert!(schema.to_string().contains("embedding.dim=768"));
+    let sum = IndexError::ChecksumMismatch {
+        entry: 7,
+    };
+    assert!(! sum.is_retryable());
+    assert!(sum.to_string().contains('7'));
+    let wrapped: ResidentError = sum.into();
+    assert!(
+        matches!(wrapped, ResidentError::Index(IndexError::ChecksumMismatch { entry : 7
+        }))
+    );
 }

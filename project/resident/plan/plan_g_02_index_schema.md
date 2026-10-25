@@ -139,3 +139,32 @@ Footer-Metadaten (strikt beim Öffnen prüfen; Mismatch → `IncompatibleSchema`
 - Header-Keys (§5) aus G1 übernommen, strikt geprüft; Mismatch → `IncompatibleSchema`.
 - mmap-Lesepfad praktisch verifiziert; Schreiben via neue Datei + atomisches Rename.
 - Q1/Q2/Q3 erfüllt; No-GPU-Tests grün.
+
+## Result
+
+G2 ist umgesetzt. Der `ParquetIndex` implementiert das `Index`-Trait aus B4. Alle 595 Lib-Tests ohne CUDA sind grün, darunter 15 neue Index-Tests und 1 neuer Fehlertest. Den cuda-Build und die pyarrow/DuckDB-Interop habe ich nicht geprüft.
+
+Neue Dateien unter `rag/src/resident/index/`: `schema.rs`, `payload.rs`, `parquet_io.rs` und `test/parquet_io.rs`. Geändert habe ich `index/mod.rs` (Module und Re-Exports) und `resident/error.rs`.
+
+- **Schema:**
+  - `FixedSizeList<Float16,384>` mit den Spalten `entry_id`, `stamp`, `vector`, `target_file`, `char_start`, `char_end`, `checksum`.
+  - Der Stamp liegt in einer eigenen Spalte. Beim Öffnen werden nur `entry_id` und `stamp` gelesen. Der Test `stamps_do_not_decode_vectors` bestätigt, dass dabei kein Vektor dekodiert wird.
+  - Eine eigene Spalte `row` gibt es nicht. Die Zeilenposition ergibt sich aus der Reihenfolge, ein redundanter Wert könnte nur inkonsistent werden.
+- **Header:**
+  - Alle Keys aus §5 stehen als Footer-Keys, dazu `resident.high_water` und die Hash-Angaben. `SchemaHeader::from_spec` baut sie aus dem G1-`ModelSpec`.
+  - Beim Öffnen werden alle Keys außer `compute_dtype` strikt geprüft. Ein Mismatch ergibt `IncompatibleSchema`, mit allen abweichenden Keys im Text.
+  - `from_spec` lehnt eine andere Storage-dtype als f16 ab.
+- **Checksum:** xxh3-64 über Vektorbytes und Payload-Felder. Ein Fehler beim Öffnen oder in `verify()` ergibt `ChecksumMismatch`. Der Test flippt dazu ein Byte direkt in der Datei.
+- **Schreiben:** Die Daten gehen in `*.tmp`, werden mit fsync gesichert und per `rename` über die Indexdatei gelegt, danach fsync auf das Verzeichnis. Eine bereits gemappte alte Datei bleibt gültig.
+- **Lesen:** `Bytes::from_owner(Mmap)` mit `madvise(Random)`, alternativ `Access::File`. Beide Wege liefern im Test identische Daten.
+- **Index-Trait:**
+  - `apply` gibt den eigenen Stamp zurück und löst das `changed`-Signal aus. Ein bestehender Payload bleibt dabei erhalten, und `capabilities` ist `[Range]`.
+  - Der Stamp-Zähler setzt nach einem Neustart über die gespeicherte `high_water` fort, auch über entfernte Einträge hinweg.
+- **Logging und Fehler:** Die Spans `index.open` und `index.write` enthalten die Felder aus dem Plan. Neu in `IndexError` sind `IncompatibleSchema` und `ChecksumMismatch`. I/O-Fehler laufen über `IndexUnavailable`.
+
+Beim Umsetzen habe ich Folgendes festgelegt:
+- Das Persistieren geschieht nur über `flush()`; `apply` ändert zunächst nur den Speicher.
+- Ein Vektor mit falscher Länge löst in `apply` eine Panic aus, weil das Trait keinen Fehlerpfad hat. `upsert` gibt stattdessen einen Fehler zurück.
+- `prefetch` ist ein No-op. Ein `WillNeed` auf die ganze Datei wäre zu grob.
+
+Die pyarrow/DuckDB-Interop ist im Plan als optional markiert und noch offen. Eine Plan-Datei habe ich nicht angefasst, der Lesezugriff wurde abgelehnt.
