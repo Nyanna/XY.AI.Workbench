@@ -167,8 +167,7 @@ fn reference(name: &str) -> Option<(Vec<String>, Vec<Vec<f32>>)> {
         .as_array()?
         .iter()
         .map(|row| {
-            row
-                .as_array()?
+            row.as_array()?
                 .iter()
                 .map(|x| x.as_f64().map(|x| x as f32))
                 .collect::<Option<Vec<_>>>()
@@ -225,5 +224,145 @@ fn e5_small_gpu_matches_cpu() {
     for (c, g) in cpu.iter().zip(&gpu) {
         assert!(g.iter().all(| x | x.is_finite()));
         assert!(cosine(c, g) > 0.999, "cosine {}", cosine(c, g));
+    }
+}
+/// Measurement gate: encoder time against deviation from the f32 path per backbone dtype,
+/// interleaved rounds, median time. Run with `--nocapture`.
+#[cfg(feature = "cuda")]
+#[test]
+#[ignore = "requires a CUDA device; measurement"]
+fn gate_encoder_dtype_front() {
+    use candle_core::{DType as CD, Device, Tensor};
+    use candle_nn::VarBuilder;
+    use candle_transformers::models::bert::{BertModel, Config};
+    use std::time::Instant;
+    let Some(dir) = model_dir() else { return };
+    let config: Config = serde_json::from_str(
+            &std::fs::read_to_string(dir.join("config.json")).unwrap(),
+        )
+        .unwrap();
+    let on_cpu = std::env::var_os("GATE_CPU").is_some();
+    let dev = if on_cpu { Device::Cpu } else { Device::new_cuda(0).unwrap() };
+    let tok = tokenizers::Tokenizer::from_file(dir.join("tokenizer.json")).unwrap();
+    let words = [
+        "retrieval",
+        "Dokumente",
+        "embedding",
+        "Suche",
+        "vector",
+        "Ergebnis",
+        "index",
+        "Modell",
+        "query",
+        "Genauigkeit",
+        "latency",
+        "Speicher",
+        "kernel",
+        "Präzision",
+    ];
+    let seqs: Vec<Vec<u32>> = (0..if on_cpu { 1usize } else { 16 })
+        .map(|i| {
+            let n = 12 + (i * 7) % 100;
+            let body: Vec<&str> = (0..n)
+                .map(|j| words[(i * 5 + j * 3) % words.len()])
+                .collect();
+            let text = format!("passage: {}", body.join(" "));
+            tok.encode(text, true).unwrap().get_ids().to_vec()
+        })
+        .collect();
+    let seq = seqs.iter().map(Vec::len).max().unwrap();
+    let flat = |pad: u32, one: bool| -> Vec<u32> {
+        seqs.iter()
+            .flat_map(|s| {
+                (0..seq)
+                    .map(move |j| {
+                        if j < s.len() { if one { 1 } else { s[j] } } else { pad }
+                    })
+            })
+            .collect()
+    };
+    let ids = Tensor::from_vec(flat(1, false), (seqs.len(), seq), &dev).unwrap();
+    let mask = Tensor::from_vec(flat(0, true), (seqs.len(), seq), &dev).unwrap();
+    let types = ids.zeros_like().unwrap();
+    let dtypes = [CD::F32, CD::F16, CD::BF16];
+    let models: Vec<candle_core::Result<BertModel>> = dtypes
+        .iter()
+        .map(|&dt| {
+            let vb = unsafe {
+                VarBuilder::from_mmaped_safetensors(
+                    &[dir.join("model.safetensors")],
+                    dt,
+                    &dev,
+                )
+            }?;
+            BertModel::load(vb, &config)
+        })
+        .collect();
+    let pool = |h: Tensor| -> candle_core::Result<Vec<Vec<f32>>> {
+        let h = h.to_dtype(CD::F32)?;
+        let m = mask.to_dtype(CD::F32)?.unsqueeze(2)?;
+        let mean = h.broadcast_mul(&m)?.sum(1)?.broadcast_div(&m.sum(1)?)?;
+        let norm = mean.sqr()?.sum_keepdim(1)?.sqrt()?;
+        mean.broadcast_div(&norm)?.to_vec2::<f32>()
+    };
+    let run = |m: &BertModel| m.forward(&ids, &types, Some(&mask));
+    let mut times: Vec<Vec<f64>> = vec![Vec::new(); dtypes.len()];
+    let mut last: Vec<Option<Vec<Vec<f32>>>> = vec![None; dtypes.len()];
+    let mut failed: Vec<Option<String>> = vec![None; dtypes.len()];
+    let rounds = if on_cpu { 3 } else { 8 };
+    for round in 0..rounds {
+        for (k, m) in models.iter().enumerate() {
+            if failed[k].is_some() {
+                continue;
+            }
+            let m = match m {
+                Ok(m) => m,
+                Err(e) => {
+                    failed[k] = Some(e.to_string());
+                    continue;
+                }
+            };
+            let t = Instant::now();
+            let out = run(m).and_then(|h| dev.synchronize().map(|_| h));
+            let ms = t.elapsed().as_secs_f64() * 1e3;
+            match out {
+                Ok(h) => {
+                    if round >= 1 {
+                        times[k].push(ms);
+                    }
+                    last[k] = Some(pool(h).unwrap());
+                }
+                Err(e) => failed[k] = Some(e.to_string()),
+            }
+        }
+    }
+    let reference = last[0].clone().expect("f32 reference");
+    println!("G-DTYPE batch={} seq={seq} rounds={rounds}", seqs.len());
+    for (k, dt) in dtypes.iter().enumerate() {
+        if let Some(why) = &failed[k] {
+            println!("G-DTYPE {dt:?}: unavailable ({why})");
+            continue;
+        }
+        let mut t = times[k].clone();
+        t.sort_by(f64::total_cmp);
+        let dev_of: Vec<f64> = last[k]
+            .as_ref()
+            .unwrap()
+            .iter()
+            .zip(&reference)
+            .map(|(a, b)| {
+                a.iter()
+                    .zip(b)
+                    .map(|(x, y)| (f64::from(*x) - f64::from(*y)).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
+            })
+            .collect();
+        let mean = dev_of.iter().sum::<f64>() / dev_of.len() as f64;
+        let max = dev_of.iter().copied().fold(0.0, f64::max);
+        println!(
+            "G-DTYPE {dt:?}: median {:.3} ms min {:.3} ms max {:.3} ms dev_mean {mean:.3e} dev_max {max:.3e}",
+            t[t.len() / 2], t[0], t[t.len() - 1],
+        );
     }
 }

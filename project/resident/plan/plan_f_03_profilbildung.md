@@ -53,10 +53,63 @@ pub fn derive_profiles(front: &[ParetoPoint], cfg: &ProfileConfig) -> Vec<Profil
 - **Emulation/Herabstufung:** langsamer-und-ungenauer-Punkt wird entfernt/nicht aktiviert.
 - Alle Tests **deterministisch**, ohne GPU.
 
-## 9. Offene Verifikation / Risiken
-- `[W]` gesamter Abschnitt F3 ist Fachwissen ohne frische Quellenprüfung → Normierungs-/Bogenlängen-Formeln und die Single-Linkage-Schwelle an echten Fronten (aus F2-Läufen auf e5-small) validieren.
-- Wahl „log(Zeit)“ vs. lineare Zeit beeinflusst Abstände/Positionen → fixieren und dokumentieren.
-- Repräsentantenwahl (schnellster vs. mittlerer) konsistent festlegen (empfohlen: schnellster, damit `p`-Richtung monoton bleibt).
+## 9. Verifikationsergebnisse
+
+Geprüft per Codeinspektion (`precision/pareto.rs`), numerischem Experiment an konstruierten Fronten und realer Messung auf GTX 1660 SUPER (TU116, sm_75, Treiber 610.57.04, CUDA 13.3) sowie CPU. Die Messungen sind als `#[ignore]`-Gates im Repo abgelegt: `gate_encoder_dtype_front` (e5-small-Encoder, `model/test/candle_adapter.rs`; mit `GATE_CPU=1` auf CPU) `gate_cosine_dtype_front` (vorhandener Scoring-Kernel) und `gate_cosine_bandwidth_front` (Scoring-Kernel mit einem Warp pro Dokument für f32, f16 und int8 über `dp4a`), beide in `kernel/test/cuda.rs`.
+
+### 9.1 Reale Fronten
+Zeit = Median interleaved Runden, Abweichung gegen den fp32-Pfad derselben Eingaben.
+
+| Pfad | Variante | Median | Abweichung |
+|------|----------|--------|------------|
+| GPU-Encoder (e5-small, 64 Texte, seq 209) | F32 | 621 ms | 0 (Referenz) |
+| | F16 | 1528 ms (2,46× langsamer) | L2 mittel 5,3e-4, max 6,9e-4 |
+| | BF16 | nicht verfügbar (`CUDA_ERROR_NOT_FOUND`, Kernel-Symbol fehlt auf sm_75) | – |
+| CPU-Encoder (2 Texte, Debug-Build, nur Verhältnis aussagekräftig) | F32 | 2280 ms | 0 (Referenz) |
+| | F16 | 4208 ms (1,85× langsamer) | L2 mittel 6,9e-4 |
+| | BF16 | nicht verfügbar (`unsupported dtype BF16 for op matmul`) | – |
+| GPU-Scoring `cosine_dot` (200 000 Dokumente, dim 384, 8 Queries) | F32 | 6,78 ms | max 1,0e-7 (f32-Rundung) |
+| | F16 | 6,79 ms (kein Unterschied; min 6,02 vs. 6,13 ms) | max 4,8e-5, mittel 7,1e-6 |
+| GPU-Scoring, Warp pro Dokument (200 000 Dokumente, dim 384, 8 Queries) | F32 | 2,000 ms (154 GB/s gelesen) | max 6,7e-8 (f32-Rundung) |
+| | F16 | 1,923 ms (4 % schneller) | max 4,8e-5, mittel 7,1e-6 |
+| | int8 (`dp4a`, Skala pro Vektor) | 1,177 ms (1,70× schneller) | max 5,5e-4, mittel 1,2e-4 |
+
+Befunde:
+- **Encoder:** F16 ist auf beiden Engines langsamer **und** ungenauer als F32 und damit dominiert; BF16 fällt aus. Die Emulations-/Dominanzregel aus §4 tritt mit realen Daten ein, nicht nur im Test. Die Front besteht jeweils aus genau dem fp32-Pfad.
+- **Scoring, vorhandener Kernel:** Ein Block pro Dokument ist latenzlimitiert (Reduktion und Synchronisation je Query); F16 ist dort nicht schneller und ungenauer, also dominiert. Die Zeitdifferenz liegt innerhalb des Rauschens (Spanne min–max beim Lauf 6,0–9,0 ms).
+- **Scoring, Warp pro Dokument:** Die Zeiten streuen hier um unter 1 % (min 1,919 bis Median 1,923 ms bei F16), die Differenzen sind echt. Es entsteht eine echte Dreipunkt-Front: int8 (1,177 ms, 5,5e-4), F16 (1,923 ms, 4,8e-5), F32 (2,000 ms, Referenz). `dp4a` läuft auf TU116 und ist 1,70× schneller als F32; die Messung belegt damit den Durchsatz, den die Fähigkeitserhebung bisher nur annahm. Der Kernel erreicht nur 66 GB/s (int8) bzw. 154 GB/s (f32) gelesen, ist also nicht bandbreitenlimitiert.
+- **Konsequenz Frontgröße:** Die Frontgröße hängt vom Pfad ab: Encoder (candle) auf TU116 einen Punkt, Scoring mit `dp4a`-Kernel drei Punkte. Der Einpunkt-Fall (`p = 0.5`, F4 liefert für jeden Wunsch dieses Profil) ist ein Regelfall und kein Randfall und wird als solcher getestet.
+- **Konsequenz Rauschen:** Zeitgleiche Punkte (wie F16 im vorhandenen Scoring-Kernel) können durch Rauschen knapp „schneller“ gemessen werden und dann fälschlich auf der Front landen. Die Dominanzprüfung vergleicht Zeiten deshalb mit der von F2 gelieferten Messunsicherheit (Zeiten innerhalb dieser Spanne gelten als gleich); ein ungenauerer Punkt ohne signifikant geringere Zeit wird verworfen. Die Unsicherheit stammt aus F2 und ist kein F3-Parameter.
+- **Konsequenz Verfügbarkeit:** Ein nicht ausführbarer Pfad (BF16) wird erst bei der Messung sichtbar, nicht bei der Erhebung der Fähigkeiten; er gilt als verworfene Kombination (`Incompatible`), nicht als Fehler der Kalibrierung.
+- **Abweichungsmetrik:** `1 − cos` liegt bei f32-Ausgabe im Rauschen (≈1e-7, quadratisch in der Winkelabweichung) und trennt F16 nicht von F32. Als Abweichung dient die L2-Distanz normierter Vektoren, in f64 berechnet (linear, hier 5e-4 für F16).
+
+### 9.2 Normierungs- und Bogenlängenformeln — bestätigt
+- Min-max-Normierung mit Guard (`range > 0`, sonst 0-Vektor), Einpunkt-Front → `[0.5]`, Bogenlänge via `hypot`, `s = 0` → gleichmäßige Rangpositionen: alle Sonderfälle aus §5 sind abgedeckt, keine Division durch 0, `p_0 = 0`, `p_n = 1`.
+- Die Front aus `pareto()` ist nach Zeit aufsteigend und Abweichung strikt fallend sortiert; die Positionen sind monoton, `p = 0` ist das schnellste Profil.
+- Bogenlänge statt Rang bestätigt: Front `(0,1.0) (1,0.9) (10,0.0)` liefert für den Mittelpunkt `p < 0.5`; ein Rangverfahren lieferte exakt 0.5.
+- Invariant gegen gleichmäßige Skalierung aller Zeiten, also unabhängig von der absoluten Hardwaregeschwindigkeit.
+
+### 9.3 Skala: `log(Zeit)`, Abweichung linear — festgelegt
+- Zeit logarithmisch: Abstände bilden Faktoren ab (2× schneller zählt überall gleich). Fällt auf linear zurück, wenn eine Zeit `≤ 0` ist. Beispiel realer Größenordnung: F16-Encoder 2,46× und F16-CPU 1,85× liegen im selben Maßstab wie Sprünge auf konstruierten Fronten.
+- Abweichung linear: Die fp32-Referenz hat Abweichung 0, `log` ist dort undefiniert; ein Epsilon-Offset wäre eine zusätzliche Konstante.
+- Konstruierte Front `(4.0,2e-2) (7.5,1.5e-3) (14.0,0)`: mittleres Profil bei `p = 0.602` (linear) bzw. `0.676` (log). Log ist nicht ausreißerrobuster (ein 10× langsamerer Referenzpfad verschiebt den Mittelpunkt linear um 0.116, log um 0.143); die Wahl begründet sich allein mit der Verhältnissemantik. Zeitausreißer fängt F2 ab.
+- Die Skala ist fix; einziger Parameter bleibt `spread_threshold`.
+
+### 9.4 Single-Linkage-Schwelle — Default 0.1, an realer Front bestätigt
+Reale Dreipunkt-Front des Scorings (Zeit logarithmisch, Abweichung linear, Referenz mit Abweichung 0):
+- Positionen: int8 `p = 0.000`, F16 `p = 0.919`, F32 `p = 1.000` (linear in der Zeit: 0.910; die Wahl der Zeitskala ändert das Ergebnis nicht).
+- Abstand F16–F32: `Δp = 0.081`. Für `spread_threshold > 0.081` verschmelzen F16 und F32 zu einem Cluster (Repräsentant F32 nach §9.5), es bleiben zwei Profile: schnell (int8, `p = 0`) und genau (F32, `p = 1`). Für `spread_threshold < 0.081` bleiben drei Profile.
+- F16 ist nur 4 % schneller als F32 bei 4,8e-5 Abweichung, bietet also keinen nennenswerten Trade-off; die Verschmelzung ist das sinnvolle Ergebnis. `0.1` liegt über 0.081 und liefert es, `0.2` liefert dasselbe (konstruierte dichte Front: ebenfalls drei Cluster bei 0.1 und 0.2). Der Default bleibt `0.1`.
+- Der Abstand 0.081 liegt nahe an 0.1; kleine Änderungen der Messwerte können F16 als eigenes Profil erscheinen lassen. Das ist hinnehmbar: Beide Ausgänge sind gültige Profilmengen, und F4 liefert in beiden Fällen für jeden Wunsch ein Profil.
+- Single-Linkage kann dichte Ketten zu einem Cluster verbinden, auch wenn dessen Ausdehnung die Schwelle überschreitet. Das ist gewollt; Test mit gleichmäßig dichter Front (Erwartung: ein Profil).
+
+### 9.5 Repräsentantenwahl — festgelegt
+- Repräsentant ist der schnellste Punkt des Clusters; das Cluster mit dem genauesten Frontpunkt wird durch diesen Punkt vertreten, sonst könnte der fp32-Pfad in einem Cluster aufgehen und `precision = 1` die höchste Genauigkeit verfehlen. Ein „mittlerer“ Punkt hätte keinen Vorteil, da der Repräsentant ein real gemessener Punkt sein muss.
+- Positionen werden nach dem Zusammenfassen über die Bogenlänge der Repräsentanten neu berechnet, damit `p = 0` das schnellste und `p = 1` das genaueste verbleibende Profil ist.
+
+### 9.6 Codebestand
+- `positions` und `pareto` arbeiten auf `(f64, f64)`-Tupeln. `derive_profiles` bildet Tupel auf Konfigurationen zurück und erzeugt `Profile::new(position, config)` mit `ProfileConfig` aus `precision/profile.rs`.
+- Noch nicht vorhanden: Linkage, Repräsentantenwahl, Emulations-/Dominanzregel mit Messunsicherheit und `derive_profiles` selbst.
 
 ## 10. Definition of Done
 - `derive_profiles` implementiert: Normierung (log-Zeit) → Bogenlänge → Linkage → Positionen, inkl. Sonderfälle (Einpunkt, identische Koordinaten).
