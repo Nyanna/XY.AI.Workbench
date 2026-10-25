@@ -15,7 +15,6 @@ use crate::resident::manager::streamed::{index_error, GpuIndexManager, SegmentKe
 use crate::resident::manager::swap::{Snapshot, SwapManager, TableSwap};
 use crate::resident::manager::sync::ScanOutcome;
 use crate::resident::manager::transfer::LoadedQueue;
-const SLOT_RETRIES: u32 = 3;
 /// `loaded` must be the sink of the manager's transfer: every segment the transfer reports is
 /// published here, so no caller has to remember to do it.
 pub struct IndexRuntime<'a, 'b, B: ?Sized> {
@@ -77,7 +76,9 @@ impl<'a, 'b, B: ComputeBackend + ?Sized> IndexRuntime<'a, 'b, B> {
         Ok(outcome)
     }
     /// The slot gap of a kernel batch that started on `at`. A mapping that moved on since is
-    /// retried against a fresh snapshot, because hits of retired regions resolve to nothing.
+    /// retried against a fresh snapshot, because hits of retired regions resolve to nothing. The
+    /// retry holds the structural lock: table and mapping are published one after the other, and
+    /// an unlocked snapshot can fall between the two.
     pub fn complete_slot(
         &self,
         at: &Snapshot,
@@ -85,17 +86,16 @@ impl<'a, 'b, B: ComputeBackend + ?Sized> IndexRuntime<'a, 'b, B> {
         hits: &[KernelHit],
         source: &dyn RangeSource,
     ) -> Result<Vec<Hit>, IndexError> {
-        let mut at = *at;
-        let mut attempts = 0;
-        let out = loop {
-            match self.manager.complete_slot(&self.store, &at, writes, hits, source) {
-                Err(ManagerError::StaleMapping { .. }) if attempts < SLOT_RETRIES => {
-                    attempts += 1;
-                    at = self.swap.snapshot();
-                }
-                other => break other.map_err(|e| index_error(&e))?,
+        let out = match self.manager.complete_slot(&self.store, at, writes, hits, source)
+        {
+            Err(ManagerError::StaleMapping { .. }) => {
+                let _structural = self.structural.lock();
+                let at = self.swap.snapshot();
+                self.manager.complete_slot(&self.store, &at, writes, hits, source)
             }
-        };
+            other => other,
+        }
+            .map_err(|e| index_error(&e))?;
         self.reclaim();
         Ok(out)
     }

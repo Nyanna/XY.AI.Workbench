@@ -202,3 +202,39 @@ async fn exhausted_arena_evicts_and_retries_once() {
     assert_eq!(rt.manager().segment_count(), 1);
     assert_eq!(rt.swap().current().segments().len(), 1);
 }
+#[test]
+fn publish_evict_and_slot_completion_race_without_leaking_regions() {
+    const ROUNDS: u64 = 300;
+    let rig = rig(1 << 20);
+    let rt = runtime(&rig, short_ttl());
+    let warm_up = tokio::runtime::Builder::new_current_thread().build().unwrap();
+    warm_up.block_on(rt.ensure(set(0..10), Access::Regular)).unwrap();
+    rt.evict(Instant::now() + Duration::from_secs(60)).unwrap();
+    rt.reclaim();
+    let baseline = rig.arena.budget().live;
+    let done = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            let tokio = tokio::runtime::Builder::new_current_thread().build().unwrap();
+            for round in 0..ROUNDS {
+                let base = round % 40;
+                tokio
+                    .block_on(rt.ensure(set(base..base + 10), Access::Regular))
+                    .unwrap();
+                rt.evict(Instant::now() + Duration::from_secs(60)).unwrap();
+            }
+            done.store(true, std::sync::atomic::Ordering::Release);
+        });
+        s.spawn(|| {
+            while !done.load(std::sync::atomic::Ordering::Acquire) {
+                rt.complete_slot(&rt.swap().snapshot(), &[], &[], &NoSource).unwrap();
+            }
+        });
+    });
+    rt.evict(Instant::now() + Duration::from_secs(60)).unwrap();
+    rt.reclaim();
+    let budget = rig.arena.budget();
+    assert_eq!(rt.manager().segment_count(), 0);
+    assert_eq!(rt.swap().current().segments().len(), 0);
+    assert_eq!((budget.live, budget.retired), (baseline, 0));
+}
