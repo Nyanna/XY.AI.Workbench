@@ -79,3 +79,28 @@ Geprüft mit rustc 1.99.0 (Testprogramm, `-O`).
 - `precision`-Skala-Semantik (0=fast, 1=precision) in Typ-Doku dokumentiert.
 - Lazy-`NoActiveProfile`-Pfad vorbereitet (Markierung des gesperrten Modells an der Subengine).
 - Pflicht-Tests grün.
+
+## Result
+
+F4 ist umgesetzt, und die 9 neuen Tests laufen durch. Den `cuda`-Build habe ich nicht geprüft. Das Modul ist rein rechnerisch, ohne GPU-Code, dort sollte es keine Probleme geben.
+
+**Was neu ist**
+- **`precision/matching.rs`:**
+  - `match_profile(precision, &[Profile])` prüft zuerst auf `NaN` und gibt dann `InvalidPrecision` zurück. Danach klemmt es auf `[0,1]`, rechnet die Distanz in f64 und nimmt das nächste Profil. Bei gleicher Distanz gewinnt das genauere (höheres `position`). Eine leere Menge ergibt `NoActiveProfile`.
+  - `ProfileSelector` ist die Lazy-Sperre. Der erste Task für ein Modell ohne aktives Profil bekommt `NoActiveProfile`, und das Modell wird markiert. Folgetasks scheitern sofort, ohne erneute Suche. Mit `unblock` lässt sich die Sperre aufheben, etwa nach einer Rekalibrierung. `NaN` sperrt das Modell nicht.
+  - Das gewählte Profil wird pro Task auf `debug` geloggt.
+- **`precision/test/matching.rs`:** Die Tests decken diese Fälle ab:
+  - Klemmen, auch bei ±∞
+  - `NaN` vor Klemmen, auch bei leerer Menge
+  - Tie-Break unabhängig von der Eingabereihenfolge
+  - nächstes Profil und Einzelprofil
+  - leere Menge
+  - f64-Distanz
+  - Sperre und Entsperren
+- **`precision/mod.rs`:** Das Modul ist registriert, `match_profile` und `ProfileSelector` sind exportiert.
+
+**Abweichungen vom Plan**
+- `NoActiveProfile` bleibt eine Unit-Variante, ohne `model_id`, weil sie so bereits im Code und in `test/error.rs` verwendet wird. Deshalb hat `match_profile` auch keinen `model_id`-Parameter. Die Modell-ID steckt im `ProfileSelector` und im Log.
+- Die Skala-Doku (0 = fast, 1 = precision) stand schon an `Profile::position`. Ich habe sie nicht verändert.
+
+Das Durchreichen von `TaskParams.precision` durch Fassade und Subengine-Pull habe ich nicht angefasst. Die Fassade prüft `NaN` bereits selbst.

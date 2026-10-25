@@ -17,6 +17,7 @@ mod pareto;
 mod probe;
 mod probe_cpu;
 mod probe_cuda;
+mod matching;
 mod profile;
 pub use axis::{AxisId, ValueId};
 pub use calibrate::{
@@ -49,4 +50,5 @@ pub use probe::{
 pub use probe::FakeCapabilityProbe;
 pub use probe_cpu::{CpuFeatureSource, CpuFeatures, CpuProbe, FixedCpu, HostCpu};
 pub use probe_cuda::{cuda_capabilities, has_tensor_cores, CudaProbe};
+pub use matching::{match_profile, ProfileSelector};
 pub use profile::{derive_profiles, Profile, ProfileConfig, ProfilingConfig};
