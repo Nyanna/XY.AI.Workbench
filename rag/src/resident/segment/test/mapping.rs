@@ -32,9 +32,29 @@ fn bind_unbind_and_bounds() {
     map.unbind(1).unwrap();
     assert_eq!(map.entry(1), None);
     assert!(
-        matches!(map.bind(2, eref(1)), Err(SegmentError::SlotOutOfRange { slot : 2,
-        slots : 2 }))
+        matches!(map.bind(2, eref(1)), Err(SegmentError::SlotOutOfRange { slot : 2, slots
+        : 2 }))
     );
+}
+#[test]
+fn many_vectors_of_one_entry_resolve_to_the_same_entry() {
+    let map = SlotMap::fixed(0, 8, 4);
+    let doc = EntryId::new(5);
+    for chunk in 0..3 {
+        map.bind(chunk, EntryRef { entry: doc, chunk }).unwrap();
+    }
+    map.bind(3, eref(9)).unwrap();
+    let hits = [(0u32, 0.2f32), (2, 0.9), (1, 0.4), (3, 0.5)];
+    let mut best: std::collections::HashMap<EntryId, f32> = std::collections::HashMap::new();
+    for (slot, score) in hits {
+        let r = map.entry(slot).unwrap();
+        let e = best.entry(r.entry).or_insert(f32::NEG_INFINITY);
+        *e = e.max(score);
+    }
+    assert_eq!(best.len(), 2);
+    assert_eq!(best[& doc], 0.9);
+    assert_eq!(map.entry(2), Some(EntryRef { entry : doc, chunk : 2 }));
+    assert_eq!(best[& EntryId::new(9)], 0.5);
 }
 fn committed(seg: &std::sync::Arc<Segment>, entry: u64) -> u32 {
     let done = crate::resident::segment::mock::ManualFence::new();
@@ -65,8 +85,7 @@ fn resolve_reports_stale_generation() {
     );
     let empty = SegmentHit { slot: 1, ..hit };
     assert!(
-        matches!(m.resolve(& empty), Err(SegmentError::MappingMissing { slot : 1, ..
-        }))
+        matches!(m.resolve(& empty), Err(SegmentError::MappingMissing { slot : 1, .. }))
     );
 }
 #[test]
@@ -76,13 +95,7 @@ fn hits_from_unloaded_segments_are_remapped_or_discarded() {
     let kept = committed(&old_seg, 5);
     let gone = committed(&old_seg, 6);
     let old = Manifest::new(1, vec![old_seg]);
-    let new_seg = crate::resident::segment::testutil::segment(
-        &store,
-        1,
-        11,
-        1 << 16,
-        4,
-    );
+    let new_seg = crate::resident::segment::testutil::segment(&store, 1, 11, 1 << 16, 4);
     let moved = committed(&new_seg, 5);
     let new = Manifest::new(2, vec![new_seg]);
     let hit = |slot| SegmentHit {

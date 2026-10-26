@@ -190,6 +190,56 @@ fn register_requires_configured_model() {
         .register(ModelId("e5-small".into()), TaskKind::Embedding, Box::new(Fixed))
         .unwrap();
 }
+struct WindowProbe {
+    _window: u32,
+    _stride: u32,
+}
+struct WindowAware;
+impl PlanExpander for WindowAware {
+    fn expand(
+        &self,
+        task: &TaskSpec<'_>,
+        ctx: &ExpandContext<'_>,
+    ) -> Result<Vec<PlannedOp>, PlannerError> {
+        let mut ops = super::expand::EmbeddingExpander.expand(task, ctx)?;
+        if let TaskSpec::Embedding(p) = task {
+            if p.ext().get::<WindowProbe>().is_some() {
+                ops.retain(|o| o.desc.kind() != OpKind::L2Norm);
+            }
+        }
+        Ok(ops)
+    }
+}
+#[test]
+fn params_extension_selects_an_alternative_expansion() {
+    let mut rules = RuleSet::from_toml(TOML).unwrap();
+    rules
+        .register(ModelId("e5-small".into()), TaskKind::Embedding, Box::new(WindowAware))
+        .unwrap();
+    let planner = Planner::new(rules);
+    let plain = EmbeddingParams::new(TextRole::Passage)
+        .write_index(IndexId("idx".into()));
+    let windowed = plain
+        .clone()
+        .with_ext(WindowProbe {
+            _window: 510,
+            _stride: 255,
+        });
+    let plain_ops = planner
+        .expand(&TaskSpec::Embedding(&plain), none(), &gpu_only_models())
+        .unwrap();
+    let windowed_ops = planner
+        .expand(&TaskSpec::Embedding(&windowed), none(), &gpu_only_models())
+        .unwrap();
+    assert_eq!(
+        kinds(& plain_ops), [OpKind::Tokenize, OpKind::Embed, OpKind::Pool,
+        OpKind::L2Norm, OpKind::WriteIndex]
+    );
+    assert_eq!(
+        kinds(& windowed_ops), [OpKind::Tokenize, OpKind::Embed, OpKind::Pool,
+        OpKind::WriteIndex]
+    );
+}
 struct Fixed;
 impl PlanExpander for Fixed {
     fn expand(
