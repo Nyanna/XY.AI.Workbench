@@ -1,6 +1,6 @@
 # Plan 01 — Entscheidungsregister
 
-Alle Entscheidungen, die den Zuschnitt des Layers festlegen. Jede trägt eine Empfehlung mit Begründung aus dem Befundbericht (`plan_01_01_evidence.md`, IDs `E*`/`K*`/`W*`). Der Status ist durchgehend **Vorschlag**; L0.2 (Stufe 0) holt die Bestätigung des Auftraggebers ein. Blockierend heißt: die genannte Stufe darf ohne Bestätigung nicht beginnen.
+Alle Entscheidungen, die den Zuschnitt des Layers festlegen. Jede trägt eine Empfehlung mit Begründung aus dem Befundbericht (`plan_01_01_evidence.md`, IDs `E*`/`K*`/`W*`). Der Status ist durchgehend **Vorschlag**; L0.2 (Stufe 0) holt die Bestätigung des Auftraggebers ein.
 
 ## Übersicht
 

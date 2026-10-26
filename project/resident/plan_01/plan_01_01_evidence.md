@@ -2,8 +2,6 @@
 
 Belegte Ausgangslage für die Anbindung der Resident-Engine als Layer. Jede Zeile nennt Befund, Beleg (Pfad und Symbol relativ zu `/home/user/xyan/xy.ai.workbench/`) und die Folge für den Plan. Legende: **[V]** live im Quelltext/Dokument verifiziert · **[W]** Domänenwissen oder Schätzung · **[?]** offen (Klärung in Stufe 0, Paket L0.1).
 
-Stand der Analyse: 2026-10-26. Die Analyse arbeitete auf dem Arbeitsbaum zum Zeitpunkt des Laufs; lokale, nicht eingecheckte Änderungen sind nicht auszuschließen (Prüfung in L0.1).
-
 ## A. Layer-Vertrag und Engine-Kern
 
 | ID | Tag | Befund | Beleg | Folge |
@@ -110,13 +108,3 @@ Stand der Analyse: 2026-10-26. Die Analyse arbeitete auf dem Arbeitsbaum zum Zei
 | K4 | V | `Resident::shutdown(self)` ist ein `drop`; `Drop` joint die Worker blockierend | `facade/resident.rs` | nie auf dem Async-Thread droppen, wenn Tasks laufen |
 | K5 | V | `IndexOptions::default().verify == true` dekodiert und prüft beim Öffnen die ganze Datei | `index/parquet_io.rs` | im Query-Pfad `verify=false` (D6) |
 | K6 | V | Die Metaplanung verweist auf `resident_precision_calibration.md`, die reale Datei heißt `resident_precision.md` | `project/resident/resident_planplan.md` (Vorspann) | nur Hinweis |
-
-## J. Schätzwerte (nicht verifiziert)
-
-| ID | Tag | Schätzung | Herleitung | Prüfung |
-|---|---|---|---|---|
-| W1 | W | Modell-Kaltstart (Tokenizer plus Gewichte) CPU: 0,5 bis 3 s | `tokenizer.json` der XLM-R-Familie ist groß (zweistellige MB), Gewichte f32 etwa 0,47 GB | M1 in L0.3 |
-| W2 | W | Embedding-Aufwand: etwa 12 GFLOP je 256-Token-Chunk, damit größenordnungsmäßig 5 bis 15 Chunks/s auf vier Kernen; für 5 MB Quelltext Größenordnung 10 Minuten | 12 Schichten, Hidden 384, rund 21 M Nicht-Embedding-Parameter | M2 in L0.3 |
-| W3 | W | 100k Chunks: Vektoren f16 etwa 77 MB, Parquet gesamt etwa 100 MB; Brute-Force-Cosine etwa 38 M MAC, 10 bis 40 ms | 100k mal 384 mal 2 Byte | M4 in L0.3 |
-| W4 | W | `ParquetIndex::flush` kostet O(N): bei 100k Zeilen im Sekundenbereich | volle Neuschreibung (E36) | M4 in L0.3 |
-| W5 | W | Token-Dichte Code etwa 0,3 bis 0,4 Token je Zeichen; 1400 Zeichen bleiben unter 512 Token | XLM-R-Subwords | M3 in L0.3 |

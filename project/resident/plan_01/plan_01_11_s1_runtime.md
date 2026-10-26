@@ -2,8 +2,6 @@
 
 Stufe 1 schließt die Lücken des Befundberichts (E26 bis E30 sowie E49 bis E51): Sie baut aus den vorhandenen Bausteinen ein lauffähiges CPU-`Resident` im neuen Engine-Modul `rag/src/resident/runtime/`. Ergebnis ist `ResidentRuntime::start(config)`; das gelieferte `Resident` beantwortet `submit_embedding` und `submit_similarity` auf einem registrierten Index korrekt. Die Stufe ist Engine-Arbeit (Substrat im Sinn der Scope-Charta) und berührt den Layer nicht; sie läuft parallel zu S2 bis S4. Aufwand [W]: 6 bis 9 Personentage; kritischer Pfad des Gesamtplans.
 
-**Bedingt:** Ergeben R1 und R2 in L0.1, dass lokal bereits ein produktiver Engine-Zweig existiert, entfallen L1.3 bis L1.6 oder schrumpfen zur Prüfung; L1.7 bleibt in jedem Fall.
-
 ## Eingang
 
 Gate G0 bestanden; D12 bestätigt; R1 bis R4 ausgewertet. Modell `rag/model/multilingual-e5-small` installiert (sonst Modelltests als `ignored`, siehe L1.7).

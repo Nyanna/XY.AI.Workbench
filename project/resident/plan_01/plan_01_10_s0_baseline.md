@@ -13,25 +13,19 @@ Keine fachliche Voraussetzung. Benötigt werden eine Rust-Toolchain, Zugriff auf
 **Zweck:** Bestätigen, dass die Befunde des Berichts im aktuellen Arbeitsbaum gelten; Abweichungen den betroffenen Paketen zuordnen.  
 **Quellen:** `plan_01_01_evidence.md` (E1 bis E48, K1 bis K6), `git`, `cargo`, Konzeptdokumente `resident*.md`.  
 **Abhängt von:** —  
-**Zu klären:** Gibt es lokale Änderungen an `rag/src/resident/**`, insbesondere einen produktiven `Engine`-Zweig? Welche Toolchain-Version liegt vor (`File::try_lock`, D16)? Wo liegt `scripts/check_cfg_scatter.sh` (E44)? Sind die Konzeptdokumente (`resident_subengine.md`, `resident_processor.md`, `resident_precision.md` als aktuellste laut Metaplan-Vorspann) verfügbar, um Code und Konzept abzugleichen?  
+**Zu klären:** Welche Toolchain-Version liegt vor (`File::try_lock`, D16)? Wo liegt `scripts/check_cfg_scatter.sh` (E44)? Sind die Konzeptdokumente (`resident_subengine.md`, `resident_processor.md`, `resident_precision.md` als aktuellste laut Metaplan-Vorspann) verfügbar, um Code und Konzept abzugleichen?  
 **Ergebnis:** Tabelle R1 bis R10 mit tatsächlichem Ergebnis (Abschnitt „Ergebnisse“ unten), `[Δ]`-Markierungen im Befundbericht, Liste betroffener Pakete.
 
 #### Aufgaben
 
-- `git status --short` und `git log -5 --oneline` festhalten; ungetrackte Dateien unter `rag/src/resident` und `rag/src/layers` notieren.
 - Toolchain festhalten (`rustc --version`, `cargo --version`); Edition 2021 ist gesetzt (E48).
-- Basis-Build und Basis-Tests je Feature-Kombination ausführen (Befehle unten), Dauer und Ergebnis notieren; rote Tests vor Planbeginn klären.
 - Readiness-Checks R1 bis R10 ausführen und das tatsächliche Ergebnis eintragen.
-- Konzeptdokumente beschaffen und deren Aussagen zu Fassade, Index-Vertrag, Scope und Task-Matching gegen E18 bis E40 abgleichen; Abweichungen als `[Δ]` markieren und dem Paket zuordnen.
 - Ort von `scripts/check_cfg_scatter.sh` ermitteln und den Aufruf festhalten.
 
 #### Befehle
 
 ```bash
-cd /home/user/xyan/xy.ai.workbench
-git status --short
-git log -5 --oneline
-cd rag
+cd /home/user/xyan/xy.ai.workbench/rag
 rustc --version && cargo --version
 cargo build
 cargo test
@@ -39,14 +33,6 @@ cargo test --features mock
 cargo test --features candle
 cargo test --test api_hygiene
 cargo test --test trigram_e2e
-grep -rn "impl.*Engine for" src --include=*.rs
-grep -rn "Resident::builder()" src --include=*.rs
-grep -rn "IndexId" src/resident/processor src/resident/subengine src/resident/planner --include=*.rs
-grep -rn "EncodeMode" src/resident --include=*.rs
-grep -rn "shared_index\.\(upsert\|mark_deleted\)" src --include=*.rs
-grep -rn "\"resident\"" src/layers src/core src/bin --include=*.rs
-ls model/multilingual-e5-small/model.safetensors
-ls src/layers
 ```
 
 #### Readiness-Checks
@@ -195,34 +181,6 @@ ls src/layers
 
 - Jedes Budget nennt Messmethode und Quelle.
 - Die Parameter in `plan_01_02_decisions.md` (D4 Chunkgrößen, D6 Flush, D9 Auto-Budget) sind mit den Messwerten abgeglichen oder bewusst beibehalten.
-
-## Ergebnisse (auszufüllen)
-
-### Ergebnisse R1 bis R10
-
-| ID | Ergebnis | Datum | Konsequenz |
-|---|---|---|---|
-| R1 | offen | | |
-| R2 | offen | | |
-| R3 | offen | | |
-| R4 | offen | | |
-| R5 | offen | | |
-| R6 | offen | | |
-| R7 | offen | | |
-| R8 | offen | | |
-| R9 | offen | | |
-| R10 | offen | | |
-
-### Messwerte M1 bis M6
-
-| ID | Wert | Maschine | Datum |
-|---|---|---|---|
-| M1 | offen | | |
-| M2 | offen | | |
-| M3 | offen | | |
-| M4 | offen | | |
-| M5 | offen | | |
-| M6 | offen | | |
 
 ## Gate G0
 

@@ -1,0 +1,1 @@
+Prüfe ob sich die Planung in `/home/user/xyan/xy.ai.workbench/project/resident/plan_01` allein auf die CPU Subengine bezieht oder auch die GPU Subengine.

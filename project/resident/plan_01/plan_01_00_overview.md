@@ -4,65 +4,21 @@ Mehrstufiger Umsetzungsplan zur Anbindung der Resident-Engine (`rag/src/resident
 
 Dieses Dokument ist der Einstieg: Ziel, Leitplanken, Stufen, Gates, Paketverzeichnis, Risiken, Fortschritt. Belege stehen in `plan_01_01_evidence.md`, Entscheidungen in `plan_01_02_decisions.md`, die Umsetzung je Stufe in `plan_01_10_s0_baseline.md` bis `plan_01_17_s7_verification.md`, der Ausblick in `plan_01_99_outlook.md`.
 
-## Lesehinweis
-
-**Belege:** **[V]** im Quelltext oder in der Dokumentation live verifiziert (Pfad und Symbol genannt) · **[W]** Domänenwissen oder Schätzung, nicht verifiziert · **[?]** offen, Klärung in Stufe 0. Die Legende entspricht `rag/docs/architecture/dependency_verification.md`.  
-**IDs:** Stufen `S0` bis `S7` · Pakete `L<Stufe>.<n>` · Entscheidungen `D1` bis `D20` · Leitplanken `LP1` bis `LP13` · Risiken `R1` bis `R14` · Gates `G0` bis `G7` · Befunde `E*`, `K*`, `W*` · Budgets `B1` bis `B12` · Abnahmekriterien `AC1` bis `AC16` · Offene Punkte `O1` bis `O11`.  
-**Paketschema** wie in `project/resident/resident_planplan.md`: `Zweck`, `Quellen`, `Abhängt von`, `Zu klären`, `Ergebnis`. Jedes Paket in den Stufendateien trägt diese fünf Felder in einem Absatz.  
-**Format für Folgeläufe:** Listen und Tabellen stehen bewusst in eigenen Abschnitten ohne Fließtext, damit `ast_read` sie vollständig liefert; Abschnitte, die Fließtext und eine Liste mischen, zeigen die Liste in den AST-Werkzeugen nicht. Beim Ändern dieses Prinzip beibehalten.
-
 ## 1. Auftrag und Ergebnisbild
 
 Die Resident-Engine ist ein warmgehaltenes Substrat für Embedding und Ähnlichkeitssuche (e5-small, Cosine, Parquet-Index). Plan 01 beschreibt, wie sie als eigener Layer `resident` in die Engine `xy-ai-rag` eingebunden wird, mit allem, was dazu gehört: Layer-Code, Index-Pflege, Anfragepfad, Konfiguration, Fehler- und Statusmodell, Tests, CI und Dokumentation. Gemäß Scope-Charta liefert die Engine Embedding, Similarity und das Index-Substrat; der Layer als Suchschicht besitzt Chunking, Anfrageformulierung, Kandidaten-k und Rerank-Politik, Vollständigkeitsaussagen und den Zeitpunkt der Index-Persistenz.
 
 **Ergebnisbild:** Ein neuer Layer `ResidentLayer` (ID `resident`, Stage `Generate`) in `rag/src/layers/resident_layer/`. Er beantwortet natürlichsprachliche Anfragen über Text- und Quelldateien unterhalb der Suchwurzel mit Treffern auf Chunk-Ebene, hält dafür einen persistenten, modellgebundenen Vektorindex unter `.xyrag/layers/resident/` aktuell, spricht die Engine über die Fassade `Resident` an und liefert Ergebnisse im Format der übrigen Layer (`File`, `Lines`) plus einem Objekt `Resident`. Ohne Modell oder Backend degradiert er kontrolliert zu `skipped`, ohne die Anfrage der anderen Layer zu stören.
 
-### Beispiel (schematisch)
-
-```
-xyrag resident="wie wird der Index mit dem Speicher synchronisiert" directory=rag/src maxResults=10
-xyrag resident="..." residentIndex=update      # Index aufbauen oder aktualisieren (explizit, abbrechbar)
-xyrag resident="..." residentIndex=status      # nur Abdeckung und Zustand melden
-```
-
-### Ergebnisform (schematisch, Ausgabeformat des CLI [V], E53)
-
-```yaml
-results:
-  - File: rag/src/resident/manager/streamed.rs
-    Lines:
-      44: 'pub trait IndexManager: Send + Sync {'
-    Resident:
-      Score: 0.8421
-      Rank: 1
-      Chunks:
-        - {Start: 40, End: 63, Score: 0.8421}
-layers:
-  - layer_id: resident
-    stage: generate
-    ran: true
-    skipped: false
-    aborted: false
-    contributions: 7
-    detail: {backend: resident-cpu, index_mode: auto, coverage: {visible: 412, indexed: 398, stale: 3}}
-```
-
 ### Nicht-Ziele
 
 - Keine Retrieval-Logik in der Engine (Charta §4).
-- Keine GPU-Pfade, Ringbuffer, Reranker, Funnel, MaxSim oder ColBERT in v1; die Haken bleiben offen (`plan_01_99_outlook.md`).
 - Kein Daemon- oder Server-Modus, kein Dateiwächter.
 - Keine Änderung an `GrepLayer`, `TrigramLayer`, `GlobLayer`, `MergeLayer` (kein Regressionsrisiko).
 - Kein numerisches Ranking im Core, keine Hybrid-Fusion in v1.
 - Keine Kalibrierung und keine Precision-Profile im Layer (Fassaden-Default).
 
-## 2. Eingangsbasis und Einschränkung
-
-Ausgewertet wurden die Metaplanung `project/resident/resident_planplan.md` (Gruppen A bis H, Querschnitt Q, Abgleich These und Plan, Auswirkungen), die Architekturdokumente `rag/docs/architecture/` (Scope-Charta, Konventionen, Feature-Matrix, Phasenplan, Addons, Abhängigkeitsverifikation, GPU-Speicher), der Layer-Vertrag und Kern (`rag/src/core/*`), die Referenz-Layer samt `DirCache` und `MergeLayer`, das CLI `bin/xyrag.rs` sowie die Resident-Engine im Quelltext (Fassade, Index, Planner, Processor, Op, Modell, Tokenizer, Kernel, Manager, Segment, Subengine, Fehler, Telemetrie, Mock, Backend).
-
-**Einschränkung:** Die Paketdetails der Metaplanung (Zweck, Quellen, Abhängt von, Zu klären, Ergebnis je Paket) liegen im Markdown als Listen und Tabellen unter den Paket-Titeln und waren mit den im Planungslauf verfügbaren AST-Werkzeugen nicht lesbar. Maßgeblich für die Abgrenzung sind deshalb die Scope-Charta (sie reproduziert die Abgleich-Tabelle der Metaplanung) und der Quelltext. Die Konzeptdokumente `resident.md`, `resident_subengine.md`, `resident_processor.md`, `resident_precision.md`, `resident_index.md`, `resident_planner.md`, `resident_first.md` und die These `resident_streaming.md` wurden in diesem Lauf nicht gelesen; Paket L0.1 gleicht sie gegen den Code ab (Risiko R14).
-
-## 3. Zentrale Befunde
+## 2. Zentrale Befunde
 
 | Nr | Befund | Konsequenz für den Plan |
 |---|---|---|
@@ -77,7 +33,7 @@ Ausgewertet wurden die Metaplanung `project/resident/resident_planplan.md` (Grup
 | 9 | Die Erstindexierung ist rechenintensiv (Größenordnung Minuten pro MB Quelltext auf der CPU, W2) | Indexierung als budgetiertes, wiederaufnehmbares Wartungsverfahren; `auto` nur klein (D9) |
 | 10 | Der globale Include/Exclude-Filter wirkt nur über `DirCache` (E16, E17) | bedarfsgetriebene Abdeckung, Scope gleich Katalog geschnitten mit sichtbaren Dateien (D8) |
 
-## 4. Leitplanken
+## 3. Leitplanken
 
 | ID | Leitplanke | Quelle |
 |---|---|---|
@@ -95,31 +51,7 @@ Ausgewertet wurden die Metaplanung `project/resident/resident_planplan.md` (Grup
 | LP12 | Der Index ist modellgebunden (`SchemaHeader`: Modell, Revision, Tokenizer-SHA, Präfixe, Pooling, Normalisierung, Dtype, `max_seq_len`); Abweichung führt zu kontrolliertem Neuaufbau | `index/schema.rs` (E38) |
 | LP13 | Phase 1 ist dichtes e5-small mit Cosine auf der CPU; GPU, Ringbuffer, Rerank, Funnel sind Ausblick und werden nicht verbaut | Charta §5, §6; Phasenplan |
 
-## 5. Architektur
-
-```
-xyrag (CLI)  -->  Engine::run_query  -->  ResidentLayer  (applies: Feld "resident")
-                                            |
-                       +--------------------+--------------------------------------------+
-                       |  LayerState (lazy, OnceCell)                                    |
-                       |  Config  Catalog  Chunker  IndexStore(ParquetIndex)  Indexer    |
-                       |  SemanticBackend (Trait)                                        |
-                       +--------+------------------------------------------+-----------+
-                                | Produktion                                | Tests
-                                v                                           v
-                        ResidentBackend  (Adapter)                    FakeBackend (mock)
-                                |
-                                v   Resident::submit_embedding / submit_similarity
-                        ResidentRuntime  (Stufe 1)
-                                |
-                  Processor / Hub  --  CpuEngine  --  Tokenizer, Encoder (candle), Scorer (Cosine)
-                                |
-                          IndexDirectory  -->  ParquetIndex  (geteilt mit dem Layer)
-```
-
-Indexierung: sichtbare Dateien, Katalog-Plan, Chunking, Embedding (Rolle Passage), `ParquetIndex::upsert`, Flush, Katalog-Commit. Anfrage: Query-Embedding (Rolle Query), Similarity mit Scope, Abbildung der Payloads auf Dateien und Zeilen, `ResultEntry`. Details in den Stufen S3 und S4.
-
-## 6. Stufenplan
+## 4. Stufenplan
 
 | Stufe | Titel | Inhalt | Pakete | Gate | Aufwand [W] | Abhängt von |
 |---|---|---|---|---|---|---|
@@ -132,19 +64,7 @@ Indexierung: sichtbare Dateien, Katalog-Plan, Chunking, Embedding (Rolle Passage
 | S6 | Härtung | Degradation, Limits, Migration, Telemetrie, Sicherheit, Performance | L6.1 bis L6.6 | G6 | 4 PT | S5 |
 | S7 | Verifikation | Testmatrix, CI, Abnahmekriterien, Definition of Done | L7.1 bis L7.4 | G7 | 3 PT | S6 |
 
-Summe etwa 29 bis 32 Personentage [W]; der Hauptunsicherheitsfaktor ist S1 (R1).
-
-### Reihenfolge und Parallelisierung
-
-```
-S0 --+--> S1 -----------------------------+
-     |                                      v
-     +--> S2 --> S3 --> S4 --> (G4) --> IP1 (in S5, benötigt G1 und G4) --> S5 --> S6 --> S7
-```
-
-S1 und der Strang S2 bis S4 sind unabhängig, weil der Layer nur die Backend-Naht kennt (D3). Meilensteine: **M-A** Layer funktioniert gegen den Fake (G4, nach etwa 14 PT), **M-B** Echtbetrieb mit Modell (G5 mit IP1), **M-C** betriebsreif (G6), **M-D** abgenommen (G7).
-
-## 7. Gates
+## 5. Gates
 
 | Gate | Kriterien |
 |---|---|
@@ -157,7 +77,7 @@ S1 und der Strang S2 bis S4 sind unabhängig, weil der Layer nur die Backend-Nah
 | G6 | Degradationsmatrix 13 von 13 getestet; Limits wirksam; Versionierung getestet; Telemetrie und Status vorhanden; Sicherheitstests grün; Benchmarks innerhalb der Budgets |
 | G7 | AC1 bis AC16 erfüllt oder mit bestätigter Abweichung; Testmatrix und CI-Matrix vollständig, dreifacher Lauf ohne flackernde Tests; Definition of Done abgehakt |
 
-## 8. Paketverzeichnis
+## 6. Paketverzeichnis
 
 Das vollständige Paketschema (Zweck, Quellen, Abhängt von, Zu klären, Ergebnis) steht je Paket in der genannten Stufendatei.
 
@@ -248,7 +168,7 @@ Das vollständige Paketschema (Zweck, Quellen, Abhängt von, Zu klären, Ergebni
 | L7.3 | Abnahmekriterien | L7.1, L7.2 | AC1 bis AC16 |
 | L7.4 | Definition of Done und Übergabe | L7.3 | Checkliste, Übergabevermerk |
 
-## 9. Rückverfolgbarkeit zur Metaplanung
+## 7. Rückverfolgbarkeit zur Metaplanung
 
 | Metaplan | Bezug | Plan-01-Pakete |
 |---|---|---|
@@ -277,7 +197,7 @@ Das vollständige Paketschema (Zweck, Quellen, Abhängt von, Zu klären, Ergebni
 | G3 Similarity und Scorer-Konfiguration | Cosine, Top-k | L1.5, L4.3 |
 | H1 bis H4 Ausblick | Ringbuffer, gleitende Indizierung, Funnel und Reranker, Graph-Capture | `plan_01_99_outlook.md` |
 
-## 10. Risiken
+## 8. Risiken
 
 | ID | Risiko | Wahrscheinlichkeit | Auswirkung | Gegenmaßnahme | Paket |
 |---|---|---|---|---|---|
@@ -296,7 +216,7 @@ Das vollständige Paketschema (Zweck, Quellen, Abhängt von, Zu klären, Ergebni
 | R13 | Verstöße gegen Konventionen (`cfg`-Streuung, API-Hygiene) | niedrig | mittel | Prüfungen in der CI, D17 | L7.2 |
 | R14 | Dokumentationsdrift: Metaplan-Paketdetails und `resident_*.md` nicht gelesen | mittel | mittel | Abgleich in L0.1, Annahmen als [?] markiert, Charta als Anker | L0.1 |
 
-## 11. Offene Punkte
+## 9. Offene Punkte
 
 - O1 — Einheit von `Payload.char_start` und `char_end` (E37); Empfehlung Unicode-Skalarwerte, in L3.2 per Test festschreiben.
 - O2 — geklärt: `ParquetIndex::capabilities()` ist `[Range]`, `Scope::Set` und `Scope::All` werden direkt aufgelöst (E40).
@@ -310,21 +230,3 @@ Das vollständige Paketschema (Zweck, Quellen, Abhängt von, Zu klären, Ergebni
 - O10 — geklärt (E53): `layers[]` mit `layer_id`, `stage`, `ran`, `skipped`, `aborted`, `contributions`, `detail`; `Lines`-Schlüssel als sortierte ganze Zahlen.
 - O11 — Bestehende CI-Jobs in `.github/workflows/rag.yml` und Bezug von Modellgewichten in der CI; in L0.1 und L7.2.
 
-## 12. Fortschritt
-
-Diese Tabelle wird von jedem Folgelauf aktualisiert (Status: offen, in Arbeit, bestanden, abgewichen).
-
-| Stufe | Status | Gate | Datum | Notiz |
-|---|---|---|---|---|
-| S0 | offen | G0 | | |
-| S1 | offen | G1 | | |
-| S2 | offen | G2 | | |
-| S3 | offen | G3 | | |
-| S4 | offen | G4 | | |
-| S5 | offen | G5 | | |
-| S6 | offen | G6 | | |
-| S7 | offen | G7 | | |
-
-## 13. Arbeitsweise für Folgeläufe
-
-Ein Lauf bearbeitet genau eine Stufe in der Reihenfolge der Abhängigkeiten (S1 und der Strang S2 bis S4 dürfen parallel laufen). Er liest `plan_01_00_overview.md`, die Stufendatei und die dort genannten Quellen, setzt die Pakete der Stufe in der angegebenen Reihenfolge um, führt die genannten Checks aus und trägt das Ergebnis in die Fortschrittstabelle ein. Abweichungen vom Plan werden nicht stillschweigend eingebaut: Sie erscheinen als `[Δ]` im Befundbericht oder als geänderte Entscheidung im Register, mit Begründung. Code und Kommentare sind englisch, Kommentare nur dort, wo das Warum nicht aus dem Code hervorgeht; Plantexte bleiben deutsch.
