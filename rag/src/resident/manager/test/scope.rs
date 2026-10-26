@@ -87,6 +87,27 @@ fn declared_without_resolver_is_unsupported() {
     assert!(is_unsupported(r));
 }
 #[test]
+fn centroid_scope_on_index_without_capability_is_unsupported() {
+    let index = FakeIndex::new(&[AccessMethod::Range]);
+    let reg = ResolverRegistry::with_defaults();
+    let scope = Scope::Centroid {
+        k: 4,
+        radius: None,
+    };
+    assert!(is_unsupported(reg.resolve(& index, & scope, & ResolveCtx::default())));
+}
+#[test]
+fn centroid_scope_without_registered_resolver_is_unsupported() {
+    let index = FakeIndex::new(&[AccessMethod::Centroid]);
+    let mut reg = ResolverRegistry::new();
+    reg.register(Arc::new(RangeResolver)).unwrap();
+    let scope = Scope::Centroid {
+        k: 4,
+        radius: Some(0.5),
+    };
+    assert!(is_unsupported(reg.resolve(& index, & scope, & ResolveCtx::default())));
+}
+#[test]
 fn duplicate_registration_is_rejected() {
     let mut reg = ResolverRegistry::new();
     reg.register(Arc::new(RangeResolver)).unwrap();
