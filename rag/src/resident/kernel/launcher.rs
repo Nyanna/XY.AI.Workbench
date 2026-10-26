@@ -22,7 +22,12 @@ pub struct LaunchKey {
     pub shape_bucket: u32,
     pub regions: Vec<Region>,
     pub dtype: DType,
+    pub variant: &'static str,
     pub lane: LaneClass,
+}
+/// Quantises a raw extent to the next power of two so that replayable launch instances stay few.
+pub fn shape_bucket(extent: u32) -> u32 {
+    extent.max(1).checked_next_power_of_two().unwrap_or(1 << 31)
 }
 pub trait Launcher: Send + Sync {
     fn mode(&self) -> LaunchMode;
@@ -32,6 +37,15 @@ pub trait Launcher: Send + Sync {
         lane: &dyn ExecContext,
         job: LaneJob,
     ) -> Result<(), KernelError>;
+    /// Runs before the first productive launch of `key`; the first launch must not be assumed
+    /// productive, so capturing launchers can record allocations and lazy driver work here.
+    fn warm_up(
+        &self,
+        _key: &LaunchKey,
+        _lane: &dyn ExecContext,
+    ) -> Result<(), KernelError> {
+        Ok(())
+    }
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DirectLauncher;
