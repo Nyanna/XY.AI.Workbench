@@ -62,6 +62,23 @@ def _find_in_file(path: str, *, exact: dict[str, Any], lineno: int | None, end_l
     if not candidates and exact.get('id') and (not any((v for k, v in exact.items() if k != 'id'))):
         fallback = core.resolve_by_prefix(core.locate_all(tree), exact['id'])
         candidates = [fallback] if fallback is not None else []
+    if not candidates and lineno is None and (end_lineno is None) and (pattern is None):
+        word = exact.get('node_type')
+        if word and len(word) >= 3 and re.fullmatch('\\w+', word):
+            rest = {k: v for k, v in exact.items() if k != 'node_type'}
+            pool = core.find(tree, **rest) if any(rest.values()) else core.locate_all(tree)
+            word_pattern = re.compile(f'\\b{re.escape(word)}\\b', re.IGNORECASE)
+            hits: list[core.Located] = []
+            hit_ids: set[str] = set()
+            for m in word_pattern.finditer(tree.source):
+                first = tree.source.count('\n', 0, m.start()) + 1
+                last = tree.source.count('\n', 0, max(m.end() - 1, m.start())) + 1
+                loc = core.most_specific(pool, first, last)
+                if loc is not None and loc.node_id not in hit_ids:
+                    hit_ids.add(loc.node_id)
+                    hits.append(loc)
+            nodes = core.build_outline(hits, with_code=True, with_lines=with_lines, with_type=True)
+            return FileNodesResult(path=path, nodes=nodes)
     if lineno is not None or end_lineno is not None:
         start = lineno if lineno is not None else end_lineno
         end = end_lineno if end_lineno is not None else lineno
@@ -106,7 +123,10 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
         id: Engine-independent unique node id (primarily name-based path).
         name: Exact simple name a node's ``name`` must equal.
         node_type: Regular expression (case-insensitive, ``re.search``) a
-            node's type name must match.
+            node's type name must match. If a file yields no match and the
+            value is a single word of at least 3 characters (e.g. ``Use``,
+            ``import``), a second pass searches the file for that whole word
+            (case-insensitive) and returns the most specific enclosing nodes.
         lineno: Line the target node must contain; selects the most specific
             (smallest) matching node. Combined with ``end_lineno``, selects the
             most specific node fully covering ``[lineno, end_lineno]``; if none
