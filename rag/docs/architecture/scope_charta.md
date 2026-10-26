@@ -92,6 +92,20 @@ The goal (residency, no per-request setup overhead) is identical to the thesis; 
 Phase 1 is deliberately different. **This is a documented implementation decision, not an
 inconsistency** — it must not be read as a 1:1 implementation of thesis §3.
 
+### 5.1 Divergence: Signal/Frequency Compression (§6/§6.1, H5)
+
+**Thesis §6/§6.1** sketches frequency/signal compression (DCT/FFT, wavelet, "semantic
+spectrogram") as a compression/quality layer.
+
+**Decision:** signal/frequency compression is a search-layer prefilter, not engine. The engine
+only provides generic hooks: `AccessMethod` and `Scope` are `#[non_exhaustive]`,
+`Index::summary(kind)` returns arbitrary summary structures, and the `ResolverRegistry` accepts
+additional `ScopeResolver`s (unsupported combinations fail loudly with `UnsupportedScope`). A
+candidate set from a prefilter is already expressible as `Scope::Set`/`Scope::Range`. Recall
+loss of approximate prefilters belongs to the search layer. No FFT/DCT/wavelet, quantization or
+prefilter code lives in the engine.
+
+
 ## 6. Hook Obligations (Phase 1 must not foreclose)
 
 Phase 1 implementation must keep the following extension points open, each tied to a later

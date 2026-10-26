@@ -53,6 +53,7 @@ pub enum AccessMethod {
     Range,
 }
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Scope {
     All,
     Range(Range<u64>),
