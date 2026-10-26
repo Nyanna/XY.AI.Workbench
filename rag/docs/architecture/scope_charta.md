@@ -106,6 +106,28 @@ loss of approximate prefilters belongs to the search layer. No FFT/DCT/wavelet, 
 prefilter code lives in the engine.
 
 
+### 5.2 Divergence: Mutable Weights / Online Bandit (§9/§9.1, H6)
+
+**Decision:** Weights are immutable; only the index is bidirectionally mutable. Bandit-based
+meta-routing and online adaptation are deliberately not addressed and not an engine workstream.
+
+**Rationale:** The weights arena is long-lived and freed only on unload. Online weight updates
+risk catastrophic forgetting, reward hacking, feedback loops and non-reproducibility; they are
+viable only for small parts (router, score weights), never the base model.
+
+**Kept open (not built):**
+- Weights stay a reloadable resource (`Unloaded -> Loading -> Resident`, `Region.gen`
+  invalidation), so a later versioned snapshot swap remains possible.
+- Task params stay extensible (`with_ext`, builders), so context/action/propensity log fields
+  can be added without a breaking change.
+- A meta-router fits the addon path: it enqueues follow-up tasks with differing params through
+  the normal queue.
+
+**Out of scope:** bandit, reward queue, mutable weights arena, online learning, propensity
+logging. If pursued, this is a separate workstream with its own learner process and versioned
+atomic swap.
+
+
 ## 6. Hook Obligations (Phase 1 must not foreclose)
 
 Phase 1 implementation must keep the following extension points open, each tied to a later
