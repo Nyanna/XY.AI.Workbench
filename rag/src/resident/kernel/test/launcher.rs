@@ -41,9 +41,37 @@ fn direct_runs_job_on_lane() {
 #[test]
 fn capture_is_unavailable_until_enabled() {
     assert!(
-        matches!(launcher_for(LaunchMode::Capture), Err(KernelError::Unavailable { ..
+        matches!(launcher_for(LaunchMode::Capture), Err(KernelError::Unavailable { .. }))
+    );
+}
+#[test]
+fn persistent_is_unavailable_until_enabled() {
+    assert!(
+        matches!(launcher_for(LaunchMode::Persistent), Err(KernelError::Unavailable { ..
         }))
     );
+}
+#[test]
+fn persistent_launcher_plugs_in_behind_the_trait() {
+    struct RingLauncher(AtomicBool);
+    impl Launcher for RingLauncher {
+        fn mode(&self) -> LaunchMode {
+            LaunchMode::Persistent
+        }
+        fn launch(
+            &self,
+            _key: &LaunchKey,
+            lane: &dyn ExecContext,
+            job: LaneJob,
+        ) -> Result<(), KernelError> {
+            self.0.store(true, Ordering::SeqCst);
+            lane.submit(job).map_err(KernelError::from)
+        }
+    }
+    let lane = RecordingLane::new(LaneClass::Query, LaneConfig::new(region(0)));
+    let launcher: Arc<dyn Launcher> = Arc::new(RingLauncher(AtomicBool::new(false)));
+    launcher.launch(&key(0), &lane, Box::new(|| Ok(()))).unwrap();
+    assert_eq!(launcher.mode(), LaunchMode::Persistent);
 }
 #[test]
 fn generation_change_changes_key() {

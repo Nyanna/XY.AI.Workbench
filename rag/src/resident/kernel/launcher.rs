@@ -6,10 +6,13 @@ use std::sync::Arc;
 use super::KernelError;
 use crate::resident::memory::{DType, Region};
 use crate::resident::subengine::{ExecContext, LaneClass, LaneJob};
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LaunchMode {
     Direct,
     Capture,
+    /// Resident kernel fed through a host-mapped ring.
+    Persistent,
 }
 /// Identity of a launch. Regions carry their generation, so a generation change yields a new key
 /// and stale captured graphs are never replayed.
@@ -56,6 +59,11 @@ pub fn launcher_for(mode: LaunchMode) -> Result<Arc<dyn Launcher>, KernelError> 
         LaunchMode::Capture => {
             Err(KernelError::Unavailable {
                 reason: "graph capture is not enabled".into(),
+            })
+        }
+        LaunchMode::Persistent => {
+            Err(KernelError::Unavailable {
+                reason: "persistent kernel mode is not enabled".into(),
             })
         }
     }
