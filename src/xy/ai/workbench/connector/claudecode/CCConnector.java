@@ -30,6 +30,7 @@ import xy.ai.workbench.models.AIAnswer;
 import java.util.List;
 
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
+  private static final int DEAD_TIMEOUT = 180_000;
   private static final long CONTROL_CHECK_INTERVAL_MS = 300;
   private static final long IDLE_WAIT_MS = 50;
   private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
@@ -197,7 +198,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
         }
         if (!resp.isReady()) {
           long silentMs = (System.nanoTime() - lastDataAt) / 1_000_000;
-          if (silentMs > 60000)
+          if (silentMs > DEAD_TIMEOUT)
             throw new IOException("Stuck detection: no data from STDOUT/STDERR for " + silentMs / 1000 + " seconds (session " + session.getID() + ", received=" + ts.received + ", lastLine=" + abbreviateForStatus(String.valueOf(session.getLastRawLine())) + ")");
           try {
             Thread.sleep(IDLE_WAIT_MS);
