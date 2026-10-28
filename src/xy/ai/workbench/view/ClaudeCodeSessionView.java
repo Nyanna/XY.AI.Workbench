@@ -39,6 +39,7 @@ import xy.ai.workbench.connector.claudecode.CCSessionManager;
 import xy.ai.workbench.connector.claudecode.ClaudeSessionParameters;
 import xy.ai.workbench.connector.claudecode.SessionState;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
+import xy.ai.workbench.InputMode;
 
 /**
  * Eclipse ViewPart that displays active Claude Code CLI sessions in real time.
@@ -192,11 +193,12 @@ public class ClaudeCodeSessionView extends ViewPart {
   }
 
   private CCSession findAssociatedSession(List<CCSession> sessions) {
+    List<String> tools = cfg.isInputEnabled(InputMode.Tools) ? Arrays.asList(cfg.getEnabledTools()) : List.of();
     for (CCSession s : sessions) {
       if (!s.isValid())
         continue;
       ClaudeSessionParameters p = s.getParameters();
-      if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, Arrays.asList(cfg.getEnabledTools())))
+      if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, tools))
         return s;
     }
     return null;
