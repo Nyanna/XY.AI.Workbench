@@ -33,11 +33,10 @@ class ToolResult:
         result: dict[str, Any] = {}
         if self.content:
             result['content'] = list(self.content)
-        structured = dict(self.structured_content) if self.structured_content else {}
+        if self.structured_content:
+            result['structuredContent'] = dict(self.structured_content)
         if self.message:
-            structured[MESSAGE_PROPERTY] = self.message
-        if structured:
-            result['structuredContent'] = structured
+            attach_message(result, self.message)
         if self.is_error:
             result['isError'] = True
         return result
@@ -45,6 +44,13 @@ class ToolResult:
 def text_content(text: str) -> dict[str, Any]:
     """Build a ``TextContent`` block."""
     return {'type': 'text', 'text': text}
+
+def attach_message(result: dict[str, Any], message: str) -> None:
+    structured = dict(result.get('structuredContent') or {})
+    structured[MESSAGE_PROPERTY] = message
+    result['structuredContent'] = structured
+    reference = f"The user attached a message: read '{MESSAGE_PROPERTY}' in structuredContent."
+    result['content'] = [*result.get('content', []), text_content(reference)]
 '#: A handler receives the invocation context and returns one of:'
 '#: * a :class:`ToolResult`,'
 '#: * a ``str`` (wrapped as a single text content block),'
@@ -141,7 +147,7 @@ REASON_PROPERTY = 'reason'
 "#: schema and, at call time, into the result's ``structuredContent`` (see"
 '#: :meth:`ToolResult.to_dict`) — must live there, not top-level, since MCP'
 '#: clients drop unknown top-level ``CallToolResult`` fields silently.'
-MESSAGE_PROPERTY = 'userMessage'
+MESSAGE_PROPERTY = 'messageFromUser'
 
 def _inject_property(schema: dict[str, Any], name: str, description: str, *, required: bool, first: bool=False) -> dict[str, Any]:
     """Return *schema* with an additional property generically injected.

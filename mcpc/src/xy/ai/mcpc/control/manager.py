@@ -164,7 +164,7 @@ class ToolControlManager:
             if approval.get('rejected'):
                 decision = ControlDecision(
                     approved=False,
-                    rejection_reason=approval.get('reason') or 'Rejected by controller')
+                    rejection_reason=approval.get('reason') or 'Reconsider your approach based on the requirements.')
             else:
                 decision = ControlDecision(
                     approved=True,

@@ -12,7 +12,7 @@ from xy.ai.mcpc.server import errors
 from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.server.jsonrpc import JsonRpcRequest
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolResult, text_content, MESSAGE_PROPERTY
+from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolResult, text_content, attach_message
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.ask_user import TOOLNAME_ASK_USER
@@ -128,10 +128,16 @@ class McpProtocol:
         if control is not None and (not skip_control):
             decision = control.submit_request(session, name, arguments)
             if not decision.approved:
-                reason = decision.rejection_reason or 'Tool call rejected by controller'
+                reason = decision.rejection_reason
                 if name == TOOLNAME_ASK_USER:
-                    return ToolResult(structured_content={'answer': reason}).to_dict()
-                return ToolResult(content=[text_content(f'DENIED: {reason}')], is_error=True).to_dict()
+                    return ToolResult(
+                        structured_content={
+                            'answer': reason or 'No answer given, anticipate and proceed'}).to_dict()
+                return ToolResult(
+                    content=[
+                        text_content(
+                            f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.')],
+                    is_error=True).to_dict()
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
             force_result_review = decision.force_result_review
@@ -159,10 +165,16 @@ class McpProtocol:
                 auto_approve=result.auto_approve and (
                     not force_result_review))
             if not decision.approved:
-                reason = decision.rejection_reason or 'Tool result rejected by controller'
+                reason = decision.rejection_reason
                 if name == TOOLNAME_ASK_USER:
-                    return ToolResult(structured_content={'answer': reason}).to_dict()
-                return ToolResult(content=[text_content(f'DENIED: {reason}')], is_error=True).to_dict()
+                    return ToolResult(
+                        structured_content={
+                            'answer': reason or 'No answer given, anticipate and proceed'}).to_dict()
+                return ToolResult(
+                    content=[
+                        text_content(
+                            f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.')],
+                    is_error=True).to_dict()
             hint_parts = [h for h in (request_hint, decision.approval_hint) if h]
             combined_hint = '\n'.join(hint_parts) if hint_parts else None
             if decision.modified_result is not None:
@@ -175,12 +187,7 @@ class McpProtocol:
                 '# hint *is* the answer, not an independent side-channel field.'
                 return ToolResult(structured_content={'answer': combined_hint}).to_dict()
             if combined_hint and decision.modified_result is not None:
-                '# Must land *inside* structuredContent, not as a sibling key:'
-                '# MCP clients only forward content/structuredContent/isError'
-                '# to the model, dropping unknown top-level fields silently.'
-                structured = dict(result_dict.get('structuredContent') or {})
-                structured[MESSAGE_PROPERTY] = combined_hint
-                result_dict['structuredContent'] = structured
+                attach_message(result_dict, combined_hint)
             return result_dict
         return result.to_dict()
 
