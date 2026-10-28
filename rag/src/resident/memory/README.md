@@ -5,10 +5,10 @@ Engine-owned memory model: pointer-free handles, layouts, dtypes, per-class aren
 ## Concept
 
 - **Region = handle, not pointer.** Arena, offset, length and generation; the generation invalidates handles after evict/reload. A device address exists only inside a backend (`cuda.rs`); nothing else sees it.
-- **Arenas by lifetime class.** Long-lived (weights), streamed and evictable (index segments), short-lived (per-lane scratch), staging (pinned host memory, GPU only). The CPU path has host arenas without streams or staging.
-- **One allocator for all backends.** An offset allocator (first-fit over a coalescing free map) sits behind a shared per-class arena set. Backends supply only the raw device memory and copies. Each device-resident class is one backing allocation, so there is no device malloc/free during operation.
+- **Arenas by lifetime class.** Long-lived (weights), streamed and evictable (index segments), short-lived (per-lane scratch), staging (pinned host memory, GPU only), parameter blocks and mapped host memory (page-locked, visible to the device, read over PCIe; used for zero-copy loads). The CPU path has host arenas without streams or staging.
+- **One allocator for all backends.** An offset allocator (first-fit over a coalescing free map) sits behind a shared per-class arena set. Backends supply only the raw device memory and copies. Each device-resident class is one backing allocation, so there is no device malloc/free during operation. The CUDA backend allocates all arenas up front at construction, after the planned sizes were checked against the probed free memory minus a headroom for driver context and other processes; sizes are supplied by the caller. Offsets are `u64` arena offsets.
 - **Stream-ordered reuse.** A region is released, and a staging slot reused, only after the event of its last user has completed. This lives here, not in the operations.
-- **Budget is measured.** VRAM is probed at runtime rather than assumed; arena sizes are checked against it.
+- **Budget is measured.** VRAM is probed at runtime rather than assumed; arena sizes are checked against it. The budget reports the index bytes held back for generations other than the active one, which covers the short double demand of copy-on-write.
 - **Engine-owned dtype.** Backend dtypes are converted at the edge only. A helper gives the default compute dtype per device kind (GPU f16, CPU f32); a model spec carries its own compute dtypes per device class.
 - **Layout** describes shape, strides and dtype in bytes; views change layout, never data.
 
@@ -31,3 +31,8 @@ Engine-owned memory model: pointer-free handles, layouts, dtypes, per-class aren
 | `error.rs` | Memory errors, transfer direction |
 
 Tests: `test/` per file; CUDA tests need feature `cuda`.
+
+## Deviations
+
+- `CudaMemoryManager::new` allocates all arenas up front. Design: lazy, on first load.
+- Arena sizes are supplied by the caller and only validated by `check_fit`. Design: created according to the VRAM budget.
