@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -31,178 +30,179 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
-
 import xy.ai.workbench.connector.harness.IIncludeAdapter;
-import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.tools.AbstractQueryListener;
 
-/**
- * Resolves the {@link SessionProcessor}'s typed include kinds against Eclipse
- * resources, selection and search state - keeping the processor itself free of
- * Eclipse APIs.
- */
 public class IncludeAdapter implements IIncludeAdapter {
-	public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
+  public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";
+  private ActiveEditorListener editorListener;
+  private List<IFile> selectedFiles = List.of();
+  private List<IContainer> selectedContainers = List.of();
+  private ISelectionListenerImplementation selectionListener = new ISelectionListenerImplementation();
+  private SearchResultListener searchListener = new SearchResultListener();
+  private ISearchResult result = null;
 
-	private ActiveEditorListener editorListener;
-	private List<IFile> selectedFiles = List.of();
-	private ISelectionListenerImplementation selectionListener = new ISelectionListenerImplementation();
-	private SearchResultListener searchListener = new SearchResultListener();
-	private ISearchResult result = null;
+  public IncludeAdapter(ActiveEditorListener editorListener) {
+    this.editorListener = editorListener;
+  }
 
-	public IncludeAdapter(ActiveEditorListener editorListener) {
-		this.editorListener = editorListener;
-	}
+  @Override
+  public String contextPrompt(String dir) {
+    IContainer container = resolveContainer(dir);
+    IResource promptResource = container == null ? null : container.findMember(CONTEXT_PROMPT_TXT);
+    if (!(promptResource instanceof IFile))
+      return null;
+    try (InputStream is = ((IFile) promptResource).getContents()) {
+      return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException | CoreException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
-	@Override
-	public String contextPrompt(String dir) {
-		IContainer container = resolveContainer(dir);
-		IResource promptResource = container == null ? null : container.findMember(CONTEXT_PROMPT_TXT);
-		if (!(promptResource instanceof IFile))
-			return null;
-		try (InputStream is = ((IFile) promptResource).getContents()) {
-			return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-		} catch (IOException | CoreException e) {
-			throw new IllegalStateException(e);
-		}
-	}
+  @Override
+  public List<Entry> files(String arg) {
+    if ("selected".equals(arg))
+      return toEntries(selectedFiles);
+    IContainer container = resolveContainer(arg);
+    if (container == null)
+      return List.of();
+    return toEntries(containerFiles(container));
+  }
 
-	@Override
-	public List<Entry> files(String arg) {
-		if ("selected".equals(arg))
-			return toEntries(selectedFiles);
-		IContainer container = resolveContainer(arg);
-		if (container == null)
-			return List.of();
-		try {
-			return toEntries(Arrays.stream(container.members()).filter(m -> m instanceof IFile).map(m -> (IFile) m)
-					.collect(Collectors.toList()));
-		} catch (CoreException e) {
-			LOG.error(e.getMessage(), e);
-			return List.of();
-		}
-	}
+  @Override
+  public List<Entry> selectedDirectories() {
+    List<Entry> entries = new ArrayList<>();
+    for (IContainer container : selectedContainers) entries.addAll(toEntries(containerFiles(container)));
+    return entries;
+  }
 
-	@Override
-	public String file(String path) {
-		IFile file = resolveFile(path);
-		if (file == null)
-			return null;
-		try {
-			return file.readString();
-		} catch (CoreException e) {
-			LOG.error("Error on reading " + path, e);
-			return null;
-		}
-	}
+  @Override
+  public String file(String path) {
+    IFile file = resolveFile(path);
+    if (file == null)
+      return null;
+    try {
+      return file.readString();
+    } catch (CoreException e) {
+      LOG.error("Error on reading " + path, e);
+      return null;
+    }
+  }
 
-	@Override
-	public List<Entry> searchFiles() {
-		return toEntries(searchResultFiles());
-	}
+  @Override
+  public List<Entry> searchFiles() {
+    return toEntries(searchResultFiles());
+  }
 
-	@Override
-	public List<Match> searchMatches() {
-		List<Match> matches = new ArrayList<>();
-		if (!(result instanceof AbstractTextSearchResult))
-			return matches;
-		AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
-		for (IFile file : searchResultFiles())
-			for (org.eclipse.search.ui.text.Match m : textRes.getMatches(file))
-				try {
-					matches.add(toSearchMatch(m));
-				} catch (BadLocationException | CoreException e) {
-					LOG.error("Exception", e);
-				}
-		return matches;
-	}
+  @Override
+  public List<Match> searchMatches() {
+    List<Match> matches = new ArrayList<>();
+    if (!(result instanceof AbstractTextSearchResult))
+      return matches;
+    AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
+    for (IFile file : searchResultFiles()) for (org.eclipse.search.ui.text.Match m : textRes.getMatches(file)) try {
+      matches.add(toSearchMatch(m));
+    } catch (BadLocationException | CoreException e) {
+      LOG.error("Exception", e);
+    }
+    return matches;
+  }
 
-	public void initializeBindings() {
-		NewSearchUI.addQueryListener(searchListener);
-		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-		IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
-		if (activePage != null)
-			activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", selectionListener);
-	}
+  public void initializeBindings() {
+    NewSearchUI.addQueryListener(searchListener);
+    IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+    IWorkbenchPage activePage = window != null ? window.getActivePage() : null;
+    if (activePage != null)
+      activePage.addSelectionListener("org.eclipse.ui.navigator.ProjectExplorer", selectionListener);
+  }
 
-	private class ISelectionListenerImplementation implements ISelectionListener {
-		@Override
-		public void selectionChanged(IWorkbenchPart part, ISelection selection) {
-			if (selection instanceof TreeSelection) {
-				selectedFiles = ((TreeSelection) selection).stream().filter(o -> o instanceof IFile)
-						.map(obj -> (IFile) obj).collect(Collectors.toList());
-			}
-		}
-	}
+  private class ISelectionListenerImplementation implements ISelectionListener {
 
-	private class SearchResultListener extends AbstractQueryListener implements ISearchResultListener {
-		@Override
-		public void searchResultChanged(SearchResultEvent e) {
-			result = e.getSearchResult();
-			// LOG.info("Searchresult changed: " + result.getLabel());
-		}
+    @Override
+    public void selectionChanged(IWorkbenchPart part, ISelection selection) {
+      if (selection instanceof TreeSelection) {
+        TreeSelection tree = (TreeSelection) selection;
+        selectedFiles = tree.stream().filter(o -> o instanceof IFile).map(obj -> (IFile) obj).collect(Collectors.toList());
+        selectedContainers = tree.stream().filter(o -> o instanceof IContainer).map(obj -> (IContainer) obj).collect(Collectors.toList());
+      }
+    }
+  }
 
-		@Override
-		public void queryAdded(ISearchQuery query) {
-			query.getSearchResult().addListener(this);
-		}
-	}
+  private class SearchResultListener extends AbstractQueryListener implements ISearchResultListener {
 
-	private List<IFile> searchResultFiles() {
-		if (!(result instanceof AbstractTextSearchResult))
-			return List.of();
-		AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
-		return Arrays.stream(textRes.getElements()).filter(e -> e instanceof IFile).map(e -> (IFile) e)
-				.collect(Collectors.toList());
-	}
+    @Override
+    public void searchResultChanged(SearchResultEvent e) {
+      result = e.getSearchResult();
+      // LOG.info("Searchresult changed: " + result.getLabel());
+    }
 
-	private List<Entry> toEntries(List<IFile> files) {
-		List<Entry> entries = new ArrayList<>();
-		for (IFile file : files)
-			try {
-				entries.add(new Entry(file.getFullPath().toString(), file.readString()));
-			} catch (CoreException e) {
-				LOG.error("Error on reading " + file.getName(), e);
-			}
-		return entries;
-	}
+    @Override
+    public void queryAdded(ISearchQuery query) {
+      query.getSearchResult().addListener(this);
+    }
+  }
 
-	/**
-	 * Resolves {@code pathText} - absolute filesystem path or path relative to the
-	 * active editor's folder.
-	 */
-	private IContainer resolveContainer(String pathText) {
-		if (pathText == null || pathText.isBlank())
-			return editorListener.getLastContainer();
-		Path p = Paths.get(pathText);
-		if (p.isAbsolute()) {
-			IContainer[] found = ResourcesPlugin.getWorkspace().getRoot().findContainersForLocationURI(p.toUri());
-			return found.length > 0 ? found[0] : null;
-		}
-		IContainer base = editorListener.getLastContainer();
-		IResource member = base == null ? null : base.findMember(pathText);
-		return member instanceof IContainer ? (IContainer) member : null;
-	}
+  private List<IFile> searchResultFiles() {
+    if (!(result instanceof AbstractTextSearchResult))
+      return List.of();
+    AbstractTextSearchResult textRes = (AbstractTextSearchResult) result;
+    return Arrays.stream(textRes.getElements()).filter(e -> e instanceof IFile).map(e -> (IFile) e).collect(Collectors.toList());
+  }
 
-	private IFile resolveFile(String pathText) {
-		Path p = Paths.get(pathText);
-		if (p.isAbsolute()) {
-			IFile[] found = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(p.toUri());
-			return found.length > 0 ? found[0] : null;
-		}
-		IContainer base = editorListener.getLastContainer();
-		IResource member = base == null ? null : base.findMember(pathText);
-		return member instanceof IFile ? (IFile) member : null;
-	}
+  private List<IFile> containerFiles(IContainer container) {
+    try {
+      return Arrays.stream(container.members()).filter(m -> m instanceof IFile).map(m -> (IFile) m).collect(Collectors.toList());
+    } catch (CoreException e) {
+      LOG.error(e.getMessage(), e);
+      return List.of();
+    }
+  }
 
-	private Match toSearchMatch(org.eclipse.search.ui.text.Match match) throws BadLocationException, CoreException {
-		IFile file = (IFile) match.getElement();
-		String fileContent = file.readString();
+  private List<Entry> toEntries(List<IFile> files) {
+    List<Entry> entries = new ArrayList<>();
+    for (IFile file : files) try {
+      entries.add(new Entry(file.getFullPath().toString(), file.readString()));
+    } catch (CoreException e) {
+      LOG.error("Error on reading " + file.getName(), e);
+    }
+    return entries;
+  }
 
-		IDocument doc = new Document(fileContent);
-		int lineNumber = doc.getLineOfOffset(match.getOffset());
-		int lineOffset = doc.getLineOffset(lineNumber);
-		int lineLength = doc.getLineLength(lineNumber);
-		return new IncludeAdapter.Match(file.getFullPath().toString(), lineNumber + 1, doc.get(lineOffset, lineLength));
-	}
+  /**
+   * Resolves {@code pathText} - absolute filesystem path or path relative to the
+   * active editor's folder.
+   */
+  private IContainer resolveContainer(String pathText) {
+    if (pathText == null || pathText.isBlank())
+      return editorListener.getLastContainer();
+    Path p = Paths.get(pathText);
+    if (p.isAbsolute()) {
+      IContainer[] found = ResourcesPlugin.getWorkspace().getRoot().findContainersForLocationURI(p.toUri());
+      return found.length > 0 ? found[0] : null;
+    }
+    IContainer base = editorListener.getLastContainer();
+    IResource member = base == null ? null : base.findMember(pathText);
+    return member instanceof IContainer ? (IContainer) member : null;
+  }
+
+  private IFile resolveFile(String pathText) {
+    Path p = Paths.get(pathText);
+    if (p.isAbsolute()) {
+      IFile[] found = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(p.toUri());
+      return found.length > 0 ? found[0] : null;
+    }
+    IContainer base = editorListener.getLastContainer();
+    IResource member = base == null ? null : base.findMember(pathText);
+    return member instanceof IFile ? (IFile) member : null;
+  }
+
+  private Match toSearchMatch(org.eclipse.search.ui.text.Match match) throws BadLocationException, CoreException {
+    IFile file = (IFile) match.getElement();
+    String fileContent = file.readString();
+    IDocument doc = new Document(fileContent);
+    int lineNumber = doc.getLineOfOffset(match.getOffset());
+    int lineOffset = doc.getLineOffset(lineNumber);
+    int lineLength = doc.getLineLength(lineNumber);
+    return new IncludeAdapter.Match(file.getFullPath().toString(), lineNumber + 1, doc.get(lineOffset, lineLength));
+  }
 }

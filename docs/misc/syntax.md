@@ -56,12 +56,15 @@ Multiple directives may appear on the same line; they are processed left to righ
 |---|---|---|
 | `[include](<file-path>)` | File path | Reads the file, resolves it to an absolute path, and processes its content as if it had been entered directly. Nested includes are supported; circular includes are detected and rejected. |
 | `[include contextprompt](<directory>)` | Directory | Inserts the context prompt provided for the directory as a user message. |
+| `[include directory](<directory-path>)` | Directory path or empty | Inserts all files of a directory (non-recursive, sorted by name). With a path, each file is expanded inline exactly like `[include](<file-path>)`. With an empty path (`[include directory]()`), the directories currently selected in Eclipse (possibly several) are used and their files are added as tool results instead. |
 | `[include files](<argument>)` | File pattern/argument | Inserts in Eclipse selected files as tool results. |
 | `[include file](<path>)` | File path | Inserts a single file as a tool result. |
 | `[include search](files)` | `files` | Inserts the files found by the search as tool results. |
 | `[include search](matches)` | `matches` | Inserts the search matches as a YAML list with `file`, `line`, and `text` fields. |
 
 **Notes**
+
+
 
 - A path include without a kind (`[include](...)`) reads and processes the target file recursively, including any further include directives inside it.
 - Unknown include kinds or unknown search arguments are rejected with an error.

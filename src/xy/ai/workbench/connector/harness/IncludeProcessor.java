@@ -12,16 +12,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-/**
- * Handles {@code [include...]} tag processing (path/contextprompt/files/file/search),
- * extracted from {@link SessionProcessor} so it can be reused independently of the
- * surrounding text parser. Nested root-document includes ({@code [include](path)})
- * are delegated back to the caller via {@code nestedRunner}.
- */
 public class IncludeProcessor<M> implements ISessionIncludeProcessor<M> {
-  public static final Pattern INCLUDE_LINE = Pattern.compile("^(\\s*\\[include(?:\\s+\\w+)?\\]\\([^)]+\\)\\s*)+$");
-  public static final Pattern INCLUDE_TAG = Pattern.compile("\\[include(?:\\s+(\\w+))?\\]\\(([^)]+)\\)");
+  public static final Pattern INCLUDE_LINE = Pattern.compile("^(\\s*\\[include(?:\\s+\\w+)?\\]\\([^)]*\\)\\s*)+$");
+  public static final Pattern INCLUDE_TAG = Pattern.compile("\\[include(?:\\s+(\\w+))?\\]\\(([^)]*)\\)");
   private final YamlRenderer yaml = new YamlRenderer();
   private final IIncludeAdapter adapter;
 
@@ -31,12 +27,17 @@ public class IncludeProcessor<M> implements ISessionIncludeProcessor<M> {
 
   public void include(String kind, String arg, List<Path> chain, SessionCallbacks<M> call, List<M> out, ISessionIncludeProcessor<M> recursiv) {
     if (kind == null) {
+      if (arg.isBlank())
+        throw new IllegalStateException("Include path must not be empty");
       includePath(arg, chain, call, out, recursiv);
       return;
     }
     switch(kind) {
       case "contextprompt":
         includeContextPrompt(arg, call, out);
+        return;
+      case "directory":
+        includeDirectory(arg, chain, call, out, recursiv);
         return;
       case "files":
         includeFiles(arg, call, out);
@@ -90,6 +91,21 @@ public class IncludeProcessor<M> implements ISessionIncludeProcessor<M> {
     List<Path> nested = new ArrayList<>(chain);
     nested.add(path);
     recursiv.processText(content, nested, call, out, recursiv);
+  }
+
+  private void includeDirectory(String dir, List<Path> chain, SessionCallbacks<M> call, List<M> out, ISessionIncludeProcessor<M> recursiv) {
+    if (dir.isBlank()) {
+      for (IIncludeAdapter.Entry entry : requireAdapter().selectedDirectories()) out.add(call.toolResult(new ToolResult(entry.id, entry.content)));
+      return;
+    }
+    Path directory = Paths.get(dir).toAbsolutePath().normalize();
+    List<Path> files;
+    try (Stream<Path> stream = Files.list(directory)) {
+      files = stream.filter(Files::isRegularFile).sorted().collect(Collectors.toList());
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not read include directory: " + directory, e);
+    }
+    for (Path file : files) includePath(file.toString(), chain, call, out, recursiv);
   }
 
   private void includeContextPrompt(String dir, SessionCallbacks<M> call, List<M> out) {
