@@ -5,3 +5,4 @@
 .xyrag
 /model/*
 !/model/README.md
+/src/resident_old
