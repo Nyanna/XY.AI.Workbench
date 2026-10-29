@@ -26,11 +26,13 @@ TOPIC_DIRS: dict[str, Path] = {
     'basic': DOCS_DIR / 'basic',
     'howto': DOCS_DIR / 'howto',
     'rag': DOCS_DIR / 'rag',
+    'dev': DOCS_DIR / 'dev',
 }
 TOPIC_LABELS: dict[str, str] = {
     'basic': 'Basics',
     'howto': 'How-To Guides',
     'rag': 'RAG',
+    'dev': 'Developement',
 }
 
 OUTPUT_DIR = DOCS_DIR

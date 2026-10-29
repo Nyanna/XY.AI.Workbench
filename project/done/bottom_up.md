@@ -1,12 +1,10 @@
+Schreibe ein Paper auf Basis der Argumentation von "You" in englischer sprache.
+
+### You:
+
 Wie setzt man am besten große Projekte mit Agenten um?
 
-2 hours ago
-
-### Claude responded: Kernprinzip: Agenten scheitern bei großen Projekten selten an Intelligenz, sondern an Kontext, Spezifikation und Verifikation.
-
-Planung großer Agenten-Projekte wird eingeordnet.
-
-Planung großer Agenten-Projekte wird eingeordnet.
+### Other responded:
 
 **Kernprinzip:** Agenten scheitern bei großen Projekten selten an Intelligenz, sondern an Kontext, Spezifikation und Verifikation. Die Struktur muss das auffangen.
 
@@ -49,19 +47,11 @@ Planung großer Agenten-Projekte wird eingeordnet.
 
 **Faustregel:** Erst Spec und Tests, dann kleine verifizierte Schritte, dann Parallelisierung. Autonomie wächst mit der Qualität deiner Feedback-Schleifen.
 
-2 hours ago
-
-### You said: Gibt es dazu Literatur?
+### You:
 
 Gibt es dazu Literatur?
 
-2 hours ago
-
-### Claude responded: Ja, aber das Feld ist jung und besteht überwiegend aus Praxisberichten, kaum aus begutachteter Forschung.
-
-Searched the web
-
-Searched the web
+### Other responded:
 
 Ja, aber das Feld ist jung und besteht überwiegend aus Praxisberichten, kaum aus begutachteter Forschung.
 
@@ -84,17 +74,11 @@ Ja, aber das Feld ist jung und besteht überwiegend aus Praxisberichten, kaum au
 
 **Einschränkung:** Die Quellen stützen sich überwiegend auf Erfahrungsberichte und Einzelbenchmarks. Zu Teamprozessen, Parallelisierung mehrerer Agenten und langfristiger Wartbarkeit agentengenerierten Codes gibt es bisher kaum belastbare Evidenz. Dazu solltest du eher die eigenen Fehlerhistorien auswerten als auf Literatur zu warten.
 
-2 hours ago
-
-### You said: Wie Funktioniert KISS (Prinzip) auf Linux?
+### You:
 
 Wie Funktioniert KISS (Prinzip) auf Linux?
 
-### Claude responded: KISS ("Keep It Simple, Stupid") ist unter Linux kein Feature, sondern eine Designhaltung, die aus der Unix-Philosophie stammt.
-
-Abwägung des Distributionsbezugs und der Antwortlänge
-
-Abwägung des Distributionsbezugs und der Antwortlänge
+### Other responded:
 
 **KISS (“Keep It Simple, Stupid”)** ist unter Linux kein Feature, sondern eine Designhaltung, die aus der Unix-Philosophie stammt. Sie zeigt sich auf mehreren Ebenen:
 
@@ -128,15 +112,11 @@ Abwägung des Distributionsbezugs und der Antwortlänge
 
 **Falls du die Distribution meinst:** *KISS Linux* ist eine minimalistische, source-basierte Distro (musl, eigener Paketmanager `kiss`, BusyBox). Aus dem Gedächtnis: Der Hauptentwickler hat sich vor einigen Jahren zurückgezogen, das Projekt ist daher nur noch eingeschränkt aktiv. Den aktuellen Stand habe ich nicht geprüft.
 
-### You said: Gibt es etablierte Begriffe für dieses Themenfeld?
+### You:
 
 Gibt es etablierte Begriffe für dieses Themenfeld?
 
-### Claude responded: Ja.
-
-Zusammenstellung der Fachbegriffe aus dem Unix-Umfeld
-
-Zusammenstellung der Fachbegriffe aus dem Unix-Umfeld
+### Other responded:
 
 Ja. Die Begriffe stammen aus mehreren Traditionen. Ich nenne sie aus dem Gedächtnis, ohne Suche, da sie etabliert und stabil sind.
 
@@ -168,15 +148,11 @@ Ja. Die Begriffe stammen aus mehreren Traditionen. Ich nenne sie aus dem Gedäch
 
 **Zum Weiterrecherchieren** eignen sich am besten “Unix philosophy”, “Worse is better” und “Art of Unix Programming” als Suchbegriffe.
 
-### You said: Ist der Obergrefirr nicht Scoping?
+### You:
 
 Ist der Obergrefirr nicht Scoping?
 
-### Claude responded: Teilweise, aber als Oberbegriff passt es nicht ganz.
-
-Prüfung, ob Scoping der Oberbegriff ist
-
-Prüfung, ob Scoping der Oberbegriff ist
+### Other responded:
 
 Teilweise, aber als Oberbegriff passt es nicht ganz.
 
@@ -191,16 +167,12 @@ Teilweise, aber als Oberbegriff passt es nicht ganz.
 
 Scoping ist demnach ein Teilbereich unter Komplexitätsmanagement, und zwar der, der die Grenzen setzt. Bei Agenten hat der Begriff zusätzlich eine eigene Bedeutung, nämlich den Kontext einer Aufgabe bewusst zu begrenzen.
 
-### You said: Dann ist es Komplexitätsmanagement.
+### You:
 
 Dann ist es Komplexitätsmanagement.\
 Ist die Methodik nicht aggregate von Komplexität zu bilden und dieser wiedr zu aggregaten von Komplexität zu aggregieren?
 
-### Claude responded: Ja, im Kern stimmt das, mit einer Bedingung.
-
-Confirming that Simon's hierarchy account matches the proposed method
-
-Confirming that Simon's hierarchy account matches the proposed method
+### Other responded:
 
 Ja, im Kern stimmt das, mit einer Bedingung. Der etablierte Begriff dafür ist **hierarchische Dekomposition bzw. Abstraktionsebenen** (Herbert Simon, *The Architecture of Complexity*, 1962: komplexe Systeme sind hierarchisch aus Teilsystemen aufgebaut; in der Kognitionspsychologie entspricht dem das *Chunking* nach Miller).
 
@@ -219,15 +191,11 @@ Ja, im Kern stimmt das, mit einer Bedingung. Der etablierte Begriff dafür ist *
 
 Komplexitätsmanagement besteht also aus Eliminieren und aus hierarchischem Aggregieren mit dichten Schnittstellen nach innen und schmalen nach außen. Bei Letzterem kommt es auf die Qualität der Schnitte an, nicht auf die Zahl der Ebenen.
 
-### You said: Wie müsste man dann einen agentischen WOrkflow konstruieren der von To-Level Anforderungen ausgeht?
+### You:
 
 Wie müsste man dann einen agentischen WOrkflow konstruieren der von To-Level Anforderungen ausgeht?
 
-### Claude responded: Grundstruktur: rekursiver Knoten mit Vertrag
-
-Entwurf des Workflows mit Schnittstellenverträgen auf jeder Ebene
-
-Entwurf des Workflows mit Schnittstellenverträgen auf jeder Ebene
+### Other responded:
 
 **Grundstruktur: rekursiver Knoten mit Vertrag**
 
@@ -285,15 +253,11 @@ Hier setzt du den Hebel an, weil Fehler mit der Höhe der Ebene teurer werden:
 
 **Faustregel:** Je höher die Ebene, desto mehr Mensch und desto schmaler die Schnittstelle. Je tiefer, desto mehr Autonomie, aber nur so weit, wie die Verifikation reicht.
 
-### You said: Es gibt doch bereist große Projekte die allein auf KI bais umgesetzt wurden.
+### You:
 
 Es gibt doch bereist große Projekte die allein auf KI bais umgesetzt wurden.
 
-### Claude responded: Ja, es gibt dokumentierte Fälle.
-
-Searched the web
-
-Searched the web
+### Other responded:
 
 Ja, es gibt dokumentierte Fälle. Sie widersprechen dem Modell nicht, sondern stützen es, denn “allein KI” stimmt nur eingeschränkt.
 
@@ -313,15 +277,11 @@ Das Beispiel bestätigt die Struktur aus meinen früheren Antworten: Der Mensch 
 
 **Nicht geprüft, aus dem Gedächtnis:** Cursor hat Anfang 2026 über agentengebaute Projekte berichtet (u. a. einen Browser von Grund auf). Dazu habe ich keine Quelle abgerufen, bewerte es also nicht.
 
-### You said: Das wäre relevant.
+### You:
 
 Das wäre relevant. Beispiele und die Daten und vorgehensweisen dieser Projekte
 
-### Claude responded: Drei Projekte sind gut dokumentiert.
-
-Read 4 pages, searched the web
-
-Read 4 pages, searched the web
+### Other responded:
 
 Drei Projekte sind gut dokumentiert. Alle Zahlen stammen aus Herstellerberichten, unabhängige Replikationen kenne ich nicht.
 
@@ -378,15 +338,11 @@ Drei Projekte sind gut dokumentiert. Alle Zahlen stammen aus Herstellerberichten
 
 **Grenzen der Evidenz:** Alle drei sind Greenfield-Projekte mit stark prüfbarem Ziel. OpenAI räumt ein, nicht zu wissen, wie sich die Architekturkonsistenz über Jahre entwickelt. Legacy-Code und unscharfe Anforderungen sind nicht abgedeckt. [yage](https://yage.ai/share/harness-engineering-survey-en-20260312.html)
 
-### You said: Aber ist das nicht ziehmlich identisch mit normaler softwareentwicklung?
+### You:
 
 Aber ist das nicht ziehmlich identisch mit normaler softwareentwicklung?
 
-### Claude responded: Im Kern ja.
-
-Abgleich mit klassischer Softwareentwicklung
-
-Abgleich mit klassischer Softwareentwicklung
+### Other responded:
 
 Im Kern ja. Spezifikation, Schnittstellen vor Implementierung, Tests als Orakel, CI, Modularisierung, Dokumentation, Code-Review und Übergaben sind klassische Softwaretechnik. Das passt zur früheren Einordnung als Komplexitätsmanagement (Simon, Parnas, Brooks). Die Projekte erfinden kein neues Prinzip, sie wenden bekannte an.
 
@@ -401,15 +357,11 @@ Neu ist die Gewichtung, weil sich die Randbedingungen verschieben:
 
 Man kann es so fassen: Es ist klassische Softwareentwicklung mit veränderten Konstanten. Die Disziplin, die bei Menschen durch Erfahrung teilweise ersetzbar war, muss hier explizit und maschinenlesbar vorliegen, weil der Agent sie nicht kompensiert.
 
-### You said: Aber eigentlich unterscheidet sich das nicht.
+### You:
 
 Aber eigentlich unterscheidet sich das nicht. Alle deine Punkte sind Parameter im Komplexitätsmanagement und sind gegeneinander tauschbar. Auch Augmentation oder HITL sind darin nur weitere Achsen. Das kompensieren von anderen Fehlerklassen durch ein anderes Modell (Mensch).
 
-### Claude responded: Dem stimme ich im Kern zu.
-
-Testing where the redundancy analogy holds and where it breaks
-
-Testing where the redundancy analogy holds and where it breaks
+### Other responded:
 
 Dem stimme ich im Kern zu. Das System besteht aus Komponenten (Mensch, Agent, Test, Linter, Review) mit je eigenem Fehlerprofil, Kosten und Durchsatz. Der Entwurf besteht darin, sie so zu kombinieren, dass alle relevanten Fehlerklassen abgedeckt sind. Der etablierte Begriff dafür ist **Fehlertoleranz durch diverse Redundanz** (Defence in Depth, Swiss-Cheese-Modell). HITL ist dann ein Prüfer mit anderem Fehlerprofil als das Modell, keine Sonderkategorie.
 
@@ -421,15 +373,11 @@ Drei Präzisierungen, wo “tauschbar” nicht exakt gilt:
 
 Die drei Projekte lassen sich so als Punkte im selben Raum lesen: Beim Compiler übernimmt das Orakel die Fehlerprüfung und der Mensch fast nur die Zielvorgabe. Bei OpenAI deckt der Mensch Intent und Geschmack ab, Linter und Agent-Reviews decken Struktur und Konsistenz ab.
 
-### You said: Das sehe ich anders.
+### You:
 
 Das sehe ich anders. In komplexen Projekten kehrt sich Punkt 3 um. Der Agent definiert Detailkonzepte. Der Mensch prüft hier Input der KI und nicht umgekehrt. Die KI schreibt hier die Anforderungen.
 
-### Claude responded: Das stimmt für die Detailebenen und korrigiert meine Formulierung: Ich habe Urheberschaft und Autorität vermischt.
-
-Separating authorship from authority in the human's role
-
-Separating authorship from authority in the human's role
+### Other responded:
 
 Das stimmt für die Detailebenen und korrigiert meine Formulierung: Ich habe Urheberschaft und Autorität vermischt.
 
@@ -444,15 +392,11 @@ Daraus folgen zwei Probleme, die aus deiner Umkehrung entstehen:
 
 In deinem Raum aus Komponenten ist die Frage damit, auf welcher Ebene der Mensch als Orakel nötig ist und wie viel Kontext er dafür braucht. Bei den drei Projekten liegt diese Grenze jeweils sehr hoch, weil dort ein externes Orakel (Testsuites, Spec, GCC) existiert. Bei Projekten ohne ein solches wandert die Grenze nach unten, und der Prüfaufwand pro Anforderung wird zum Engpass.
 
-### You said: Auch das ist nicht richtig.
+### You:
 
 Auch das ist nicht richtig. EIn Orakel liefert nur eine Einschätzung die es zu interpretieren gibt des auch das Orakel hat fehlerklassen.
 
-### Claude responded: Das trifft, und es korrigiert meine Aussage von eben, denn ich habe "Orakel" als Wahrheitsquelle behandelt.
-
-Collecting the test oracle literature and the compiler example
-
-Collecting the test oracle literature and the compiler example
+### Other responded:
 
 Das trifft, und es korrigiert meine Aussage von eben, denn ich habe “Orakel” als Wahrheitsquelle behandelt. Das ist das bekannte *Test-Oracle-Problem* (Weyuker 1982; Barr et al. 2015, aus dem Gedächtnis): Ein Orakel liefert ein Urteil, das selbst interpretiert werden muss, und es kann falsch, unvollständig oder inkonsistent mit der Absicht sein.
 
@@ -478,16 +422,12 @@ Daraus folgt, dass meine Zweiteilung “Orakel vorhanden / Mensch als Ersatz” 
 
 Das passt zu deinem Ansatz. Es gibt keine ausgezeichnete Instanz, die Wahrheit liefert, nur Komponenten, deren Urteile gegeneinander abgeglichen werden. Der Entwurf besteht darin, die Fehlerprofile so zu wählen, dass sie sich möglichst wenig überlappen. Was bleibt, ist lediglich eine Frage der Gradierung: Maschinelle Prüfer sind billig, schnell und reproduzierbar, aber in ihrer Abdeckung eng. Menschliche Prüfer decken Absicht und Plausibilität ab, sind aber teuer und nicht skalierbar. Beides sind Positionen auf denselben Achsen.
 
-### You said: Auch der Mensch kann fehlerhafte Anforderungen stellen, die der Agent erkennt.
+### You:
 
 Auch der Mensch kann fehlerhafte Anforderungen stellen, die der Agent erkennt. Alle deine Achsen lassen sich invertieren und alle deine Parameter mit anderen tauschen. Mensch und KI sind ambivalente Komponenten. Nicht zwangsläufig unterschiedliche Fehlerklassen.\
 Darüber hinaus widerspreche ich der Einschätzung, so oft waren schon agentische Herleitungen nicht reproduzierbar. Der Grund sind hier dieselben Fehlerklassen: Ermüdung/Drift/Forgetting, Attention/Aufmerksamkeit, falsche Annahmen/Halluzinatione usw.
 
-### Claude responded: Zu 1 (Symmetrie): Meine Aussage, der Mensch decke "Absicht und Plausibilität" ab, war eine Typzuschreibung ohne Beleg.
-
-Abwägen, ob Verantwortung eine eigene Achse bildet
-
-Abwägen, ob Verantwortung eine eigene Achse bildet
+### Other responded:
 
 **Zu 1 (Symmetrie):** Meine Aussage, der Mensch decke “Absicht und Plausibilität” ab, war eine Typzuschreibung ohne Beleg. Ob zwei Komponenten einander ergänzen, hängt nicht vom Typ ab, sondern von der Korrelation ihrer Fehler, und die ist empirisch zu bestimmen. Ein Agent kann einen Anforderungsfehler finden, den der Mensch übersehen hat, und umgekehrt. Ein zweiter, anders aufgesetzter Agent kann unabhängiger sein als ein Mensch, der die Spec selbst mitformuliert hat. Das Modell braucht nur Komponenten mit Fehlerprofilen und eine Korrelationsstruktur. “Mensch” und “KI” sind dann bloße Belegungen.
 
@@ -497,16 +437,12 @@ Eine Ausnahme sehe ich, die aber nicht epistemisch ist: Verantwortung, also wer 
 
 **Konsequenz:** Für stochastische Prüfer ist nicht das einzelne Urteil die richtige Kenngröße, sondern dessen Verteilung: Erkennungsrate über wiederholte Läufe, Varianz und Überlappung mit anderen Prüfern. Wiederholung und Mehrheitsentscheid senken die Varianz, nicht aber gemeinsame Verzerrungen. Messen lässt sich das per Fehlerinjektion (Mutation Testing, gezielt eingebaute Defekte in Specs und Code): Man erfasst, welche Komponente welche Fehler findet und wie stark sich die Funde überlappen. Das ersetzt Typannahmen durch Daten und ist die operative Form deines Ansatzes.
 
-### You said: Ein Git ersetzt in einem Beispiel ein Jira, Intuition wird zu Wahrscheinlichkeit, Best Practices haben unterschiedliche Interpretierbarkeit oder sind flaky.
+### You:
 
 Ein Git ersetzt in einem Beispiel ein Jira, Intuition wird zu Wahrscheinlichkeit, Best Practices haben unterschiedliche Interpretierbarkeit oder sind flaky.\
 Diese autonomen KI-Projekte sind eine mögliche Abbildung eines ambivalenten Teams und Prozess-Setups. Es gibt für alles eine Entsprechung damit ist die genrische Grundlage Komplexitätsmanagement.
 
-### Claude responded: Ja, das ist eine funktionale Äquivalenz, und sie hat etablierte Begriffe.
-
-Prüfung der Beispiele und Grenzen des Modells
-
-Prüfung der Beispiele und Grenzen des Modells
+### Other responded:
 
 Ja, das ist eine funktionale Äquivalenz, und sie hat etablierte Begriffe. Die Entsprechungen, die du nennst, lassen sich einordnen:
 
@@ -520,19 +456,11 @@ Daraus ergibt sich eine Präzisierung. Wenn für alles eine Entsprechung existie
 
 Das generische Fundament ist demnach Komplexitätsmanagement als Zielbeschreibung und Varietät und Fehlerdiversität als Bedingung. Die Projekte sind eine Instanz mit bestimmten Parameterwerten, die sich verschieben, wenn sich Modelle und Kosten ändern.
 
-1 hour ago
-
-### You said: Ich würde sagen, dass es hier keinen vollständigen Lösungsraum geben kann, aber eine Näherung.
+### You:
 
 Ich würde sagen, dass es hier keinen vollständigen Lösungsraum geben kann, aber eine Näherung. Das wäre genau die hierarchische Aggregation. Komplexität ist über Struktur und Isolation besser handlebar.
 
-1 hour ago
-
-### Claude responded: Dem stimme ich zu, mit zwei Einschränkungen.
-
-Listing established terms like satisficing and undecidability
-
-Listing established terms like satisficing and undecidability
+### Other responded:
 
 Dem stimme ich zu, mit zwei Einschränkungen.
 
@@ -552,18 +480,12 @@ Beim Agenten ist der zweite Punkt hart, weil das Kontextfenster eine feste Oberg
 
 Der Restfehler einer solchen Näherung ist nicht vollständig messbar. Man schätzt ihn über Stichproben (Fehlerinjektion, Integrationstests mit Stubs) und hält ihn durch Prüfer mit unterschiedlichen Fehlerprofilen klein. Der Näherungsfehler wird also selbst nur durch Näherung begrenzt.
 
-1 hour ago
-
-### You said: Wäre dann nicht sinnvoller, auf eine Hierarchie zu verzichten und ein einfacheres Modell zu wählen.
+### You:
 
 Wäre dann nicht sinnvoller, auf eine Hierarchie zu verzichten und ein einfacheres Modell zu wählen. Nur Knoten und Kanten. Das müsste Unix entsprechen. Ein Omnidirketionaler Graph mit variabler Tiefe.
 Graph mit variabler Tiefe.
 
-1 hour ago
-
-### Claude responded: Als Basismodell ist der Graph richtig, weil er das allgemeinere ist.
-
-Bewertung der Hierarchie als Sicht auf den Graphen
+### Other responded:
 
 Als Basismodell ist der Graph richtig, weil er das allgemeinere ist. Auf Hierarchie zu *verzichten*, entfernt sie aber nicht, es benennt sie nur nicht mehr.
 
@@ -583,19 +505,11 @@ Zyklen sind für Rückkopplung nötig (Eskalation von Spec-Änderungen, Review-S
 
 **Fazit:** Der Graph ist die Grundlage, die Hierarchie wird bei Bedarf als Kontraktion eingeführt, getrieben von der Kontextgrenze der Agenten und der Kopplungsdichte. Dazu gehören ein einheitlicher Kantentyp (Dateien und Specs im Repo), kleine Knoten und Zyklen nur mit Abbruchkriterium. Ob das gegenüber expliziter Hierarchie besser ist, wäre in einem Topologie-Experiment prüfbar: gleiche Aufgabe, variierte Struktur, gemessen an Durchsatz und Restfehler.
 
-1 hour ago
-
-### You said: Ja aber Toll im system sind unabhängig und kennen nur Pipes.
+### You:
 
 Ja aber Toll im system sind unabhängig und kennen nur Pipes. Du vermischt hier verschiedene Problemmodelle. Genau das ist eigentlich der Punkt. Sollten nicht Probleme isoliert modelliert werden mit klar definierten Kanten einer Maximalen Zahl. Sprich ein Feature doer Aspekt sollte nicht mehr als an 3 Stellen verteilt sein etc.
 
-1 hour ago
-
-### Claude responded: Der Einwand trifft.
-
-Zwei Budgets gegeneinander abwägen: Streuung und Fan-in
-
-Zwei Budgets gegeneinander abwägen: Streuung und Fan-in
+### Other responded:
 
 Der Einwand trifft. Prozessbaum und Dateisystem sind Eigenschaften des Betriebssystems, nicht der Beziehung zwischen Tools. Zwischen Tools existiert nur der Byte-Strom, und kein Tool kennt seine Nachbarn. Das sind getrennte Problemmodelle (Datenfluss, Prozesssteuerung, Speicher, Build-Abhängigkeiten) mit je eigenem Kantentyp, und sie in einem Graphen zu mischen verwischt die Analyse.
 
@@ -613,22 +527,14 @@ Der Einwand trifft. Prozessbaum und Dateisystem sind Eigenschaften des Betriebss
 
 Als Entwurfsregel ist das stimmig: pro Problem ein isoliertes Modell, begrenzte und schmale Kanten, und die Grenzwerte sind Parameter, die man an Kontextgrenze und gemessener Kopplung justiert.
 
-1 hour ago
-
-### You said: Logging is so ein Spezialfall, der keiner sein sollte.
+### You:
 
 Logging is so ein Spezialfall, der keiner sein sollte. Ist Loggin Teil eines Problems, ist es eine seiner Kanten. Der Fan-In ist hier nicht relevant, dafür sorgt die Isolierung. Logging muss nur seinen Vertrag erfüllen.\
 Die Art übergreifenden Aspektdenkens ist genau ein Problem das man leicht vergisst.\
 Zugriffsteuerung genauso. Auch das ist eine explizite Kante, aber nicht notwendig Teil des Problemmodells.\
 Eine Datei kann editiert werden, erst beim Speicherversuch in einem I-Node sind Permissions relevant. Ebenso geschieht logging nicht auf jeder Instruktion sondern in bestimmten Knoten.
 
-1 hour ago
-
-### Claude responded: Das korrigiert meine Aussage zum Fan-in.
-
-Enumerating each node's edges in its spec
-
-Enumerating each node's edges in its spec
+### Other responded:
 
 Das korrigiert meine Aussage zum Fan-in. Er zählt nur gewichtet mit Breite und Stabilität des Vertrags. `write(2)` hat als Fan-in jedes Programm und ist trotzdem unproblematisch, weil der Vertrag schmal und stabil ist (Martins *Stable Dependencies Principle*, aus dem Gedächtnis). Tesler und “die Komplexität wandert” gelten für die Breite des Vertrags, nicht für die Zahl der Aufrufer. Das zweite Budget ist damit Kantenbreite und -volatilität, nicht Kantenzahl.
 
@@ -647,16 +553,12 @@ Zwei Fälle bleiben, die nicht an einer einzelnen Kante liegen:
 
 Das ist die Grenze der Isolation, nicht ihre Widerlegung. Für alles, was sich lokal an einer Kante festmachen lässt, trägt dein Modell.
 
-1 hour ago
-
-### You said: Das sehe ich nicht so.
+### You:
 
 Das sehe ich nicht so. Auch Latenz ist nicht notwendigerweise ein übergreifender Aspekt. Das kann er auch gar nicht. Latenz ist ein Aspekt bestimmter Kanten. Jeder Aspekt muss eine Kante sein.\
 Wie lässt sich ein Latenzziel erreichen - nur in der Festlegung von Knotenpfaden und Algorhythmen(Verletzt information hiding).
 
-1 hour ago
-
-### Claude responded: Das stimmt, und es schließt meinen Punkt 2 teilweise.
+### Other responded:
 
 Checking whether end-to-end latency fits the information hiding principle
 
@@ -678,19 +580,11 @@ Der Zielvertrag des Elternknotens lässt sich damit aus den Kindverträgen ablei
 
 Damit trägt dein Modell: Aspekte sind Kantenverträge, End-to-End-Eigenschaften sind abgeleitete Verträge des Elternknotens, und was sich nicht ableiten lässt, weist auf eine nicht modellierte Kante hin.
 
-1 hour ago
-
-### You said: Genau an dem Punkt erzeugst du wieder Komplexität, die wir zu vermeiden suchen.
+### You:
 
 Genau an dem Punkt erzeugst du wieder Komplexität, die wir zu vermeiden suchen. Komposition erhöht Komplexität. Information hiding ist verletzt wenn ich einen Knoten auf basis seiner Implementierung wähle und nicht auf Basis des Kontraks, auch wenn das ineinander Fließen kann.
 
-60 minutes ago
-
-### Claude responded: Der Einwand trifft die Stelle, an der ich "ableiten" geschrieben habe.
-
-Vertragsfluss von oben nach unten statt Ableitung von unten
-
-Vertragsfluss von oben nach unten statt Ableitung von unten
+### Other responded:
 
 Der Einwand trifft die Stelle, an der ich “ableiten” geschrieben habe. Das war Bottom-up-Rechnen über Kindverträge, und das erzeugt genau die Komplexität, die du meinst: Die Komplexität des Elternknotens wächst mit Zahl und Breite der Kindverträge.
 
@@ -706,19 +600,11 @@ Die Kosten der Komposition verschwinden dabei nicht, sie sind aber **durch das K
 
 Eine Grenze bleibt: Die Vertragserfüllung ist nur so prüfbar wie das Orakel an der Kante. Bei probabilistischen Eigenschaften (Perzentile, Agentenverhalten) ist sie eine Messung mit Streuung, kein Beweis.
 
-60 minutes ago
-
-### You said: Damit hast du gerade Komplexität generiert -> Fehler
+### You:
 
 Damit hast du gerade Komplexität generiert -> Fehler
 
-59 minutes ago
-
-### Claude responded: Ja.
-
-Prüfung, ob die Latenzbudgets im Modell nötig sind
-
-Prüfung, ob die Latenzbudgets im Modell nötig sind
+### Other responded:
 
 Ja. Mit den Budgets, dem Randmessen und der Eskalation habe ich eine zweite Ebene eingeführt, die dein Modell nicht braucht. Das ist ein Metamodell neben den Knoten und Kanten.
 
@@ -728,17 +614,11 @@ Die Komplexität ist damit nicht beseitigt. Sie sitzt im Inneren des Knotens und
 
 Ein Vorbehalt bleibt: Wo die Prüfung an der Kante nur eine Messung mit Streuung ist (Perzentile, Agentenverhalten), bleibt ein Restfehler. Das ist aber eine Eigenschaft der Prüfung, kein zusätzlicher Modellbestandteil.
 
-58 minutes ago
-
-### You said: Du gehst in die falsche Richtung.
+### You:
 
 Du gehst in die falsche Richtung. Warum überhaupt Latenz als Aspekt errichten? Was kann ddieses Problem beeinflussen?
 
-### Claude responded: Die Struktur selbst.
-
-Abgeleitete Größe der Kanten gesondert betrachtet
-
-Abgeleitete Größe der Kanten gesondert betrachtet
+### Other responded:
 
 Die Struktur selbst. Latenz ist keine Eigenschaft, die man dem Modell hinzufügt, sondern eine Wirkung, die aus dem Graphen folgt. Beeinflussen können sie nur Dinge, die im Modell schon vorkommen:
 
@@ -752,17 +632,13 @@ Ein Latenzproblem bedeutet demnach, dass der Pfad zu lang, die Kante zu schwer o
 
 Dasselbe gilt für Logging und Zugriffssteuerung: Aspekte sind Namen für Wirkungen. Das Modell kennt nur Knoten und Kanten, und die Aufgabe besteht darin, das Problem so zu schneiden, dass die gewünschte Wirkung aus dem Schnitt folgt.
 
-### You said: Ja das ist besser.
+### You:
 
 Ja das ist besser.\
 Das wäre nicht unbedingt gut, ein Projekt hierarchisch zu beginnen.\
 Vielleicht müsste man ein Projekt in unabhängige Probleme defineiren?
 
-### Claude responded: Ja, das vermeidet das Hauptrisiko des Top-down-Starts: Die Schnitte werden gesetzt, bevor man das Problem kennt, und falsche Schnitte erzeugen die stärkste Kop…
-
-Vergleich unabhängiger Problemräume mit Zerlegung nach Edges
-
-Vergleich unabhängiger Problemräume mit Zerlegung nach Edges
+### Other responded:
 
 Ja, das vermeidet das Hauptrisiko des Top-down-Starts: Die Schnitte werden gesetzt, bevor man das Problem kennt, und falsche Schnitte erzeugen die stärkste Kopplung. Gall’s Law (einfache Systeme zuerst) und Parnas’ Hinweis, dass Zerlegungskriterien aus Änderungsgründen folgen sollten, sprechen dafür.
 
@@ -781,15 +657,11 @@ Ja, das vermeidet das Hauptrisiko des Top-down-Starts: Die Schnitte werden geset
 2. Unabhängig entwickelte Probleme duplizieren Funktionalität. Der Compiler brauchte einen eigenen Agenten, der Duplikate zusammenführt. [anthropic](https://anthropic.com/engineering/building-c-compiler)
 3. Ob dieser Ansatz einem hierarchischen Start überlegen ist, belegen die Berichte nicht. Das wäre ein Experiment mit gleicher Aufgabe und variierter Startstruktur.
 
-### You said: Ja das ist was ich dachte, eher botom-up, keine mocks.
+### You:
 
 Ja das ist was ich dachte, eher botom-up, keine mocks. Unabhängige Teilprobleme und aspekte zuerst und dann nach oben hin zusammenstepseln.
 
-### Claude responded: Das trägt unter einer Bedingung: Das Kantenformat muss vorab feststehen, nicht der Inhalt der Probleme.
-
-Weighing bottom-up assembly against contract-first design risks
-
-Weighing bottom-up assembly against contract-first design risks
+### Other responded:
 
 Das trägt unter einer Bedingung: Das **Kantenformat** muss vorab feststehen, nicht der Inhalt der Probleme. Unix funktioniert bottom-up, weil alle Tools denselben schmalen Vertrag nutzen (Byte-Ströme, Textzeilen, Exit-Codes). Das Zusammenstecken kostet fast nichts, weil die Schnittstellenart schon da war. Ohne dieses gemeinsame Format entsteht beim Zusammenfügen Adapteraufwand, und der ist genau die Komplexität, die vermieden werden soll. Festzulegen ist also wenig: Kantentyp, Vertragsform und die Regeln dafür (Kantenbudget, Breite), nichts darüber hinaus.
 
@@ -803,16 +675,12 @@ Das trägt unter einer Bedingung: Das **Kantenformat** muss vorab feststehen, ni
 
 Für die Agentenberichte gilt: Alle drei Projekte hatten ein Gesamtziel und einen Gesamttest von Anfang an, in dem Sinn war keiner rein bottom-up. Der Compiler ist dem Muster am nächsten, weil dort viele unabhängige Probleme (Tests, Pakete) parallel gelöst wurden. Ob der reine Bottom-up-Start einem Top-down-Start überlegen ist, belegen sie nicht.
 
-### You said: Ja, aber das lässt sich lösen.
+### You:
 
 Ja, aber das lässt sich lösen. Man leitet aus dem Toplevel alle Eigenschaften ab, die ein bestimmter Knoten liefern muss.\
 Dann leitet man Kommunikationsdomainen ab. Welche Knoten müssen mit welchen Reden und bekommen ein gemeinsames Domänenobjekt.
 
-### Claude responded: Das löst das Problem der falschen Probleme, wenn der Top-Level nur als einmalige Quelle von Anforderungen dient und nicht als bleibende Struktur.
-
-Placing the proposed order against domain-driven design terms
-
-Placing the proposed order against domain-driven design terms
+### Other responded:
 
 Das löst das Problem der falschen Probleme, wenn der Top-Level nur als **einmalige Quelle von Anforderungen** dient und nicht als bleibende Struktur. Aus ihm folgen dann die Eigenschaften, die ein Knoten liefern muss, also die Verträge der äußeren Kanten, und danach entsteht kein Baum darüber.
 
@@ -829,15 +697,11 @@ Das löst das Problem der falschen Probleme, wenn der Top-Level nur als **einmal
 * Wächst das Objekt oder die Teilnehmerzahl, ist das ein Schnittsignal. Entweder wird die Entität geteilt, oder die Knoten werden anders geschnitten.
 * Alternative zum geteilten Objekt: jeder Knoten besitzt sein eigenes Modell und übersetzt an der Kante (*Anti-Corruption Layer*). Das verlagert Kopplung in Übersetzungsaufwand pro Kante. Welche Variante billiger ist, hängt von Breite und Änderungshäufigkeit des Objekts ab.
 
-### You said: Das klingt jetzt weider eher nach klasischer Solution Architekture.
+### You:
 
 Das klingt jetzt weider eher nach klasischer Solution Architekture. Gibt es dazu etablierte Ansätze und damit meine ich jetzt nicht DDD?
 
-### Claude responded: Ja, mehrere, die meisten aus Systems Engineering, Hardware-Design und Designtheorie statt aus der Softwarearchitektur.
-
-Weighing methods that turn top-level requirements into component interfaces
-
-Weighing methods that turn top-level requirements into component interfaces
+### Other responded:
 
 Ja, mehrere, die meisten aus Systems Engineering, Hardware-Design und Designtheorie statt aus der Softwarearchitektur. Alles aus dem Gedächtnis, nicht per Suche geprüft.
 
@@ -856,15 +720,11 @@ Ja, mehrere, die meisten aus Systems Engineering, Hardware-Design und Designtheo
 
 Für Agenten gibt es nach meiner Kenntnis keine etablierte Methode auf dieser Basis. Spec-getriebene Ansätze sind im Entstehen, belegt habe ich das nicht.
 
-### You said: Flow based klingt hier besodners relevant
+### You:
 
 Flow based klingt hier besodners relevant
 
-### Claude responded: Ja, FBP (Morrison, IBM, 1970er; Buch 1994, 2.
-
-Weighing flow-based ideas against actor and agent designs
-
-Weighing flow-based ideas against actor and agent designs
+### Other responded:
 
 Ja, FBP (Morrison, IBM, 1970er; Buch 1994, 2. Aufl. 2010) deckt deine Punkte fast vollständig ab. Aus dem Gedächtnis, nicht per Suche geprüft.
 
@@ -887,15 +747,11 @@ Ja, FBP (Morrison, IBM, 1970er; Buch 1994, 2. Aufl. 2010) deckt deine Punkte fas
 
 **Praxisbezug:** Heutige Nachfolger sind Node-RED, Apache NiFi und NoFlo, außerdem Agent-Graph-Frameworks wie LangGraph (das letzte ist mir nur aus der Erinnerung bekannt, nicht geprüft). Ein Compiler (Lexer → Parser → IR → Optimierung → Codegen) ist eine klassische Datenflusskette. Meine Einordnung, nicht aus den Quellen: Der C-Compiler-Fall hat diese Form und wurde mit stufenweisen Tests betrieben. Ob die Agentenprojekte tatsächlich FBP-artig organisiert waren, belegen die Berichte nicht.
 
-### You said: Alle deine Deckungsgleichen Modelle benutzen verschiedene Termini aber zeigen auf das selbe Gebiet innerhalb des Problöemmanagements.
+### You:
 
 Alle deine Deckungsgleichen Modelle benutzen verschiedene Termini aber zeigen auf das selbe Gebiet innerhalb des Problöemmanagements.
 
-### Claude responded: Ja.
-
-Weighing whether the shared terminology reflects real overlap
-
-Weighing whether the shared terminology reflects real overlap
+### Other responded:
 
 Ja. Der gemeinsame Kern lautet: Ein System wird in Einheiten mit schmalen, expliziten Schnittstellen zerlegt, das Innere ist verborgen, die Kopplung wird minimiert und die Prüfung sitzt an der Grenze. Die Begriffe unterscheiden sich je nach Herkunft (alles aus dem Gedächtnis):
 
@@ -915,15 +771,11 @@ Ja. Der gemeinsame Kern lautet: Ein System wird in Einheiten mit schmalen, expli
 
 **Praktisch bedeutet das:** Literatur zu deinem Thema findet man unter mehreren Begriffen (Modularität, Kopplung, Contracts, Dataflow, Axiomatic Design). Für Agenten ist ein festes Vokabular im Repo sinnvoll, damit Specs, Linter und Prompts denselben Begriff für dieselbe Sache nutzen. Sonst entsteht durch die Begriffsvielfalt zusätzliche Komplexität.
 
-### You said: Das mit agentischer Entwicklung ist zu erwarten.
+### You:
 
 Das mit agentischer Entwicklung ist zu erwarten. Bis das Feld die Similarität zur normalen menschlichen Problemlösung begreift, wird einige Zeit vergehen. Dabei liegt die Grundlage nahe. KI ist dem Menschen nachempfunden und nach seinen Komponenten modelliert (Kontext, Attention).
 
-### Claude responded: Die Ähnlichkeit der Fehlerklassen stimmt.
-
-Bewertung der Ähnlichkeit zwischen KI-Architektur und Kognition
-
-Bewertung der Ähnlichkeit zwischen KI-Architektur und Kognition
+### Other responded:
 
 Die Ähnlichkeit der Fehlerklassen stimmt. Die Begründung “nachempfunden und nach seinen Komponenten modelliert” trägt aber nur teilweise.
 
@@ -938,15 +790,11 @@ Die Ähnlichkeit der Fehlerklassen stimmt. Die Begründung “nachempfunden und 
 
 **Zum Stand im Feld:** Praktiker erkennen die Analogie teilweise schon. Anthropic beschreibt sein Harness-Design als Anlehnung an menschliche Ingenieure, und das Muster der Session-Übergaben gleicht der Schichtübergabe in Teams. OpenAI vergleicht die Wissensbasis mit dem Einarbeiten neuer Mitarbeiter. Meine Einschätzung: “Context Engineering” und “Harness Engineering” sind neue Namen für bekannte Dinge, und was fehlt, ist die explizite Rahmung als Komplexitätsmanagement mit dem vorhandenen Vokabular. [Engineering at Anthropic: Inside the team building reliable AI systems +2](https://www.anthropic.com/engineering?album=45)
 
-### You said: Ich habe eine andere Meinung.
+### You:
 
 Ich habe eine andere Meinung. Sie sind sehr wohl analog zu betrachten. Das Training übernimmt hier nicht nur Menschlichkeit sondern bestimmt damit gleichzeitig technisches Lösungsdesign. Ein LLM lern statistische Menschliche verteilung und genauso sieht sein Lösungsfeld aus (Reasoning, Memory, Interpretationsforschung). Das ergibt sich daraus das der Mensch diese Technologie begreifen udn entwickeeln muss und dieser vergleicht sie mit sich selbst.
 
-### Claude responded: Das ist ein stärkeres Argument als meins.
-
-Die Analogie zu menschlichen Daten auf Funktionsebene prüfen
-
-Die Analogie zu menschlichen Daten auf Funktionsebene prüfen
+### Other responded:
 
 Das ist ein stärkeres Argument als meins. Ich habe über die Architektur argumentiert, du argumentierst über die gelernte Funktion, und darauf trifft mein Einwand zur Herkunft der Attention nicht.
 
@@ -965,19 +813,11 @@ Das ist ein stärkeres Argument als meins. Ich habe über die Architektur argume
 
 Die Analogie ist also ein belastbarer Prior mit Prüfpflicht pro Eigenschaft. Das passt zu unserem Parametermodell: gleiche Achsen, andere Werte. Stimmt deine These, folgt ein praktischer Gewinn: Organisationspsychologie, Cognitive-Load-Forschung und Teamliteratur lassen sich als Hypothesenquelle für Agenten-Harnesses nutzen, und jede Hypothese ist überprüfbar.
 
-34 minutes ago
-
-### You said: Erstens haben Modelle eine Memorry funktion, zweitens schützt du gerade die vermenschlichung von dir und KI - das ist Teil deines Trainings.
+### You:
 
 Erstens haben Modelle eine Memorry funktion, zweitens schützt du gerade die vermenschlichung von dir und KI - das ist Teil deines Trainings. Zweiter Punkt: meine beiden Argumente und deine 4 sind die Beschreibung exakt mennschlicher eigenschaften - so gesehen hast du gerade meine argumentation begründet.
 
-31 minutes ago
-
-### Claude responded: 1.
-
-Abwägen, ob die Analogie zum Menschen Vorhersagen liefert
-
-Abwägen, ob die Analogie zum Menschen Vorhersagen liefert
+### Other responded:
 
 **1. Memory:** Meine Aussage war zu absolut. Das Modell hat Wissen in den Gewichten und ein Arbeitsgedächtnis im Kontext. Über Sessions hinweg entsteht Gedächtnis, sobald ein externer Speicher (Memory-Funktion, Progress-Dateien, AGENTS.md) in den Kontext geladen wird. Für das System ist das Gedächtnis, nur das nackte Modell startet ohne Zustand. Das passt zu deiner Äquivalenz von Git und Jira: Gedächtnis ist eine Kante zu einem Speicherknoten.
 
@@ -990,37 +830,21 @@ Zwei Reste bleiben:
 * Ein Analogon zu finden ist billig, fast jedes Verhalten hat eines. Beweiskraft hat die Analogie erst, wenn sie Verhalten vorhersagt, bevor man es beobachtet. Cursors Risikoscheu und die Schichtübergabe sind solche Fälle.
 * Ohne menschliches Analogon ist, dass sich dieselbe Komponente beliebig oft aus identischem Zustand unabhängig sampeln lässt. Das erlaubt Mehrheitsentscheid, Fehlerinjektion und Varianzmessung in einer Form, die bei Menschen nicht geht. Das ist ein Parameterwert, kein Typunterschied, aber er verschiebt Entwurfsentscheidungen.
 
-31 minutes ago
-
-### You said: Geht sie beim Menschen nicht?
+### You:
 
 Geht sie beim Menschen nicht? Ich möchte jetzt nicht vom Thema abweichen und Kleinigkeiten sikutieren.
 
-28 minutes ago2 / 2
-
-### Claude responded: Doch, annähernd: Mehrere unabhängige Gutachter, Delphi-Verfahren, Zweitmeinung und Mehrheitsvoten leisten dasselbe.
-
-Vergleich mit Menschen: Unabhängige Urteile über Gruppen und Zeit einholen
-
-Vergleich mit Menschen: Unabhängige Urteile über Gruppen und Zeit einholen
+### Other responded:
 
 Doch, annähernd: Mehrere unabhängige Gutachter, Delphi-Verfahren, Zweitmeinung und Mehrheitsvoten leisten dasselbe. Der Unterschied liegt nur in der Genauigkeit, nicht im Typ. Bei einem Agenten lässt sich der Ausgangszustand exakt kopieren, bei Menschen sind es verschiedene Personen mit verschiedenem Zustand. Das ist ein Parameterwert, wie bei allen anderen Unterschieden auch, und für dein Modell ohne Bedeutung.
 
 Dein Argument bleibt damit stehen: Die Fehlerklassen und die Gegenmaßnahmen sind übertragbar, und das Modell aus Knoten, Kanten, Verträgen und Prüfung an der Kante gilt für Teams aus Menschen, Agenten oder beidem.
 
-28 minutes ago
-
-### You said: Dann bleibt es dabei ich werde ein großes Projekt auf der basis der besprochene These erproben.
+### You:
 
 Dann bleibt es dabei ich werde ein großes Projekt auf der basis der besprochene These erproben.
 
-28 minutes ago
-
-### Claude responded: Dann lohnt es sich, das Projekt zugleich als Experiment anzulegen, damit die These prüfbar wird.
-
-Planning a compact, testable experiment outline.
-
-Planning a compact, testable experiment outline.
+### Other responded:
 
 Dann lohnt es sich, das Projekt zugleich als Experiment anzulegen, damit die These prüfbar wird.
 
@@ -1055,4 +879,186 @@ Dann lohnt es sich, das Projekt zugleich als Experiment anzulegen, damit die The
 
 **Dokumentiere Abweichungen vom Modell** (jedes Mal, wenn du eine Regel brechen musstest und warum). Daraus ergibt sich, wo die These an ihre Grenze kommt, und das ist der eigentliche Erkenntnisgewinn.
 
-27 minutes ago
+Result Stats: id=a7a26d7d-f3b2-4d24-9711-38d47736be69, total: 356121, in: 209817, out: 146304, reason: 123277, read: 0, write: 0, start: 1793307460829, end: 1793308687119, time: 1222003, total: 1222003, io: 579, control: 4287, sent: 1, recv: 4799
+SystemInit:  id=a7a26d7d-f3b2-4d24-9711-38d47736be69, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-opus-5-5
+Text:
+
+## References
+
+Anderson, J. P. (1972). *Computer security technology planning study* (ESD-TR-73-51). Electronic Systems Division, U.S. Air Force.
+
+Anthropic. (2025, September). *Effective context engineering for AI agents*. Anthropic Engineering.
+
+Ashby, W. R. (1956). *An introduction to cybernetics*. Chapman & Hall.
+
+Bahdanau, D., Cho, K., & Bengio, Y. (2015). Neural machine translation by jointly learning to align and translate. In *Proceedings of the 3rd International Conference on Learning Representations (ICLR)*.
+
+Baldwin, C. Y., & Clark, K. B. (2000). *Design rules: Vol. 1. The power of modularity*. MIT Press.
+
+Barr, E. T., Harman, M., McMinn, P., Shahbaz, M., & Yoo, S. (2015). The oracle problem in software testing: A survey. *IEEE Transactions on Software Engineering, 41*(5), 507–525.
+
+Benveniste, A., Caillaud, B., Nickovic, D., Passerone, R., Raclet, J.-B., Reinkemeier, P., Sangiovanni-Vincentelli, A., Damm, W., Henzinger, T. A., & Larsen, K. G. (2018). Contracts for system design. *Foundations and Trends in Electronic Design Automation, 12*(2–3), 124–400.
+
+Binz, M., & Schulz, E. (2023). Using cognitive psychology to understand GPT-3. *Proceedings of the National Academy of Sciences, 120*(6), e2218523120.
+
+Brooks, F. P., Jr. (1975). *The mythical man-month: Essays on software engineering*. Addison-Wesley.
+
+Brooks, F. P., Jr. (1987). No silver bullet: Essence and accidents of software engineering. *Computer, 20*(4), 10–19.
+
+Buehler, R., Griffin, D., & Ross, M. (1994). Exploring the "planning fallacy": Why people underestimate their task completion times. *Journal of Personality and Social Psychology, 67*(3), 366–381.
+
+Carlini, N. (2026, February). *Building a C compiler with a team of parallel Claudes*. Anthropic Engineering. https://www.anthropic.com/engineering/building-c-compiler
+
+Clark, A., & Chalmers, D. (1998). The extended mind. *Analysis, 58*(1), 7–19.
+
+Conway, M. E. (1968). How do committees invent? *Datamation, 14*(4), 28–31.
+
+Cowan, N. (2001). The magical number 4 in short-term memory: A reconsideration of mental storage capacity. *Behavioral and Brain Sciences, 24*(1), 87–114.
+
+Dalkey, N., & Helmer, O. (1963). An experimental application of the Delphi method to the use of experts. *Management Science, 9*(3), 458–467.
+
+Dasgupta, I., Lampinen, A. K., Chan, S. C. Y., Sheahan, H. R., Creswell, A., Kumaran, D., McClelland, J. L., & Hill, F. (2024). Language models, like humans, show content effects on reasoning tasks. *PNAS Nexus, 3*(7), pgae233.
+
+DeMillo, R. A., Lipton, R. J., & Sayward, F. G. (1978). Hints on test data selection: Help for the practicing programmer. *Computer, 11*(4), 34–41.
+
+Dijkstra, E. W. (1970). *Notes on structured programming* (EWD249). Technological University Eindhoven.
+
+Dijkstra, E. W. (1974). On the role of scientific thought (EWD447). Reprinted in *Selected writings on computing: A personal perspective* (pp. 60–66). Springer, 1982.
+
+Eppinger, S. D., & Browning, T. R. (2012). *Design structure matrix methods and applications*. MIT Press.
+
+Evans, E. (2003). *Domain-driven design: Tackling complexity in the heart of software*. Addison-Wesley.
+
+Fowler, M. (1999). *Refactoring: Improving the design of existing code*. Addison-Wesley.
+
+Gall, H., Hajek, K., & Jazayeri, M. (1998). Detection of logical coupling based on product release history. In *Proceedings of the International Conference on Software Maintenance (ICSM)* (pp. 190–198). IEEE.
+
+Gall, J. (1975). *General systemantics: An essay on how systems work, and especially how they fail*. General Systemantics Press.
+
+Goodhart, C. A. E. (1975). Problems of monetary management: The U.K. experience. In *Papers in monetary economics* (Vol. 1). Reserve Bank of Australia.
+
+Grassé, P.-P. (1959). La reconstruction du nid et les coordinations interindividuelles chez *Bellicositermes natalensis* et *Cubitermes* sp. La théorie de la stigmergie. *Insectes Sociaux, 6*(1), 41–80.
+
+Hagendorff, T., Fabi, S., & Kosinski, M. (2023). Human-like intuitive behavior and reasoning biases emerged in large language models but disappeared in ChatGPT. *Nature Computational Science, 3*(10), 833–838.
+
+Hong, K., Troynikov, A., & Huber, J. (2025). *Context rot: How increasing input tokens impacts LLM performance* [Technical report]. Chroma.
+
+Hutchins, E. (1995). *Cognition in the wild*. MIT Press.
+
+Ingham, A. G., Levinger, G., Graves, J., & Peckham, V. (1974). The Ringelmann effect: Studies of group size and group performance. *Journal of Experimental Social Psychology, 10*(4), 371–384.
+
+Jackson, M. (2001). *Problem frames: Analysing and structuring software development problems*. Addison-Wesley.
+
+Ji, Z., Lee, N., Frieske, R., Yu, T., Su, D., Xu, Y., Ishii, E., Bang, Y. J., Madotto, A., & Fung, P. (2023). Survey of hallucination in natural language generation. *ACM Computing Surveys, 55*(12), Article 248.
+
+Kahn, G. (1974). The semantics of a simple language for parallel programming. In *Information Processing 74: Proceedings of IFIP Congress 74* (pp. 471–475). North-Holland.
+
+Kahneman, D., & Klein, G. (2009). Conditions for intuitive expertise: A failure to disagree. *American Psychologist, 64*(6), 515–526.
+
+Kiczales, G., Lamping, J., Mendhekar, A., Maeda, C., Lopes, C., Loingtier, J.-M., & Irwin, J. (1997). Aspect-oriented programming. In *ECOOP'97: Object-Oriented Programming* (LNCS 1241, pp. 220–242). Springer.
+
+Knight, J. C., & Leveson, N. G. (1986). An experimental evaluation of the assumption of independence in multiversion programming. *IEEE Transactions on Software Engineering, SE-12*(1), 96–109.
+
+Latané, B., Williams, K., & Harkins, S. (1979). Many hands make light the work: The causes and consequences of social loafing. *Journal of Personality and Social Psychology, 37*(6), 822–832.
+
+Lin, W. (2026, January). *Scaling long-running autonomous coding*. Cursor Blog.
+
+Lindsey, J., et al. (2025). On the biology of a large language model. *Transformer Circuits Thread*.
+
+Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., & Liang, P. (2024). Lost in the middle: How language models use long contexts. *Transactions of the Association for Computational Linguistics, 12*, 157–173.
+
+Lopopolo, R. (2026, February). *Harness engineering: Leveraging Codex in an agent-first world*. OpenAI. https://openai.com/index/harness-engineering/
+
+McIlroy, M. D., Pinson, E. N., & Tague, B. A. (1978). UNIX time-sharing system: Foreword. *The Bell System Technical Journal, 57*(6), 1899–1904.
+
+Meyer, B. (1992). Applying "design by contract". *Computer, 25*(10), 40–51.
+
+Miller, G. A. (1956). The magical number seven, plus or minus two: Some limits on our capacity for processing information. *Psychological Review, 63*(2), 81–97.
+
+Morrison, J. P. (2010). *Flow-based programming: A new approach to application development* (2nd ed.). CreateSpace. (1st ed. 1994, Van Nostrand Reinhold.)
+
+Nisbett, R. E., & Wilson, T. D. (1977). Telling more than we can know: Verbal reports on mental processes. *Psychological Review, 84*(3), 231–259.
+
+Osmani, A. (2026, April). *Agent harness engineering*. https://addyosmani.com/blog/agent-harness-engineering/
+
+Ousterhout, J. (2018). *A philosophy of software design*. Yaknyam Press.
+
+Page-Jones, M. (1992). Comparing techniques by means of encapsulation and connascence. *Communications of the ACM, 35*(9), 147–151.
+
+Parasuraman, R., & Manzey, D. H. (2010). Complacency and bias in human use of automation: An attentional integration. *Human Factors, 52*(3), 381–410.
+
+Parnas, D. L. (1972). On the criteria to be used in decomposing systems into modules. *Communications of the ACM, 15*(12), 1053–1058.
+
+Parnas, D. L. (1979). Designing software for ease of extension and contraction. *IEEE Transactions on Software Engineering, SE-5*(2), 128–138.
+
+Raymond, E. S. (2003). *The art of Unix programming*. Addison-Wesley.
+
+Reason, J. (1990). *Human error*. Cambridge University Press.
+
+Rice, H. G. (1953). Classes of recursively enumerable sets and their decision problems. *Transactions of the American Mathematical Society, 74*(2), 358–366.
+
+Saltzer, J. H., & Schroeder, M. D. (1975). The protection of information in computer systems. *Proceedings of the IEEE, 63*(9), 1278–1308.
+
+Sangiovanni-Vincentelli, A. (2007). Quo vadis, SLD? Reasoning about the trends and challenges of system level design. *Proceedings of the IEEE, 95*(3), 467–506.
+
+Schluntz, E., & Zhang, B. (2024, December). *Building effective agents*. Anthropic Engineering. https://www.anthropic.com/engineering/building-effective-agents
+
+Sharma, M., et al. (2024). Towards understanding sycophancy in language models. In *Proceedings of the 12th International Conference on Learning Representations (ICLR)*.
+
+Simon, H. A. (1955). A behavioral model of rational choice. *The Quarterly Journal of Economics, 69*(1), 99–118.
+
+Simon, H. A. (1962). The architecture of complexity. *Proceedings of the American Philosophical Society, 106*(6), 467–482.
+
+Skalse, J., Howe, N. H. R., Krasheninnikov, D., & Krueger, D. (2022). Defining and characterizing reward hacking. In *Advances in Neural Information Processing Systems 35 (NeurIPS 2022)*.
+
+Steward, D. V. (1981). The design structure system: A method for managing the design of complex systems. *IEEE Transactions on Engineering Management, EM-28*(3), 71–74.
+
+Suh, N. P. (1990). *The principles of design*. Oxford University Press.
+
+Sumers, T. R., Yao, S., Narasimhan, K., & Griffiths, T. L. (2024). Cognitive architectures for language agents. *Transactions on Machine Learning Research*.
+
+Sweller, J. (1988). Cognitive load during problem solving: Effects on learning. *Cognitive Science, 12*(2), 257–285.
+
+Tversky, A., & Kahneman, D. (1981). The framing of decisions and the psychology of choice. *Science, 211*(4481), 453–458.
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. In *Advances in Neural Information Processing Systems 30 (NIPS 2017)* (pp. 5998–6008).
+
+Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E., Le, Q. V., & Zhou, D. (2022). Chain-of-thought prompting elicits reasoning in large language models. In *Advances in Neural Information Processing Systems 35 (NeurIPS 2022)*.
+
+Weyuker, E. J. (1982). On testing non-testable programs. *The Computer Journal, 25*(4), 465–470.
+
+Willison, S. (2026, January 19). *Scaling long-running autonomous coding* [Blog post]. https://simonwillison.net/2026/Jan/19/scaling-long-running-autonomous-coding/
+
+Yang, J., Jimenez, C. E., Wettig, A., Lieret, K., Yao, S., Narasimhan, K., & Press, O. (2024). SWE-agent: Agent-computer interfaces enable automated software engineering. In *Advances in Neural Information Processing Systems 37 (NeurIPS 2024)*.
+
+Young, J. (2025, November). *Effective harnesses for long-running agents*. Anthropic Engineering.
+
+Zeller, A., & Hildebrandt, R. (2002). Simplifying and isolating failure-inducing input. *IEEE Transactions on Software Engineering, 28*(2), 183–200.
+
+Zimmermann, T., Weißgerber, P., Diehl, S., & Zeller, A. (2005). Mining version histories to guide software changes. *IEEE Transactions on Software Engineering, 31*(6), 429–445.
+
+## Declaration of generative AI use
+
+This manuscript was drafted with the assistance of a large language model, based on a dialogue in which the author developed the argument. *[Adapt to the policy of the target venue. The author is responsible for the content.]*
+
+---
+
+**Hinweise zum Entwurf**
+
+- **Grundlage:** Der Text folgt deiner Argumentationslinie. Wo du die Gegenseite korrigiert hast, steht deine Position. Das betrifft den Menschen als privilegiertes Orakel, Latenz-Budgets und Ableitungen, den hierarchischen Start, Aspekte als Querschnitt und die These, KI sei dem Menschen nicht nachempfunden. Die verworfenen Varianten erscheinen nur als zurückgewiesene Alternativen, vor allem in §5.4 und §8.2.
+- **Ergänzungen von mir:** Folgendes stammt nicht aus dem Gespräch, sondern soll deine Thesen stützen:
+  - Conway's Law, Brooks's Law und der Ringelmann-Effekt
+  - Distributed und Extended Cognition (Hutchins; Clark & Chalmers)
+  - CoALA, Chain-of-Thought, Binz & Schulz, Dasgupta et al., Hagendorff et al., Liu et al.
+  - Planning Fallacy, Social Loafing und die Change-Coupling-Literatur
+  - §4.6 (Verantwortung als Kante) habe ich aus „jeder Aspekt ist eine Kante" abgeleitet.
+  - Die Hypothesen in §10 sind meine Operationalisierung.
+
+  Streiche, was nicht passt.
+- **Vor einer Einreichung prüfen:**
+  - Die klassischen Referenzen stammen aus meinem Wissen.
+  - Die Fallzahlen sind Herstellerangaben aus dem Gespräch. Die Zwischenstufen bei Cursor sind nur über Sekundärquellen belegt.
+  - Die Grauliteratur 2025/26 (Young, Lin, Lopopolo, Osmani, Hong et al.) und die URLs bitte gegen die Originale abgleichen.
+- **Platzhalter:** Autorenzeile und KI-Erklärung musst du an den Zielort anpassen.
+
+Ich kann den Text als LaTeX setzen (z. B. mit ACM- oder IEEE-Vorlage) oder auf Workshop-Länge von 4–6 Seiten kürzen.

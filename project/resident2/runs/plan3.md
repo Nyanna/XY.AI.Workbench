@@ -1,22 +1,4 @@
-Führe alle Anforderungen strukturiert zusammen.
-
-- Verwende keine Kürzel oder führe Code an (Code agnostisch)
-- Kein Inhaltsverzeichnis, Lesehilfe, ID-Schemata, Glossare
-
-# Anforderungen
-
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/structure.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/requirements.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/resident_index.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/resident_planner.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/resident_precision.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/resident_processor.md)
-[include](/home/user/xyan/xy.ai.workbench/project/resident2/plan0/resident_subengine.md)
-Result Stats: id=a3655d3b-fcb4-43cf-8f26-b50c47b5978d, total: 144759, in: 19895, out: 124864, reason: 99324, read: 0, write: 0, start: 1793262352816, end: 1793263099476, time: 746083, total: 746083, io: 274, control: 577, sent: 1, recv: 4526
-SystemInit:  id=a3655d3b-fcb4-43cf-8f26-b50c47b5978d, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
-ReasoningToken: 99324
-# Resident – zusammengeführte Anforderungen
+# Resident – Anforderungen
 
 ## Zweck und Rahmen
 

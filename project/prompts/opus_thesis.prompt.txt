@@ -1,0 +1,8 @@
+---
+title: Opus Thesis
+tools:
+outputMode: "Append"
+inputs:
+- "Selection"
+---
+Target language is english
