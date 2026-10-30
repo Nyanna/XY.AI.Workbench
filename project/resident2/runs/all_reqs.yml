@@ -1,0 +1,1765 @@
+- Name: Resident
+  Requirements:
+    - Stellt eine dauerhaft laufende Engine für Embedding (Texte in Vektoren umwandeln) und Similarity (Ähnlichkeitssuche gegen einen Index) bereit.
+    - Ist von einer RAG-Anwendung startbar und als Server-Prozess, Daemon oder über die CLI nutzbar.
+    - Rechnet in zwei getrennten Subengines, einer für die CPU und einer für die GPU (CUDA), die ihre Arbeit selbstorganisiert nach dem Pull-Prinzip aus Queues holen.
+    - Ist nach der Initialisierung bereit, verbraucht aber noch keine Ressourcen.
+    - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks. Solches Verhalten entsteht nur durch Addons.
+    - Gibt keine Garantie auf Ergebnisse von Embedding und Similarity. Varianz und Indeterminismus (Fusion, Atomics, hardwareabhängiges Rounding) sind zugunsten von Auslastung und Performance erlaubt. Stale Ergebnisse sind kein Fehler.
+    - Verzichtet zugunsten konsistenten Durchsatzes auf Locks auf den Datenpfaden.
+    - Gibt keine Zusage zu Vollständigkeit oder Größe der Kandidatenmenge und zur Ergebnisqualität. Genauigkeitsverluste sind Sache der äußeren Schichten.
+
+- Name: Engine-Fassade
+  Requirements:
+    - Bildet die Fassade (Facade) der Engine nach außen.
+    - Wird instanziiert und konfiguriert, anschließend initialisiert.
+    - Die Modelle bilden einen festen Satz und werden vor der Initialisierung der Engine konfiguriert.
+    - Ist nach der Initialisierung bereit, ohne Modell- oder Device-Ressourcen zu verbrauchen.
+    - Erlaubt das Registrieren von Indizes, ohne sie zu laden oder zu verwenden.
+    - Nimmt Tasks für verschiedene Aufgaben entgegen (enqueue).
+
+- Name: Task-Modell
+  Requirements:
+    - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks.
+    - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar.
+    - Hält das Ergebnis bereit, sodass es per Event oder Notification abgeholt werden kann.
+
+- Name: Task-Handle
+  Requirements:
+    - Erlaubt das Abholen des Ergebnisses, ohne zu pollen, per Event oder Notification.
+
+- Name: Erweiterbare Zusatzparameter
+  Requirements:
+    - Dient dem Kern als einziges Mittel für Addon-Tasks (erweiterbares Parameterobjekt).
+    - Trägt Addon-spezifische Parameter, etwa den Scope eines Folge-Tasks, ohne dass der Kern sie interpretiert.
+
+- Name: Embedding-Task
+  Requirements:
+    - Wandelt Texte in Vektoren um.
+    - Liefert Embeddings ohne Determinismusgarantie. Varianz ist zugunsten von Auslastung und Performance erlaubt.
+
+- Name: Similarity-Task
+  Requirements:
+    - Führt eine Ähnlichkeitssuche gegen einen Index aus.
+    - Rechnet auf der übergebenen Kandidatenmenge und verbürgt weder deren Vollständigkeit oder Größe noch die Ergebnisqualität.
+    - Genauigkeitsverluste durch Chunking, Query-Formulierung, Index-Struktur, Reranking oder Kandidatenanzahl sind Sache der äußeren Schichten.
+    - Liefert Ergebnisse ohne Garantie. Stale Ergebnisse sind kein Fehler.
+    - Erlaubt, dass ein Similarity-Task den Scope eines Folge-Tasks treibt, etwa beim Reranking als zweiter Similarity auf dem verengten Scope.
+
+- Name: Similarity-Report
+  Requirements:
+    - Liefert Fakten, trifft keine Entscheidungen und legt keine Thresholds fest.
+
+- Name: Addons
+  Requirements:
+    - Iteration und Rekursion entstehen allein durch ein Addon in einer Subengine, der Anwendung oder einer Ressourcenimplementierung (Index, Modell).
+    - Enqueued Tasks über den normalen Weg, mit geklonten oder geänderten Parametern. Diese werden über die vorhandenen Pull-Filter (Priorität, Affinity) gezogen.
+    - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar. Der Kern braucht dafür nur das erweiterbare Parameterobjekt.
+    - Beispiel Centroid, ein Centroid-Task gegen die Summary-Struktur mit einem Folge-Task über die Mitglieder der gewählten Zellen.
+    - Beispiel Textanfrage, ein Embedding-Task gefolgt von einem Similarity-Task.
+    - Beispiel Reranking, eine zweite Similarity auf dem verengten Scope.
+
+- Name: Processor
+  Requirements:
+    - Orchestriert mit Workern, Queues, Notification und Backpressure.
+
+- Name: Planner
+  Requirements:
+    - Stellt fest, welche Subengines konfiguriert sind, und startet sie.
+    - Teilt den Subengines die von einer Operation benötigten Ressourcen mit.
+    - Verwaltet die Zuordnung von Capabilities zu Queues und weist Operationen anhand der von den Subengines gemeldeten kompatiblen Capabilities den Queues zu, vorzugsweise der gemeinsamen.
+
+- Name: Expander
+  Requirements:
+    - Zerlegt Tasks in Operationsketten.
+
+- Name: Operation
+  Requirements:
+    - Beschreibt die Operationsarten der Embedding- und Similarity-Ketten.
+
+- Name: Resource-Requirements
+  Requirements:
+    - Legt fest, welche Ressourcen eine Operation benötigt, damit der Planner dies den Subengines mitteilen kann.
+
+- Name: Queue
+  Requirements:
+    - Wird gemeinsam genutzt und als Task-Queue sowie als CPU-, GPU- und gemeinsame Queue eingesetzt.
+    - Kennt kein Head-of-Line-Blocking, keine Reservierung und kein Vorab-Übernehmen.
+    - Kennt keine Capabilities.
+
+- Name: Abschluss-Warten
+  Requirements:
+    - Meldet den Abschluss einer Arbeitseinheit per Event oder Notification, sodass Ergebnisse abgeholt werden können.
+
+- Name: Worker-Pool
+  Requirements:
+    - Startet bei der Initialisierung der Engine über den internen Executor die Mindestzahl idle Threads.
+    - Jeder Thread bedient sich als Lane selbst an der Queue.
+
+- Name: Subengine
+  Requirements:
+    - Verwaltet Ressourcen und Speicher je Hardwareart, getrennt für CPU und GPU (CUDA).
+    - Besitzt alles, was Speicher, Streams oder Kernel besitzt.
+    - Holt ihre Arbeit selbstorganisiert nach dem Pull-Prinzip aus den Queues.
+
+- Name: Gemeinsame Subengine-Regeln
+  Requirements:
+    - Meldet ihre kompatiblen Capabilities beim Planner an.
+
+- Name: Ressourcen-Lebenszyklus
+  Requirements:
+    - Initialisiert Ressourcen (Modelle, Indizes, Tokenizer, Kernel) erst bei Bedarf, wenn eine freie Lane eine Operation zieht.
+    - Entlädt Ressourcen nach Ablauf einer Frist ohne Nutzung (Unload), deaktiviert sie aber nicht.
+    - Die Unload-Fristen im VRAM sind deutlich länger als im RAM.
+
+- Name: Auslastungsmeldung
+  Requirements:
+    - Meldet den dynamischen Durchsatz der Lanes als Grundlage der Arbeitszuteilung.
+
+- Name: Precision, Kalibrierung und Profile
+  Requirements:
+    - Die Kalibrierung unterbricht oder blockiert den Nutzer nie.
+    - Gibt keine Rounding- oder Determinismusgarantie. Hardwareabhängiges Rounding ist erlaubt.
+
+- Name: Capability-Erkennung
+  Requirements:
+    - Bietet auf Hardware ohne Tensor Cores (Referenzkarte GTX 1660 SUPER) keinen Tensor-Core-Pfad an.
+
+- Name: Kernel und Scoring
+  Requirements:
+    - Ist nicht an Subengines, Modelle oder Indizes gekoppelt.
+    - Varianz und Indeterminismus der Scores durch Fusion, Atomics oder hardwareabhängiges Rounding sind erlaubt.
+
+- Name: Unterstützte Precisions
+  Requirements:
+    - Bietet BF16 nicht als Compute-Pfad an.
+
+- Name: Pull-Ausführung
+  Requirements:
+    - Holt Arbeit selbstorganisiert nach dem Pull-Prinzip aus den eigenen und gemeinsamen Queues.
+
+- Name: Subengine-Loop
+  Requirements:
+    - Eine aktivierte Lane zieht eine Operation, sobald sie frei ist.
+    - Zieht über die vorhandenen Pull-Filter (Priorität, Affinity).
+    - Kennt kein Head-of-Line-Blocking, keine Reservierung und kein Vorab-Übernehmen.
+
+- Name: Lane und Batching
+  Requirements:
+    - Die Zuteilung steuert sich über den dynamischen Durchsatz der Lanes. Wer schneller ist, holt sich mehr Arbeit.
+    - Aggregiert, wenn sinnvoll, Operationen, die mit demselben Index oder Modell laufen können oder müssen, zu einem Batch.
+
+- Name: CPU-Subengine
+  Requirements:
+    - Führt ein Device mit Ressourcen (Cores) und Lanes.
+    - Hält Speicher mit Kernel, Index (Entry, Datei im Parquet-Format, Manager), Tokenizer und Normalizer.
+    - Ist nicht an Kernel, Modelle oder Indizes gekoppelt.
+
+- Name: GPU-Subengine
+  Requirements:
+    - Führt ein CUDA-Device mit Ressourcen (Compute Units, Streaming Multiprocessors) und Lanes.
+    - Hält Speicher mit Kernel und Index.
+    - Ist nicht an Kernel, Modelle oder Indizes gekoppelt.
+
+- Name: GPU-Kernel
+  Requirements:
+    - Varianz und Indeterminismus durch Fusion oder Atomics sind zugunsten von Auslastung und Performance erlaubt.
+
+- Name: Kernel-Register
+  Requirements:
+    - Kompiliert Kernel zur Laufzeit (JIT) für die tatsächlich vorhandene Architektur, auf der Referenzkarte also für SM 7.5.
+    - Kompiliert und lädt Kernel lazy.
+
+- Name: GPU-Manager
+  Requirements:
+    - Hält den GPU-Index als Segmenttabelle mit Segmenten und verwaltet ihn.
+
+- Name: Kernel-Synchronisation
+  Requirements:
+    - Blockiert nie einen Kernel.
+
+- Name: Mutationsdisziplin
+  Requirements:
+    - Verzichtet auf Locks auf den Datenpfaden zugunsten konsistenten Durchsatzes. Stale Ergebnisse sind kein Fehler.
+
+- Name: Doorbell-Synchronisation
+  Requirements:
+    - Nutzt Loads mit Acquire-Semantik, die ab Compute Capability 7.0 verfügbar sind. Turing genügt dafür.
+
+- Name: Modell
+  Requirements:
+    - Wird von CPU- und GPU-Subengine gemeinsam genutzt.
+    - Ist nicht an Subengines, Kernel oder Indizes gekoppelt.
+
+- Name: Modellbeschreibung
+  Requirements:
+    - Liefert Model-ID und Dimension als einzige harte Bindung zum Index.
+    - Leitet den Default für das Modell multilingual-e5-small aus dem Repository unter /home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small ab.
+
+- Name: Modellregister
+  Requirements:
+    - Führt die Modelle als festen Satz, der vor der Initialisierung der Engine konfiguriert wird.
+    - Lädt Modelle erst bei Bedarf.
+
+- Name: Gewichtsquelle
+  Requirements:
+    - Lädt Modellgewichte im Format safetensors.
+
+- Name: Tokenizer-Laden
+  Requirements:
+    - Lädt Tokenizer in kompatiblen Formaten bzw. hält sie zum Laden bereit.
+    - Initialisiert den Tokenizer lazy.
+
+- Name: Textnormalisierung
+  Requirements:
+    - Normalisierung bezeichnet die zum Tokenizer gehörende Normalisierung. Sie wird lazy initialisiert.
+    - Erlaubt zusätzlich eine externe, vorgeschaltete Textnormalisierung für die Chunks.
+
+- Name: Library-Adapter
+  Requirements:
+    - Bindet externe Libraries jeweils an genau einer Stelle als Adapter an. Typen externer Libraries werden nur an diesen Rändern konvertiert.
+
+- Name: Zielumgebung und Abhängigkeiten
+  Requirements:
+    - Zielhardware ist eine Nvidia GeForce GTX 1660 SUPER mit Compute Capability 7.5 (Turing) und Treiberversion 610.57.04.
+    - CUDA-Toolchain ist Release 13.3, Version 13.3.73, Build 38244171_0.
+    - GPU-Kernel werden zur Laufzeit (JIT) für die tatsächlich vorhandene Architektur kompiliert, auf der Referenzkarte also für SM 7.5.
+    - Turing genügt für die geforderten Loads mit Acquire-Semantik, die ab Compute Capability 7.0 verfügbar sind.
+    - Die Referenzkarte gehört zur Baureihe ohne Tensor Cores. Ein Tensor-Core-Pfad und BF16 als Compute-Pfad werden nicht angeboten.
+    - Alle Dependencies sind geprüft und in /home/user/xyan/xy.ai.workbench/rag/Cargo.toml eingetragen. Die externe Tensor-/Neural-Network-Library ist Candle.
+    - Modellgewichte liegen im Format safetensors vor, persistente Indizes im Spaltenformat Parquet mit Arrow-Schema.
+
+- Name: Index
+  Requirements:
+    - Ist nicht an Subengines, Kernel oder Modelle gekoppelt.
+    - Die einzige harte Bindung zum Modell ist die Kombination aus Model-ID und Dimension im Index-Header, ergänzt um die Pipeline-Merkmale, die Vektoren vergleichbar machen.
+
+- Name: Dateigestützter Index
+  Requirements:
+    - Liegt persistent im Spaltenformat Parquet mit Arrow-Schema vor.
+
+- Name: Dateiformat und Modellbindung
+  Requirements:
+    - Führt Model-ID und Dimension im Index-Header als einzige harte Bindung an das Modell, ergänzt um die Pipeline-Merkmale, die Vektoren vergleichbar machen.
+
+- Name: Manager
+  Requirements:
+    - Blockiert nie einen Kernel.
+
+- Name: Konsistenzmodell
+  Requirements:
+    - Stale Ergebnisse sind kein Fehler. Torn Reads und fehlende Locks auf dem Datenpfad werden zugunsten konsistenten Durchsatzes akzeptiert.
+
+- Name: Residency-Steuerung
+  Requirements:
+    - Lädt Indizes erst bei Bedarf. Registrierte Indizes werden nicht vorab geladen.
+
+- Name: Scope-Auflösung
+  Requirements:
+    - Verlorene Randtreffer approximativer Prefilter wie Centroid, Fourier-Transformation oder Kompression sind Sache der äußeren Schichten.
+
+- Name: Eviction
+  Requirements:
+    - Entlädt unbenutzte Mirrors nach Ablauf einer Frist, deaktiviert sie aber nicht.
+    - Die Unload-Fristen im VRAM sind deutlich länger als im RAM.
+- Name: Engine-Fassade
+  Requirements:
+    - Wird über einen Builder erzeugt, der erst mit einem expliziten Start-Aufruf wirksam wird.
+    - Verlangt die Angabe eines Modells. Fehlt sie, scheitert der Start mit einem Konfigurationsfehler, der das fehlende Feld benennt.
+    - Konfiguriert den Planner mit Subengines, Modellen und Indizes.
+    - Erzeugt beim Start keine Modell- und Device-Ressourcen. Diese werden erst durch den ersten Task angelegt.
+    - Bietet Methoden zum Enqueuen der beiden Task-Arten Embedding und Similarity.
+    - Registriert beliebig viele durchsuchbare Indizes, jeweils unter einer eindeutigen ID.
+    - Lädt einen Index beim Registrieren nicht. Unmittelbar danach gilt er als nicht geladen.
+    - Bietet ein geordnetes Shutdown, das auch beim automatischen Drop der Instanz abläuft.
+    - Hält beim Shutdown zuerst die Worker an und joint sie.
+    - Bricht beim Shutdown danach alle Tasks ab, die kein Worker übernommen hat. Wartende Aufrufer erhalten den Fehler „cancelled“.
+    - Meldet beim expliziten Shutdown im Erfolgsfall eine positive Rückmeldung.
+- Name: Task-Modell
+  Requirements:
+    - Kapselt Daten, Parameter, Ergebnis, Zustand und Operationen eines Tasks.
+    - Führt Priorität, kompatible Ressource, Modell und Modus als gewöhnliche Parameter (Metadaten).
+    - Bildet die Zustände enqueued, claimed, completed und cancelled ab.
+    - Setzt das Ergebnis genau einmal, entweder als Output oder als Fehler, und weckt Wartende über eine Notification.
+    - Setzt bei Abbruch das Ergebnis auf den Fehler „cancelled“.
+- Name: Task-Handle
+  Requirements:
+    - Erlaubt die Zustandsabfrage ohne Warten (Polling). Bei completed liefert sie das Ergebnis (Output oder Fehler).
+    - Liefert bei cancelled den Fehler „cancelled“.
+    - Liefert bei enqueued oder in Bearbeitung „noch kein Ergebnis“.
+    - Behandelt completed ohne verfügbares Ergebnis als cancelled.
+    - Erlaubt dem Aufrufer, unbegrenzt oder mit Timeout auf den Abschluss zu warten. Er wartet auf das Ergebnissignal und wacht zusätzlich periodisch auf, um den Zustand zu prüfen.
+    - Aktiviert beim Warten zuerst die Registrierung für die Notification, liest dann den Zustand und wartet danach, sodass keine Notification verloren geht.
+    - Behandelt den Timeout als eigene Deadline des Aufrufers. Bei Überschreitung liefert es den Fehler „timeout“ und gibt das Handle frei.
+    - Bricht beim Drop eines unfertigen Handles den Task ab, sofern ihn noch kein Worker übernommen hat. Übernommene Tasks laufen weiter.
+    - Leitet den Zustand „cancelled“ lokal ab.
+- Name: Erweiterbare Zusatzparameter
+  Requirements:
+    - Nimmt als typindizierte Extension-Map beliebige zusätzliche, typgebundene Werte auf.
+    - Speichert je Typ höchstens einen Wert. Erneutes Setzen desselben Typs ersetzt den vorhandenen Wert.
+    - Fragt Werte nach Typ ab (sonst „nicht vorhanden“) und entfernt sie nach Typ, mit Rückmeldung, ob der Wert vorhanden war.
+    - Liefert die Anzahl der Werte und ob die Map leer ist.
+    - Teilt die Werte beim Klonen (shared), statt sie zu duplizieren.
+    - Reicht die Werte unverändert durch Queue und Planung und ist thread-safe übertragbar (Send + Sync).
+- Name: Embedding-Task
+  Requirements:
+    - Nimmt als Input einen Text oder eine Liste von Texten.
+    - Hat die Parameter Modell, Modus (Query oder Passage), Precision, optionalen Ziel-Index und erweiterbare Zusatzparameter.
+    - Liefert als Ergebnis die Embeddings als Liste von Float-Vektoren, ein Vektor je Eingabetext in Eingabereihenfolge.
+    - Lässt sich über den optionalen Ziel-Index so konfigurieren, dass das Embedding samt Metadaten direkt in den Index geschrieben wird. Er liefert dann Entry-Referenzen bzw. IDs des Index.
+- Name: Similarity-Task
+  Requirements:
+    - Nimmt als Input eine Liste von Query-Vektoren.
+    - Hat als verpflichtenden Parameter die ID des zu durchsuchenden Index, aus der das Modell abgeleitet wird.
+    - Hat als Parameter die maximale Trefferzahl (Top-k, Default zehn).
+    - Hat als Parameter den Scope (Suchbereich). Default ist der gesamte Index, einschränkbar auf eine Teilmenge.
+    - Hat als Parameter das Scoring-Verfahren (Default Cosine Similarity).
+    - Hat als Parameter Precision und erweiterbare Zusatzparameter.
+    - Drückt Reranking nicht als eigene Task-Art aus, sondern als zweite Similarity mit anderem Scoring-Verfahren auf einem verengten Scope, dessen Kandidaten aus einem früheren Ergebnis stammen.
+    - Liefert als Ergebnis Entry-Referenzen oder IDs (Chunk, Zeile, Bereich, Datei oder Index) mit Score. Nach außen erscheint jeder Treffer mit Entry, Score und Markierung „stale“.
+- Name: Ergebnisarten
+  Requirements:
+    - Unterscheidet als Ergebnisart eines Tasks genau eine von Embeddings (Liste von Float-Vektoren), Entry-Referenzen bzw. IDs beim direkten Schreiben in den Index, Treffern (Liste von Paaren aus Entry-ID und Score), Similarity-Report oder Liste von Scores (etwa aus einer Cross-Encoder-Inferenz).
+    - Hält die Menge der Ergebnisarten erweiterbar.
+    - Hält Ergebnisse auf Gleichheit vergleichbar.
+- Name: Similarity-Report
+  Requirements:
+    - Liefert rohe Scores und die Fakten, anhand derer eine äußere Schicht über Folge-Tasks entscheidet. Er enthält Task-ID und Suchparameter. Fehlen die Suchparameter, endet der Task mit einem Fehler.
+    - Enthält die Anzahl der Kandidaten, also der tatsächlich gescorten Entries im aufgelösten Scope.
+    - Enthält die Anzahl der verworfenen Entries.
+    - Enthält die Anzahl der stale Entries unter den zurückgegebenen Treffern.
+    - Enthält die Rangliste der Treffer mit Entry-ID, Score, Flag „stale“ und optionalem Source-Link.
+    - Akzeptiert eingehende Treffer unsortiert und mit mehr Einträgen als die maximale Trefferzahl.
+    - Verwirft Treffer ohne gültigen Zahlenwert und addiert sie zur Zahl der upstream verworfenen Entries, etwa wenn ein Entry aus dem Index entfernt wurde.
+    - Sortiert absteigend nach Score, bei Gleichstand steht die niedrigere Entry-ID vorn. Danach kürzt es auf Top-k.
+    - Übernimmt das Flag „stale“ je Treffer und zählt es nur über die zurückgegebenen Treffer.
+    - Ermittelt den Source-Link je zurückgegebenem Treffer über eine vom Aufrufer gelieferte Lookup-Funktion. Er kann fehlen.
+    - Bezieht Kennzahlen auf die zurückgegebenen Treffer. Ohne Treffer sind sie nicht vorhanden. Als Grundlage dienen die Scores der Similarity-Operation.
+    - Berechnet Anzahl, besten und schlechtesten Score, arithmetisches Mittel und Standardabweichung der Grundgesamtheit.
+    - Berechnet den Abstand zwischen erstem und zweitem Treffer (Gap) als Maß für die Sicherheit der Top-Reihenfolge. Es sind mindestens zwei Treffer nötig.
+    - Berechnet den Abstand zwischen erstem und letztem Treffer (Spread). Es ist mehr als ein Treffer nötig.
+    - Berechnet den Abstand des besten Scores vom Mittelwert in Standardabweichungen (z-Score). Bei einer Standardabweichung nahe null ist er nicht vorhanden.
+    - Berechnet die Wahrscheinlichkeitsverteilung über die Scores per Softmax mit einstellbarer Temperatur. Die Temperatur muss endlich und größer als null sein, sonst ist das Ergebnis nicht vorhanden. Die Berechnung ist numerisch stabil, indem sie auf den besten Score bezogen wird. Für die verwendete Modellfamilie ist eine Temperatur von etwa 0,01 bis 0,05 sinnvoll.
+    - Berechnet die Wahrscheinlichkeitsmasse des besten Treffers.
+    - Berechnet die Entropie der Verteilung in Nats. Null bedeutet einen eindeutigen Gewinner.
+    - Berechnet den Knee-Point der sortierten Score-Kurve, also den Treffer mit dem größten Abstand unterhalb der Verbindungslinie vom ersten zum letzten Wert. Es sind mindestens drei Treffer nötig. Bei flacher Kurve oder ohne Punkt unterhalb der Linie ist er nicht vorhanden. Bei Gleichstand gewinnt der frühere Treffer.
+- Name: Addons
+  Requirements:
+    - Leiten abgeleitete Tasks mit geklonten Parametern (geteilte Zusatzparameter) ab und enqueuen sie über den normalen Weg.
+    - Drücken eine Textanfrage als Folge aus einem Embedding-Task im Query-Modus und einem Similarity-Task mit dem Ergebnisvektor aus.
+    - Steuern auf Basis der Fakten des Similarity-Reports Folge-Tasks, etwa Reranking.
+- Name: Processor
+  Requirements:
+    - Stellt getrennte Operations-Queues für GPU, CPU und gemeinsam bereit.
+- Name: Planner
+  Requirements:
+    - Wird von der Engine mit Subengines, Modellen und Indizes konfiguriert.
+    - Nimmt Tasks entgegen, lässt sie vom Expander zerlegen und enqueued die Operationen in passende Queues.
+    - Ordnet Operationen anhand der kompatiblen Capabilities der Subengines der GPU-, CPU- oder gemeinsamen Queue zu und bevorzugt die gemeinsame Queue.
+    - Lässt das Enqueuing mit dem Fehler „fehlende Planungs-Capability“ scheitern, wenn sich keine passende Queue findet.
+    - Verwaltet je Subengine, welche Ressourcenarten sie anbietet. Die Angebote sind schrittweise erweiterbar.
+    - Aktiviert beim Erzeugen einer Operation die benötigten Subengines blockierend.
+    - Unterscheidet zwischen verfügbarer Ressource (registrierte Capability) und geladener Ressource (initialisiert und im Speicher).
+    - Meldet für jede Task-Art vorab die Ressourcenart der ersten Operation (bei Similarity der Scorer, bei Embedding und Inferenz der Tokenizer).
+    - Verwendet für Embedding- und Similarity-Tasks das konfigurierte Default-Modell.
+    - Bricht mit „unbekanntes Modell“ unter Nennung des Modells ab, wenn das gewählte Modell nicht konfiguriert ist oder für die Kombination aus Modell und Task-Art ein Expander fehlt.
+    - Hält Modell, Modellkonfiguration, Subengine-Angebote und Idle-Notification gemeinsam für die Expansion bereit.
+    - Legt das Materialization-Flag je Operation fest. Das Ergebnis bleibt nur dann im VRAM, wenn diese und die unmittelbar folgende Operation beide ausdrücklich auf der GPU laufen. In allen anderen Fällen wird materialisiert (Nachfolger auf der CPU, Task-Ende, Mirroring in den Index, freie Wahl der Execution-Umgebung).
+- Name: Expander
+  Requirements:
+    - Nimmt einen Task (Daten und Parameter) entgegen und zerlegt ihn genau einmal in eine geordnete Kette von Operationen.
+    - Übersetzt die Task-Parameter in die konkrete Konfiguration der Operationen: Index, Tokenizer, Modell, Scorer, Pooling, Präfix, Zieldimension, Top-k.
+    - Arbeitet nur mit Konfigurationsregeln, den Capabilities der Subengines und der Idle-Notification. Ohne Notification gilt eine leere Notification.
+    - Ist eine reine Funktion: zustandslos und wiederholbar, gleiche Eingabe ergibt dieselbe Kette. Das Ergebnis hängt nicht von den Nutzdaten ab.
+    - Hat keine Queues, keine Worker und keine Notification und startet keine Subengines.
+    - Erhält als Inputs den Task mit Daten und Parameterobjekt sowie die Pipeline-Konfiguration pro Modell (Präfixe, Pooling, Normalisierung, maximale Sequenzlänge, Datentyp).
+    - Lehnt einen Task einer fremden Art mit einer Meldung ab, die beide Task-Arten nennt.
+    - Loggt Task-Art und Anzahl der geplanten Operationen auf Debug-Level.
+    - Expandiert Embedding in dieser Reihenfolge zu Tokenisierung (CPU, Tokenizer-Ressource), Embedding-Berechnung (CPU oder GPU, Encoder-Ressource, mit konfigurierter Zieldimension), Pooling (Encoder-Ressource), L2-Normalisierung auf Länge eins (Encoder-Ressource) und Schreiben in den Index (Index-Ressource, referenziert den Ziel-Index).
+    - Lässt beim Embedding das Pooling beim Verfahren „none“ entfallen, dann bleiben die Token-Vektoren erhalten.
+    - Lässt beim Embedding die L2-Normalisierung bei abgeschalteter Normalisierung entfallen.
+    - Lässt beim Embedding das Schreiben in den Index ohne Ziel-Index entfallen.
+    - Expandiert Similarity in zwei Operationen: Similarity-Berechnung über den Scope mit Zieldimension und Top-k-Selektion mit Top-k, begrenzt auf den Maximalwert von u32.
+    - Lässt beide Similarity-Operationen die Scorer-Ressource des Modells anfordern und den Index referenzieren.
+    - Lehnt ein Top-k von null mit einem Konfigurationsfehler ab.
+    - Expandiert Similarity mit Cross-Encoder zu Paaren aus Query und Text aus der Payload, Cross-Encoder-Inferenz und Scores. Der Scope stammt aus einem früheren Ergebnis.
+    - Lehnt den Task mit „Scoring-Verfahren nicht verfügbar“ unter Nennung des Scorers ab, wenn kein Cross-Encoder-Scorer verfügbar ist.
+- Name: Schrittweise Übergabe und Ergebnisaufbereitung
+  Requirements:
+    - Stellt zunächst nur die erste Operation der Kette bereit, zusammen mit einer Collector-Funktion für den endgültigen Output.
+    - Erzeugt nach Abschluss einer Operation die nächste. Ihr Input ist der tatsächliche Output der vorigen. Jede Operation bleibt dem Kontext ihres Tasks zugeordnet. Nach der letzten Operation folgt keine weitere.
+    - Speichert ein Ergebnis der letzten Operation im RAM als Gesamtergebnis, sonst bleibt es leer.
+    - Stellt bei einer leeren Kette keine Operation bereit und endet beim Einsammeln mit dem Fehler „fehlendes Ergebnis“.
+    - Entnimmt das Ergebnis in der Collector-Funktion (take), sodass es nur einmal verfügbar ist.
+    - Bereitet beim Embedding die Textliste als Input der ersten Operation auf und merkt sich die Textanzahl für das Splitting des Ergebnisses.
+    - Fasst bei Similarity alle Query-Vektoren zu einer flachen Folge von Floats zusammen.
+    - Übergibt bei Inferenz Query und Textabschnitt als geordnetes Textpaar.
+    - Teilt beim Embedding-Ergebnis die flache Folge in einen Vektor je Text auf. Ist die Textanzahl null oder die Wertanzahl nicht restlos teilbar, endet der Task mit einem Fehler, der Wert- und Textanzahl nennt.
+    - Liefert bei Similarity mit einfacher Trefferliste Paare aus Entry-ID und Score.
+    - Liefert bei Similarity mit gescorten Treffern den Similarity-Report.
+    - Liefert bei Inferenz die Floats als Scores.
+    - Meldet bei einem Ergebnis, das nicht zur Task-Art passt oder fehlt, einen Fehler mit Nennung der Task-Art bzw. der fehlenden Ausgabe. Ergebnisfehler gelten als Konfigurationsfehler der Planung.
+- Name: Operation
+  Requirements:
+    - Beschreibt Berechnungsschritte mit Art, Parametern und Resource-Requirements, wobei die Requirements aus den Parametern folgen. Die Operationsarten sind erweiterbar: Tokenisierung, Embedding, Pooling, L2-Normalisierung, Similarity-Berechnung, Top-k-Selektion, Schreiben in den Index, Inferenz, explizite Übertragung vom Device ins RAM.
+    - Ist von mehreren Threads gleichzeitig verwendbar.
+    - Hat Parameter mit Resource-Requirements sowie optional Top-k und Dimension (beim Anlegen nicht gesetzt). Sie sind immutable, auf Gleichheit vergleichbar, als Key für Caches oder Dependency-Graphen verwendbar und dienen zum Filtern vor dem Claim.
+    - Lässt sich als reine Beschreibung (Descriptor) aus Art und Parametern darstellen, ebenfalls vergleichbar und als Key nutzbar.
+    - Führt Priorität und Task-ID als Metadaten.
+    - Gehört zu genau einem Task und verweist auf ihn zurück. Der Graph ergibt sich implizit aus der Reihenfolge der Operationen.
+    - Hat explizite Input- und Output-Regionen. Input und Output sind entweder Daten im RAM oder ein Pin einer Device-Region, nie rohe Tensoren oder Pointer.
+    - Kennt als Datenformen im RAM (erweiterbar) Textliste, Liste von Tokenfolgen, Float-Folge, Trefferliste aus Entry-ID und Score sowie gescortes Trefferergebnis.
+    - Enthält einen gescorten Treffer mit Entry-ID auf Manager-Ebene, Score, Flag „stale“ und optionalem Source-Link.
+    - Liefert ein gescortes Trefferergebnis als Zwischenergebnis mit Anzahl gescorter Entries im aufgelösten Scope, Anzahl bei der Auflösung verworfener Treffer (Entry entfernt) und verbleibenden Treffern. Ranking und Zusammenfassung erfolgen danach.
+- Name: Resource-Requirements
+  Requirements:
+    - Identifiziert Modelle und Indizes durch String-IDs und Devices durch eine Zahl.
+    - Kennt als Ressourcenarten (erweiterbar) Tokenizer, Normalizer, Encoder, Scorer, Index und Cross-Encoder.
+    - Wählt die Execution-Umgebung (erweiterbar) aus CPU-only, GPU-only und any. „Any“ akzeptiert jede Device-Art, die anderen nur die passende.
+    - Führt einen Placement-Hint (Affinity, erweiterbar) auf eine Region oder ein Device als Hinweis für Pull-Filter.
+    - Enthält Ressourcenart, optional Modell, optional Index, Execution-Umgebung, geforderte Capabilities und optional Placement-Hint. Beim Anlegen sind nur Ressourcenart und Execution-Umgebung verlangt, die übrigen Angaben sind einzeln ergänzbar.
+    - Ist vergleichbar und als Key verwendbar.
+    - Wird von einem Device genau dann erfüllt, wenn seine Art akzeptiert wird und seine Capabilities alle geforderten abdecken. Der Placement-Hint spielt dabei bewusst keine Rolle.
+- Name: Materialisierung
+  Requirements:
+    - Führt das vom Planner gesetzte Materialization-Flag aus. Es legt fest, ob das Ergebnis beim Fertigwerden ins RAM zurückgeholt wird oder als Referenz im VRAM bleibt.
+- Name: Operationsknoten
+  Requirements:
+    - Bündelt Operation, Input, zunächst leeren Output, Materialization-Flag, zugehörigen Task und optional einen Continuation-Handler.
+    - Loggt beim Anlegen Task-ID, Operationsart, Ressourcenart und Materialization-Flag.
+    - Erlaubt, einen Continuation-Handler nachträglich anzufügen. Er erzeugt aus dem Output und dem Task-Kontext null oder mehr Folgeknoten. Ohne Folgeknoten endet die Kette und der Output wird Task-Ergebnis. Continuation-Handler sind nebenläufig verwendbar.
+    - Erlaubt, den Output einmal zu setzen. Ein zweiter Versuch gibt den Wert unverändert an den Aufrufer zurück.
+- Name: Task-Kontext
+  Requirements:
+    - Existiert je Task als gemeinsam nutzbarer Kontext mit ID, Priorität, Zähler offener Operationen, Cancel-Flag und erstem Fehler. Bei Erstellung wird die anfängliche Anzahl offener Operationen angegeben.
+    - Macht alle Zustände nebenläufig korrekt les- und veränderbar.
+    - Registriert Folgeoperationen, bevor sie enqueued werden und bevor die erzeugende Operation abschließt, damit der Zähler nicht vorzeitig null erreicht. Sie werden am Ende der Queue enqueued.
+    - Verringert beim Abschluss einer Operation den Zähler und meldet, ob es die letzte offene Operation eines nicht abgebrochenen Tasks war. Nur dann ist der Task erfolgreich completed.
+    - Erkennt einen Abschluss ohne offene Operation als Programmierfehler in Entwicklungsumgebungen (Debug-Builds).
+    - Setzt beim ersten Fehler den Task auf „cancelled“ und das Ergebnis auf Fehler. Spätere Fehler überschreiben ihn nicht. Es meldet zurück, ob es der erste Fehler war, und loggt den Abbruch. Die übrigen Operationen des Tasks scheitern beim Claim.
+- Name: Queue
+  Requirements:
+    - Kennt Priorität, kompatible Ressource, Modell und Modus der Arbeitseinheiten nicht.
+- Name: Queue-Zustandsmodell
+  Requirements:
+    - Verwaltet die Zustände enqueued, claimed, completed und cancelled.
+    - Lässt einen Claim für abgebrochene Einträge scheitern.
+    - Erlaubt einen Cancel nur, solange kein Worker den Eintrag übernommen hat.
+    - Macht das Ergebnis vor dem Zustand completed sichtbar.
+- Name: Abschluss-Warten
+  Requirements:
+    - Erlaubt, die Registrierung für die Notification vor dem Lesen des Zustands zu aktivieren, sodass keine Notification verloren geht.
+    - Weckt mehrere Wartende gleichzeitig.
+- Name: Worker-Pool
+  Requirements:
+    - Kann auf Anforderung angehalten werden. Dabei werden alle Worker gestoppt und gejoint.
+- Name: Backpressure und Expansionssteuerung
+  Requirements:
+    - Expandiert Tasks nur bei Idle-Notification oder leerer Operations-Queue und nutzt dafür die vom Planner gemeldete Ressourcenart der ersten Operation je Task-Art.
+- Name: Gemeinsame Subengine-Regeln
+  Requirements:
+    - Meldet ihre kompatiblen Capabilities beim Planner an, sodass dieser sie den Queues zuordnen kann.
+    - Aktiviert ihre Ressourcen samt Lanes auf Anforderung des Planners blockierend, ausschließlich als Aktivierung ohne Laden.
+    - Registriert die aktivierten Ressourcen samt Lanes in den eigenen und gemeinsamen Queues.
+- Name: Ressourcen-Lebenszyklus
+  Requirements:
+    - Legt Ressourcen erst durch den ersten Task an und initialisiert sie lazy.
+    - Unterscheidet zwischen verfügbarer Ressource (aktiviert, registrierte Capability) und geladener Ressource (initialisiert und im Speicher).
+- Name: Capability-Modell
+  Requirements:
+    - Prüft, ob ein Capability-Set alle von Requirements geforderten Capabilities abdeckt.
+- Name: Subengine-Loop
+  Requirements:
+    - Lädt schwere Ressourcen (Modelle, Indizes, Kernel) ausschließlich lazy durch die Iteration.
+    - Filtert Operationen vor dem Claim anhand der Operationsparameter und Resource-Requirements.
+    - Nutzt den Placement-Hint der Requirements als Hinweis im Pull-Filter.
+- Name: Treffer-Auflösung
+  Requirements:
+    - Liefert aufgelöste Treffer mit Entry-Referenz, Score und Flag „stale“.
+- Name: Dichtes Scoring
+  Requirements:
+    - Liefert Scores der Similarity-Operation, aus denen der Similarity-Report seine Kennzahlen ableitet.
+- Name: Dateiformat und Modellbindung
+  Requirements:
+    - Sichert die Kompatibilität eines Index mit dem Modell über den Index-Header.
+- Name: Modellbeschreibung
+  Requirements:
+    - Liefert die Pipeline-Konfiguration pro Modell (Präfixe, Pooling, Normalisierung, maximale Sequenzlänge, Datentyp) für den Expander.
+- Name: Modellregister
+  Requirements:
+    - Meldet, ob für eine Scoring-Art ein Scorer verfügbar ist, und benennt bei Nichtverfügbarkeit den Scorer.
+- Name: Allgemeiner Index-Vertrag
+  Requirements:
+    - Schreibt Embeddings samt Metadaten (Payload) direkt als Entries in den Index und liefert die Entry-Referenzen bzw. IDs zurück.
+- Name: Manager-Lebenszyklus
+  Requirements:
+    - Hängt einen registrierten Index erst an, wenn ein Task ihn benötigt.
+- Name: Ladestrategie
+  Requirements:
+    - Lädt Index-Daten erst, wenn ein Task sie benötigt.
+- Name: Region-Pinning
+  Requirements:
+    - Bildet den Zugriff auf eine Device-Region als Pin ab. Solange mindestens ein Pin besteht, darf die Region nicht evicted werden.
+    - Führt je Region einen gemeinsam genutzten Pin-Count, anfangs null und nebenläufig korrekt. Zählerstand und Zustand „unpinned“ (Zähler null) sind abfragbar.
+    - Erhöht beim Erzeugen eines Pins den Zähler und verringert ihn bei dessen Ende automatisch (RAII) ohne manuelles Freigeben.
+    - Meldet optional über einen Rückmeldekanal die freigegebene Region. Ist der Empfänger nicht mehr erreichbar, endet das Pin trotzdem fehlerfrei.
+    - Liefert mit jedem Pin seine Region. Das Pin ist auch unter der Bezeichnung Device-Handle verfügbar.
+- Name: Processor
+  Requirements:
+    - Besitzt die Task-Queue, drei Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+    - Ruft den Planner für die Expansion von Tasks auf.
+    - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
+- Name: Planner
+  Requirements:
+    - Expandiert Tasks auf Aufruf des Processors.
+    - Meldet vorab die Ressourcenart der ersten Operation je Task-Art, damit Tasks nach unterversorgter Ressource bevorzugt werden können.
+- Name: Resource-Requirements
+  Requirements:
+    - Stellt die Requirements einer Operation bereit, über die eine Subengine den zuständigen Ressourceneintrag bestimmt.
+- Name: Task-Kontext
+  Requirements:
+    - Verfolgt die Fertigstellung von Operationen über den Zähler offener Operationen des Tasks, nicht über das Ergebnis der Queue-Zustandseinheit.
+- Name: Queue
+  Requirements:
+    - Ist eine lock-free MPMC-Struktur (Multi-Producer, Multi-Consumer) für Arbeitseinheiten mit eigenem Zustand, Ergebnis und Notification.
+    - Ist als Task-Queue und als Operations-Queue einsetzbar. Jede Instanz arbeitet unabhängig mit eigenem Set von Notification-Channels.
+    - Der Aufrufer legt die Typen von Metadaten, Payload, Ergebnis und Fehler fest. Operations-Queues verwenden denselben Aufbau mit eigenen Metadaten und Werten als Payload.
+- Name: Queue-Struktur und Enqueue
+  Requirements:
+    - Ist genau eine einfach verkettete Liste mit internem Sentinel-Knoten, ohne getrennte Listen je Priorität oder Ressource.
+    - Kennt nur Append und Remove. Append geschieht per atomarem Compare-and-Swap am Next-Pointer des letzten Knotens.
+    - Die Reihenfolge entspricht dem Alter, also dem erfolgreichen Append. Die Reihenfolge eines einzelnen Producers bleibt erhalten.
+    - Hat keine Version, keinen Snapshot und keinen Lock auf der Kette. Nur das Payload-Fach eines einzelnen Knotens ist kurzzeitig gegen gleichzeitigen Zugriff geschützt.
+    - Behandelt Metadaten als opak. Sie werden nicht interpretiert, sondern Consumern zum Filtern bereitgestellt.
+    - Ein Knoten besteht aus immutablen Parametern zum Filtern vor dem Claim, dem gemeinsamen Zustandsobjekt, einem geschützten optionalen Payload-Fach und einem atomar austauschbaren Pointer auf den Nachfolger.
+    - Nimmt beliebig viele Einträge aus Metadaten, Payload und Zustandseinheit entgegen. Der Aufrufer erhält eine Referenz auf den neuen Eintrag.
+    - Enqueue blockiert nie. Mehrere Producer enqueuen gleichzeitig, ohne dass ein Eintrag verloren geht oder überschrieben wird.
+    - Ist der interne Tail-Hint veraltet, wird das tatsächliche Ende gesucht und die Reihenfolge gewahrt. Zu Testzwecken lässt sich das Aktualisieren des Tail-Hints gezielt unterdrücken.
+    - Nimmt beim Anlegen eine beliebige, auch leere Menge von Notification-Channels entgegen, je Subengine einen. Jedes Enqueue signalisiert alle Channels.
+- Name: Queue-Iteration
+  Requirements:
+    - Bietet eine Iteration über alle Einträge in Altersreihenfolge und eine, die nur aktive Einträge liefert (weder completed noch cancelled). Der Sentinel erscheint nie.
+    - Iterationen blockieren nie und bleiben bei gleichzeitigem Enqueue, Claim und Completion gültig. Jeder gelieferte Eintrag bleibt gültig, auch nach logischem Entfernen.
+    - Liefert exakt die Einträge in Enqueue-Reihenfolge, ohne Auslassung und Wiederholung. Eine leere Queue ergibt eine leere Iteration.
+    - Completed und cancelled Einträge gelten als logisch entfernt und werden in der aktiven Iteration übersprungen. Die vollständige Iteration liefert sie, solange sie nicht entlinkt sind.
+    - Liefert die opaken Metadaten je Eintrag unverändert zum Filtern.
+- Name: Queue-Speicherfreigabe
+  Requirements:
+    - Ownership-Kette ist Queue-Head, Kette, Iterator. Jeder Iterator hält pro Schritt eine Referenz auf den Knoten.
+    - Nach dem Claim bleibt die leere Hülle in der Kette, bis sie entlinkt wurde und der letzte Iterator sie verlassen hat. Dann wird sie automatisch freigegeben.
+    - Unlink ist optionale Aufräumarbeit per Compare-and-Swap, ein einfacher atomarer Swap auf dem Pointer des Vorgängers. Der entlinkte Knoten behält seinen Nachfolger, damit ein Iterator ohne Neustart weiterläuft.
+    - Nicht entlinkte Knoten werden spätestens beim Drop der Queue freigegeben.
+    - Gibt Knoten über Reference Counting frei. Epoch-based Reclamation, Slab-Verwaltung, Freelist und Generation-Counter entfallen.
+    - Gibt lange Ketten, auch über hunderttausend Einträge, iterativ statt rekursiv und ohne Stack-Overflow frei. Von anderen Ownern gehaltene Kettenteile bleiben gültig, bis deren letzter Owner sie freigibt.
+    - Setzt außerhalb der einen Komponente für den atomaren Pointer-Swap keinen Code ein, der die Memory-Safety-Garantien der Sprache umgeht (kein `unsafe`).
+- Name: Queue-Zustandsmodell
+  Requirements:
+    - Das gemeinsame Zustandsobjekt eines Eintrags ist zugleich Handle des Aufrufers. Es hat einen atomaren Zustand, ein einmal setzbares Ergebnis und eine Notification für Wartende.
+    - Das Payload-Fach ist geschützt und optional, und wird beim Claim geleert.
+    - Kennt vier Zustände, enqueued, claimed, completed und cancelled. Neue Einträge sind enqueued.
+    - Erlaubt ausschließlich die atomaren Übergänge Claim (enqueued → claimed), Completion (claimed → completed) und Cancel (enqueued → cancelled). Bei gleichzeitigen Versuchen gelingt höchstens einer.
+    - Claim ist die einzige Stelle, an der ein Abbruch relevant ist. Claim und Cancel schließen sich gegenseitig aus, und der Endzustand passt immer zum Gewinner.
+    - Der Zustand ist jederzeit als konsistenter Snapshot abfragbar. Ein ungültiger interner Zustandswert ist ein nicht behebbarer interner Fehler.
+    - Claim übergibt die Payload per Ownership-Transfer, nie als Kopie, genau einmal.
+    - Erneutes Claimen, Claim eines abgebrochenen Eintrags oder des Sentinels scheitert ohne Payload. Bei gleichzeitigen Versuchen gewinnt genau einer.
+    - Claim blockiert nie und wartet nicht, während das Payload-Fach gesperrt ist.
+    - Claim ist auch über eine Funktion der Queue verfügbar, mit identischem Verhalten. Jeder Claim-Versuch wird mit Ausgang geloggt.
+    - Nur der erfolgreiche Claimer darf abschließen, und nur einmal. Das Ergebnis ist ein Erfolgs- oder Fehlerwert.
+    - Das Ergebnis ist gespeichert und sichtbar, bevor der Zustand „completed“ erkennbar wird.
+    - Ein zweiter Completion-Versuch verändert das Ergebnis nicht, wird mit Warnung geloggt und fällt in Entwicklungsumgebungen als Programmierfehler auf. Bei „cancelled“ wird das Ergebnis verworfen.
+    - Ohne gesetztes Ergebnis liefert die Abfrage nichts. Abgebrochene Einträge haben nie ein Ergebnis.
+    - Cancel ist nur aus „enqueued“ möglich und meldet den Erfolg zurück. Danach ist kein Claim mehr möglich. In jedem anderen Zustand ändert sich nichts und es wird Misserfolg gemeldet. Jeder Cancel-Versuch wird geloggt.
+    - Signalisiert nach erfolgreicher Completion und erfolgreichem Cancel allen Wartenden den Abschluss.
+- Name: Abschluss-Warten
+  Requirements:
+    - Wartet asynchron auf „completed“ oder „cancelled“, ohne einen Thread zu blockieren. Bei bereits erreichtem Endzustand endet das Warten sofort.
+    - Keine Notification geht verloren, auch wenn der Abschluss zwischen Zustandsprüfung und Wartebeginn eintritt.
+    - Unterstützt mehrere Wartende gleichzeitig und weckt alle, bei Completion ebenso wie bei erfolgreichem Cancel.
+    - Ein Wakeup ohne Endzustand führt zu erneuter Prüfung.
+- Name: Worker-Pool
+  Requirements:
+    - Startet bei der Initialisierung über den internen Executor eine Mindestzahl idle Threads (Worker).
+    - Die Zahl der Worker der gesamten Engine ist die Zahl der CPU-Cores minus eins. Das ist eine Obergrenze für Context-Switches, keine Core-Zuordnung (kein Pinning).
+    - Worker parken im Processor und wachen bei jeder Zustandsänderung per Notification auf.
+    - Bei CPU-Operationen führt der Worker die Operation synchron aus und kommt mit dem Ergebnis zurück.
+    - Bei GPU-Operationen startet der Worker die Operation bzw. den Kernel und kehrt zurück. Nach der Completion-Notification verarbeitet ein freier Worker das Ergebnis.
+    - Blockiert ein Worker, etwa in der Compute-Library oder deren Thread-Pool, ist das das natürliche Backpressure-Signal ohne Sonderbehandlung.
+- Name: Worker-Loop
+  Requirements:
+    - Prüft nach jeder Operation neu, in dieser Prioritätsreihenfolge: GPU-Ergebnisse verarbeiten, GPU-Ressourcen füttern, CPU-Ressourcen füttern, neue Tasks über den Planner expandieren.
+- Name: Backpressure und Expansionssteuerung
+  Requirements:
+    - Erzeugt aus einer gemeldeten Iteration ohne Treffer bei freier Ressource eine Idle-Notification mit Ressourcenart und Parametern.
+    - Hält die Idle-Notifications als Set je Subengine-Art, nicht als Queue. Sie verfallen bei einem Treffer oder wenn die Ressource belegt ist.
+    - Expandiert nur bei einer Idle-Notification oder leerer Operations-Queue.
+    - Bevorzugt Tasks, deren erste Operation (laut Vorabmeldung des Planners) die unterversorgte Ressource braucht.
+- Name: Subengine
+  Requirements:
+    - Stellt Ressourcen und Execution-Kapazität eines Compute-Substrats bereit und ist aus mehreren Threads nutzbar.
+    - Bezieht Arbeit ausschließlich aus den Queues des Processors. Sie meldet nur, wie viel sie aufnehmen kann.
+- Name: Gemeinsame Subengine-Regeln
+  Requirements:
+    - Besitzt ihre Ressourcen: Encoder, Scorer und Index-Segmente.
+- Name: Ressourcen-Lebenszyklus
+  Requirements:
+    - Führt Ressourcenzustände uninitialized, loading, ready und backoff (nach Fehler).
+    - Stößt die Lazy-Initialisierung auf Anforderung der Iteration per atomarem Übergang von „uninitialized“ nach „loading“ an. Der Task bleibt dabei in der Queue.
+    - Evictet ungenutzte Ressourcen am Ende jeder Iteration, aber nur wenn keine Operation läuft und die Lebensdauer (TTL) abgelaufen ist.
+    - Schreibt bei Initialisierungs- oder Startfehlern einen Fehler in die Task-Ergebnisse des Batches, versetzt die Ressource in den Backoff und loggt das mit Task-ID.
+- Name: Auslastungsmeldung
+  Requirements:
+    - Gibt Auskunft über Art, Device, Kapazität und geglätteten Durchsatz in Entries pro Sekunde.
+    - Ist aus mehreren Threads nutzbar.
+    - Meldet nur, wie viel die Subengine aufnehmen kann. Die Arbeit kommt aus den Queues des Processors.
+- Name: Pull-Ausführung
+  Requirements:
+    - Betreibt pro Subengine einen Loop mit genau einer Wartebedingung, der Notification. Danach folgt eine Iteration über die Queue.
+- Name: Subengine-Loop
+  Requirements:
+    - Prüft zuerst die eigene Operations-Queue, danach die gemeinsame.
+    - Iteriert in Altersreihenfolge Knoten für Knoten. Sind alle Ressourcen der Subengine ausgelastet, endet die Iteration.
+    - Überspringt Knoten, deren Parameter der Filter nicht akzeptiert. Prioritätspräferenz ergibt sich aus Filter und Reihenfolge, also aus Metadaten.
+    - Bestimmt den Ressourceneintrag über die Requirements der Operation.
+    - Stößt bei nicht initialisierter Ressource die Lazy-Initialisierung an, nur durch die Iteration, nie durch das Enqueue. Der Task bleibt in der Queue.
+    - Claimt den Knoten, wenn die Ressource ready ist, freie Kapazität hat und der Claim gelingt. Die Ressource führt den Knoten dann aus.
+    - Überspringt den Knoten in allen anderen Ressourcenzuständen (loading, busy, backoff).
+    - Stößt am Ende jeder Iteration die Eviction ungenutzter Ressourcen an.
+    - Meldet eine Iteration ohne Treffer bei freier Ressource mit Ressourcenart und Parametern als Anlass für eine Idle-Notification.
+    - Nutzt keine Reservierung, keinen Vorab-Claim und kein Head-of-Line-Blocking.
+- Name: Lane und Batching
+  Requirements:
+    - Die Lanes einer Ressource ziehen Operationen.
+    - Implementiert Batching. Der Batch beginnt mit der Ausgangsoperation. Die Ressource geht von dort vorwärts durch die Liste, übernimmt alles, was der Filter akzeptiert und in den Batch passt, und startet dann den Batch.
+    - Hält Packing, Length-Bucketing und Streams als reine Ressourcenlogik.
+- Name: Notification-Topologie
+  Requirements:
+    - Stellt der Queue beim Anlegen einen eigenen Notification-Channel je Subengine bereit und leitet jeden Queue-Append an die Notification jeder Subengine weiter.
+    - Meldet Ergebnis, abgeschlossene Initialisierung und Eviction-Timer als eigene Notification der Subengine.
+    - Eine Iteration mit Fortschritt löst die eigene Notification aus. Der Loop ist seine eigene Notification.
+    - Das Ergebnis eines Batches löst die Notification der Subengine aus.
+- Name: CPU-Subengine
+  Requirements:
+    - Besitzt den Tokenizer als Ressource.
+    - Die Lane der CPU ist ein Thread des Processors.
+    - Führt eine Operation synchron aus, gibt das Ergebnis zurück, auch an Indizes, und kehrt mit dem Ergebnis zurück.
+    - Die Eviction-Lebensdauer (TTL) im RAM ist deutlich kürzer als im VRAM.
+- Name: GPU-Subengine
+  Requirements:
+    - Startet die Operation bzw. den Kernel bei freier Lane und kehrt zurück, ohne auf das Ergebnis zu warten.
+    - Verarbeitet nach der Completion-Notification das Ergebnis, sobald ein freier Worker es übernimmt.
+    - Die Eviction-Lebensdauer (TTL) im VRAM ist deutlich länger als im RAM.
+- Name: GPU-Completion
+  Requirements:
+    - Der Callback am Ende des Streams legt nur einen Completion-Eintrag ab und löst die Notification aus. Im Callback erfolgt kein Aufruf der GPU-API.
+    - Der Schritt zur Ergebnisverarbeitung prüft zusätzlich per Event-Query und übernimmt eine fertige Lane per atomarem Swap. Das deckt verpasste Callbacks ab.
+- Name: GPU-Manager
+  Requirements:
+    - Synchronisiert den Index ins VRAM, bevor eine Operation auf einer freien Lane startet.
+    - Spiegelt verarbeitete GPU-Ergebnisse in den Index zurück (Mirror-Back).
+- Name: Planner
+  Requirements:
+    - Verwaltet die von den Subengines gemeldeten Capability-Sets und ordnet Operationen anhand kompatibler Capabilities in die CPU-, GPU- oder gemeinsame Queue ein.
+    - Kennt weder die externe Neural-Network-Library noch GPU-Execution-Graphs (CUDA Graphs).
+- Name: Subengine-Loop
+  Requirements:
+    - Kennt bei der Zuteilung weder die externe Neural-Network-Library noch GPU-Execution-Graphs (CUDA Graphs).
+- Name: Lane und Batching
+  Requirements:
+    - Bemisst Encoder-Batches nach einem Token-Budget statt nach einer Task-Anzahl.
+- Name: Gemeinsame Subengine-Regeln
+  Requirements:
+    - Liefert ein Capability-Set, meldet es beim Planner an und registriert kompatible Ressourcen samt Lanes in den eigenen und den gemeinsamen Queues.
+    - Wählt Compute-Pfade hardwareoptimal und entscheidet selbst darüber.
+    - Verwendet in öffentlichen Signaturen keinen Tensor und keinen Raw-Pointer, nur Region und Layout.
+    - Führt jede GPU-Arbeit über einen Execution-Context (Lane) aus, nie auf dem Default-Stream.
+    - Lädt Kernel nur über das Kernel-Register.
+- Name: Ressourcen-Lebenszyklus
+  Requirements:
+    - Initialisiert Ressourcen lazy erst bei Bedarf und evictet sie bei Nichtnutzung.
+- Name: Kalibrierungslauf
+  Requirements:
+    - Kalibriert die Hardware der Subengine per Benchmark.
+- Name: Pareto-Front und Profilableitung
+  Requirements:
+    - Leitet aus den Kalibrierungsmessungen die Precision-Profile ab, die die Subengine bereitstellt.
+- Name: Batch-Compute-Schnittstelle
+  Requirements:
+    - Stellt eine austauschbare Schnittstelle (Trait) von Float-Batch zu Float-Batch bereit.
+    - Die CPU-Implementierung ist Default ohne einkompilierte GPU-Beschleunigung und Fallback, wenn die GPU-Beschleunigung nicht initialisierbar ist.
+    - Die GPU-Implementierung ist die einzige Anbindungsstelle der GPU-Library. Ihr Anlegen scheitert ohne kompatible GPU, wodurch automatisch auf die CPU zurückgefallen wird.
+- Name: CPU-Subengine
+  Requirements:
+    - Device ist die CPU, potenziell mehrere (Sockets). Ressourcen sind die Cores, jeweils mit Lanes.
+    - Lädt Modelle und Indizes ins RAM bzw. streamt Daten hinein und lagert Modelle, Kernel und Ressourcen bei Bedarf aus und ein.
+    - Führt eigene Kernel-Implementierungen mit eigenem Kernel-Register.
+    - Lädt den Index beim ersten Zugriff.
+    - Führt Tokenizer und Normalizer als Ressourcen der Subengine.
+    - Nutzt für alles die CPU, da mehr Speicher zur Verfügung steht.
+    - Führt den Encoder über das CPU-Backend der Library aus.
+    - Verwendet keine Streams und kein Staging-Memory für Kopien.
+    - Verwendet FP32 als Default-Datentyp.
+    - Führt Kalibrierung und Kernel auf eigenen Threads niedriger Priorität aus, getrennt vom Async-Runtime.
+- Name: CPU-Backend
+  Requirements:
+    - Liefert das verfügbare RAM als Budget.
+- Name: CPU-Compute-Primitive
+  Requirements:
+    - Der Scorer ist selbst implementiert und nutzt SIMD.
+- Name: Hintergrundausführung und Statistik
+  Requirements:
+    - Führt Jobs auf eigenen Low-Priority-Threads (benannte Pools) getrennt vom Async-Runtime aus.
+- Name: GPU-Subengine
+  Requirements:
+    - Plattform ist CUDA. Device ist die GPU, potenziell mehrere, mit Compute Units als Ressourcen und Lanes darauf.
+    - Lädt oder streamt Modelle und Indizes ins VRAM und tauscht Modelle, Kernel und Ressourcen bei Bedarf aus und ein.
+    - Ist die Brücke zwischen dem Index im RAM und der im VRAM abgebildeten Darstellung für die Kernel.
+    - Wendet für VRAM-Ressourcen längere Fristen für Initialisierung und Eviction an als für Ressourcen im RAM.
+    - Berücksichtigt, dass das VRAM begrenzt ist.
+    - Nutzt Streams, Staging-Memory und Transfers.
+    - Batcht notwendigerweise, damit Index-Segmente und Kernel effizient gestreamt und getauscht werden.
+    - Verwendet FP16 als Default-Datentyp.
+- Name: GPU-Backend
+  Requirements:
+    - Meldet das verfügbare VRAM.
+    - Legt Input-/Output-Arenen und Speicherbereiche im VRAM an.
+- Name: Kernel-Register
+  Requirements:
+    - Stellt Kernel der GPU-Subengine über ein Register bereit.
+    - Ist der einzige Weg, Kernel zu laden. Kernel der externen Library sind dort eine weitere Implementierung.
+- Name: GPU-Manager
+  Requirements:
+    - Synchronisiert den Index effektiv zwischen RAM und VRAM, indem er die RAM-Darstellung auf die VRAM-Darstellung für die Kernel abbildet.
+- Name: Table-Swap
+  Requirements:
+    - Führt die Segmenttabelle des Index im VRAM.
+- Name: Segmente und Slots
+  Requirements:
+    - Führt den Index im VRAM als Segmente.
+    - Führt das Address-Mapping im VRAM über Slots.
+- Name: Modell
+  Requirements:
+    - Führt Modelle als ressourcenlose Pipeline-Beschreibung, die nichts besitzt.
+- Name: Modellbeschreibung
+  Requirements:
+    - Stammt aus der Konfiguration, beschreibt eine Pipeline und besitzt nichts.
+    - Bezieht Multi-Vector-Parameter aus der Checkpoint-Konfiguration statt aus hartkodiertem Code. Dazu gehören maximale Query-Länge, maximale Dokumentlänge, Marker-Token, Dimension und Skiplist.
+- Name: Modellregister
+  Requirements:
+    - Ordnet Architektur-IDs Encoder-Implementierungen und Scoring-Arten Scorer-Implementierungen zu.
+    - Ein neues Modell bedeutet einen neuen Register-Eintrag.
+- Name: Gewichtsquelle
+  Requirements:
+    - Liest safetensors-Gewichte per mmap und zero-copy auf Rohbytes.
+    - Kopiert die Gewichte pro Subengine in deren Arena.
+- Name: Tokenizer
+  Requirements:
+    - Läuft nur auf der CPU, modellspezifisch oder geteilt, und liefert Token-IDs als u32.
+    - Die GPU braucht nicht mehr als Token-IDs, daher gibt es kein Gathering auf der CPU und kein Address-Mapping.
+- Name: Tokenizer-Laden
+  Requirements:
+    - Lädt den Tokenizer aus seiner Konfigurationsdatei mit festem Dateinamen im Verzeichnis der Modellkonfiguration.
+    - Erzeugt den Tokenizer alternativ aus einem bereits geladenen Tokenizer mit frei wählbarer ID, Schema für die Modus-Wahl und maximaler Sequenzlänge.
+    - Bildet beim Laden aus einer Modellbeschreibung das Schema aus den hinterlegten Präfixen, übernimmt die maximale Sequenzlänge und leitet die Ressourcen-ID aus dem Dateipfad ab, sodass jeder geladene Tokenizer eindeutig identifizierbar ist.
+    - Bricht das Laden bei fehlender oder unlesbarer Datei mit einem Load-Error ab, der Pfad und Ursache nennt.
+    - Bestimmt das Pad-Token in der Reihenfolge, im Tokenizer konfiguriertes Pad-Token, dann das Token `<pad>`, dann das Token `[PAD]`. Fehlt jedes, bricht das Laden mit einem Load-Error ab. Das Pad-Token ist nach außen abfragbar.
+    - Schaltet das eingebaute automatische Padding ab.
+    - Trunkiert jede Eingabe auf die maximale Sequenzlänge, wobei das abschließende Special-Token erhalten bleibt. Lehnt der Tokenizer die Truncation-Einstellung ab, bricht das Laden mit Ursache ab.
+- Name: Textnormalisierung
+  Requirements:
+    - Der Normalizer gehört zum Tokenizer (Unicode-Normalisierung, Lowercasing und weitere Schritte), läuft nur auf der CPU und ist über Parameter konfiguriert.
+    - Nimmt optional einen austauschbaren, nebenläufig nutzbaren Text-Normalizer entgegen. Ohne ihn bleibt der Text unverändert. Ein Identity-Normalizer wird mitgeliefert.
+    - Führt Normalisierungen, die der Tokenizer selbst durchführt, nicht doppelt aus. Ein eigener Normalizer ergänzt nur zusätzliche Transformationen.
+    - Läuft vor dem Voranstellen von Präfixen oder Markern und vor der Tokenisierung.
+- Name: Encoding-Schemata
+  Requirements:
+    - Unterstützt zwei Encoding-Modi, Query und Passage (Dokument).
+    - Präfix-Schema: Stellt je Modus den Query- bzw. Passage-Präfix voran. Die Tokenfolge bleibt danach unverändert.
+    - Multi-Vector-Schema (Late Interaction): Stellt je Modus einen Query- bzw. Dokument-Marker voran. Je Modellvariante konfigurierbar sind Markertext für Queries und Dokumente, feste Query-Länge, maximale Dokumentlänge und ID des Mask-Tokens.
+    - Multi-Vector-Query-Modus: Trunkiert auf die Query-Länge und paddet mit dem Mask-Token auf genau diese Länge. Die gepaddeten Positionen werden vom Modell berücksichtigt, nicht ausgeblendet (Query Augmentation).
+    - Multi-Vector-Dokument-Modus: Trunkiert auf die maximale Dokumentlänge, ohne Padding. Pad-Tokens werden verworfen.
+    - Die Multi-Vector-Trunkierungen gelten zusätzlich zur allgemeinen Trunkierung.
+- Name: Text-Encoding
+  Requirements:
+    - Wandelt eine Liste von Texten beliebiger als String lesbarer Typen in einem Modus in Token-IDs um. Eine leere Liste wird mit „keine Eingabetexte“ abgelehnt.
+    - Verarbeitet je Text in der Reihenfolge normalisieren, Präfix oder Marker voranstellen, tokenisieren mit den vorgesehenen Special-Tokens, schemaabhängig nachbearbeiten. Alle Texte werden gemeinsam als Batch tokenisiert.
+    - Meldet bei gescheiterter Tokenisierung einen Encoding-Error mit Ursache.
+    - Liefert das Ergebnis in Eingabereihenfolge, ohne Padding außer dem festen Query-Padding im Multi-Vector-Schema.
+    - Loggt die Anzahl trunkierter Texte mit Modus und Textanzahl sowie auf Trace-Level die größte Sequenzlänge.
+    - Bietet eine kombinierte Funktion, die kodiert und danach in gepaddete, nach Länge gruppierte Batches gemäß Batch-Konfiguration teilt. Jeder Batch ordnet seine Zeilen den Eingabe-Indizes zu.
+    - Gibt Encoding-Errors der kombinierten Funktion, auch die der leeren Eingabe, unverändert weiter und loggt die Batch-Anzahl.
+- Name: Batch-Bildung
+  Requirements:
+    - Bildet aus einer Liste von Tokenfolgen eine Liste von Batches. Jede Folge liegt in genau einem Batch. Jeder Batch führt die ursprünglichen Positionen seiner Zeilen mit. Leere Eingabe ergibt eine leere Liste.
+    - Konfiguriert sich über Token-Budget je Batch (Zeilen mal Sequenzlänge), maximale Sequenzlänge und ID des Pad-Tokens.
+    - Padding ist ausschließlich Aufgabe der Batch-Bildung.
+    - Length-Bucketing: Trunkiert zu lange Folgen auf die maximale Sequenzlänge.
+    - Length-Bucketing: Die gepaddete Länge ist die kleinste Bucket-Größe aus 32, 64, 128, 256 und 512, die mindestens der trunkierten Länge entspricht. Oberhalb der größten Bucket-Größe gilt die maximale Sequenzlänge. Sie überschreitet nie die maximale Sequenzlänge und beträgt mindestens eins.
+    - Gruppierung: Sortiert aufsteigend nach ursprünglicher Länge, bei Gleichheit stabil in Eingabereihenfolge.
+    - Gruppierung: Prüft vor jedem Hinzufügen, ob das Token-Budget mit der neuen Zeile überschritten würde. Maßgeblich ist deren gepaddete Länge, wegen der Sortierung die größte im Batch. Dann beginnt ein neuer Batch.
+    - Gruppierung: Eine Folge, die das Budget allein überschreitet, bildet einen eigenen Batch.
+    - Gruppierung: Die Sequenzlänge eines Batches ist die gepaddete Länge seiner längsten Zeile. Alle Zeilen sind gleich lang.
+    - Inhalt: Token-IDs zeilenweise als zweidimensionales Array, am Zeilenende mit dem Pad-Token aufgefüllt, dazu eine gleich geformte Attention-Mask mit eins für echte Token und null für Padding. Die Zeilenanzahl ist abfragbar.
+    - Serialisierung: Zuerst alle Token-IDs, dann die gesamte Mask, jeder Wert als u32 in Little-Endian. Das entspricht einem dreidimensionalen Array der Form 2 × Zeilen × Sequenzlänge.
+    - Leitet die Batch-Größe aus Token-Budget, Length-Bucket und Deadline je Klasse ab. Die Obergrenze der Batch-Dauer begrenzt die Query-Latenz.
+- Name: Dateigestützter Index
+  Requirements:
+    - Der Index ist per mmap lesbar.
+- Name: Index-Öffnung und Lazy Loading
+  Requirements:
+    - Der Index wird beim ersten Zugriff geladen.
+- Name: Device, Lane und Event
+  Requirements:
+    - Bildet Device-Arten CPU und GPU ab, erweiterbar um weitere Arten.
+    - Das Device-Handle besteht aus dem Device-Ordinal bzw. der CPU.
+    - Ein Execution-Context (Lane) besteht aus Stream, Priorität, Events, eigenem Parameter-Block und Workspace.
+    - "Beispiel-Lanes: Query (hohe Priorität, kleine Batches), Insert und Update im Index (Throughput), Kopieren zwischen RAM und VRAM in beide Richtungen (H2D und D2H)."
+    - Ein Event ist ein opaker Completion-Marker für alle vor seiner Aufzeichnung auf einer Lane eingereichte Arbeit.
+    - Kopien beziehen sich auf dasselbe Event.
+    - Der Abschluss eines Events ist nicht blockierend abfragbar und blockierend abwartbar.
+    - Bei GPU-Events meldet das Warten Fehler als Event-Error mit Ursache.
+    - Ein CPU-Event bleibt nach dem Signalisieren dauerhaft abgeschlossen und weckt alle Wartenden.
+    - Die Textdarstellung (Display) eines Events zeigt den Completion-Status.
+    - Ein Event ist durch ein künstlich steuerbares Mock-Event ersetzbar, sodass Event-Dependencies ohne GPU testbar sind.
+- Name: Kernel-Batchlauf-Schnittstelle
+  Requirements:
+    - Erfasst den Laufzustand über ein Event je Batch.
+    - Im Persistent-Modus dient ein Progress-Counter in gemapptem Host-Memory als Laufzustand.
+- Name: Lane und Batching
+  Requirements:
+    - Übergibt zwischen Lanes ausschließlich über die Queue.
+    - Merkt sich im Batch die Zeilen-Offsets je Task.
+- Name: CPU-Subengine
+  Requirements:
+    - Nutzt FP32 als Default-Datentyp auf der CPU.
+- Name: CPU-Backend
+  Requirements:
+    - Stellt je Arena einen mit Nullen gefüllten Bereich im RAM bereit, ohne Streams und Staging.
+    - Schreibt, liest und kopiert auf Regionsbasis mit Prüfung auf Liveness und Länge, sonst „stale Region“.
+    - Beim Kopieren gilt die Quelllänge. Innerhalb einer Arena ist das Kopieren überlappungssicher (memmove), zwischen Arenen läuft es über einen Zwischenpuffer.
+    - Liefert als Budget die Summe der verfügbaren Mengen als frei, die Summe der Kapazitäten als gesamt, plus Generationsreserve.
+    - Löst Regionen auf Adressen auf, wobei diese das Backend nicht verlassen.
+    - Erfüllt die gemeinsame nebenläufige Backend-Schnittstelle mit Allokation in einer Arena (Größe, Alignment), Freigabe, Freigabe nach Event und Budget-Abfrage.
+    - Stellt den Lese- und Schreibzugriff auf Regionen über die einheitliche, nebenläufig nutzbare Speicherzugriff-Schnittstelle bereit.
+- Name: GPU-Subengine
+  Requirements:
+    - Betreibt einen Prozess mit einem Primary Context und mehreren Streams je GPU.
+    - Nutzt FP16 als Default-Datentyp auf der GPU.
+- Name: GPU-Backend
+  Requirements:
+    - Ist nur mit einem Nvidia-Device anlegbar, sonst „Device-Speicher nicht verfügbar“.
+    - Führt beim Anlegen zuerst Speicherabfrage und Fit-Check mit Headroom aus. Bei Misserfolg wird nichts reserviert.
+    - Belässt freigegebenen, stream-ordered allokierten Speicher im Default-Pool des Treibers, damit im Dauerbetrieb keine Treiber-Allokation mehr stattfindet.
+    - Legt je Device-Arena einen zusammenhängenden, genullten Block in voller Kapazität an. Arenen der Größe null erhalten keinen Block. Danach wird auf den Abschluss aller Vorgänge gewartet.
+    - Legt für Mapped Host-Memory größer null einen Pinned, genullten Block mit eigener Device-Adresse an. Scheitert das Mapping, wird er freigegeben. Beim Shutdown wird er freigegeben, sofern der Device-Context noch bindbar ist.
+    - Setzt im Allocator-Set die Staging-Kapazität auf null, da Staging über den Ring verwaltet wird.
+    - Loggt nach dem Anlegen freien und gesamten Speicher sowie die Arena-Größen in MiB.
+    - Führt Kopien über einen eigenen Copy-Stream mit Pinned Staging-Memory aus, getrennt vom Compute-Stream.
+    - Führt D2D-Kopien zwischen gültigen Regionen verschiedener Arenen auf einem Stream aus. Gleiche Arena wird mit Transfer-Error abgelehnt, fehlende Blöcke mit „stale Region“. Locks in fester Reihenfolge verhindern Deadlocks.
+    - Führt asynchronen Upload (H2D) aus einem Pinned Buffer aus, der bis zum danach aufgezeichneten Event unverändert bleibt. Voraussetzung sind eine lebende Region und eine passende Datenmenge.
+    - Führt asynchronen Download (D2H) aus, dessen Ergebnis erst nach dem Event lesbar ist. Voraussetzung sind eine lebende Region und eine passende Datenmenge.
+    - Meldet Treiberfehler als „Device-Speicher nicht verfügbar“ oder als Transfer-Error mit Richtung und Begründung.
+    - Macht Mapped Host-Memory ohne Transfer beschreib- und lesbar. Voraussetzung sind ein existierender Block, eine passende Arena und eine lebende Region. Offset und Länge werden overflow-sicher gegen Region und Block geprüft.
+    - Stellt die Device-Adresse des Mapped Host-Memory für Kernel-Launches bereit.
+    - Erzeugt auf Anforderung einen Ring aus Pinned, genullten Host-Buffern mit Anzahl und Größe.
+    - Ermittelt das Budget bei jedem Aufruf frisch vom Treiber und loggt es auf Debug-Level.
+    - Löst Regionen auf Device-Adressen auf, wobei diese das Backend nicht verlassen.
+    - Erfüllt die gemeinsame nebenläufige Backend-Schnittstelle mit Allokation in einer Arena (Größe, Alignment), Freigabe, Freigabe nach Event und Budget-Abfrage.
+- Name: Staging-Ring
+  Requirements:
+    - Führt eine feste Anzahl von Slots mit Payload im Zustand frei, belegt oder in Übertragung mit Event.
+    - Verwendet einen Slot erst nach Abschluss seines Events wieder.
+    - Vergibt Slots per Acquire reihum hinter dem zuletzt vergebenen Slot, sonst keinen.
+    - Das blockierende Acquire wartet auf die älteste laufende Übertragung.
+    - Sind alle Slots belegt und keine Übertragung läuft, meldet es „Staging erschöpft“.
+    - Scheitert das Warten, meldet es einen Transfer-Error der Richtung H2D.
+    - Erlaubt Payload-Zugriff und die Übergänge „in Übertragung“ und „freigeben“ nur aus dem Zustand „belegt“, sonst „ungültiger Slot“.
+    - Liefert Anzahl und Slots in Übertragung abfragbar.
+    - Ist thread-safe.
+    - Ist ohne GPU testbar, etwa mit einem Mock-Event.
+- Name: Gemeinsame Host-Ressourcen
+  Requirements:
+    - Alle gemeinsam genutzten Strukturen sind nebenläufig nutzbar.
+- Name: Modellbeschreibung
+  Requirements:
+    - Stellt ein Modell durch eine reine, ressourcenlose Beschreibung (Descriptor) dar.
+    - Die Beschreibung enthält Model-ID und Architektur-ID, Embedding-Dimension, Pooling-Verfahren und Normalisierungsart sowie Präfixe für Queries und Passages.
+    - Die Beschreibung enthält den Storage-Datentyp der Embeddings, unabhängig von den Compute-Datentypen wählbar.
+    - Die Beschreibung enthält die Compute-Datentypen des Hauptmodells, getrennt für CPU und GPU und nach Device-Klasse ermittelbar.
+    - Die Beschreibung enthält die maximale Sequenzlänge, optionale Projection-Layer mit Tensor-Name, Pfade zur Konfigurationsdatei und zu den Weight-Dateien sowie eine optionale Multi-Vector-Konfiguration.
+    - "Leitet den Default für „intfloat/multilingual-e5-small“ aus einem Verzeichnis und einem wählbaren Storage-Datentyp ab: Architektur „bert“, Dimension 384, Mean-Pooling über unmaskierte Token, L2-Normalisierung, Präfixe „query: “ und „passage: “, maximale Sequenzlänge 512."
+    - Der Default verwendet den Compute-Datentyp FP32 auf beiden Device-Klassen, keine Projection-Layer, die Konfigurationsdatei „config.json“ und die Weight-Datei „model.safetensors“ im Verzeichnis.
+    - Validiert, dass Dimension und maximale Sequenzlänge größer null sind und ein nicht leeres Präfix mit einem Leerzeichen endet.
+    - Meldet Verstöße als „inkompatible Modellkonfiguration“ mit Begründung.
+    - Die Validierung verhindert Konfigurationen, die die Embedding-Qualität unbemerkt verschlechtern.
+- Name: Modellregister
+  Requirements:
+    - Bildet Architektur-IDs auf Konstruktor-Funktionen (Factories) für Encoder ab. Erneute Registrierung derselben ID ersetzt die bisherige.
+    - Ist als Register mit allen in den Build einkompilierten Architekturen erzeugbar.
+    - Enthält „bert“ nur bei aktivierter Backend-Unterstützung (Feature-Flag).
+    - "Lädt für eine Device-Klasse in dieser Reihenfolge: Beschreibung validieren lassen, Factory suchen, Encoder konstruieren."
+    - Meldet unbekannte Architekturen als „nicht unterstützte Architektur“ mit ID.
+    - Liefert als Ergebnis einen geladenen Encoder aus Architektur (Code) und Gewichten (Daten) auf einem Device. Er bündelt Beschreibung, Device-Klasse und Encoder und macht sie lesend zugänglich.
+    - Stellt den geladenen Encoder als verwaltbare Ressource bereit mit einem Key aus Architektur-ID und Device-Klasse und Initialisierungskosten 100. Freigeben entlädt die Gewichte.
+- Name: Gewichtsquelle
+  Requirements:
+    - Liest Gewichte per mmap ohne vollständiges Kopieren.
+- Name: Encoder-Aufbau
+  Requirements:
+    - Setzt aus Beschreibung und Device-Klasse einen vollständigen Encoder aus Hauptmodell, optionaler Projection-Layer, Pooling, Normalisierung und Storage-Datentyp zusammen.
+    - Hinterlegt Device-Klasse und Compute-Datentyp für das Tracing.
+    - Übernimmt die Normalisierungsart aus der Beschreibung. Ohne Angabe ist die L2-Normalisierung Default.
+    - Lädt die Projection-Layer aus der ersten Weight-Datei. Ohne Weight-Datei meldet es den Load-Error „keine Gewichtsdateien“.
+    - Prüft, dass die Eingabedimension der Projection-Layer der Ausgabedimension des Hauptmodells entspricht, sonst „inkompatibel“.
+    - Verwendet für Multi-Vector-Modelle nach Art von ColBERT, für die die externe Library kein Modul hat, einen vorhandenen Encoder-Backbone (BERT, ModernBERT und weitere) mit eigenem Projection-Head.
+- Name: Transformer-Hauptmodell
+  Requirements:
+    - Liest die Konfigurationsdatei als strukturierten Text (JSON). Unlesbarkeit ergibt einen Load-Error mit Begründung.
+    - Der Modelltyp muss „bert“ lauten, sonst „inkompatibel“ mit gefundenem Typ.
+    - Die Hidden-Size muss der Beschreibung entsprechen. Die maximale Sequenzlänge darf die Anzahl der Position-Embeddings nicht überschreiten. Verstöße ergeben „inkompatibel“ mit beiden Werten.
+    - Ist auf der CPU stets ladbar. Auf der GPU ist es nur bei einkompilierter Unterstützung ladbar, dann auf dem ersten GPU-Device, sonst „inkompatibel“ mit Hinweis auf die fehlende Unterstützung.
+    - Übersetzt den Compute-Datentyp der Device-Klasse in den Backend-Datentyp, sonst „inkompatibel“.
+    - Lädt Gewichte per mmap ohne vollständiges Kopieren im gewählten Datentyp auf das Device.
+    - Ein fehlender Tensor ergibt „Gewichtsname passt nicht“ mit Name, sonstige Ladefehler einen Load-Error.
+    - Berechnet im Forward-Pass aus Token-IDs und Mask (Zeilen × Sequenzlänge) die Hidden-States aller Token. Token-Type-Inputs sind null, die Mask wirkt als Attention-Mask.
+    - Liefert das Ergebnis als flache Liste von FP32 (Zeilen × Sequenzlänge × Dimension), unabhängig vom Compute-Datentyp. Fehler ergeben „Encoding fehlgeschlagen“.
+    - Macht die Ausgabedimension abfragbar.
+    - Tauscht mit der übrigen Pipeline keine Typen der Tensor-Library aus, nur einfache Zahlenlisten.
+- Name: Projection-Layer
+  Requirements:
+    - Bildet optional jeden Token-Vektor linear von Input- auf Output-Dimension ab, etwa von 768 auf 128, insbesondere für Late Interaction.
+    - Führt eine Weight-Matrix Output × Input und einen optionalen Bias der Länge Output-Dimension.
+    - Lädt aus safetensors im Speicher oder per mmap aus einer Datei, über den Tensor-Namen der Beschreibung.
+    - Der Bias-Name entsteht durch Ersetzen der Endung „weight“ durch „bias“, sonst durch Anhängen von „bias“.
+    - Ein fehlender Tensor ergibt „Gewichtsname passt nicht“.
+    - Eine falsche Shape ergibt „inkompatibel“ mit tatsächlicher und erwarteter Shape.
+    - Konvertiert Werte in FP32, FP16 oder BF16 in FP32. Andere Typen ergeben „inkompatibel“ mit Tensor und Typ.
+    - Dateifehler ergeben einen Load-Error.
+    - Wendet die Abbildung als Dot-Product mit jeder Weight-Zeile plus Bias an. Die Reihenfolge der Vektoren bleibt.
+    - Macht Input- und Output-Dimension abfragbar.
+- Name: Pooling und Normalisierung
+  Requirements:
+    - Unterstützt als Pooling-Verfahren Mean über unmaskierte Token (ein Vektor je Sequenz) oder kein Pooling (ein Vektor je Token).
+    - Mean bildet die Summe der Hidden-State-Vektoren mit Mask ungleich null geteilt durch deren Anzahl. Padding beeinflusst das Ergebnis nicht.
+    - Vollständig maskierte Sequenzen ergeben einen Nullvektor ohne Division durch null.
+    - Ohne Pooling werden alle Positionen unverändert weitergegeben, einschließlich Padding.
+    - L2-Normalisierung teilt jeden Vektor durch seine Norm, damit das Dot-Product dem Cosinus entspricht.
+    - Begrenzt die Norm nach unten auf 10⁻¹² (Epsilon-Clamp). Vektoren darunter gelten als degeneriert und bleiben praktisch Nullvektoren.
+    - Meldet die Anzahl degenerierter Vektoren zurück.
+    - Die Art „none“ lässt Vektoren unverändert.
+    - Führt die L2-Normalisierung einmal am Ende des Encoders beim Schreiben aus. Query und Dokument werden gleich behandelt.
+- Name: Encoder-Schnittstelle
+  Requirements:
+    - Macht Ausgabedimension (der Projection-Layer, sonst des Hauptmodells) und Storage-Datentyp abfragbar.
+    - Nimmt als Input eine Region mit Layout im Serialisierungsformat der Batch-Bildung und als Output ebenfalls eine Region mit Layout entgegen.
+    - Prüft vorab, dass der Input genau 2 × Zeilen × Sequenzlänge als u32 enthält, sonst „inkompatibel“ mit erwarteter und tatsächlicher Shape bzw. Datentyp.
+    - Prüft vorab, dass der Output bei Mean-Pooling Zeilen × Dimension und sonst Zeilen × Sequenzlänge × Dimension hat, sonst „inkompatibel“ mit erwarteter und tatsächlicher Shape bzw. Datentyp.
+    - Prüft vorab, dass der Output-Datentyp dem Storage-Datentyp entspricht, sonst „inkompatibel“ mit erwartetem und tatsächlichem Datentyp.
+    - Führt das Encoding asynchron auf einer übergebenen Lane aus. Der Aufruf kehrt nach dem Enqueue zurück und liefert ein Completion-Event.
+    - "Ablauf: Input-Bytes lesen und in Token-IDs und Mask trennen, Hidden-States berechnen, Projection anwenden, Pooling ausführen, in die Output-Region schreiben."
+    - Scheitern Enqueue oder Event-Erzeugung, gibt es den Fehler als Device- oder Memory-Error zurück.
+    - Loggt Fehler während der Ausführung als Warnung „Embedding-Batch fehlgeschlagen“ und hinterlegt sie im Completion-Event. Die Lane selbst gilt als erfolgreich abgeschlossen.
+    - Verteilt das Ergebnis über einen One-Shot-Channel je Task plus Event oder Notification.
+    - Liefert beim Warten auf das Completion-Event einen hinterlegten Verarbeitungsfehler genau einmal.
+    - Meldet Fehler der Execution-Umgebung beim Warten als Device- oder Memory-Error.
+- Name: Embedding-Ausgabe
+  Requirements:
+    - Normalisiert die Ergebnisvektoren bei Bedarf, konvertiert sie in den Output-Datentyp und schreibt sie lückenlos in die Output-Region.
+    - Lässt FP32, FP16 und BF16 in Little-Endian zu, andere Typen ergeben „inkompatibel“.
+    - Erzeugt bei degenerierten Vektoren eine Warnung mit Anzahl, dass leere Embeddings als Nullvektor gespeichert wurden. Der Vorgang gilt als erfolgreich.
+    - Reicht Schreibfehler als Memory-Error weiter.
+    - Liest auf der GPU über einen dünnen Write-Kernel den Device-Pointer des Ergebnis-Tensors und schreibt normiert sowie datentypkonvertiert direkt in den vom Manager vorab vergebenen Slot.
+    - Hält den Ergebnis-Tensor bis zum Event am Ende des Schreibens am Leben.
+- Name: Speicherverwaltung
+  Requirements:
+    - Vermeidet Allokation und Freigabe von VRAM im laufenden Betrieb, weil dies das Device implizit synchronisiert.
+- Name: Arenen und Speicherbudget
+  Requirements:
+    - Teilt den Speicher in sechs Arenen (Speicherklassen) nach Lebensdauer ein.
+    - "Arena Weights: langlebig, nur beim Unload frei."
+    - "Arena Index-Segmente: gestreamt, evictable. Die Kapazität umfasst alle gleichzeitig residenten Generationen."
+    - "Arena Workspace je Lane: kurzlebig."
+    - "Arena Staging: Pinned Memory im Host für Kopien in beide Richtungen, bei der CPU entfallend."
+    - "Arena Parameter-Block je Lane: kleine feste Region für dynamische Kernel-Parameter."
+    - "Arena Mapped Host-Memory: Pinned Memory, den das Device über den Systembus (PCIe) direkt liest."
+    - Gibt jeder Arena eine stabile, eindeutige numerische ID, aus der sie rückgewinnbar ist. Unbekannte IDs ergeben „keine Arena“.
+    - Liefert die Liste der Arenen vollständig in fester Reihenfolge abrufbar und erweiterbar.
+    - Macht je Arena eine Kapazität in Byte konfigurierbar.
+    - Berechnet den tatsächlichen Device-Bedarf als Summe aus Weights, Index-Segmenten, Workspace und Parameter-Block, saturierend statt wrapping. Staging und Mapped Host-Memory zählen nicht, da sie im Host-Memory liegen.
+    - Berechnet die Reserve für andere Generationen als Index-Kapazität abzüglich des Anteils der aktiven Generation bei gleichmäßiger Aufteilung. Eine Generationszahl unter eins gilt als eins.
+    - Legt die Arena lazy beim ersten Laden nach Budget an. Alle Adressen sind 64-Bit-Offsets innerhalb der Arena.
+    - Das Budget besteht aus freiem Speicher, Gesamtspeicher und Generationsreserve. Der nutzbare Anteil ist der freie Speicher abzüglich Reserve, nie negativ.
+    - Ermittelt freien und gesamten Device-Speicher zur Laufzeit über eine austauschbare Abfrage. Scheitern ergibt „Speicherabfrage fehlgeschlagen“ mit Begründung.
+    - Verwendet als Default-Headroom 512 MiB für Treiberkontext und andere Prozesse, etwa den Display-Compositor.
+    - Der Fit-Check stellt fest, ob die geplanten Device-Arenen in den freien Speicher abzüglich des saturierend abgezogenen Headrooms passen, sonst Fehler mit angeforderter und nutzbarer Menge.
+    - Plant den kurzen Doppelbedarf durch Copy-on-Write im Budget ein.
+- Name: Free-Space-Verwaltung
+  Requirements:
+    - Vergibt je Arena über einen Offset-Allocator Bereiche aus fester Kapazität, ohne selbst Speicher zu halten, nach dem First-Fit-Prinzip in aufsteigender Adressreihenfolge.
+    - Verschmilzt beim Freigeben Lücken mit angrenzenden freien Nachbarn auf beiden Seiten (Coalescing).
+    - Rundet beim Alignment den Offset auf, null gilt als eins. Overflows führen zu „passt nicht“, nie zum Absturz. Reste vorn und hinten bleiben freie Lücken.
+    - Erfüllt Anforderungen der Länge null nicht.
+    - Macht Kapazität und freie Menge abfragbar.
+    - Bei Kapazität null gibt es keine Lücke.
+- Name: Allocator mit Deferred Free
+  Requirements:
+    - Jeder Allocator kennt Kapazität, Arena und Device-Art. Vor jeder Allokation sammelt er abgeschlossene Deferred Frees ein.
+    - Erschöpfung ergibt einen Fehler mit Arena, angeforderter und freier Menge, andere Fehler „Allokation fehlgeschlagen“.
+    - Lehnt sofortige Freigabe bei vorgemerkten oder ungültigen Regionen mit „stale Region“ ab.
+    - Deferred Free nimmt Region und Event. Die Region kehrt erst nach Abschluss des Events zurück, sodass laufende Arbeit nie wiederverwendeten Speicher sieht.
+    - Lehnt Deferred Free bei nicht lebenden oder bereits vorgemerkten Regionen ab. Nach dem Vormerken wird sofort auf Abschluss geprüft.
+    - Gibt eine Region erst frei oder überschreibt sie erst, wenn alle Streams, die sie nutzen, ihr Event erreicht haben (Stream-ordered Reuse).
+    - Das Einsammeln (Reaping) gibt abgeschlossene Regionen frei und liefert die Anzahl. Ungültige Regionen erzeugen nur eine Warnung.
+    - Die sofort verfügbare Menge schließt wartende Regionen aus. Anzahl wartender Regionen und Liveness sind abfragbar.
+    - Ist thread-safe.
+    - Stellt in einem Allocator-Set je Arena genau einen Allocator bereit, liefert die Größenvorgabe und findet den zuständigen Allocator zu einer Region. Fremde IDs ergeben „stale Region“.
+    - Ist ohne GPU testbar, etwa mit einem künstlich steuerbaren Mock-Event.
+- Name: Region-Handle
+  Requirements:
+    - Stellt eine Region als pointerfreies Handle aus Arena-ID, Offset, Länge und Generation bereit, kopierbar, vergleichbar und als Key verwendbar.
+    - Die Generation entwertet Handles nach Eviction und Neuladen.
+    - Überlässt das Auflösen einer Region auf eine Device-Adresse ausschließlich dem Memory-Backend. Device-Adressen verlassen das Backend nicht.
+- Name: Bookkeeping und Gültigkeit
+  Requirements:
+    - Verfolgt je Arena thread-safe Offsets und Generationen, ohne Device-Speicher zu besitzen.
+    - Erstmals vergebene Kombinationen aus Offset und Länge erhalten Generation null. Erneute Vergabe derselben Kombination erhöht die Generation mit Wrap-around.
+    - Eine Region ist live, wenn Arena, Offset, Länge und Generation einer aktuellen, nicht freigegebenen Vergabe entsprechen.
+    - Die Freigabe scheitert bei fremder Arena, unbekannter, bereits freigegebener oder abweichender Region.
+    - Das allgemeine Verwaltungs-Interface dereferenziert stale Handles nie, sondern ignoriert sie mit Warnung.
+    - Platzmangel nennt angeforderte und freie Menge.
+    - Lässt für Tests einen Allocation-Fehler je Arena künstlich auslösen (Fault Injection), gemeldet wie Erschöpfung.
+    - Loggt Allokationen und Freigaben auf Debug-Level mit Arena, Offset und Größe.
+- Name: Layout und Elementtypen
+  Requirements:
+    - Führt eigene Elementtypen unabhängig von Fremd-Libraries mit FP32 (4 Byte), FP16 (2 Byte), BF16 (2 Byte), u8 (1 Byte), u32 (4 Byte) und i64 (8 Byte).
+    - Übernimmt Elementtypen aus dem safetensors-Format. Nicht unterstützte ergeben „nicht unterstützter Datentyp“ mit Quelle.
+    - Legt für additive Attention-Masks den festen endlichen Mask-Wert −10 000 fest, da negativ unendlich bei FP16 ungültige Zeilen (NaN) ergäbe.
+    - Ein Layout besteht aus Shape, Strides in Byte und Elementtyp. Views ändern nur das Layout, nie die Daten.
+    - Beim Contiguous Layout ist der Stride der letzten Dimension die Elementgröße und jeder vordere das Produkt der hinteren Dimensionen. Dimensionen der Größe null zählen als eins.
+    - Macht Elementzahl, Bytelänge und Contiguity eines Layouts abfragbar.
+    - Transponieren zweier Dimensionen tauscht Shape und Strides. Narrowing ändert nur die Shape der Dimension.
+- Name: Speicherzugriff
+  Requirements:
+    - Stellt Lese- und Schreibzugriff auf Regionen einer Memory-Domain über eine einheitliche, nebenläufig nutzbare Schnittstelle bereit, die Bytes einer Region in einen Buffer liest und Bytes in eine Region schreibt.
+    - Eine Tensor-Referenz verbindet Region und Layout und ist der einzige Weg, auf dem Tensoren die Encoder-Schnittstelle passieren.
+- Name: Library-Adapter
+  Requirements:
+    - Konvertiert Elementtypen mit der Tensor-Library in beide Richtungen, ebenso zwischen Elementzahl (Library) und Bytezahl (Engine).
+    - Hüllt einen Teilbereich eines Device-Blocks in einen Tensor der Tensor-Library ein (Wrapping), sodass sie den korrekten Bereich liest.
+    - Der gewrappte Tensor besitzt den Speicher nicht und wird bewusst nicht freigegeben, damit Context und Block intakt bleiben.
+    - Kopien des gewrappten Tensors erhalten eigenen Speicher außerhalb des Blocks. Schreiben schlägt auf den Teilbereich durch, Nachbarelemente bleiben unverändert.
+    - Die Prüfungen des Wrappings laufen nur auf einem echten Nvidia-Device.
+- Name: Allgemeiner Index-Vertrag
+  Requirements:
+    - Der Datentyp der Vektordaten eines Index ist je Index fest.
+- Name: Dichtes Scoring
+  Requirements:
+    - Führt keine L2-Normalisierung aus, da diese einmal am Ende des Encoders erfolgt.
+- Name: Segment-Schreibpfad
+  Requirements:
+    - Vergibt Slots vorab, damit der Encoder Embeddings direkt in den reservierten Slot schreiben kann.
+- Name: Kernel und Scoring
+  Requirements:
+    - Kennt nur Segmente, Adressen und Offsets, keine Entry-Identität und keine Traversierung. Traversiert nie.
+    - Liefert nur Adresse bzw. Offset und Score. Die Adressdarstellung ist Implementierungsdetail.
+    - Kommuniziert während der Berechnung nicht.
+    - Rechnet auf Anforderung des Managers ohne Kenntnis von Entries, Index oder Scopes.
+- Name: Dichtes Scoring
+  Requirements:
+    - Berechnet auf Anforderung des Managers die Query gegen die Centroids der Summary-Struktur eines Index und liefert die Scores, aus denen die nächsten Zellen gewählt werden.
+- Name: Max-Similarity-Operation
+  Requirements:
+    - Aggregiert die Max-Similarity (MaxSim) je Entry über Stride oder Offset-Tabelle, ohne Entry-Identität zu kennen.
+- Name: Kernel-Batchlauf-Schnittstelle
+  Requirements:
+    - Schreibt Embeddings per Cursor in einen vorab vergebenen Bereich und allokiert nie.
+    - Meldet am Batch-Ende die belegten Bereiche. Reicht der Bereich nicht, liefert sie ein Teilergebnis (Partial Result).
+- Name: CPU-Subengine
+  Requirements:
+    - Besitzt den CPU-Manager als eigene Komponente.
+- Name: CPU-Manager
+  Requirements:
+    - Ist Komponente der CPU-Subengine, weder der Fassade noch des Index. Wird mit der CPU-Subengine und einem lazy aktivierten Index konstruiert.
+    - Leitet Lesezugriffe direkt an den Index, da das RAM die Primärinstanz ist.
+    - Sichert die Residency dateigestützter Daten im Page-Cache, relevant bei memory-mapped Indizes größer als das RAM.
+    - Markiert Bereiche nach Leerlauf als „cold“. Ohne Hinweisquelle passiert nichts, Ablehnungen werden nur geloggt.
+    - Einzelnes Lesen setzt den Hinweisbereich „will need“, liest im Blocking-Pool und liefert eine Kopie der Bytes. Ein Abbruch der Aufgabe ergibt den Transfer-Error „Lese-Task abgebrochen“.
+    - Mehrfaches Lesen mit Zugriffsmuster nutzt bei dichtem Zugriff „sequential“ über den umspannenden Bereich und bei verstreutem Zugriff „random“ je Entry. Die Ergebnisse folgen der Eingabereihenfolge.
+    - Mehrfaches Lesen liefert bei leerer Eingabe ein leeres Ergebnis. Der Index muss angehängt sein.
+    - Eine Variante erfragt die Hinweisbereiche selbst vom Index. Entries ohne zusammenhängende Speicherung werden ohne Hinweis gelesen.
+- Name: Page-Cache-Hinweise und blockierende Lesezugriffe
+  Requirements:
+    - Setzt Empfehlungen (Advice) an das Betriebssystem je Byte-Bereich: will-need (Prefetch), sequential, random, cold. „Cold“ senkt die Reclaim-Priorität, ohne Inhalte zu verwerfen. Alle Empfehlungen sind unverbindlich.
+    - Abstrahiert das Hinweisziel über eine austauschbare, nebenläufige Schnittstelle (Trait).
+    - Weist ungültige Bereiche ab (Anfang hinter Ende, Ende hinter Mapping-Länge). Leere Bereiche sind wirkungslos erfolgreich (No-op).
+    - Richtet „cold“ auf Page-Grenzen aus (Anfang abrunden, Länge vergrößern). Auf Plattformen ohne Unterstützung ist es ein erfolgreicher No-op. OS-Fehler werden weitergereicht.
+    - Führt blockierende Lesezugriffe (Page-Faults, Disk-I/O) im Blocking-Pool aus, nie im Thread des Async-Runtime. Der Prefetch-Hinweis lässt I/O und Kernel-Lauf überlappen.
+    - Setzt vor dem Lesen standardmäßig „will-need“, abweichend etwa „sequential“ für dichte Scans. Lesen ohne Hinweis ist möglich, Prefetch ist eine eigene Funktion.
+    - Ohne Hinweisquelle bleibt der Hinweis wirkungslos, ein abgelehnter Hinweis wird nur geloggt.
+    - Meldet Abbruch oder Panic der blockierenden Aufgabe als Fehler.
+- Name: GPU-Subengine
+  Requirements:
+    - Besitzt den GPU-Manager als eigene Komponente.
+- Name: GPU-Backend
+  Requirements:
+    - Führt Kopien asynchron auf dem Stream einer eigenen Copy-Lane aus. Als Host-Quelle werden gewöhnliches und Pinned Host-Memory unterstützt.
+- Name: Staging-Ring
+  Requirements:
+    - Vergibt Pinned Staging-Slots an Anfragende, die auf freie Slots warten, und gibt sie erst nach dem Event der Übertragung zur Wiederverwendung frei.
+- Name: GPU-Kernel
+  Requirements:
+    - Publiziert die Zahl abgeschlossener Batches mit Release-Semantik.
+    - Prüft vor jedem weiteren Batch, ob das Ack den Vorgänger abdeckt. Der erste Batch darf immer starten.
+- Name: Launch-Modi
+  Requirements:
+    - Übergibt bei normalen Launches Root-Pointer und Epoche der Segmenttabelle als Kernel-Argument. Ein Table-Swap wirkt ab dem nächsten Launch.
+- Name: GPU-Manager
+  Requirements:
+    - Ist Komponente der GPU-Subengine, weder der Fassade noch des Index. Wird mit der GPU-Subengine und einem lazy aktivierten Index konstruiert.
+    - Löst Scopes über die Resolver-Registrierung der Scope-Auflösung auf.
+    - Ensure einer Menge setzt einen angehängten Index voraus, lädt über den Loader, markiert danach alle Segmente in der Eviction als benutzt und loggt die bewegten Bytes.
+    - Eine Reconcile-Iteration legt den Reconciler beim ersten Mal an, vergleicht residente Entries mit dem Index, stellt Entfernte als Delete-Updates ein, lädt Geänderte ohne ausstehendes Update regulär nach und gibt das Ergebnis zurück.
+    - Publish eines geladenen Segments vergibt eine fortlaufende Segment-ID.
+    - Publish nimmt die Region in eine neue Tabellenversion und die Segmentzuordnung in eine neue Mapping-Epoche auf. Weist die Zuordnung ab (etwa bei Überlappung), ergibt das einen Transfer-Error.
+    - Publish veröffentlicht zuerst die Tabelle, dann die Zuordnung. Bei Fehlern wird die Region zurückgegeben.
+    - Publish nimmt das Segment bei Erfolg in die Eviction auf (Größe, Tier Vektor, Reload-Kosten gleich Größe, Zeitpunkt jetzt). Die mitgelieferten Bindings mit Segment-ID und Stamp werden als Updates in die Update-Queue eingestellt und wirken in der nächsten Gap.
+    - Meldet Segmentzahl, residente Bytes aus Eviction-Sicht und ausstehende Updates.
+    - Freigeben eines Segments gibt die Region zurück, entfernt das Segment aus der Eviction und löscht die Residency aller Entries. Noch anstehende Bindings in dieses Segment scheitern schadlos.
+    - Stellt Eviction-Schritt und Platzbeschaffung bereit.
+- Name: Device-Transfer
+  Requirements:
+    - Nutzt als Bausteine eine Quelle für Segmentbereiche (Index-Arena), gemapptes Host-Memory, ein geladenes Segment aus Region, Slot-Zuordnung und Bindings mit vor den Daten gelesenem Stamp sowie eine austauschbare Sink für geladene Segmente.
+    - Führt Transfers im Blocking-Pool aus. Ein Abbruch ergibt einen Transfer-Error H2D.
+    - Ganze Segmente werden zuerst Entries aufsteigend zugeordnet. Direktes Kopieren erfolgt, wenn die Entries lückenlos in einem gestützten Bereich liegen, nicht leer und ausgerichtet sind und der Index genau die Bereichslänge liefert.
+    - Beim direkten Kopieren wird vorher „sequential“ gesetzt, der Bereich angelegt, kopiert, synchron abgewartet und bei Fehler freigegeben. Slot-Grenzen sind absolute Adressen mit End-Marker. Nur Entries mit bekanntem Stamp erhalten ein Binding.
+    - Nicht direkt kopierbare Segmente gehen in den Gather-Pfad.
+    - Der Gather-Pfad erfasst den Stamp vor den Daten und setzt „random“ je Bereich. Er bepackt wiederholt einen Staging-Slot (ohne Fortschritt „Gather ohne Fortschritt“), legt den Bereich an, sendet eine Kopie ab, wartet ab, meldet und summiert Bytes.
+    - Beim Bepacken wartet das Gathering auf freie Slots, packt ausgerichtet bis zum ersten nicht passenden Entry und zählt entfernte Entries als erledigt. Passt schon der erste nicht, meldet es „Arena erschöpft“.
+    - Wiederverwendet Slots erst nach dem Event. Kopien laufen asynchron auf dem Stream einer eigenen Copy-Lane. Gewöhnliches und Pinned Host-Memory werden unterstützt.
+    - Direktes Mapping fällt ohne gemappte Arena oder Slot mit Log auf den Gather-Pfad zurück. Sonst liest es Stamp und Daten, schreibt ausgerichtet in den gemappten Bereich und meldet. Sehr kleine Mengen werden so zero-copy gelesen.
+- Name: Kernel-Synchronisation
+  Requirements:
+    - Verändert nur in Gaps (Batch-Ende bzw. Communication-Slot) und blockiert oder sperrt den Kernel nie aus.
+- Name: Mutationsdisziplin
+  Requirements:
+    - Kennt den Laufzustand des Kernels, verändert nur in Gaps, ändert nichts unter dem Kernel und blockiert oder sperrt ihn nie aus.
+    - Tauscht atomar nur einen natürlich ausgerichteten Pointer von acht Byte Breite.
+    - Legt größere Strukturen per Copy-on-Write neu an und tauscht danach den Pointer. Hierarchie: Root-Pointer, Segmenttabelle, Segment (Basis, Layout, Offset-Pointer).
+    - Das gilt für Lookup-Tabellen und ganze Segmente. Getauscht wird, sobald die Subengine dort nicht mehr liest.
+    - Updates in-place sind in einer Gap trivial. Im Persistent-Modus kann der Kernel einen halb aktualisierten Vektor mit gemischten, aber gültigen Werten lesen (Torn Read). Das wird bewusst akzeptiert und dokumentiert.
+- Name: Table-Swap
+  Requirements:
+    - Root-Pointer: Nur der Host schreibt, mit Release-Semantik. Das Device liest mit Acquire-Semantik.
+    - Der Root-Pointer trägt vor der ersten Tabelle den größten darstellbaren Wert als Sentinel. Er kann in fest zugeordnetem, gemapptem Host-Memory liegen.
+    - Segmenttabelle: Publizierte Versionen sind immutable. Neue sind Kopien mit erhöhter Epoche, mit Epoche und Segment-Regionen.
+    - Segmenttabelle bietet Add, Replace (false bei fehlender alter Region) und Remove mit Rückmeldung. Die kodierte Größe beträgt 16 Byte plus 24 Byte je Segment.
+    - Epoch-Tracking führt die publizierte Epoche und je Reader die zuletzt gemeldete, nur steigend. Ein beendeter Batch meldet seine Epoche.
+    - Ein Reader ohne laufenden Batch kann ruhen (Quiescent) und gilt dann als angekommen. Die kleinste Reader-Epoche ist abfragbar, ohne Reader gleich der publizierten.
+    - Das Schreiben in device-sichtbaren Speicher kehrt erst zurück, wenn der Inhalt vollständig sichtbar ist (Copy-Event oder Flush gemappter Writes).
+    - Stellt eine Kopie der aktuellen Tabelle mit nächster Epoche bereit.
+    - Publication ist serialisiert. Die Epoche muss genau aktuell plus eins sein, sonst „stale Mapping“, sodass zwei Tabellen gleicher Basis nicht beide publiziert werden.
+    - Publication schreibt den Inhalt sichtbar, tauscht den Root, schiebt die Epoche voran, stellt die vorherige Region mit neuer Epoche zurück (Retire), loggt Epoche, Segmentzahl und Offset und gibt die Epoche zurück.
+    - Reclaim gibt höchstens bis zur kleinsten Reader-Epoche und gewünschten Obergrenze frei und liefert die Anzahl.
+    - Im Persistent-Kernel-Modus mit Ring-Buffer liest der Kernel den Pointer einmal je Work-Item mit Acquire-Semantik. Ein Guard-Objekt hält die Version fest und meldet beim Freigeben die Epoche. Der Inhalt der neuen Tabelle muss vorher per Event oder Memory-Barrier sichtbar sein.
+    - Auf echter Hardware ist nachzuweisen, dass der Inhalt vor dem Root-Wert sichtbar ist, auch über einen Copy-Stream mit Event.
+- Name: Doorbell-Synchronisation
+  Requirements:
+    - Liest die vom Device publizierte Zahl abgeschlossener Batches mit Acquire-Semantik.
+    - Der Host verändert nur zwischen Abschluss eines Batches und dessen Ack. Er wartet nie auf den Kernel, nur auf ein Batch-Event.
+    - Die nicht blockierende Abfrage liefert bei Abweichung zwischen completed und acked eine Gap. Koaleszierte Completions öffnen eine Gap mit der höchsten Batch-Nummer.
+    - Die wartende Abfrage wartet zuerst auf das Event. Device-Fehler werden weitergereicht.
+    - Schließen der Gap publiziert das Ack. Eine nicht geschlossene Gap ist ein Programmierfehler. Vorher geschriebene Ergebnisse und Zuordnungen sind sichtbar.
+    - Beide Zellen (completed und acked) können in fest zugeordnetem, mappbarem Host-Memory liegen.
+- Name: Communication-Slot
+  Requirements:
+    - Der Abschluss verlangt einen angehängten Index, sperrt Updates und Residency und läuft gegen die Zuordnung der Batch-Epoche.
+    - Feste Reihenfolge, erstens Lesen, was der Kernel geschrieben hat. Deferred und neue Writes werden Slot für Slot verarbeitet. Ist eine Adresse keinem Segment zugeordnet, wird der Rest für den nächsten Slot zurückgestellt.
+    - Gebundene Slots werden vom Device zurückgelesen, per Upsert am Index angewendet und der zurückgegebene Stamp im Residency-Verzeichnis vermerkt. Slots ohne Entry werden übersprungen, der Fortschritt beträgt mindestens ein Byte.
+    - Zweitens Ergebnisse auflösen. Die Adresse wird auf einen Entry abgebildet. Nicht abbildbar oder im Index entfernt wird verworfen. Bei ausstehendem Update wird das Ergebnis als „stale“ markiert geliefert (Diagnose, kein Fehler). Sonst wird es unverändert geliefert.
+    - Drittens Updates einspielen. Das verändert die Abbildung und kommt daher zuletzt.
+    - Loggt angewandte Writes, aufgelöste, verworfene und stale Treffer, Queue-Tiefe und Änderungen.
+    - Weil nur in Gaps verändert wird, sieht jedes Ergebnis den Mapping-Stand seines Batches. Eine gemeldete Adresse ist aktuell. Im Kernel-Protokoll gibt es keine Epoche und keine Sequenznummer.
+    - Läuft der Slot gegen eine weitergegangene Zuordnung, meldet er nebenwirkungsfrei „stale Mapping“ und wiederholt den Slot unter Structure-Lock mit frischem Snapshot. Danach wird zurückgestellter Speicher zurückgewonnen.
+    - Das Zurücklesen von Device-Bereichen läuft über eine austauschbare Schnittstelle (Trait).
+- Name: Address-Map und Mapping-Store
+  Requirements:
+    - Address-Map bildet Arena-Adressen auf Entries ab. Die Segmentmenge wird per Copy-on-Write verändert, Klone sind stabile Snapshots.
+    - Die Epoche wird mitgeführt, Nachfolger erhöhen sie um eins.
+    - Add wird abgelehnt bei leerem Segment, vergebener ID oder Überlappung. Segmente sind nach Adresse sortiert. Remove meldet das Vorhandensein.
+    - Slot-Bindings liegen in gemeinsamen Zuordnungen und ändern sich nur in Gaps.
+    - Mapping-Store hält die Map versioniert und liefert Snapshots nur bei passender Epoche (sonst „stale Mapping“ mit Basis- und publizierter Epoche).
+    - Mapping-Store publiziert nur Maps mit Epoche aktuell plus eins.
+- Name: Update-Queue
+  Requirements:
+    - Führt Unbind oder Bind an einen Slot mit Stamp, je Entry nur das jüngste Update.
+    - Containment, Tiefe und deferred Writes sind abfragbar.
+    - Anwenden wendet zuerst Deletes, dann Binds an. Unbind entfernt aus dem Residency-Verzeichnis und löst die Slot-Bindung nur, wenn sie noch dazugehört. Bind löst zuerst eine alte Bindung. Nicht abgebildete Ziele erzeugen eine Warnung.
+    - Die Rückgabe ist die Zahl angewandter Updates. Änderungen bleiben bis zur Ausführung in der Queue.
+- Name: Index-Aufbau durch Kernel
+  Requirements:
+    - Vergibt vorab einen beschreibbaren Bereich aus der Arena. Der Kernel schreibt per Cursor hinein und allokiert nie.
+- Name: Write-Pointer-Bereich
+  Requirements:
+    - Jeder Claim schiebt den Write-Pointer voran. Passt einer nicht mehr, scheitern alle späteren, sodass die gültigen Bytes ein zusammenhängendes Präfix bilden.
+    - Ein gescheiterter Claim schreibt nichts, setzt einen Overflow-Zustand und hält die kleinste Overflow-Position fest. Der erste Overflow wird geloggt.
+    - Gruppen-Claims schieben mit einer einzigen Aktualisierung voran. Die gültige Länge ist das Minimum aus Overflow-Grenze, Pointer und Kapazität.
+    - Auf der GPU fasst ein Warp aus 32 Threads seine Claims per Prefix-Sum zusammen, mit einer atomaren Aktualisierung je Warp.
+    - Bei Overflow wird ein Invalid-Marker ausgegeben, Grenze und Flag gesetzt. Ergebnisse werden für den Host sichtbar gemacht.
+    - Reicht der Bereich nicht, wird ein Teilergebnis (Partial Result) gemeldet, sodass der Manager den nächsten Bereich vergibt.
+- Name: Embedding-Batch-Ausführung
+  Requirements:
+    - Führt den Batch per Resume aus, bis der Kernel Treffer meldet.
+    - Prüft vor jedem Schritt die Höchstzahl an Bereichen, sonst „Arena erschöpft“.
+    - Reserviert je Schritt einen Bereich, weist ihn zu und setzt den Input hinter den verarbeiteten Bytes fort. Teilantworten werden gezählt und sind kein Fehler.
+    - Beendet den Batch immer. Erfolg liefert Bereiche, Regionen und Teilantworten.
+    - Gibt bei Fehlern alle reservierten Bereiche frei und meldet zuerst den Lauffehler.
+- Name: Write- und Treffer-Queues
+  Requirements:
+    - Führt Embedding-Writes und Treffer über getrennte Queues mit je einem Producer und Consumer (SPSC).
+    - Registriert Writes zuerst, Treffer erst danach.
+    - Der Consumer entnimmt zuerst alle Writes, dann alle Treffer, sodass kein Treffer ohne Adresszuordnung beobachtet wird. Indexieren während der Suche funktioniert, weil das Lesen der Writes vor der Ergebnisauflösung liegt.
+    - Enqueue und Tiefe sind abfragbar und geloggt.
+- Name: Index
+  Requirements:
+    - Kann eine Struktur kapseln, eine memory-mapped Datei sein oder intern Byte-Buffer oder Spaltenformate nutzen.
+    - Implementiert sein eigenes Modell, etwa ganze Dateien, Sliding Windows, AST-Knoten, Chunks, kaskadierende oder fraktale Strukturen. Der Kern kennt diese Modelle nicht.
+    - Darstellung im RAM und persistente Darstellung sind dieselbe Instanz. Das VRAM hält nur einen abgeleiteten, verwerfbaren Mirror. Der Index ist die Source of Truth. Die Richtungen zwischen RAM, Index und VRAM sind agnostisch.
+    - Kennt weder Subengine noch Profil noch Kernel noch Geometrie und löst keine Scopes auf. Er meldet Änderungen und liefert Struktur und Change-Stamps.
+    - Kennt Entries, Vektordaten und seine Traversal-Struktur.
+    - Vektoren verschiedener Modelle sind nicht vergleichbar. Ein Metadatum „erzeugendes Profil“ ist höchstens optionale Diagnose.
+    - Wird beim ersten Zugriff lazy geladen.
+- Name: Allgemeiner Index-Vertrag
+  Requirements:
+    - Ein Entry besteht aus ID, Change-Stamp und Payload. Entry-IDs sind 64-Bit-Werte und total geordnet. Knoten und Zellen haben eigene ID-Typen.
+    - Ist über ein gemeinsames Interface von mehreren Threads gleichzeitig nutzbar.
+    - Liefert den Stamp eines Entries, den aktuellen oder „nicht vorhanden“.
+    - Liefert alle Stamps als Snapshot aller Entries samt Stamp, ohne Vektordaten zu berühren.
+    - Lesen eines Entries liefert den Vektorbereich oder leere Daten bei Fehlen und darf blockieren. Daten sind geliehen (borrowed) oder gemeinsam referenziert, ein gelesener Wert ändert sich durch spätere Writes nicht.
+    - Schreiben ersetzt die Daten vollständig. Mehrere Writer werden serialisiert, der zuletzt drankommende gewinnt (Last-Writer-Wins).
+    - Schreiben folgt der verbindlichen Reihenfolge Daten, Stamp, Signal. Rückgabe ist der Stamp genau dieses Writes.
+    - Change-Notification ist ein Level-Signal mit dem aktuellen Max-Stamp. Beliebig viele Observer sind möglich, der Anfangswert ist der aktuelle Max-Stamp. Jeder Write und Delete aktualisiert das Signal. Koaleszierte Signale sind unschädlich.
+    - Deklariert, welche Zugriffsmethoden er unterstützt (Centroid, Prefix, Subtree, Range), und liefert die zugehörigen Strukturen, etwa Summary-Struktur, Kinder eines Knotens oder Byte-Bereiche zusammenhängend gespeicherter Entries.
+- Name: Change-Stamp
+  Requirements:
+    - Jede Schreib- und Löschoperation erhält einen neuen Stamp, eindeutig innerhalb des Index, auch bei gleichzeitigen Zugriffen.
+    - Der Stamp ist ein opaker Veränderungsmarker. Consumer vergleichen nur auf Gleichheit, nie auf Ordnung.
+    - Er wird im exklusiven Write-Abschnitt unmittelbar vor der Publication vergeben.
+    - Auch das Entfernen verbraucht einen Stamp. Eine später neu angelegte gleiche ID erhält daher einen anderen Stamp.
+    - Ein neuer Index beginnt bei eins. Ein wiederaufgenommener setzt oberhalb des Größeren aus gespeichertem Max-Stamp und höchstem tatsächlich vorkommendem Stamp fort.
+    - Max-Stamp (null bei leerem Zähler) und Rohdarstellung für Persistenz und Notification sind abfragbar.
+- Name: Scopes und Entry-Mengen
+  Requirements:
+    - Scope-Arten mit stabilem Namen für Logs und Metriken sind alle Entries („all“), ID-Bereich („range“), explizite Menge („set“), Teilbaum ab Knoten („subtree“), Byte-Präfix („prefix“) und Centroid-Umgebung mit Anzahl und optionalem Radius („centroid“). Neue Arten sind ergänzbar.
+    - Entry-Mengen sind kompakt als Ranges oder Bitmap gespeichert, nicht als ID-Liste, und unterstützen 64-Bit-IDs.
+    - Aufbau aus Ranges (leere oder umgekehrte werden ignoriert) oder einzelnen IDs.
+    - Operationen sind Leere, Anzahl, Containment, aufsteigende Iteration, Union, Intersection, Gleichheit, gleichheitsverträglicher Hash und Ausgabe als maximale zusammenhängende aufsteigende Runs (bei großen Mengen teuer).
+- Name: Referenz-Index
+  Requirements:
+    - Ist ohne GPU-Beschleunigung und ohne Machine-Learning-Libraries lauffähig und liegt im RAM.
+- Name: Dateigestützter Index
+  Requirements:
+    - Öffnet mit Dateipfad, erwartetem Index-Header und Optionen. Fehlt die Datei, entsteht ein leerer Index, die Datei entsteht erst beim ersten Save.
+    - Optionen sind Zugriffsart „mmap“ (Default) oder „file“ (File-Read), Verifikation beim Öffnen (Default ein) und Zeilen je Row-Group beim Schreiben (Default 8192, Werte unter eins gelten als eins).
+- Name: Index-Öffnung und Lazy Loading
+  Requirements:
+    - Greift per mmap oder File-Read zu. Bei mmap wird, wo möglich, Random Access angekündigt (madvise).
+    - Liest über die ID- und Stamp-Spalten alle Entries ohne Vektor-Dekodierung ein. Doppelte IDs ergeben „Index nicht verfügbar“.
+    - Setzt den Stamp-Zähler fort, wie beim Change-Stamp beschrieben.
+    - Dekodiert optional (Default ein) alle Daten und kontrolliert Checksums. Ein Fehler bricht das Öffnen ab.
+    - Loggt Pfad, Schema-Version, Model-ID, Model-Revision, Zugriffsart, Anzahl Row-Groups und Checksum-Ergebnis.
+    - Datei- oder Lesefehler ergeben „Index nicht verfügbar“ mit Pfad und Ursache.
+    - Lazy Loading dekodiert Vektoren und Nutzdaten beim ersten Gebrauch genau einmal und hält sie, in Batches von 4096 Zeilen, als FP16-Werte in Little-Endian.
+    - Ein Fehlschlag wird gemerkt und bei jedem Zugriff gemeldet. Beim Vektor-Lesen kommen leere Daten, bei Nutzdaten „nicht vorhanden“, jeweils mit Error-Log.
+- Name: Dateiformat und Modellbindung
+  Requirements:
+    - Der Header im Datei-Footer muss vollständig und lesbar sein. Fehlende Keys, nicht numerische Werte und unbekannte Enum-Werte ergeben Schema-Inkompatibilität mit Key, erwartetem und gefundenem Wert.
+    - Der Header muss dem erwarteten entsprechen. Alle Abweichungen werden gesammelt gemeldet.
+    - Das Spalten-Schema muss in Name, Datentyp und Nullability entsprechen. Spalten-Metadaten werden ignoriert. Abweichungen nennen beide Schemata.
+    - Spalten in dieser Reihenfolge, keine nullable, sind Entry-ID (u64), Change-Stamp (u64, eigene Spalte, damit das Einlesen der Stamps keine Vektoren lädt), Vektor (Fixed-Size-List gemäß Dimension aus FP16-Werten), Zieldatei (Text), Zeichenanfang und Zeichenende (je u64) und Checksum (u64).
+    - Der Header enthält Schema-Version (aktuell eins), Max-Stamp, Hash-Algorithmus und Hash-Version, Model-ID und Model-Revision, Dimension, Pooling, Normalisierung, Query- und Passage-Präfix, Storage-Datentyp, Compute-Datentyp, maximale Sequenzlänge und Fingerprint des Tokenizers.
+    - Ableitung aus einer Modellbeschreibung. Storage-Datentyp ist ausschließlich FP16, sonst Schema-Inkompatibilität. Hash-Algorithmus ist ein schneller 64-Bit-Hash, Hash-Version eins, Max-Stamp null. Der Compute-Datentyp steht als Text für beide Prozessoren.
+    - Dimension und Vektorgröße (Dimension × 2) sind ableitbar. Der Header ist mit anderem Max-Stamp kopierbar.
+    - Die Bindung gilt nur bei Gleichheit von Schema-Version, Hash-Algorithmus, Hash-Version, Model-ID, Model-Revision, Dimension, Pooling, Normalisierung, beiden Präfixen, Storage-Datentyp, maximaler Sequenzlänge und Tokenizer-Fingerprint.
+    - Max-Stamp und Compute-Datentyp sind informativ, weil gemischtes Indexieren auf beiden Prozessoren erlaubt ist.
+    - Der Header ist verlustfrei als Key-Value-Paare les- und schreibbar. Enum-Werte sind Pooling (masked mean, per token), Normalisierung (L2, none), Datentypen (wie Elementtypen) und Hash-Algorithmus (fast 64 bit, fast 128 bit, cryptographic).
+    - Der Tokenizer-Fingerprint besteht aus Algorithmus-Bezeichnung, Doppelpunkt und dem 64-Bit-Hash der Tokenizer-Definition in 16 hexadezimalen Stellen mit führenden Nullen.
+    - Hält Algorithmus und Version des schnellen 64-Bit-Hash fest, der für die Content-Prüfung bei Dateiänderungen dient.
+- Name: Entry-Verwaltung im Dateiindex
+  Requirements:
+    - Upsert mit ID, Vektor und Nutzdaten. Der Vektor muss genau Dimension × 2 Bytes lang sein, sonst Schema-Fehler mit erwarteter und gefundener Länge.
+    - Upsert berechnet die Checksum, vergibt den Stamp, markiert den Index als dirty, löst das Signal aus und loggt. Die Änderung liegt bis zum Save nur im Speicher.
+    - Schreiben über den allgemeinen Vertrag nimmt genau einen Vektor. Nutzdaten eines vorhandenen Entries bleiben erhalten, bei neuen sind sie leer. Falsche Länge ist ein nicht behebbarer Programmfehler.
+    - Remove entfernt, markiert als dirty, vergibt einen Stamp und löst das Signal aus. Bei Fehlen ändert sich nichts und es wird „nicht vorhanden“ gemeldet.
+    - Abfragbar sind Nutzdaten, Pfad, Header, Max-Stamp und Dirty-Status.
+    - Eine explizite Verifikation dekodiert vollständig, vergleicht jede Checksum und nennt beim ersten Fehler die Entry-ID. Ein Index ohne Datei gilt als verifiziert.
+- Name: Nutzdaten und Checksum
+  Requirements:
+    - Jeder Entry verweist auf den Quelltext mit Zieldatei, Zeichenanfang und Zeichenende. Default ist eine leere Datei mit null und null.
+    - Berechnet die 64-Bit-Checksum aus Vektorlänge, Vektorbytes, Dateinamenlänge, Dateiname, Zeichenanfang und Zeichenende. Vorangestellte Längen schließen mehrdeutige Konkatenationen aus. Jede Bitänderung ist erkennbar.
+    - Berechnet die Checksum beim Speichern und bei der Verifikation neu und vergleicht sie.
+- Name: Persistentes Sichern
+  Requirements:
+    - Serialisiert gleichzeitige Saves. Ohne Änderung wird nichts geschrieben und „keine Änderung“ gemeldet, sonst „geschrieben“.
+    - Schreibt einen konsistenten Snapshot. Während des Schreibens eintreffende Änderungen bleiben als dirty vermerkt.
+    - Die Datei enthält alle aktuellen Entries aufsteigend nach ID, aus Ursprungsdatei und Speicher, mit unveränderten Stamps, Nutzdaten und Checksums. Der Header trägt den aktuellen Max-Stamp.
+    - Schreibt atomar: Temp-Datei neben dem Ziel, vollständig auf den Datenträger sichern (fsync), per Rename ersetzen, übergeordnetes Verzeichnis fsyncen.
+    - Bei Fehlern wird die Temp-Datei gelöscht und die bisherige Datei bleibt unangetastet. Gemeldet wird „Index nicht verfügbar“.
+    - Schreibt Row-Groups der konfigurierten Größe, ohne Kompression, mit Statistiken je Page und ohne Dictionary-Encoding der Vektorspalte. Der Header steht als Key-Value-Paare im Datei-Footer.
+    - Loggt Pfad, Schema-Version, Modell, Zeilenzahl und Row-Group-Zahl.
+- Name: Erkennung von Dateiänderungen
+  Requirements:
+    - Erkennt Änderungen an Quelldateien über eine Fallback-Kette: Change-Stamp, dann Größe und Timestamp, zuletzt Content-Hash.
+    - Hält je Datei Größe, Zeit der letzten Inhaltsänderung (mtime), optional Zeit der letzten Metadatenänderung (ctime) und den Referenzzeitpunkt der Iteration fest.
+    - Eine Aufzeichnung ist unsicher (racy), wenn ihre Änderungszeit höchstens zwei Sekunden vor dem Referenzzeitpunkt oder danach liegt. Das deckt grobe Timestamp-Auflösung mancher Dateisysteme ab.
+    - Das Ergebnis „unverändert“ gibt es nur, wenn Größe und beide Zeiten übereinstimmen und die Aufzeichnung sicher ist. Sonst lautet es „Content-Prüfung nötig“ mit Diagnose-Log.
+    - Nutzt für die Content-Prüfung einen schnellen, nicht kryptografischen 64-Bit-Hash, dessen Algorithmus und Version im Index-Header stehen.
+- Name: Manager
+  Requirements:
+    - Kennt die Zuordnung von Entry zu Segment und Slot, die Residency und die Update-Queue.
+    - Verantwortet Upload, Eviction, Updates und die Rückabbildung von Adressen auf Entries.
+    - Ist Komponente der jeweiligen Subengine, weder der Fassade noch des Index. Wird mit einer Subengine und einem lazy aktivierten Index konstruiert.
+- Name: Manager-Lebenszyklus
+  Requirements:
+    - Hängt seinen Index erst bei Bedarf an (Attach) und hält bis dahin weder Ressourcen noch Subscriptions.
+    - Attach liefert „true“ bei Annahme. Ist bereits ein Index angehängt, bleibt dieser bestehen, es wird „false“ geliefert und gewarnt.
+    - Die Aktivierung mit Init-Funktion initialisiert nur beim ersten Gebrauch (Once-Semantik). Gleichzeitige Aufrufer warten auf dieselbe Initialisierung. Bei Fehlschlag bleibt der Manager inaktiv.
+    - Zugriff ohne angehängten Index ergibt „Index nicht verfügbar“ mit Index-ID.
+    - Aktivität und Zahl residenter Entries sind über dieselbe Schnittstelle abfragbar.
+    - Zyklen laufen in einem Diagnose-Span mit Index-ID.
+- Name: Konsistenzmodell
+  Requirements:
+    - Der Index gewinnt bei Abweichung. Die Identität eines Entries ist das Paar aus ID und Stamp. Stamps werden nur auf Ungleichheit verglichen.
+    - Verändert Segmenttabellen per Copy-on-Write und publiziert sie per Swap des Root-Pointers.
+    - Abgelöste Versionen werden erst frei, wenn alle Reader die neue Epoche erreicht haben. Mapping-Änderungen folgen der Tabelle in der Gap zwischen Batches.
+    - Last-Writer-Wins. Änderungen am Index werden serialisiert angewendet.
+- Name: Konsistente Snapshots
+  Requirements:
+    - Liest gleichzeitig veränderbare Daten nach dem Prinzip eines Seqlocks wortweise atomar, nie halb geschrieben.
+    - Der Reader liefert eine vollständige Kopie und die Zahl der Retries, solange ein Writer aktiv ist oder der Zähler sich änderte.
+    - Writer schließen sich aus, decken die gesamte Region ab und erhöhen den Zähler um zwei.
+    - Aufbau aus rohen Adressen ist erlaubt, wenn Alignment, Gültigkeit und einheitliches Protokoll zugesichert sind.
+- Name: Zustandsbasierter Abgleich
+  Requirements:
+    - Jeder Subscriber (GPU-Manager, Persistenz-Timer, CPU-Manager) hat seinen eigenen Reconciler mit eigener Sicht.
+    - Der Abgleich ist zustandsbasiert (State-based Reconciliation). Das Signal des Index weckt nur, verglichen werden residente Entries. Änderungen an nicht geladenen Entries brauchen keine Behandlung, weil das Laden ohnehin den aktuellen Stand liest. Der State skaliert mit dem geladenen Teil.
+    - Der Reconciler wartet auf ein ungesehenes Signal und meldet „false“, wenn der Index nicht mehr existiert. Ein anstehendes Signal ist abfragbar (Polling).
+    - Das Signal wird vor dem Vergleich quittiert (Ack). Ein währenddessen eintreffendes Signal löst den nächsten Abgleich aus.
+    - Vergleich residenter Entries. Fehlt er im Index, gilt er als entfernt. Bei abweichendem Stamp wird er zum Reload vorgemerkt. Bei gleichem Stamp ist er aktuell, einschließlich Echos eigener Writes.
+    - Ergebnis sind beide Listen aufsteigend sortiert, die Zahl aktueller Entries, der Watermark des Signals und die Aussage „clean“. Entfernungen sind als Delete-Updates in die Update-Queue einstellbar.
+    - Laden eines Entries in der Reihenfolge Stamp, Daten, erneuter Stamp. Bewegt sich der Stamp, wird bis zu achtmal wiederholt, danach mit dem zuerst gelesenen Stamp zurückgekehrt. Ergebnis sind erster Stamp, Daten und Retries, bei Fehlen nichts.
+    - Die umgekehrte Reihenfolge würde stale Daten als aktuell ausweisen und ist die einzige unsichere Richtung. Ein überzähliges Nachladen ist harmlos.
+    - Echo-Suppression. Der Stamp aus dem Rückgabewert des eigenen Upserts wird als bekannt eingetragen, nie aus einem späteren Lesen. Ohne Rückgabewert entsteht höchstens ein redundanter Upload.
+    - Bei zwei Subengines mit demselben Entry sieht der andere Manager einen abweichenden Stamp und lädt nach. Beide konvergieren auf den Index-Stand.
+    - Erkennt Entfernen und Neuanlage über die Gesamtliste der Stamps bzw. die Stamp-Abfrage je Entry des Index.
+    - Führt im Residency-Verzeichnis je residentem Entry Slot (Segment und Slot-Nummer) und bekannten Stamp.
+    - Das Residency-Verzeichnis bietet Insert mit Rückgabe des Vorgängers, Remove, Abfrage von Entry oder Stamp, Anzahl, Leere und Iteration.
+- Name: Kernel-Schnittstelle und Layouts
+  Requirements:
+    - Lässt den Kernel nur Adresse bzw. Offset und Score liefern. Die Adressdarstellung ist Implementierungsdetail.
+    - Festes Layout mit Stride bestimmt Entry-Grenzen per Arithmetik.
+    - Variables Layout nutzt eine Offset-Tabelle aus Prefix-Sums, die der Manager aus der Index-Struktur baut.
+    - Eine Kandidatenmenge ist ein variables Layout, egal ob die Tabelle auf kompakte Kopien oder bestehende Segmente zeigt.
+    - Die Rückabbildung von Adressen auf Entries erfolgt bei festem Layout per Arithmetik, bei variablem per Binary Search oder Interval-Mapping auf Arena-Offsets.
+    - Adressierung gebauter Segmente erfolgt per exklusiver Prefix-Sum auf Basisadresse (n Längen ergeben n+1 Offsets) und Offset-Tabelle mit Adress-zu-Entry-Abbildung.
+    - Das Layout ist fest, wenn der Stride der größten Entry-Länge entspricht, in 32 Bit passt, größer null ist und der Füllanteil eine Promille-Schwelle nicht überschreitet. Sonst ist es variabel.
+    - Beide Layouts bilden Adressen ab und sind in eine Slot-Zuordnung umwandelbar.
+- Name: Slot-Layout und Segment-View
+  Requirements:
+    - Slots haben feste Größe aus Token-Obergrenze, Dimension und Datentypgröße.
+    - Vordefinierte Slot-Klassen gibt es für 32, 64 und 128 Token, frei wählbar bis 65 535 Token, damit der Kernel ohne Lookup auskommt. Overflow oder ein Ergebnis über 32 Bit ergibt einen Fehler.
+    - Eine Segment-View besteht aus Region, Slot-Anzahl, Slot-Klasse, Dimension, Datentyp und Segment-Generation.
+    - Beim Anlegen der Segment-View wird geprüft, ob die Region alle Slots fasst, sonst Fehler mit benötigten und verfügbaren Bytes.
+    - Gesamtgröße und Teilbereich je Slot sind abfragbar. Ungültige Slot-Nummern ergeben Fehler mit Nummer und Anzahl.
+    - Für den Kernel gibt es einen Descriptor mit Startadresse, Slot-Anzahl und festem Abstand (Stride).
+    - Encoding von Slot-Inhalten. Echte Token-Zeilen folgen in Eingabereihenfolge, danach Padding-Zeilen bis zur Klassengrenze mit endlichem Mask-Wert statt null, damit Padding nie eine Similarity von genau null beiträgt.
+    - Datentypen FP32, FP16 und BF16 in Little-Endian, andere werden mit Typnennung abgelehnt. Zu viele Token oder eine Wertezahl ungleich Token × Dimension werden abgelehnt. Das Ergebnis hat volle Slot-Größe.
+    - Je Slot gibt es gültige Tokenzahl und Valid-Bit (Tombstone, noch nicht befüllt). Valid-Bits sind thread-safe.
+    - Abfragbar sind Validität (außerhalb des Bereichs ungültig), Anzahl gültiger Slots, Metadaten, Slot eines Entries und ein Snapshot der Valid-Bits in 64-Bit-Wörtern zum Upload.
+    - Je Segment gibt es eine nebenläufig les- und schreibbare Zuordnung von Slot zu Entry-Referenz (Entry-ID plus Abschnittsnummer), mit fester oder variabler Adressierung.
+    - Die Zuordnung bietet Bind, Unbind, Lookup, Slot zu Device-Adresse, absoluten Byte-Bereich je Slot und umspannenden Bereich (leer ohne Ergebnis).
+- Name: Segment-Schreibpfad
+  Requirements:
+    - Segmente wachsen nur durch Append. Belegte Slots eines geladenen Segments werden nie überschrieben.
+    - Speicher gelöschter Entries wird durch Rebuild des Segments zurückgewonnen (Compaction).
+    - Reservierung des nächsten freien Slots mit Entry-Referenz, Tokenzahl, optionaler Centroid-Zuordnung und Zielbereich. Der Slot bleibt bis zum Commit unsichtbar.
+    - Die Reservierung wird abgelehnt bei Tokenzahl über Klassengrenze oder 16-Bit-Bereich sowie ohne freien Slot.
+    - Commit erfolgt sofort, wenn die Übertragung abgeschlossen ist (sonst „noch nicht bereit“), oder deferred bis zum Event.
+    - Der Drain wendet deferred Commits in Reihenfolge an, hält beim ersten offenen Vorgang an und liefert die Zahl neu sichtbarer Slots.
+    - Commit bindet den Slot, setzt Metadaten (gültig, Tokenzahl, fortlaufende Write-Nummer, Centroid-Zuordnung) und das Valid-Bit erst nach dem Event.
+    - Insert oder Update heißt neuer Slot, danach wird das Bit des alten Slots gelöscht. Die alte Zuordnung bleibt für ältere Treffer auflösbar.
+    - Ein Entry lässt sich ausblenden (Tombstoning), ohne Daten zu entfernen, mit Rückmeldung über sein Vorhandensein.
+- Name: Treffer-Auflösung
+  Requirements:
+    - Rechnet Kernel-Treffer aus Adresse und Score in Segment-Generation, Slot und Score um, sonst „Slot außerhalb des Bereichs“.
+    - Löst über ein Manifest zu einer Entry-Referenz auf. Fehlt das Segment, ergibt das „stale Generation“. Ein ungebundener Slot ergibt „fehlende Zuordnung“ mit Generation und Slot.
+    - Ermittelt den neuesten gültigen Ort eines Entries, neuere Segmente haben Vorrang.
+    - Treffer einer älteren Manifest-Generation werden überführt. Die Auflösung erfolgt im aktuellen, sonst im vorherigen Manifest. Unauflösbare werden verworfen.
+    - Ist der Slot noch gültig, bleibt der Treffer. Sonst wird der aktuelle Ort gesucht und der Treffer mit unverändertem Score umgesetzt oder verworfen.
+- Name: Manifeste und Publication
+  Requirements:
+    - Ein Manifest ist ein Snapshot der Segmente mit fortlaufender Generation, beginnend leer bei null. Ein Nachfolger liegt genau eine Generation höher.
+    - Abfragbar sind Segmente, Generation, Gesamtbytes und gehaltene Leases.
+    - Stellt die Segmenttabelle für den Kernel binär bereit, mit 24 Byte je Segment in Little-Endian: Segment-Generation (8 Byte), Startadresse (8 Byte), Slot-Anzahl (4 Byte), Slot-Abstand (4 Byte, null bei variablem Layout).
+    - Das aktuelle Manifest ist für Reader lock-free verfügbar und atomar ersetzbar, mit Rückgabe des vorherigen.
+    - Eine nicht strikt größere Generation wird mit „stale Generation“ abgelehnt. Konkurrenz wird durch Retry aufgelöst, Störungen sind für Tests auslösbar.
+    - Ein Reader sichert die aktuelle Generation per Lease. Solange sie besteht, bleiben Manifest und Segmente erhalten.
+    - Über die Lease werden Completion-Marker bei allen Segmenten registriert, bereits abgeschlossene dürfen verworfen werden.
+    - Nicht mehr gebrauchte Segmente melden ihre Region samt offener Completion-Marker (auch deferred Writes) an die Speicherverwaltung, sobald kein Manifest und keine Lease sie hält.
+    - Das Reclaim liefert Regionen mit vollständig abgeschlossenen Markern und hält den Rest zurück.
+    - Neue Manifeste können hinter dem Event ihres Kopiervorgangs vorgemerkt werden. Der Copy-Auftrag wird auf der Copy-Lane eingereiht, das Event aufgezeichnet und das Manifest vorgemerkt. Fehler ergeben einen Sync-Error mit Ursache.
+    - Eine Abfrage publiziert vorgemerkte Manifeste in Reihenfolge, solange das vorderste abgeschlossen ist, und liefert die Anzahl.
+    - Sendet Change-Notifications an beliebig viele Subscriber mit konfigurierbarem Buffer.
+    - Events tragen Art, Segment-ID, Segment-Generation und Manifest-Generation. „added“ gilt für neue IDs, „changed“ bei anderer Segment-Generation, für unveränderte gibt es keines. Senden ohne Subscriber scheitert nicht.
+- Name: Segment-Arena
+  Requirements:
+    - Teilt Segmente auf mindestens 256 Byte ausgerichtet zu. Ein konfigurierbarer Reserve-Anteil wird nie vergeben.
+    - Sammelt vor jeder Zuteilung ausstehende Freigaben ein.
+    - Lässt nur zu, wenn Belegtes plus Anforderung plus Replacement-Headroom plus Reserve in die Kapazität passen, sonst „Arena erschöpft“ mit angeforderter und verfügbarer Menge.
+    - Fehler des darunterliegenden Speichers werden abgebildet. Erschöpfung als „Arena erschöpft“, stale Region als solche, Übriges gekapselt (wrapped).
+    - Nutzt eine geliehene Referenz oder geteilten Besitz (Arc) am Speicherverwalter.
+    - Bookkeeping führt lebende Bytes, größtes Segment und zurückgestellte Segmente.
+    - Replacement-Headroom ist die Zahl gleichzeitiger Replacements (Default eins) mal größtes Segment. Er wird bei regulärer Zuteilung unter Berücksichtigung der neuen Anforderung freigehalten und beim Replacement-Beginn nicht erneut verlangt.
+    - Der Speicherbedarf eines Segmentwechsels ist aktueller Bestand plus eingehende Menge.
+    - Budgets sind overflow-sicher. Das Replacement-Budget umfasst lebende Bytes, Replacements und größtes Segment. Das Arena-Budget umfasst Kapazität, Reserve, lebend, zurückgestellt, Headroom und verfügbar.
+    - Verfügbar ist Kapazität minus Belegtes, Reserve und Headroom, nie negativ. Die Auslastung ist loggbar.
+    - Freigabe erfolgt sofort nur ohne mögliche Reader, sonst nach Event. Jede Freigabe prüft Liveness und Nicht-Zurückstellung, sonst „stale Region“.
+    - Ersetzte Regionen werden mit der Epoche des Replacements zurückgestellt. Das Reclaim gibt alle Regionen frei, deren Epoche nicht über der kleinsten Reader-Epoche liegt. Verschwundene erzeugen nur eine Warnung.
+    - Replacement durch Kopie legt ein neues Segment gleicher Größe neben dem alten an, höchstens ein Replacement gleichzeitig, wartend oder nicht wartend („kein Replacement“). Das alte Segment muss leben.
+    - Der Abschluss publiziert die Kopie mit Epoche und stellt das alte zurück. Scheitert das, bleibt die Kopie beim Vorgang. Discard gibt die Kopie frei. Alte und neue Region sind abfragbar.
+    - Schrittweise beschreibbare Segmente (Bump-Allocation) für einen Writer. Claims mit Alignment liefern absolute Adressen, passt einer nicht, kommt „Arena erschöpft“ mit Restmenge ohne Zustandsänderung.
+    - Geschriebene und verbleibende Bytes sind abfragbar, das Segment ist zerlegbar.
+- Name: Scope-Auflösung
+  Requirements:
+    - Löst den Scope einer Operation in eine kompakte Entry-Menge auf, nicht der Index.
+    - „All“ liefert alle Entries, eine explizite Menge wird übernommen.
+    - Andere Arten brauchen eine Zugriffsmethode. Der Index deklariert das Verfahren und es gibt einen Resolver dafür. Sonst „Scope nicht unterstützt“ mit Methodenname. Ein stilles Ausweichen auf alle Entries gibt es nicht.
+    - Standard-Resolver gibt es für Range, Subtree, Prefix und Centroid. Doppelte Registrierung wird abgewiesen.
+    - Range liefert genau den angegebenen Bereich. Subtree liefert die Kinder des angegebenen Knotens.
+    - Prefix nimmt führende Bytes der 64-Bit-ID in Big-Endian als zusammenhängenden Bereich. Über acht Bytes trifft nichts, ein leeres Präfix deckt alles ab, die Obergrenze ist auf den größten Wert begrenzt.
+    - Centroid braucht die Summary-Struktur des Index (sonst „Index nicht verfügbar“) und einen Cell-Selector im Kontext (sonst „nicht unterstützt“). Der Selector wählt die nächsten Zellen mit Anzahl und optionalem Radius. Es werden höchstens die angegebene Anzahl Zellen gewählt, das Ergebnis ist die Union ihrer Mitglieder.
+    - Ein falscher Scope für einen Resolver ergibt „Scope nicht unterstützt“. Die Auflösung läuft in einem Diagnose-Span mit Methode und loggt die Anzahl.
+    - Bei Centroid macht der Manager die Summary-Struktur resident. Nachdem die Query gegen die Centroids gerechnet wurde, fragt er die Mitglieder der gewählten Zellen ab und gleicht gegen den Ladezustand ab (fehlt etwas, ist etwas stale).
+    - Ist die Kandidatenmenge aus einer Vorverarbeitung bekannt (mehrstufiges Centroid-Verfahren nach Art von PLAID, Pruning, Prefix, Fourier- oder Kompressionsdomäne), lädt der Manager nur diese Bereiche.
+- Name: Ladestrategie
+  Requirements:
+    - Lädt lazy und scope-getrieben, nur was ein Task braucht.
+    - Eine austauschbare Geometrie liefert Segment eines Entries sowie Entry- und Segmentgröße. Mitgeliefert ist gleich große Entries in gleich großen Segmenten, Kapazität null gilt als eins.
+    - Zugriffsarten sind regulär und selten (kleine, selten gelesene Mengen aus gemapptem Host-Memory).
+    - Plan-Arten sind ganze Segmente laden, Entries gathern und gemeinsam senden und direktes Mapping ohne Kopie (Zero-Copy).
+    - Die Policy besteht aus Dichteschwelle (Default 0,12 der Segmentbytes, nur endlich, auf null bis eins begrenzt), Segmentgröße (Default 64 MiB) und Höchstgröße für direktes Mapping (Default 64 KiB).
+    - Der Manager bestimmt die Segmentgröße nach Budget, ein Achtel der verfügbaren Menge, begrenzt auf 4 bis 256 MiB, abgerundet auf ganze MiB. Sie ist keine Eigenschaft des Index.
+    - Die Dichteschwelle ist aus einem kalibrierten Profil mit der Achse „Dichte“ in Promille übernehmbar, sonst unverändert.
+    - Leere Mengen ergeben keinen Plan. Bei seltenem Zugriff bis zur Höchstgröße gibt es genau einen Plan mit direktem Mapping.
+    - Sonst werden je Segment die angeforderten Bytes ermittelt. Ab Dichteschwelle wird bei nicht leerem Segment das ganze Segment geladen, der Rest gethert. Es gibt höchstens einen Plan je Art, Segmente zuerst. Entscheidungen werden geloggt.
+    - Führt Pläne nacheinander aus, bricht beim ersten Fehler ab und bildet die Bytesumme overflow-sicher.
+    - Hält gestaffelt (Tiering). Summary-Strukturen sind klein, werden zuerst geladen und am längsten gehalten. Vektorsegmente sind warm und evictable. Alles andere ist nicht geladen.
+    - Bei überlappenden Entries entscheidet der Manager, ob Vektoren einmal gehalten und mehrfach referenziert oder dupliziert werden. Das ist keine Vertragsfrage.
+- Name: Lade-Aggregation und Single-Flight
+  Requirements:
+    - Bündelt Tasks gegen denselben Index über die Union ihrer Scopes und lädt je Index genau einmal nebenläufig.
+    - Der Collector zählt Requests, ist entleerbar und auf Leere prüfbar.
+    - Single-Flight. Gleichzeitige Requests mit gleichem Key teilen einen Ladevorgang samt Ergebnis, auch im Fehlerfall. Nur der erste startet, die Start-Funktion blockiert nie.
+    - Nach Abschluss wird nur der eigene Eintrag entfernt. Fehlschläge wiederholt der nächste neue Aufrufer.
+    - Laufende Vorgänge sind abfragbar, Mitläufer (Joiner) werden geloggt.
+- Name: Index-Operations-Koordinator
+  Requirements:
+    - Ist die Operations-Unit je Index-Operation und verbindet Manager, Table-Swap, Mapping-Store und Queue geladener Segmente.
+    - Publiziert jedes vom Laden gemeldete Segment selbständig über das Publish des GPU-Managers.
+    - Serialisiert strukturelle Änderungen.
+    - Meldet ein Laden „Arena erschöpft“, publiziert er ausstehende Segmente, schafft über die Eviction Platz und wiederholt genau einmal.
+    - Reconcile-Iterationen publizieren Nachgeladenes vor ihrer Rückkehr.
+    - Publish versucht alle Segmente und meldet danach den ersten Fehler oder die Anzahl.
+    - Verwaltungsfehler werden zu Index-Fehlern. „Arena erschöpft“ bleibt, alle anderen werden Transfer-Error.
+- Name: Eviction
+  Requirements:
+    - Evictet Mirrors in VRAM und RAM, die abgeleitet und verwerfbar sind, ausschließlich explizit nach Idle-Timeout, Füllstandsgrenzen mit Hysterese und kostenbewusster Victim-Auswahl. Gründe sind Idle, Pressure und Space-Need.
+    - Summaries und festgehaltene Entries (Pinned) werden nie Victim. Pinning wirkt, solange der Halter lebt.
+    - Nutzbare Kapazität ist Gesamtkapazität minus Reserve und Headroom. Die Belegung ergibt sich aus lebenden und zurückgestellten Bytes.
+    - Die Policy besteht aus High-Watermark, Low-Watermark und Idle-Dauer. Nicht endliche Marken werden korrigiert, High-Watermark auf null bis eins, Low-Watermark auf null bis High-Watermark begrenzt.
+    - VRAM nutzt 0,90 und 0,75 bei 600 Sekunden. RAM nutzt 0,85 und 0,70 bei 60 Sekunden.
+    - Aufnahme (Track) mit Größe, Tier und Reload-Kosten (nicht endlich oder negativ zählt null). Sie startet mit einem Hit, erneute Aufnahme ersetzt korrekt.
+    - Priorität nach GreedyDual-Size-Frequency: Floor plus Hits mal Kosten durch Größe (Größe null als eins). Der Floor steigt bei Pressure- oder Space-Need-Eviction auf die Victim-Priorität.
+    - Zugriffe erhöhen Hits, setzen den Zeitpunkt und berechnen neu. Remove meldet Bytes. Anzahl, Bytes und Containment sind abfragbar.
+    - Idle-Eviction evictet deterministisch nach Key.
+    - Entlastung (Pressure-Relief) erfolgt erst über der High-Watermark bis auf die Low-Watermark. Victim-Reihenfolge ist niedrigste Priorität, dann am längsten unbenutzt (LRU), dann kleinerer Key.
+    - Der periodische Einstieg (Tick) macht Idle-Eviction und Pressure-Relief nacheinander.
+    - Platzbeschaffung. Ist genug frei, passiert nichts. Sonst werden Victims gesammelt. Reichen alle nicht, kommt „Arena erschöpft“ ohne Eviction. Sonst wird mit Grund Space-Need evictet.
+    - Beim Entfernen evicteter Segmente werden sie aus neuer Tabelle und Zuordnung entfernt, publiziert, die Region hinter der neuen Epoche zurückgestellt und freigegeben. Unbekannte Regionen werden übersprungen, bei Fehlschlag wird das Segment wieder unter Kontrolle gestellt und abgebrochen.
+    - Loggt jede Entscheidung mit Index, Victim, Segment, Größe, Bytes, Hits und Grund.
+- Name: Unterstützte Precisions
+  Requirements:
+    - Legt je Device-Art fest, für welche Elementtypen Scoring-Kernel existieren, unabhängig von aktivierter GPU-Unterstützung. CPU nur FP32, GPU FP32 und FP16.
+    - Meldet für jeden unterstützten Typ die Achsen Operanden und Scoring, für Typen ohne Kernel nie.
+    - Schränkt andere Achsen nicht ein.
+- Name: Query-Batch und Dokumentquelle
+  Requirements:
+    - Bündelt mehrere Queries gleicher Dimension, damit jeder Dokumentabschnitt einmal für alle gelesen wird.
+    - Hält jede Query als zeilenweise Matrix aus Token × Dimension.
+    - Prüft Dimension ungleich null, nicht leer und Länge als Vielfaches der Dimension, sonst Shape-Error.
+    - Macht Dimension, Anzahl, Leere sowie Tokens und Rohdaten je Query abfragbar.
+    - Liefert Dokumentvektoren über eine Source-Schnittstelle mit Dimension, Slots je Segment, Slot-Offset für Treffer und Vektoren eines Slots (nur gültige Tokens) oder "nicht vorhanden".
+    - Berechnet in der RAM-Source Offsets als Summe der vorangehenden Slot-Bytes (vier Byte je Wert). Unbekannte Segmente haben null Slots.
+    - Prüft vor jedem Scoring den Slot-Bereich, sonst Fehler mit Segment, Grenzen und Slot-Anzahl.
+    - Bildet Workspaces als halboffenen Slot-Bereich und Einheit eines Kernel-Launches.
+    - Hält die Workspace-Länge nie negativ, macht die Leere abfragbar und erlaubt die Teilung in Vorderteil (höchstens gewünschte Größe) und Rest.
+- Name: Dichtes Scoring
+  Requirements:
+    - Berechnet Cosine Similarity als Dot-Product, gültig für Einheitsvektoren.
+    - Teilt im exakten Modus durch das Normprodukt, für abweichende Längen etwa durch FP16-Speicherung. Ein nicht positiver oder nicht endlicher Nenner ergibt null.
+    - Verarbeitet Queries mit genau einem Token.
+    - Lehnt Queries als leer ab, wenn das Norm-Quadrat nicht endlich oder unter 10⁻¹⁸ ist, mit Fehler "leeres Embedding" und Query-Index. Die Prüfung läuft für alle Queries vor Beginn.
+    - Meldet falsche Slot-Dimension oder leere Slots als Shape-Error.
+    - Liefert je Query einen Score je Slot in Slot-Reihenfolge.
+    - Liefert in beiden Modi (Dot-Product und exakt) die Top-k-Treffer.
+    - Ist vom Launch-Modus getrennt.
+- Name: Max-Similarity-Operation
+  Requirements:
+    - Liefert als einheitliche Operation die Top-k-Treffer je Query über einen Slot-Bereich und einen Query-Batch, mit austauschbarer Implementierung.
+    - Realisiert eine Tile-Kette aus Library-Operationen auf CPU oder GPU mit wählbarer Precision und Tile-Größe. Eine Tile-Größe unter eins wird eins.
+    - Meldet "nicht verfügbar" bei nicht abbildbarer Precision oder einem Device, das sich nicht öffnen lässt.
+    - Zerlegt Dokument-Tokens in Tiles fester Größe und transponiert sie. Das letzte Tile wird mit Nullen aufgefüllt und per additiver Mask ausgeschlossen.
+    - Berechnet je Tile Matrix-Produkt (GEMM), Mask, Maximum je Query-Token und laufendes Maximum über Tiles. Die Summe läuft in FP32.
+    - Hält Zwischenmatrizen höchstens bei Query-Tokens × Tile-Größe.
+    - Ergibt für leere Dokumente Mask-Wert × Query-Tokens.
+    - Überführt Queries vorher in die Precision.
+    - Prüft Bereich und Dimension wie der slotweise Scan und meldet Library-Fehler als Launch-Error.
+    - Bietet hinter derselben Operation einen Fused Kernel an, bei dem die Zwischenmatrix nie im VRAM liegt.
+    - Maskiert die Dokumentseite, die Mask-Tokens der Query zählen mit.
+- Name: Top-k-Selektion
+  Requirements:
+    - Führt je Query eine begrenzte Menge aus Offset und Score.
+    - Lässt den höheren Wert gewinnen, bei Gleichheit den niedrigeren Offset.
+    - Verwirft nicht numerische Werte und nimmt bei k gleich null nichts auf.
+    - Gibt absteigend aus. Bei weniger Kandidaten ist die Ausgabe entsprechend kürzer.
+    - Macht Anzahl, Soll-Größe und Leere abfragbar. Werte sind einzeln oder als Folge aufnehmbar.
+    - Reduziert lokal je Workspace und merged die Teilergebnisse auf der CPU.
+    - Übernimmt als Range-Scorer Roh-Scores mit Slot-Offsets. Mehrere Bereiche werden nacheinander gescort und gemerged.
+- Name: Referenz-Scorer-Vergleich
+  Requirements:
+    - Vergleicht Ergebnisse ohne exakte Gleichheit, mit absoluter Toleranz 10⁻⁵ bei FP32 und 10⁻³ bei FP16.
+    - Unterscheidet die Abweichungsarten unterschiedliche Trefferanzahl (keine weiteren Ränge dieser Query), Wertabweichung mit Rang und Differenz sowie Rangabweichung mit Offsets.
+    - Meldet keine Rangabweichung bei Beinahe-Gleichstand benachbarter Referenzwerte.
+    - Lässt beide Scorer über dieselben Workspaces laufen.
+    - Loggt Abweichungen als Warnung mit Segment und führt nie zum Abbruch.
+    - Reicht Fehler der Scorer weiter.
+- Name: Kernel-Batchlauf-Schnittstelle
+  Requirements:
+    - Beschreibt Segmente mit Basisadresse, Entry-Anzahl und festem oder variablem Layout (Offset-Tabelle mit Entries plus eins).
+    - Bildet einen Batch aus Segmenten, Query-Anzahl, optionalem Parameter-Bereich und Zeitbudget.
+    - Bietet den Lebenszyklus Batch beginnen (Begin) mit ID und auf Inputs ausführen (Run) mit Treffern oder Partial Result.
+    - Teilt beschreibbare Bereiche zu, vor dem ersten Lauf und nach Partial Results.
+    - Fragt nie abnehmenden Fortschritt ab und beendet den Batch (End) mit Rückgabe der Bereiche.
+    - Trägt keine Pointer.
+    - Bildet Adressen auf Entries ab. Bei festem Layout per Abstand durch Stride (kein Entry bei Stride null, Adresse vor Basis oder Index über Anzahl), bei variablem Layout per Offset-Intervall.
+- Name: Work-Chunks
+  Requirements:
+    - Ist die Planungseinheit mit Zeitbudget.
+    - Zielt mit der Länge auf eine Launch-Dauer von standardmäßig zwei Millisekunden, aus dem exponentiell geglätteten Durchsatz (EMA, Glättungsfaktor 0,3).
+    - Verwendet ohne Messung die Mindestlänge.
+    - Hält die Länge zwischen Mindest- und Höchstlänge (Default 16 und rund eine Million Slots). Die Mindestlänge beträgt mindestens eins.
+    - Macht den Durchsatz in Slots pro Sekunde abfragbar, vor der ersten Messung nicht vorhanden.
+    - Ignoriert Beobachtungen mit null Slots und begrenzt Dauern auf eine Mikrosekunde nach unten.
+    - Erlaubt Preemption nur an Chunk-Grenzen, geprüft nach jedem außer dem letzten. Mindestens ein Chunk läuft immer vollständig.
+    - Lässt Query-Tasks Indexing-Chunks überholen.
+    - Kennt die Abbruchgründe Zeitbudget erschöpft (Vorrang) und Preemption.
+    - Liefert als Ergebnis erledigte Slots, Restbereich und Grund. Fehler beenden sofort.
+    - Scort ein Tile gegen alle wartenden Queries, um die Lesekosten zu amortisieren.
+- Name: CPU-Compute-Primitive
+  Requirements:
+    - Berechnet das Dot-Product mit achtfach parallelen Teilsummen für Auto-Vektorisierung.
+    - Berechnet Max-Similarity (Late Interaction) als Summe über Query-Tokens des jeweils größten Dot-Products über Dokument-Token. Ein Dokument ohne Tokens ergibt Mask-Wert × Query-Tokens, wie auf der GPU.
+    - Führt L2-Normalisierung aus, Nullvektoren bleiben.
+    - Führt einen slotweisen Scan aus. Bereich und Dimension werden geprüft, Slots bilden die äußere Schleife gegen alle Queries, und je Query-Token läuft ein laufendes Maximum ohne Matrix über Slots.
+    - Behandelt beim Scan fehlende Vektoren als leer, meldet unteilbare Längen als Shape-Error, und Einzelfehler brechen ab.
+- Name: GPU-Kernel
+  Requirements:
+    - Stellt zwei Kernel bereit, dichtes Dot-Product und fused Max-Similarity.
+    - Verarbeitet Dokumente in FP32 oder FP16. FP16 wird beim Laden auf FP32 konvertiert, Queries und Ergebnisse liegen in FP32.
+    - Dot-Product: ein Thread-Block je Slot, Teilsummen über Threads und Warps reduziert, Output Queries × Slots.
+    - Max-Similarity: ein Block je Dokument für genau eine Query, bei der die Zwischenmatrix nie im VRAM liegt.
+    - Begrenzt bei der Max-Similarity gepaddete Dokumente über eine Längenliste auf die Padding-Länge.
+    - Setzt bei der Max-Similarity für Token ohne gültiges Dokument-Token den Wert −10 000.
+    - Legt die Dimension bei der Kompilierung fest.
+    - Startet mit 128 Threads je Block und einem Block je Slot (mindestens einer), ohne dynamischen Shared Memory.
+    - Meldet Launch-Fehler mit Ursache.
+    - Erhält Slot-Indizes, Zähler, Segmenttabelle, Query-Länge, Head und Tail dynamisch über den Parameter-Block.
+- Name: Kernel-Register
+  Requirements:
+    - Liefert zu Name, Datentyp, Architekturstufe und Variante (etwa Dimension) die geladene Funktion.
+    - Bezieht Kernel aus Runtime-Compilation (NVRTC) für die Zielarchitektur, aus vorkompiliertem Maschinencode als Fallback bei zu altem Treiber oder aus Kerneln der externen Library (über den Library-Adapter).
+    - Lädt erst bei Bedarf. Gleichzeitige Requests führen nie zu doppelter Kompilierung.
+    - Loggt Name, Datentyp, Architektur, Variante und Dauer.
+    - Macht Anzahl und Leere der Einträge abfragbar und verwirft alle Einträge (Clear) mit Rückgabe der Anzahl.
+    - Ist als Ressource unter fester ID auffindbar.
+    - Kompiliert aus Quelltext mit gemeinsamem Prelude (Typdefinition, Load-Funktion, Warp-Reduktionen), Auswahl per Name.
+    - Bestimmt die Zielarchitektur aus der Compute Capability mit den Stufen 6.1, 7.0, 7.5, 8.0, 8.6, 8.9. Unbekannte Stufen fallen auf 7.5 zurück.
+    - Warnt, wenn der Treiber den Zwischencode (PTX) ablehnt, und kompiliert als Maschinencode (SASS/cubin) für genau die Device-Architektur neu.
+    - Meldet die Fehler Compile-Error mit Log, Module-Load-Error sowie unbekannter Name oder fehlende Funktion. Ein nicht unterstützter Elementtyp wird als "nicht verfügbar" gemeldet.
+    - Ermittelt die Compute Capability bei Einrichtung, sonst "nicht verfügbar".
+    - Legt Datentyp, Dimension und Tile-Größe zur Kompilierzeit als eigene Varianten fest.
+- Name: Launch-Modi
+  Requirements:
+    - Ist vom Scorer getrennt.
+    - Kennt die Modi direkter Launch, Graph-Capture für Replay (CUDA Graphs) und Persistent Kernel mit Ring-Buffer.
+    - Führt den direkten Launch aus: Work-Item unverändert an die Lane, Lane-Fehler als Kernel-Error, Tracing auf Trace-Level.
+    - Lehnt Graph-Capture und Persistent-Modus mit "nicht verfügbar" ab, mit dem Grund, dass der jeweilige Modus nicht aktiviert ist.
+    - Bildet den Launch-Key aus Operation, Shape-Klasse, beteiligten Regionen mit Generation, Datentyp, Variante und Lane-Klasse. Geänderte Generationen ergeben neue Keys, stale Captures laufen nie.
+    - Bestimmt die Shape-Klasse als nächsthöhere Zweierpotenz, mindestens eins, bei Overflow 2³¹.
+    - Ermöglicht vor dem ersten produktiven Launch eine Warm-up-Phase. Der erste Launch gilt als nicht produktiv. Ohne eigene Umsetzung geschieht nichts.
+- Name: Library-Adapter
+  Requirements:
+    - Stellt Kernel der externen Library dem Kernel-Register als Quelle bereit.
+- Name: Precision, Kalibrierung und Profile
+  Requirements:
+    - Garantiert zwischen CPU und GPU keinen Rounding- oder Datentyp-Vertrag.
+    - Behandelt den Precision-Parameter als Wunsch zwischen null (schnellste Kombination) und eins (präziseste Kombination), nicht als Zusicherung.
+    - Unterbricht oder blockiert den Nutzer bei der Kalibrierung nie.
+- Name: Capability-Modell
+  Requirements:
+    - Identifiziert Achsen und Werte über frei wählbare, erweiterbare Strings, die vergleichbar, sortierbar, als Key nutzbar, günstig kopierbar und lesbar ausgebbar sind.
+    - Erlaubt, Werte auch aus natürlichen Zahlen zu erzeugen.
+    - Ordnet in einem Capability-Set jeder Achse eine nie leere Wertemenge zu und bietet Add, Containment, Enumeration und Leere-Prüfung.
+    - Führt Enumeration, Vergleich, Hash und Serialisierung eines Capability-Sets reihenfolgeunabhängig aus.
+    - Prüft ein Requirement gegen ein Set. Das Set erfüllt es, wenn jeder geforderte Wert vorhanden ist. Leere Requirements sind immer erfüllt.
+    - "Definiert die Achsen Operanden, Akkumulator, Scoring, Fusion, Batch-Größe, Tile-Größe, Thread-Anzahl und Dichte vor."
+    - "Definiert die Werte FP32, FP16, FP16 gespeichert mit FP32 gerechnet, INT8, INT8 über den DP4A-Befehl der GPU, INT8 über VNNI-Befehle der CPU (Integer-Befehle für neuronale Netze), on und off vor."
+    - "Gibt für die GPU ein Referenz-Set als Obergrenze vor: Operanden und Akkumulator FP32 und FP16, Scoring FP32, FP16 und INT8-DP4A, Fusion on und off."
+    - "Gibt für die CPU ein Referenz-Set als Obergrenze vor: Operanden FP32 und FP16 mit Konvertierung, Scoring FP32, INT8 und INT8 über VNNI."
+    - Enthält in den Referenz-Sets keine numerischen Achsen. Diese werden zur Laufzeit ermittelt.
+    - Kennt keine Profilnamen und keine fest einkodierte Profil-Enum.
+    - Ist je Hardware um Achsen und Werte erweiterbar, ohne Änderung an Fassade oder Task-Schnittstelle.
+- Name: Capability-Erkennung
+  Requirements:
+    - Wählt das Erkennungsverfahren zentral nach Device-Art.
+    - "CPU: Liefert FP32 immer."
+    - "CPU: Liefert FP16 mit Konvertierung nur bei vorhandener Half-Precision-Konvertierung (F16C)."
+    - "CPU: Liefert INT8-Scoring bei AVX2 oder VNNI, INT8 über VNNI nur mit VNNI-Befehlen."
+    - "CPU: Bildet Thread-Anzahlen als Zweierpotenzen bis zur Zahl logischer Cores plus die Core-Zahl selbst, mindestens ein Core."
+    - "CPU: Ermittelt die Features AVX2, F16C, FMA und VNNI vom System. Auf fremden Architekturen gelten sie als fehlend."
+    - "GPU: Liefert FP32 immer, FP16 ab Compute Capability 5.3, INT8-DP4A ab 6.1 sowie Fusion on und off."
+    - "GPU: Erkennt Tensor Cores anhand von Compute Capability und Device-Name und loggt sie nur. Die Baureihen TU116 und TU117 haben trotz SM 7.x keine."
+    - "GPU: Scheitert ohne GPU-Unterstützung oder Device-Context mit einem Capability-Error."
+    - Übernimmt numerische Achsen aus der Konfiguration, nämlich Batch-Größen 1, 8 und 32, Tile-Größen als Zweierpotenzen von 16 bis 512 und eine maximale Sequenzlänge von 512.
+    - Lässt nur positive Batch-Größen und Tile-Größen bis zur Sequenzlänge zu.
+    - Übernimmt die Kernel-Menge, wenn sie vorgegeben ist, sonst gilt der eingebaute Katalog.
+    - Reduziert erkannte Capabilities auf vorhandene Kernel. Unbekannte Achsen bleiben erhalten, geleerte Katalogachsen entfallen und Entferntes wird geloggt.
+    - Loggt das Ergebnis mit Subengine, Achsenzahl und Wertezahl.
+- Name: Benchmark-Workload und Abweichungsmaße
+  Requirements:
+    - Baut eine reproduzierbare synthetische Workload aus einem Seed auf, normiert und duplikatfrei. Defaults sind 20 000 Dokumente, 384 Dimensionen und höchstens 32 Queries, wobei die Top-5 für die Rangprüfung dienen.
+    - Nutzt als Referenz das FP32-Scoring auf der CPU.
+    - Leitet die Query-Zahl aus der Batch-Größe ab, ohne Angabe acht, begrenzt auf die Höchstzahl. Kleinere Batches nutzen die ersten Queries.
+    - Macht die Kombination unbrauchbar, wenn der Batch-Wert nicht numerisch, null oder zu groß ist.
+    - Berechnet Cosine-Deviation als eins minus Cosine Similarity, mindestens null, bei Nullvektor eins. Werte unter einem Millionstel gelten als Rauschen.
+    - Berechnet den relativen Fehler als Abstand durch Referenzlänge, bei Nullreferenz null oder unendlich.
+    - Berechnet Top-k-Overlap als Anteil der besten Referenztreffer im Kandidaten, Gleichstände nach Position, bei null gleich eins.
+    - Bewertet gesamt zeilenweise mit der schlechtesten Zeile, wobei je Zeile das Größere aus Cosine-Deviation und eins minus Overlap gilt.
+    - "Unterscheidet die Validity-Zustände valid, non-finite, degenerate, Abweichung über Maximum und Ausführung gescheitert, jeweils mit Text."
+    - Wertet ungleiche Längen oder unteilbare Daten als degenerate.
+    - Wertet eine Zeile als degenerate, wenn sie konstant ist (Varianz unter 10⁻⁹ des mittleren Quadrats) oder ihr Längenverhältnis außerhalb von 0,5 bis 2,0 liegt. Der Bereich ist konfigurierbar.
+- Name: Messung
+  Requirements:
+    - "Stellt ein austauschbares Mess-Interface (Trait) bereit, mit Abweichungsmessung gegen die Referenz (sonst Ergebnis „unverträglich“)."
+    - "Stellt im Mess-Interface eine Zeit-Probe bereit, die die normierte Zeit je Arbeitseinheit liefert oder „unterbrochen“, wenn eine produktive Aufgabe das Device anfordert."
+    - Führt das Warm-up beim ersten Gebrauch aus.
+    - Skaliert Wiederholungen auf das Zeitfenster (Default zehn Millisekunden).
+    - Hält Einzel-Launches im Chunk-Budget (Default fünf Millisekunden).
+    - Beschreibt eine Kombination als einen Wert je Achse plus die Sequenzlängen des Test-Sets, die nur die Verarbeitbarkeit prüfen. Die Textform besteht aus Achse-Wert-Paaren.
+    - Liefert als Messergebnis robuste Zeit, Abweichung, Validity, Stabilität, Probenzahl und relative Unsicherheit.
+    - Macht die Abfrage wartender produktiver Aufgaben austauschbar (Default nie, auch über einen gemeinsamen Schalter).
+    - Macht die monotone Zeitquelle (Clock) austauschbar.
+    - "CPU-Messung: Nutzt 4 000 Dokumente und nur FP32."
+    - "CPU-Messung: Nutzt eine positive Thread-Anzahl (Default eins) mit eigenem Pool und berechnet parallel."
+    - "CPU-Messung: Wärmt einmal je Kombination auf."
+    - "CPU-Messung: Misst die Zeit je Durchlauf und Query und prüft zwischen Durchläufen auf Unterbrechung."
+    - "GPU-Messung: Nutzt einen Cosine-Pfad mit FP32 oder FP16, bestimmt aus der Scoring- oder Operanden-Achse, mit Dokumenten in beiden Precisions auf dem Device."
+    - "GPU-Messung: Misst die Zeit per Events auf dem Stream, mit 64 MiB Cache-Flush vor jeder Probe und mindestens 100 Millisekunden Warm-up (Default-Maße)."
+    - "GPU-Messung: Wählt Wiederholungen von eins bis 10 000, bildet Gruppen im Chunk-Budget, merkt die Wiederholungen je Kombination und prüft zwischen Gruppen auf Unterbrechung."
+    - "GPU-Messung: Meldet ohne GPU-Unterstützung einen Capability-Error."
+- Name: Hintergrundausführung und Statistik
+  Requirements:
+    - Führt Jobs auf benannten Low-Priority-Pools mit konfigurierbarer Thread-Zahl aus (mindestens eins).
+    - Setzt auf Linux die niedrigste Scheduling-Priorität (nice), sonst wird dies geloggt.
+    - Liefert pro Job einen Result-Container (Future), der blockierend oder nicht blockierend abfragbar ist.
+    - Lässt Panics den Worker nicht beenden.
+    - Lässt beim Shutdown eingereichte Jobs zu Ende laufen (Drain).
+    - Stellt die Schätzer Median und Minimum bereit (Last verlangsamt nur).
+    - Berechnet die Streuung als Variationskoeffizient oder als Spannweite durch Median, ohne das langsamste Fünftel. Sie ist unendlich bei zu wenigen Proben oder nicht positivem Mittelpunkt.
+- Name: Kalibrierungslauf
+  Requirements:
+    - Hat Subengine und Model-ID als Ziel.
+    - Zählt Kombinationen auf, misst sie interleaved gegen die Referenz und verwirft ungültige.
+    - Übergibt die Ergebnisse des Verifikationsschritts zur Bildung der Pareto-Front über Zeit und Abweichung.
+    - Beendet eine Messung bei Erreichen einer Obergrenze mit dem besten Zwischenstand, markiert als instabil.
+    - "Konfiguration: maximale Abweichung (Default 0,05)."
+    - "Konfiguration: Mindestwiederholungen (Default 3, kleinere Werte werden angehoben)."
+    - "Konfiguration: Zeitfenster (Default zehn Millisekunden), Stabilitätsschwelle (Default 0,05), Chunk-Budget (Default fünf Millisekunden) und Backoff-Pause (Default fünf Millisekunden)."
+    - "Konfiguration: Streuungsmaß Variationskoeffizient (CV) oder Spannweite durch Median (Default CV) und Schätzer Median oder Minimum (Default Median), berechnet von der Statistik."
+    - "Konfiguration: harte Obergrenze (Default 40 Versuche, optional 30 Sekunden) und Gesamtbudget (optional 600 Sekunden)."
+    - "Konfiguration: Dominanz-Marge (Default zehn Prozent)."
+    - "Konfiguration: separierbare Achsen (Batch-Größe, Tile-Größe, Thread-Anzahl)."
+    - "Konfiguration: Vollmessung des kartesischen Produkts als Referenz (Default aus)."
+    - "Konfiguration: Sequenzlängen ab 16 in Viererschritten bis zur Obergrenze einschließlich (Default 16, 64, 256, 512)."
+    - Meldet bei leerem Capability-Set einen Capability-Error und ignoriert leere Achsen.
+    - Ordnet Werte numerisch aufsteigend, dann alphabetisch.
+    - Teilt die Achsen in Kern- und separierbare Achsen.
+    - Führt im Normalmodus zuerst die Achsenstufe aus, dann den Verifikationsschritt mit den Kandidaten. Im Vollmodus wird das ganze Produkt gemessen.
+    - Bezieht die Front nur aus dem Verifikationsschritt.
+    - "Achsenstufe (Pruning): Variiert je Kernkombination jede separierbare Achse einzeln, die anderen stehen auf ihrem kleinsten Wert."
+    - "Achsenstufe: Lässt einwertige Achsen automatisch gewinnen. Gewinner sind die Pareto-optimalen Werte."
+    - "Achsenstufe: Überspringt die Kernkombination, wenn es keinen Gewinner gibt."
+    - "Achsenstufe: Bildet die Kandidaten als deduplizierte Produkte der Gewinner."
+    - "Achsenstufe: Prüft das Budget vor jeder Kernkombination."
+    - "Gruppenmessung: Führt zuerst die billige Abweichungsphase mit Verwerfung aus (gescheitert, non-finite, über Maximum, sonstiger Grund). Andere Fehler brechen ab."
+    - "Gruppenmessung: Misst danach rundenweise die Zeit Round-Robin über alle aktiven Kombinationen, in ungeraden Runden in umgekehrter Reihenfolge, damit Lastschwankungen alle gleich treffen."
+    - "Gruppenmessung: Bestimmt die erste Kombination als Anchor. Die Stabilität wird am Zeitverhältnis zum Anchor derselben Runde beurteilt, nur bei positiver Anchor-Probe."
+    - "Gruppenmessung: Zählt jeden Versuch. Unterbrechungen lösen die Backoff-Pause aus."
+    - "Beendigung: Beendet eine Nicht-Anchor-Kombination vorrangig als „dominated“, wenn bei genug Proben eine andere bei höchstens gleicher Abweichung um mehr als die Dominanz-Marge schneller ist."
+    - "Beendigung: Beendet sonst als „stable“ bei stabiler Verhältnisreihe, sonst als „unstable“ an der Obergrenze."
+    - "Beendigung: Beendet den Anchor zuletzt, als stable bei stabilem Mitbewerber ohne instabilen oder bei eigener stabiler Reihe."
+    - "Ergebnis je Kombination: dominated; verworfen mit Grund; übersprungen (Budget oder Device nie verfügbar); oder gemessen mit Zeit, Abweichung, Stabilität, Proben und Unsicherheit (ersatzweise Dominanz-Marge)."
+    - Wertet bei Budgetende aktive Kombinationen mit Proben als gemessen und unstable.
+    - Erzeugt einen Report mit Ziel, Einträgen mit Stufe, Kombination und Ergebnis, Produktgröße, Budgetstatus und Laufzeit, Zusammenfassung, Zählern und Log-Abschnitt.
+    - Führt im Report die Front aufsteigend nach Zeit mit streng fallender Abweichung und loggt jede Einordnung.
+- Name: Pareto-Front und Profilableitung
+  Requirements:
+    - Berechnet die Front über Zeit und Abweichung (beide minimiert) ohne nicht endliche Punkte, aufsteigend nach Zeit.
+    - Behält einen Punkt nur bei streng kleinerer Abweichung als alle schnelleren.
+    - Berechnet die Front für Zahlenpaare und beliebige Elemente (generisch).
+    - Bestimmt Positionen aus kumulierter Bogenlänge auf min-max-normierten Achsen, Zeit optional logarithmisch.
+    - Liefert bei leerer Front keine Positionen, bei einem Punkt die Position 0,5 und bei Gesamtlänge null eine gleichmäßige Verteilung.
+    - Beschreibt ein Profil unbenannt mit einer Position zwischen null und eins und einem Wert je Achse.
+    - Hat als einzige Stellgröße den Merge-Threshold auf der normierten Skala (Default 0,1), unabhängig von Modell und Hardware.
+    - "Ableitung: Entfernt nicht endliche Punkte."
+    - "Ableitung: Entfernt Punkte, die weniger präzise sind, ohne signifikant schneller zu sein, etwa wegen gleicher Emulationspfade oder langsamer emulierter Precision, und loggt dies."
+    - "Ableitung: Berechnet die Positionen logarithmisch und gruppiert Nachbarn unter dem Threshold."
+    - "Ableitung: Wählt als Repräsentant den präzisesten Frontpunkt der Gruppe, sonst den schnellsten."
+    - "Ableitung: Berechnet die Positionen neu und übernimmt die Konfigurationen."
+    - Leitet die Profilzahl allein aus der Streuung der Front ab.
+    - Liefert ein leeres Ergebnis, wenn kein brauchbares Profil existiert.
+- Name: Profilauswahl
+  Requirements:
+    - Begrenzt den Wunsch auf null bis eins (Clamp).
+    - Lehnt „keine Zahl“ (NaN) und Profilpositionen außerhalb von null bis eins als „ungültige Precision“ ab.
+    - Wählt das Profil mit dem kleinsten Abstand zum begrenzten Wunsch, bei Gleichstand das präzisere.
+    - Wendet die Skala relativ zur Subengine an. 0,5 bedeutet auf beiden Prozessoren unterschiedliche Genauigkeit.
+    - Betrachtet den Wunsch als erfüllbar, solange ein aktives Profil existiert.
+    - "Lässt ohne aktives Profil den ersten Task mit „kein aktives Profil“ scheitern und sperrt das Modell für diese Subengine (Latch). Spätere Tasks scheitern sofort."
+    - Sperrt bei ungültigen Wünschen nicht.
+    - Hält die Sperre aufhebbar, mit Rückmeldung.
+    - Arbeitet thread-safe. Ein Poisoned Lock führt nicht zum Ausfall.
+- Name: Kalibrierungs-Persistenz
+  Requirements:
+    - Hält Ergebnisse je Modell und Subengine mit Fingerprint, Profilen (Position und Konfiguration als Text), Instabilitäts-Flag sowie verworfenen und geprunten Kombinationen mit Grund.
+    - Bildet den Fingerprint aus Schema-Version, Subengine, GPU-Name, Compute Capability, Treiberversion, CPU-Features, Model-ID und Engine-Version.
+    - Hält den Fingerprint bewusst knapp, sodass ein Löschen der Datei die Neukalibrierung erzwingt.
+    - Ermittelt den Fingerprint zur Laufzeit, GPU-Daten über die Treiber-API.
+    - Belegt beim Einlesen fehlende Felder mit Defaults.
+    - "Löst beim Start den Zustand „fehlend“ auf, mit der präzisesten gültigen Kombination samt Warnung oder einem expliziten Kalibrier-Befehl."
+    - "Löst beim Start den Zustand „kalibriert“ auf, indem das Ergebnis geladen und verwendet wird."
+    - "Löst beim Start den Zustand „veraltet“ auf, indem das alte Ergebnis genutzt wird und im Hintergrund ein neues entsteht."
+    - Lässt das Auflösen beim Start nie scheitern. Unlesbare Dateien gelten als fehlend.
+    - Legt Ergebnisse als lesbare strukturierte Textdatei je Modell und Subengine ab und bietet Load und atomares Save.
+    - Legt fehlende Verzeichnisse an.
+    - Schreibt über eine prozessspezifische Temp-Datei mit fsync und Rename.
+    - Fordert die Neukalibrierung beim Kalibrierungslauf an und lässt sie im Hintergrund auf dem Low-Priority-Pool der Hintergrundausführung laufen.
+    - Ersetzt das alte Ergebnis atomar durch das neue und loggt den Austausch.
