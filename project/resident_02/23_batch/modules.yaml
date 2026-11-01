@@ -1,0 +1,27 @@
+- Name: Erweiterbare Zusatzparameter
+  Order: 1
+  Responsibilities:
+  - typindizierte Extension-Map mit höchstens einem Wert je Typ führen
+  - Werte beim Klonen teilen und thread-safe durch Queue und Planung reichen
+  Requirements:
+  - Dient dem Kern als einziges Mittel für Addon-Tasks (erweiterbares Parameterobjekt).
+  - Trägt Addon-spezifische Parameter, etwa den Scope eines Folge-Tasks, ohne dass der Kern sie interpretiert.
+  - Nimmt als typindizierte Extension-Map beliebige zusätzliche, typgebundene Werte auf.
+  - Speichert je Typ höchstens einen Wert. Erneutes Setzen desselben Typs ersetzt den vorhandenen Wert.
+  - Fragt Werte nach Typ ab (sonst „nicht vorhanden“) und entfernt sie nach Typ, mit Rückmeldung, ob der Wert vorhanden war.
+  - Liefert die Anzahl der Werte und ob die Map leer ist.
+  - Teilt die Werte beim Klonen (shared), statt sie zu duplizieren.
+  - Reicht die Werte unverändert durch Queue und Planung und ist thread-safe übertragbar (Send + Sync).
+  Dependencies: []
+- Name: Abschluss-Warten
+  Order: 2
+  Responsibilities:
+  - asynchron auf completed oder cancelled warten, ohne Thread zu blockieren oder Notification zu verlieren
+  - mehrere Wartende gleichzeitig wecken
+  Requirements:
+  - Meldet den Abschluss einer Arbeitseinheit per Event oder Notification, sodass Ergebnisse abgeholt werden können.
+  - Erlaubt, die Registrierung für die Notification vor dem Lesen des Zustands zu aktivieren. Keine Notification geht verloren, auch wenn der Abschluss zwischen Zustandsprüfung und Wartebeginn eintritt.
+  - Unterstützt mehrere Wartende gleichzeitig und weckt alle, bei Completion ebenso wie bei erfolgreichem Cancel.
+  - Wartet asynchron auf „completed“ oder „cancelled“, ohne einen Thread zu blockieren. Bei bereits erreichtem Endzustand endet das Warten sofort.
+  - Ein Wakeup ohne Endzustand führt zu erneuter Prüfung.
+  Dependencies: []

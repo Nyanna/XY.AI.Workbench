@@ -1,0 +1,33 @@
+Create a specification for the module "{{ module.Name }}".
+
+## Responsibilities
+{% for item in module.Responsibilities %}
+- {{ item }}
+{%- endfor %}
+
+## Requirements
+{% for item in module.Requirements %}
+- {{ item }}
+{%- endfor %}
+
+## Dependencies
+{% if module.Dependencies %}
+{% for dep in module.Dependencies %}
+- {{ dep }}
+{%- endfor %}
+
+Read the specifications of these dependencies with the tool `read_specifications` before you start.
+{% else %}
+None.
+{% endif %}
+
+{% if previous_modules %}
+## Modules specified before this one
+{% for name in previous_modules %}
+- {{ name }}
+{%- endfor %}
+
+Use `read_specifications` (parameter `module`) to consult them where relevant. If it reports a specification as still pending, continue without it.
+{% endif %}
+
+Output only the finished specification as Markdown.

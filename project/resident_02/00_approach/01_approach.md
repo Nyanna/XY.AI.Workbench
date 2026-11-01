@@ -29,8 +29,8 @@
 - in Datei korrigieren (18_modules_deps.yml)
 
 - Spezifikationsplan 19_graph.py mit baum  (18_modules_deps.yml + 13_modules_optimized.yml -> 20_plan_order.md)
-
-
+	- 21_build_order.py mit drei eingaben um Spezifikationsreihenfolge aggregiert auszugeben (21_modules_ordered.yml)
+- Batch starten zum erstellen der Spezifikationen
 
 - Baum für Umsetzung Segmentieren und in harte Interface Verträge umwandeln
 ...
