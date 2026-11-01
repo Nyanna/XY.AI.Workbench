@@ -1,5 +1,5 @@
-"""#!/usr/bin/env python3"""
-'Generischer Filter fuer OpenAPI-YAML-Specs.\n\nWendet eine Liste providerunabhaengiger Operationen auf eine Basis-Spec an,\num daraus eine reduzierte Spec fuer die Client-Generierung zu erzeugen.\n\nAufruf:\n    filter_spec.py <filter-config.yaml> <output-spec.yaml>\n\nFilter-Config-Format (YAML):\n    base: openai.yaml            # relativ zu diesem Script-Verzeichnis\n    ops:\n      - op: keep-paths\n        values: ["/responses", "/responses/{response_id}"]\n      - op: delete\n        pointer: "/components/schemas/*/properties/summary"\n      - op: set\n        pointer: "/components/schemas/ReasoningEffort/anyOf/0/enum"\n        value: [low, high, max]\n      - op: prune-orphan-schemas\n\nPointer-Segmente sind JSON-Pointer-artig ("/" getrennt), das Segment "*"\nmatcht dabei jeden Schluessel/Index auf dieser Ebene.\n'
+#!/usr/bin/env python3
+'Generischer Filter fuer OpenAPI-YAML-Specs.\n\nWendet eine Liste providerunabhaengiger Operationen auf eine Basis-Spec an,\num daraus eine reduzierte Spec fuer die Client-Generierung zu erzeugen.\n\nAufruf:\n    filter_spec.py <filter-config.yaml> <output-spec.yaml>\n\nFilter-Config-Format (YAML):\n    base: openai.yaml            # relativ zu diesem Script-Verzeichnis\n    ops:\n      - op: keep-paths\n        values: ["/responses", "/responses/{response_id}"]\n      - op: delete-path\n        values: ["/v1/messages/batches/{message_batch_id}?beta=true"]n      - op: delete\n        pointer: "/components/schemas/*/properties/summary"\n      - op: set\n        pointer: "/components/schemas/ReasoningEffort/anyOf/0/enum"\n        value: [low, high, max]\n      - op: prune-orphan-schemas\n\nPointer-Segmente sind JSON-Pointer-artig ("/" getrennt), das Segment "*"\nmatcht dabei jeden Schluessel/Index auf dieser Ebene.\n'
 import sys
 import re
 from pathlib import Path
@@ -129,6 +129,10 @@ def op_keep_paths(spec: dict, values: list[str]) -> None:
     paths = spec.get('paths', {})
     spec['paths'] = {k: v for k, v in paths.items() if k in values}
 
+def op_delete_paths(spec: dict, values: list[str]) -> None:
+    paths = spec.get('paths', {})
+    spec['paths'] = {k: v for k, v in paths.items() if k not in values}
+
 def _collect_refs(node, refs: set[str]) -> None:
     if isinstance(node, dict):
         ref = node.get('$ref')
@@ -196,6 +200,10 @@ def op_strip_tags(spec: dict) -> None:
 OPS = {
     'keep-paths': lambda spec,
     o: op_keep_paths(
+        spec,
+        o['values']),
+    'delete-path': lambda spec,
+    o: op_delete_paths(
         spec,
         o['values']),
     'delete': lambda spec,

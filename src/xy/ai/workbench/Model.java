@@ -37,7 +37,7 @@ public class Model {
 	}
 
 	public static enum KeyPattern {
-		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-api.*$"), Deepseek("^sk-[a-z0-9]{32}$"),
+		OpenAI("^sk-proj-.*$"), Gemini("^[a-zA-Z0-9]{39}$"), Claude("^sk-ant-(api|oat).*$"), Deepseek("^sk-[a-z0-9]{32}$"),
 		None("^none$"), ClaudeCode("^(work|personal)$"), Misc("^.*$");
 
 		public final Pattern pattern;
