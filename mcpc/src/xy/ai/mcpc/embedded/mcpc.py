@@ -159,7 +159,7 @@ class EmbeddedMcpc:
 
         Any number of agents may share one instance; the CLI process starts lazily on the first prompt.
         """
-        sid = self.open_session(tools=tools, cc_profile=cc_profile)
+        sid = self.open_session(tools=tools, session_id=agent_id, cc_profile=cc_profile)
         try:
             parameters = agent_parameters(
                 self.agent_config,
@@ -171,7 +171,7 @@ class EmbeddedMcpc:
                 cache_mode=cache_mode,
                 executable=executable,
                 extra_env=extra_env)
-            cli = self.server.environment.cli_manager.request(parameters=parameters, session_id=agent_id)
+            cli = self.server.environment.cli_manager.request(parameters=parameters, session_id=sid)
         except Exception:
             self.close_session(sid)
             raise

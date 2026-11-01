@@ -283,7 +283,12 @@ class CliSession:
             if not isinstance(obj, dict):
                 continue
             kind = obj.get('type')
-            if kind == 'assistant':
+            if kind == 'system' and obj.get('subtype') == 'init':
+                problem = _mcp_connection_problem(obj)
+                if problem:
+                    self.terminate()
+                    return CliResult(text=problem, is_error=True, subtype='session_error')
+            elif kind == 'assistant':
                 assistant_text.append(_extract_text(obj.get('message', {})))
             elif kind == 'stream_event':
                 event = obj.get('event')
@@ -330,6 +335,14 @@ class CliSession:
             'lastSentAt': self.last_sent_at,
             'lastReceivedAt': self.last_received_at,
             'valid': self.is_valid()}
+
+def _mcp_connection_problem(init: dict[str, Any]) -> str | None:
+    """Describe why the MCPC server is not usable according to a ``system/init`` event, else ``None``."""
+    servers = init.get('mcp_servers')
+    status = next((s.get('status') for s in servers or [] if isinstance(s, dict) and s.get('name') == 'mcpc'), None)
+    if status == 'connected':
+        return None
+    return f"MCPC session error: MCP server 'mcpc' is not connected (status: {status or 'missing'})"
 
 def _extract_text(message: dict[str, Any]) -> str:
     """Concatenate text blocks from an assistant stream-json message."""
