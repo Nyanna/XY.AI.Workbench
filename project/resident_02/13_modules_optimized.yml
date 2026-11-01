@@ -149,7 +149,7 @@
             - Capability-Set liefern und kompatible Ressourcen samt Lanes in eigenen und gemeinsamen Queues registrieren
             - Compute-Pfade hardwareoptimal wählen und Invarianten wahren (keine Tensoren oder Raw-Pointer in Signaturen, Lane statt Default-Stream, Kernel nur über das Register)
           Children:
-            - Name: Device, Lane und Event
+            - Name: Device und Lane und Event
               Responsibility:
                 - Device-Arten, Device-Handles und Execution-Contexts (Lanes) mit Stream, Priorität, Events und Workspace abbilden
                 - Events als nicht blockierend abfragbare und blockierend abwartbare Completion-Marker bereitstellen
