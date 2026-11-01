@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 'Generischer Filter fuer OpenAPI-YAML-Specs.\n\nWendet eine Liste providerunabhaengiger Operationen auf eine Basis-Spec an,\num daraus eine reduzierte Spec fuer die Client-Generierung zu erzeugen.\n\nAufruf:\n    filter_spec.py <filter-config.yaml> <output-spec.yaml>\n\nFilter-Config-Format (YAML):\n    base: openai.yaml            # relativ zu diesem Script-Verzeichnis\n    ops:\n      - op: keep-paths\n        values: ["/responses", "/responses/{response_id}"]\n      - op: delete-path\n        values: ["/v1/messages/batches/{message_batch_id}?beta=true"]n      - op: delete\n        pointer: "/components/schemas/*/properties/summary"\n      - op: set\n        pointer: "/components/schemas/ReasoningEffort/anyOf/0/enum"\n        value: [low, high, max]\n      - op: prune-orphan-schemas\n\nPointer-Segmente sind JSON-Pointer-artig ("/" getrennt), das Segment "*"\nmatcht dabei jeden Schluessel/Index auf dieser Ebene.\n'
 import sys
 import re

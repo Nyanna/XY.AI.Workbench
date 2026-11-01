@@ -1,2358 +1,1753 @@
-openapi: 3.2.0
+openapi: "3.2.0"
 info:
-  title: Anthropic Messages API
+  title: "Anthropic Messages API"
 servers:
-- url: https://api.anthropic.com
+  - url: "https://api.anthropic.com"
 paths:
   /v1/messages:
     post:
-      summary: Create a Message
-      description: 'Send a structured list of input messages with text and/or image
-        content, and the model will generate the next message in the conversation.
-
-
-        The Messages API can be used for either single queries or stateless multi-turn
-        conversations.
-
-
-        Learn more about the Messages API in our user guide'
-      operationId: messages_post
+      summary: "Create a Message"
+      description: "Send a structured list of input messages with text and/or image content, and the model will generate the next message in the conversation.\n\nThe Messages API can be used for either single queries or stateless multi-turn conversations.\n\nLearn more about the Messages API in our user guide"
+      operationId: "messages_post"
       parameters:
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: anthropic-user-profile-id
-        in: header
-        required: false
-        schema:
-          type: string
-          description: The user profile ID to attribute this request to. Use when
-            acting on behalf of a party other than your organization. Requires the
-            `user-profiles` beta header.
-          title: Anthropic-User-Profile-Id
-        description: The user profile ID to attribute this request to. Use when acting
-          on behalf of a party other than your organization. Requires the `user-profiles`
-          beta header.
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "anthropic-user-profile-id"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The user profile ID to attribute this request to. Use when acting on behalf of a party other than your organization. Requires the `user-profiles` beta header."
+            title: "Anthropic-User-Profile-Id"
+          description: "The user profile ID to attribute this request to. Use when acting on behalf of a party other than your organization. Requires the `user-profiles` beta header."
       responses:
         '200':
-          description: Message object.
+          description: "Message object."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
+                $ref: "#/components/schemas/Message"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateMessageParams'
+              $ref: "#/components/schemas/CreateMessageParams"
         required: true
   /v1/messages/batches:
     post:
-      summary: Create a Message Batch
-      description: 'Send a batch of Message creation requests.
-
-
-        The Message Batches API can be used to process multiple Messages API requests
-        at once. Once a Message Batch is created, it begins processing immediately.
-        Batches can take up to 24 hours to complete.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_post
+      summary: "Create a Message Batch"
+      description: "Send a batch of Message creation requests.\n\nThe Message Batches API can be used to process multiple Messages API requests at once. Once a Message Batch is created, it begins processing immediately. Batches can take up to 24 hours to complete.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_post"
       parameters:
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: anthropic-user-profile-id
-        in: header
-        required: false
-        schema:
-          type: string
-          description: The user profile ID to attribute the requests in this batch
-            to. Use when acting on behalf of a party other than your organization.
-            Requires the `user-profiles` beta header. Applies to every request in
-            the batch; an individual request whose `user_profile_id` body field conflicts
-            with this header is errored.
-          title: Anthropic-User-Profile-Id
-        description: The user profile ID to attribute the requests in this batch to.
-          Use when acting on behalf of a party other than your organization. Requires
-          the `user-profiles` beta header. Applies to every request in the batch;
-          an individual request whose `user_profile_id` body field conflicts with
-          this header is errored.
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "anthropic-user-profile-id"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The user profile ID to attribute the requests in this batch to. Use when acting on behalf of a party other than your organization. Requires the `user-profiles` beta header. Applies to every request in the batch; an individual request whose `user_profile_id` body field conflicts with this header is errored."
+            title: "Anthropic-User-Profile-Id"
+          description: "The user profile ID to attribute the requests in this batch to. Use when acting on behalf of a party other than your organization. Requires the `user-profiles` beta header. Applies to every request in the batch; an individual request whose `user_profile_id` body field conflicts with this header is errored."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageBatch'
+                $ref: "#/components/schemas/MessageBatch"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateMessageBatchParams'
+              $ref: "#/components/schemas/CreateMessageBatchParams"
         required: true
     get:
-      summary: List Message Batches
-      description: 'List all Message Batches within a Workspace. Most recently created
-        batches are returned first.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_list
+      summary: "List Message Batches"
+      description: "List all Message Batches within a Workspace. Most recently created batches are returned first.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_list"
       parameters:
-      - name: before_id
-        in: query
-        required: false
-        schema:
-          type: string
-          description: ID of the object to use as a cursor for pagination. When provided,
-            returns the page of results immediately before this object.
-          title: Before Id
-        description: ID of the object to use as a cursor for pagination. When provided,
-          returns the page of results immediately before this object.
-      - name: after_id
-        in: query
-        required: false
-        schema:
-          type: string
-          description: ID of the object to use as a cursor for pagination. When provided,
-            returns the page of results immediately after this object.
-          title: After Id
-        description: ID of the object to use as a cursor for pagination. When provided,
-          returns the page of results immediately after this object.
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 1000
-          minimum: 1
-          description: 'Number of items to return per page.
-
-
-            Defaults to `20`. Ranges from `1` to `1000`.'
-          default: 20
-          title: Limit
-        description: 'Number of items to return per page.
-
-
-          Defaults to `20`. Ranges from `1` to `1000`.'
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: x-api-key
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'Your unique API key for authentication.
-
-
-            This key is required in the header of all API requests, to authenticate
-            your account and access Anthropic''s services. Get your API key through
-            the [Console](https://console.anthropic.com/settings/keys). Each key is
-            scoped to a Workspace.'
-          title: X-Api-Key
-        description: 'Your unique API key for authentication.
-
-
-          This key is required in the header of all API requests, to authenticate
-          your account and access Anthropic''s services. Get your API key through
-          the [Console](https://console.anthropic.com/settings/keys). Each key is
-          scoped to a Workspace.'
+        - name: "before_id"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            description: "ID of the object to use as a cursor for pagination. When provided, returns the page of results immediately before this object."
+            title: "Before Id"
+          description: "ID of the object to use as a cursor for pagination. When provided, returns the page of results immediately before this object."
+        - name: "after_id"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            description: "ID of the object to use as a cursor for pagination. When provided, returns the page of results immediately after this object."
+            title: "After Id"
+          description: "ID of the object to use as a cursor for pagination. When provided, returns the page of results immediately after this object."
+        - name: "limit"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            maximum: 1000
+            minimum: 1
+            description: "Number of items to return per page.\n\nDefaults to `20`. Ranges from `1` to `1000`."
+            default: 20
+            title: "Limit"
+          description: "Number of items to return per page.\n\nDefaults to `20`. Ranges from `1` to `1000`."
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "x-api-key"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
+            title: "X-Api-Key"
+          description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/messages/batches/{message_batch_id}:
     get:
-      summary: Retrieve a Message Batch
-      description: 'This endpoint is idempotent and can be used to poll for Message
-        Batch completion. To access the results of a Message Batch, make a request
-        to the `results_url` field in the response.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_retrieve
+      summary: "Retrieve a Message Batch"
+      description: "This endpoint is idempotent and can be used to poll for Message Batch completion. To access the results of a Message Batch, make a request to the `results_url` field in the response.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_retrieve"
       parameters:
-      - name: message_batch_id
-        in: path
-        required: true
-        schema:
-          type: string
-          description: ID of the Message Batch.
-          title: Message Batch Id
-        description: ID of the Message Batch.
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: x-api-key
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'Your unique API key for authentication.
-
-
-            This key is required in the header of all API requests, to authenticate
-            your account and access Anthropic''s services. Get your API key through
-            the [Console](https://console.anthropic.com/settings/keys). Each key is
-            scoped to a Workspace.'
-          title: X-Api-Key
-        description: 'Your unique API key for authentication.
-
-
-          This key is required in the header of all API requests, to authenticate
-          your account and access Anthropic''s services. Get your API key through
-          the [Console](https://console.anthropic.com/settings/keys). Each key is
-          scoped to a Workspace.'
+        - name: "message_batch_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            description: "ID of the Message Batch."
+            title: "Message Batch Id"
+          description: "ID of the Message Batch."
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "x-api-key"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
+            title: "X-Api-Key"
+          description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageBatch'
+                $ref: "#/components/schemas/MessageBatch"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
-      summary: Delete a Message Batch
-      description: 'Delete a Message Batch.
-
-
-        Message Batches can only be deleted once they''ve finished processing. If
-        you''d like to delete an in-progress batch, you must first cancel it.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_delete
+      summary: "Delete a Message Batch"
+      description: "Delete a Message Batch.\n\nMessage Batches can only be deleted once they've finished processing. If you'd like to delete an in-progress batch, you must first cancel it.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_delete"
       parameters:
-      - name: message_batch_id
-        in: path
-        required: true
-        schema:
-          type: string
-          description: ID of the Message Batch.
-          title: Message Batch Id
-        description: ID of the Message Batch.
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: x-api-key
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'Your unique API key for authentication.
-
-
-            This key is required in the header of all API requests, to authenticate
-            your account and access Anthropic''s services. Get your API key through
-            the [Console](https://console.anthropic.com/settings/keys). Each key is
-            scoped to a Workspace.'
-          title: X-Api-Key
-        description: 'Your unique API key for authentication.
-
-
-          This key is required in the header of all API requests, to authenticate
-          your account and access Anthropic''s services. Get your API key through
-          the [Console](https://console.anthropic.com/settings/keys). Each key is
-          scoped to a Workspace.'
+        - name: "message_batch_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            description: "ID of the Message Batch."
+            title: "Message Batch Id"
+          description: "ID of the Message Batch."
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "x-api-key"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
+            title: "X-Api-Key"
+          description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeleteMessageBatchResponse'
+                $ref: "#/components/schemas/DeleteMessageBatchResponse"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/messages/batches/{message_batch_id}/cancel:
     post:
-      summary: Cancel a Message Batch
-      description: 'Batches may be canceled any time before processing ends. Once
-        cancellation is initiated, the batch enters a `canceling` state, at which
-        time the system may complete any in-progress, non-interruptible requests before
-        finalizing cancellation.
-
-
-        The number of canceled requests is specified in `request_counts`. To determine
-        which requests were canceled, check the individual results within the batch.
-        Note that cancellation may not result in any canceled requests if they were
-        non-interruptible.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_cancel
+      summary: "Cancel a Message Batch"
+      description: "Batches may be canceled any time before processing ends. Once cancellation is initiated, the batch enters a `canceling` state, at which time the system may complete any in-progress, non-interruptible requests before finalizing cancellation.\n\nThe number of canceled requests is specified in `request_counts`. To determine which requests were canceled, check the individual results within the batch. Note that cancellation may not result in any canceled requests if they were non-interruptible.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_cancel"
       parameters:
-      - name: message_batch_id
-        in: path
-        required: true
-        schema:
-          type: string
-          description: ID of the Message Batch.
-          title: Message Batch Id
-        description: ID of the Message Batch.
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
+        - name: "message_batch_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            description: "ID of the Message Batch."
+            title: "Message Batch Id"
+          description: "ID of the Message Batch."
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageBatch'
+                $ref: "#/components/schemas/MessageBatch"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/messages/batches/{message_batch_id}/results:
     get:
-      summary: Retrieve Message Batch results
-      description: 'Streams the results of a Message Batch as a `.jsonl` file.
-
-
-        Each line in the file is a JSON object containing the result of a single request
-        in the Message Batch. Results are not guaranteed to be in the same order as
-        requests. Use the `custom_id` field to match results to requests.
-
-
-        Learn more about the Message Batches API in our user guide'
-      operationId: message_batches_results
+      summary: "Retrieve Message Batch results"
+      description: "Streams the results of a Message Batch as a `.jsonl` file.\n\nEach line in the file is a JSON object containing the result of a single request in the Message Batch. Results are not guaranteed to be in the same order as requests. Use the `custom_id` field to match results to requests.\n\nLearn more about the Message Batches API in our user guide"
+      operationId: "message_batches_results"
       parameters:
-      - name: message_batch_id
-        in: path
-        required: true
-        schema:
-          type: string
-          description: ID of the Message Batch.
-          title: Message Batch Id
-        description: ID of the Message Batch.
-      - name: anthropic-version
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'The version of the Claude API you want to use.
-
-
-            Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-          title: Anthropic-Version
-        description: 'The version of the Claude API you want to use.
-
-
-          Read more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning).'
-      - name: x-api-key
-        in: header
-        required: false
-        schema:
-          type: string
-          description: 'Your unique API key for authentication.
-
-
-            This key is required in the header of all API requests, to authenticate
-            your account and access Anthropic''s services. Get your API key through
-            the [Console](https://console.anthropic.com/settings/keys). Each key is
-            scoped to a Workspace.'
-          title: X-Api-Key
-        description: 'Your unique API key for authentication.
-
-
-          This key is required in the header of all API requests, to authenticate
-          your account and access Anthropic''s services. Get your API key through
-          the [Console](https://console.anthropic.com/settings/keys). Each key is
-          scoped to a Workspace.'
+        - name: "message_batch_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            description: "ID of the Message Batch."
+            title: "Message Batch Id"
+          description: "ID of the Message Batch."
+        - name: "anthropic-version"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+            title: "Anthropic-Version"
+          description: "The version of the Claude API you want to use.\n\nRead more about versioning and our version history [here](https://platform.claude.com/docs/en/api/versioning)."
+        - name: "x-api-key"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+            description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
+            title: "X-Api-Key"
+          description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
       responses:
         '200':
-          description: Successful Response
+          description: "Successful Response"
           content:
             application/x-jsonl:
               schema:
-                $ref: '#/components/schemas/MessageBatchIndividualResponse'
+                $ref: "#/components/schemas/MessageBatchIndividualResponse"
         4XX:
-          description: 'Error response.
-
-
-            See our [errors documentation](https://platform.claude.com/docs/en/api/errors)
-            for more details.'
+          description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     InputContentBlock:
       discriminator:
         mapping:
-          bash_code_execution_tool_result: '#/components/schemas/RequestBashCodeExecutionToolResultBlock'
-          code_execution_tool_result: '#/components/schemas/RequestCodeExecutionToolResultBlock'
-          container_upload: '#/components/schemas/RequestContainerUploadBlock'
-          document: '#/components/schemas/RequestDocumentBlock'
-          image: '#/components/schemas/RequestImageBlock'
-          redacted_thinking: '#/components/schemas/RequestRedactedThinkingBlock'
-          search_result: '#/components/schemas/RequestSearchResultBlock'
-          server_tool_use: '#/components/schemas/RequestServerToolUseBlock'
-          text: '#/components/schemas/RequestTextBlock'
-          text_editor_code_execution_tool_result: '#/components/schemas/RequestTextEditorCodeExecutionToolResultBlock'
-          thinking: '#/components/schemas/RequestThinkingBlock'
-          tool_result: '#/components/schemas/RequestToolResultBlock'
-          tool_search_tool_result: '#/components/schemas/RequestToolSearchToolResultBlock'
-          tool_use: '#/components/schemas/RequestToolUseBlock'
-          web_fetch_tool_result: '#/components/schemas/RequestWebFetchToolResultBlock'
-          web_search_tool_result: '#/components/schemas/RequestWebSearchToolResultBlock'
-        propertyName: type
+          bash_code_execution_tool_result: "#/components/schemas/RequestBashCodeExecutionToolResultBlock"
+          code_execution_tool_result: "#/components/schemas/RequestCodeExecutionToolResultBlock"
+          container_upload: "#/components/schemas/RequestContainerUploadBlock"
+          document: "#/components/schemas/RequestDocumentBlock"
+          image: "#/components/schemas/RequestImageBlock"
+          redacted_thinking: "#/components/schemas/RequestRedactedThinkingBlock"
+          search_result: "#/components/schemas/RequestSearchResultBlock"
+          server_tool_use: "#/components/schemas/RequestServerToolUseBlock"
+          text: "#/components/schemas/RequestTextBlock"
+          text_editor_code_execution_tool_result: "#/components/schemas/RequestTextEditorCodeExecutionToolResultBlock"
+          thinking: "#/components/schemas/RequestThinkingBlock"
+          tool_result: "#/components/schemas/RequestToolResultBlock"
+          tool_search_tool_result: "#/components/schemas/RequestToolSearchToolResultBlock"
+          tool_use: "#/components/schemas/RequestToolUseBlock"
+          web_fetch_tool_result: "#/components/schemas/RequestWebFetchToolResultBlock"
+          web_search_tool_result: "#/components/schemas/RequestWebSearchToolResultBlock"
+        propertyName: "type"
       oneOf:
-      - $ref: '#/components/schemas/RequestTextBlock'
-        description: Regular text content.
-      - $ref: '#/components/schemas/RequestThinkingBlock'
-        description: A block specifying internal thinking by the model.
+        - $ref: "#/components/schemas/RequestTextBlock"
+          description: "Regular text content."
+        - $ref: "#/components/schemas/RequestThinkingBlock"
+          description: "A block specifying internal thinking by the model."
     ErroredResult:
       properties:
         error:
-          $ref: '#/components/schemas/ErrorResponse'
+          $ref: "#/components/schemas/ErrorResponse"
         type:
-          const: errored
-          default: errored
-          title: Type
-          type: string
+          const: "errored"
+          default: "errored"
+          title: "Type"
+          type: "string"
       required:
-      - error
-      - type
-      title: ErroredResult
-      type: object
+        - "error"
+        - "type"
+      title: "ErroredResult"
+      type: "object"
     BillingError:
       properties:
         message:
-          default: Billing error
-          title: Message
-          type: string
+          default: "Billing error"
+          title: "Message"
+          type: "string"
         type:
-          const: billing_error
-          default: billing_error
-          title: Type
-          type: string
+          const: "billing_error"
+          default: "billing_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: BillingError
-      type: object
+        - "message"
+        - "type"
+      title: "BillingError"
+      type: "object"
     OutputTokensDetails:
       properties:
         thinking_tokens:
           default: 0
-          description: 'Number of output tokens the model generated as internal reasoning,
-            including
-
-            the thinking-block delimiter tokens.
-
-
-            Reflects the raw reasoning the model produced, not the (possibly shorter)
-
-            summarized thinking text returned in the response body. Computed by
-
-            re-tokenizing the raw reasoning text, so it may differ from the model''s
-            exact
-
-            generation count by a small number of tokens. Always ≤ `output_tokens`;
-
-            `output_tokens - thinking_tokens` approximates the non-reasoning output.'
+          description: "Number of output tokens the model generated as internal reasoning, including\nthe thinking-block delimiter tokens.\n\nReflects the raw reasoning the model produced, not the (possibly shorter)\nsummarized thinking text returned in the response body. Computed by\nre-tokenizing the raw reasoning text, so it may differ from the model's exact\ngeneration count by a small number of tokens. Always ≤ `output_tokens`;\n`output_tokens - thinking_tokens` approximates the non-reasoning output."
           minimum: 0
-          title: Thinking Tokens
-          type: integer
+          title: "Thinking Tokens"
+          type: "integer"
       required:
-      - thinking_tokens
-      title: OutputTokensDetails
-      type: object
+        - "thinking_tokens"
+      title: "OutputTokensDetails"
+      type: "object"
     RequestThinkingBlock:
       additionalProperties: false
       properties:
         signature:
-          description: 'The `signature` value of this thinking block, exactly as returned
-            by the API in a previous response. Used to verify that the block was generated
-            by Claude.
-
-
-            Thinking blocks must be passed back unmodified and in their original order;
-            a modified block results in a 400 `invalid_request_error`.'
-          title: Signature
-          type: string
+          description: "The `signature` value of this thinking block, exactly as returned by the API in a previous response. Used to verify that the block was generated by Claude.\n\nThinking blocks must be passed back unmodified and in their original order; a modified block results in a 400 `invalid_request_error`."
+          title: "Signature"
+          type: "string"
         thinking:
-          description: The `thinking` text of this block as returned by the API.
-          title: Thinking
-          type: string
+          description: "The `thinking` text of this block as returned by the API."
+          title: "Thinking"
+          type: "string"
         type:
-          const: thinking
-          title: Type
-          type: string
+          const: "thinking"
+          title: "Type"
+          type: "string"
       required:
-      - signature
-      - thinking
-      - type
-      title: RequestThinkingBlock
-      type: object
+        - "signature"
+        - "thinking"
+        - "type"
+      title: "RequestThinkingBlock"
+      type: "object"
     ThinkingConfigAdaptive:
       additionalProperties: false
       properties:
         display:
           anyOf:
-          - $ref: '#/components/schemas/ThinkingDisplayMode'
-          - type: 'null'
-          description: Controls how thinking content appears in the response. When
-            set to `summarized`, thinking is returned normally. When set to `omitted`,
-            thinking content is redacted but a signature is returned for multi-turn
-            continuity. Defaults to `summarized`.
+            - $ref: "#/components/schemas/ThinkingDisplayMode"
+            - type: "null"
+          description: "Controls how thinking content appears in the response. When set to `summarized`, thinking is returned normally. When set to `omitted`, thinking content is redacted but a signature is returned for multi-turn continuity. Defaults to `summarized`."
         type:
-          const: adaptive
-          title: Type
-          type: string
+          const: "adaptive"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ThinkingConfigAdaptive
-      type: object
+        - "type"
+      title: "ThinkingConfigAdaptive"
+      type: "object"
     InputSchema:
       additionalProperties: true
       properties:
         properties:
           anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Properties
+            - additionalProperties: true
+              type: "object"
+            - type: "null"
+          title: "Properties"
         required:
           anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Required
+            - items:
+                type: "string"
+              type: "array"
+            - type: "null"
+          title: "Required"
         type:
-          const: object
-          title: Type
-          type: string
+          const: "object"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: InputSchema
-      type: object
+        - "type"
+      title: "InputSchema"
+      type: "object"
     RefusalStopDetails:
-      description: Structured information about a refusal.
+      description: "Structured information about a refusal."
       properties:
         category:
           anyOf:
-          - $ref: '#/components/schemas/RefusalCategory'
-          - type: 'null'
+            - $ref: "#/components/schemas/RefusalCategory"
+            - type: "null"
           default: null
-          description: 'The policy category that triggered the refusal.
-
-
-            `null` when the refusal doesn''t map to a named category.'
+          description: "The policy category that triggered the refusal.\n\n`null` when the refusal doesn't map to a named category."
         explanation:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: "string"
+            - type: "null"
           default: null
-          description: 'Human-readable explanation of the refusal.
-
-
-            This text is not guaranteed to be stable. `null` when no explanation is
-            available for the category.'
+          description: "Human-readable explanation of the refusal.\n\nThis text is not guaranteed to be stable. `null` when no explanation is available for the category."
           examples:
-          - This request was declined because it conflicts with Anthropic's Usage
-            Policy.
-          title: Explanation
+            - "This request was declined because it conflicts with Anthropic's Usage Policy."
+          title: "Explanation"
         type:
-          const: refusal
-          default: refusal
-          title: Type
-          type: string
+          const: "refusal"
+          default: "refusal"
+          title: "Type"
+          type: "string"
       required:
-      - category
-      - explanation
-      - type
-      title: RefusalStopDetails
-      type: object
+        - "category"
+        - "explanation"
+        - "type"
+      title: "RefusalStopDetails"
+      type: "object"
     MessageBatchIndividualRequestParams:
       additionalProperties: false
       properties:
         custom_id:
-          description: 'Developer-provided ID created for each request in a Message
-            Batch. Useful for matching results to requests, as results may be given
-            out of request order.
-
-
-            Must be unique for each request within the Message Batch.'
+          description: "Developer-provided ID created for each request in a Message Batch. Useful for matching results to requests, as results may be given out of request order.\n\nMust be unique for each request within the Message Batch."
           examples:
-          - my-custom-id-1
+            - "my-custom-id-1"
           maxLength: 64
           minLength: 1
-          pattern: ^[a-zA-Z0-9_-]{1,64}$
-          title: Custom Id
-          type: string
+          pattern: "^[a-zA-Z0-9_-]{1,64}$"
+          title: "Custom Id"
+          type: "string"
         params:
-          $ref: '#/components/schemas/CreateMessageParams'
-          description: 'Messages API creation parameters for the individual request.
-
-
-            See the [Messages API reference](https://platform.claude.com/docs/en/api/messages)
-            for full documentation on available parameters.'
+          $ref: "#/components/schemas/CreateMessageParams"
+          description: "Messages API creation parameters for the individual request.\n\nSee the [Messages API reference](https://platform.claude.com/docs/en/api/messages) for full documentation on available parameters."
       required:
-      - custom_id
-      - params
-      title: MessageBatchIndividualRequestParams
-      type: object
+        - "custom_id"
+        - "params"
+      title: "MessageBatchIndividualRequestParams"
+      type: "object"
     ToolChoice:
-      description: How the model should use the provided tools. The model can use
-        a specific tool, any available tool, decide by itself, or not use tools at
-        all.
+      description: "How the model should use the provided tools. The model can use a specific tool, any available tool, decide by itself, or not use tools at all."
       discriminator:
         mapping:
-          any: '#/components/schemas/ToolChoiceAny'
-          auto: '#/components/schemas/ToolChoiceAuto'
-          none: '#/components/schemas/ToolChoiceNone'
-          tool: '#/components/schemas/ToolChoiceTool'
-        propertyName: type
+          any: "#/components/schemas/ToolChoiceAny"
+          auto: "#/components/schemas/ToolChoiceAuto"
+          none: "#/components/schemas/ToolChoiceNone"
+          tool: "#/components/schemas/ToolChoiceTool"
+        propertyName: "type"
       oneOf:
-      - $ref: '#/components/schemas/ToolChoiceAuto'
-      - $ref: '#/components/schemas/ToolChoiceAny'
-      - $ref: '#/components/schemas/ToolChoiceTool'
-      - $ref: '#/components/schemas/ToolChoiceNone'
-      title: Tool Choice
+        - $ref: "#/components/schemas/ToolChoiceAuto"
+        - $ref: "#/components/schemas/ToolChoiceAny"
+        - $ref: "#/components/schemas/ToolChoiceTool"
+        - $ref: "#/components/schemas/ToolChoiceNone"
+      title: "Tool Choice"
     JsonOutputFormat:
       additionalProperties: false
       properties:
         schema:
           additionalProperties: true
-          description: The JSON schema of the format
-          title: Schema
-          type: object
+          description: "The JSON schema of the format"
+          title: "Schema"
+          type: "object"
         type:
-          const: json_schema
-          title: Type
-          type: string
+          const: "json_schema"
+          title: "Type"
+          type: "string"
       required:
-      - schema
-      - type
-      title: JsonOutputFormat
-      type: object
+        - "schema"
+        - "type"
+      title: "JsonOutputFormat"
+      type: "object"
     RequestCounts:
       properties:
         canceled:
-          type: integer
-          title: Canceled
-          description: 'Number of requests in the Message Batch that have been canceled.
-
-
-            This is zero until processing of the entire Message Batch has ended.'
+          type: "integer"
+          title: "Canceled"
+          description: "Number of requests in the Message Batch that have been canceled.\n\nThis is zero until processing of the entire Message Batch has ended."
           default: 0
           examples:
-          - 10
+            - 10
         errored:
-          type: integer
-          title: Errored
-          description: 'Number of requests in the Message Batch that encountered an
-            error.
-
-
-            This is zero until processing of the entire Message Batch has ended.'
+          type: "integer"
+          title: "Errored"
+          description: "Number of requests in the Message Batch that encountered an error.\n\nThis is zero until processing of the entire Message Batch has ended."
           default: 0
           examples:
-          - 30
+            - 30
         expired:
-          type: integer
-          title: Expired
-          description: 'Number of requests in the Message Batch that have expired.
-
-
-            This is zero until processing of the entire Message Batch has ended.'
+          type: "integer"
+          title: "Expired"
+          description: "Number of requests in the Message Batch that have expired.\n\nThis is zero until processing of the entire Message Batch has ended."
           default: 0
           examples:
-          - 10
+            - 10
         processing:
-          type: integer
-          title: Processing
-          description: Number of requests in the Message Batch that are processing.
+          type: "integer"
+          title: "Processing"
+          description: "Number of requests in the Message Batch that are processing."
           default: 0
           examples:
-          - 100
+            - 100
         succeeded:
-          type: integer
-          title: Succeeded
-          description: 'Number of requests in the Message Batch that have completed
-            successfully.
-
-
-            This is zero until processing of the entire Message Batch has ended.'
+          type: "integer"
+          title: "Succeeded"
+          description: "Number of requests in the Message Batch that have completed successfully.\n\nThis is zero until processing of the entire Message Batch has ended."
           default: 0
           examples:
-          - 50
-      type: object
+            - 50
+      type: "object"
       required:
-      - canceled
-      - errored
-      - expired
-      - processing
-      - succeeded
-      title: RequestCounts
+        - "canceled"
+        - "errored"
+        - "expired"
+        - "processing"
+        - "succeeded"
+      title: "RequestCounts"
     ThinkingConfigEnabled:
       additionalProperties: false
       properties:
         budget_tokens:
-          description: 'Determines how many tokens Claude can use for its internal
-            reasoning process. Larger budgets can enable more thorough analysis for
-            complex problems, improving response quality.
-
-
-            Must be ≥1024 and less than `max_tokens`.
-
-
-            See [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
-            for details.'
+          description: "Determines how many tokens Claude can use for its internal reasoning process. Larger budgets can enable more thorough analysis for complex problems, improving response quality.\n\nMust be ≥1024 and less than `max_tokens`.\n\nSee [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) for details."
           minimum: 1024
-          title: Budget Tokens
-          type: integer
+          title: "Budget Tokens"
+          type: "integer"
         display:
           anyOf:
-          - $ref: '#/components/schemas/ThinkingDisplayMode'
-          - type: 'null'
-          description: Controls how thinking content appears in the response. When
-            set to `summarized`, thinking is returned normally. When set to `omitted`,
-            thinking content is redacted but a signature is returned for multi-turn
-            continuity. Defaults to `summarized`.
+            - $ref: "#/components/schemas/ThinkingDisplayMode"
+            - type: "null"
+          description: "Controls how thinking content appears in the response. When set to `summarized`, thinking is returned normally. When set to `omitted`, thinking content is redacted but a signature is returned for multi-turn continuity. Defaults to `summarized`."
         type:
-          const: enabled
-          title: Type
-          type: string
+          const: "enabled"
+          title: "Type"
+          type: "string"
       required:
-      - budget_tokens
-      - type
-      title: ThinkingConfigEnabled
-      type: object
+        - "budget_tokens"
+        - "type"
+      title: "ThinkingConfigEnabled"
+      type: "object"
     StopReason:
       enum:
-      - end_turn
-      - max_tokens
-      - stop_sequence
-      - tool_use
-      - pause_turn
-      - refusal
-      - model_context_window_exceeded
-      type: string
+        - "end_turn"
+        - "max_tokens"
+        - "stop_sequence"
+        - "tool_use"
+        - "pause_turn"
+        - "refusal"
+        - "model_context_window_exceeded"
+      type: "string"
     APIError:
       properties:
         message:
-          default: Internal server error
-          title: Message
-          type: string
+          default: "Internal server error"
+          title: "Message"
+          type: "string"
         type:
-          const: api_error
-          default: api_error
-          title: Type
-          type: string
+          const: "api_error"
+          default: "api_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: APIError
-      type: object
+        - "message"
+        - "type"
+      title: "APIError"
+      type: "object"
     Metadata:
       additionalProperties: false
       properties:
         user_id:
           anyOf:
-          - maxLength: 512
-            type: string
-          - type: 'null'
-          description: 'An external identifier for the user who is associated with
-            the request.
-
-
-            This should be a uuid, hash value, or other opaque identifier. Anthropic
-            may use this id to help detect abuse. Do not include any identifying information
-            such as name, email address, or phone number.'
+            - maxLength: 512
+              type: "string"
+            - type: "null"
+          description: "An external identifier for the user who is associated with the request.\n\nThis should be a uuid, hash value, or other opaque identifier. Anthropic may use this id to help detect abuse. Do not include any identifying information such as name, email address, or phone number."
           examples:
-          - 13803d75-b4b5-4c3e-b2a2-6f21399b021b
-          title: User Id
-      title: Metadata
-      type: object
+            - "13803d75-b4b5-4c3e-b2a2-6f21399b021b"
+          title: "User Id"
+      title: "Metadata"
+      type: "object"
     RefusalCategory:
-      description: The policy category that triggered a refusal.
+      description: "The policy category that triggered a refusal."
       enum:
-      - cyber
-      - bio
-      - frontier_llm
-      - reasoning_extraction
-      - general_harms
-      title: RefusalCategory
-      type: string
+        - "cyber"
+        - "bio"
+        - "frontier_llm"
+        - "reasoning_extraction"
+        - "general_harms"
+      title: "RefusalCategory"
+      type: "string"
     ErrorResponse:
       properties:
         error:
           discriminator:
             mapping:
-              api_error: '#/components/schemas/APIError'
-              authentication_error: '#/components/schemas/AuthenticationError'
-              billing_error: '#/components/schemas/BillingError'
-              invalid_request_error: '#/components/schemas/InvalidRequestError'
-              not_found_error: '#/components/schemas/NotFoundError'
-              overloaded_error: '#/components/schemas/OverloadedError'
-              permission_error: '#/components/schemas/PermissionError'
-              rate_limit_error: '#/components/schemas/RateLimitError'
-              timeout_error: '#/components/schemas/GatewayTimeoutError'
-            propertyName: type
+              api_error: "#/components/schemas/APIError"
+              authentication_error: "#/components/schemas/AuthenticationError"
+              billing_error: "#/components/schemas/BillingError"
+              invalid_request_error: "#/components/schemas/InvalidRequestError"
+              not_found_error: "#/components/schemas/NotFoundError"
+              overloaded_error: "#/components/schemas/OverloadedError"
+              permission_error: "#/components/schemas/PermissionError"
+              rate_limit_error: "#/components/schemas/RateLimitError"
+              timeout_error: "#/components/schemas/GatewayTimeoutError"
+            propertyName: "type"
           oneOf:
-          - $ref: '#/components/schemas/InvalidRequestError'
-          - $ref: '#/components/schemas/AuthenticationError'
-          - $ref: '#/components/schemas/BillingError'
-          - $ref: '#/components/schemas/PermissionError'
-          - $ref: '#/components/schemas/NotFoundError'
-          - $ref: '#/components/schemas/RateLimitError'
-          - $ref: '#/components/schemas/GatewayTimeoutError'
-          - $ref: '#/components/schemas/APIError'
-          - $ref: '#/components/schemas/OverloadedError'
-          title: Error
+            - $ref: "#/components/schemas/InvalidRequestError"
+            - $ref: "#/components/schemas/AuthenticationError"
+            - $ref: "#/components/schemas/BillingError"
+            - $ref: "#/components/schemas/PermissionError"
+            - $ref: "#/components/schemas/NotFoundError"
+            - $ref: "#/components/schemas/RateLimitError"
+            - $ref: "#/components/schemas/GatewayTimeoutError"
+            - $ref: "#/components/schemas/APIError"
+            - $ref: "#/components/schemas/OverloadedError"
+          title: "Error"
         request_id:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: "string"
+            - type: "null"
           default: null
-          title: Request Id
+          title: "Request Id"
         type:
-          const: error
-          default: error
-          title: Type
-          type: string
+          const: "error"
+          default: "error"
+          title: "Type"
+          type: "string"
       required:
-      - error
-      - request_id
-      - type
-      title: ErrorResponse
-      type: object
+        - "error"
+        - "request_id"
+        - "type"
+      title: "ErrorResponse"
+      type: "object"
     NotFoundError:
       properties:
         message:
-          default: Not found
-          title: Message
-          type: string
+          default: "Not found"
+          title: "Message"
+          type: "string"
         type:
-          const: not_found_error
-          default: not_found_error
-          title: Type
-          type: string
+          const: "not_found_error"
+          default: "not_found_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: NotFoundError
-      type: object
+        - "message"
+        - "type"
+      title: "NotFoundError"
+      type: "object"
     CanceledResult:
       properties:
         type:
-          const: canceled
-          default: canceled
-          title: Type
-          type: string
+          const: "canceled"
+          default: "canceled"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: CanceledResult
-      type: object
+        - "type"
+      title: "CanceledResult"
+      type: "object"
     ToolChoiceNone:
       additionalProperties: false
-      description: The model will not be allowed to use tools.
+      description: "The model will not be allowed to use tools."
       properties:
         type:
-          const: none
-          title: Type
-          type: string
+          const: "none"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ToolChoiceNone
-      type: object
+        - "type"
+      title: "ToolChoiceNone"
+      type: "object"
     Model:
-      title: Model
-      description: 'The model that will complete your prompt.
-
-
-        See [models](https://docs.anthropic.com/en/docs/models-overview) for additional
-        details and options.'
+      title: "Model"
+      description: "The model that will complete your prompt.\n\nSee [models](https://docs.anthropic.com/en/docs/models-overview) for additional details and options."
       anyOf:
-      - type: string
-      - const: claude-sonnet-5
-        description: High-performance model for coding and agents
-      - const: claude-fable-5
-        description: Next generation of intelligence for the hardest knowledge work
-          and coding problems
-      - const: claude-mythos-5
-        description: Most capable model for cybersecurity and biology research
-      - const: claude-opus-5
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-opus-4-8
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-opus-4-7
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-mythos-preview
-        description: New class of intelligence, strongest in coding and cybersecurity
-        deprecated: true
-      - const: claude-opus-4-6
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-sonnet-4-6
-        description: Best combination of speed and intelligence
-      - const: claude-haiku-4-5
-        description: Fastest model with near-frontier intelligence
-      - const: claude-haiku-4-5-20251001
-        description: Fastest model with near-frontier intelligence
-      - const: claude-opus-4-5
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-opus-4-5-20251101
-        description: Powerful intelligence for long-running agents and coding
-      - const: claude-sonnet-4-5
-        description: High-performance model for agents and coding
-      - const: claude-sonnet-4-5-20250929
-        description: High-performance model for agents and coding
+        - type: "string"
+        - const: "claude-sonnet-5"
+          description: "High-performance model for coding and agents"
+        - const: "claude-fable-5"
+          description: "Next generation of intelligence for the hardest knowledge work and coding problems"
+        - const: "claude-mythos-5"
+          description: "Most capable model for cybersecurity and biology research"
+        - const: "claude-opus-5"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-opus-4-8"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-opus-4-7"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-mythos-preview"
+          description: "New class of intelligence, strongest in coding and cybersecurity"
+          deprecated: true
+        - const: "claude-opus-4-6"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-sonnet-4-6"
+          description: "Best combination of speed and intelligence"
+        - const: "claude-haiku-4-5"
+          description: "Fastest model with near-frontier intelligence"
+        - const: "claude-haiku-4-5-20251001"
+          description: "Fastest model with near-frontier intelligence"
+        - const: "claude-opus-4-5"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-opus-4-5-20251101"
+          description: "Powerful intelligence for long-running agents and coding"
+        - const: "claude-sonnet-4-5"
+          description: "High-performance model for agents and coding"
+        - const: "claude-sonnet-4-5-20250929"
+          description: "High-performance model for agents and coding"
     ThinkingConfigDisabled:
       additionalProperties: false
       properties:
         type:
-          const: disabled
-          title: Type
-          type: string
+          const: "disabled"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ThinkingConfigDisabled
-      type: object
+        - "type"
+      title: "ThinkingConfigDisabled"
+      type: "object"
     ResponseThinkingBlock:
       properties:
         signature:
-          description: 'A value used to verify that this thinking block was generated
-            by Claude when it is passed back to the API.
-
-
-            This is an opaque field and should not be interpreted or parsed. When
-            passing thinking blocks back to the API (required when using tools with
-            extended thinking), pass them back exactly as received, with this field
-            intact.
-
-
-            See [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
-            for details.'
-          title: Signature
-          type: string
+          description: "A value used to verify that this thinking block was generated by Claude when it is passed back to the API.\n\nThis is an opaque field and should not be interpreted or parsed. When passing thinking blocks back to the API (required when using tools with extended thinking), pass them back exactly as received, with this field intact.\n\nSee [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) for details."
+          title: "Signature"
+          type: "string"
         thinking:
-          description: The text of Claude's thinking process for this block.
-          title: Thinking
-          type: string
+          description: "The text of Claude's thinking process for this block."
+          title: "Thinking"
+          type: "string"
         type:
-          const: thinking
-          default: thinking
-          title: Type
-          type: string
+          const: "thinking"
+          default: "thinking"
+          title: "Type"
+          type: "string"
       required:
-      - signature
-      - thinking
-      - type
-      title: ResponseThinkingBlock
-      type: object
+        - "signature"
+        - "thinking"
+        - "type"
+      title: "ResponseThinkingBlock"
+      type: "object"
     ContentBlock:
       discriminator:
         mapping:
-          bash_code_execution_tool_result: '#/components/schemas/ResponseBashCodeExecutionToolResultBlock'
-          code_execution_tool_result: '#/components/schemas/ResponseCodeExecutionToolResultBlock'
-          container_upload: '#/components/schemas/ResponseContainerUploadBlock'
-          redacted_thinking: '#/components/schemas/ResponseRedactedThinkingBlock'
-          server_tool_use: '#/components/schemas/ResponseServerToolUseBlock'
-          text: '#/components/schemas/ResponseTextBlock'
-          text_editor_code_execution_tool_result: '#/components/schemas/ResponseTextEditorCodeExecutionToolResultBlock'
-          thinking: '#/components/schemas/ResponseThinkingBlock'
-          tool_search_tool_result: '#/components/schemas/ResponseToolSearchToolResultBlock'
-          tool_use: '#/components/schemas/ResponseToolUseBlock'
-          web_fetch_tool_result: '#/components/schemas/ResponseWebFetchToolResultBlock'
-          web_search_tool_result: '#/components/schemas/ResponseWebSearchToolResultBlock'
-        propertyName: type
+          bash_code_execution_tool_result: "#/components/schemas/ResponseBashCodeExecutionToolResultBlock"
+          code_execution_tool_result: "#/components/schemas/ResponseCodeExecutionToolResultBlock"
+          container_upload: "#/components/schemas/ResponseContainerUploadBlock"
+          redacted_thinking: "#/components/schemas/ResponseRedactedThinkingBlock"
+          server_tool_use: "#/components/schemas/ResponseServerToolUseBlock"
+          text: "#/components/schemas/ResponseTextBlock"
+          text_editor_code_execution_tool_result: "#/components/schemas/ResponseTextEditorCodeExecutionToolResultBlock"
+          thinking: "#/components/schemas/ResponseThinkingBlock"
+          tool_search_tool_result: "#/components/schemas/ResponseToolSearchToolResultBlock"
+          tool_use: "#/components/schemas/ResponseToolUseBlock"
+          web_fetch_tool_result: "#/components/schemas/ResponseWebFetchToolResultBlock"
+          web_search_tool_result: "#/components/schemas/ResponseWebSearchToolResultBlock"
+        propertyName: "type"
       oneOf:
-      - $ref: '#/components/schemas/ResponseTextBlock'
-      - $ref: '#/components/schemas/ResponseThinkingBlock'
-      - $ref: '#/components/schemas/ResponseToolUseBlock'
+        - $ref: "#/components/schemas/ResponseTextBlock"
+        - $ref: "#/components/schemas/ResponseThinkingBlock"
+        - $ref: "#/components/schemas/ResponseToolUseBlock"
     Tool:
       additionalProperties: false
       properties:
         type:
           anyOf:
-          - type: 'null'
-          - const: custom
-            type: string
-          title: Type
+            - type: "null"
+            - const: "custom"
+              type: "string"
+          title: "Type"
         description:
-          description: 'Description of what this tool does.
-
-
-            Tool descriptions should be as detailed as possible. The more information
-            that the model has about what the tool is and how to use it, the better
-            it will perform. You can use natural language descriptions to reinforce
-            important aspects of the tool input JSON schema.'
+          description: "Description of what this tool does.\n\nTool descriptions should be as detailed as possible. The more information that the model has about what the tool is and how to use it, the better it will perform. You can use natural language descriptions to reinforce important aspects of the tool input JSON schema."
           examples:
-          - Get the current weather in a given location
-          title: Description
-          type: string
+            - "Get the current weather in a given location"
+          title: "Description"
+          type: "string"
         name:
-          description: 'Name of the tool.
-
-
-            This is how the tool will be called by the model and in `tool_use` blocks.'
+          description: "Name of the tool.\n\nThis is how the tool will be called by the model and in `tool_use` blocks."
           maxLength: 128
           minLength: 1
-          pattern: ^[a-zA-Z0-9_-]{1,128}$
-          title: Name
-          type: string
+          pattern: "^[a-zA-Z0-9_-]{1,128}$"
+          title: "Name"
+          type: "string"
         input_schema:
-          $ref: '#/components/schemas/InputSchema'
-          description: '[JSON schema](https://json-schema.org/draft/2020-12) for this
-            tool''s input.
-
-
-            This defines the shape of the `input` that your tool accepts and that
-            the model will produce.'
+          $ref: "#/components/schemas/InputSchema"
+          description: "[JSON schema](https://json-schema.org/draft/2020-12) for this tool's input.\n\nThis defines the shape of the `input` that your tool accepts and that the model will produce."
           examples:
-          - properties:
-              location:
-                description: The city and state, e.g. San Francisco, CA
-                type: string
-              unit:
-                description: Unit for the output - one of (celsius, fahrenheit)
-                type: string
-            required:
-            - location
-            type: object
+            - properties:
+                location:
+                  description: "The city and state, e.g. San Francisco, CA"
+                  type: "string"
+                unit:
+                  description: "Unit for the output - one of (celsius, fahrenheit)"
+                  type: "string"
+              required:
+                - "location"
+              type: "object"
         cache_control:
           anyOf:
-          - discriminator:
-              mapping:
-                ephemeral: '#/components/schemas/CacheControlEphemeral'
-              propertyName: type
-            oneOf:
-            - $ref: '#/components/schemas/CacheControlEphemeral'
-          - type: 'null'
-          description: Create a cache control breakpoint at this content block.
-          title: Cache Control
+            - discriminator:
+                mapping:
+                  ephemeral: "#/components/schemas/CacheControlEphemeral"
+                propertyName: "type"
+              oneOf:
+                - $ref: "#/components/schemas/CacheControlEphemeral"
+            - type: "null"
+          description: "Create a cache control breakpoint at this content block."
+          title: "Cache Control"
         strict:
-          description: When true, guarantees schema validation on tool names and inputs
-          title: Strict
-          type: boolean
+          description: "When true, guarantees schema validation on tool names and inputs"
+          title: "Strict"
+          type: "boolean"
         eager_input_streaming:
           anyOf:
-          - type: boolean
-          - type: 'null'
-          description: Enable eager input streaming for this tool. When true, tool
-            input parameters will be streamed incrementally as they are generated,
-            and types will be inferred on-the-fly rather than buffering the full JSON
-            output. When false, streaming is disabled for this tool even if the fine-grained-tool-streaming
-            beta is active. When null (default), uses the default behavior based on
-            beta headers.
-          title: Eager Input Streaming
+            - type: "boolean"
+            - type: "null"
+          description: "Enable eager input streaming for this tool. When true, tool input parameters will be streamed incrementally as they are generated, and types will be inferred on-the-fly rather than buffering the full JSON output. When false, streaming is disabled for this tool even if the fine-grained-tool-streaming beta is active. When null (default), uses the default behavior based on beta headers."
+          title: "Eager Input Streaming"
         allowed_callers:
-          title: Allowed Callers
-          type: array
+          title: "Allowed Callers"
+          type: "array"
         defer_loading:
-          description: If true, tool will not be included in initial system prompt.
-            Only loaded when returned via tool_reference from tool search.
-          title: Defer Loading
-          type: boolean
+          description: "If true, tool will not be included in initial system prompt. Only loaded when returned via tool_reference from tool search."
+          title: "Defer Loading"
+          type: "boolean"
         input_examples:
           items:
             additionalProperties:
-              $ref: '#/components/schemas/JsonValue'
-            type: object
-          title: Input Examples
-          type: array
+              $ref: "#/components/schemas/JsonValue"
+            type: "object"
+          title: "Input Examples"
+          type: "array"
       required:
-      - name
-      - input_schema
-      title: Tool
-      type: object
+        - "name"
+        - "input_schema"
+      title: "Tool"
+      type: "object"
     ToolChoiceAuto:
       additionalProperties: false
-      description: The model will automatically decide whether to use tools.
+      description: "The model will automatically decide whether to use tools."
       properties:
         disable_parallel_tool_use:
-          description: 'Whether to disable parallel tool use.
-
-
-            Defaults to `false`. If set to `true`, the model will output at most one
-            tool use.'
-          title: Disable Parallel Tool Use
-          type: boolean
+          description: "Whether to disable parallel tool use.\n\nDefaults to `false`. If set to `true`, the model will output at most one tool use."
+          title: "Disable Parallel Tool Use"
+          type: "boolean"
         type:
-          const: auto
-          title: Type
-          type: string
+          const: "auto"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ToolChoiceAuto
-      type: object
+        - "type"
+      title: "ToolChoiceAuto"
+      type: "object"
     OverloadedError:
       properties:
         message:
-          default: Overloaded
-          title: Message
-          type: string
+          default: "Overloaded"
+          title: "Message"
+          type: "string"
         type:
-          const: overloaded_error
-          default: overloaded_error
-          title: Type
-          type: string
+          const: "overloaded_error"
+          default: "overloaded_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: OverloadedError
-      type: object
+        - "message"
+        - "type"
+      title: "OverloadedError"
+      type: "object"
     ToolChoiceTool:
       additionalProperties: false
-      description: The model will use the specified tool with `tool_choice.name`.
+      description: "The model will use the specified tool with `tool_choice.name`."
       properties:
         disable_parallel_tool_use:
-          description: 'Whether to disable parallel tool use.
-
-
-            Defaults to `false`. If set to `true`, the model will output exactly one
-            tool use.'
-          title: Disable Parallel Tool Use
-          type: boolean
+          description: "Whether to disable parallel tool use.\n\nDefaults to `false`. If set to `true`, the model will output exactly one tool use."
+          title: "Disable Parallel Tool Use"
+          type: "boolean"
         name:
-          description: The name of the tool to use.
-          title: Name
-          type: string
+          description: "The name of the tool to use."
+          title: "Name"
+          type: "string"
         type:
-          const: tool
-          title: Type
-          type: string
+          const: "tool"
+          title: "Type"
+          type: "string"
       required:
-      - name
-      - type
-      title: ToolChoiceTool
-      type: object
+        - "name"
+        - "type"
+      title: "ToolChoiceTool"
+      type: "object"
     MessageBatch:
       properties:
         archived_at:
           anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Archived At
-          description: RFC 3339 datetime string representing the time at which the
-            Message Batch was archived and its results became unavailable.
+            - type: "string"
+              format: "date-time"
+            - type: "null"
+          title: "Archived At"
+          description: "RFC 3339 datetime string representing the time at which the Message Batch was archived and its results became unavailable."
           examples:
-          - '2024-08-20T18:37:24.100435Z'
+            - "2024-08-20T18:37:24.100435Z"
         cancel_initiated_at:
           anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Cancel Initiated At
-          description: RFC 3339 datetime string representing the time at which cancellation
-            was initiated for the Message Batch. Specified only if cancellation was
-            initiated.
+            - type: "string"
+              format: "date-time"
+            - type: "null"
+          title: "Cancel Initiated At"
+          description: "RFC 3339 datetime string representing the time at which cancellation was initiated for the Message Batch. Specified only if cancellation was initiated."
           examples:
-          - '2024-08-20T18:37:24.100435Z'
+            - "2024-08-20T18:37:24.100435Z"
         created_at:
-          type: string
-          format: date-time
-          title: Created At
-          description: RFC 3339 datetime string representing the time at which the
-            Message Batch was created.
+          type: "string"
+          format: "date-time"
+          title: "Created At"
+          description: "RFC 3339 datetime string representing the time at which the Message Batch was created."
           examples:
-          - '2024-08-20T18:37:24.100435Z'
+            - "2024-08-20T18:37:24.100435Z"
         ended_at:
           anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Ended At
-          description: 'RFC 3339 datetime string representing the time at which processing
-            for the Message Batch ended. Specified only once processing ends.
-
-
-            Processing ends when every request in a Message Batch has either succeeded,
-            errored, canceled, or expired.'
+            - type: "string"
+              format: "date-time"
+            - type: "null"
+          title: "Ended At"
+          description: "RFC 3339 datetime string representing the time at which processing for the Message Batch ended. Specified only once processing ends.\n\nProcessing ends when every request in a Message Batch has either succeeded, errored, canceled, or expired."
           examples:
-          - '2024-08-20T18:37:24.100435Z'
+            - "2024-08-20T18:37:24.100435Z"
         expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-          description: RFC 3339 datetime string representing the time at which the
-            Message Batch will expire and end processing, which is 24 hours after
-            creation.
+          type: "string"
+          format: "date-time"
+          title: "Expires At"
+          description: "RFC 3339 datetime string representing the time at which the Message Batch will expire and end processing, which is 24 hours after creation."
           examples:
-          - '2024-08-20T18:37:24.100435Z'
+            - "2024-08-20T18:37:24.100435Z"
         id:
-          type: string
-          title: Id
-          description: 'Unique object identifier.
-
-
-            The format and length of IDs may change over time.'
+          type: "string"
+          title: "Id"
+          description: "Unique object identifier.\n\nThe format and length of IDs may change over time."
           examples:
-          - msgbatch_013Zva2CMHLNnXjNJJKqJ2EF
+            - "msgbatch_013Zva2CMHLNnXjNJJKqJ2EF"
         processing_status:
-          type: string
+          type: "string"
           enum:
-          - in_progress
-          - canceling
-          - ended
-          title: Processing Status
-          description: Processing status of the Message Batch.
+            - "in_progress"
+            - "canceling"
+            - "ended"
+          title: "Processing Status"
+          description: "Processing status of the Message Batch."
           examples:
-          - in_progress
+            - "in_progress"
         request_counts:
-          $ref: '#/components/schemas/RequestCounts'
-          description: 'Tallies requests within the Message Batch, categorized by
-            their status.
-
-
-            Requests start as `processing` and move to one of the other statuses only
-            once processing of the entire batch ends. The sum of all values always
-            matches the total number of requests in the batch.'
+          $ref: "#/components/schemas/RequestCounts"
+          description: "Tallies requests within the Message Batch, categorized by their status.\n\nRequests start as `processing` and move to one of the other statuses only once processing of the entire batch ends. The sum of all values always matches the total number of requests in the batch."
         results_url:
           anyOf:
-          - type: string
-          - type: 'null'
-          title: Results Url
-          description: 'URL to a `.jsonl` file containing the results of the Message
-            Batch requests. Specified only once processing ends.
-
-
-            Results in the file are not guaranteed to be in the same order as requests.
-            Use the `custom_id` field to match results to requests.'
+            - type: "string"
+            - type: "null"
+          title: "Results Url"
+          description: "URL to a `.jsonl` file containing the results of the Message Batch requests. Specified only once processing ends.\n\nResults in the file are not guaranteed to be in the same order as requests. Use the `custom_id` field to match results to requests."
           examples:
-          - https://api.anthropic.com/v1/messages/batches/msgbatch_013Zva2CMHLNnXjNJJKqJ2EF/results
+            - "https://api.anthropic.com/v1/messages/batches/msgbatch_013Zva2CMHLNnXjNJJKqJ2EF/results"
         type:
-          type: string
-          const: message_batch
-          title: Type
-          description: 'Object type.
-
-
-            For Message Batches, this is always `"message_batch"`.'
-          default: message_batch
-      type: object
+          type: "string"
+          const: "message_batch"
+          title: "Type"
+          description: "Object type.\n\nFor Message Batches, this is always `\"message_batch\"`."
+          default: "message_batch"
+      type: "object"
       required:
-      - archived_at
-      - cancel_initiated_at
-      - created_at
-      - ended_at
-      - expires_at
-      - id
-      - processing_status
-      - request_counts
-      - results_url
-      - type
-      title: MessageBatch
+        - "archived_at"
+        - "cancel_initiated_at"
+        - "created_at"
+        - "ended_at"
+        - "expires_at"
+        - "id"
+        - "processing_status"
+        - "request_counts"
+        - "results_url"
+        - "type"
+      title: "MessageBatch"
     ThinkingConfigParam:
-      description: 'Configuration for enabling Claude''s extended thinking.
-
-
-        When enabled, responses include `thinking` content blocks showing Claude''s
-        thinking process before the final answer. Requires a minimum budget of 1,024
-        tokens and counts towards your `max_tokens` limit.
-
-
-        See [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
-        for details.'
+      description: "Configuration for enabling Claude's extended thinking.\n\nWhen enabled, responses include `thinking` content blocks showing Claude's thinking process before the final answer. Requires a minimum budget of 1,024 tokens and counts towards your `max_tokens` limit.\n\nSee [extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) for details."
       discriminator:
         mapping:
-          adaptive: '#/components/schemas/ThinkingConfigAdaptive'
-          disabled: '#/components/schemas/ThinkingConfigDisabled'
-          enabled: '#/components/schemas/ThinkingConfigEnabled'
-        propertyName: type
+          adaptive: "#/components/schemas/ThinkingConfigAdaptive"
+          disabled: "#/components/schemas/ThinkingConfigDisabled"
+          enabled: "#/components/schemas/ThinkingConfigEnabled"
+        propertyName: "type"
       examples:
-      - type: adaptive
+        - type: "adaptive"
       oneOf:
-      - $ref: '#/components/schemas/ThinkingConfigEnabled'
-      - $ref: '#/components/schemas/ThinkingConfigDisabled'
-      - $ref: '#/components/schemas/ThinkingConfigAdaptive'
-      title: Thinking
+        - $ref: "#/components/schemas/ThinkingConfigEnabled"
+        - $ref: "#/components/schemas/ThinkingConfigDisabled"
+        - $ref: "#/components/schemas/ThinkingConfigAdaptive"
+      title: "Thinking"
     OutputConfig:
       additionalProperties: false
       properties:
         effort:
           anyOf:
-          - $ref: '#/components/schemas/EffortLevel'
-          - type: 'null'
-          description: 'How much effort the model should put into its response. Higher
-            effort levels may result in more thorough analysis but take longer.
-
-
-            Valid values are `low`, `medium`, `high`, `xhigh`, or `max`.'
-          title: Effort
+            - $ref: "#/components/schemas/EffortLevel"
+            - type: "null"
+          description: "How much effort the model should put into its response. Higher effort levels may result in more thorough analysis but take longer.\n\nValid values are `low`, `medium`, `high`, `xhigh`, or `max`."
+          title: "Effort"
         format:
           anyOf:
-          - $ref: '#/components/schemas/JsonOutputFormat'
-          - type: 'null'
-          description: A schema to specify Claude's output format in responses. See
-            [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
-      title: OutputConfig
-      type: object
+            - $ref: "#/components/schemas/JsonOutputFormat"
+            - type: "null"
+          description: "A schema to specify Claude's output format in responses. See [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)"
+      title: "OutputConfig"
+      type: "object"
     CreateMessageParams:
       additionalProperties: false
       example:
         max_tokens: 1024
         messages:
-        - content: Hello, world
-          role: user
-        model: claude-opus-5
+          - content: "Hello, world"
+            role: "user"
+        model: "claude-opus-5"
       properties:
         model:
-          $ref: '#/components/schemas/Model'
+          $ref: "#/components/schemas/Model"
         messages:
-          description: "Input messages.\n\nOur models are trained to operate on alternating\
-            \ `user` and `assistant` conversational turns. When creating a new `Message`,\
-            \ you specify the prior conversational turns with the `messages` parameter,\
-            \ and the model then generates the next `Message` in the conversation.\
-            \ Consecutive `user` or `assistant` turns in your request will be combined\
-            \ into a single turn.\n\nEach input message must be an object with a `role`\
-            \ and `content`. You can specify a single `user`-role message, or you\
-            \ can include multiple `user` and `assistant` messages.\n\nIf the final\
-            \ message uses the `assistant` role, the response content will continue\
-            \ immediately from the content in that message. This can be used to constrain\
-            \ part of the model's response.\n\nExample with a single `user` message:\n\
-            \n```json\n[{\"role\": \"user\", \"content\": \"Hello, Claude\"}]\n```\n\
-            \nExample with multiple conversational turns:\n\n```json\n[\n  {\"role\"\
-            : \"user\", \"content\": \"Hello there.\"},\n  {\"role\": \"assistant\"\
-            , \"content\": \"Hi, I'm Claude. How can I help you?\"},\n  {\"role\"\
-            : \"user\", \"content\": \"Can you explain LLMs in plain English?\"},\n\
-            ]\n```\n\nExample with a partially-filled response from Claude:\n\n```json\n\
-            [\n  {\"role\": \"user\", \"content\": \"What's the Greek name for Sun?\
-            \ (A) Sol (B) Helios (C) Sun\"},\n  {\"role\": \"assistant\", \"content\"\
-            : \"The best answer is (\"},\n]\n```\n\nEach input message `content` may\
-            \ be either a single `string` or an array of content blocks, where each\
-            \ block has a specific `type`. Using a `string` for `content` is shorthand\
-            \ for an array of one content block of type `\"text\"`. The following\
-            \ input messages are equivalent:\n\n```json\n{\"role\": \"user\", \"content\"\
-            : \"Hello, Claude\"}\n```\n\n```json\n{\"role\": \"user\", \"content\"\
-            : [{\"type\": \"text\", \"text\": \"Hello, Claude\"}]}\n```\n\nSee [input\
-            \ examples](https://platform.claude.com/docs/en/build-with-claude/working-with-messages).\n\
-            \nNote that if you want to include a [system prompt](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#give-claude-a-role),\
-            \ you can use the top-level `system` parameter — there is no `\"system\"\
-            ` role for input messages in the Messages API.\n\nThere is a limit of\
-            \ 100,000 messages in a single request."
+          description: "Input messages.\n\nOur models are trained to operate on alternating `user` and `assistant` conversational turns. When creating a new `Message`, you specify the prior conversational turns with the `messages` parameter, and the model then generates the next `Message` in the conversation. Consecutive `user` or `assistant` turns in your request will be combined into a single turn.\n\nEach input message must be an object with a `role` and `content`. You can specify a single `user`-role message, or you can include multiple `user` and `assistant` messages.\n\nIf the final message uses the `assistant` role, the response content will continue immediately from the content in that message. This can be used to constrain part of the model's response.\n\nExample with a single `user` message:\n\n```json\n[{\"role\": \"user\", \"content\": \"Hello, Claude\"}]\n```\n\nExample with multiple conversational turns:\n\n```json\n[\n  {\"role\": \"user\", \"content\": \"Hello there.\"},\n  {\"role\": \"assistant\", \"content\": \"Hi, I'm Claude. How can I help you?\"},\n  {\"role\": \"user\", \"content\": \"Can you explain LLMs in plain English?\"},\n]\n```\n\nExample with a partially-filled response from Claude:\n\n```json\n[\n  {\"role\": \"user\", \"content\": \"What's the Greek name for Sun? (A) Sol (B) Helios (C) Sun\"},\n  {\"role\": \"assistant\", \"content\": \"The best answer is (\"},\n]\n```\n\nEach input message `content` may be either a single `string` or an array of content blocks, where each block has a specific `type`. Using a `string` for `content` is shorthand for an array of one content block of type `\"text\"`. The following input messages are equivalent:\n\n```json\n{\"role\": \"user\", \"content\": \"Hello, Claude\"}\n```\n\n```json\n{\"role\": \"user\", \"content\": [{\"type\": \"text\", \"text\": \"Hello, Claude\"}]}\n```\n\nSee [input examples](https://platform.claude.com/docs/en/build-with-claude/working-with-messages).\n\nNote that if you want to include a [system prompt](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#give-claude-a-role), you can use the top-level `system` parameter — there is no `\"system\"` role for input messages in the Messages API.\n\nThere is a limit of 100,000 messages in a single request."
           items:
-            $ref: '#/components/schemas/InputMessage'
-          title: Messages
-          type: array
+            $ref: "#/components/schemas/InputMessage"
+          title: "Messages"
+          type: "array"
         cache_control:
           anyOf:
-          - discriminator:
-              mapping:
-                ephemeral: '#/components/schemas/CacheControlEphemeral'
-              propertyName: type
-            oneOf:
-            - $ref: '#/components/schemas/CacheControlEphemeral'
-          - type: 'null'
-          description: Top-level cache control automatically applies a cache_control
-            marker to the last cacheable block in the request.
-          title: Cache Control
+            - discriminator:
+                mapping:
+                  ephemeral: "#/components/schemas/CacheControlEphemeral"
+                propertyName: "type"
+              oneOf:
+                - $ref: "#/components/schemas/CacheControlEphemeral"
+            - type: "null"
+          description: "Top-level cache control automatically applies a cache_control marker to the last cacheable block in the request."
+          title: "Cache Control"
         container:
           anyOf:
-          - type: string
-          - type: 'null'
-          description: Container identifier for reuse across requests.
-          title: Container
+            - type: "string"
+            - type: "null"
+          description: "Container identifier for reuse across requests."
+          title: "Container"
         inference_geo:
           anyOf:
-          - type: string
-          - type: 'null'
-          description: Specifies the geographic region for inference processing. If
-            not specified, the workspace's `default_inference_geo` is used.
-          title: Inference Geo
+            - type: "string"
+            - type: "null"
+          description: "Specifies the geographic region for inference processing. If not specified, the workspace's `default_inference_geo` is used."
+          title: "Inference Geo"
         max_tokens:
-          description: 'The maximum number of tokens to generate before stopping.
-
-
-            Note that our models may stop _before_ reaching this maximum. This parameter
-            only specifies the absolute maximum number of tokens to generate.
-
-
-            Set to `0` to populate the [prompt cache](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pre-warming-the-cache)
-            without generating a response.
-
-
-            Different models have different maximum values for this parameter.  See
-            [models](https://platform.claude.com/docs/en/about-claude/models/overview)
-            for details.'
+          description: "The maximum number of tokens to generate before stopping.\n\nNote that our models may stop _before_ reaching this maximum. This parameter only specifies the absolute maximum number of tokens to generate.\n\nSet to `0` to populate the [prompt cache](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pre-warming-the-cache) without generating a response.\n\nDifferent models have different maximum values for this parameter.  See [models](https://platform.claude.com/docs/en/about-claude/models/overview) for details."
           examples:
-          - 1024
+            - 1024
           minimum: 0
-          title: Max Tokens
-          type: integer
+          title: "Max Tokens"
+          type: "integer"
         metadata:
-          $ref: '#/components/schemas/Metadata'
-          description: An object describing metadata about the request.
+          $ref: "#/components/schemas/Metadata"
+          description: "An object describing metadata about the request."
         output_config:
-          $ref: '#/components/schemas/OutputConfig'
-          description: Configuration options for the model's output, such as the output
-            format.
+          $ref: "#/components/schemas/OutputConfig"
+          description: "Configuration options for the model's output, such as the output format."
         service_tier:
-          description: 'Determines whether to use priority capacity (if available)
-            or standard capacity for this request.
-
-
-            Anthropic offers different levels of service for your API requests. See
-            [service-tiers](https://platform.claude.com/docs/en/api/service-tiers)
-            for details.'
+          description: "Determines whether to use priority capacity (if available) or standard capacity for this request.\n\nAnthropic offers different levels of service for your API requests. See [service-tiers](https://platform.claude.com/docs/en/api/service-tiers) for details."
           enum:
-          - auto
-          - standard_only
-          title: Service Tier
-          type: string
+            - "auto"
+            - "standard_only"
+          title: "Service Tier"
+          type: "string"
         stop_sequences:
-          description: 'Custom text sequences that will cause the model to stop generating.
-
-
-            Our models will normally stop when they have naturally completed their
-            turn, which will result in a response `stop_reason` of `"end_turn"`.
-
-
-            If you want the model to stop generating when it encounters custom strings
-            of text, you can use the `stop_sequences` parameter. If the model encounters
-            one of the custom sequences, the response `stop_reason` value will be
-            `"stop_sequence"` and the response `stop_sequence` value will contain
-            the matched stop sequence.'
+          description: "Custom text sequences that will cause the model to stop generating.\n\nOur models will normally stop when they have naturally completed their turn, which will result in a response `stop_reason` of `\"end_turn\"`.\n\nIf you want the model to stop generating when it encounters custom strings of text, you can use the `stop_sequences` parameter. If the model encounters one of the custom sequences, the response `stop_reason` value will be `\"stop_sequence\"` and the response `stop_sequence` value will contain the matched stop sequence."
           items:
-            type: string
-          title: Stop Sequences
-          type: array
+            type: "string"
+          title: "Stop Sequences"
+          type: "array"
         stream:
-          description: 'Whether to incrementally stream the response using server-sent
-            events.
-
-
-            See [streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)
-            for details.'
-          title: Stream
-          type: boolean
+          description: "Whether to incrementally stream the response using server-sent events.\n\nSee [streaming](https://platform.claude.com/docs/en/build-with-claude/streaming) for details."
+          title: "Stream"
+          type: "boolean"
           example: false
         system:
           anyOf:
-          - type: string
-          - items:
-              $ref: '#/components/schemas/RequestTextBlock'
-            type: array
-          description: 'System prompt.
-
-
-            A system prompt is a way of providing context and instructions to Claude,
-            such as specifying a particular goal or role. See our [guide to system
-            prompts](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#give-claude-a-role).'
+            - type: "string"
+            - items:
+                $ref: "#/components/schemas/RequestTextBlock"
+              type: "array"
+          description: "System prompt.\n\nA system prompt is a way of providing context and instructions to Claude, such as specifying a particular goal or role. See our [guide to system prompts](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#give-claude-a-role)."
           examples:
-          - - text: Today's date is 2024-06-01.
-              type: text
-          - Today's date is 2023-01-01.
-          title: System
+            - - text: "Today's date is 2024-06-01."
+                type: "text"
+            - "Today's date is 2023-01-01."
+          title: "System"
         temperature:
           deprecated: true
-          description: 'Amount of randomness injected into the response.
-
-
-            Defaults to `1.0`. Ranges from `0.0` to `1.0`. Use `temperature` closer
-            to `0.0` for analytical / multiple choice, and closer to `1.0` for creative
-            and generative tasks.
-
-
-            Note that even with `temperature` of `0.0`, the results will not be fully
-            deterministic.'
+          description: "Amount of randomness injected into the response.\n\nDefaults to `1.0`. Ranges from `0.0` to `1.0`. Use `temperature` closer to `0.0` for analytical / multiple choice, and closer to `1.0` for creative and generative tasks.\n\nNote that even with `temperature` of `0.0`, the results will not be fully deterministic."
           examples:
-          - 1
+            - 1
           maximum: 1
           minimum: 0
-          title: Temperature
-          type: number
+          title: "Temperature"
+          type: "number"
         thinking:
-          $ref: '#/components/schemas/ThinkingConfigParam'
+          $ref: "#/components/schemas/ThinkingConfigParam"
         tool_choice:
-          $ref: '#/components/schemas/ToolChoice'
+          $ref: "#/components/schemas/ToolChoice"
         tools:
-          description: "Definitions of tools that the model may use.\n\nIf you include\
-            \ `tools` in your API request, the model may return `tool_use` content\
-            \ blocks that represent the model's use of those tools. You can then run\
-            \ those tools using the tool input generated by the model and then optionally\
-            \ return results back to the model using `tool_result` content blocks.\n\
-            \nThere are two types of tools: **client tools** and **server tools**.\
-            \ The behavior described below applies to client tools. For [server tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools),\
-            \ see their individual documentation as each has its own behavior (e.g.,\
-            \ the [web search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)).\n\
-            \nEach tool definition includes:\n\n* `name`: Name of the tool.\n* `description`:\
-            \ Optional, but strongly-recommended description of the tool.\n* `input_schema`:\
-            \ [JSON schema](https://json-schema.org/draft/2020-12) for the tool `input`\
-            \ shape that the model will produce in `tool_use` output content blocks.\n\
-            \nFor example, if you defined `tools` as:\n\n```json\n[\n  {\n    \"name\"\
-            : \"get_stock_price\",\n    \"description\": \"Get the current stock price\
-            \ for a given ticker symbol.\",\n    \"input_schema\": {\n      \"type\"\
-            : \"object\",\n      \"properties\": {\n        \"ticker\": {\n      \
-            \    \"type\": \"string\",\n          \"description\": \"The stock ticker\
-            \ symbol, e.g. AAPL for Apple Inc.\"\n        }\n      },\n      \"required\"\
-            : [\"ticker\"]\n    }\n  }\n]\n```\n\nAnd then asked the model \"What's\
-            \ the S&P 500 at today?\", the model might produce `tool_use` content\
-            \ blocks in the response like this:\n\n```json\n[\n  {\n    \"type\":\
-            \ \"tool_use\",\n    \"id\": \"toolu_01D7FLrfh4GYq7yT1ULFeyMV\",\n   \
-            \ \"name\": \"get_stock_price\",\n    \"input\": { \"ticker\": \"^GSPC\"\
-            \ }\n  }\n]\n```\n\nYou might then run your `get_stock_price` tool with\
-            \ `{\"ticker\": \"^GSPC\"}` as an input, and return the following back\
-            \ to the model in a subsequent `user` message:\n\n```json\n[\n  {\n  \
-            \  \"type\": \"tool_result\",\n    \"tool_use_id\": \"toolu_01D7FLrfh4GYq7yT1ULFeyMV\"\
-            ,\n    \"content\": \"259.75 USD\"\n  }\n]\n```\n\nTools can be used for\
-            \ workflows that include running client-side tools and functions, or more\
-            \ generally whenever you want the model to produce a particular JSON structure\
-            \ of output.\n\nSee our [guide](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)\
-            \ for more details."
+          description: "Definitions of tools that the model may use.\n\nIf you include `tools` in your API request, the model may return `tool_use` content blocks that represent the model's use of those tools. You can then run those tools using the tool input generated by the model and then optionally return results back to the model using `tool_result` content blocks.\n\nThere are two types of tools: **client tools** and **server tools**. The behavior described below applies to client tools. For [server tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools), see their individual documentation as each has its own behavior (e.g., the [web search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)).\n\nEach tool definition includes:\n\n* `name`: Name of the tool.\n* `description`: Optional, but strongly-recommended description of the tool.\n* `input_schema`: [JSON schema](https://json-schema.org/draft/2020-12) for the tool `input` shape that the model will produce in `tool_use` output content blocks.\n\nFor example, if you defined `tools` as:\n\n```json\n[\n  {\n    \"name\": \"get_stock_price\",\n    \"description\": \"Get the current stock price for a given ticker symbol.\",\n    \"input_schema\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"ticker\": {\n          \"type\": \"string\",\n          \"description\": \"The stock ticker symbol, e.g. AAPL for Apple Inc.\"\n        }\n      },\n      \"required\": [\"ticker\"]\n    }\n  }\n]\n```\n\nAnd then asked the model \"What's the S&P 500 at today?\", the model might produce `tool_use` content blocks in the response like this:\n\n```json\n[\n  {\n    \"type\": \"tool_use\",\n    \"id\": \"toolu_01D7FLrfh4GYq7yT1ULFeyMV\",\n    \"name\": \"get_stock_price\",\n    \"input\": { \"ticker\": \"^GSPC\" }\n  }\n]\n```\n\nYou might then run your `get_stock_price` tool with `{\"ticker\": \"^GSPC\"}` as an input, and return the following back to the model in a subsequent `user` message:\n\n```json\n[\n  {\n    \"type\": \"tool_result\",\n    \"tool_use_id\": \"toolu_01D7FLrfh4GYq7yT1ULFeyMV\",\n    \"content\": \"259.75 USD\"\n  }\n]\n```\n\nTools can be used for workflows that include running client-side tools and functions, or more generally whenever you want the model to produce a particular JSON structure of output.\n\nSee our [guide](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) for more details."
           examples:
-          - description: Get the current weather in a given location
-            input_schema:
-              properties:
-                location:
-                  description: The city and state, e.g. San Francisco, CA
-                  type: string
-                unit:
-                  description: Unit for the output - one of (celsius, fahrenheit)
-                  type: string
-              required:
-              - location
-              type: object
-            name: get_weather
+            - description: "Get the current weather in a given location"
+              input_schema:
+                properties:
+                  location:
+                    description: "The city and state, e.g. San Francisco, CA"
+                    type: "string"
+                  unit:
+                    description: "Unit for the output - one of (celsius, fahrenheit)"
+                    type: "string"
+                required:
+                  - "location"
+                type: "object"
+              name: "get_weather"
           items:
             oneOf:
-            - $ref: '#/components/schemas/Tool'
-          title: Tools
-          type: array
+              - $ref: "#/components/schemas/Tool"
+          title: "Tools"
+          type: "array"
         top_k:
           deprecated: true
-          description: 'Only sample from the top K options for each subsequent token.
-
-
-            Used to remove "long tail" low probability responses. [Learn more technical
-            details here](https://towardsdatascience.com/how-to-sample-from-language-models-682bceb97277).
-
-
-            Recommended for advanced use cases only.'
+          description: "Only sample from the top K options for each subsequent token.\n\nUsed to remove \"long tail\" low probability responses. [Learn more technical details here](https://towardsdatascience.com/how-to-sample-from-language-models-682bceb97277).\n\nRecommended for advanced use cases only."
           examples:
-          - 5
+            - 5
           minimum: 0
-          title: Top K
-          type: integer
+          title: "Top K"
+          type: "integer"
         top_p:
           deprecated: true
-          description: 'Use nucleus sampling.
-
-
-            In nucleus sampling, we compute the cumulative distribution over all the
-            options for each subsequent token in decreasing probability order and
-            cut it off once it reaches a particular probability specified by `top_p`.
-
-
-            Recommended for advanced use cases only.'
+          description: "Use nucleus sampling.\n\nIn nucleus sampling, we compute the cumulative distribution over all the options for each subsequent token in decreasing probability order and cut it off once it reaches a particular probability specified by `top_p`.\n\nRecommended for advanced use cases only."
           examples:
-          - 0.7
+            - 0.7
           maximum: 1
           minimum: 0
-          title: Top P
-          type: number
+          title: "Top P"
+          type: "number"
       required:
-      - model
-      - messages
-      - max_tokens
-      title: CreateMessageParams
-      type: object
+        - "model"
+        - "messages"
+        - "max_tokens"
+      title: "CreateMessageParams"
+      type: "object"
     CacheControlEphemeral:
       additionalProperties: false
       properties:
         ttl:
-          description: 'The time-to-live for the cache control breakpoint.
-
-
-            This may be one the following values:
-
-            - `5m`: 5 minutes
-
-            - `1h`: 1 hour
-
-
-            Defaults to `5m`. See [prompt caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
-            for details.'
+          description: "The time-to-live for the cache control breakpoint.\n\nThis may be one the following values:\n- `5m`: 5 minutes\n- `1h`: 1 hour\n\nDefaults to `5m`. See [prompt caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) for details."
           enum:
-          - 5m
-          - 1h
-          title: Ttl
-          type: string
+            - "5m"
+            - "1h"
+          title: "Ttl"
+          type: "string"
         type:
-          const: ephemeral
-          title: Type
-          type: string
+          const: "ephemeral"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: CacheControlEphemeral
-      type: object
+        - "type"
+      title: "CacheControlEphemeral"
+      type: "object"
     SucceededResult:
       properties:
         message:
-          $ref: '#/components/schemas/Message'
+          $ref: "#/components/schemas/Message"
         type:
-          const: succeeded
-          default: succeeded
-          title: Type
-          type: string
+          const: "succeeded"
+          default: "succeeded"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: SucceededResult
-      type: object
+        - "message"
+        - "type"
+      title: "SucceededResult"
+      type: "object"
     ResponseTextBlock:
       properties:
         citations:
           anyOf:
-          - items:
-              discriminator:
-                mapping:
-                  char_location: '#/components/schemas/ResponseCharLocationCitation'
-                  content_block_location: '#/components/schemas/ResponseContentBlockLocationCitation'
-                  page_location: '#/components/schemas/ResponsePageLocationCitation'
-                  search_result_location: '#/components/schemas/ResponseSearchResultLocationCitation'
-                  web_search_result_location: '#/components/schemas/ResponseWebSearchResultLocationCitation'
-                propertyName: type
-            type: array
-          - type: 'null'
+            - items:
+                discriminator:
+                  mapping:
+                    char_location: "#/components/schemas/ResponseCharLocationCitation"
+                    content_block_location: "#/components/schemas/ResponseContentBlockLocationCitation"
+                    page_location: "#/components/schemas/ResponsePageLocationCitation"
+                    search_result_location: "#/components/schemas/ResponseSearchResultLocationCitation"
+                    web_search_result_location: "#/components/schemas/ResponseWebSearchResultLocationCitation"
+                  propertyName: "type"
+              type: "array"
+            - type: "null"
           default: null
-          description: 'Citations supporting the text block.
-
-
-            The type of citation returned will depend on the type of document being
-            cited. Citing a PDF results in `page_location`, plain text results in
-            `char_location`, and content document results in `content_block_location`.'
-          title: Citations
+          description: "Citations supporting the text block.\n\nThe type of citation returned will depend on the type of document being cited. Citing a PDF results in `page_location`, plain text results in `char_location`, and content document results in `content_block_location`."
+          title: "Citations"
         text:
           maxLength: 5000000
           minLength: 0
-          title: Text
-          type: string
+          title: "Text"
+          type: "string"
         type:
-          const: text
-          default: text
-          title: Type
-          type: string
+          const: "text"
+          default: "text"
+          title: "Type"
+          type: "string"
       required:
-      - citations
-      - text
-      - type
-      title: ResponseTextBlock
-      type: object
+        - "citations"
+        - "text"
+        - "type"
+      title: "ResponseTextBlock"
+      type: "object"
     RateLimitError:
       properties:
         message:
-          default: Rate limited
-          title: Message
-          type: string
+          default: "Rate limited"
+          title: "Message"
+          type: "string"
         type:
-          const: rate_limit_error
-          default: rate_limit_error
-          title: Type
-          type: string
+          const: "rate_limit_error"
+          default: "rate_limit_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: RateLimitError
-      type: object
+        - "message"
+        - "type"
+      title: "RateLimitError"
+      type: "object"
     Usage:
       properties:
         cache_creation:
           anyOf:
-          - $ref: '#/components/schemas/CacheCreation'
-          - type: 'null'
+            - $ref: "#/components/schemas/CacheCreation"
+            - type: "null"
           default: null
-          description: Breakdown of cached tokens by TTL
+          description: "Breakdown of cached tokens by TTL"
         cache_creation_input_tokens:
           anyOf:
-          - minimum: 0
-            type: integer
-          - type: 'null'
+            - minimum: 0
+              type: "integer"
+            - type: "null"
           default: null
-          description: The number of input tokens used to create the cache entry.
+          description: "The number of input tokens used to create the cache entry."
           examples:
-          - 2051
-          title: Cache Creation Input Tokens
+            - 2051
+          title: "Cache Creation Input Tokens"
         cache_read_input_tokens:
           anyOf:
-          - minimum: 0
-            type: integer
-          - type: 'null'
+            - minimum: 0
+              type: "integer"
+            - type: "null"
           default: null
-          description: The number of input tokens read from the cache.
+          description: "The number of input tokens read from the cache."
           examples:
-          - 2051
-          title: Cache Read Input Tokens
+            - 2051
+          title: "Cache Read Input Tokens"
         inference_geo:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: "string"
+            - type: "null"
           default: null
-          description: The geographic region where inference was performed for this
-            request.
+          description: "The geographic region where inference was performed for this request."
           examples:
-          - global
-          title: Inference Geo
+            - "global"
+          title: "Inference Geo"
         input_tokens:
-          description: The number of input tokens which were used.
+          description: "The number of input tokens which were used."
           examples:
-          - 2095
+            - 2095
           minimum: 0
-          title: Input Tokens
-          type: integer
+          title: "Input Tokens"
+          type: "integer"
         output_tokens:
-          description: The number of output tokens which were used.
+          description: "The number of output tokens which were used."
           examples:
-          - 503
+            - 503
           minimum: 0
-          title: Output Tokens
-          type: integer
+          title: "Output Tokens"
+          type: "integer"
         output_tokens_details:
           anyOf:
-          - $ref: '#/components/schemas/OutputTokensDetails'
-          - type: 'null'
+            - $ref: "#/components/schemas/OutputTokensDetails"
+            - type: "null"
           default: null
-          description: 'Breakdown of output tokens by category.
-
-
-            `output_tokens` remains the inclusive, authoritative total used for billing.
-
-            This object provides a read-only decomposition for observability — for
-            example,
-
-            how many of the billed output tokens were spent on internal reasoning
-            that may
-
-            have been summarized before being returned to you.'
+          description: "Breakdown of output tokens by category.\n\n`output_tokens` remains the inclusive, authoritative total used for billing.\nThis object provides a read-only decomposition for observability — for example,\nhow many of the billed output tokens were spent on internal reasoning that may\nhave been summarized before being returned to you."
         server_tool_use:
           default: null
-          description: The number of server tool requests.
+          description: "The number of server tool requests."
         service_tier:
           anyOf:
-          - enum:
-            - standard
-            - priority
-            - batch
-            type: string
-          - type: 'null'
+            - enum:
+                - "standard"
+                - "priority"
+                - "batch"
+              type: "string"
+            - type: "null"
           default: null
-          description: If the request used the priority, standard, or batch tier.
-          title: Service Tier
+          description: "If the request used the priority, standard, or batch tier."
+          title: "Service Tier"
       required:
-      - cache_creation
-      - cache_creation_input_tokens
-      - cache_read_input_tokens
-      - inference_geo
-      - input_tokens
-      - output_tokens
-      - output_tokens_details
-      - server_tool_use
-      - service_tier
-      title: Usage
-      type: object
+        - "cache_creation"
+        - "cache_creation_input_tokens"
+        - "cache_read_input_tokens"
+        - "inference_geo"
+        - "input_tokens"
+        - "output_tokens"
+        - "output_tokens_details"
+        - "server_tool_use"
+        - "service_tier"
+      title: "Usage"
+      type: "object"
     GatewayTimeoutError:
       properties:
         message:
-          default: Request timeout
-          title: Message
-          type: string
+          default: "Request timeout"
+          title: "Message"
+          type: "string"
         type:
-          const: timeout_error
-          default: timeout_error
-          title: Type
-          type: string
+          const: "timeout_error"
+          default: "timeout_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: GatewayTimeoutError
-      type: object
+        - "message"
+        - "type"
+      title: "GatewayTimeoutError"
+      type: "object"
     InputMessage:
       additionalProperties: false
       properties:
         content:
           anyOf:
-          - type: string
-          - items:
-              $ref: '#/components/schemas/InputContentBlock'
-            type: array
-            example:
-            - type: text
-              text: What is a quaternion?
-          title: Content
+            - type: "string"
+            - items:
+                $ref: "#/components/schemas/InputContentBlock"
+              type: "array"
+              example:
+                - type: "text"
+                  text: "What is a quaternion?"
+          title: "Content"
         role:
           enum:
-          - user
-          - assistant
-          - system
-          title: Role
-          type: string
+            - "user"
+            - "assistant"
+            - "system"
+          title: "Role"
+          type: "string"
       required:
-      - content
-      - role
-      title: InputMessage
-      type: object
+        - "content"
+        - "role"
+      title: "InputMessage"
+      type: "object"
       discriminator:
-        propertyName: role
+        propertyName: "role"
     PermissionError:
       properties:
         message:
-          default: Permission denied
-          title: Message
-          type: string
+          default: "Permission denied"
+          title: "Message"
+          type: "string"
         type:
-          const: permission_error
-          default: permission_error
-          title: Type
-          type: string
+          const: "permission_error"
+          default: "permission_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: PermissionError
-      type: object
+        - "message"
+        - "type"
+      title: "PermissionError"
+      type: "object"
     Message:
       examples:
-      - content:
-        - citations: null
-          text: Hi! My name is Claude.
-          type: text
-        id: msg_013Zva2CMHLNnXjNJJKqJ2EF
-        model: claude-opus-5
-        role: assistant
-        stop_details: null
-        stop_reason: end_turn
-        stop_sequence: null
-        type: message
-        usage:
-          input_tokens: 2095
-          output_tokens: 503
+        - content:
+            - citations: null
+              text: "Hi! My name is Claude."
+              type: "text"
+          id: "msg_013Zva2CMHLNnXjNJJKqJ2EF"
+          model: "claude-opus-5"
+          role: "assistant"
+          stop_details: null
+          stop_reason: "end_turn"
+          stop_sequence: null
+          type: "message"
+          usage:
+            input_tokens: 2095
+            output_tokens: 503
       properties:
         id:
-          description: 'Unique object identifier.
-
-
-            The format and length of IDs may change over time.'
+          description: "Unique object identifier.\n\nThe format and length of IDs may change over time."
           examples:
-          - msg_013Zva2CMHLNnXjNJJKqJ2EF
-          title: Id
-          type: string
+            - "msg_013Zva2CMHLNnXjNJJKqJ2EF"
+          title: "Id"
+          type: "string"
         type:
-          const: message
-          default: message
-          description: 'Object type.
-
-
-            For Messages, this is always `"message"`.'
-          title: Type
-          type: string
+          const: "message"
+          default: "message"
+          description: "Object type.\n\nFor Messages, this is always `\"message\"`."
+          title: "Type"
+          type: "string"
         role:
-          const: assistant
-          default: assistant
-          description: 'Conversational role of the generated message.
-
-
-            This will always be `"assistant"`.'
-          title: Role
-          type: string
+          const: "assistant"
+          default: "assistant"
+          description: "Conversational role of the generated message.\n\nThis will always be `\"assistant\"`."
+          title: "Role"
+          type: "string"
         content:
-          description: "Content generated by the model.\n\nThis is an array of content\
-            \ blocks, each of which has a `type` that determines its shape.\n\nExample:\n\
-            \n```json\n[{\"type\": \"text\", \"text\": \"Hi, I'm Claude.\"}]\n```\n\
-            \nIf the request input `messages` ended with an `assistant` turn, then\
-            \ the response `content` will continue directly from that last turn. You\
-            \ can use this to constrain the model's output.\n\nFor example, if the\
-            \ input `messages` were:\n```json\n[\n  {\"role\": \"user\", \"content\"\
-            : \"What's the Greek name for Sun? (A) Sol (B) Helios (C) Sun\"},\n  {\"\
-            role\": \"assistant\", \"content\": \"The best answer is (\"}\n]\n```\n\
-            \nThen the response `content` might be:\n\n```json\n[{\"type\": \"text\"\
-            , \"text\": \"B)\"}]\n```"
+          description: "Content generated by the model.\n\nThis is an array of content blocks, each of which has a `type` that determines its shape.\n\nExample:\n\n```json\n[{\"type\": \"text\", \"text\": \"Hi, I'm Claude.\"}]\n```\n\nIf the request input `messages` ended with an `assistant` turn, then the response `content` will continue directly from that last turn. You can use this to constrain the model's output.\n\nFor example, if the input `messages` were:\n```json\n[\n  {\"role\": \"user\", \"content\": \"What's the Greek name for Sun? (A) Sol (B) Helios (C) Sun\"},\n  {\"role\": \"assistant\", \"content\": \"The best answer is (\"}\n]\n```\n\nThen the response `content` might be:\n\n```json\n[{\"type\": \"text\", \"text\": \"B)\"}]\n```"
           examples:
-          - - citations: null
-              text: Hi! My name is Claude.
-              type: text
+            - - citations: null
+                text: "Hi! My name is Claude."
+                type: "text"
           items:
-            $ref: '#/components/schemas/ContentBlock'
-          title: Content
-          type: array
+            $ref: "#/components/schemas/ContentBlock"
+          title: "Content"
+          type: "array"
         model:
-          $ref: '#/components/schemas/Model'
+          $ref: "#/components/schemas/Model"
         stop_reason:
           anyOf:
-          - $ref: '#/components/schemas/StopReason'
-          - type: 'null'
-          description: 'The reason that we stopped.
-
-
-            This may be one the following values:
-
-            * `"end_turn"`: the model reached a natural stopping point
-
-            * `"max_tokens"`: we exceeded the requested `max_tokens` or the model''s
-            maximum
-
-            * `"stop_sequence"`: one of your provided custom `stop_sequences` was
-            generated
-
-            * `"tool_use"`: the model invoked one or more tools
-
-            * `"pause_turn"`: we paused a long-running turn. You may provide the response
-            back as-is in a subsequent request to let the model continue.
-
-            * `"refusal"`: when streaming classifiers intervene to handle potential
-            policy violations
-
-            * `"model_context_window_exceeded"`: we exceeded the model''s context
-            window
-
-
-            In non-streaming mode this value is always non-null. In streaming mode,
-            it is null in the `message_start` event and non-null otherwise.'
-          title: Stop Reason
+            - $ref: "#/components/schemas/StopReason"
+            - type: "null"
+          description: "The reason that we stopped.\n\nThis may be one the following values:\n* `\"end_turn\"`: the model reached a natural stopping point\n* `\"max_tokens\"`: we exceeded the requested `max_tokens` or the model's maximum\n* `\"stop_sequence\"`: one of your provided custom `stop_sequences` was generated\n* `\"tool_use\"`: the model invoked one or more tools\n* `\"pause_turn\"`: we paused a long-running turn. You may provide the response back as-is in a subsequent request to let the model continue.\n* `\"refusal\"`: when streaming classifiers intervene to handle potential policy violations\n* `\"model_context_window_exceeded\"`: we exceeded the model's context window\n\nIn non-streaming mode this value is always non-null. In streaming mode, it is null in the `message_start` event and non-null otherwise."
+          title: "Stop Reason"
         stop_sequence:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: "string"
+            - type: "null"
           default: null
-          description: 'Which custom stop sequence was generated, if any.
-
-
-            This value will be a non-null string if one of your custom stop sequences
-            was generated.'
-          title: Stop Sequence
+          description: "Which custom stop sequence was generated, if any.\n\nThis value will be a non-null string if one of your custom stop sequences was generated."
+          title: "Stop Sequence"
         stop_details:
           anyOf:
-          - $ref: '#/components/schemas/RefusalStopDetails'
-          - type: 'null'
+            - $ref: "#/components/schemas/RefusalStopDetails"
+            - type: "null"
           default: null
-          description: 'Structured information about why model output stopped.
-
-
-            This is `null` when the `stop_reason` has no additional detail to report.'
+          description: "Structured information about why model output stopped.\n\nThis is `null` when the `stop_reason` has no additional detail to report."
         usage:
-          $ref: '#/components/schemas/Usage'
-          description: 'Billing and rate-limit usage.
-
-
-            Anthropic''s API bills and rate-limits by token counts, as tokens represent
-            the underlying cost to our systems.
-
-
-            Under the hood, the API transforms requests into a format suitable for
-            the model. The model''s output then goes through a parsing stage before
-            becoming an API response. As a result, the token counts in `usage` will
-            not match one-to-one with the exact visible content of an API request
-            or response.
-
-
-            For example, `output_tokens` will be non-zero, even for an empty string
-            response from Claude.
-
-
-            Total input tokens in a request is the summation of `input_tokens`, `cache_creation_input_tokens`,
-            and `cache_read_input_tokens`.'
+          $ref: "#/components/schemas/Usage"
+          description: "Billing and rate-limit usage.\n\nAnthropic's API bills and rate-limits by token counts, as tokens represent the underlying cost to our systems.\n\nUnder the hood, the API transforms requests into a format suitable for the model. The model's output then goes through a parsing stage before becoming an API response. As a result, the token counts in `usage` will not match one-to-one with the exact visible content of an API request or response.\n\nFor example, `output_tokens` will be non-zero, even for an empty string response from Claude.\n\nTotal input tokens in a request is the summation of `input_tokens`, `cache_creation_input_tokens`, and `cache_read_input_tokens`."
           examples:
-          - input_tokens: 2095
-            output_tokens: 503
+            - input_tokens: 2095
+              output_tokens: 503
         container:
           default: null
-          description: 'Information about the container used in this request.
-
-
-            This will be non-null if a container tool (e.g. code execution) was used.'
+          description: "Information about the container used in this request.\n\nThis will be non-null if a container tool (e.g. code execution) was used."
       required:
-      - id
-      - type
-      - role
-      - content
-      - model
-      - stop_reason
-      - stop_sequence
-      - stop_details
-      - usage
-      - container
-      title: Message
-      type: object
+        - "id"
+        - "type"
+        - "role"
+        - "content"
+        - "model"
+        - "stop_reason"
+        - "stop_sequence"
+        - "stop_details"
+        - "usage"
+        - "container"
+      title: "Message"
+      type: "object"
     CacheCreation:
       properties:
         ephemeral_1h_input_tokens:
           default: 0
-          description: The number of input tokens used to create the 1 hour cache
-            entry.
+          description: "The number of input tokens used to create the 1 hour cache entry."
           minimum: 0
-          title: Ephemeral 1H Input Tokens
-          type: integer
+          title: "Ephemeral 1H Input Tokens"
+          type: "integer"
         ephemeral_5m_input_tokens:
           default: 0
-          description: The number of input tokens used to create the 5 minute cache
-            entry.
+          description: "The number of input tokens used to create the 5 minute cache entry."
           minimum: 0
-          title: Ephemeral 5M Input Tokens
-          type: integer
+          title: "Ephemeral 5M Input Tokens"
+          type: "integer"
       required:
-      - ephemeral_1h_input_tokens
-      - ephemeral_5m_input_tokens
-      title: CacheCreation
-      type: object
+        - "ephemeral_1h_input_tokens"
+        - "ephemeral_5m_input_tokens"
+      title: "CacheCreation"
+      type: "object"
     JsonValue: {}
     DeleteMessageBatchResponse:
       properties:
         id:
-          type: string
-          title: Id
-          description: ID of the Message Batch.
+          type: "string"
+          title: "Id"
+          description: "ID of the Message Batch."
           examples:
-          - msgbatch_013Zva2CMHLNnXjNJJKqJ2EF
+            - "msgbatch_013Zva2CMHLNnXjNJJKqJ2EF"
         type:
-          type: string
-          const: message_batch_deleted
-          title: Type
-          description: 'Deleted object type.
-
-
-            For Message Batches, this is always `"message_batch_deleted"`.'
-          default: message_batch_deleted
-      type: object
+          type: "string"
+          const: "message_batch_deleted"
+          title: "Type"
+          description: "Deleted object type.\n\nFor Message Batches, this is always `\"message_batch_deleted\"`."
+          default: "message_batch_deleted"
+      type: "object"
       required:
-      - id
-      - type
-      title: DeleteMessageBatchResponse
+        - "id"
+        - "type"
+      title: "DeleteMessageBatchResponse"
     ThinkingDisplayMode:
       enum:
-      - summarized
-      - omitted
-      title: ThinkingDisplayMode
-      type: string
+        - "summarized"
+        - "omitted"
+      title: "ThinkingDisplayMode"
+      type: "string"
     CreateMessageBatchParams:
       additionalProperties: false
       properties:
         requests:
-          description: List of requests for prompt completion. Each is an individual
-            request to create a Message.
+          description: "List of requests for prompt completion. Each is an individual request to create a Message."
           items:
-            $ref: '#/components/schemas/MessageBatchIndividualRequestParams'
+            $ref: "#/components/schemas/MessageBatchIndividualRequestParams"
           maxItems: 100000
           minItems: 1
-          title: Requests
-          type: array
+          title: "Requests"
+          type: "array"
       required:
-      - requests
-      title: CreateMessageBatchParams
-      type: object
+        - "requests"
+      title: "CreateMessageBatchParams"
+      type: "object"
     ToolChoiceAny:
       additionalProperties: false
-      description: The model will use any available tools.
+      description: "The model will use any available tools."
       properties:
         disable_parallel_tool_use:
-          description: 'Whether to disable parallel tool use.
-
-
-            Defaults to `false`. If set to `true`, the model will output exactly one
-            tool use.'
-          title: Disable Parallel Tool Use
-          type: boolean
+          description: "Whether to disable parallel tool use.\n\nDefaults to `false`. If set to `true`, the model will output exactly one tool use."
+          title: "Disable Parallel Tool Use"
+          type: "boolean"
         type:
-          const: any
-          title: Type
-          type: string
+          const: "any"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ToolChoiceAny
-      type: object
+        - "type"
+      title: "ToolChoiceAny"
+      type: "object"
     MessageBatchIndividualResponse:
-      description: This is a single line in the response `.jsonl` file and does not
-        represent the response as a whole.
+      description: "This is a single line in the response `.jsonl` file and does not represent the response as a whole."
       properties:
         custom_id:
-          description: 'Developer-provided ID created for each request in a Message
-            Batch. Useful for matching results to requests, as results may be given
-            out of request order.
-
-
-            Must be unique for each request within the Message Batch.'
+          description: "Developer-provided ID created for each request in a Message Batch. Useful for matching results to requests, as results may be given out of request order.\n\nMust be unique for each request within the Message Batch."
           examples:
-          - my-custom-id-1
-          title: Custom Id
-          type: string
+            - "my-custom-id-1"
+          title: "Custom Id"
+          type: "string"
         result:
-          description: 'Processing result for this request.
-
-
-            Contains a Message output if processing was successful, an error response
-            if processing failed, or the reason why processing was not attempted,
-            such as cancellation or expiration.'
+          description: "Processing result for this request.\n\nContains a Message output if processing was successful, an error response if processing failed, or the reason why processing was not attempted, such as cancellation or expiration."
           discriminator:
             mapping:
-              canceled: '#/components/schemas/CanceledResult'
-              errored: '#/components/schemas/ErroredResult'
-              expired: '#/components/schemas/ExpiredResult'
-              succeeded: '#/components/schemas/SucceededResult'
-            propertyName: type
+              canceled: "#/components/schemas/CanceledResult"
+              errored: "#/components/schemas/ErroredResult"
+              expired: "#/components/schemas/ExpiredResult"
+              succeeded: "#/components/schemas/SucceededResult"
+            propertyName: "type"
           oneOf:
-          - $ref: '#/components/schemas/SucceededResult'
-          - $ref: '#/components/schemas/ErroredResult'
-          - $ref: '#/components/schemas/CanceledResult'
-          - $ref: '#/components/schemas/ExpiredResult'
-          title: Result
+            - $ref: "#/components/schemas/SucceededResult"
+            - $ref: "#/components/schemas/ErroredResult"
+            - $ref: "#/components/schemas/CanceledResult"
+            - $ref: "#/components/schemas/ExpiredResult"
+          title: "Result"
       required:
-      - custom_id
-      - result
-      title: MessageBatchIndividualResponse
-      type: object
+        - "custom_id"
+        - "result"
+      title: "MessageBatchIndividualResponse"
+      type: "object"
     AuthenticationError:
       properties:
         message:
-          default: Authentication error
-          title: Message
-          type: string
+          default: "Authentication error"
+          title: "Message"
+          type: "string"
         type:
-          const: authentication_error
-          default: authentication_error
-          title: Type
-          type: string
+          const: "authentication_error"
+          default: "authentication_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: AuthenticationError
-      type: object
+        - "message"
+        - "type"
+      title: "AuthenticationError"
+      type: "object"
     ResponseToolUseBlock:
       properties:
         caller:
           default:
-            type: direct
+            type: "direct"
           discriminator:
             mapping:
-              code_execution_20250825: '#/components/schemas/ServerToolCaller'
-              code_execution_20260120: '#/components/schemas/ServerToolCaller_20260120'
-              direct: '#/components/schemas/DirectCaller'
-            propertyName: type
-          title: Caller
+              code_execution_20250825: "#/components/schemas/ServerToolCaller"
+              code_execution_20260120: "#/components/schemas/ServerToolCaller_20260120"
+              direct: "#/components/schemas/DirectCaller"
+            propertyName: "type"
+          title: "Caller"
         id:
-          pattern: ^[a-zA-Z0-9_-]+$
-          title: Id
-          type: string
+          pattern: "^[a-zA-Z0-9_-]+$"
+          title: "Id"
+          type: "string"
         input:
           additionalProperties: true
-          title: Input
-          type: object
+          title: "Input"
+          type: "object"
         name:
           minLength: 1
-          title: Name
-          type: string
+          title: "Name"
+          type: "string"
         toolset_name:
           anyOf:
-          - maxLength: 64
-            minLength: 1
-            pattern: ^[a-zA-Z0-9_-]+$
-            type: string
-          - type: 'null'
+            - maxLength: 64
+              minLength: 1
+              pattern: "^[a-zA-Z0-9_-]+$"
+              type: "string"
+            - type: "null"
           default: null
-          description: For a toolset member tool_use, the toolset family.
-          title: Toolset Name
+          description: "For a toolset member tool_use, the toolset family."
+          title: "Toolset Name"
         type:
-          const: tool_use
-          default: tool_use
-          title: Type
-          type: string
+          const: "tool_use"
+          default: "tool_use"
+          title: "Type"
+          type: "string"
       required:
-      - caller
-      - id
-      - input
-      - name
-      - type
-      title: ResponseToolUseBlock
-      type: object
+        - "caller"
+        - "id"
+        - "input"
+        - "name"
+        - "type"
+      title: "ResponseToolUseBlock"
+      type: "object"
     RequestTextBlock:
       additionalProperties: false
       properties:
         cache_control:
           anyOf:
-          - discriminator:
-              mapping:
-                ephemeral: '#/components/schemas/CacheControlEphemeral'
-              propertyName: type
-            oneOf:
-            - $ref: '#/components/schemas/CacheControlEphemeral'
-          - type: 'null'
-          description: Create a cache control breakpoint at this content block.
-          title: Cache Control
+            - discriminator:
+                mapping:
+                  ephemeral: "#/components/schemas/CacheControlEphemeral"
+                propertyName: "type"
+              oneOf:
+                - $ref: "#/components/schemas/CacheControlEphemeral"
+            - type: "null"
+          description: "Create a cache control breakpoint at this content block."
+          title: "Cache Control"
         citations:
           anyOf:
-          - items:
-              discriminator:
-                mapping:
-                  char_location: '#/components/schemas/RequestCharLocationCitation'
-                  content_block_location: '#/components/schemas/RequestContentBlockLocationCitation'
-                  page_location: '#/components/schemas/RequestPageLocationCitation'
-                  search_result_location: '#/components/schemas/RequestSearchResultLocationCitation'
-                  web_search_result_location: '#/components/schemas/RequestWebSearchResultLocationCitation'
-                propertyName: type
-            type: array
-          - type: 'null'
-          title: Citations
+            - items:
+                discriminator:
+                  mapping:
+                    char_location: "#/components/schemas/RequestCharLocationCitation"
+                    content_block_location: "#/components/schemas/RequestContentBlockLocationCitation"
+                    page_location: "#/components/schemas/RequestPageLocationCitation"
+                    search_result_location: "#/components/schemas/RequestSearchResultLocationCitation"
+                    web_search_result_location: "#/components/schemas/RequestWebSearchResultLocationCitation"
+                  propertyName: "type"
+              type: "array"
+            - type: "null"
+          title: "Citations"
         text:
           minLength: 1
-          title: Text
-          type: string
+          title: "Text"
+          type: "string"
         type:
-          const: text
-          title: Type
-          type: string
+          const: "text"
+          title: "Type"
+          type: "string"
       required:
-      - text
-      - type
-      title: RequestTextBlock
-      type: object
+        - "text"
+        - "type"
+      title: "RequestTextBlock"
+      type: "object"
     InvalidRequestError:
       properties:
         message:
-          default: Invalid request
-          title: Message
-          type: string
+          default: "Invalid request"
+          title: "Message"
+          type: "string"
         type:
-          const: invalid_request_error
-          default: invalid_request_error
-          title: Type
-          type: string
+          const: "invalid_request_error"
+          default: "invalid_request_error"
+          title: "Type"
+          type: "string"
       required:
-      - message
-      - type
-      title: InvalidRequestError
-      type: object
+        - "message"
+        - "type"
+      title: "InvalidRequestError"
+      type: "object"
     EffortLevel:
-      description: All possible effort levels.
+      description: "All possible effort levels."
       enum:
-      - low
-      - medium
-      - high
-      - xhigh
-      - max
-      title: EffortLevel
-      type: string
+        - "low"
+        - "medium"
+        - "high"
+        - "xhigh"
+        - "max"
+      title: "EffortLevel"
+      type: "string"
     ExpiredResult:
       properties:
         type:
-          const: expired
-          default: expired
-          title: Type
-          type: string
+          const: "expired"
+          default: "expired"
+          title: "Type"
+          type: "string"
       required:
-      - type
-      title: ExpiredResult
-      type: object
+        - "type"
+      title: "ExpiredResult"
+      type: "object"
