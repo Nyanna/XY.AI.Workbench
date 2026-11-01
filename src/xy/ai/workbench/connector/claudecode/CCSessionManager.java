@@ -21,7 +21,7 @@ public class CCSessionManager {
 
 	private final List<Consumer<List<CCSession>>> changeListeners = new ArrayList<>();
 
-	public synchronized CCSession requestSession(String selectedUuid, ClaudeSessionParameters params) {
+	public synchronized CCSession requestSession(String selectedUuid, CCSessionParameters params) {
 		cleanupInvalidTerminated();
 
 		CCSession session = null;
@@ -48,7 +48,7 @@ public class CCSessionManager {
 		return session;
 	}
 
-	public synchronized CCSession getSession(String selectedUuid, ClaudeSessionParameters params) {
+	public synchronized CCSession getSession(String selectedUuid, CCSessionParameters params) {
 		cleanupInvalidTerminated();
 		CCSession res = null;
 
@@ -66,7 +66,7 @@ public class CCSessionManager {
 		return session;
 	}
 
-	public synchronized CCSession importSession(String uuid, ClaudeSessionParameters params) {
+	public synchronized CCSession importSession(String uuid, CCSessionParameters params) {
 		cleanupInvalidTerminated();
 		LOG.info("Imported session, uuid=" + uuid);
 		return addSession(new CCSession(uuid, this, params));

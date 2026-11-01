@@ -13,7 +13,7 @@ import xy.ai.workbench.connector.SessionParameters;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.tools.Hash;
 
-public class ClaudeSessionParameters extends SessionParameters {
+public class CCSessionParameters extends SessionParameters {
 	private static final String SCRIPT = System.getProperty("user.home")
 			+ "/xyan/xy.ai.workbench/claude-code/claude-session.sh";
 	private static final String COMMAND = "claude";
@@ -21,7 +21,7 @@ public class ClaudeSessionParameters extends SessionParameters {
 	public final String cliProfile;
 	private String hash;
 
-	public ClaudeSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
+	public CCSessionParameters(Path cwd, String systemPrompt, List<String> tools, Model model, Reasoning reasoning,
 			AgentProfile agentProfile, String cliProfile, CacheMode cacheMode, String filePath) {
 		super(cwd, systemPrompt, tools, model, reasoning, agentProfile, cacheMode, filePath, null, null, null);
 		this.cliProfile = cliProfile;

@@ -36,7 +36,7 @@ import xy.ai.workbench.Model;
 import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.claudecode.CCSession;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
-import xy.ai.workbench.connector.claudecode.ClaudeSessionParameters;
+import xy.ai.workbench.connector.claudecode.CCSessionParameters;
 import xy.ai.workbench.connector.claudecode.SessionState;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
 import xy.ai.workbench.InputMode;
@@ -78,7 +78,7 @@ public class ClaudeCodeSessionView extends ViewPart {
   public static final String ID = "xy.ai.workbench.views.ClaudeCodeSessionView";
   private static final int TTL_REFRESH_INTERVAL_MS = 1_000;
   private static final int REFRESH_DEBOUNCE_MS = 500;
-  private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null, new ClaudeSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "", CacheMode.Default, "none") {
+  private static final CCSession CNEW_LAUDE_CODE_SESSION = new CCSession(CCSessionManager.CREATE_NEW_MARKER, null, new CCSessionParameters(Path.of("", ""), "", null, Model.NONE, Reasoning.Disabled, AgentProfile.basic, "", CacheMode.Default, "none") {
 
     public String getHash() {
       return "Create new session";
@@ -197,7 +197,7 @@ public class ClaudeCodeSessionView extends ViewPart {
     for (CCSession s : sessions) {
       if (!s.isValid())
         continue;
-      ClaudeSessionParameters p = s.getParameters();
+      CCSessionParameters p = s.getParameters();
       if (p != null && p.equals(cfg, currentProjectPath, currentRelativeFilePath, tools))
         return s;
     }

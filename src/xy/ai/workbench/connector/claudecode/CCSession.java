@@ -17,7 +17,7 @@ import xy.ai.workbench.models.TokenStats;
 
 public class CCSession {
   private final String uuid;
-  private final ClaudeSessionParameters parameters;
+  private final CCSessionParameters parameters;
   private Process process;
   private PrintWriter stdin;
   private TimedLineReader stdout;
@@ -41,15 +41,15 @@ public class CCSession {
   private boolean resume;
   private final CCSessionManager manager;
 
-  public CCSession(CCSessionManager manager, ClaudeSessionParameters parameters) {
+  public CCSession(CCSessionManager manager, CCSessionParameters parameters) {
     this(UUID.randomUUID().toString(), false, manager, parameters);
   }
 
-  public CCSession(String sessionUuid, CCSessionManager manager, ClaudeSessionParameters parameters) {
+  public CCSession(String sessionUuid, CCSessionManager manager, CCSessionParameters parameters) {
     this(sessionUuid, true, manager, parameters);
   }
 
-  private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, ClaudeSessionParameters parameters) {
+  private CCSession(String sessionUuid, boolean resume, CCSessionManager manager, CCSessionParameters parameters) {
     if (sessionUuid == null || sessionUuid.isBlank())
       throw new IllegalArgumentException("Session UUID must not be null or blank");
     Objects.requireNonNull(parameters, "session parameters must not be null");
@@ -321,7 +321,7 @@ public class CCSession {
     notifyChanged();
   }
 
-  public ClaudeSessionParameters getParameters() {
+  public CCSessionParameters getParameters() {
     return parameters;
   }
 
