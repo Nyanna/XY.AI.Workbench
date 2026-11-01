@@ -30,6 +30,7 @@ _LINE_TOOLS = frozenset({'read_file', 'edit_marks', 'edit_line', 'edit_block', '
 _NODE_TOOLS = frozenset({'ast_read', 'ast_edit_block', 'ast_edit_marks', 'ast_insert', 'ast_replace'})
 _INTENT_DESCRIPTION = "What you will do with the results. 'survey': only need to know which files/matches exist. 'editing': you will edit the matched code next; results then include the addressing info (line numbers and/or AST node ids) required by the enabled edit tools."
 _MAX_LIMIT = 50
+_MAX_LINE_LENGTH = 300
 
 class SearchError(Exception):
     """Raised when a search cannot be executed or its output cannot be parsed."""
@@ -39,6 +40,7 @@ class SearchLineMatch:
     """A single matching line within a file."""
     lineno: int
     match: str
+    truncated: bool = False
 
 @dataclass(frozen=True)
 class SearchNodeMatch:
@@ -85,10 +87,12 @@ class SearchResult:
         directory: The directory list exactly as given in the input.
         matches: The matches found, grouped by file (empty if none).
         warning: Set if ``limit`` was reached and further matches may exist.
+        error: Set if match lines exceeded the maximum length and were shortened with an ellipsis.
     """
     directory: list[str]
     matches: list[SearchMatch]
     warning: str | None = None
+    error: str | None = None
 
 @dataclass(frozen=True)
 class SearchItemError:
@@ -108,6 +112,12 @@ class SearchBatchResult:
     results: list[SearchResult]
     errors: list[SearchItemError]
 
+def _make_line_match(lineno: int, text: str) -> SearchLineMatch:
+    if len(text) <= _MAX_LINE_LENGTH:
+        return SearchLineMatch(lineno=lineno, match=text)
+    half = _MAX_LINE_LENGTH // 2
+    return SearchLineMatch(lineno=lineno, match=f'{text[:half]}…{text[-half:]}', truncated=True)
+
 def _parse_search_stdout(stdout: str) -> list[SearchMatch]:
     """Parse 'path:line:content' stdout into :class:`SearchMatch` objects, grouped by file."""
     grouped: dict[tuple[str, str], list[SearchLineMatch]] = {}
@@ -126,7 +136,7 @@ def _parse_search_stdout(stdout: str) -> list[SearchMatch]:
         if key not in grouped:
             grouped[key] = []
             order.append(key)
-        grouped[key].append(SearchLineMatch(lineno=int(lineno_str), match=match.strip()))
+        grouped[key].append(_make_line_match(int(lineno_str), match.strip()))
     return [SearchMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
 def _as_list(value: list[str] | None) -> list[str]:
@@ -201,7 +211,12 @@ def _search_one(item: SearchItem) -> SearchResult:
     if total_matches >= item.limit:
         warning = f'Limit of {
             item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
-    return SearchResult(directory=item.directory, matches=matches, warning=warning)
+    shortened = sum((lm.truncated for m in matches for lm in m.matches))
+    error = None
+    if shortened:
+        error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis ({
+            _MAX_LINE_LENGTH // 2} leading and trailing characters kept).'
+    return SearchResult(directory=item.directory, matches=matches, warning=warning, error=error)
 
 def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     """Regroup a file's line matches by the most specific enclosing AST node.
@@ -349,6 +364,8 @@ class SearchTool(ToolDefinition):
                 entry['matches'] = [file_dict(m, item_intent) for m in r.matches]
             if r.warning is not None:
                 entry['warning'] = r.warning
+            if r.error is not None:
+                entry['error'] = r.error
             return entry
 
         def error_serializer(e: SearchItemError) -> dict[str, Any]:
