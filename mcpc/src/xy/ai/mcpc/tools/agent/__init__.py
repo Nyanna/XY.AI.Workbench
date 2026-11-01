@@ -10,7 +10,7 @@ tool.  The agent tool itself is rarely called directly.
 """
 import uuid
 from typing import Any
-from xy.ai.mcpc.cli import CliParameters, CliSessionError, Effort, Model
+from xy.ai.mcpc.cli import CacheMode, CliParameters, CliSessionError, Effort, Model
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.server.session import AgentSubSession
@@ -34,6 +34,11 @@ def _base_properties(*, include_system_prompt: bool) -> dict[str, Any]:
     if include_system_prompt:
         props['system_prompt'] = {'type': 'string', 'description': 'System prompt used to initialise the agent.'}
     return props
+
+def _cache_mode(profile: AgentProfile | None, tools: list[str]) -> str:
+    if profile is not None and profile.cache_mode is not None:
+        return profile.cache_mode
+    return CacheMode.MINUTES_5.value if tools else CacheMode.DISABLED.value
 
 def _error(message: str) -> ToolResult:
     return ToolResult(content=[text_content(message)], is_error=True)
@@ -77,7 +82,10 @@ def _run_agent(ctx: ToolContext, *, environment: AppEnvironment, profile: AgentP
         system_prompt=system_prompt,
         mcpc_session_id=sub_id,
         effort=effort,
-        cc_profile=cc_profile)
+        cc_profile=cc_profile,
+        cache_mode=_cache_mode(
+            profile,
+            tools))
     try:
         cli = services.cli_manager.request(parameters=params, session_id=sub_id)
         result = cli.prompt(prompt)

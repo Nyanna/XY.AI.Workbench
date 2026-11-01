@@ -1,4 +1,5 @@
 """A single managed CLI process and its stream-json conversation."""
+import collections
 import os
 import queue
 import subprocess
@@ -64,7 +65,7 @@ class CliSession:
     passing ``--session-id`` on first start and ``--resume`` on restart.
     """
 
-    def __init__(self, manager: 'CliSessionManager', parameters: CliParameters, *, session_id: str | None=None, log_dir: Path | None=None, ttl_seconds: float=3600.0, response_timeout: float=300.0, launcher: Launcher=default_launcher) -> None:
+    def __init__(self, manager: 'CliSessionManager', parameters: CliParameters, *, session_id: str | None=None, log_dir: Path | None=None, ttl_seconds: float=3600.0, response_timeout: float=24 * 60 * 60.0, launcher: Launcher=default_launcher) -> None:
         self.manager = manager
         self.parameters = parameters
         self.id = session_id or str(uuid.uuid4())
@@ -80,6 +81,9 @@ class CliSession:
         self._started_once = False
         self._reader: threading.Thread | None = None
         self._out: 'queue.Queue[Any]' = queue.Queue()
+        self._stderr_tail: collections.deque[str] = collections.deque(maxlen=40)
+        self._in_prompt = False
+        self._stderr_reader: threading.Thread | None = None
         self._lock = threading.RLock()
         self._log_lock = threading.Lock()
 
@@ -88,11 +92,12 @@ class CliSession:
         return self._process is not None and self._process.poll() is None
 
     def _ttl_reference(self) -> float:
-        """# The last *sent* message drives the TTL; before any prompt, use the"""
-        '# creation time so a freshly minted session is valid.'
-        return self.last_sent_at if self.last_sent_at is not None else self.created_at
+        """The latest activity (sent or received) drives the TTL; a fresh session counts from creation."""
+        return max(self.last_sent_at or self.created_at, self.last_received_at or 0.0)
 
     def is_valid(self, *, now: float | None=None) -> bool:
+        if self._in_prompt:
+            return True
         now = time.time() if now is None else now
         return now - self._ttl_reference() <= self.ttl_seconds
 
@@ -103,8 +108,12 @@ class CliSession:
         self.started_at = time.time()
         self._started_once = True
         self._out = queue.Queue()
+        self._stderr_tail.clear()
         self._reader = threading.Thread(target=self._read_loop, args=(self._process,), daemon=True)
         self._reader.start()
+        if getattr(self._process, 'stderr', None) is not None:
+            self._stderr_reader = threading.Thread(target=self._drain_stderr, args=(self._process,), daemon=True)
+            self._stderr_reader.start()
 
     def _read_loop(self, process: Process) -> None:
         stdout = process.stdout
@@ -120,6 +129,21 @@ class CliSession:
                 self._out.put(obj)
         finally:
             self._out.put(_EOF)
+
+    def _drain_stderr(self, process: Process) -> None:
+        try:
+            for line in iter(process.stderr.readline, ''):
+                line = line.rstrip('\n')
+                self._stderr_tail.append(line)
+                self._replicate('err', line)
+        except Exception:
+            pass
+
+    def _stderr_hint(self) -> str:
+        if self._stderr_reader is not None:
+            self._stderr_reader.join(timeout=1)
+        tail = '\n'.join(self._stderr_tail)
+        return f'\nstderr:\n{tail}' if tail else ''
 
     def terminate(self) -> None:
         """Terminate a running CLI process and release its streams."""
@@ -153,15 +177,34 @@ class CliSession:
         A prompt sent to an invalid (expired) session terminates any lingering
         process and raises; otherwise it lazily (re)starts the process, sending
         ``--resume`` when reattaching to a previously started CLI session.
+        While the prompt is in flight the session never expires, so tool calls
+        blocked by a control agent can wait as long as the response timeout allows.
         """
         with self._lock:
             if not self.is_valid():
                 self.terminate()
                 raise CliSessionError(f'CLI session {self.id} has expired')
-            if not self.running:
-                self._start()
-            self._send_user_message(text)
-            return self._collect_result()
+            self._in_prompt = True
+            try:
+                if self.running and self._discard_stale_output():
+                    self.terminate()
+                if not self.running:
+                    self._start()
+                self._send_user_message(text)
+                return self._collect_result()
+            finally:
+                self._in_prompt = False
+                self.last_received_at = time.time()
+
+    def _discard_stale_output(self) -> bool:
+        """Drop events left over from an earlier exchange; return True if the stream ended."""
+        ended = False
+        while True:
+            try:
+                if self._out.get_nowait() is _EOF:
+                    ended = True
+            except queue.Empty:
+                return ended
 
     def _send_user_message(self, text: str) -> None:
         assert self._process is not None and self._process.stdin is not None
@@ -180,13 +223,15 @@ class CliSession:
         while True:
             remaining = deadline - time.time()
             if remaining <= 0:
+                self.terminate()
                 raise CliSessionError(f'CLI session {self.id} timed out after {self.response_timeout}s')
             try:
                 obj = self._out.get(timeout=remaining)
             except queue.Empty:
-                raise CliSessionError(f'CLI session {self.id} timed out')
+                self.terminate()
+                raise CliSessionError(f'CLI session {self.id} timed out after {self.response_timeout}s')
             if obj is _EOF:
-                raise CliSessionError(f'CLI session {self.id} ended before returning a result')
+                raise CliSessionError(f'CLI session {self.id} ended before returning a result{self._stderr_hint()}')
             if not isinstance(obj, dict):
                 continue
             kind = obj.get('type')
@@ -194,10 +239,14 @@ class CliSession:
                 assistant_text.append(_extract_text(obj.get('message', {})))
             elif kind == 'result':
                 subtype = obj.get('subtype')
-                is_error = bool(obj.get('is_error')) or (isinstance(subtype, str) and subtype != 'success')
+                errors = _join_errors(obj.get('errors'))
+                is_error = bool(obj.get('is_error')) or bool(errors) or (
+                    isinstance(subtype, str) and subtype != 'success')
                 text = obj.get('result')
                 if not isinstance(text, str):
-                    text = ''.join(assistant_text)
+                    text = '\n'.join((t for t in assistant_text if t))
+                if errors:
+                    text = f'{text}\n{errors}'.strip()
                 return CliResult(text=text, is_error=is_error, subtype=subtype)
     '# -- replication --------------------------------------------------------'
 
@@ -230,3 +279,10 @@ def _extract_text(message: dict[str, Any]) -> str:
         return ''
     parts = [block.get('text', '') for block in content if isinstance(block, dict) and block.get('type') == 'text']
     return ''.join(parts)
+
+def _join_errors(errors: Any) -> str:
+    """Flatten the ``errors`` array of failed ``result`` events."""
+    if not isinstance(errors, list):
+        return ''
+    parts = [e.get('message', str(e)) if isinstance(e, dict) else str(e) for e in errors]
+    return '\n'.join((p for p in parts if p))

@@ -14,6 +14,8 @@ class AgentProfile:
     description: str
     '#: System prompt used to initialise the sub-agent.'
     system_prompt: str
+    '#: Prompt-cache mode; ``None`` derives it from ``tools`` (5 minutes with tools, disabled without).'
+    cache_mode: str | None = None
 
 class ProfileRegistry:
     """Lookup table of the known agent profiles."""

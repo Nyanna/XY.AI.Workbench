@@ -15,11 +15,21 @@ class Model(str, Enum):
 class Effort(str, Enum):
     """Reasoning-effort levels the agent tool may request."""
     DISABLED = 'disabled'
-    MINIMAL = 'minimal'
     LOW = 'low'
     MEDIUM = 'medium'
     HIGH = 'high'
     XHIGH = 'xhigh'
+    MAX = 'max'
+
+class CacheMode(str, Enum):
+    """Prompt-cache behaviour of the spawned CLI."""
+    DEFAULT = 'default'
+    DISABLED = 'disabled'
+    MINUTES_5 = '5m'
+    HOURS_1 = '1h'
+_CACHE_ENV = {CacheMode.DISABLED.value: 'DISABLE_PROMPT_CACHING',
+              CacheMode.MINUTES_5.value: 'FORCE_PROMPT_CACHING_5M',
+              CacheMode.HOURS_1.value: 'ENABLE_PROMPT_CACHING_1H'}
 '#: Environment variable through which the CLI learns which MCPC session id to'
 '#: present when it connects back for tools/hooks.'
 MCPC_SESSION_ENV = 'MCPC_SESSION_ID'
@@ -40,6 +50,7 @@ class CliParameters:
     cc_profile: str = 'none'
     executable: str = 'claude'
     extra_env: dict[str, str] = field(default_factory=dict)
+    cache_mode: str = CacheMode.DEFAULT.value
 
     @property
     def base_url(self) -> str:
@@ -50,21 +61,38 @@ class CliParameters:
         return f'{self.base_url}{self.config.path}'
 
     @property
+    def ws_mcp_url(self) -> str:
+        config = self.config
+        return f'http://{config.resolved_ws_host}:{config.ws_port}{config.ws_path}'
+
+    @property
     def hook_url(self) -> str:
         return f'{self.base_url}{self.config.hook_path}'
+
+    @property
+    def permission_hook_url(self) -> str:
+        return f'{self.base_url}{self.config.permission_hook_path}'
 
     def build_base_command(self, cli_session_id: str) -> list[str]:
         """Build the command line shared by initial-start and resume."""
         session_header = self.config.session_header
         ccprofile_header = self.config.ccprofile_header
-        settings = {'hooks': {'PreToolUse': [{'type': 'http', 'url': self.hook_url,
-                                              'headers': {session_header: cli_session_id}, 'timeout': 86400}]}}
+        hook_headers = {session_header: cli_session_id}
+        settings = {'hooks': {'PreToolUse': [{'hooks': [{'type': 'http',
+                                                         'url': self.hook_url,
+                                                         'headers': hook_headers,
+                                                         'timeout': 86400}]}],
+                              'PermissionRequest': [{'hooks': [{'type': 'http',
+                                                                'url': self.permission_hook_url,
+                                                                'headers': hook_headers,
+                                                                'timeout': 86400}]}]}}
         mcp_config = {
             'mcpServers': {
                 'mcpc': {
-                    'type': 'http',
-                    'url': self.mcp_url,
+                    'type': 'ws',
+                    'url': self.ws_mcp_url,
                     'timeout': 86400000,
+                    'alwaysLoad': True,
                     'headers': {
                         session_header: cli_session_id,
                         ccprofile_header: self.cc_profile}}}}
@@ -79,13 +107,10 @@ class CliParameters:
             '--mcp-config',
             JsonCodec.encode(mcp_config),
             '--verbose',
-            '--include-hook-events',
-            '--include-partial-messages',
             '--input-format',
             'stream-json',
             '--output-format',
             'stream-json',
-            '--replay-user-messages',
             '--model',
             self.model]
         if self.effort != Effort.DISABLED.value:
@@ -126,12 +151,25 @@ class CliParameters:
         env['CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS'] = '1'
         env['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
         env['CLAUDE_CODE_DISABLE_POLICY_SKILLS'] = '1'
+        env['CLAUDE_CODE_DISABLE_WEB_FETCH'] = '1'
         env['CLAUDE_CODE_DISABLE_WORKFLOWS'] = '1'
         env['CLAUDE_CODE_ENABLE_AWAY_SUMMARY'] = '0'
         env['CLAUDE_CODE_ENABLE_BACKGROUND_PLUGIN_REFRESH'] = '1'
         env['CLAUDE_CODE_FORK_SUBAGENT'] = '0'
         env['CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY'] = '1'
+        env['CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS'] = '0'
+        env['CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT'] = '0'
+        env['MAX_MCP_OUTPUT_TOKENS'] = '250000'
+        env['MCP_TOOL_TIMEOUT'] = '86400000'
+        env['MCP_TIMEOUT'] = '86400000'
+        env['CLAUDE_ENABLE_STREAM_WATCHDOG'] = '0'
+        env['CLAUDE_ENABLE_BYTE_WATCHDOG'] = '0'
+        env['CLAUDE_STREAM_IDLE_TIMEOUT_MS'] = '86400000'
+        env['API_FORCE_IDLE_TIMEOUT'] = '0'
         env['ENABLE_TOOL_SEARCH'] = 'false'
         env['CLAUDE_CODE_DISABLE_ADVISOR_TOOL'] = '1'
+        cache_env = _CACHE_ENV.get(self.cache_mode)
+        if cache_env is not None:
+            env[cache_env] = '1'
         env.update(self.extra_env)
         return env

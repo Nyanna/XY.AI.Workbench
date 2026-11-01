@@ -13,7 +13,7 @@ __all__ = ['CliSessionError', 'CliSessionManager']
 class CliSessionManager:
     """Thread-safe pool of :class:`CliSession` objects keyed by CLI-session id."""
 
-    def __init__(self, *, log_dir: Path | str='.claude/logs', ttl_seconds: float=3600.0, response_timeout: float=300.0, launcher: Launcher=default_launcher) -> None:
+    def __init__(self, *, log_dir: Path | str='.claude/logs', ttl_seconds: float=3600.0, response_timeout: float=24 * 60 * 60.0, launcher: Launcher=default_launcher) -> None:
         self.log_dir = Path(log_dir)
         self.ttl_seconds = ttl_seconds
         self.response_timeout = response_timeout
