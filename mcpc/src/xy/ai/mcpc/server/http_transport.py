@@ -56,7 +56,12 @@ def is_origin_allowed(config, origin: str | None) -> bool:
 def apply_tools_header(config, comm_log, session_id: str, session, raw: str | None) -> None:
     """Reconcile *session*'s active toolset with an ``X-MCPC-TOOLS`` value.
     """
-    if raw is None:
+    if config.ignore_tools_header:
+        if not session.state.get('tools_preset'):
+            session.state['tools_preset'] = True
+            session.set_enabled_tools({'all'})
+        return
+    if raw is None or session.state.get('tools_preset'):
         return
     logger.debug('Process tool header: %s', raw)
     names = {part.strip() for part in raw.split(',') if part.strip()}
@@ -259,6 +264,10 @@ class StreamableHttpHandler(BaseHTTPRequestHandler):
 
     def _apply_control_header(self, session_id: str, session) -> None:
         """Reconcile the session's control-bypass flag with the ``X-MCPC-CONTROL`` header."""
+        if self.config.auto_approve:
+            if not session.control_disabled:
+                session.set_control_disabled(True)
+            return
         raw = self._param(self.config.control_header, 'control')
         apply_control_header(self.comm_log, session_id, session, raw)
     '# -- request processing -------------------------------------------------'

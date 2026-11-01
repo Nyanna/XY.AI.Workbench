@@ -191,6 +191,8 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
+        '#: When set, tools whose name it rejects are silently not registered.'
+        self.registration_filter: Callable[[str], bool] | None = None
         '#: Generic tool-set aliases: an alias name expands to a set of tool'
         '#: names. A session may enable an alias instead of listing every member.'
         self._aliases: dict[str, set[str]] = {}
@@ -228,6 +230,8 @@ class ToolRegistry:
 
     def register(self, tool: ToolDefinition) -> Tool:
         tool = tool.to_tool()
+        if self.registration_filter is not None and (not self.registration_filter(tool.name)):
+            return tool
         if tool.name in self._tools:
             raise ValueError(f'Tool already registered: {tool.name}')
         tool.input_schema = _with_mandatory_reason(tool.input_schema)

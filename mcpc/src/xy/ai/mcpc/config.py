@@ -97,6 +97,8 @@ class ServerConfig:
     tools_page_size: int = 100
     '# : Reject request bodies larger than this many bytes.'
     max_body_bytes: int = 4 * 1024 * 1024
+    ignore_tools_header: bool = False
+    auto_approve: bool = False
 
     @property
     def preferred_protocol_version(self) -> str:

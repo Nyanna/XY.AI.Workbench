@@ -1,7 +1,9 @@
 """Assembling and running the MCP Controller HTTP server."""
 import logging
 import socket
+from fnmatch import fnmatchcase
 from http.server import ThreadingHTTPServer
+from collections.abc import Callable, Iterable
 from typing import Any
 from xy.ai.mcpc.cli import CliSessionManager
 from xy.ai.mcpc.config import ServerConfig
@@ -56,7 +58,7 @@ class McpHTTPServer(ThreadingHTTPServer):
         host, port = (self.server_address[0], self.server_address[1])
         return f'http://{host}:{port}/{self.config.path}'
 
-def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None=None, *, enable_control: bool=True) -> McpHTTPServer:
+def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None=None, *, enable_control: bool=True, builtin_tools: 'bool | Iterable[str]'=True, extra_tools: 'Callable[[ToolRegistry, AppEnvironment], None] | None'=None) -> McpHTTPServer:
     """Construct (but do not start) an :class:`McpHTTPServer`.
     """
     logger.debug('Aquiring config')
@@ -90,8 +92,16 @@ def build_server(config: ServerConfig | None=None, registry: ToolRegistry | None
         cli_manager=cli_manager,
         profiles=profiles,
         control_manager=control_manager)
-    if not registry_given:
-        register_tools(registry, environment)
+    if not registry_given and builtin_tools is not False:
+        if builtin_tools is not True:
+            patterns = tuple(builtin_tools)
+            registry.registration_filter = lambda name: any((fnmatchcase(name, p) for p in patterns))
+        try:
+            register_tools(registry, environment)
+        finally:
+            registry.registration_filter = None
+    if extra_tools is not None:
+        extra_tools(registry, environment)
     protocol = McpProtocol(config, registry, environment)
     logger.debug('Initialising Communication-Log')
     comm_log = CommunicationLog(config.log_dir)

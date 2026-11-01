@@ -111,7 +111,10 @@ class WebSocketMcpServer:
 
     @property
     def endpoint_url(self) -> str:
-        return f'ws://{self.config.resolved_ws_host}:{self.config.ws_port}{self.config.ws_path}'
+        port = self.config.ws_port
+        if self._server is not None and getattr(self._server, 'sockets', None):
+            port = self._server.sockets[0].getsockname()[1]
+        return f'ws://{self.config.resolved_ws_host}:{port}{self.config.ws_path}'
     '# -- lifecycle ------------------------------------------------------------'
 
     def start(self) -> None:
@@ -148,9 +151,13 @@ class WebSocketMcpServer:
     async def _handle_connection(self, connection: 'ServerConnection') -> None:
         request = connection.request
         headers = request.headers
-        logger.debug('WS: handshake path=%s offered_subprotocols=%s selected_subprotocol=%s user_agent=%s extensions=%s',
-                    request.path, headers.get('Sec-WebSocket-Protocol'), connection.subprotocol,
-                    headers.get('User-Agent'), headers.get('Sec-WebSocket-Extensions'))
+        logger.debug(
+            'WS: handshake path=%s offered_subprotocols=%s selected_subprotocol=%s user_agent=%s extensions=%s',
+            request.path,
+            headers.get('Sec-WebSocket-Protocol'),
+            connection.subprotocol,
+            headers.get('User-Agent'),
+            headers.get('Sec-WebSocket-Extensions'))
         parsed = urlparse(request.path)
         query = parse_qs(parsed.query)
         if parsed.path != self.config.path:
@@ -173,7 +180,7 @@ class WebSocketMcpServer:
             logger.warning('WS: session id is not a valid UUID')
             await connection.close(_POLICY_VIOLATION, f'{self.config.session_header} must be a valid UUID')
             return
-        skip_control = (headers.get(self.config.control_header, '') or '').lower() == 'off'
+        skip_control = self.config.auto_approve or (headers.get(self.config.control_header, '') or '').lower() == 'off'
         session, created = self.sessions.get_or_create(session_id)
         if created:
             self.comm_log.log(session_id, EVENT, {'event': 'session.created', 'transport': 'ws'})
