@@ -1,5 +1,6 @@
 """#!/usr/bin/env python3"""
 import argparse
+import json
 import re
 import time
 from datetime import datetime
@@ -11,14 +12,17 @@ from xy.ai.mcpc.embedded import EmbeddedMcpc, Effort, Model
 from xy.ai.mcpc.cli.session import TokenStats
 from xy.ai.mcpc.tools.tool_registry import ToolResult
 BASE_DIR = Path('/home/user/xyan/xy.ai.workbench/project/resident_02/23_batch')
-SYSTEM_PROMPT = 'You are a software architect writing precise module specifications. Use the tool `read_specifications` to read specifications of other modules.'
+SYSTEM_PROMPT = ''
 READ_SPEC_SCHEMA = {
     'type': 'object',
     'properties': {
-        'module': {
-            'type': 'string',
-            'description': 'Module name'}},
-    'required': ['module']}
+        'modules': {
+            'type': 'array',
+            'items': {
+                'type': 'string'},
+            'minItems': 1,
+            'description': 'List of module names'}},
+    'required': ['modules']}
 
 def slugify(name: str) -> str:
     slug = re.sub('[^\\w]+', '_', name.strip(), flags=re.UNICODE).strip('_')
@@ -89,12 +93,21 @@ def run(args, report: Reporter) -> int:
 
         @mcpc.tool('read_specifications', 'Read the finished specification of a module by name.', READ_SPEC_SCHEMA)
         def read_specifications(ctx):
-            name = str(ctx.arguments.get('module', ''))
-            path = spec_path(args.spec_dir, name)
-            if not path.is_file():
-                return ToolResult(
-                    content=[{'type': 'text', 'text': f"Specification for module '{name}' is still pending."}], is_error=True)
-            return path.read_text(encoding='utf-8')
+            names = ctx.arguments.get('modules', [])
+            if isinstance(names, str):
+                names = [names]
+            results = []
+            for name in map(str, names):
+                path = spec_path(args.spec_dir, name)
+                if path.is_file():
+                    results.append({'module': name, 'specification': path.read_text(encoding='utf-8')})
+                else:
+                    results.append({'module': name, 'error': f"Specification for module '{name}' is still pending."})
+            all_missing = not results or all(('error' in r for r in results))
+            text = json.dumps(results, ensure_ascii=False, indent=2)
+            if all_missing:
+                return ToolResult(content=[{'type': 'text', 'text': text}], is_error=True)
+            return text
         done = []
         for module in modules:
             name = module['Name']
