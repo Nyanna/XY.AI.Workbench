@@ -1,55 +1,19 @@
-"""Run an MCPC server inline from a Python script.
-
-Typical batch usage::
-
-    class MyTools(ToolProvider):
-        def tools(self, environment):
-            return [FunctionTool("lookup", "Look up a record", {"type": "object", "properties": {}}, lambda ctx: "ok")]
-
-    with EmbeddedMcpc(builtin_tools=["read", "bash"], tools=[MyTools()], auto_approve=True) as mcpc:
-        sid = mcpc.open_session(tools={"lookup", "read"})
-        # point the agent at mcpc.url with header ``mcpc.headers(sid)``
-
-One instance can be shared by many parallel agents: every agent uses its own
-session id (``open_session``) and therefore its own toolset.
-"""
+"""An MCPC server running on a background thread inside the current process."""
 from __future__ import annotations
 import logging
 import threading
 import uuid
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+from urllib.parse import urlparse
 from xy.ai.mcpc.config import ServerConfig
+from xy.ai.mcpc.embedded.agent import Agent, CacheMode, CliResult, CliSessionError, Effort, Model, agent_parameters
+from xy.ai.mcpc.embedded.tools import FunctionTool, ToolHandlerFn, ToolProvider, register_tool
 from xy.ai.mcpc.server.server import McpHTTPServer, build_server, build_ws_server
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
-if TYPE_CHECKING:
-    from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
-__all__ = ['EmbeddedMcpc', 'FunctionTool', 'ToolProvider']
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry
+__all__ = ['EmbeddedMcpc', 'launch_agent']
 logger = logging.getLogger('xy.ai.mcpc.embedded')
-ToolHandlerFn = Callable[['ToolContext'], 'ToolResult | str | dict[str, Any]']
-
-class ToolProvider(ABC):
-    """Subclass and implement :meth:`tools` to contribute custom tools to a server."""
-
-    @abstractmethod
-    def tools(self, environment: AppEnvironment) -> Iterable[ToolDefinition]:
-        """Return the tools to register. *environment* gives access to config, sessions, etc."""
-
-class FunctionTool(ToolDefinition):
-    """A tool backed by a plain callable taking a ``ToolContext``."""
-
-    def __init__(self, name: str, description: str, input_schema: dict[str, Any], handler: ToolHandlerFn, *, title: str | None=None, output_schema: dict[str, Any] | None=None, annotations: dict[str, Any] | None=None) -> None:
-        self.name = name
-        self.description = description
-        self.input_schema = input_schema
-        self.title = title
-        self.output_schema = output_schema if output_schema is not None else {'type': 'object'}
-        self.annotations = annotations
-        self._handler = handler
-
-    def handle(self, ctx: ToolContext) -> ToolResult | str | dict[str, Any]:
-        return self._handler(ctx)
 
 class EmbeddedMcpc:
     """An MCPC server running on a background thread inside the current process.
@@ -83,7 +47,7 @@ class EmbeddedMcpc:
         if self._server is None:
             self._tools.append(tool)
             return
-        self._register(tool, self._server.environment.registry, self._server.environment)
+        register_tool(tool, self._server.environment.registry, self._server.environment)
 
     def tool(self, name: str, description: str, input_schema: dict[str, Any] | None=None, **kwargs: Any) -> Callable[[ToolHandlerFn], ToolHandlerFn]:
         """Decorator registering a function ``(ctx) -> result`` as a tool."""
@@ -94,17 +58,9 @@ class EmbeddedMcpc:
             return fn
         return decorator
 
-    @staticmethod
-    def _register(tool: ToolDefinition | ToolProvider, registry: ToolRegistry, environment: AppEnvironment) -> None:
-        if isinstance(tool, ToolProvider):
-            for definition in tool.tools(environment):
-                registry.register(definition)
-        else:
-            registry.register(tool)
-
-    def _register_all(self, registry: ToolRegistry, environment: AppEnvironment) -> None:
+    def _register_all(self, registry: ToolRegistry, environment: Any) -> None:
         for tool in self._tools:
-            self._register(tool, registry, environment)
+            register_tool(tool, registry, environment)
         self._tools.clear()
 
     def start(self) -> EmbeddedMcpc:
@@ -151,6 +107,10 @@ class EmbeddedMcpc:
         self.stop()
 
     @property
+    def running(self) -> bool:
+        return self._server is not None
+
+    @property
     def server(self) -> McpHTTPServer:
         if self._server is None:
             raise RuntimeError('Server not started')
@@ -168,14 +128,14 @@ class EmbeddedMcpc:
     def tool_names(self) -> list[str]:
         return self.server.environment.registry.names()
 
-    def open_session(self, tools: Iterable[str] | None=None, session_id: str | None=None) -> str:
+    def open_session(self, tools: Iterable[str] | None=None, session_id: str | None=None, cc_profile: str='none') -> str:
         """Create a session with its own toolset (default: all registered tools).
 
         Sessions configured here are never overridden by the client's tools header.
         """
         sid = session_id or str(uuid.uuid4())
         names = {'all'} if tools is None else set(tools)
-        session = self.server.sessions.precreate(sid, enabled_tools=names, cc_profile='none')
+        session = self.server.sessions.precreate(sid, enabled_tools=names, cc_profile=cc_profile)
         session.state['tools_preset'] = True
         return sid
 
@@ -185,3 +145,63 @@ class EmbeddedMcpc:
     def headers(self, session_id: str) -> dict[str, str]:
         """HTTP headers an agent must send to use *session_id*."""
         return {self.config.session_header: session_id}
+
+    @property
+    def agent_config(self) -> ServerConfig:
+        """The configuration with the actually bound ports (relevant when configured with port 0)."""
+        ws_url = self.ws_url
+        if ws_url is None:
+            raise RuntimeError('Agents require the WebSocket transport (ws_enabled=True and `websockets` installed)')
+        return self.config.with_overrides(port=self.server.server_address[1], ws_port=urlparse(ws_url).port)
+
+    def start_agent(self, system_prompt: str, *, model: Model | str=Model.SONNET, effort: Effort | str=Effort.MEDIUM, tools: Iterable[str] | None=None, cc_profile: str='none', cache_mode: CacheMode | str=CacheMode.DEFAULT, executable: str='claude', extra_env: dict[str, str] | None=None, agent_id: str | None=None) -> Agent:
+        """Start an agent bound to this server with its own session and toolset (*tools*, default: all).
+
+        Any number of agents may share one instance; the CLI process starts lazily on the first prompt.
+        """
+        sid = self.open_session(tools=tools, cc_profile=cc_profile)
+        try:
+            parameters = agent_parameters(
+                self.agent_config,
+                sid,
+                system_prompt,
+                model=model,
+                effort=effort,
+                cc_profile=cc_profile,
+                cache_mode=cache_mode,
+                executable=executable,
+                extra_env=extra_env)
+            cli = self.server.environment.cli_manager.request(parameters=parameters, session_id=agent_id)
+        except Exception:
+            self.close_session(sid)
+            raise
+        return Agent(self, cli, sid)
+
+    def run_batch(self, prompts: Sequence[str], system_prompt: str, *, max_workers: int=4, **agent_options: Any) -> list[CliResult]:
+        """Run each prompt on a fresh agent (parallel, sharing this server); results keep the prompt order.
+
+        *agent_options* are passed to :meth:`start_agent`. Failures are returned as error results.
+        """
+
+        def run(prompt: str) -> CliResult:
+            try:
+                with self.start_agent(system_prompt, **agent_options) as agent:
+                    return agent.prompt(prompt)
+            except CliSessionError as exc:
+                return CliResult(text=str(exc), is_error=True, subtype='session_error')
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix='mcpc-batch') as pool:
+            return list(pool.map(run, prompts))
+
+def launch_agent(system_prompt: str, *, builtin_tools: bool | Iterable[str]=True, tools: Iterable[ToolDefinition | ToolProvider]=(), config: ServerConfig | None=None, auto_approve: bool=True, **agent_options: Any) -> Agent:
+    """Start an agent with a dedicated, specially configured MCPC instance that it owns.
+
+    *agent_options* are passed to :meth:`EmbeddedMcpc.start_agent`; closing the agent stops its server.
+    """
+    mcpc = EmbeddedMcpc(config, builtin_tools=builtin_tools, tools=tools, auto_approve=auto_approve).start()
+    try:
+        agent = mcpc.start_agent(system_prompt, **agent_options)
+    except Exception:
+        mcpc.stop()
+        raise
+    agent.owns_mcpc = True
+    return agent

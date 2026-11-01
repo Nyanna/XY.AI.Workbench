@@ -65,6 +65,13 @@ class CliSessionManager:
         with self._lock:
             return self._sessions.get(cli_session_id)
 
+    def discard(self, cli_session_id: str) -> None:
+        """Terminate and forget a session; unknown ids are ignored."""
+        with self._lock:
+            session = self._sessions.pop(cli_session_id, None)
+        if session is not None:
+            session.terminate()
+
     def _sweep(self) -> None:
         """Terminate and drop every expired session (caller holds the lock)."""
         expired = [s for s in self._sessions.values() if not s.is_valid()]
