@@ -61,7 +61,7 @@ class Reporter:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--modules', type=Path, default=BASE_DIR / 'modules.yaml')
-    parser.add_argument('--template', type=Path, default=BASE_DIR / 'prompt.md.j2')
+    parser.add_argument('--template', type=Path, default=BASE_DIR / 'prompt.md')
     parser.add_argument('--spec-dir', type=Path, default=BASE_DIR / 'specs')
     parser.add_argument(
         '--log-file',
@@ -120,7 +120,7 @@ def run(args, report: Reporter) -> int:
             prompt = template.render(module=module, previous_modules=list(done))
             report(f'[run ] {name}')
             module_started = time.monotonic()
-            with mcpc.start_agent(SYSTEM_PROMPT, tools={'read_specifications'}, model=Model.HAIKU, effort=Effort.LOW, cc_profile=args.profile) as agent:
+            with mcpc.start_agent(SYSTEM_PROMPT, tools={'read_specifications'}, model=Model.SONNET, effort=Effort.MEDIUM, cc_profile=args.profile) as agent:
                 result = agent.prompt(prompt)
             total.add(result.stats)
             report(f'[stat] {name} | {format_stats(result.stats, time.monotonic() - module_started)}')
