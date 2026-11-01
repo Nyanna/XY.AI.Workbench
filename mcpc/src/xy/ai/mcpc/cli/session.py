@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 from xy.ai.mcpc.server.json_codec import JsonCodec
@@ -52,11 +52,58 @@ class CliSessionError(RuntimeError):
     """Raised when a prompt cannot be served (expired, timed out, crashed…)."""
 
 @dataclass(slots=True)
+class TokenStats:
+    """Token usage of one or more exchanges (summed over all models)."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read: int = 0
+    cache_create: int = 0
+    reasoning_tokens: int = 0
+    cost_usd: float = 0.0
+    duration_ms: int = 0
+    turns: int = 0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.cache_create + self.output_tokens
+
+    def add(self, other: 'TokenStats') -> None:
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_read += other.cache_read
+        self.cache_create += other.cache_create
+        self.reasoning_tokens += other.reasoning_tokens
+        self.cost_usd += other.cost_usd
+        self.duration_ms += other.duration_ms
+        self.turns += other.turns
+
+@dataclass(slots=True)
 class CliResult:
     """The outcome of a single prompt/response exchange."""
     text: str
     is_error: bool = False
     subtype: str | None = None
+    stats: TokenStats = field(default_factory=TokenStats)
+
+def _int(value: Any) -> int:
+    return int(value) if isinstance(value, (int, float)) else 0
+
+def _extract_stats(result: dict[str, Any], reasoning_tokens: int) -> TokenStats:
+    stats = TokenStats(reasoning_tokens=reasoning_tokens)
+    model_usage = result.get('modelUsage')
+    if isinstance(model_usage, dict):
+        for usage in model_usage.values():
+            if not isinstance(usage, dict):
+                continue
+            stats.input_tokens += _int(usage.get('inputTokens'))
+            stats.output_tokens += _int(usage.get('outputTokens'))
+            stats.cache_read += _int(usage.get('cacheReadInputTokens'))
+            stats.cache_create += _int(usage.get('cacheCreationInputTokens'))
+    cost = result.get('total_cost_usd')
+    stats.cost_usd = float(cost) if isinstance(cost, (int, float)) else 0.0
+    stats.duration_ms = _int(result.get('duration_ms'))
+    stats.turns = _int(result.get('num_turns'))
+    return stats
 
 class CliSession:
     """Container around a CLI process that serves prompts over stdin/stdout.
@@ -220,6 +267,7 @@ class CliSession:
     def _collect_result(self) -> CliResult:
         deadline = time.time() + self.response_timeout
         assistant_text: list[str] = []
+        reasoning_tokens = 0
         while True:
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -237,6 +285,13 @@ class CliSession:
             kind = obj.get('type')
             if kind == 'assistant':
                 assistant_text.append(_extract_text(obj.get('message', {})))
+            elif kind == 'stream_event':
+                event = obj.get('event')
+                if isinstance(event, dict) and event.get('type') == 'message_delta':
+                    usage = event.get('usage')
+                    details = usage.get('output_tokens_details') if isinstance(usage, dict) else None
+                    if isinstance(details, dict):
+                        reasoning_tokens += _int(details.get('thinking_tokens'))
             elif kind == 'result':
                 subtype = obj.get('subtype')
                 errors = _join_errors(obj.get('errors'))
@@ -247,7 +302,13 @@ class CliSession:
                     text = '\n'.join((t for t in assistant_text if t))
                 if errors:
                     text = f'{text}\n{errors}'.strip()
-                return CliResult(text=text, is_error=is_error, subtype=subtype)
+                return CliResult(
+                    text=text,
+                    is_error=is_error,
+                    subtype=subtype,
+                    stats=_extract_stats(
+                        obj,
+                        reasoning_tokens))
     '# -- replication --------------------------------------------------------'
 
     def _replicate(self, direction: str, line: str) -> None:
