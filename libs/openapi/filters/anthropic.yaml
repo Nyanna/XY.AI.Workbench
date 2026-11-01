@@ -387,7 +387,6 @@ ops:
       - ContainerSkill
       - CountMessageTokensParams
       - CountMessageTokensResponse
-      - DirectCaller
       - FileDocumentSource
       - FileImageSource
       - ListResponse_MessageBatch_
@@ -413,7 +412,6 @@ ops:
       - RequestRedactedThinkingBlock
       - RequestSearchResultBlock
       - RequestSearchResultLocationCitation
-      - RequestServerToolUseBlock
       - RequestTextEditorCodeExecutionCreateResultBlock
       - RequestTextEditorCodeExecutionStrReplaceResultBlock
       - RequestTextEditorCodeExecutionToolResultBlock

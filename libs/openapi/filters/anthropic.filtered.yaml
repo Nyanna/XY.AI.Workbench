@@ -135,8 +135,6 @@ paths:
             title: "X-Api-Key"
           description: "Your unique API key for authentication.\n\nThis key is required in the header of all API requests, to authenticate your account and access Anthropic's services. Get your API key through the [Console](https://console.anthropic.com/settings/keys). Each key is scoped to a Workspace."
       responses:
-        '200':
-          description: "Successful Response"
         4XX:
           description: "Error response.\n\nSee our [errors documentation](https://platform.claude.com/docs/en/api/errors) for more details."
           content:
@@ -311,28 +309,16 @@ components:
     InputContentBlock:
       discriminator:
         mapping:
-          bash_code_execution_tool_result: "#/components/schemas/RequestBashCodeExecutionToolResultBlock"
-          code_execution_tool_result: "#/components/schemas/RequestCodeExecutionToolResultBlock"
-          container_upload: "#/components/schemas/RequestContainerUploadBlock"
-          document: "#/components/schemas/RequestDocumentBlock"
-          image: "#/components/schemas/RequestImageBlock"
-          redacted_thinking: "#/components/schemas/RequestRedactedThinkingBlock"
-          search_result: "#/components/schemas/RequestSearchResultBlock"
           server_tool_use: "#/components/schemas/RequestServerToolUseBlock"
           text: "#/components/schemas/RequestTextBlock"
-          text_editor_code_execution_tool_result: "#/components/schemas/RequestTextEditorCodeExecutionToolResultBlock"
           thinking: "#/components/schemas/RequestThinkingBlock"
-          tool_result: "#/components/schemas/RequestToolResultBlock"
-          tool_search_tool_result: "#/components/schemas/RequestToolSearchToolResultBlock"
-          tool_use: "#/components/schemas/RequestToolUseBlock"
-          web_fetch_tool_result: "#/components/schemas/RequestWebFetchToolResultBlock"
-          web_search_tool_result: "#/components/schemas/RequestWebSearchToolResultBlock"
         propertyName: "type"
       oneOf:
         - $ref: "#/components/schemas/RequestTextBlock"
           description: "Regular text content."
         - $ref: "#/components/schemas/RequestThinkingBlock"
           description: "A block specifying internal thinking by the model."
+        - $ref: "#/components/schemas/RequestServerToolUseBlock"
     ErroredResult:
       properties:
         error:
@@ -395,6 +381,18 @@ components:
         - "thinking"
         - "type"
       title: "RequestThinkingBlock"
+      type: "object"
+    DirectCaller:
+      additionalProperties: false
+      description: "Tool invocation directly from the model."
+      properties:
+        type:
+          const: "direct"
+          title: "Type"
+          type: "string"
+      required:
+        - "type"
+      title: "DirectCaller"
       type: "object"
     ThinkingConfigAdaptive:
       additionalProperties: false
@@ -787,18 +785,9 @@ components:
     ContentBlock:
       discriminator:
         mapping:
-          bash_code_execution_tool_result: "#/components/schemas/ResponseBashCodeExecutionToolResultBlock"
-          code_execution_tool_result: "#/components/schemas/ResponseCodeExecutionToolResultBlock"
-          container_upload: "#/components/schemas/ResponseContainerUploadBlock"
-          redacted_thinking: "#/components/schemas/ResponseRedactedThinkingBlock"
-          server_tool_use: "#/components/schemas/ResponseServerToolUseBlock"
           text: "#/components/schemas/ResponseTextBlock"
-          text_editor_code_execution_tool_result: "#/components/schemas/ResponseTextEditorCodeExecutionToolResultBlock"
           thinking: "#/components/schemas/ResponseThinkingBlock"
-          tool_search_tool_result: "#/components/schemas/ResponseToolSearchToolResultBlock"
           tool_use: "#/components/schemas/ResponseToolUseBlock"
-          web_fetch_tool_result: "#/components/schemas/ResponseWebFetchToolResultBlock"
-          web_search_tool_result: "#/components/schemas/ResponseWebSearchToolResultBlock"
         propertyName: "type"
       oneOf:
         - $ref: "#/components/schemas/ResponseTextBlock"
@@ -1229,15 +1218,7 @@ components:
       properties:
         citations:
           anyOf:
-            - items:
-                discriminator:
-                  mapping:
-                    char_location: "#/components/schemas/ResponseCharLocationCitation"
-                    content_block_location: "#/components/schemas/ResponseContentBlockLocationCitation"
-                    page_location: "#/components/schemas/ResponsePageLocationCitation"
-                    search_result_location: "#/components/schemas/ResponseSearchResultLocationCitation"
-                    web_search_result_location: "#/components/schemas/ResponseWebSearchResultLocationCitation"
-                  propertyName: "type"
+            - items: {}
               type: "array"
             - type: "null"
           default: null
@@ -1335,6 +1316,7 @@ components:
         server_tool_use:
           default: null
           description: "The number of server tool requests."
+          type: "null"
         service_tier:
           anyOf:
             - enum:
@@ -1373,6 +1355,58 @@ components:
         - "message"
         - "type"
       title: "GatewayTimeoutError"
+      type: "object"
+    RequestServerToolUseBlock:
+      additionalProperties: false
+      properties:
+        cache_control:
+          anyOf:
+            - discriminator:
+                mapping:
+                  ephemeral: "#/components/schemas/CacheControlEphemeral"
+                propertyName: "type"
+              oneOf:
+                - $ref: "#/components/schemas/CacheControlEphemeral"
+            - type: "null"
+          description: "Create a cache control breakpoint at this content block."
+          title: "Cache Control"
+        caller:
+          discriminator:
+            mapping:
+              direct: "#/components/schemas/DirectCaller"
+            propertyName: "type"
+          oneOf:
+            - $ref: "#/components/schemas/DirectCaller"
+          title: "Caller"
+        id:
+          pattern: "^srvtoolu_[a-zA-Z0-9_]+$"
+          title: "Id"
+          type: "string"
+        input:
+          additionalProperties: true
+          title: "Input"
+          type: "object"
+        name:
+          enum:
+            - "web_search"
+            - "web_fetch"
+            - "code_execution"
+            - "bash_code_execution"
+            - "text_editor_code_execution"
+            - "tool_search_tool_regex"
+            - "tool_search_tool_bm25"
+          title: "Name"
+          type: "string"
+        type:
+          const: "server_tool_use"
+          title: "Type"
+          type: "string"
+      required:
+        - "id"
+        - "input"
+        - "name"
+        - "type"
+      title: "RequestServerToolUseBlock"
       type: "object"
     InputMessage:
       additionalProperties: false
@@ -1492,6 +1526,7 @@ components:
         container:
           default: null
           description: "Information about the container used in this request.\n\nThis will be non-null if a container tool (e.g. code execution) was used."
+          type: "null"
       required:
         - "id"
         - "type"
@@ -1633,10 +1668,10 @@ components:
             type: "direct"
           discriminator:
             mapping:
-              code_execution_20250825: "#/components/schemas/ServerToolCaller"
-              code_execution_20260120: "#/components/schemas/ServerToolCaller_20260120"
               direct: "#/components/schemas/DirectCaller"
             propertyName: "type"
+          oneOf:
+            - $ref: "#/components/schemas/DirectCaller"
           title: "Caller"
         id:
           pattern: "^[a-zA-Z0-9_-]+$"
@@ -1689,15 +1724,7 @@ components:
           title: "Cache Control"
         citations:
           anyOf:
-            - items:
-                discriminator:
-                  mapping:
-                    char_location: "#/components/schemas/RequestCharLocationCitation"
-                    content_block_location: "#/components/schemas/RequestContentBlockLocationCitation"
-                    page_location: "#/components/schemas/RequestPageLocationCitation"
-                    search_result_location: "#/components/schemas/RequestSearchResultLocationCitation"
-                    web_search_result_location: "#/components/schemas/RequestWebSearchResultLocationCitation"
-                  propertyName: "type"
+            - items: {}
               type: "array"
             - type: "null"
           title: "Citations"

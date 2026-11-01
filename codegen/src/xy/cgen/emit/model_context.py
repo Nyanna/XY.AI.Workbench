@@ -80,7 +80,7 @@ def classify(node, named_nodes: dict) -> tuple[str, str | None]:
 def build_accessor(label: str, edge, named_model) -> Accessor | None:
     """Build the accessor context for one edge, or None if it has no view."""
     category, primitive_type = classify(edge.target, named_model.named_nodes)
-    if category == 'unsupported':
+    if category == 'unsupported' or primitive_type == 'null':
         return None
     lang = get_language(named_model.language)
     has_read = category in ('primitive', 'enum')

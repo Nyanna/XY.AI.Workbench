@@ -1,4 +1,27 @@
-'Generischer Filter fuer OpenAPI-YAML-Specs.\n\nWendet eine Liste providerunabhaengiger Operationen auf eine Basis-Spec an,\num daraus eine reduzierte Spec fuer die Client-Generierung zu erzeugen.\n\nAufruf:\n    filter_spec.py <filter-config.yaml> <output-spec.yaml>\n\nFilter-Config-Format (YAML):\n    base: openai.yaml            # relativ zu diesem Script-Verzeichnis\n    ops:\n      - op: keep-paths\n        values: ["/responses", "/responses/{response_id}"]\n      - op: delete-path\n        values: ["/v1/messages/batches/{message_batch_id}?beta=true"]n      - op: delete\n        pointer: "/components/schemas/*/properties/summary"\n      - op: set\n        pointer: "/components/schemas/ReasoningEffort/anyOf/0/enum"\n        value: [low, high, max]\n      - op: prune-orphan-schemas\n\nPointer-Segmente sind JSON-Pointer-artig ("/" getrennt), das Segment "*"\nmatcht dabei jeden Schluessel/Index auf dieser Ebene.\n'
+"""Generischer Filter fuer OpenAPI-YAML-Specs.
+
+Wendet eine Liste providerunabhaengiger Operationen auf eine Basis-Spec an,
+um daraus eine reduzierte Spec fuer die Client-Generierung zu erzeugen.
+
+Aufruf:
+    filter_spec.py <filter-config.yaml> <output-spec.yaml>
+
+Filter-Config-Format (YAML):
+    base: openai.yaml            # relativ zu diesem Script-Verzeichnis
+    ops:
+      - op: keep-paths
+        values: ["/responses", "/responses/{response_id}"]
+      - op: delete-path
+        values: ["/v1/messages/batches/{message_batch_id}?beta=true"]n      - op: delete
+        pointer: "/components/schemas/*/properties/summary"
+      - op: set
+        pointer: "/components/schemas/ReasoningEffort/anyOf/0/enum"
+        value: [low, high, max]
+      - op: prune-orphan-schemas
+
+Pointer-Segmente sind JSON-Pointer-artig ("/" getrennt), das Segment "*"
+matcht dabei jeden Schluessel/Index auf dieser Ebene.
+"""
 import sys
 import re
 from pathlib import Path
@@ -90,6 +113,7 @@ def op_delete_refs(spec: dict, pointer: str, values: list[str]) -> None:
         return
     node[:] = [item for item in node if not (isinstance(item, dict) and isinstance(
         item.get('$ref'), str) and (item['$ref'].rsplit('/', 1)[-1] in values))]
+_ANNOTATION_KEYS = {'title', 'description', 'default', 'example', 'examples', 'deprecated', 'readOnly', 'writeOnly'}
 
 def _prune_refs(node, target: str) -> bool:
     """Entfernt rekursiv jedes Vorkommen von {'$ref': target} aus node.
@@ -97,15 +121,24 @@ def _prune_refs(node, target: str) -> bool:
     Dict-Keys, deren Wert komplett verschwindet (leer wird), werden beim
     Elternknoten mitentfernt; Listen-Eintraege, die nur noch aus 'type: null'
     bestehen (typisches anyOf-Optional-Pattern), gelten ebenfalls als leer.
+    Bleibt bei anyOf/oneOf nur 'null' uebrig, wird es zu 'type: null' im
+    Elternschema zusammengezogen, damit das Feld typisiert bleibt.
     Gibt True zurueck, wenn der Knoten selbst beim Aufrufer entfernt werden soll.
     """
     if isinstance(node, dict):
         if node.get('$ref') == target:
             return True
         had_keys = bool(node)
+        removed_any = False
         for key in list(node.keys()):
-            if _prune_refs(node[key], target):
+            child = node[key]
+            if _prune_refs(child, target):
                 del node[key]
+                removed_any = True
+                if key in ('anyOf', 'oneOf') and isinstance(child, list) and child:
+                    node.setdefault('type', 'null')
+        if removed_any and node and (set(node) <= _ANNOTATION_KEYS):
+            return True
         return had_keys and (not node)
     if isinstance(node, list):
         node[:] = [item for item in node if not _prune_refs(item, target)]
@@ -123,6 +156,8 @@ def op_strip_refs(spec: dict, values: list[str]) -> None:
         target = f'#/components/schemas/{name}'
         _prune_refs(spec.get('paths', {}), target)
         _prune_refs(spec.get('components', {}), target)
+    removed = {f'#/components/schemas/{name}' for name in values}
+    _prune_discriminator_mappings(spec, lambda ref: ref not in removed)
 
 def op_keep_paths(spec: dict, values: list[str]) -> None:
     paths = spec.get('paths', {})
@@ -131,6 +166,35 @@ def op_keep_paths(spec: dict, values: list[str]) -> None:
 def op_delete_paths(spec: dict, values: list[str]) -> None:
     paths = spec.get('paths', {})
     spec['paths'] = {k: v for k, v in paths.items() if k not in values}
+
+def _ref_exists(components: dict, ref: str) -> bool:
+    match = REF_RE.match(ref)
+    return bool(match) and match.group(2) in components.get(match.group(1), {})
+
+def _prune_discriminator_mappings(node, keep) -> None:
+    """Removes discriminator mapping entries whose target ref fails `keep`.
+
+    Mapping values are plain strings, so they are invisible to $ref handling.
+    Bare schema names are normalized to '#/components/schemas/<name>'.
+    A discriminator whose mapping becomes empty is removed entirely.
+    """
+    if isinstance(node, dict):
+        discriminator = node.get('discriminator')
+        if isinstance(discriminator, dict) and isinstance(discriminator.get('mapping'), dict):
+            mapping = discriminator['mapping']
+            for key, target in list(mapping.items()):
+                if not isinstance(target, str):
+                    continue
+                ref = target if target.startswith('#/') else f'#/components/schemas/{target}'
+                if not keep(ref):
+                    del mapping[key]
+            if not mapping:
+                del node['discriminator']
+        for value in node.values():
+            _prune_discriminator_mappings(value, keep)
+    elif isinstance(node, list):
+        for item in node:
+            _prune_discriminator_mappings(item, keep)
 
 def _collect_refs(node, refs: set[str]) -> None:
     if isinstance(node, dict):
@@ -143,8 +207,25 @@ def _collect_refs(node, refs: set[str]) -> None:
         for item in node:
             _collect_refs(item, refs)
 
+def _prune_empty_properties(node) -> None:
+    """Removes optional properties that only carry annotations (e.g. just a title)."""
+    if isinstance(node, dict):
+        properties = node.get('properties')
+        if isinstance(properties, dict):
+            required = node.get('required')
+            required = required if isinstance(required, list) else []
+            for name, prop in list(properties.items()):
+                if isinstance(prop, dict) and name not in required and (set(prop) <= _ANNOTATION_KEYS):
+                    del properties[name]
+        for value in node.values():
+            _prune_empty_properties(value)
+    elif isinstance(node, list):
+        for item in node:
+            _prune_empty_properties(item)
+
 def op_prune_orphan_schemas(spec: dict) -> None:
     components = spec.get('components', {})
+    _prune_empty_properties(spec)
     used: dict[str, set[str]] = {section: set() for section in COMPONENT_SECTIONS}
     pending: set[str] = set()
     _collect_refs(spec.get('paths', {}), pending)
@@ -171,7 +252,8 @@ def op_prune_orphan_schemas(spec: dict) -> None:
         if section in components:
             components[section] = {name: schema for name,
                                    schema in components[section].items() if name in used[section]}
-    spec['components'] = components
+        spec['components'] = components
+    _prune_discriminator_mappings(spec, lambda ref: _ref_exists(components, ref))
 
 def _strip_vendor_extensions(node) -> None:
     if isinstance(node, dict):
