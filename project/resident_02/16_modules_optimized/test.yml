@@ -1,0 +1,124 @@
+- Name: Resident
+  Requirements:
+  - Stellt eine dauerhaft laufende Engine für Embedding (Texte in Vektoren umwandeln) und Similarity (Ähnlichkeitssuche gegen einen Index) bereit.
+  - Ist von einer RAG-Anwendung startbar und als Server-Prozess, Daemon oder über die CLI nutzbar.
+  - Rechnet in zwei getrennten Subengines, einer für die CPU und einer für die GPU (CUDA), die ihre Arbeit selbstorganisiert nach dem Pull-Prinzip aus Queues holen.
+  - Ist nach der Initialisierung bereit, verbraucht aber noch keine Ressourcen.
+  - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks. Solches Verhalten entsteht nur durch Addons.
+  - Gibt keine Garantie auf Ergebnisse von Embedding und Similarity. Varianz und Indeterminismus (Fusion, Atomics, hardwareabhängiges Rounding) sind zugunsten von Auslastung und Performance erlaubt. Stale Ergebnisse sind kein Fehler.
+  - Verzichtet zugunsten konsistenten Durchsatzes auf Locks auf den Datenpfaden.
+  - Gibt keine Zusage zu Vollständigkeit oder Größe der Kandidatenmenge und zur Ergebnisqualität. Genauigkeitsverluste sind Sache der äußeren Schichten.
+- Name: Engine-Fassade
+  Requirements:
+  - Bildet die Fassade (Facade) der Engine nach außen.
+  - Wird über einen Builder erzeugt, der erst mit einem expliziten Start-Aufruf wirksam wird. Sie wird instanziiert und konfiguriert, anschließend initialisiert.
+  - Die Modelle bilden einen festen Satz und werden vor der Initialisierung der Engine konfiguriert.
+  - Verlangt die Angabe eines Modells. Fehlt sie, scheitert der Start mit einem Konfigurationsfehler, der das fehlende Feld benennt.
+  - Konfiguriert den Planner mit Subengines, Modellen und Indizes.
+  - Ist nach der Initialisierung bereit und erzeugt beim Start keine Modell- und Device-Ressourcen. Diese werden erst durch den ersten Task angelegt.
+  - Registriert beliebig viele durchsuchbare Indizes, jeweils unter einer eindeutigen ID. Ein Index wird beim Registrieren weder geladen noch verwendet und gilt unmittelbar danach als nicht geladen.
+  - Nimmt Tasks für verschiedene Aufgaben entgegen (enqueue) und bietet Methoden zum Enqueuen der beiden Task-Arten Embedding und Similarity.
+  - Bietet ein geordnetes Shutdown, das auch beim automatischen Drop der Instanz abläuft.
+  - Hält beim Shutdown zuerst die Worker an und joint sie.
+  - Bricht beim Shutdown danach alle Tasks ab, die kein Worker übernommen hat. Wartende Aufrufer erhalten den Fehler „cancelled“.
+  - Meldet beim expliziten Shutdown im Erfolgsfall eine positive Rückmeldung.
+- Name: Task-Modell
+  Requirements:
+  - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks.
+  - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar.
+  - Hält das Ergebnis bereit, sodass es per Event oder Notification abgeholt werden kann.
+  - Kapselt Daten, Parameter, Ergebnis, Zustand und Operationen eines Tasks.
+  - Führt Priorität, kompatible Ressource, Modell und Modus als gewöhnliche Parameter (Metadaten).
+  - Bildet die Zustände enqueued, claimed, completed und cancelled ab.
+  - Setzt das Ergebnis genau einmal, entweder als Output oder als Fehler (bei Abbruch „cancelled“), und weckt Wartende über eine Notification.
+- Name: Task-Handle
+  Requirements:
+  - Erlaubt das Abholen des Ergebnisses, ohne zu pollen, per Event oder Notification.
+  - Erlaubt die Zustandsabfrage ohne Warten (Polling). Bei completed liefert sie das Ergebnis (Output oder Fehler).
+  - Liefert bei cancelled den Fehler „cancelled“.
+  - Liefert bei enqueued oder in Bearbeitung „noch kein Ergebnis“.
+  - Behandelt completed ohne verfügbares Ergebnis als cancelled.
+  - Erlaubt dem Aufrufer, unbegrenzt oder mit Timeout auf den Abschluss zu warten. Er wartet auf das Ergebnissignal und wacht zusätzlich periodisch auf, um den Zustand zu prüfen.
+  - Aktiviert beim Warten zuerst die Registrierung für die Notification, liest dann den Zustand und wartet danach, sodass keine Notification verloren geht.
+  - Behandelt den Timeout als eigene Deadline des Aufrufers. Bei Überschreitung liefert es den Fehler „timeout“ und gibt das Handle frei.
+  - Bricht beim Drop eines unfertigen Handles den Task ab, sofern ihn noch kein Worker übernommen hat. Übernommene Tasks laufen weiter.
+  - Leitet den Zustand „cancelled“ lokal ab.
+- Name: Erweiterbare Zusatzparameter
+  Requirements:
+  - Dient dem Kern als einziges Mittel für Addon-Tasks (erweiterbares Parameterobjekt).
+  - Trägt Addon-spezifische Parameter, etwa den Scope eines Folge-Tasks, ohne dass der Kern sie interpretiert.
+  - Nimmt als typindizierte Extension-Map beliebige zusätzliche, typgebundene Werte auf.
+  - Speichert je Typ höchstens einen Wert. Erneutes Setzen desselben Typs ersetzt den vorhandenen Wert.
+  - Fragt Werte nach Typ ab (sonst „nicht vorhanden“) und entfernt sie nach Typ, mit Rückmeldung, ob der Wert vorhanden war.
+  - Liefert die Anzahl der Werte und ob die Map leer ist.
+  - Teilt die Werte beim Klonen (shared), statt sie zu duplizieren.
+  - Reicht die Werte unverändert durch Queue und Planung und ist thread-safe übertragbar (Send + Sync).
+- Name: Embedding-Task
+  Requirements:
+  - Wandelt Texte in Vektoren um.
+  - Liefert Embeddings ohne Determinismusgarantie. Varianz ist zugunsten von Auslastung und Performance erlaubt.
+  - Nimmt als Input einen Text oder eine Liste von Texten.
+  - Hat die Parameter Modell, Modus (Query oder Passage), Precision, optionalen Ziel-Index und erweiterbare Zusatzparameter.
+  - Liefert als Ergebnis die Embeddings als Liste von Float-Vektoren, ein Vektor je Eingabetext in Eingabereihenfolge.
+  - Lässt sich über den optionalen Ziel-Index so konfigurieren, dass das Embedding samt Metadaten direkt in den Index geschrieben wird. Er liefert dann Entry-Referenzen bzw. IDs des Index.
+- Name: Similarity-Task
+  Requirements:
+  - Führt eine Ähnlichkeitssuche gegen einen Index aus.
+  - Rechnet auf der übergebenen Kandidatenmenge und verbürgt weder deren Vollständigkeit oder Größe noch die Ergebnisqualität. Genauigkeitsverluste durch Chunking, Query-Formulierung, Index-Struktur, Reranking oder Kandidatenanzahl sind Sache der äußeren Schichten.
+  - Liefert Ergebnisse ohne Garantie. Stale Ergebnisse sind kein Fehler.
+  - Erlaubt, dass ein Similarity-Task den Scope eines Folge-Tasks treibt. Reranking ist keine eigene Task-Art, sondern eine zweite Similarity mit anderem Scoring-Verfahren auf einem verengten Scope, dessen Kandidaten aus einem früheren Ergebnis stammen.
+  - Nimmt als Input eine Liste von Query-Vektoren.
+  - 'Hat als Parameter: die ID des zu durchsuchenden Index (verpflichtend, das Modell wird daraus abgeleitet), die maximale Trefferzahl (Top-k, Default zehn), den Scope (Suchbereich, Default gesamter Index, einschränkbar auf eine Teilmenge), das Scoring-Verfahren (Default Cosine Similarity), Precision und erweiterbare Zusatzparameter.'
+  - Liefert als Ergebnis Entry-Referenzen oder IDs (Chunk, Zeile, Bereich, Datei oder Index) mit Score. Nach außen erscheint jeder Treffer mit Entry, Score und Markierung „stale“.
+- Name: Similarity-Report
+  Requirements:
+  - Liefert Fakten, trifft keine Entscheidungen und legt keine Thresholds fest.
+  - Liefert rohe Scores und die Fakten, anhand derer eine äußere Schicht über Folge-Tasks entscheidet. Er enthält Task-ID und Suchparameter. Fehlen die Suchparameter, endet der Task mit einem Fehler.
+  - Enthält die Anzahl der Kandidaten, also der tatsächlich gescorten Entries im aufgelösten Scope.
+  - Enthält die Anzahl der verworfenen Entries.
+  - Enthält die Anzahl der stale Entries unter den zurückgegebenen Treffern. Das Flag „stale“ wird je Treffer übernommen und nur über die zurückgegebenen Treffer gezählt.
+  - Enthält die Rangliste der Treffer mit Entry-ID, Score, Flag „stale“ und optionalem Source-Link.
+  - Akzeptiert eingehende Treffer unsortiert und mit mehr Einträgen als die maximale Trefferzahl.
+  - Verwirft Treffer ohne gültigen Zahlenwert und addiert sie zur Zahl der upstream verworfenen Entries, etwa wenn ein Entry aus dem Index entfernt wurde.
+  - Sortiert absteigend nach Score, bei Gleichstand steht die niedrigere Entry-ID vorn. Danach kürzt es auf Top-k.
+  - Ermittelt den Source-Link je zurückgegebenem Treffer über eine vom Aufrufer gelieferte Lookup-Funktion. Er kann fehlen.
+  - Bezieht Kennzahlen auf die zurückgegebenen Treffer. Ohne Treffer sind sie nicht vorhanden. Als Grundlage dienen die Scores der Similarity-Operation.
+  - Berechnet Anzahl, besten und schlechtesten Score, arithmetisches Mittel und Standardabweichung der Grundgesamtheit.
+  - Berechnet den Abstand zwischen erstem und zweitem Treffer (Gap) als Maß für die Sicherheit der Top-Reihenfolge. Es sind mindestens zwei Treffer nötig.
+  - Berechnet den Abstand zwischen erstem und letztem Treffer (Spread). Es ist mehr als ein Treffer nötig.
+  - Berechnet den Abstand des besten Scores vom Mittelwert in Standardabweichungen (z-Score). Bei einer Standardabweichung nahe null ist er nicht vorhanden.
+  - Berechnet die Wahrscheinlichkeitsverteilung über die Scores per Softmax mit einstellbarer Temperatur. Die Temperatur muss endlich und größer als null sein, sonst ist das Ergebnis nicht vorhanden. Die Berechnung ist numerisch stabil, indem sie auf den besten Score bezogen wird. Für die verwendete Modellfamilie ist eine Temperatur von etwa 0,01 bis 0,05 sinnvoll.
+  - Berechnet die Wahrscheinlichkeitsmasse des besten Treffers.
+  - Berechnet die Entropie der Verteilung in Nats. Null bedeutet einen eindeutigen Gewinner.
+  - Berechnet den Knee-Point der sortierten Score-Kurve, also den Treffer mit dem größten Abstand unterhalb der Verbindungslinie vom ersten zum letzten Wert. Es sind mindestens drei Treffer nötig. Bei flacher Kurve oder ohne Punkt unterhalb der Linie ist er nicht vorhanden. Bei Gleichstand gewinnt der frühere Treffer.
+- Name: Addons
+  Requirements:
+  - Iteration und Rekursion entstehen allein durch ein Addon in einer Subengine, der Anwendung oder einer Ressourcenimplementierung (Index, Modell).
+  - Leiten abgeleitete Tasks mit geklonten oder geänderten Parametern (geteilte Zusatzparameter) ab und enqueuen sie über den normalen Weg. Diese werden über die vorhandenen Pull-Filter (Priorität, Affinity) gezogen.
+  - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar. Der Kern braucht dafür nur das erweiterbare Parameterobjekt.
+  - Beispiel Centroid, ein Centroid-Task gegen die Summary-Struktur mit einem Folge-Task über die Mitglieder der gewählten Zellen.
+  - Beispiel Textanfrage, ein Embedding-Task im Query-Modus gefolgt von einem Similarity-Task mit dem Ergebnisvektor.
+  - Beispiel Reranking, eine zweite Similarity auf dem verengten Scope. Folge-Tasks wie Reranking werden auf Basis der Fakten des Similarity-Reports gesteuert.
+- Name: Processor
+  Requirements:
+  - Orchestriert mit Workern, Queues, Notification und Backpressure.
+  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
+  - Ruft den Planner für die Expansion von Tasks auf.
+- Name: Planner
+  Requirements:
+  - Stellt fest, welche Subengines konfiguriert sind, und startet sie.
+  - Wird von der Engine mit Subengines, Modellen und Indizes konfiguriert.
+  - Teilt den Subengines die von einer Operation benötigten Ressourcen mit.
+  - Verwaltet die von den Subengines gemeldeten Capability-Sets und die Zuordnung von Capabilities zu Queues. Ordnet Operationen anhand der kompatiblen Capabilities der GPU-, CPU- oder gemeinsamen Queue zu und bevorzugt die gemeinsame Queue.
+  - Lässt das Enqueuing mit dem Fehler „fehlende Planungs-Capability“ scheitern, wenn sich keine passende Queue findet.
+  - Nimmt Tasks auf Aufruf des Processors entgegen, lässt sie vom Expander zerlegen und enqueued die Operationen in passende Queues.
+  - Verwaltet je Subengine, welche Ressourcenarten sie anbietet. Die Angebote sind schrittweise erweiterbar.
+  - Aktiviert beim Erzeugen einer Operation die benötigten Subengines blockierend.
+  - Unterscheidet zwischen verfügbarer Ressource (registrierte Capability) und geladener Ressource (initialisiert und im Speicher).
+  - Meldet für jede Task-Art vorab die Ressourcenart der ersten Operation (bei Similarity der Scorer, bei Embedding und Inferenz der Tokenizer), damit Tasks nach unterversorgter Ressource bevorzugt werden können.
+  - Verwendet für Embedding- und Similarity-Tasks das konfigurierte Default-Modell.
+  - Bricht mit „unbekanntes Modell“ unter Nennung des Modells ab, wenn das gewählte Modell nicht konfiguriert ist oder für die Kombination aus Modell und Task-Art ein Expander fehlt.
+  - Hält Modell, Modellkonfiguration, Subengine-Angebote und Idle-Notification gemeinsam für die Expansion bereit.
+  - Legt das Materialization-Flag je Operation fest. Das Ergebnis bleibt nur dann im VRAM, wenn diese und die unmittelbar folgende Operation beide ausdrücklich auf der GPU laufen. In allen anderen Fällen wird materialisiert (Nachfolger auf der CPU, Task-Ende, Mirroring in den Index, freie Wahl der Execution-Umgebung).
+  - Kennt weder die externe Neural-Network-Library noch GPU-Execution-Graphs (CUDA Graphs).

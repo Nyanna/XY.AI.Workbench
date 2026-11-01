@@ -1,0 +1,252 @@
+- Name: Subengine-Loop
+  Requirements:
+  - Eine aktivierte Lane zieht eine Operation, sobald sie frei ist, über die vorhandenen Pull-Filter (Priorität, Affinity).
+  - Kennt kein Head-of-Line-Blocking, keine Reservierung und kein Vorab-Übernehmen (Vorab-Claim).
+  - Filtert Operationen vor dem Claim anhand der Operationsparameter und Resource-Requirements. Nutzt den Placement-Hint der Requirements als Hinweis im Pull-Filter.
+  - Prüft zuerst die eigene Operations-Queue, danach die gemeinsame.
+  - Iteriert in Altersreihenfolge Knoten für Knoten und überspringt Knoten, deren Parameter der Filter nicht akzeptiert. Sind alle Ressourcen der Subengine ausgelastet, endet die Iteration. Prioritätspräferenz ergibt sich aus Filter und Reihenfolge, also aus Metadaten.
+  - Bestimmt den Ressourceneintrag über die Requirements der Operation.
+  - Lädt schwere Ressourcen (Modelle, Indizes, Kernel) ausschließlich lazy durch die Iteration. Bei nicht initialisierter Ressource stößt nur die Iteration die Lazy-Initialisierung an, nie das Enqueue. Der Task bleibt in der Queue.
+  - Claimt den Knoten, wenn die Ressource ready ist, freie Kapazität hat und der Claim gelingt. Die Ressource führt den Knoten dann aus.
+  - Überspringt den Knoten in allen anderen Ressourcenzuständen (loading, busy, backoff).
+  - Stößt am Ende jeder Iteration die Eviction ungenutzter Ressourcen an.
+  - Meldet eine Iteration ohne Treffer bei freier Ressource mit Ressourcenart und Parametern als Anlass für eine Idle-Notification.
+  - Kennt bei der Zuteilung weder die externe Neural-Network-Library noch GPU-Execution-Graphs (CUDA Graphs).
+- Name: Lane und Batching
+  Requirements:
+  - Die Lanes einer Ressource ziehen Operationen. Die Zuteilung steuert sich über den dynamischen Durchsatz der Lanes. Wer schneller ist, holt sich mehr Arbeit.
+  - Implementiert Batching und aggregiert, wenn sinnvoll, Operationen, die mit demselben Index oder Modell laufen können oder müssen, zu einem Batch. Der Batch beginnt mit der Ausgangsoperation. Die Ressource geht von dort vorwärts durch die Liste, übernimmt alles, was der Filter akzeptiert und in den Batch passt, und startet dann den Batch.
+  - Hält Packing, Length-Bucketing und Streams als reine Ressourcenlogik.
+  - Bemisst Encoder-Batches nach einem Token-Budget statt nach einer Task-Anzahl.
+  - Übergibt zwischen Lanes ausschließlich über die Queue.
+  - Merkt sich im Batch die Zeilen-Offsets je Task.
+- Name: CPU-Subengine
+  Requirements:
+  - Führt ein Device mit Ressourcen (Cores) und Lanes. Device ist die CPU, potenziell mehrere (Sockets). Ressourcen sind die Cores, jeweils mit Lanes.
+  - Hält Speicher mit Kernel, Index (Entry, Datei im Parquet-Format, Manager), Tokenizer und Normalizer.
+  - Ist nicht an Kernel, Modelle oder Indizes gekoppelt.
+  - Führt Tokenizer und Normalizer als Ressourcen der Subengine und besitzt den Tokenizer als Ressource.
+  - Die Lane der CPU ist ein Thread des Processors.
+  - Führt eine Operation synchron aus, gibt das Ergebnis zurück, auch an Indizes, und kehrt mit dem Ergebnis zurück.
+  - Die Eviction-Lebensdauer (TTL) im RAM ist deutlich kürzer als im VRAM.
+  - Lädt Modelle ins RAM, lädt bzw. streamt Indizes hinein (den Index beim ersten Zugriff) und lagert Modelle, Kernel und Ressourcen bei Bedarf aus und ein.
+  - Führt eigene Kernel-Implementierungen mit eigenem Kernel-Register.
+  - Nutzt für alles die CPU, da mehr Speicher zur Verfügung steht.
+  - Führt den Encoder über das CPU-Backend der Library aus.
+  - Verwendet keine Streams und kein Staging-Memory für Kopien.
+  - Verwendet FP32 als Default-Datentyp auf der CPU.
+  - Führt Kalibrierung und Kernel auf eigenen Threads niedriger Priorität aus, getrennt vom Async-Runtime.
+  - Besitzt den CPU-Manager als eigene Komponente.
+- Name: GPU-Subengine
+  Requirements:
+  - Plattform ist CUDA. Führt ein CUDA-Device mit Ressourcen (Compute Units, Streaming Multiprocessors) und Lanes darauf. Device ist die GPU, potenziell mehrere.
+  - Hält Speicher mit Kernel und Index.
+  - Ist nicht an Kernel, Modelle oder Indizes gekoppelt.
+  - Startet die Operation bzw. den Kernel bei freier Lane und kehrt zurück, ohne auf das Ergebnis zu warten.
+  - Verarbeitet nach der Completion-Notification das Ergebnis, sobald ein freier Worker es übernimmt.
+  - Die Eviction-Lebensdauer (TTL) im VRAM ist deutlich länger als im RAM. Wendet für VRAM-Ressourcen auch längere Fristen für Initialisierung an als für Ressourcen im RAM.
+  - Lädt oder streamt Modelle und Indizes ins VRAM und tauscht Modelle, Kernel und Ressourcen bei Bedarf aus und ein.
+  - Ist die Brücke zwischen dem Index im RAM und der im VRAM abgebildeten Darstellung für die Kernel.
+  - Berücksichtigt, dass das VRAM begrenzt ist.
+  - Nutzt Streams, Staging-Memory und Transfers.
+  - Batcht notwendigerweise, damit Index-Segmente und Kernel effizient gestreamt und getauscht werden.
+  - Verwendet FP16 als Default-Datentyp auf der GPU.
+  - Betreibt einen Prozess mit einem Primary Context und mehreren Streams je GPU.
+  - Besitzt den GPU-Manager als eigene Komponente.
+- Name: GPU-Kernel
+  Requirements:
+  - Varianz und Indeterminismus durch Fusion oder Atomics sind zugunsten von Auslastung und Performance erlaubt.
+  - Publiziert die Zahl abgeschlossener Batches mit Release-Semantik.
+  - Prüft vor jedem weiteren Batch, ob das Ack den Vorgänger abdeckt. Der erste Batch darf immer starten.
+  - Stellt zwei Kernel bereit, dichtes Dot-Product und fused Max-Similarity.
+  - Verarbeitet Dokumente in FP32 oder FP16. FP16 wird beim Laden auf FP32 konvertiert, Queries und Ergebnisse liegen in FP32.
+  - Dot-Product: ein Thread-Block je Slot, Teilsummen über Threads und Warps reduziert, Output Queries × Slots.
+  - Max-Similarity: ein Block je Dokument für genau eine Query, bei der die Zwischenmatrix nie im VRAM liegt.
+  - Begrenzt bei der Max-Similarity gepaddete Dokumente über eine Längenliste auf die Padding-Länge.
+  - Setzt bei der Max-Similarity für Token ohne gültiges Dokument-Token den Wert −10 000.
+  - Legt die Dimension bei der Kompilierung fest.
+  - Startet mit 128 Threads je Block und einem Block je Slot (mindestens einer), ohne dynamischen Shared Memory.
+  - Meldet Launch-Fehler mit Ursache.
+  - Erhält Slot-Indizes, Zähler, Segmenttabelle, Query-Länge, Head und Tail dynamisch über den Parameter-Block.
+- Name: Kernel-Register
+  Requirements:
+  - Kompiliert Kernel zur Laufzeit (JIT) aus Quelltext mit gemeinsamem Prelude (Typdefinition, Load-Funktion, Warp-Reduktionen), Auswahl per Name, für die tatsächlich vorhandene Architektur, auf der Referenzkarte also für SM 7.5.
+  - Kompiliert und lädt Kernel lazy, erst bei Bedarf. Gleichzeitige Requests führen nie zu doppelter Kompilierung.
+  - Stellt Kernel der GPU-Subengine über ein Register bereit und ist der einzige Weg, Kernel zu laden. Kernel der externen Library sind dort eine weitere Implementierung.
+  - Liefert zu Name, Datentyp, Architekturstufe und Variante (etwa Dimension) die geladene Funktion. Datentyp, Dimension und Tile-Größe werden zur Kompilierzeit als eigene Varianten festgelegt.
+  - Bezieht Kernel aus Runtime-Compilation (NVRTC) für die Zielarchitektur, aus vorkompiliertem Maschinencode als Fallback bei zu altem Treiber oder aus Kerneln der externen Library (über den Library-Adapter).
+  - Ermittelt die Compute Capability bei Einrichtung, sonst "nicht verfügbar". Bestimmt daraus die Zielarchitektur mit den Stufen 6.1, 7.0, 7.5, 8.0, 8.6, 8.9. Unbekannte Stufen fallen auf 7.5 zurück.
+  - Warnt, wenn der Treiber den Zwischencode (PTX) ablehnt, und kompiliert als Maschinencode (SASS/cubin) für genau die Device-Architektur neu.
+  - Loggt Name, Datentyp, Architektur, Variante und Dauer.
+  - Macht Anzahl und Leere der Einträge abfragbar und verwirft alle Einträge (Clear) mit Rückgabe der Anzahl.
+  - Ist als Ressource unter fester ID auffindbar.
+  - Meldet die Fehler Compile-Error mit Log, Module-Load-Error sowie unbekannter Name oder fehlende Funktion. Ein nicht unterstützter Elementtyp wird als "nicht verfügbar" gemeldet.
+- Name: GPU-Manager
+  Requirements:
+  - Hält den GPU-Index als Segmenttabelle mit Segmenten und verwaltet ihn.
+  - Synchronisiert den Index effektiv zwischen RAM und VRAM, indem er die RAM-Darstellung auf die VRAM-Darstellung für die Kernel abbildet. Synchronisiert ihn ins VRAM, bevor eine Operation auf einer freien Lane startet.
+  - Spiegelt verarbeitete GPU-Ergebnisse in den Index zurück (Mirror-Back).
+  - Ist Komponente der GPU-Subengine, weder der Fassade noch des Index. Wird mit der GPU-Subengine und einem lazy aktivierten Index konstruiert.
+  - Löst Scopes über die Resolver-Registrierung der Scope-Auflösung auf.
+  - Ensure einer Menge setzt einen angehängten Index voraus, lädt über den Loader, markiert danach alle Segmente in der Eviction als benutzt und loggt die bewegten Bytes.
+  - Eine Reconcile-Iteration legt den Reconciler beim ersten Mal an, vergleicht residente Entries mit dem Index, stellt Entfernte als Delete-Updates ein, lädt Geänderte ohne ausstehendes Update regulär nach und gibt das Ergebnis zurück.
+  - Publish eines geladenen Segments vergibt eine fortlaufende Segment-ID und nimmt die Region in eine neue Tabellenversion und die Segmentzuordnung in eine neue Mapping-Epoche auf. Veröffentlicht zuerst die Tabelle, dann die Zuordnung. Weist die Zuordnung ab (etwa bei Überlappung), ergibt das einen Transfer-Error. Bei Fehlern wird die Region zurückgegeben.
+  - Publish nimmt das Segment bei Erfolg in die Eviction auf (Größe, Tier Vektor, Reload-Kosten gleich Größe, Zeitpunkt jetzt). Die mitgelieferten Bindings mit Segment-ID und Stamp werden als Updates in die Update-Queue eingestellt und wirken in der nächsten Gap.
+  - Meldet Segmentzahl, residente Bytes aus Eviction-Sicht und ausstehende Updates.
+  - Freigeben eines Segments gibt die Region zurück, entfernt das Segment aus der Eviction und löscht die Residency aller Entries. Noch anstehende Bindings in dieses Segment scheitern schadlos.
+  - Stellt Eviction-Schritt und Platzbeschaffung bereit.
+- Name: Kernel-Synchronisation
+  Requirements:
+  - Blockiert nie einen Kernel. Verändert nur in Gaps (Batch-Ende bzw. Communication-Slot) und sperrt den Kernel nie aus.
+- Name: Mutationsdisziplin
+  Requirements:
+  - Verzichtet auf Locks auf den Datenpfaden zugunsten konsistenten Durchsatzes. Stale Ergebnisse sind kein Fehler.
+  - Kennt den Laufzustand des Kernels, verändert nur in Gaps, ändert nichts unter dem Kernel und blockiert oder sperrt ihn nie aus.
+  - Tauscht atomar nur einen natürlich ausgerichteten Pointer von acht Byte Breite.
+  - Legt größere Strukturen per Copy-on-Write neu an und tauscht danach den Pointer. Hierarchie: Root-Pointer, Segmenttabelle, Segment (Basis, Layout, Offset-Pointer). Das gilt für Lookup-Tabellen und ganze Segmente. Getauscht wird, sobald die Subengine dort nicht mehr liest.
+  - Updates in-place sind in einer Gap trivial. Im Persistent-Modus kann der Kernel einen halb aktualisierten Vektor mit gemischten, aber gültigen Werten lesen (Torn Read). Das wird bewusst akzeptiert und dokumentiert.
+- Name: Doorbell-Synchronisation
+  Requirements:
+  - Liest die vom Device publizierte Zahl abgeschlossener Batches mit Acquire-Semantik. Loads mit Acquire-Semantik sind ab Compute Capability 7.0 verfügbar, Turing genügt dafür.
+  - Der Host verändert nur zwischen Abschluss eines Batches und dessen Ack. Er wartet nie auf den Kernel, nur auf ein Batch-Event.
+  - Die nicht blockierende Abfrage liefert bei Abweichung zwischen completed und acked eine Gap. Koaleszierte Completions öffnen eine Gap mit der höchsten Batch-Nummer.
+  - Die wartende Abfrage wartet zuerst auf das Event. Device-Fehler werden weitergereicht.
+  - Schließen der Gap publiziert das Ack. Eine nicht geschlossene Gap ist ein Programmierfehler. Vorher geschriebene Ergebnisse und Zuordnungen sind sichtbar.
+  - Beide Zellen (completed und acked) können in fest zugeordnetem, mappbarem Host-Memory liegen.
+- Name: Modell
+  Requirements:
+  - Wird von CPU- und GPU-Subengine gemeinsam genutzt.
+  - Ist nicht an Subengines, Kernel oder Indizes gekoppelt.
+  - Führt Modelle als ressourcenlose Pipeline-Beschreibung, die nichts besitzt.
+- Name: Modellbeschreibung
+  Requirements:
+  - Liefert Model-ID und Dimension als einzige harte Bindung zum Index.
+  - Stellt ein Modell durch eine reine, ressourcenlose Beschreibung (Descriptor) dar, die aus der Konfiguration stammt, eine Pipeline beschreibt und nichts besitzt.
+  - Liefert die Pipeline-Konfiguration pro Modell (Präfixe, Pooling, Normalisierung, maximale Sequenzlänge, Datentyp) für den Expander.
+  - Die Beschreibung enthält Model-ID und Architektur-ID, Embedding-Dimension, Pooling-Verfahren, Normalisierungsart, Präfixe für Queries und Passages, den Storage-Datentyp der Embeddings (unabhängig von den Compute-Datentypen wählbar), die Compute-Datentypen des Hauptmodells (getrennt für CPU und GPU, nach Device-Klasse ermittelbar), die maximale Sequenzlänge, optionale Projection-Layer mit Tensor-Name, Pfade zur Konfigurationsdatei und zu den Weight-Dateien sowie eine optionale Multi-Vector-Konfiguration.
+  - Bezieht Multi-Vector-Parameter aus der Checkpoint-Konfiguration statt aus hartkodiertem Code. Dazu gehören maximale Query-Länge, maximale Dokumentlänge, Marker-Token, Dimension und Skiplist.
+  - 'Leitet den Default für „intfloat/multilingual-e5-small“ (Repository unter /home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small) aus einem Verzeichnis und einem wählbaren Storage-Datentyp ab: Architektur „bert“, Dimension 384, Mean-Pooling über unmaskierte Token, L2-Normalisierung, Präfixe „query: “ und „passage: “, maximale Sequenzlänge 512, Compute-Datentyp FP32 auf beiden Device-Klassen, keine Projection-Layer, Konfigurationsdatei „config.json“ und Weight-Datei „model.safetensors“ im Verzeichnis.'
+  - Validiert, dass Dimension und maximale Sequenzlänge größer null sind und ein nicht leeres Präfix mit einem Leerzeichen endet. Meldet Verstöße als „inkompatible Modellkonfiguration“ mit Begründung. Die Validierung verhindert Konfigurationen, die die Embedding-Qualität unbemerkt verschlechtern.
+- Name: Modellregister
+  Requirements:
+  - Führt die Modelle als festen Satz, der vor der Initialisierung der Engine konfiguriert wird.
+  - Ein neues Modell bedeutet einen neuen Register-Eintrag.
+  - Ordnet Architektur-IDs Encoder-Implementierungen (Konstruktor-Funktionen, Factories) und Scoring-Arten Scorer-Implementierungen zu. Erneute Registrierung derselben Architektur-ID ersetzt die bisherige.
+  - Ist als Register mit allen in den Build einkompilierten Architekturen erzeugbar. Enthält „bert“ nur bei aktivierter Backend-Unterstützung (Feature-Flag).
+  - Meldet, ob für eine Scoring-Art ein Scorer verfügbar ist, und benennt bei Nichtverfügbarkeit den Scorer.
+  - Lädt Modelle erst bei Bedarf. Für eine Device-Klasse in dieser Reihenfolge: Beschreibung validieren lassen, Factory suchen, Encoder konstruieren.
+  - Meldet unbekannte Architekturen als „nicht unterstützte Architektur“ mit ID.
+  - Liefert als Ergebnis einen geladenen Encoder aus Architektur (Code) und Gewichten (Daten) auf einem Device. Er bündelt Beschreibung, Device-Klasse und Encoder und macht sie lesend zugänglich.
+  - Stellt den geladenen Encoder als verwaltbare Ressource bereit mit einem Key aus Architektur-ID und Device-Klasse und Initialisierungskosten 100. Freigeben entlädt die Gewichte.
+- Name: Gewichtsquelle
+  Requirements:
+  - Lädt Modellgewichte im Format safetensors per mmap, zero-copy auf Rohbytes, ohne vollständiges Kopieren.
+  - Kopiert die Gewichte pro Subengine in deren Arena.
+- Name: Tokenizer-Laden
+  Requirements:
+  - Lädt Tokenizer in kompatiblen Formaten bzw. hält sie zum Laden bereit. Initialisiert den Tokenizer lazy.
+  - Lädt den Tokenizer aus seiner Konfigurationsdatei mit festem Dateinamen im Verzeichnis der Modellkonfiguration.
+  - Erzeugt den Tokenizer alternativ aus einem bereits geladenen Tokenizer mit frei wählbarer ID, Schema für die Modus-Wahl und maximaler Sequenzlänge.
+  - Bildet beim Laden aus einer Modellbeschreibung das Schema aus den hinterlegten Präfixen, übernimmt die maximale Sequenzlänge und leitet die Ressourcen-ID aus dem Dateipfad ab, sodass jeder geladene Tokenizer eindeutig identifizierbar ist.
+  - Bricht das Laden bei fehlender oder unlesbarer Datei mit einem Load-Error ab, der Pfad und Ursache nennt.
+  - Bestimmt das Pad-Token in der Reihenfolge, im Tokenizer konfiguriertes Pad-Token, dann das Token `<pad>`, dann das Token `[PAD]`. Fehlt jedes, bricht das Laden mit einem Load-Error ab. Das Pad-Token ist nach außen abfragbar.
+  - Schaltet das eingebaute automatische Padding ab.
+  - Trunkiert jede Eingabe auf die maximale Sequenzlänge, wobei das abschließende Special-Token erhalten bleibt. Lehnt der Tokenizer die Truncation-Einstellung ab, bricht das Laden mit Ursache ab.
+- Name: Textnormalisierung
+  Requirements:
+  - Normalisierung bezeichnet die zum Tokenizer gehörende Normalisierung des Normalizers (Unicode-Normalisierung, Lowercasing und weitere Schritte). Sie wird lazy initialisiert, läuft nur auf der CPU und ist über Parameter konfiguriert.
+  - Erlaubt zusätzlich eine externe, vorgeschaltete Textnormalisierung für die Chunks. Nimmt dafür optional einen austauschbaren, nebenläufig nutzbaren Text-Normalizer entgegen. Ohne ihn bleibt der Text unverändert. Ein Identity-Normalizer wird mitgeliefert.
+  - Führt Normalisierungen, die der Tokenizer selbst durchführt, nicht doppelt aus. Ein eigener Normalizer ergänzt nur zusätzliche Transformationen.
+  - Läuft vor dem Voranstellen von Präfixen oder Markern und vor der Tokenisierung.
+- Name: Library-Adapter
+  Requirements:
+  - Bindet externe Libraries jeweils an genau einer Stelle als Adapter an. Typen externer Libraries werden nur an diesen Rändern konvertiert.
+  - Konvertiert Elementtypen mit der Tensor-Library in beide Richtungen, ebenso zwischen Elementzahl (Library) und Bytezahl (Engine).
+  - Hüllt einen Teilbereich eines Device-Blocks in einen Tensor der Tensor-Library ein (Wrapping), sodass sie den korrekten Bereich liest. Der gewrappte Tensor besitzt den Speicher nicht und wird bewusst nicht freigegeben, damit Context und Block intakt bleiben.
+  - Kopien des gewrappten Tensors erhalten eigenen Speicher außerhalb des Blocks. Schreiben schlägt auf den Teilbereich durch, Nachbarelemente bleiben unverändert.
+  - Die Prüfungen des Wrappings laufen nur auf einem echten Nvidia-Device.
+  - Stellt Kernel der externen Library dem Kernel-Register als Quelle bereit.
+- Name: Zielumgebung und Abhängigkeiten
+  Requirements:
+  - Zielhardware ist eine Nvidia GeForce GTX 1660 SUPER mit Compute Capability 7.5 (Turing) und Treiberversion 610.57.04. Die Referenzkarte gehört zur Baureihe ohne Tensor Cores. Ein Tensor-Core-Pfad und BF16 als Compute-Pfad werden nicht angeboten.
+  - CUDA-Toolchain ist Release 13.3, Version 13.3.73, Build 38244171_0.
+  - GPU-Kernel werden zur Laufzeit (JIT) für die tatsächlich vorhandene Architektur kompiliert, auf der Referenzkarte also für SM 7.5.
+  - Turing genügt für die geforderten Loads mit Acquire-Semantik, die ab Compute Capability 7.0 verfügbar sind.
+  - Alle Dependencies sind geprüft und in /home/user/xyan/xy.ai.workbench/rag/Cargo.toml eingetragen. Die externe Tensor-/Neural-Network-Library ist Candle.
+  - Modellgewichte liegen im Format safetensors vor, persistente Indizes im Spaltenformat Parquet mit Arrow-Schema.
+- Name: Index
+  Requirements:
+  - Ist nicht an Subengines, Kernel oder Modelle gekoppelt. Kennt weder Subengine noch Profil noch Kernel noch Geometrie und löst keine Scopes auf.
+  - Die einzige harte Bindung zum Modell ist die Kombination aus Model-ID und Dimension im Index-Header, ergänzt um die Pipeline-Merkmale, die Vektoren vergleichbar machen.
+  - Kann eine Struktur kapseln, eine memory-mapped Datei sein oder intern Byte-Buffer oder Spaltenformate nutzen.
+  - Implementiert sein eigenes Modell, etwa ganze Dateien, Sliding Windows, AST-Knoten, Chunks, kaskadierende oder fraktale Strukturen. Der Kern kennt diese Modelle nicht.
+  - Darstellung im RAM und persistente Darstellung sind dieselbe Instanz. Das VRAM hält nur einen abgeleiteten, verwerfbaren Mirror. Der Index ist die Source of Truth. Die Richtungen zwischen RAM, Index und VRAM sind agnostisch.
+  - Kennt Entries, Vektordaten und seine Traversal-Struktur. Meldet Änderungen und liefert Struktur und Change-Stamps.
+  - Vektoren verschiedener Modelle sind nicht vergleichbar. Ein Metadatum „erzeugendes Profil“ ist höchstens optionale Diagnose.
+  - Wird beim ersten Zugriff lazy geladen.
+- Name: Dateigestützter Index
+  Requirements:
+  - Liegt persistent im Spaltenformat Parquet mit Arrow-Schema vor und ist per mmap lesbar.
+  - Öffnet mit Dateipfad, erwartetem Index-Header und Optionen. Fehlt die Datei, entsteht ein leerer Index, die Datei entsteht erst beim ersten Save.
+  - Optionen sind Zugriffsart „mmap“ (Default) oder „file“ (File-Read), Verifikation beim Öffnen (Default ein) und Zeilen je Row-Group beim Schreiben (Default 8192, Werte unter eins gelten als eins).
+- Name: Dateiformat und Modellbindung
+  Requirements:
+  - Führt Model-ID und Dimension im Index-Header als einzige harte Bindung an das Modell, ergänzt um die Pipeline-Merkmale, die Vektoren vergleichbar machen. Sichert so die Kompatibilität eines Index mit dem Modell.
+  - Der Header im Datei-Footer muss vollständig und lesbar sein. Fehlende Keys, nicht numerische Werte und unbekannte Enum-Werte ergeben Schema-Inkompatibilität mit Key, erwartetem und gefundenem Wert.
+  - Der Header muss dem erwarteten entsprechen. Alle Abweichungen werden gesammelt gemeldet.
+  - Das Spalten-Schema muss in Name, Datentyp und Nullability entsprechen. Spalten-Metadaten werden ignoriert. Abweichungen nennen beide Schemata. Spalten in dieser Reihenfolge, keine nullable, sind Entry-ID (u64), Change-Stamp (u64, eigene Spalte, damit das Einlesen der Stamps keine Vektoren lädt), Vektor (Fixed-Size-List gemäß Dimension aus FP16-Werten), Zieldatei (Text), Zeichenanfang und Zeichenende (je u64) und Checksum (u64).
+  - Der Header enthält Schema-Version (aktuell eins), Max-Stamp, Hash-Algorithmus und Hash-Version, Model-ID und Model-Revision, Dimension, Pooling, Normalisierung, Query- und Passage-Präfix, Storage-Datentyp, Compute-Datentyp, maximale Sequenzlänge und Fingerprint des Tokenizers.
+  - Ableitung aus einer Modellbeschreibung. Storage-Datentyp ist ausschließlich FP16, sonst Schema-Inkompatibilität. Hash-Algorithmus ist ein schneller 64-Bit-Hash, Hash-Version eins, Max-Stamp null. Der Compute-Datentyp steht als Text für beide Prozessoren.
+  - Dimension und Vektorgröße (Dimension × 2) sind ableitbar. Der Header ist mit anderem Max-Stamp kopierbar.
+  - Die Bindung gilt nur bei Gleichheit von Schema-Version, Hash-Algorithmus, Hash-Version, Model-ID, Model-Revision, Dimension, Pooling, Normalisierung, beiden Präfixen, Storage-Datentyp, maximaler Sequenzlänge und Tokenizer-Fingerprint. Max-Stamp und Compute-Datentyp sind informativ, weil gemischtes Indexieren auf beiden Prozessoren erlaubt ist.
+  - Der Header ist verlustfrei als Key-Value-Paare les- und schreibbar. Enum-Werte sind Pooling (masked mean, per token), Normalisierung (L2, none), Datentypen (wie Elementtypen) und Hash-Algorithmus (fast 64 bit, fast 128 bit, cryptographic).
+  - Der Tokenizer-Fingerprint besteht aus Algorithmus-Bezeichnung, Doppelpunkt und dem 64-Bit-Hash der Tokenizer-Definition in 16 hexadezimalen Stellen mit führenden Nullen.
+  - Hält Algorithmus und Version des schnellen 64-Bit-Hash fest, der für die Content-Prüfung bei Dateiänderungen dient.
+- Name: Manager
+  Requirements:
+  - Blockiert nie einen Kernel.
+  - Kennt die Zuordnung von Entry zu Segment und Slot, die Residency und die Update-Queue.
+  - Verantwortet Upload, Eviction, Updates und die Rückabbildung von Adressen auf Entries.
+  - Ist Komponente der jeweiligen Subengine, weder der Fassade noch des Index. Wird mit einer Subengine und einem lazy aktivierten Index konstruiert.
+- Name: Konsistenzmodell
+  Requirements:
+  - Stale Ergebnisse sind kein Fehler. Torn Reads und fehlende Locks auf dem Datenpfad werden zugunsten konsistenten Durchsatzes akzeptiert.
+  - Der Index gewinnt bei Abweichung. Die Identität eines Entries ist das Paar aus ID und Stamp. Stamps werden nur auf Ungleichheit verglichen.
+  - Verändert Segmenttabellen per Copy-on-Write und publiziert sie per Swap des Root-Pointers. Abgelöste Versionen werden erst frei, wenn alle Reader die neue Epoche erreicht haben. Mapping-Änderungen folgen der Tabelle in der Gap zwischen Batches.
+  - Last-Writer-Wins. Änderungen am Index werden serialisiert angewendet.
+- Name: Residency-Steuerung
+  Requirements:
+  - Lädt Indizes erst bei Bedarf. Registrierte Indizes werden nicht vorab geladen.
+- Name: Scope-Auflösung
+  Requirements:
+  - Verlorene Randtreffer approximativer Prefilter wie Centroid, Fourier-Transformation oder Kompression sind Sache der äußeren Schichten.
+  - Löst den Scope einer Operation in eine kompakte Entry-Menge auf, nicht der Index.
+  - „All“ liefert alle Entries, eine explizite Menge wird übernommen.
+  - Andere Arten brauchen eine Zugriffsmethode. Der Index deklariert das Verfahren und es gibt einen Resolver dafür. Sonst „Scope nicht unterstützt“ mit Methodenname, ebenso bei einem falschen Scope für einen Resolver. Ein stilles Ausweichen auf alle Entries gibt es nicht.
+  - Standard-Resolver gibt es für Range, Subtree, Prefix und Centroid. Doppelte Registrierung wird abgewiesen.
+  - Range liefert genau den angegebenen Bereich. Subtree liefert die Kinder des angegebenen Knotens.
+  - Prefix nimmt führende Bytes der 64-Bit-ID in Big-Endian als zusammenhängenden Bereich. Über acht Bytes trifft nichts, ein leeres Präfix deckt alles ab, die Obergrenze ist auf den größten Wert begrenzt.
+  - Centroid braucht die Summary-Struktur des Index (sonst „Index nicht verfügbar“) und einen Cell-Selector im Kontext (sonst „nicht unterstützt“). Der Selector wählt die nächsten Zellen mit Anzahl und optionalem Radius. Es werden höchstens die angegebene Anzahl Zellen gewählt, das Ergebnis ist die Union ihrer Mitglieder.
+  - Die Auflösung läuft in einem Diagnose-Span mit Methode und loggt die Anzahl.
+  - Bei Centroid macht der Manager die Summary-Struktur resident. Nachdem die Query gegen die Centroids gerechnet wurde, fragt er die Mitglieder der gewählten Zellen ab und gleicht gegen den Ladezustand ab (fehlt etwas, ist etwas stale).
+  - Ist die Kandidatenmenge aus einer Vorverarbeitung bekannt (mehrstufiges Centroid-Verfahren nach Art von PLAID, Pruning, Prefix, Fourier- oder Kompressionsdomäne), lädt der Manager nur diese Bereiche.
+- Name: Eviction
+  Requirements:
+  - Entlädt unbenutzte Mirrors nach Ablauf einer Frist, deaktiviert sie aber nicht. Die Unload-Fristen im VRAM sind deutlich länger als im RAM.
+  - Evictet Mirrors in VRAM und RAM, die abgeleitet und verwerfbar sind, ausschließlich explizit nach Idle-Timeout, Füllstandsgrenzen mit Hysterese und kostenbewusster Victim-Auswahl. Gründe sind Idle, Pressure und Space-Need.
+  - Summaries und festgehaltene Entries (Pinned) werden nie Victim. Pinning wirkt, solange der Halter lebt.
+  - Nutzbare Kapazität ist Gesamtkapazität minus Reserve und Headroom. Die Belegung ergibt sich aus lebenden und zurückgestellten Bytes.
+  - Die Policy besteht aus High-Watermark, Low-Watermark und Idle-Dauer. Nicht endliche Marken werden korrigiert, High-Watermark auf null bis eins, Low-Watermark auf null bis High-Watermark begrenzt. VRAM nutzt 0,90 und 0,75 bei 600 Sekunden. RAM nutzt 0,85 und 0,70 bei 60 Sekunden.
+  - Aufnahme (Track) mit Größe, Tier und Reload-Kosten (nicht endlich oder negativ zählt null). Sie startet mit einem Hit, erneute Aufnahme ersetzt korrekt.
+  - Priorität nach GreedyDual-Size-Frequency: Floor plus Hits mal Kosten durch Größe (Größe null als eins). Der Floor steigt bei Pressure- oder Space-Need-Eviction auf die Victim-Priorität. Zugriffe erhöhen Hits, setzen den Zeitpunkt und berechnen neu.
+  - Remove meldet Bytes. Anzahl, Bytes und Containment sind abfragbar.
+  - Idle-Eviction evictet deterministisch nach Key.
+  - Entlastung (Pressure-Relief) erfolgt erst über der High-Watermark bis auf die Low-Watermark. Victim-Reihenfolge ist niedrigste Priorität, dann am längsten unbenutzt (LRU), dann kleinerer Key.
+  - Der periodische Einstieg (Tick) macht Idle-Eviction und Pressure-Relief nacheinander.
+  - Platzbeschaffung. Ist genug frei, passiert nichts. Sonst werden Victims gesammelt. Reichen alle nicht, kommt „Arena erschöpft“ ohne Eviction. Sonst wird mit Grund Space-Need evictet.
+  - Beim Entfernen evicteter Segmente werden sie aus neuer Tabelle und Zuordnung entfernt, publiziert, die Region hinter der neuen Epoche zurückgestellt und freigegeben. Unbekannte Regionen werden übersprungen, bei Fehlschlag wird das Segment wieder unter Kontrolle gestellt und abgebrochen.
+  - Loggt jede Entscheidung mit Index, Victim, Segment, Größe, Bytes, Hits und Grund.
+- Name: Ergebnisarten
+  Requirements:
+  - Unterscheidet als Ergebnisart eines Tasks genau eine von Embeddings (Liste von Float-Vektoren), Entry-Referenzen bzw. IDs beim direkten Schreiben in den Index, Treffern (Liste von Paaren aus Entry-ID und Score), Similarity-Report oder Liste von Scores (etwa aus einer Cross-Encoder-Inferenz).
+  - Hält die Menge der Ergebnisarten erweiterbar und Ergebnisse auf Gleichheit vergleichbar.

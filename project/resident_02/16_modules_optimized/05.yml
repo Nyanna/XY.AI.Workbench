@@ -1,0 +1,269 @@
+- Name: Address-Map und Mapping-Store
+  Requirements:
+  - Address-Map bildet Arena-Adressen auf Entries ab. Die Segmentmenge wird per Copy-on-Write verändert, Klone sind stabile Snapshots.
+  - Die Epoche wird mitgeführt, Nachfolger erhöhen sie um eins.
+  - Add wird abgelehnt bei leerem Segment, vergebener ID oder Überlappung. Segmente sind nach Adresse sortiert. Remove meldet das Vorhandensein.
+  - Slot-Bindings liegen in gemeinsamen Zuordnungen und ändern sich nur in Gaps.
+  - Mapping-Store hält die Map versioniert und liefert Snapshots nur bei passender Epoche (sonst „stale Mapping“ mit Basis- und publizierter Epoche).
+  - Mapping-Store publiziert nur Maps mit Epoche aktuell plus eins.
+- Name: Update-Queue
+  Requirements:
+  - Führt Unbind oder Bind an einen Slot mit Stamp, je Entry nur das jüngste Update.
+  - Containment, Tiefe und deferred Writes sind abfragbar.
+  - Anwenden wendet zuerst Deletes, dann Binds an. Unbind entfernt aus dem Residency-Verzeichnis und löst die Slot-Bindung nur, wenn sie noch dazugehört. Bind löst zuerst eine alte Bindung. Nicht abgebildete Ziele erzeugen eine Warnung.
+  - Die Rückgabe ist die Zahl angewandter Updates. Änderungen bleiben bis zur Ausführung in der Queue.
+- Name: Index-Aufbau durch Kernel
+  Requirements:
+  - Vergibt vorab einen beschreibbaren Bereich aus der Arena. Der Kernel schreibt per Cursor hinein und allokiert nie.
+- Name: Write-Pointer-Bereich
+  Requirements:
+  - Jeder Claim schiebt den Write-Pointer voran. Passt einer nicht mehr, scheitern alle späteren, sodass die gültigen Bytes ein zusammenhängendes Präfix bilden.
+  - Ein gescheiterter Claim schreibt nichts, gibt einen Invalid-Marker aus und setzt Overflow-Flag und kleinste Overflow-Position (Grenze). Der erste Overflow wird geloggt.
+  - Gruppen-Claims schieben mit einer einzigen Aktualisierung voran. Die gültige Länge ist das Minimum aus Overflow-Grenze, Pointer und Kapazität.
+  - Auf der GPU fasst ein Warp aus 32 Threads seine Claims per Prefix-Sum zusammen, mit einer atomaren Aktualisierung je Warp.
+  - Ergebnisse werden für den Host sichtbar gemacht.
+  - Reicht der Bereich nicht, wird ein Teilergebnis (Partial Result) gemeldet, sodass der Manager den nächsten Bereich vergibt.
+- Name: Embedding-Batch-Ausführung
+  Requirements:
+  - Führt den Batch per Resume aus, bis der Kernel Treffer meldet.
+  - Prüft vor jedem Schritt die Höchstzahl an Bereichen, sonst „Arena erschöpft“.
+  - Reserviert je Schritt einen Bereich, weist ihn zu und setzt den Input hinter den verarbeiteten Bytes fort. Teilantworten werden gezählt und sind kein Fehler.
+  - Beendet den Batch immer. Erfolg liefert Bereiche, Regionen und Teilantworten.
+  - Gibt bei Fehlern alle reservierten Bereiche frei und meldet zuerst den Lauffehler.
+- Name: Write- und Treffer-Queues
+  Requirements:
+  - Führt Embedding-Writes und Treffer über getrennte Queues mit je einem Producer und Consumer (SPSC).
+  - Registriert Writes zuerst, Treffer erst danach.
+  - Der Consumer entnimmt zuerst alle Writes, dann alle Treffer, sodass kein Treffer ohne Adresszuordnung beobachtet wird. Indexieren während der Suche funktioniert, weil das Lesen der Writes vor der Ergebnisauflösung liegt.
+  - Enqueue und Tiefe sind abfragbar und geloggt.
+- Name: Change-Stamp
+  Requirements:
+  - Jede Schreib- und Löschoperation erhält einen neuen Stamp, eindeutig innerhalb des Index, auch bei gleichzeitigen Zugriffen. Da auch das Entfernen einen Stamp verbraucht, erhält eine später neu angelegte gleiche ID einen anderen Stamp.
+  - Der Stamp ist ein opaker Veränderungsmarker. Consumer vergleichen nur auf Gleichheit, nie auf Ordnung.
+  - Er wird im exklusiven Write-Abschnitt unmittelbar vor der Publication vergeben.
+  - Ein neuer Index beginnt bei eins. Ein wiederaufgenommener setzt oberhalb des Größeren aus gespeichertem Max-Stamp und höchstem tatsächlich vorkommendem Stamp fort.
+  - Max-Stamp (null bei leerem Zähler) und Rohdarstellung für Persistenz und Notification sind abfragbar.
+- Name: Scopes und Entry-Mengen
+  Requirements:
+  - Scope-Arten mit stabilem Namen für Logs und Metriken sind alle Entries („all“), ID-Bereich („range“), explizite Menge („set“), Teilbaum ab Knoten („subtree“), Byte-Präfix („prefix“) und Centroid-Umgebung mit Anzahl und optionalem Radius („centroid“). Neue Arten sind ergänzbar.
+  - Entry-Mengen sind kompakt als Ranges oder Bitmap gespeichert, nicht als ID-Liste, und unterstützen 64-Bit-IDs.
+  - Aufbau aus Ranges (leere oder umgekehrte werden ignoriert) oder einzelnen IDs.
+  - Operationen sind Leere, Anzahl, Containment, aufsteigende Iteration, Union, Intersection, Gleichheit, gleichheitsverträglicher Hash und Ausgabe als maximale zusammenhängende aufsteigende Runs (bei großen Mengen teuer).
+- Name: Referenz-Index
+  Requirements:
+  - Ist ohne GPU-Beschleunigung und ohne Machine-Learning-Libraries lauffähig und liegt im RAM.
+- Name: Entry-Verwaltung im Dateiindex
+  Requirements:
+  - Upsert mit ID, Vektor und Nutzdaten. Der Vektor muss genau Dimension × 2 Bytes lang sein, sonst Schema-Fehler mit erwarteter und gefundener Länge.
+  - Upsert berechnet die Checksum, vergibt den Stamp, markiert den Index als dirty, löst das Signal aus und loggt. Die Änderung liegt bis zum Save nur im Speicher.
+  - Schreiben über den allgemeinen Vertrag nimmt genau einen Vektor. Nutzdaten eines vorhandenen Entries bleiben erhalten, bei neuen sind sie leer. Falsche Länge ist ein nicht behebbarer Programmfehler.
+  - Remove entfernt, markiert als dirty, vergibt einen Stamp und löst das Signal aus. Bei Fehlen ändert sich nichts und es wird „nicht vorhanden“ gemeldet.
+  - Abfragbar sind Nutzdaten, Pfad, Header, Max-Stamp und Dirty-Status.
+  - Eine explizite Verifikation dekodiert vollständig, vergleicht jede Checksum und nennt beim ersten Fehler die Entry-ID. Ein Index ohne Datei gilt als verifiziert.
+- Name: Nutzdaten und Checksum
+  Requirements:
+  - Jeder Entry verweist auf den Quelltext mit Zieldatei, Zeichenanfang und Zeichenende. Default ist eine leere Datei mit null und null.
+  - Berechnet die 64-Bit-Checksum aus Vektorlänge, Vektorbytes, Dateinamenlänge, Dateiname, Zeichenanfang und Zeichenende. Vorangestellte Längen schließen mehrdeutige Konkatenationen aus. Jede Bitänderung ist erkennbar.
+  - Berechnet die Checksum beim Speichern und bei der Verifikation neu und vergleicht sie.
+- Name: Persistentes Sichern
+  Requirements:
+  - Serialisiert gleichzeitige Saves. Ohne Änderung wird nichts geschrieben und „keine Änderung“ gemeldet, sonst „geschrieben“.
+  - Schreibt einen konsistenten Snapshot. Während des Schreibens eintreffende Änderungen bleiben als dirty vermerkt.
+  - Die Datei enthält alle aktuellen Entries aufsteigend nach ID, aus Ursprungsdatei und Speicher, mit unveränderten Stamps, Nutzdaten und Checksums. Der Header trägt den aktuellen Max-Stamp.
+  - Schreibt atomar: Temp-Datei neben dem Ziel, vollständig auf den Datenträger sichern (fsync), per Rename ersetzen, übergeordnetes Verzeichnis fsyncen.
+  - Bei Fehlern wird die Temp-Datei gelöscht und die bisherige Datei bleibt unangetastet. Gemeldet wird „Index nicht verfügbar“.
+  - Schreibt Row-Groups der konfigurierten Größe, ohne Kompression, mit Statistiken je Page und ohne Dictionary-Encoding der Vektorspalte. Der Header steht als Key-Value-Paare im Datei-Footer.
+  - Loggt Pfad, Schema-Version, Modell, Zeilenzahl und Row-Group-Zahl.
+- Name: Erkennung von Dateiänderungen
+  Requirements:
+  - Erkennt Änderungen an Quelldateien über eine Fallback-Kette: Change-Stamp, dann Größe und Timestamp, zuletzt Content-Hash.
+  - Hält je Datei Größe, Zeit der letzten Inhaltsänderung (mtime), optional Zeit der letzten Metadatenänderung (ctime) und den Referenzzeitpunkt der Iteration fest.
+  - Eine Aufzeichnung ist unsicher (racy), wenn ihre Änderungszeit höchstens zwei Sekunden vor dem Referenzzeitpunkt oder danach liegt. Das deckt grobe Timestamp-Auflösung mancher Dateisysteme ab.
+  - Das Ergebnis „unverändert“ gibt es nur, wenn Größe und beide Zeiten übereinstimmen und die Aufzeichnung sicher ist. Sonst lautet es „Content-Prüfung nötig“ mit Diagnose-Log.
+  - Nutzt für die Content-Prüfung einen schnellen, nicht kryptografischen 64-Bit-Hash, dessen Algorithmus und Version im Index-Header stehen.
+- Name: Konsistente Snapshots
+  Requirements:
+  - Liest gleichzeitig veränderbare Daten nach dem Prinzip eines Seqlocks wortweise atomar, nie halb geschrieben.
+  - Der Reader liefert eine vollständige Kopie und die Zahl der Retries, solange ein Writer aktiv ist oder der Zähler sich änderte.
+  - Writer schließen sich aus, decken die gesamte Region ab und erhöhen den Zähler um zwei.
+  - Aufbau aus rohen Adressen ist erlaubt, wenn Alignment, Gültigkeit und einheitliches Protokoll zugesichert sind.
+- Name: Zustandsbasierter Abgleich
+  Requirements:
+  - Jeder Subscriber (GPU-Manager, Persistenz-Timer, CPU-Manager) hat seinen eigenen Reconciler mit eigener Sicht.
+  - Der Abgleich ist zustandsbasiert (State-based Reconciliation). Das Signal des Index weckt nur, verglichen werden residente Entries. Änderungen an nicht geladenen Entries brauchen keine Behandlung, weil das Laden ohnehin den aktuellen Stand liest. Der State skaliert mit dem geladenen Teil.
+  - Der Reconciler wartet auf ein ungesehenes Signal und meldet „false“, wenn der Index nicht mehr existiert. Ein anstehendes Signal ist abfragbar (Polling).
+  - Das Signal wird vor dem Vergleich quittiert (Ack). Ein währenddessen eintreffendes Signal löst den nächsten Abgleich aus.
+  - Vergleich residenter Entries. Fehlt er im Index, gilt er als entfernt. Bei abweichendem Stamp wird er zum Reload vorgemerkt. Bei gleichem Stamp ist er aktuell, einschließlich Echos eigener Writes.
+  - Ergebnis sind beide Listen aufsteigend sortiert, die Zahl aktueller Entries, der Watermark des Signals und die Aussage „clean“. Entfernungen sind als Delete-Updates in die Update-Queue einstellbar.
+  - Laden eines Entries in der Reihenfolge Stamp, Daten, erneuter Stamp. Bewegt sich der Stamp, wird bis zu achtmal wiederholt, danach mit dem zuerst gelesenen Stamp zurückgekehrt. Ergebnis sind erster Stamp, Daten und Retries, bei Fehlen nichts. Die umgekehrte Reihenfolge würde stale Daten als aktuell ausweisen und ist die einzige unsichere Richtung. Ein überzähliges Nachladen ist harmlos.
+  - Echo-Suppression. Der Stamp aus dem Rückgabewert des eigenen Upserts wird als bekannt eingetragen, nie aus einem späteren Lesen. Ohne Rückgabewert entsteht höchstens ein redundanter Upload.
+  - Bei zwei Subengines mit demselben Entry sieht der andere Manager einen abweichenden Stamp und lädt nach. Beide konvergieren auf den Index-Stand.
+  - Erkennt Entfernen und Neuanlage über die Gesamtliste der Stamps bzw. die Stamp-Abfrage je Entry des Index.
+  - Das Residency-Verzeichnis führt je residentem Entry Slot (Segment und Slot-Nummer) und bekannten Stamp. Es bietet Insert mit Rückgabe des Vorgängers, Remove, Abfrage von Entry oder Stamp, Anzahl, Leere und Iteration.
+- Name: Kernel-Schnittstelle und Layouts
+  Requirements:
+  - Lässt den Kernel nur Adresse bzw. Offset und Score liefern. Die Adressdarstellung ist Implementierungsdetail.
+  - Festes Layout mit Stride bestimmt Entry-Grenzen per Arithmetik.
+  - Variables Layout nutzt eine Offset-Tabelle aus Prefix-Sums, die der Manager aus der Index-Struktur baut.
+  - Eine Kandidatenmenge ist ein variables Layout, egal ob die Tabelle auf kompakte Kopien oder bestehende Segmente zeigt.
+  - Die Rückabbildung von Adressen auf Entries erfolgt bei festem Layout per Arithmetik, bei variablem per Binary Search oder Interval-Mapping auf Arena-Offsets.
+  - Adressierung gebauter Segmente erfolgt per exklusiver Prefix-Sum auf Basisadresse (n Längen ergeben n+1 Offsets) und Offset-Tabelle mit Adress-zu-Entry-Abbildung.
+  - Das Layout ist fest, wenn der Stride der größten Entry-Länge entspricht, in 32 Bit passt, größer null ist und der Füllanteil eine Promille-Schwelle nicht überschreitet. Sonst ist es variabel.
+  - Beide Layouts bilden Adressen ab und sind in eine Slot-Zuordnung umwandelbar.
+- Name: Slot-Layout und Segment-View
+  Requirements:
+  - Slots haben feste Größe aus Token-Obergrenze, Dimension und Datentypgröße. Vordefinierte Slot-Klassen gibt es für 32, 64 und 128 Token, frei wählbar bis 65 535 Token, damit der Kernel ohne Lookup auskommt. Overflow oder ein Ergebnis über 32 Bit ergibt einen Fehler.
+  - Eine Segment-View besteht aus Region, Slot-Anzahl, Slot-Klasse, Dimension, Datentyp und Segment-Generation.
+  - Beim Anlegen der Segment-View wird geprüft, ob die Region alle Slots fasst, sonst Fehler mit benötigten und verfügbaren Bytes.
+  - Gesamtgröße und Teilbereich je Slot sind abfragbar. Ungültige Slot-Nummern ergeben Fehler mit Nummer und Anzahl.
+  - Für den Kernel gibt es einen Descriptor mit Startadresse, Slot-Anzahl und festem Abstand (Stride).
+  - Encoding von Slot-Inhalten. Echte Token-Zeilen folgen in Eingabereihenfolge, danach Padding-Zeilen bis zur Klassengrenze mit endlichem Mask-Wert statt null, damit Padding nie eine Similarity von genau null beiträgt.
+  - Datentypen FP32, FP16 und BF16 in Little-Endian, andere werden mit Typnennung abgelehnt. Zu viele Token oder eine Wertezahl ungleich Token × Dimension werden abgelehnt. Das Ergebnis hat volle Slot-Größe.
+  - Je Slot gibt es gültige Tokenzahl und Valid-Bit (Tombstone, noch nicht befüllt). Valid-Bits sind thread-safe.
+  - Abfragbar sind Validität (außerhalb des Bereichs ungültig), Anzahl gültiger Slots, Metadaten, Slot eines Entries und ein Snapshot der Valid-Bits in 64-Bit-Wörtern zum Upload.
+  - Je Segment gibt es eine nebenläufig les- und schreibbare Zuordnung von Slot zu Entry-Referenz (Entry-ID plus Abschnittsnummer), mit fester oder variabler Adressierung.
+  - Die Zuordnung bietet Bind, Unbind, Lookup, Slot zu Device-Adresse, absoluten Byte-Bereich je Slot und umspannenden Bereich (leer ohne Ergebnis).
+- Name: Manifeste und Publication
+  Requirements:
+  - Ein Manifest ist ein Snapshot der Segmente mit fortlaufender Generation, beginnend leer bei null. Ein Nachfolger liegt genau eine Generation höher.
+  - Abfragbar sind Segmente, Generation, Gesamtbytes und gehaltene Leases.
+  - Stellt die Segmenttabelle für den Kernel binär bereit, mit 24 Byte je Segment in Little-Endian: Segment-Generation (8 Byte), Startadresse (8 Byte), Slot-Anzahl (4 Byte), Slot-Abstand (4 Byte, null bei variablem Layout).
+  - Das aktuelle Manifest ist für Reader lock-free verfügbar und atomar ersetzbar, mit Rückgabe des vorherigen.
+  - Eine nicht strikt größere Generation wird mit „stale Generation“ abgelehnt. Konkurrenz wird durch Retry aufgelöst, Störungen sind für Tests auslösbar.
+  - Ein Reader sichert die aktuelle Generation per Lease. Solange sie besteht, bleiben Manifest und Segmente erhalten.
+  - Über die Lease werden Completion-Marker bei allen Segmenten registriert, bereits abgeschlossene dürfen verworfen werden.
+  - Nicht mehr gebrauchte Segmente melden ihre Region samt offener Completion-Marker (auch deferred Writes) an die Speicherverwaltung, sobald kein Manifest und keine Lease sie hält.
+  - Das Reclaim liefert Regionen mit vollständig abgeschlossenen Markern und hält den Rest zurück.
+  - Neue Manifeste können hinter dem Event ihres Kopiervorgangs vorgemerkt werden. Der Copy-Auftrag wird auf der Copy-Lane eingereiht, das Event aufgezeichnet und das Manifest vorgemerkt. Fehler ergeben einen Sync-Error mit Ursache.
+  - Eine Abfrage publiziert vorgemerkte Manifeste in Reihenfolge, solange das vorderste abgeschlossen ist, und liefert die Anzahl.
+  - Sendet Change-Notifications an beliebig viele Subscriber mit konfigurierbarem Buffer.
+  - Events tragen Art, Segment-ID, Segment-Generation und Manifest-Generation. „added“ gilt für neue IDs, „changed“ bei anderer Segment-Generation, für unveränderte gibt es keines. Senden ohne Subscriber scheitert nicht.
+- Name: Segment-Arena
+  Requirements:
+  - Teilt Segmente auf mindestens 256 Byte ausgerichtet zu. Ein konfigurierbarer Reserve-Anteil wird nie vergeben.
+  - Sammelt vor jeder Zuteilung ausstehende Freigaben ein.
+  - Lässt nur zu, wenn Belegtes plus Anforderung plus Replacement-Headroom plus Reserve in die Kapazität passen, sonst „Arena erschöpft“ mit angeforderter und verfügbarer Menge.
+  - Fehler des darunterliegenden Speichers werden abgebildet. Erschöpfung als „Arena erschöpft“, stale Region als solche, Übriges gekapselt (wrapped).
+  - Nutzt eine geliehene Referenz oder geteilten Besitz (Arc) am Speicherverwalter.
+  - Bookkeeping führt lebende Bytes, größtes Segment und zurückgestellte Segmente.
+  - Replacement-Headroom ist die Zahl gleichzeitiger Replacements (Default eins) mal größtes Segment. Er wird bei regulärer Zuteilung unter Berücksichtigung der neuen Anforderung freigehalten und beim Replacement-Beginn nicht erneut verlangt.
+  - Der Speicherbedarf eines Segmentwechsels ist aktueller Bestand plus eingehende Menge.
+  - Budgets sind overflow-sicher. Das Replacement-Budget umfasst lebende Bytes, Replacements und größtes Segment. Das Arena-Budget umfasst Kapazität, Reserve, lebend, zurückgestellt, Headroom und verfügbar.
+  - Verfügbar ist Kapazität minus Belegtes, Reserve und Headroom, nie negativ. Die Auslastung ist loggbar.
+  - Freigabe erfolgt sofort nur ohne mögliche Reader, sonst nach Event. Jede Freigabe prüft Liveness und Nicht-Zurückstellung, sonst „stale Region“.
+  - Ersetzte Regionen werden mit der Epoche des Replacements zurückgestellt. Das Reclaim gibt alle Regionen frei, deren Epoche nicht über der kleinsten Reader-Epoche liegt. Verschwundene erzeugen nur eine Warnung.
+  - Replacement durch Kopie legt ein neues Segment gleicher Größe neben dem alten an, höchstens ein Replacement gleichzeitig, wartend oder nicht wartend („kein Replacement“). Das alte Segment muss leben.
+  - Der Abschluss publiziert die Kopie mit Epoche und stellt das alte zurück. Scheitert das, bleibt die Kopie beim Vorgang. Discard gibt die Kopie frei. Alte und neue Region sind abfragbar.
+  - Schrittweise beschreibbare Segmente (Bump-Allocation) für einen Writer. Claims mit Alignment liefern absolute Adressen, passt einer nicht, kommt „Arena erschöpft“ mit Restmenge ohne Zustandsänderung.
+  - Geschriebene und verbleibende Bytes sind abfragbar, das Segment ist zerlegbar.
+- Name: Lade-Aggregation und Single-Flight
+  Requirements:
+  - Bündelt Tasks gegen denselben Index über die Union ihrer Scopes und lädt je Index genau einmal nebenläufig.
+  - Der Collector zählt Requests, ist entleerbar und auf Leere prüfbar.
+  - Single-Flight. Gleichzeitige Requests mit gleichem Key teilen einen Ladevorgang samt Ergebnis, auch im Fehlerfall. Nur der erste startet, die Start-Funktion blockiert nie.
+  - Nach Abschluss wird nur der eigene Eintrag entfernt. Fehlschläge wiederholt der nächste neue Aufrufer.
+  - Laufende Vorgänge sind abfragbar, Mitläufer (Joiner) werden geloggt.
+- Name: Index-Operations-Koordinator
+  Requirements:
+  - Ist die Operations-Unit je Index-Operation und verbindet Manager, Table-Swap, Mapping-Store und Queue geladener Segmente.
+  - Publiziert jedes vom Laden gemeldete Segment selbständig über das Publish des GPU-Managers.
+  - Serialisiert strukturelle Änderungen.
+  - Meldet ein Laden „Arena erschöpft“, publiziert er ausstehende Segmente, schafft über die Eviction Platz und wiederholt genau einmal.
+  - Reconcile-Iterationen publizieren Nachgeladenes vor ihrer Rückkehr.
+  - Publish versucht alle Segmente und meldet danach den ersten Fehler oder die Anzahl.
+  - Verwaltungsfehler werden zu Index-Fehlern. „Arena erschöpft“ bleibt, alle anderen werden Transfer-Error.
+- Name: Query-Batch und Dokumentquelle
+  Requirements:
+  - Bündelt mehrere Queries gleicher Dimension, damit jeder Dokumentabschnitt einmal für alle gelesen wird.
+  - Hält jede Query als zeilenweise Matrix aus Token × Dimension.
+  - Prüft Dimension ungleich null, nicht leer und Länge als Vielfaches der Dimension, sonst Shape-Error.
+  - Macht Dimension, Anzahl, Leere sowie Tokens und Rohdaten je Query abfragbar.
+  - Liefert Dokumentvektoren über eine Source-Schnittstelle mit Dimension, Slots je Segment, Slot-Offset für Treffer und Vektoren eines Slots (nur gültige Tokens) oder "nicht vorhanden".
+  - Berechnet in der RAM-Source Offsets als Summe der vorangehenden Slot-Bytes (vier Byte je Wert). Unbekannte Segmente haben null Slots.
+  - Prüft vor jedem Scoring den Slot-Bereich, sonst Fehler mit Segment, Grenzen und Slot-Anzahl.
+  - Bildet Workspaces als halboffenen Slot-Bereich und Einheit eines Kernel-Launches.
+  - Hält die Workspace-Länge nie negativ, macht die Leere abfragbar und erlaubt die Teilung in Vorderteil (höchstens gewünschte Größe) und Rest.
+- Name: Top-k-Selektion
+  Requirements:
+  - Führt je Query eine begrenzte Menge aus Offset und Score.
+  - Lässt den höheren Wert gewinnen, bei Gleichheit den niedrigeren Offset.
+  - Verwirft nicht numerische Werte und nimmt bei k gleich null nichts auf.
+  - Gibt absteigend aus. Bei weniger Kandidaten ist die Ausgabe entsprechend kürzer.
+  - Macht Anzahl, Soll-Größe und Leere abfragbar. Werte sind einzeln oder als Folge aufnehmbar.
+  - Reduziert lokal je Workspace und merged die Teilergebnisse auf der CPU.
+  - Übernimmt als Range-Scorer Roh-Scores mit Slot-Offsets. Mehrere Bereiche werden nacheinander gescort und gemerged.
+- Name: Referenz-Scorer-Vergleich
+  Requirements:
+  - Vergleicht Ergebnisse ohne exakte Gleichheit, mit absoluter Toleranz 10⁻⁵ bei FP32 und 10⁻³ bei FP16.
+  - Unterscheidet die Abweichungsarten unterschiedliche Trefferanzahl (keine weiteren Ränge dieser Query), Wertabweichung mit Rang und Differenz sowie Rangabweichung mit Offsets.
+  - Meldet keine Rangabweichung bei Beinahe-Gleichstand benachbarter Referenzwerte.
+  - Lässt beide Scorer über dieselben Workspaces laufen.
+  - Loggt Abweichungen als Warnung mit Segment und führt nie zum Abbruch.
+  - Reicht Fehler der Scorer weiter.
+- Name: Work-Chunks
+  Requirements:
+  - Ist die Planungseinheit mit Zeitbudget.
+  - Zielt mit der Länge auf eine Launch-Dauer von standardmäßig zwei Millisekunden, aus dem exponentiell geglätteten Durchsatz (EMA, Glättungsfaktor 0,3).
+  - Verwendet ohne Messung die Mindestlänge.
+  - Hält die Länge zwischen Mindest- und Höchstlänge (Default 16 und rund eine Million Slots). Die Mindestlänge beträgt mindestens eins.
+  - Macht den Durchsatz in Slots pro Sekunde abfragbar, vor der ersten Messung nicht vorhanden.
+  - Ignoriert Beobachtungen mit null Slots und begrenzt Dauern auf eine Mikrosekunde nach unten.
+  - Erlaubt Preemption nur an Chunk-Grenzen, geprüft nach jedem außer dem letzten. Mindestens ein Chunk läuft immer vollständig.
+  - Lässt Query-Tasks Indexing-Chunks überholen.
+  - Kennt die Abbruchgründe Zeitbudget erschöpft (Vorrang) und Preemption.
+  - Liefert als Ergebnis erledigte Slots, Restbereich und Grund. Fehler beenden sofort.
+  - Scort ein Tile gegen alle wartenden Queries, um die Lesekosten zu amortisieren.
+- Name: Benchmark-Workload und Abweichungsmaße
+  Requirements:
+  - Baut eine reproduzierbare synthetische Workload aus einem Seed auf, normiert und duplikatfrei. Defaults sind 20 000 Dokumente, 384 Dimensionen und höchstens 32 Queries, wobei die Top-5 für die Rangprüfung dienen.
+  - Nutzt als Referenz das FP32-Scoring auf der CPU.
+  - Leitet die Query-Zahl aus der Batch-Größe ab, ohne Angabe acht, begrenzt auf die Höchstzahl. Kleinere Batches nutzen die ersten Queries.
+  - Macht die Kombination unbrauchbar, wenn der Batch-Wert nicht numerisch, null oder zu groß ist.
+  - Berechnet Cosine-Deviation als eins minus Cosine Similarity, mindestens null, bei Nullvektor eins. Werte unter einem Millionstel gelten als Rauschen.
+  - Berechnet den relativen Fehler als Abstand durch Referenzlänge, bei Nullreferenz null oder unendlich.
+  - Berechnet Top-k-Overlap als Anteil der besten Referenztreffer im Kandidaten, Gleichstände nach Position, bei null gleich eins.
+  - Bewertet gesamt zeilenweise mit der schlechtesten Zeile, wobei je Zeile das Größere aus Cosine-Deviation und eins minus Overlap gilt.
+  - Unterscheidet die Validity-Zustände valid, non-finite, degenerate, Abweichung über Maximum und Ausführung gescheitert, jeweils mit Text.
+  - Wertet ungleiche Längen oder unteilbare Daten als degenerate. Wertet eine Zeile ebenfalls als degenerate, wenn sie konstant ist (Varianz unter 10⁻⁹ des mittleren Quadrats) oder ihr Längenverhältnis außerhalb von 0,5 bis 2,0 liegt. Der Bereich ist konfigurierbar.
+- Name: Messung
+  Requirements:
+  - Stellt ein austauschbares Mess-Interface (Trait) bereit, mit Abweichungsmessung gegen die Referenz (sonst Ergebnis „unverträglich“) und einer Zeit-Probe, die die normierte Zeit je Arbeitseinheit liefert oder „unterbrochen“, wenn eine produktive Aufgabe das Device anfordert.
+  - Führt das Warm-up beim ersten Gebrauch aus.
+  - Skaliert Wiederholungen auf das Zeitfenster (Default zehn Millisekunden).
+  - Hält Einzel-Launches im Chunk-Budget (Default fünf Millisekunden).
+  - Beschreibt eine Kombination als einen Wert je Achse plus die Sequenzlängen des Test-Sets, die nur die Verarbeitbarkeit prüfen. Die Textform besteht aus Achse-Wert-Paaren.
+  - Liefert als Messergebnis robuste Zeit, Abweichung, Validity, Stabilität, Probenzahl und relative Unsicherheit.
+  - Macht die Abfrage wartender produktiver Aufgaben (Default nie, auch über einen gemeinsamen Schalter) und die monotone Zeitquelle (Clock) austauschbar.
+  - 'CPU-Messung: Nutzt 4 000 Dokumente und nur FP32.'
+  - 'CPU-Messung: Nutzt eine positive Thread-Anzahl (Default eins) mit eigenem Pool und berechnet parallel.'
+  - 'CPU-Messung: Wärmt einmal je Kombination auf.'
+  - 'CPU-Messung: Misst die Zeit je Durchlauf und Query und prüft zwischen Durchläufen auf Unterbrechung.'
+  - 'GPU-Messung: Nutzt einen Cosine-Pfad mit FP32 oder FP16, bestimmt aus der Scoring- oder Operanden-Achse, mit Dokumenten in beiden Precisions auf dem Device.'
+  - 'GPU-Messung: Misst die Zeit per Events auf dem Stream, mit 64 MiB Cache-Flush vor jeder Probe und mindestens 100 Millisekunden Warm-up (Default-Maße).'
+  - 'GPU-Messung: Wählt Wiederholungen von eins bis 10 000, bildet Gruppen im Chunk-Budget, merkt die Wiederholungen je Kombination und prüft zwischen Gruppen auf Unterbrechung.'
+  - 'GPU-Messung: Meldet ohne GPU-Unterstützung einen Capability-Error.'
+- Name: Profilauswahl
+  Requirements:
+  - Begrenzt den Wunsch auf null bis eins (Clamp).
+  - Lehnt „keine Zahl“ (NaN) und Profilpositionen außerhalb von null bis eins als „ungültige Precision“ ab. Ungültige Wünsche sperren nicht.
+  - Wählt das Profil mit dem kleinsten Abstand zum begrenzten Wunsch, bei Gleichstand das präzisere.
+  - Wendet die Skala relativ zur Subengine an. 0,5 bedeutet auf beiden Prozessoren unterschiedliche Genauigkeit.
+  - Betrachtet den Wunsch als erfüllbar, solange ein aktives Profil existiert.
+  - Lässt ohne aktives Profil den ersten Task mit „kein aktives Profil“ scheitern und sperrt das Modell für diese Subengine (Latch). Spätere Tasks scheitern sofort.
+  - Hält die Sperre aufhebbar, mit Rückmeldung.
+  - Arbeitet thread-safe. Ein Poisoned Lock führt nicht zum Ausfall.
+- Name: Kalibrierungs-Persistenz
+  Requirements:
+  - Hält Ergebnisse je Modell und Subengine mit Fingerprint, Profilen (Position und Konfiguration als Text), Instabilitäts-Flag sowie verworfenen und geprunten Kombinationen mit Grund.
+  - Bildet den Fingerprint aus Schema-Version, Subengine, GPU-Name, Compute Capability, Treiberversion, CPU-Features, Model-ID und Engine-Version.
+  - Hält den Fingerprint bewusst knapp, sodass ein Löschen der Datei die Neukalibrierung erzwingt.
+  - Ermittelt den Fingerprint zur Laufzeit, GPU-Daten über die Treiber-API.
+  - Belegt beim Einlesen fehlende Felder mit Defaults.
+  - Löst beim Start den Zustand „fehlend“ auf, mit der präzisesten gültigen Kombination samt Warnung oder einem expliziten Kalibrier-Befehl.
+  - Löst beim Start den Zustand „kalibriert“ auf, indem das Ergebnis geladen und verwendet wird.
+  - Löst beim Start den Zustand „veraltet“ auf, indem das alte Ergebnis genutzt wird und im Hintergrund ein neues entsteht.
+  - Lässt das Auflösen beim Start nie scheitern. Unlesbare Dateien gelten als fehlend.
+  - Legt Ergebnisse als lesbare strukturierte Textdatei je Modell und Subengine ab und bietet Load und atomares Save. Save schreibt über eine prozessspezifische Temp-Datei mit fsync und Rename.
+  - Legt fehlende Verzeichnisse an.
+  - Fordert die Neukalibrierung beim Kalibrierungslauf an und lässt sie im Hintergrund auf dem Low-Priority-Pool der Hintergrundausführung laufen.
+  - Ersetzt das alte Ergebnis atomar durch das neue und loggt den Austausch.

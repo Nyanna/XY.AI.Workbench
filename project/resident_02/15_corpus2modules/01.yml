@@ -1,0 +1,298 @@
+- Name: Resident
+  Requirements:
+  - Stellt eine dauerhaft laufende Engine für Embedding (Texte in Vektoren umwandeln) und Similarity (Ähnlichkeitssuche gegen einen Index) bereit.
+  - Ist von einer RAG-Anwendung startbar und als Server-Prozess, Daemon oder über die CLI nutzbar.
+  - Rechnet in zwei getrennten Subengines, einer für die CPU und einer für die GPU (CUDA), die ihre Arbeit selbstorganisiert nach dem Pull-Prinzip aus Queues holen.
+  - Ist nach der Initialisierung bereit, verbraucht aber noch keine Ressourcen.
+  - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks. Solches Verhalten entsteht nur durch Addons.
+  - Gibt keine Garantie auf Ergebnisse von Embedding und Similarity. Varianz und Indeterminismus (Fusion, Atomics, hardwareabhängiges Rounding) sind zugunsten von Auslastung und Performance erlaubt. Stale Ergebnisse sind kein Fehler.
+  - Verzichtet zugunsten konsistenten Durchsatzes auf Locks auf den Datenpfaden.
+  - Gibt keine Zusage zu Vollständigkeit oder Größe der Kandidatenmenge und zur Ergebnisqualität. Genauigkeitsverluste sind Sache der äußeren Schichten.
+- Name: Engine-Fassade
+  Requirements:
+  - Bildet die Fassade (Facade) der Engine nach außen.
+  - Wird instanziiert und konfiguriert, anschließend initialisiert.
+  - Die Modelle bilden einen festen Satz und werden vor der Initialisierung der Engine konfiguriert.
+  - Ist nach der Initialisierung bereit, ohne Modell- oder Device-Ressourcen zu verbrauchen.
+  - Erlaubt das Registrieren von Indizes, ohne sie zu laden oder zu verwenden.
+  - Nimmt Tasks für verschiedene Aufgaben entgegen (enqueue).
+  - Wird über einen Builder erzeugt, der erst mit einem expliziten Start-Aufruf wirksam wird.
+  - Verlangt die Angabe eines Modells. Fehlt sie, scheitert der Start mit einem Konfigurationsfehler, der das fehlende Feld benennt.
+  - Konfiguriert den Planner mit Subengines, Modellen und Indizes.
+  - Erzeugt beim Start keine Modell- und Device-Ressourcen. Diese werden erst durch den ersten Task angelegt.
+  - Bietet Methoden zum Enqueuen der beiden Task-Arten Embedding und Similarity.
+  - Registriert beliebig viele durchsuchbare Indizes, jeweils unter einer eindeutigen ID.
+  - Lädt einen Index beim Registrieren nicht. Unmittelbar danach gilt er als nicht geladen.
+  - Bietet ein geordnetes Shutdown, das auch beim automatischen Drop der Instanz abläuft.
+  - Hält beim Shutdown zuerst die Worker an und joint sie.
+  - Bricht beim Shutdown danach alle Tasks ab, die kein Worker übernommen hat. Wartende Aufrufer erhalten den Fehler „cancelled“.
+  - Meldet beim expliziten Shutdown im Erfolgsfall eine positive Rückmeldung.
+- Name: Task-Modell
+  Requirements:
+  - Kennt keine Iteration, Kaskade, Rekursion, Parent-Child-Beziehung und keine Zwischenzustände zwischen Tasks.
+  - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar.
+  - Hält das Ergebnis bereit, sodass es per Event oder Notification abgeholt werden kann.
+  - Kapselt Daten, Parameter, Ergebnis, Zustand und Operationen eines Tasks.
+  - Führt Priorität, kompatible Ressource, Modell und Modus als gewöhnliche Parameter (Metadaten).
+  - Bildet die Zustände enqueued, claimed, completed und cancelled ab.
+  - Setzt das Ergebnis genau einmal, entweder als Output oder als Fehler, und weckt Wartende über eine Notification.
+  - Setzt bei Abbruch das Ergebnis auf den Fehler „cancelled“.
+- Name: Task-Handle
+  Requirements:
+  - Erlaubt das Abholen des Ergebnisses, ohne zu pollen, per Event oder Notification.
+  - Erlaubt die Zustandsabfrage ohne Warten (Polling). Bei completed liefert sie das Ergebnis (Output oder Fehler).
+  - Liefert bei cancelled den Fehler „cancelled“.
+  - Liefert bei enqueued oder in Bearbeitung „noch kein Ergebnis“.
+  - Behandelt completed ohne verfügbares Ergebnis als cancelled.
+  - Erlaubt dem Aufrufer, unbegrenzt oder mit Timeout auf den Abschluss zu warten. Er wartet auf das Ergebnissignal und wacht zusätzlich periodisch auf, um den Zustand zu prüfen.
+  - Aktiviert beim Warten zuerst die Registrierung für die Notification, liest dann den Zustand und wartet danach, sodass keine Notification verloren geht.
+  - Behandelt den Timeout als eigene Deadline des Aufrufers. Bei Überschreitung liefert es den Fehler „timeout“ und gibt das Handle frei.
+  - Bricht beim Drop eines unfertigen Handles den Task ab, sofern ihn noch kein Worker übernommen hat. Übernommene Tasks laufen weiter.
+  - Leitet den Zustand „cancelled“ lokal ab.
+- Name: Erweiterbare Zusatzparameter
+  Requirements:
+  - Dient dem Kern als einziges Mittel für Addon-Tasks (erweiterbares Parameterobjekt).
+  - Trägt Addon-spezifische Parameter, etwa den Scope eines Folge-Tasks, ohne dass der Kern sie interpretiert.
+  - Nimmt als typindizierte Extension-Map beliebige zusätzliche, typgebundene Werte auf.
+  - Speichert je Typ höchstens einen Wert. Erneutes Setzen desselben Typs ersetzt den vorhandenen Wert.
+  - Fragt Werte nach Typ ab (sonst „nicht vorhanden“) und entfernt sie nach Typ, mit Rückmeldung, ob der Wert vorhanden war.
+  - Liefert die Anzahl der Werte und ob die Map leer ist.
+  - Teilt die Werte beim Klonen (shared), statt sie zu duplizieren.
+  - Reicht die Werte unverändert durch Queue und Planung und ist thread-safe übertragbar (Send + Sync).
+- Name: Embedding-Task
+  Requirements:
+  - Wandelt Texte in Vektoren um.
+  - Liefert Embeddings ohne Determinismusgarantie. Varianz ist zugunsten von Auslastung und Performance erlaubt.
+  - Nimmt als Input einen Text oder eine Liste von Texten.
+  - Hat die Parameter Modell, Modus (Query oder Passage), Precision, optionalen Ziel-Index und erweiterbare Zusatzparameter.
+  - Liefert als Ergebnis die Embeddings als Liste von Float-Vektoren, ein Vektor je Eingabetext in Eingabereihenfolge.
+  - Lässt sich über den optionalen Ziel-Index so konfigurieren, dass das Embedding samt Metadaten direkt in den Index geschrieben wird. Er liefert dann Entry-Referenzen bzw. IDs des Index.
+- Name: Similarity-Task
+  Requirements:
+  - Führt eine Ähnlichkeitssuche gegen einen Index aus.
+  - Rechnet auf der übergebenen Kandidatenmenge und verbürgt weder deren Vollständigkeit oder Größe noch die Ergebnisqualität.
+  - Genauigkeitsverluste durch Chunking, Query-Formulierung, Index-Struktur, Reranking oder Kandidatenanzahl sind Sache der äußeren Schichten.
+  - Liefert Ergebnisse ohne Garantie. Stale Ergebnisse sind kein Fehler.
+  - Erlaubt, dass ein Similarity-Task den Scope eines Folge-Tasks treibt, etwa beim Reranking als zweiter Similarity auf dem verengten Scope.
+  - Nimmt als Input eine Liste von Query-Vektoren.
+  - Hat als verpflichtenden Parameter die ID des zu durchsuchenden Index, aus der das Modell abgeleitet wird.
+  - Hat als Parameter die maximale Trefferzahl (Top-k, Default zehn).
+  - Hat als Parameter den Scope (Suchbereich). Default ist der gesamte Index, einschränkbar auf eine Teilmenge.
+  - Hat als Parameter das Scoring-Verfahren (Default Cosine Similarity).
+  - Hat als Parameter Precision und erweiterbare Zusatzparameter.
+  - Drückt Reranking nicht als eigene Task-Art aus, sondern als zweite Similarity mit anderem Scoring-Verfahren auf einem verengten Scope, dessen Kandidaten aus einem früheren Ergebnis stammen.
+  - Liefert als Ergebnis Entry-Referenzen oder IDs (Chunk, Zeile, Bereich, Datei oder Index) mit Score. Nach außen erscheint jeder Treffer mit Entry, Score und Markierung „stale“.
+- Name: Similarity-Report
+  Requirements:
+  - Liefert Fakten, trifft keine Entscheidungen und legt keine Thresholds fest.
+  - Liefert rohe Scores und die Fakten, anhand derer eine äußere Schicht über Folge-Tasks entscheidet. Er enthält Task-ID und Suchparameter. Fehlen die Suchparameter, endet der Task mit einem Fehler.
+  - Enthält die Anzahl der Kandidaten, also der tatsächlich gescorten Entries im aufgelösten Scope.
+  - Enthält die Anzahl der verworfenen Entries.
+  - Enthält die Anzahl der stale Entries unter den zurückgegebenen Treffern.
+  - Enthält die Rangliste der Treffer mit Entry-ID, Score, Flag „stale“ und optionalem Source-Link.
+  - Akzeptiert eingehende Treffer unsortiert und mit mehr Einträgen als die maximale Trefferzahl.
+  - Verwirft Treffer ohne gültigen Zahlenwert und addiert sie zur Zahl der upstream verworfenen Entries, etwa wenn ein Entry aus dem Index entfernt wurde.
+  - Sortiert absteigend nach Score, bei Gleichstand steht die niedrigere Entry-ID vorn. Danach kürzt es auf Top-k.
+  - Übernimmt das Flag „stale“ je Treffer und zählt es nur über die zurückgegebenen Treffer.
+  - Ermittelt den Source-Link je zurückgegebenem Treffer über eine vom Aufrufer gelieferte Lookup-Funktion. Er kann fehlen.
+  - Bezieht Kennzahlen auf die zurückgegebenen Treffer. Ohne Treffer sind sie nicht vorhanden. Als Grundlage dienen die Scores der Similarity-Operation.
+  - Berechnet Anzahl, besten und schlechtesten Score, arithmetisches Mittel und Standardabweichung der Grundgesamtheit.
+  - Berechnet den Abstand zwischen erstem und zweitem Treffer (Gap) als Maß für die Sicherheit der Top-Reihenfolge. Es sind mindestens zwei Treffer nötig.
+  - Berechnet den Abstand zwischen erstem und letztem Treffer (Spread). Es ist mehr als ein Treffer nötig.
+  - Berechnet den Abstand des besten Scores vom Mittelwert in Standardabweichungen (z-Score). Bei einer Standardabweichung nahe null ist er nicht vorhanden.
+  - Berechnet die Wahrscheinlichkeitsverteilung über die Scores per Softmax mit einstellbarer Temperatur. Die Temperatur muss endlich und größer als null sein, sonst ist das Ergebnis nicht vorhanden. Die Berechnung ist numerisch stabil, indem sie auf den besten Score bezogen wird. Für die verwendete Modellfamilie ist eine Temperatur von etwa 0,01 bis 0,05 sinnvoll.
+  - Berechnet die Wahrscheinlichkeitsmasse des besten Treffers.
+  - Berechnet die Entropie der Verteilung in Nats. Null bedeutet einen eindeutigen Gewinner.
+  - Berechnet den Knee-Point der sortierten Score-Kurve, also den Treffer mit dem größten Abstand unterhalb der Verbindungslinie vom ersten zum letzten Wert. Es sind mindestens drei Treffer nötig. Bei flacher Kurve oder ohne Punkt unterhalb der Linie ist er nicht vorhanden. Bei Gleichstand gewinnt der frühere Treffer.
+- Name: Addons
+  Requirements:
+  - Iteration und Rekursion entstehen allein durch ein Addon in einer Subengine, der Anwendung oder einer Ressourcenimplementierung (Index, Modell).
+  - Enqueued Tasks über den normalen Weg, mit geklonten oder geänderten Parametern. Diese werden über die vorhandenen Pull-Filter (Priorität, Affinity) gezogen.
+  - Addon-Tasks sind von Anwendungs-Tasks nicht unterscheidbar. Der Kern braucht dafür nur das erweiterbare Parameterobjekt.
+  - Beispiel Centroid, ein Centroid-Task gegen die Summary-Struktur mit einem Folge-Task über die Mitglieder der gewählten Zellen.
+  - Beispiel Textanfrage, ein Embedding-Task gefolgt von einem Similarity-Task.
+  - Beispiel Reranking, eine zweite Similarity auf dem verengten Scope.
+  - Leiten abgeleitete Tasks mit geklonten Parametern (geteilte Zusatzparameter) ab und enqueuen sie über den normalen Weg.
+  - Drücken eine Textanfrage als Folge aus einem Embedding-Task im Query-Modus und einem Similarity-Task mit dem Ergebnisvektor aus.
+  - Steuern auf Basis der Fakten des Similarity-Reports Folge-Tasks, etwa Reranking.
+- Name: Processor
+  Requirements:
+  - Orchestriert mit Workern, Queues, Notification und Backpressure.
+  - Stellt getrennte Operations-Queues für GPU, CPU und gemeinsam bereit.
+  - Besitzt die Task-Queue, drei Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Ruft den Planner für die Expansion von Tasks auf.
+  - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
+- Name: Planner
+  Requirements:
+  - Stellt fest, welche Subengines konfiguriert sind, und startet sie.
+  - Teilt den Subengines die von einer Operation benötigten Ressourcen mit.
+  - Verwaltet die Zuordnung von Capabilities zu Queues und weist Operationen anhand der von den Subengines gemeldeten kompatiblen Capabilities den Queues zu, vorzugsweise der gemeinsamen.
+  - Wird von der Engine mit Subengines, Modellen und Indizes konfiguriert.
+  - Nimmt Tasks entgegen, lässt sie vom Expander zerlegen und enqueued die Operationen in passende Queues.
+  - Ordnet Operationen anhand der kompatiblen Capabilities der Subengines der GPU-, CPU- oder gemeinsamen Queue zu und bevorzugt die gemeinsame Queue.
+  - Lässt das Enqueuing mit dem Fehler „fehlende Planungs-Capability“ scheitern, wenn sich keine passende Queue findet.
+  - Verwaltet je Subengine, welche Ressourcenarten sie anbietet. Die Angebote sind schrittweise erweiterbar.
+  - Aktiviert beim Erzeugen einer Operation die benötigten Subengines blockierend.
+  - Unterscheidet zwischen verfügbarer Ressource (registrierte Capability) und geladener Ressource (initialisiert und im Speicher).
+  - Meldet für jede Task-Art vorab die Ressourcenart der ersten Operation (bei Similarity der Scorer, bei Embedding und Inferenz der Tokenizer).
+  - Verwendet für Embedding- und Similarity-Tasks das konfigurierte Default-Modell.
+  - Bricht mit „unbekanntes Modell“ unter Nennung des Modells ab, wenn das gewählte Modell nicht konfiguriert ist oder für die Kombination aus Modell und Task-Art ein Expander fehlt.
+  - Hält Modell, Modellkonfiguration, Subengine-Angebote und Idle-Notification gemeinsam für die Expansion bereit.
+  - Legt das Materialization-Flag je Operation fest. Das Ergebnis bleibt nur dann im VRAM, wenn diese und die unmittelbar folgende Operation beide ausdrücklich auf der GPU laufen. In allen anderen Fällen wird materialisiert (Nachfolger auf der CPU, Task-Ende, Mirroring in den Index, freie Wahl der Execution-Umgebung).
+  - Expandiert Tasks auf Aufruf des Processors.
+  - Meldet vorab die Ressourcenart der ersten Operation je Task-Art, damit Tasks nach unterversorgter Ressource bevorzugt werden können.
+  - Verwaltet die von den Subengines gemeldeten Capability-Sets und ordnet Operationen anhand kompatibler Capabilities in die CPU-, GPU- oder gemeinsame Queue ein.
+  - Kennt weder die externe Neural-Network-Library noch GPU-Execution-Graphs (CUDA Graphs).
+- Name: Expander
+  Requirements:
+  - Zerlegt Tasks in Operationsketten.
+  - Nimmt einen Task (Daten und Parameter) entgegen und zerlegt ihn genau einmal in eine geordnete Kette von Operationen.
+  - Übersetzt die Task-Parameter in die konkrete Konfiguration der Operationen: Index, Tokenizer, Modell, Scorer, Pooling, Präfix, Zieldimension, Top-k.
+  - Arbeitet nur mit Konfigurationsregeln, den Capabilities der Subengines und der Idle-Notification. Ohne Notification gilt eine leere Notification.
+  - Ist eine reine Funktion: zustandslos und wiederholbar, gleiche Eingabe ergibt dieselbe Kette. Das Ergebnis hängt nicht von den Nutzdaten ab.
+  - Hat keine Queues, keine Worker und keine Notification und startet keine Subengines.
+  - Erhält als Inputs den Task mit Daten und Parameterobjekt sowie die Pipeline-Konfiguration pro Modell (Präfixe, Pooling, Normalisierung, maximale Sequenzlänge, Datentyp).
+  - Lehnt einen Task einer fremden Art mit einer Meldung ab, die beide Task-Arten nennt.
+  - Loggt Task-Art und Anzahl der geplanten Operationen auf Debug-Level.
+  - Expandiert Embedding in dieser Reihenfolge zu Tokenisierung (CPU, Tokenizer-Ressource), Embedding-Berechnung (CPU oder GPU, Encoder-Ressource, mit konfigurierter Zieldimension), Pooling (Encoder-Ressource), L2-Normalisierung auf Länge eins (Encoder-Ressource) und Schreiben in den Index (Index-Ressource, referenziert den Ziel-Index).
+  - Lässt beim Embedding das Pooling beim Verfahren „none“ entfallen, dann bleiben die Token-Vektoren erhalten.
+  - Lässt beim Embedding die L2-Normalisierung bei abgeschalteter Normalisierung entfallen.
+  - Lässt beim Embedding das Schreiben in den Index ohne Ziel-Index entfallen.
+  - Expandiert Similarity in zwei Operationen: Similarity-Berechnung über den Scope mit Zieldimension und Top-k-Selektion mit Top-k, begrenzt auf den Maximalwert von u32.
+  - Lässt beide Similarity-Operationen die Scorer-Ressource des Modells anfordern und den Index referenzieren.
+  - Lehnt ein Top-k von null mit einem Konfigurationsfehler ab.
+  - Expandiert Similarity mit Cross-Encoder zu Paaren aus Query und Text aus der Payload, Cross-Encoder-Inferenz und Scores. Der Scope stammt aus einem früheren Ergebnis.
+  - Lehnt den Task mit „Scoring-Verfahren nicht verfügbar“ unter Nennung des Scorers ab, wenn kein Cross-Encoder-Scorer verfügbar ist.
+- Name: Operation
+  Requirements:
+  - Beschreibt die Operationsarten der Embedding- und Similarity-Ketten.
+  - ? Beschreibt Berechnungsschritte mit Art, Parametern und Resource-Requirements, wobei die Requirements aus den Parametern folgen. Die Operationsarten sind erweiterbar
+    : Tokenisierung, Embedding, Pooling, L2-Normalisierung, Similarity-Berechnung, Top-k-Selektion, Schreiben in den Index, Inferenz, explizite Übertragung vom Device ins RAM.
+  - Ist von mehreren Threads gleichzeitig verwendbar.
+  - Hat Parameter mit Resource-Requirements sowie optional Top-k und Dimension (beim Anlegen nicht gesetzt). Sie sind immutable, auf Gleichheit vergleichbar, als Key für Caches oder Dependency-Graphen verwendbar und dienen zum Filtern vor dem Claim.
+  - Lässt sich als reine Beschreibung (Descriptor) aus Art und Parametern darstellen, ebenfalls vergleichbar und als Key nutzbar.
+  - Führt Priorität und Task-ID als Metadaten.
+  - Gehört zu genau einem Task und verweist auf ihn zurück. Der Graph ergibt sich implizit aus der Reihenfolge der Operationen.
+  - Hat explizite Input- und Output-Regionen. Input und Output sind entweder Daten im RAM oder ein Pin einer Device-Region, nie rohe Tensoren oder Pointer.
+  - Kennt als Datenformen im RAM (erweiterbar) Textliste, Liste von Tokenfolgen, Float-Folge, Trefferliste aus Entry-ID und Score sowie gescortes Trefferergebnis.
+  - Enthält einen gescorten Treffer mit Entry-ID auf Manager-Ebene, Score, Flag „stale“ und optionalem Source-Link.
+  - Liefert ein gescortes Trefferergebnis als Zwischenergebnis mit Anzahl gescorter Entries im aufgelösten Scope, Anzahl bei der Auflösung verworfener Treffer (Entry entfernt) und verbleibenden Treffern. Ranking und Zusammenfassung erfolgen danach.
+- Name: Resource-Requirements
+  Requirements:
+  - Legt fest, welche Ressourcen eine Operation benötigt, damit der Planner dies den Subengines mitteilen kann.
+  - Identifiziert Modelle und Indizes durch String-IDs und Devices durch eine Zahl.
+  - Kennt als Ressourcenarten (erweiterbar) Tokenizer, Normalizer, Encoder, Scorer, Index und Cross-Encoder.
+  - Wählt die Execution-Umgebung (erweiterbar) aus CPU-only, GPU-only und any. „Any“ akzeptiert jede Device-Art, die anderen nur die passende.
+  - Führt einen Placement-Hint (Affinity, erweiterbar) auf eine Region oder ein Device als Hinweis für Pull-Filter.
+  - Enthält Ressourcenart, optional Modell, optional Index, Execution-Umgebung, geforderte Capabilities und optional Placement-Hint. Beim Anlegen sind nur Ressourcenart und Execution-Umgebung verlangt, die übrigen Angaben sind einzeln ergänzbar.
+  - Ist vergleichbar und als Key verwendbar.
+  - Wird von einem Device genau dann erfüllt, wenn seine Art akzeptiert wird und seine Capabilities alle geforderten abdecken. Der Placement-Hint spielt dabei bewusst keine Rolle.
+  - Stellt die Requirements einer Operation bereit, über die eine Subengine den zuständigen Ressourceneintrag bestimmt.
+- Name: Queue
+  Requirements:
+  - Wird gemeinsam genutzt und als Task-Queue sowie als CPU-, GPU- und gemeinsame Queue eingesetzt.
+  - Kennt kein Head-of-Line-Blocking, keine Reservierung und kein Vorab-Übernehmen.
+  - Kennt keine Capabilities.
+  - Kennt Priorität, kompatible Ressource, Modell und Modus der Arbeitseinheiten nicht.
+  - Ist eine lock-free MPMC-Struktur (Multi-Producer, Multi-Consumer) für Arbeitseinheiten mit eigenem Zustand, Ergebnis und Notification.
+  - Ist als Task-Queue und als Operations-Queue einsetzbar. Jede Instanz arbeitet unabhängig mit eigenem Set von Notification-Channels.
+  - Der Aufrufer legt die Typen von Metadaten, Payload, Ergebnis und Fehler fest. Operations-Queues verwenden denselben Aufbau mit eigenen Metadaten und Werten als Payload.
+- Name: Abschluss-Warten
+  Requirements:
+  - Meldet den Abschluss einer Arbeitseinheit per Event oder Notification, sodass Ergebnisse abgeholt werden können.
+  - Erlaubt, die Registrierung für die Notification vor dem Lesen des Zustands zu aktivieren, sodass keine Notification verloren geht.
+  - Weckt mehrere Wartende gleichzeitig.
+  - Wartet asynchron auf „completed“ oder „cancelled“, ohne einen Thread zu blockieren. Bei bereits erreichtem Endzustand endet das Warten sofort.
+  - Keine Notification geht verloren, auch wenn der Abschluss zwischen Zustandsprüfung und Wartebeginn eintritt.
+  - Unterstützt mehrere Wartende gleichzeitig und weckt alle, bei Completion ebenso wie bei erfolgreichem Cancel.
+  - Ein Wakeup ohne Endzustand führt zu erneuter Prüfung.
+- Name: Worker-Pool
+  Requirements:
+  - Startet bei der Initialisierung der Engine über den internen Executor die Mindestzahl idle Threads.
+  - Jeder Thread bedient sich als Lane selbst an der Queue.
+  - Kann auf Anforderung angehalten werden. Dabei werden alle Worker gestoppt und gejoint.
+  - Startet bei der Initialisierung über den internen Executor eine Mindestzahl idle Threads (Worker).
+  - Die Zahl der Worker der gesamten Engine ist die Zahl der CPU-Cores minus eins. Das ist eine Obergrenze für Context-Switches, keine Core-Zuordnung (kein Pinning).
+  - Worker parken im Processor und wachen bei jeder Zustandsänderung per Notification auf.
+  - Bei CPU-Operationen führt der Worker die Operation synchron aus und kommt mit dem Ergebnis zurück.
+  - Bei GPU-Operationen startet der Worker die Operation bzw. den Kernel und kehrt zurück. Nach der Completion-Notification verarbeitet ein freier Worker das Ergebnis.
+  - Blockiert ein Worker, etwa in der Compute-Library oder deren Thread-Pool, ist das das natürliche Backpressure-Signal ohne Sonderbehandlung.
+- Name: Subengine
+  Requirements:
+  - Verwaltet Ressourcen und Speicher je Hardwareart, getrennt für CPU und GPU (CUDA).
+  - Besitzt alles, was Speicher, Streams oder Kernel besitzt.
+  - Holt ihre Arbeit selbstorganisiert nach dem Pull-Prinzip aus den Queues.
+  - Stellt Ressourcen und Execution-Kapazität eines Compute-Substrats bereit und ist aus mehreren Threads nutzbar.
+  - Bezieht Arbeit ausschließlich aus den Queues des Processors. Sie meldet nur, wie viel sie aufnehmen kann.
+- Name: Gemeinsame Subengine-Regeln
+  Requirements:
+  - Meldet ihre kompatiblen Capabilities beim Planner an.
+  - Meldet ihre kompatiblen Capabilities beim Planner an, sodass dieser sie den Queues zuordnen kann.
+  - Aktiviert ihre Ressourcen samt Lanes auf Anforderung des Planners blockierend, ausschließlich als Aktivierung ohne Laden.
+  - Registriert die aktivierten Ressourcen samt Lanes in den eigenen und gemeinsamen Queues.
+  - Besitzt ihre Ressourcen: Encoder, Scorer und Index-Segmente.
+  - Liefert ein Capability-Set, meldet es beim Planner an und registriert kompatible Ressourcen samt Lanes in den eigenen und den gemeinsamen Queues.
+  - Wählt Compute-Pfade hardwareoptimal und entscheidet selbst darüber.
+  - Verwendet in öffentlichen Signaturen keinen Tensor und keinen Raw-Pointer, nur Region und Layout.
+  - Führt jede GPU-Arbeit über einen Execution-Context (Lane) aus, nie auf dem Default-Stream.
+  - Lädt Kernel nur über das Kernel-Register.
+- Name: Ressourcen-Lebenszyklus
+  Requirements:
+  - Initialisiert Ressourcen (Modelle, Indizes, Tokenizer, Kernel) erst bei Bedarf, wenn eine freie Lane eine Operation zieht.
+  - Entlädt Ressourcen nach Ablauf einer Frist ohne Nutzung (Unload), deaktiviert sie aber nicht.
+  - Die Unload-Fristen im VRAM sind deutlich länger als im RAM.
+  - Legt Ressourcen erst durch den ersten Task an und initialisiert sie lazy.
+  - Unterscheidet zwischen verfügbarer Ressource (aktiviert, registrierte Capability) und geladener Ressource (initialisiert und im Speicher).
+  - Führt Ressourcenzustände uninitialized, loading, ready und backoff (nach Fehler).
+  - Stößt die Lazy-Initialisierung auf Anforderung der Iteration per atomarem Übergang von „uninitialized“ nach „loading“ an. Der Task bleibt dabei in der Queue.
+  - Evictet ungenutzte Ressourcen am Ende jeder Iteration, aber nur wenn keine Operation läuft und die Lebensdauer (TTL) abgelaufen ist.
+  - Schreibt bei Initialisierungs- oder Startfehlern einen Fehler in die Task-Ergebnisse des Batches, versetzt die Ressource in den Backoff und loggt das mit Task-ID.
+  - Initialisiert Ressourcen lazy erst bei Bedarf und evictet sie bei Nichtnutzung.
+- Name: Auslastungsmeldung
+  Requirements:
+  - Meldet den dynamischen Durchsatz der Lanes als Grundlage der Arbeitszuteilung.
+  - Gibt Auskunft über Art, Device, Kapazität und geglätteten Durchsatz in Entries pro Sekunde.
+  - Ist aus mehreren Threads nutzbar.
+  - Meldet nur, wie viel die Subengine aufnehmen kann. Die Arbeit kommt aus den Queues des Processors.
+- Name: Precision, Kalibrierung und Profile
+  Requirements:
+  - Die Kalibrierung unterbricht oder blockiert den Nutzer nie.
+  - Gibt keine Rounding- oder Determinismusgarantie. Hardwareabhängiges Rounding ist erlaubt.
+  - Garantiert zwischen CPU und GPU keinen Rounding- oder Datentyp-Vertrag.
+  - Behandelt den Precision-Parameter als Wunsch zwischen null (schnellste Kombination) und eins (präziseste Kombination), nicht als Zusicherung.
+  - Unterbricht oder blockiert den Nutzer bei der Kalibrierung nie.
+- Name: Capability-Erkennung
+  Requirements:
+  - Bietet auf Hardware ohne Tensor Cores (Referenzkarte GTX 1660 SUPER) keinen Tensor-Core-Pfad an.
+  - Wählt das Erkennungsverfahren zentral nach Device-Art.
+  - 'CPU: Liefert FP32 immer.'
+  - 'CPU: Liefert FP16 mit Konvertierung nur bei vorhandener Half-Precision-Konvertierung (F16C).'
+  - 'CPU: Liefert INT8-Scoring bei AVX2 oder VNNI, INT8 über VNNI nur mit VNNI-Befehlen.'
+  - 'CPU: Bildet Thread-Anzahlen als Zweierpotenzen bis zur Zahl logischer Cores plus die Core-Zahl selbst, mindestens ein Core.'
+  - 'CPU: Ermittelt die Features AVX2, F16C, FMA und VNNI vom System. Auf fremden Architekturen gelten sie als fehlend.'
+  - 'GPU: Liefert FP32 immer, FP16 ab Compute Capability 5.3, INT8-DP4A ab 6.1 sowie Fusion on und off.'
+  - 'GPU: Erkennt Tensor Cores anhand von Compute Capability und Device-Name und loggt sie nur. Die Baureihen TU116 und TU117 haben trotz SM 7.x keine.'
+  - 'GPU: Scheitert ohne GPU-Unterstützung oder Device-Context mit einem Capability-Error.'
+  - Übernimmt numerische Achsen aus der Konfiguration, nämlich Batch-Größen 1, 8 und 32, Tile-Größen als Zweierpotenzen von 16 bis 512 und eine maximale Sequenzlänge von 512.
+  - Lässt nur positive Batch-Größen und Tile-Größen bis zur Sequenzlänge zu.
+  - Übernimmt die Kernel-Menge, wenn sie vorgegeben ist, sonst gilt der eingebaute Katalog.
+  - Reduziert erkannte Capabilities auf vorhandene Kernel. Unbekannte Achsen bleiben erhalten, geleerte Katalogachsen entfallen und Entferntes wird geloggt.
+  - Loggt das Ergebnis mit Subengine, Achsenzahl und Wertezahl.
+- Name: Kernel und Scoring
+  Requirements:
+  - Ist nicht an Subengines, Modelle oder Indizes gekoppelt.
+  - Varianz und Indeterminismus der Scores durch Fusion, Atomics oder hardwareabhängiges Rounding sind erlaubt.
+  - Kennt nur Segmente, Adressen und Offsets, keine Entry-Identität und keine Traversierung. Traversiert nie.
+  - Liefert nur Adresse bzw. Offset und Score. Die Adressdarstellung ist Implementierungsdetail.
+  - Kommuniziert während der Berechnung nicht.
+  - Rechnet auf Anforderung des Managers ohne Kenntnis von Entries, Index oder Scopes.
+- Name: Unterstützte Precisions
+  Requirements:
+  - Bietet BF16 nicht als Compute-Pfad an.
+  - Legt je Device-Art fest, für welche Elementtypen Scoring-Kernel existieren, unabhängig von aktivierter GPU-Unterstützung. CPU nur FP32, GPU FP32 und FP16.
+  - Meldet für jeden unterstützten Typ die Achsen Operanden und Scoring, für Typen ohne Kernel nie.
+  - Schränkt andere Achsen nicht ein.
+- Name: Pull-Ausführung
+  Requirements:
+  - Holt Arbeit selbstorganisiert nach dem Pull-Prinzip aus den eigenen und gemeinsamen Queues.
+  - Betreibt pro Subengine einen Loop mit genau einer Wartebedingung, der Notification. Danach folgt eine Iteration über die Queue.

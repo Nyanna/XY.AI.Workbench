@@ -1,0 +1,315 @@
+- Name: Table-Swap
+  Requirements:
+  - Führt die Segmenttabelle des Index im VRAM.
+  - 'Root-Pointer: Nur der Host schreibt (Release-Semantik), das Device liest (Acquire-Semantik). Vor der ersten Tabelle trägt er den größten darstellbaren Wert als Sentinel. Er kann in fest zugeordnetem, gemapptem Host-Memory liegen.'
+  - 'Segmenttabelle: Enthält Epoche und Segment-Regionen. Publizierte Versionen sind immutable, neue sind Kopien mit erhöhter Epoche.'
+  - 'Segmenttabelle bietet Add, Replace (false bei fehlender alter Region) und Remove mit Rückmeldung. Kodierte Größe: 16 Byte plus 24 Byte je Segment.'
+  - 'Epoch-Tracking: Führt die publizierte Epoche und je Reader die zuletzt gemeldete, nur steigend. Ein beendeter Batch meldet seine Epoche. Ein Reader ohne laufenden Batch kann ruhen (Quiescent) und gilt dann als angekommen. Die kleinste Reader-Epoche ist abfragbar, ohne Reader gleich der publizierten.'
+  - Das Schreiben in device-sichtbaren Speicher kehrt erst zurück, wenn der Inhalt vollständig sichtbar ist (Copy-Event oder Flush gemappter Writes).
+  - Stellt eine Kopie der aktuellen Tabelle mit nächster Epoche bereit.
+  - Publication ist serialisiert. Die Epoche muss genau aktuell plus eins sein, sonst „stale Mapping“, sodass zwei Tabellen gleicher Basis nicht beide publiziert werden.
+  - Publication schreibt den Inhalt sichtbar, tauscht den Root, schiebt die Epoche voran, stellt die vorherige Region mit neuer Epoche zurück (Retire), loggt Epoche, Segmentzahl und Offset und gibt die Epoche zurück.
+  - Reclaim gibt höchstens bis zur kleinsten Reader-Epoche und gewünschten Obergrenze frei und liefert die Anzahl.
+  - Im Persistent-Kernel-Modus mit Ring-Buffer liest der Kernel den Pointer einmal je Work-Item mit Acquire-Semantik. Ein Guard-Objekt hält die Version fest und meldet beim Freigeben die Epoche. Der Inhalt der neuen Tabelle muss vorher per Event oder Memory-Barrier sichtbar sein.
+  - Auf echter Hardware ist nachzuweisen, dass der Inhalt vor dem Root-Wert sichtbar ist, auch über einen Copy-Stream mit Event.
+- Name: Segmente und Slots
+  Requirements:
+  - Führt den Index im VRAM als Segmente.
+  - Führt das Address-Mapping im VRAM über Slots.
+- Name: Tokenizer
+  Requirements:
+  - Läuft nur auf der CPU, modellspezifisch oder geteilt, und liefert Token-IDs als u32.
+  - Die GPU braucht nur Token-IDs, daher gibt es kein Gathering auf der CPU und kein Address-Mapping.
+- Name: Encoding-Schemata
+  Requirements:
+  - Unterstützt zwei Encoding-Modi, Query und Passage (Dokument).
+  - 'Präfix-Schema: Stellt je Modus den Query- bzw. Passage-Präfix voran. Die Tokenfolge bleibt danach unverändert.'
+  - 'Multi-Vector-Schema (Late Interaction): Stellt je Modus einen Query- bzw. Dokument-Marker voran. Je Modellvariante konfigurierbar: Markertext für Queries und Dokumente, feste Query-Länge, maximale Dokumentlänge, ID des Mask-Tokens.'
+  - 'Multi-Vector-Query-Modus: Trunkiert auf die Query-Länge und paddet mit dem Mask-Token auf genau diese Länge. Die gepaddeten Positionen werden vom Modell berücksichtigt, nicht ausgeblendet (Query Augmentation).'
+  - 'Multi-Vector-Dokument-Modus: Trunkiert auf die maximale Dokumentlänge, ohne Padding. Pad-Tokens werden verworfen.'
+  - Die Multi-Vector-Trunkierungen gelten zusätzlich zur allgemeinen Trunkierung.
+- Name: Text-Encoding
+  Requirements:
+  - Wandelt eine Liste von Texten beliebiger als String lesbarer Typen in einem Modus in Token-IDs um. Eine leere Liste wird mit „keine Eingabetexte“ abgelehnt.
+  - Verarbeitet je Text in der Reihenfolge normalisieren, Präfix oder Marker voranstellen, tokenisieren mit den vorgesehenen Special-Tokens, schemaabhängig nachbearbeiten. Alle Texte werden gemeinsam als Batch tokenisiert.
+  - Meldet bei gescheiterter Tokenisierung einen Encoding-Error mit Ursache.
+  - Liefert das Ergebnis in Eingabereihenfolge, ohne Padding außer dem festen Query-Padding im Multi-Vector-Schema.
+  - Loggt die Anzahl trunkierter Texte mit Modus und Textanzahl sowie auf Trace-Level die größte Sequenzlänge.
+  - Bietet eine kombinierte Funktion, die kodiert und danach in gepaddete, nach Länge gruppierte Batches gemäß Batch-Konfiguration teilt. Jeder Batch ordnet seine Zeilen den Eingabe-Indizes zu.
+  - Gibt Encoding-Errors der kombinierten Funktion, auch die der leeren Eingabe, unverändert weiter und loggt die Batch-Anzahl.
+- Name: Batch-Bildung
+  Requirements:
+  - Bildet aus einer Liste von Tokenfolgen eine Liste von Batches. Jede Folge liegt in genau einem Batch. Jeder Batch führt die ursprünglichen Positionen seiner Zeilen mit. Leere Eingabe ergibt eine leere Liste.
+  - Konfiguriert sich über Token-Budget je Batch (Zeilen mal Sequenzlänge), maximale Sequenzlänge und ID des Pad-Tokens.
+  - Padding ist ausschließlich Aufgabe der Batch-Bildung.
+  - 'Length-Bucketing: Trunkiert zu lange Folgen auf die maximale Sequenzlänge. Die gepaddete Länge ist die kleinste Bucket-Größe aus 32, 64, 128, 256 und 512, die mindestens der trunkierten Länge entspricht. Oberhalb der größten Bucket-Größe gilt die maximale Sequenzlänge. Sie überschreitet nie die maximale Sequenzlänge und beträgt mindestens eins.'
+  - 'Gruppierung: Sortiert aufsteigend nach ursprünglicher Länge, bei Gleichheit stabil in Eingabereihenfolge.'
+  - 'Gruppierung: Prüft vor jedem Hinzufügen, ob das Token-Budget mit der neuen Zeile überschritten würde. Maßgeblich ist deren gepaddete Länge, wegen der Sortierung die größte im Batch. Dann beginnt ein neuer Batch.'
+  - 'Gruppierung: Eine Folge, die das Budget allein überschreitet, bildet einen eigenen Batch.'
+  - 'Gruppierung: Die Sequenzlänge eines Batches ist die gepaddete Länge seiner längsten Zeile. Alle Zeilen sind gleich lang.'
+  - 'Inhalt: Token-IDs zeilenweise als zweidimensionales Array, am Zeilenende mit dem Pad-Token aufgefüllt, dazu eine gleich geformte Attention-Mask mit eins für echte Token und null für Padding. Die Zeilenanzahl ist abfragbar.'
+  - 'Serialisierung: Zuerst alle Token-IDs, dann die gesamte Mask, jeder Wert als u32 in Little-Endian. Das entspricht einem dreidimensionalen Array der Form 2 × Zeilen × Sequenzlänge.'
+  - Leitet die Batch-Größe aus Token-Budget, Length-Bucket und Deadline je Klasse ab. Die Obergrenze der Batch-Dauer begrenzt die Query-Latenz.
+- Name: Index-Öffnung und Lazy Loading
+  Requirements:
+  - Der Index wird beim ersten Zugriff geladen.
+  - Greift per mmap oder File-Read zu. Bei mmap wird, wo möglich, Random Access angekündigt (madvise).
+  - Liest über die ID- und Stamp-Spalten alle Entries ohne Vektor-Dekodierung ein. Doppelte IDs ergeben „Index nicht verfügbar“.
+  - Setzt den Stamp-Zähler fort, wie beim Change-Stamp beschrieben.
+  - Dekodiert optional (Default ein) alle Daten und kontrolliert Checksums. Ein Fehler bricht das Öffnen ab.
+  - Loggt Pfad, Schema-Version, Model-ID, Model-Revision, Zugriffsart, Anzahl Row-Groups und Checksum-Ergebnis.
+  - Datei- oder Lesefehler ergeben „Index nicht verfügbar“ mit Pfad und Ursache.
+  - Lazy Loading dekodiert Vektoren und Nutzdaten beim ersten Gebrauch genau einmal und hält sie, in Batches von 4096 Zeilen, als FP16-Werte in Little-Endian.
+  - Ein Fehlschlag wird gemerkt und bei jedem Zugriff gemeldet. Beim Vektor-Lesen kommen leere Daten, bei Nutzdaten „nicht vorhanden“, jeweils mit Error-Log.
+- Name: Device und Lane und Event
+  Requirements:
+  - Bildet Device-Arten CPU und GPU ab, erweiterbar um weitere Arten. Das Device-Handle besteht aus dem Device-Ordinal bzw. der CPU.
+  - Ein Execution-Context (Lane) besteht aus Stream, Priorität, Events, eigenem Parameter-Block und Workspace.
+  - 'Beispiel-Lanes: Query (hohe Priorität, kleine Batches), Insert und Update im Index (Throughput), Kopieren zwischen RAM und VRAM in beide Richtungen (H2D und D2H).'
+  - Ein Event ist ein opaker Completion-Marker für alle vor seiner Aufzeichnung auf einer Lane eingereichte Arbeit.
+  - Kopien beziehen sich auf dasselbe Event.
+  - Der Abschluss eines Events ist nicht blockierend abfragbar und blockierend abwartbar.
+  - Bei GPU-Events meldet das Warten Fehler als Event-Error mit Ursache.
+  - Ein CPU-Event bleibt nach dem Signalisieren dauerhaft abgeschlossen und weckt alle Wartenden.
+  - Die Textdarstellung (Display) eines Events zeigt den Completion-Status.
+  - Ein Event ist durch ein künstlich steuerbares Mock-Event ersetzbar, sodass Event-Dependencies ohne GPU testbar sind.
+- Name: Kernel-Batchlauf-Schnittstelle
+  Requirements:
+  - Erfasst den Laufzustand über ein Event je Batch. Im Persistent-Modus dient stattdessen ein Progress-Counter in gemapptem Host-Memory.
+  - Schreibt Embeddings per Cursor in einen vorab vergebenen Bereich und allokiert nie.
+  - Meldet am Batch-Ende die belegten Bereiche. Reicht der Bereich nicht, liefert sie ein Teilergebnis (Partial Result).
+  - Beschreibt Segmente mit Basisadresse, Entry-Anzahl und festem oder variablem Layout (Offset-Tabelle mit Entries plus eins).
+  - Bildet einen Batch aus Segmenten, Query-Anzahl, optionalem Parameter-Bereich und Zeitbudget.
+  - Bietet den Lebenszyklus Batch beginnen (Begin) mit ID und auf Inputs ausführen (Run) mit Treffern oder Partial Result.
+  - Teilt beschreibbare Bereiche zu, vor dem ersten Lauf und nach Partial Results.
+  - Fragt nie abnehmenden Fortschritt ab und beendet den Batch (End) mit Rückgabe der Bereiche.
+  - Trägt keine Pointer.
+  - Bildet Adressen auf Entries ab. Bei festem Layout per Abstand durch Stride (kein Entry bei Stride null, Adresse vor Basis oder Index über Anzahl), bei variablem Layout per Offset-Intervall.
+- Name: Staging-Ring
+  Requirements:
+  - Führt eine feste Anzahl von Pinned-Staging-Slots mit Payload im Zustand frei, belegt oder in Übertragung mit Event.
+  - Verwendet einen Slot erst nach Abschluss seines Events wieder.
+  - Vergibt Slots per Acquire reihum hinter dem zuletzt vergebenen Slot, sonst keinen.
+  - Das blockierende Acquire lässt Anfragende auf freie Slots warten, und zwar auf die älteste laufende Übertragung.
+  - Sind alle Slots belegt und keine Übertragung läuft, meldet es „Staging erschöpft“.
+  - Scheitert das Warten, meldet es einen Transfer-Error der Richtung H2D.
+  - Erlaubt Payload-Zugriff und die Übergänge „in Übertragung“ und „freigeben“ nur aus dem Zustand „belegt“, sonst „ungültiger Slot“.
+  - Liefert Anzahl und Slots in Übertragung abfragbar.
+  - Ist thread-safe.
+  - Ist ohne GPU testbar, etwa mit einem Mock-Event.
+- Name: Gemeinsame Host-Ressourcen
+  Requirements:
+  - Alle gemeinsam genutzten Strukturen sind nebenläufig nutzbar.
+- Name: Encoder-Aufbau
+  Requirements:
+  - Setzt aus Beschreibung und Device-Klasse einen vollständigen Encoder aus Hauptmodell, optionaler Projection-Layer, Pooling, Normalisierung und Storage-Datentyp zusammen.
+  - Hinterlegt Device-Klasse und Compute-Datentyp für das Tracing.
+  - Übernimmt die Normalisierungsart aus der Beschreibung. Ohne Angabe ist die L2-Normalisierung Default.
+  - Lädt die Projection-Layer aus der ersten Weight-Datei. Ohne Weight-Datei meldet es den Load-Error „keine Gewichtsdateien“.
+  - Prüft, dass die Eingabedimension der Projection-Layer der Ausgabedimension des Hauptmodells entspricht, sonst „inkompatibel“.
+  - Verwendet für Multi-Vector-Modelle nach Art von ColBERT, für die die externe Library kein Modul hat, einen vorhandenen Encoder-Backbone (BERT, ModernBERT und weitere) mit eigenem Projection-Head.
+- Name: Transformer-Hauptmodell
+  Requirements:
+  - Liest die Konfigurationsdatei als strukturierten Text (JSON). Unlesbarkeit ergibt einen Load-Error mit Begründung.
+  - Der Modelltyp muss „bert“ lauten, sonst „inkompatibel“ mit gefundenem Typ.
+  - Die Hidden-Size muss der Beschreibung entsprechen. Die maximale Sequenzlänge darf die Anzahl der Position-Embeddings nicht überschreiten. Verstöße ergeben „inkompatibel“ mit beiden Werten.
+  - Ist auf der CPU stets ladbar. Auf der GPU ist es nur bei einkompilierter Unterstützung ladbar, dann auf dem ersten GPU-Device, sonst „inkompatibel“ mit Hinweis auf die fehlende Unterstützung.
+  - Übersetzt den Compute-Datentyp der Device-Klasse in den Backend-Datentyp, sonst „inkompatibel“.
+  - Lädt Gewichte per mmap ohne vollständiges Kopieren im gewählten Datentyp auf das Device.
+  - Ein fehlender Tensor ergibt „Gewichtsname passt nicht“ mit Name, sonstige Ladefehler einen Load-Error.
+  - Berechnet im Forward-Pass aus Token-IDs und Mask (Zeilen × Sequenzlänge) die Hidden-States aller Token. Token-Type-Inputs sind null, die Mask wirkt als Attention-Mask.
+  - Liefert das Ergebnis als flache Liste von FP32 (Zeilen × Sequenzlänge × Dimension), unabhängig vom Compute-Datentyp. Fehler ergeben „Encoding fehlgeschlagen“.
+  - Macht die Ausgabedimension abfragbar.
+  - Tauscht mit der übrigen Pipeline keine Typen der Tensor-Library aus, nur einfache Zahlenlisten.
+- Name: Projection-Layer
+  Requirements:
+  - Bildet optional jeden Token-Vektor linear von Input- auf Output-Dimension ab, etwa von 768 auf 128, insbesondere für Late Interaction.
+  - Führt eine Weight-Matrix Output × Input und einen optionalen Bias der Länge Output-Dimension.
+  - Lädt aus safetensors im Speicher oder per mmap aus einer Datei, über den Tensor-Namen der Beschreibung.
+  - Der Bias-Name entsteht durch Ersetzen der Endung „weight“ durch „bias“, sonst durch Anhängen von „bias“.
+  - Ein fehlender Tensor ergibt „Gewichtsname passt nicht“.
+  - Eine falsche Shape ergibt „inkompatibel“ mit tatsächlicher und erwarteter Shape.
+  - Konvertiert Werte in FP32, FP16 oder BF16 in FP32. Andere Typen ergeben „inkompatibel“ mit Tensor und Typ.
+  - Dateifehler ergeben einen Load-Error.
+  - Wendet die Abbildung als Dot-Product mit jeder Weight-Zeile plus Bias an. Die Reihenfolge der Vektoren bleibt.
+  - Macht Input- und Output-Dimension abfragbar.
+- Name: Pooling und Normalisierung
+  Requirements:
+  - Unterstützt als Pooling-Verfahren Mean über unmaskierte Token (ein Vektor je Sequenz) oder kein Pooling (ein Vektor je Token).
+  - Mean bildet die Summe der Hidden-State-Vektoren mit Mask ungleich null geteilt durch deren Anzahl. Padding beeinflusst das Ergebnis nicht.
+  - Vollständig maskierte Sequenzen ergeben einen Nullvektor ohne Division durch null.
+  - Ohne Pooling werden alle Positionen unverändert weitergegeben, einschließlich Padding.
+  - L2-Normalisierung teilt jeden Vektor durch seine Norm, damit das Dot-Product dem Cosinus entspricht.
+  - Begrenzt die Norm nach unten auf 10⁻¹² (Epsilon-Clamp). Vektoren darunter gelten als degeneriert und bleiben praktisch Nullvektoren.
+  - Meldet die Anzahl degenerierter Vektoren zurück.
+  - Die Art „none“ lässt Vektoren unverändert.
+  - Führt die L2-Normalisierung einmal am Ende des Encoders beim Schreiben aus. Query und Dokument werden gleich behandelt.
+- Name: Encoder-Schnittstelle
+  Requirements:
+  - Macht Ausgabedimension (der Projection-Layer, sonst des Hauptmodells) und Storage-Datentyp abfragbar.
+  - Nimmt als Input eine Region mit Layout im Serialisierungsformat der Batch-Bildung und als Output ebenfalls eine Region mit Layout entgegen.
+  - 'Prüft vorab, sonst „inkompatibel“ mit erwarteter und tatsächlicher Shape bzw. erwartetem und tatsächlichem Datentyp: Der Input enthält genau 2 × Zeilen × Sequenzlänge als u32. Der Output hat bei Mean-Pooling Zeilen × Dimension, sonst Zeilen × Sequenzlänge × Dimension. Der Output-Datentyp entspricht dem Storage-Datentyp.'
+  - Führt das Encoding asynchron auf einer übergebenen Lane aus. Der Aufruf kehrt nach dem Enqueue zurück und liefert ein Completion-Event.
+  - 'Ablauf: Input-Bytes lesen und in Token-IDs und Mask trennen, Hidden-States berechnen, Projection anwenden, Pooling ausführen, in die Output-Region schreiben.'
+  - Scheitern Enqueue oder Event-Erzeugung, gibt es den Fehler als Device- oder Memory-Error zurück.
+  - Loggt Fehler während der Ausführung als Warnung „Embedding-Batch fehlgeschlagen“ und hinterlegt sie im Completion-Event. Die Lane selbst gilt als erfolgreich abgeschlossen.
+  - Verteilt das Ergebnis über einen One-Shot-Channel je Task plus Event oder Notification.
+  - Liefert beim Warten auf das Completion-Event einen hinterlegten Verarbeitungsfehler genau einmal.
+  - Meldet Fehler der Execution-Umgebung beim Warten als Device- oder Memory-Error.
+- Name: Embedding-Ausgabe
+  Requirements:
+  - Normalisiert die Ergebnisvektoren bei Bedarf, konvertiert sie in den Output-Datentyp und schreibt sie lückenlos in die Output-Region.
+  - Lässt FP32, FP16 und BF16 in Little-Endian zu, andere Typen ergeben „inkompatibel“.
+  - Erzeugt bei degenerierten Vektoren eine Warnung mit Anzahl, dass leere Embeddings als Nullvektor gespeichert wurden. Der Vorgang gilt als erfolgreich.
+  - Reicht Schreibfehler als Memory-Error weiter.
+  - Liest auf der GPU über einen dünnen Write-Kernel den Device-Pointer des Ergebnis-Tensors und schreibt normiert sowie datentypkonvertiert direkt in den vom Manager vorab vergebenen Slot.
+  - Hält den Ergebnis-Tensor bis zum Event am Ende des Schreibens am Leben.
+- Name: Speicherverwaltung
+  Requirements:
+  - Vermeidet Allokation und Freigabe von VRAM im laufenden Betrieb, weil dies das Device implizit synchronisiert.
+- Name: Arenen und Speicherbudget
+  Requirements:
+  - Teilt den Speicher in sechs Arenen (Speicherklassen) nach Lebensdauer ein.
+  - 'Arena Weights: langlebig, nur beim Unload frei.'
+  - 'Arena Index-Segmente: gestreamt, evictable. Die Kapazität umfasst alle gleichzeitig residenten Generationen.'
+  - 'Arena Workspace je Lane: kurzlebig.'
+  - 'Arena Staging: Pinned Memory im Host für Kopien in beide Richtungen, bei der CPU entfallend.'
+  - 'Arena Parameter-Block je Lane: kleine feste Region für dynamische Kernel-Parameter.'
+  - 'Arena Mapped Host-Memory: Pinned Memory, den das Device über den Systembus (PCIe) direkt liest.'
+  - Gibt jeder Arena eine stabile, eindeutige numerische ID, aus der sie rückgewinnbar ist. Unbekannte IDs ergeben „keine Arena“.
+  - Liefert die Liste der Arenen vollständig in fester Reihenfolge abrufbar und erweiterbar.
+  - Macht je Arena eine Kapazität in Byte konfigurierbar.
+  - Berechnet den tatsächlichen Device-Bedarf als Summe aus Weights, Index-Segmenten, Workspace und Parameter-Block, saturierend statt wrapping. Staging und Mapped Host-Memory zählen nicht, da sie im Host-Memory liegen.
+  - Berechnet die Reserve für andere Generationen als Index-Kapazität abzüglich des Anteils der aktiven Generation bei gleichmäßiger Aufteilung. Eine Generationszahl unter eins gilt als eins.
+  - Legt die Arena lazy beim ersten Laden nach Budget an. Alle Adressen sind 64-Bit-Offsets innerhalb der Arena.
+  - Das Budget besteht aus freiem Speicher, Gesamtspeicher und Generationsreserve. Der nutzbare Anteil ist der freie Speicher abzüglich Reserve, nie negativ.
+  - Ermittelt freien und gesamten Device-Speicher zur Laufzeit über eine austauschbare Abfrage. Scheitern ergibt „Speicherabfrage fehlgeschlagen“ mit Begründung.
+  - Verwendet als Default-Headroom 512 MiB für Treiberkontext und andere Prozesse, etwa den Display-Compositor.
+  - Der Fit-Check stellt fest, ob die geplanten Device-Arenen in den freien Speicher abzüglich des saturierend abgezogenen Headrooms passen, sonst Fehler mit angeforderter und nutzbarer Menge.
+  - Plant den kurzen Doppelbedarf durch Copy-on-Write im Budget ein.
+- Name: Free-Space-Verwaltung
+  Requirements:
+  - Vergibt je Arena über einen Offset-Allocator Bereiche aus fester Kapazität, ohne selbst Speicher zu halten, nach dem First-Fit-Prinzip in aufsteigender Adressreihenfolge.
+  - Verschmilzt beim Freigeben Lücken mit angrenzenden freien Nachbarn auf beiden Seiten (Coalescing).
+  - Rundet beim Alignment den Offset auf, null gilt als eins. Overflows führen zu „passt nicht“, nie zum Absturz. Reste vorn und hinten bleiben freie Lücken.
+  - Erfüllt Anforderungen der Länge null nicht.
+  - Macht Kapazität und freie Menge abfragbar.
+  - Bei Kapazität null gibt es keine Lücke.
+- Name: Allocator mit Deferred Free
+  Requirements:
+  - Jeder Allocator kennt Kapazität, Arena und Device-Art. Vor jeder Allokation sammelt er abgeschlossene Deferred Frees ein.
+  - Erschöpfung ergibt einen Fehler mit Arena, angeforderter und freier Menge, andere Fehler „Allokation fehlgeschlagen“.
+  - Lehnt sofortige Freigabe bei vorgemerkten oder ungültigen Regionen mit „stale Region“ ab.
+  - Deferred Free nimmt Region und Event. Die Region wird erst frei oder überschreibbar, wenn alle Streams, die sie nutzen, ihr Event erreicht haben (Stream-ordered Reuse), sodass laufende Arbeit nie wiederverwendeten Speicher sieht.
+  - Lehnt Deferred Free bei nicht lebenden oder bereits vorgemerkten Regionen ab. Nach dem Vormerken wird sofort auf Abschluss geprüft.
+  - Das Einsammeln (Reaping) gibt abgeschlossene Regionen frei und liefert die Anzahl. Ungültige Regionen erzeugen nur eine Warnung.
+  - Die sofort verfügbare Menge schließt wartende Regionen aus. Anzahl wartender Regionen und Liveness sind abfragbar.
+  - Ist thread-safe.
+  - Stellt in einem Allocator-Set je Arena genau einen Allocator bereit, liefert die Größenvorgabe und findet den zuständigen Allocator zu einer Region. Fremde IDs ergeben „stale Region“.
+  - Ist ohne GPU testbar, etwa mit einem künstlich steuerbaren Mock-Event.
+- Name: Region-Handle
+  Requirements:
+  - Stellt eine Region als pointerfreies Handle aus Arena-ID, Offset, Länge und Generation bereit, kopierbar, vergleichbar und als Key verwendbar.
+  - Die Generation entwertet Handles nach Eviction und Neuladen.
+  - Überlässt das Auflösen einer Region auf eine Device-Adresse ausschließlich dem Memory-Backend. Device-Adressen verlassen das Backend nicht.
+- Name: Bookkeeping und Gültigkeit
+  Requirements:
+  - Verfolgt je Arena thread-safe Offsets und Generationen, ohne Device-Speicher zu besitzen.
+  - Erstmals vergebene Kombinationen aus Offset und Länge erhalten Generation null. Erneute Vergabe derselben Kombination erhöht die Generation mit Wrap-around.
+  - Eine Region ist live, wenn Arena, Offset, Länge und Generation einer aktuellen, nicht freigegebenen Vergabe entsprechen.
+  - Die Freigabe scheitert bei fremder Arena, unbekannter, bereits freigegebener oder abweichender Region.
+  - Das allgemeine Verwaltungs-Interface dereferenziert stale Handles nie, sondern ignoriert sie mit Warnung.
+  - Platzmangel nennt angeforderte und freie Menge.
+  - Lässt für Tests einen Allocation-Fehler je Arena künstlich auslösen (Fault Injection), gemeldet wie Erschöpfung.
+  - Loggt Allokationen und Freigaben auf Debug-Level mit Arena, Offset und Größe.
+- Name: Layout und Elementtypen
+  Requirements:
+  - Führt eigene Elementtypen unabhängig von Fremd-Libraries mit FP32 (4 Byte), FP16 (2 Byte), BF16 (2 Byte), u8 (1 Byte), u32 (4 Byte) und i64 (8 Byte).
+  - Übernimmt Elementtypen aus dem safetensors-Format. Nicht unterstützte ergeben „nicht unterstützter Datentyp“ mit Quelle.
+  - Legt für additive Attention-Masks den festen endlichen Mask-Wert −10 000 fest, da negativ unendlich bei FP16 ungültige Zeilen (NaN) ergäbe.
+  - Ein Layout besteht aus Shape, Strides in Byte und Elementtyp. Views ändern nur das Layout, nie die Daten.
+  - Beim Contiguous Layout ist der Stride der letzten Dimension die Elementgröße und jeder vordere das Produkt der hinteren Dimensionen. Dimensionen der Größe null zählen als eins.
+  - Macht Elementzahl, Bytelänge und Contiguity eines Layouts abfragbar.
+  - Transponieren zweier Dimensionen tauscht Shape und Strides. Narrowing ändert nur die Shape der Dimension.
+- Name: Speicherzugriff
+  Requirements:
+  - Stellt Lese- und Schreibzugriff auf Regionen einer Memory-Domain über eine einheitliche, nebenläufig nutzbare Schnittstelle bereit, die Bytes einer Region in einen Buffer liest und Bytes in eine Region schreibt.
+  - Eine Tensor-Referenz verbindet Region und Layout und ist der einzige Weg, auf dem Tensoren die Encoder-Schnittstelle passieren.
+- Name: Segment-Schreibpfad
+  Requirements:
+  - Vergibt Slots vorab, damit der Encoder Embeddings direkt in den reservierten Slot schreiben kann.
+  - Segmente wachsen nur durch Append. Belegte Slots eines geladenen Segments werden nie überschrieben.
+  - Speicher gelöschter Entries wird durch Rebuild des Segments zurückgewonnen (Compaction).
+  - Reservierung des nächsten freien Slots mit Entry-Referenz, Tokenzahl, optionaler Centroid-Zuordnung und Zielbereich. Der Slot bleibt bis zum Commit unsichtbar.
+  - Die Reservierung wird abgelehnt bei Tokenzahl über Klassengrenze oder 16-Bit-Bereich sowie ohne freien Slot.
+  - Commit erfolgt sofort, wenn die Übertragung abgeschlossen ist (sonst „noch nicht bereit“), oder deferred bis zum Event.
+  - Der Drain wendet deferred Commits in Reihenfolge an, hält beim ersten offenen Vorgang an und liefert die Zahl neu sichtbarer Slots.
+  - Commit bindet den Slot, setzt Metadaten (gültig, Tokenzahl, fortlaufende Write-Nummer, Centroid-Zuordnung) und das Valid-Bit erst nach dem Event.
+  - Insert oder Update heißt neuer Slot, danach wird das Bit des alten Slots gelöscht. Die alte Zuordnung bleibt für ältere Treffer auflösbar.
+  - Ein Entry lässt sich ausblenden (Tombstoning), ohne Daten zu entfernen, mit Rückmeldung über sein Vorhandensein.
+- Name: Max-Similarity-Operation
+  Requirements:
+  - Aggregiert die Max-Similarity (MaxSim) je Entry über Stride oder Offset-Tabelle, ohne Entry-Identität zu kennen.
+  - Liefert als einheitliche Operation die Top-k-Treffer je Query über einen Slot-Bereich und einen Query-Batch, mit austauschbarer Implementierung.
+  - Realisiert eine Tile-Kette aus Library-Operationen auf CPU oder GPU mit wählbarer Precision und Tile-Größe. Eine Tile-Größe unter eins wird eins.
+  - Meldet "nicht verfügbar" bei nicht abbildbarer Precision oder einem Device, das sich nicht öffnen lässt.
+  - Zerlegt Dokument-Tokens in Tiles fester Größe und transponiert sie. Das letzte Tile wird mit Nullen aufgefüllt und per additiver Mask ausgeschlossen.
+  - Berechnet je Tile Matrix-Produkt (GEMM), Mask, Maximum je Query-Token und laufendes Maximum über Tiles. Die Summe läuft in FP32.
+  - Hält Zwischenmatrizen höchstens bei Query-Tokens × Tile-Größe.
+  - Ergibt für leere Dokumente Mask-Wert × Query-Tokens.
+  - Überführt Queries vorher in die Precision.
+  - Prüft Bereich und Dimension wie der slotweise Scan und meldet Library-Fehler als Launch-Error.
+  - Bietet hinter derselben Operation einen Fused Kernel an, bei dem die Zwischenmatrix nie im VRAM liegt.
+  - Maskiert die Dokumentseite, die Mask-Tokens der Query zählen mit.
+- Name: CPU-Manager
+  Requirements:
+  - Ist Komponente der CPU-Subengine, weder der Fassade noch des Index. Wird mit der CPU-Subengine und einem lazy aktivierten Index konstruiert.
+  - Leitet Lesezugriffe direkt an den Index, da das RAM die Primärinstanz ist.
+  - Sichert die Residency dateigestützter Daten im Page-Cache, relevant bei memory-mapped Indizes größer als das RAM.
+  - Markiert Bereiche nach Leerlauf als „cold“. Ohne Hinweisquelle passiert nichts, Ablehnungen werden nur geloggt.
+  - Einzelnes Lesen setzt den Hinweisbereich „will need“, liest im Blocking-Pool und liefert eine Kopie der Bytes. Ein Abbruch der Aufgabe ergibt den Transfer-Error „Lese-Task abgebrochen“.
+  - Mehrfaches Lesen mit Zugriffsmuster nutzt bei dichtem Zugriff „sequential“ über den umspannenden Bereich und bei verstreutem Zugriff „random“ je Entry. Die Ergebnisse folgen der Eingabereihenfolge.
+  - Mehrfaches Lesen liefert bei leerer Eingabe ein leeres Ergebnis. Der Index muss angehängt sein.
+  - Eine Variante erfragt die Hinweisbereiche selbst vom Index. Entries ohne zusammenhängende Speicherung werden ohne Hinweis gelesen.
+- Name: Page-Cache-Hinweise und blockierende Lesezugriffe
+  Requirements:
+  - Setzt Empfehlungen (Advice) an das Betriebssystem je Byte-Bereich: will-need (Prefetch), sequential, random, cold. „Cold“ senkt die Reclaim-Priorität, ohne Inhalte zu verwerfen. Alle Empfehlungen sind unverbindlich.
+  - Abstrahiert das Hinweisziel über eine austauschbare, nebenläufige Schnittstelle (Trait).
+  - Weist ungültige Bereiche ab (Anfang hinter Ende, Ende hinter Mapping-Länge). Leere Bereiche sind wirkungslos erfolgreich (No-op).
+  - Richtet „cold“ auf Page-Grenzen aus (Anfang abrunden, Länge vergrößern). Auf Plattformen ohne Unterstützung ist es ein erfolgreicher No-op. OS-Fehler werden weitergereicht.
+  - Führt blockierende Lesezugriffe (Page-Faults, Disk-I/O) im Blocking-Pool aus, nie im Thread des Async-Runtime. Der Prefetch-Hinweis lässt I/O und Kernel-Lauf überlappen.
+  - Setzt vor dem Lesen standardmäßig „will-need“, abweichend etwa „sequential“ für dichte Scans. Lesen ohne Hinweis ist möglich, Prefetch ist eine eigene Funktion.
+  - Ohne Hinweisquelle bleibt der Hinweis wirkungslos, ein abgelehnter Hinweis wird nur geloggt.
+  - Meldet Abbruch oder Panic der blockierenden Aufgabe als Fehler.
+- Name: Launch-Modi
+  Requirements:
+  - Übergibt bei normalen Launches Root-Pointer und Epoche der Segmenttabelle als Kernel-Argument. Ein Table-Swap wirkt ab dem nächsten Launch.
+  - Ist vom Scorer getrennt.
+  - Kennt die Modi direkter Launch, Graph-Capture für Replay (CUDA Graphs) und Persistent Kernel mit Ring-Buffer.
+  - Führt den direkten Launch aus: Work-Item unverändert an die Lane, Lane-Fehler als Kernel-Error, Tracing auf Trace-Level.
+  - Lehnt Graph-Capture und Persistent-Modus mit "nicht verfügbar" ab, mit dem Grund, dass der jeweilige Modus nicht aktiviert ist.
+  - Bildet den Launch-Key aus Operation, Shape-Klasse, beteiligten Regionen mit Generation, Datentyp, Variante und Lane-Klasse. Geänderte Generationen ergeben neue Keys, stale Captures laufen nie.
+  - Bestimmt die Shape-Klasse als nächsthöhere Zweierpotenz, mindestens eins, bei Overflow 2³¹.
+  - Ermöglicht vor dem ersten produktiven Launch eine Warm-up-Phase. Der erste Launch gilt als nicht produktiv. Ohne eigene Umsetzung geschieht nichts.
+- Name: Device-Transfer
+  Requirements:
+  - Nutzt als Bausteine eine Quelle für Segmentbereiche (Index-Arena), gemapptes Host-Memory, ein geladenes Segment aus Region, Slot-Zuordnung und Bindings mit vor den Daten gelesenem Stamp sowie eine austauschbare Sink für geladene Segmente.
+  - Führt Transfers im Blocking-Pool aus. Ein Abbruch ergibt einen Transfer-Error H2D.
+  - Ganze Segmente werden zuerst Entries aufsteigend zugeordnet. Direktes Kopieren erfolgt, wenn die Entries lückenlos in einem gestützten Bereich liegen, nicht leer und ausgerichtet sind und der Index genau die Bereichslänge liefert.
+  - Beim direkten Kopieren wird vorher „sequential“ gesetzt, der Bereich angelegt, kopiert, synchron abgewartet und bei Fehler freigegeben. Slot-Grenzen sind absolute Adressen mit End-Marker. Nur Entries mit bekanntem Stamp erhalten ein Binding.
+  - Nicht direkt kopierbare Segmente gehen in den Gather-Pfad.
+  - Der Gather-Pfad erfasst den Stamp vor den Daten und setzt „random“ je Bereich. Er bepackt wiederholt einen Staging-Slot (ohne Fortschritt „Gather ohne Fortschritt“), legt den Bereich an, sendet eine Kopie ab, wartet ab, meldet und summiert Bytes.
+  - Beim Bepacken wartet das Gathering auf freie Slots, packt ausgerichtet bis zum ersten nicht passenden Entry und zählt entfernte Entries als erledigt. Passt schon der erste nicht, meldet es „Arena erschöpft“.
+  - Wiederverwendet Slots erst nach dem Event. Kopien laufen asynchron auf dem Stream einer eigenen Copy-Lane. Gewöhnliches und Pinned Host-Memory werden unterstützt.
+  - Direktes Mapping fällt ohne gemappte Arena oder Slot mit Log auf den Gather-Pfad zurück. Sonst liest es Stamp und Daten, schreibt ausgerichtet in den gemappten Bereich und meldet. Sehr kleine Mengen werden so zero-copy gelesen.
+- Name: Communication-Slot
+  Requirements:
+  - Der Abschluss verlangt einen angehängten Index, sperrt Updates und Residency und läuft gegen die Zuordnung der Batch-Epoche.
+  - Feste Reihenfolge, erstens Lesen, was der Kernel geschrieben hat. Deferred und neue Writes werden Slot für Slot verarbeitet. Ist eine Adresse keinem Segment zugeordnet, wird der Rest für den nächsten Slot zurückgestellt.
+  - Gebundene Slots werden vom Device zurückgelesen, per Upsert am Index angewendet und der zurückgegebene Stamp im Residency-Verzeichnis vermerkt. Slots ohne Entry werden übersprungen, der Fortschritt beträgt mindestens ein Byte.
+  - Zweitens Ergebnisse auflösen. Die Adresse wird auf einen Entry abgebildet. Nicht abbildbar oder im Index entfernt wird verworfen. Bei ausstehendem Update wird das Ergebnis als „stale“ markiert geliefert (Diagnose, kein Fehler). Sonst wird es unverändert geliefert.
+  - Drittens Updates einspielen. Das verändert die Abbildung und kommt daher zuletzt.
+  - Loggt angewandte Writes, aufgelöste, verworfene und stale Treffer, Queue-Tiefe und Änderungen.
+  - Weil nur in Gaps verändert wird, sieht jedes Ergebnis den Mapping-Stand seines Batches. Eine gemeldete Adresse ist aktuell. Im Kernel-Protokoll gibt es keine Epoche und keine Sequenznummer.
+  - Läuft der Slot gegen eine weitergegangene Zuordnung, meldet er nebenwirkungsfrei „stale Mapping“ und wiederholt den Slot unter Structure-Lock mit frischem Snapshot. Danach wird zurückgestellter Speicher zurückgewonnen.
+  - Das Zurücklesen von Device-Bereichen läuft über eine austauschbare Schnittstelle (Trait).

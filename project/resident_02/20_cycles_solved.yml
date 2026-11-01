@@ -1,0 +1,51 @@
+- Name: Dichtes Scoring
+  Requirements:
+    - Liefert Scores der Similarity-Operation, aus denen der Similarity-Report seine Kennzahlen ableitet.
+    - Führt keine L2-Normalisierung aus, da diese einmal am Ende des Encoders erfolgt.
+    - Berechnet auf Anforderung des Managers die Query gegen die Centroids der Summary-Struktur eines Index und liefert die Scores, aus denen die nächsten Zellen gewählt werden.
+    - Berechnet Cosine Similarity als Dot-Product, gültig für Einheitsvektoren.
+    - Teilt im exakten Modus durch das Normprodukt, für abweichende Längen etwa durch FP16-Speicherung. Ein nicht positiver oder nicht endlicher Nenner ergibt null.
+    - Verarbeitet Queries mit genau einem Token.
+    - Lehnt Queries als leer ab, wenn das Norm-Quadrat nicht endlich oder unter 10⁻¹⁸ ist, mit Fehler "leeres Embedding" und Query-Index. Die Prüfung läuft für alle Queries vor Beginn.
+    - Meldet falsche Slot-Dimension oder leere Slots als Shape-Error.
+    - Liefert je Query einen Score je Slot in Slot-Reihenfolge.
+    - Liefert in beiden Modi (Dot-Product und exakt) die Top-k-Treffer.
+    - Ist vom Launch-Modus getrennt.
+  Dependencies:
+    - Kernel-Batchlauf-Schnittstelle
+    - Unterstützte Precisions
+    - CPU-Compute-Primitive
+    - Slot-Layout und Segment-View
+    - Allgemeiner Index-Vertrag
+- Name: GPU-Manager
+  Requirements:
+    - Hält den GPU-Index als Segmenttabelle mit Segmenten und verwaltet ihn.
+    - Synchronisiert den Index effektiv zwischen RAM und VRAM, indem er die RAM-Darstellung auf die VRAM-Darstellung für die Kernel abbildet. Synchronisiert ihn ins VRAM, bevor eine Operation auf einer freien Lane startet.
+    - Spiegelt verarbeitete GPU-Ergebnisse in den Index zurück (Mirror-Back).
+    - Ist Komponente der GPU-Subengine, weder der Fassade noch des Index. Wird mit der GPU-Subengine und einem lazy aktivierten Index konstruiert.
+    - Löst Scopes über die Resolver-Registrierung der Scope-Auflösung auf.
+    - Ensure einer Menge setzt einen angehängten Index voraus, lädt über den Loader, markiert danach alle Segmente in der Eviction als benutzt und loggt die bewegten Bytes.
+    - Eine Reconcile-Iteration legt den Reconciler beim ersten Mal an, vergleicht residente Entries mit dem Index, stellt Entfernte als Delete-Updates ein, lädt Geänderte ohne ausstehendes Update regulär nach und gibt das Ergebnis zurück.
+    - Publish eines geladenen Segments vergibt eine fortlaufende Segment-ID und nimmt die Region in eine neue Tabellenversion und die Segmentzuordnung in eine neue Mapping-Epoche auf. Veröffentlicht zuerst die Tabelle, dann die Zuordnung. Weist die Zuordnung ab (etwa bei Überlappung), ergibt das einen Transfer-Error. Bei Fehlern wird die Region zurückgegeben.
+    - Publish nimmt das Segment bei Erfolg in die Eviction auf (Größe, Tier Vektor, Reload-Kosten gleich Größe, Zeitpunkt jetzt). Die mitgelieferten Bindings mit Segment-ID und Stamp werden als Updates in die Update-Queue eingestellt und wirken in der nächsten Gap.
+    - Meldet Segmentzahl, residente Bytes aus Eviction-Sicht und ausstehende Updates.
+    - Freigeben eines Segments gibt die Region zurück, entfernt das Segment aus der Eviction und löscht die Residency aller Entries. Noch anstehende Bindings in dieses Segment scheitern schadlos.
+    - Stellt Eviction-Schritt und Platzbeschaffung bereit.
+  Dependencies:
+    - Manager
+    - Allgemeiner Index-Vertrag
+    - Zustandsbasierter Abgleich
+    - Konsistenzmodell
+    - Scope-Auflösung
+    - Eviction
+    - Segmente und Slots
+    - Manifeste und Publication
+    - Segment-Arena
+    - Kernel-Schnittstelle und Layouts
+    - Ladestrategie
+    - Lade-Aggregation und Single-Flight
+    - GPU-Backend
+    - GPU-Kernel
+    - Region-Handle
+    - Allocator mit Deferred Free
+    - Arenen und Speicherbudget
