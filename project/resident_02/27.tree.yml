@@ -1,6 +1,6 @@
-- Path: '130'
+- Path: l130
   Children:
-    - Path: 130/a
+    - Path: l130/a
       Children:
         - Name: CPU-Subengine
         - Name: GPU-Subengine
@@ -15,12 +15,12 @@
               Children:
                 - Name: Profilauswahl
             - Name: Manager-Lebenszyklus
-    - Path: 130/120
+    - Path: l130/l120
       Children:
         - Name: Manager
-        - Path: 130/120/110
+        - Path: l130/l120/l110
           Children:
-            - Path: 130/120/110/a
+            - Path: l130/l120/l110/a
               Children:
                 - Name: Backpressure und Expansionssteuerung
                 - Name: Engine-Fassade
@@ -32,9 +32,9 @@
                 - Name: Worker-Loop
                   Children:
                     - Name: GPU-Completion
-            - Path: 130/120/110/100
+            - Path: l130/l120/l110/l100
               Children:
-                - Path: 130/120/110/100/a
+                - Path: l130/l120/l110/l100/a
                   Children:
                     - Name: Embedding-Batch-Ausführung
                       Children:
@@ -43,9 +43,9 @@
                       Children:
                         - Name: Benchmark-Workload und Abweichungsmaße
                     - Name: Planner
-                - Path: 130/120/110/100/090
+                - Path: l130/l120/l110/l100/l090
                   Children:
-                    - Path: 130/120/110/100/090/a
+                    - Path: l130/l120/l110/l100/l090/a
                       Children:
                         - Name: Entry-Verwaltung im Dateiindex
                         - Name: Erkennung von Dateiänderungen
@@ -60,9 +60,10 @@
                           Children:
                             - Name: Nutzdaten und Checksum
                         - Name: Residency-Steuerung
-                    - Path: 130/120/110/100/090/080
+                    - Path: l130/l120/l110/l100/l090/l080
                       Children:
-                        - Path: 130/120/110/100/090/080/a
+                        - Name: Subengine-Loop
+                        - Path: l130/l120/l110/l100/l090/l080/a
                           Children:
                             - Name: Capability-Erkennung
                             - Name: Communication-Slot
@@ -81,10 +82,9 @@
                             - Name: Launch-Modi
                             - Name: Text-Encoding
                             - Name: Update-Queue
-                        - Name: Subengine-Loop
-                        - Path: 130/120/110/100/090/080/070
+                        - Path: l130/l120/l110/l100/l090/l080/l070
                           Children:
-                            - Path: 130/120/110/100/090/080/070/a
+                            - Path: l130/l120/l110/l100/l090/l080/l070/a
                               Children:
                                 - Name: Index-Aufbau durch Kernel
                                 - Name: Kernel-Register
@@ -94,13 +94,14 @@
                                 - Name: Textnormalisierung
                                 - Name: Tokenizer-Laden
                                 - Name: Zustandsbasierter Abgleich
-                            - Path: 130/120/110/100/090/080/070/b
+                            - Path: l130/l120/l110/l100/l090/l080/l070/b
                               Children:
                                 - Name: Referenz-Scorer-Vergleich
                                 - Name: Work-Chunks
-                            - Path: 130/120/110/100/090/080/070/060
+                            - Path: l130/l120/l110/l100/l090/l080/l070/l060
                               Children:
-                                - Path: 130/120/110/100/090/080/070/060/a
+                                - Name: Top-k-Selektion
+                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/a
                                   Children:
                                     - Name: Addons
                                     - Name: Address-Map und Mapping-Store
@@ -110,14 +111,14 @@
                                       Children:
                                         - Name: Materialisierung
                                     - Name: Segment-Arena
-                                - Path: 130/120/110/100/090/080/070/060/b
+                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/b
                                   Children:
                                     - Name: Doorbell-Synchronisation
                                     - Name: Encoder-Aufbau
-                                - Name: Top-k-Selektion
-                                - Path: 130/120/110/100/090/080/070/060/050
+                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050
                                   Children:
-                                    - Path: 130/120/110/100/090/080/070/060/050/a
+                                    - Name: Query-Batch und Dokumentquelle
+                                    - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/a
                                       Children:
                                         - Name: Auslastungsmeldung
                                         - Name: CPU-Backend
@@ -135,24 +136,23 @@
                                         - Name: Segmente und Slots
                                         - Name: Similarity-Report
                                         - Name: Table-Swap
-                                    - Name: Query-Batch und Dokumentquelle
-                                    - Path: 130/120/110/100/090/080/070/060/050/040
+                                    - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040
                                       Children:
-                                        - Path: 130/120/110/100/090/080/070/060/050/040/a
+                                        - Name: CPU-Manager
+                                        - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/a
                                           Children:
                                             - Name: Allocator mit Deferred Free
                                             - Name: Kernel-Batchlauf-Schnittstelle
                                             - Name: Library-Adapter
                                             - Name: Resource-Requirements
                                             - Name: Slot-Layout und Segment-View
-                                        - Path: 130/120/110/100/090/080/070/060/050/040/b
+                                        - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/b
                                           Children:
                                             - Name: Embedding-Task
                                             - Name: Similarity-Task
-                                        - Name: CPU-Manager
-                                        - Path: 130/120/110/100/090/080/070/060/050/040/030
+                                        - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030
                                           Children:
-                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/a
+                                            - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/a
                                               Children:
                                                 - Name: Bookkeeping und Gültigkeit
                                                 - Name: Dateigestützter Index
@@ -166,13 +166,13 @@
                                                 - Name: Referenz-Index
                                                 - Name: Region-Handle
                                                 - Name: Tokenizer
-                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/b
+                                            - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/b
                                               Children:
                                                 - Name: Operation
                                                 - Name: Task-Kontext
-                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/020
+                                            - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020
                                               Children:
-                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/a
+                                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020/a
                                                   Children:
                                                     - Name: Allgemeiner Index-Vertrag
                                                     - Name: Arenen und Speicherbudget
@@ -182,14 +182,14 @@
                                                     - Name: Pareto-Front und Profilableitung
                                                     - Name: Speicherzugriff
                                                     - Name: Unterstützte Precisions
-                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/b
+                                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020/b
                                                   Children:
                                                     - Name: Queue-Iteration
                                                     - Name: Queue-Speicherfreigabe
                                                     - Name: Queue-Struktur und Enqueue
                                                     - Name: Task-Handle
                                                     - Name: Task-Modell
-                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/010
+                                                - Path: l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020/l010
                                                   Children:
                                                     - Name: Abschluss-Warten
                                                     - Name: Batch-Bildung

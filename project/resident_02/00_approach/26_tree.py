@@ -161,7 +161,7 @@ def letters(n):
     return s
 gpath, prefix = ({}, [])
 for g in sorted(set(gen.values()), reverse=True):
-    prefix.append(f'{g:02d}0')
+    prefix.append(f'l{g:02d}0')
     gpath[g] = '/'.join(prefix)
 levels = []
 for g in sorted(set(gen.values())):
