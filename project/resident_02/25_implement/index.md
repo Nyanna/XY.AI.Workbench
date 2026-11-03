@@ -2,6 +2,7 @@
 Zielverzeichnis: `/home/user/xyan/xy.ai.workbench/rag/src/resident`
 Modell (multilingual-e5-small): `/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small`
 Wichtige Datei: `/home/user/xyan/xy.ai.workbench/rag/Cargo.toml`
+Wurzel ist: `/home/user/xyan/xy.ai.workbench/rag/src/lib.rs`. Sie enthält `pub mod resident;` bereits.
 
 Umgebung:
 - nvcc: /usr/local/cuda-13.3/bin/nvcc (CUDA 13.3, V13.3.73)
@@ -13,3 +14,9 @@ Regeln:
 - Projektdokumente und Code-Kommentare ausschließlich in Englisch.
 - Kommentare minimal halten; keine Referenzen auf Planelemente und Plannummern in Kommentaren.
 - Nutze Bash nicht für Retrieval Tasks
+- Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
+```rust
+#[cfg(test)]
+#[path = "test/<name>.rs"]
+mod tests;
+```
