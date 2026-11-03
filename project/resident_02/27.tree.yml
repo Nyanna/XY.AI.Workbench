@@ -1,0 +1,213 @@
+- Path: '130'
+  Children:
+    - Path: 130/a
+      Children:
+        - Name: CPU-Subengine
+        - Name: GPU-Subengine
+        - Name: Index-Operations-Koordinator
+          Children:
+            - Name: Eviction
+            - Name: GPU-Manager
+              Children:
+                - Name: Lade-Aggregation und Single-Flight
+                - Name: Scope-Auflösung
+            - Name: Ladestrategie
+              Children:
+                - Name: Profilauswahl
+            - Name: Manager-Lebenszyklus
+    - Path: 130/120
+      Children:
+        - Name: Manager
+        - Path: 130/120/110
+          Children:
+            - Path: 130/120/110/a
+              Children:
+                - Name: Backpressure und Expansionssteuerung
+                - Name: Engine-Fassade
+                  Children:
+                    - Name: Processor
+                    - Name: Subengine
+                    - Name: Worker-Pool
+                - Name: Gemeinsame Subengine-Regeln
+                - Name: Worker-Loop
+                  Children:
+                    - Name: GPU-Completion
+            - Path: 130/120/110/100
+              Children:
+                - Path: 130/120/110/100/a
+                  Children:
+                    - Name: Embedding-Batch-Ausführung
+                      Children:
+                        - Name: Write-Pointer-Bereich
+                    - Name: Messung
+                      Children:
+                        - Name: Benchmark-Workload und Abweichungsmaße
+                    - Name: Planner
+                - Path: 130/120/110/100/090
+                  Children:
+                    - Path: 130/120/110/100/090/a
+                      Children:
+                        - Name: Entry-Verwaltung im Dateiindex
+                        - Name: Erkennung von Dateiänderungen
+                        - Name: GPU-Kernel
+                          Children:
+                            - Name: Dichtes Scoring
+                            - Name: Max-Similarity-Operation
+                        - Name: Kalibrierungs-Persistenz
+                        - Name: Lane und Batching
+                        - Name: Modellregister
+                        - Name: Persistentes Sichern
+                          Children:
+                            - Name: Nutzdaten und Checksum
+                        - Name: Residency-Steuerung
+                    - Path: 130/120/110/100/090/080
+                      Children:
+                        - Path: 130/120/110/100/090/080/a
+                          Children:
+                            - Name: Capability-Erkennung
+                            - Name: Communication-Slot
+                              Children:
+                                - Name: Device-Transfer
+                                  Children:
+                                    - Name: Staging-Ring
+                                - Name: Treffer-Auflösung
+                                - Name: Write- und Treffer-Queues
+                            - Name: Dateiformat und Modellbindung
+                            - Name: Embedding-Ausgabe
+                              Children:
+                                - Name: Segment-Schreibpfad
+                            - Name: Encoding-Schemata
+                            - Name: Kernel und Scoring
+                            - Name: Launch-Modi
+                            - Name: Text-Encoding
+                            - Name: Update-Queue
+                        - Name: Subengine-Loop
+                        - Path: 130/120/110/100/090/080/070
+                          Children:
+                            - Path: 130/120/110/100/090/080/070/a
+                              Children:
+                                - Name: Index-Aufbau durch Kernel
+                                - Name: Kernel-Register
+                                - Name: Manifeste und Publication
+                                - Name: Mutationsdisziplin
+                                - Name: Notification-Topologie
+                                - Name: Textnormalisierung
+                                - Name: Tokenizer-Laden
+                                - Name: Zustandsbasierter Abgleich
+                            - Path: 130/120/110/100/090/080/070/b
+                              Children:
+                                - Name: Referenz-Scorer-Vergleich
+                                - Name: Work-Chunks
+                            - Path: 130/120/110/100/090/080/070/060
+                              Children:
+                                - Path: 130/120/110/100/090/080/070/060/a
+                                  Children:
+                                    - Name: Addons
+                                    - Name: Address-Map und Mapping-Store
+                                    - Name: Konsistenzmodell
+                                    - Name: Ressourcen-Lebenszyklus
+                                    - Name: Schrittweise Übergabe und Ergebnisaufbereitung
+                                      Children:
+                                        - Name: Materialisierung
+                                    - Name: Segment-Arena
+                                - Path: 130/120/110/100/090/080/070/060/b
+                                  Children:
+                                    - Name: Doorbell-Synchronisation
+                                    - Name: Encoder-Aufbau
+                                - Name: Top-k-Selektion
+                                - Path: 130/120/110/100/090/080/070/060/050
+                                  Children:
+                                    - Path: 130/120/110/100/090/080/070/060/050/a
+                                      Children:
+                                        - Name: Auslastungsmeldung
+                                        - Name: CPU-Backend
+                                        - Name: Encoder-Schnittstelle
+                                          Children:
+                                            - Name: Projection-Layer
+                                            - Name: Transformer-Hauptmodell
+                                        - Name: Expander
+                                        - Name: GPU-Backend
+                                        - Name: Operationsknoten
+                                        - Name: Precision, Kalibrierung und Profile
+                                          Children:
+                                            - Name: Batch-Compute-Schnittstelle
+                                        - Name: Pull-Ausführung
+                                        - Name: Segmente und Slots
+                                        - Name: Similarity-Report
+                                        - Name: Table-Swap
+                                    - Name: Query-Batch und Dokumentquelle
+                                    - Path: 130/120/110/100/090/080/070/060/050/040
+                                      Children:
+                                        - Path: 130/120/110/100/090/080/070/060/050/040/a
+                                          Children:
+                                            - Name: Allocator mit Deferred Free
+                                            - Name: Kernel-Batchlauf-Schnittstelle
+                                            - Name: Library-Adapter
+                                            - Name: Resource-Requirements
+                                            - Name: Slot-Layout und Segment-View
+                                        - Path: 130/120/110/100/090/080/070/060/050/040/b
+                                          Children:
+                                            - Name: Embedding-Task
+                                            - Name: Similarity-Task
+                                        - Name: CPU-Manager
+                                        - Path: 130/120/110/100/090/080/070/060/050/040/030
+                                          Children:
+                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/a
+                                              Children:
+                                                - Name: Bookkeeping und Gültigkeit
+                                                - Name: Dateigestützter Index
+                                                - Name: Ergebnisarten
+                                                - Name: Gewichtsquelle
+                                                - Name: Index
+                                                - Name: Index-Öffnung und Lazy Loading
+                                                - Name: Kalibrierungslauf
+                                                - Name: Kernel-Schnittstelle und Layouts
+                                                - Name: Pooling und Normalisierung
+                                                - Name: Referenz-Index
+                                                - Name: Region-Handle
+                                                - Name: Tokenizer
+                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/b
+                                              Children:
+                                                - Name: Operation
+                                                - Name: Task-Kontext
+                                            - Path: 130/120/110/100/090/080/070/060/050/040/030/020
+                                              Children:
+                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/a
+                                                  Children:
+                                                    - Name: Allgemeiner Index-Vertrag
+                                                    - Name: Arenen und Speicherbudget
+                                                    - Name: CPU-Compute-Primitive
+                                                    - Name: Kernel-Synchronisation
+                                                    - Name: Modellbeschreibung
+                                                    - Name: Pareto-Front und Profilableitung
+                                                    - Name: Speicherzugriff
+                                                    - Name: Unterstützte Precisions
+                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/b
+                                                  Children:
+                                                    - Name: Queue-Iteration
+                                                    - Name: Queue-Speicherfreigabe
+                                                    - Name: Queue-Struktur und Enqueue
+                                                    - Name: Task-Handle
+                                                    - Name: Task-Modell
+                                                - Path: 130/120/110/100/090/080/070/060/050/040/030/020/010
+                                                  Children:
+                                                    - Name: Abschluss-Warten
+                                                    - Name: Batch-Bildung
+                                                    - Name: Capability-Modell
+                                                    - Name: Change-Stamp
+                                                    - Name: Device und Lane und Event
+                                                    - Name: Erweiterbare Zusatzparameter
+                                                    - Name: Free-Space-Verwaltung
+                                                    - Name: Gemeinsame Host-Ressourcen
+                                                    - Name: Hintergrundausführung und Statistik
+                                                    - Name: Konsistente Snapshots
+                                                    - Name: Layout und Elementtypen
+                                                    - Name: Modell
+                                                    - Name: Page-Cache-Hinweise und blockierende Lesezugriffe
+                                                    - Name: Queue
+                                                    - Name: Queue-Zustandsmodell
+                                                    - Name: Region-Pinning
+                                                    - Name: Resident
+                                                    - Name: Scopes und Entry-Mengen
+                                                    - Name: Speicherverwaltung
+                                                    - Name: Zielumgebung und Abhängigkeiten

@@ -20,3 +20,9 @@ Regeln:
 #[path = "test/<name>.rs"]
 mod tests;
 ```
+
+Festgelegte Verzeichnisstruktur für Module:
+```yaml
+[include](/home/user/xyan/xy.ai.workbench/project/resident_02/27.tree.yml)
+```
+- Direkte Kindbeziehung von Modulen sind in Unterverzeichnissen zu erstellen
