@@ -3846,6 +3846,7 @@ dependencies = [
  "glob",
  "half",
  "libc",
+ "log",
  "loom",
  "lru",
  "memmap2",

@@ -1,7 +1,11 @@
+pub mod batching;
 pub mod background_pool;
 pub mod capability_model;
 pub mod completion_wait;
 pub mod extensions;
+pub mod free_space;
+pub mod model;
+pub mod page_advice;
 pub mod queue;
 pub mod queue_state;
 pub mod statistics;
