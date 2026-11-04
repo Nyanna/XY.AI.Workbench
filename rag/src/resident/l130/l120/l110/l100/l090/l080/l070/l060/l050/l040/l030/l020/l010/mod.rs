@@ -1,3 +1,4 @@
+pub mod layout;
 pub mod batching;
 pub mod background_pool;
 pub mod capability_model;
@@ -15,3 +16,6 @@ pub use background_pool::{BackgroundPool, JobError, JobFuture, PoolError};
 pub use statistics::{
     dispersion, estimate, median, minimum, Dispersion, Estimator, MIN_DISPERSION_SAMPLES,
 };
+pub mod region_pinning;
+pub mod target_env;
+pub mod memory_management;
