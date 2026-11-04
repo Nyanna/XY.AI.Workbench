@@ -18,7 +18,7 @@ use syn::{Attribute, File, ImplItem, Item, TraitItem};
 use crate::engine::addressable_node::AddressableNode;
 use crate::engine::node_path::{NodePath, Owner};
 /// A group keeps accumulating siblings until adding the next one would push its (token) length past this many characters.
-const SEGMENT_MAX_CHARS: usize = 1000;
+const SEGMENT_MAX_CHARS: usize = 1500;
 const HASH_ALPHABET: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 pub fn locate_all(file: &File) -> Vec<AddressableNode> {
     let mut out = Vec::new();
@@ -122,12 +122,17 @@ fn token_len(item: &Item) -> usize {
 fn is_definition_item(item: &Item) -> bool {
     matches!(
         item, Item::Fn(_) | Item::Struct(_) | Item::Enum(_) | Item::Union(_) |
-        Item::Trait(_) | Item::TraitAlias(_) | Item::Type(_) | Item::Mod(_) |
-        Item::Impl(_)
-    )
+        Item::Trait(_) | Item::TraitAlias(_) | Item::Type(_) | Item::Impl(_)
+    ) || matches!(item, Item::Mod(m) if m.content.is_some())
 }
 fn group_kind(item: &Item) -> &'static str {
-    if matches!(item, Item::Use(_)) { "ImportGroup" } else { "StatementGroup" }
+    if matches!(item, Item::Use(_))
+        || matches!(item, Item::Mod(m) if m.content.is_none())
+    {
+        "ImportGroup"
+    } else {
+        "StatementGroup"
+    }
 }
 fn item_type_name(item: &Item) -> &'static str {
     match item {
