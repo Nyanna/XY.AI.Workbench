@@ -6,3 +6,4 @@
 /model/*
 !/model/README.md
 /src/resident_old
+/src/.resident_old
