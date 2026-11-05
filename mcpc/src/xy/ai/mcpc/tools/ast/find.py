@@ -181,7 +181,7 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
 
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
-    title = 'Finds code, text, and content within the specified files.'
+    title = 'Find code, text, id, and content within the specified files.'
     description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source. Use this when looking up content without IDs.'
     input_schema = {
         'type': 'object',

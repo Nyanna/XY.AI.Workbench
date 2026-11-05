@@ -43,7 +43,7 @@ def select_one(tree, **selectors: Any) -> core.Located:
         fallback = core.resolve_by_prefix(core.locate_all(tree), selectors['id'])
         hits = [fallback] if fallback is not None else []
     if not hits:
-        raise core.AstError('No node matched the selector.')
+        raise core.AstError('No node matched the selector. verify the node with `search` or `ast_find`')
     if len(hits) > 1:
         raise core.AstError(f'Selector is ambiguous – {len(hits)} nodes matched.')
     return hits[0]

@@ -209,9 +209,10 @@ def _search_one(item: SearchItem) -> SearchResult:
     total_matches = sum((len(m.matches) for m in matches))
     warning = None
     if total_matches >= item.limit:
-        warning = f'Limit of {
-            item.limit} matches reached; further results may exist. Narrow the pattern, directory or include/exclude filters, or raise limit.'
-    shortened = sum((lm.truncated for m in matches for lm in m.matches))
+        hint = 'narrow pattern, directory or include/exclude filters'
+        if item.limit < _MAX_LIMIT:
+            hint += f', or raise limit (max {_MAX_LIMIT})'
+        warning = f'Limit of {item.limit} matches reached (total {total_matches}); {hint}.'
     error = None
     if shortened:
         error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis ({
@@ -281,7 +282,7 @@ def _check_intent(intent: str) -> None:
 
 class SearchTool(ToolDefinition):
     name = 'search'
-    title = 'Search in directories'
+    title = 'Search code, text, id, and content within directories'
     description = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
     _ITEM_PROPERTIES = {
         'directory': {

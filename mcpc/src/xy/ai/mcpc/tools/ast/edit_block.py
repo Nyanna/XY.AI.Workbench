@@ -163,8 +163,8 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
-    title = 'Replace short text within AST nodes'
-    description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by id, for a batch of items. Don't use for large edits, use ast_edit_marks instead. Returns changed IDs in the result."
+    title = 'Replace short text within AST nodes when id is known'
+    description = "Replace occurrence(s) of short 'old_text' with 'new_text', within nodes addressed by known id, for a batch of items. Don't use for large edits, use ast_edit_marks instead. Returns changed IDs in the result."
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'old_text': {
