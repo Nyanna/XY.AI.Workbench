@@ -1,3 +1,4 @@
+pub mod device_lane_event;
 pub mod queue;
 pub mod change_stamp;
 pub mod host_resources;
