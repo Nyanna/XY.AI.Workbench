@@ -1,3 +1,4 @@
+pub mod capability_model;
 pub mod device_lane_event;
 pub mod queue;
 pub mod change_stamp;
@@ -6,3 +7,4 @@ pub mod consistent_snapshots;
 pub mod resident;
 pub mod queue_state;
 pub mod completion_wait;
+pub mod layout;
