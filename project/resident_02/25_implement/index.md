@@ -23,6 +23,10 @@ Regeln:
 mod tests;
 ```
 
+Konflikte und Probleme:
+- Zuerst den Kontext auf bereits erledigte Specs erweitern
+- Dann den Kontext auf zukünftige Konsumenten erweitern
+
 Festgelegte Verzeichnisstruktur für Module:
 ```yaml
 [include](/home/user/xyan/xy.ai.workbench/project/resident_02/27.tree.yml)

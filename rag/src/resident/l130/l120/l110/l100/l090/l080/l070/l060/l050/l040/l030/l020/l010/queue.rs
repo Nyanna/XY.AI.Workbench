@@ -1,19 +1,15 @@
 //! Generic unbounded lock-free MPMC queue of stateful work items.
-
 use std::cell::UnsafeCell;
 use std::sync::atomic::Ordering::{Acquire, Relaxed, Release, SeqCst};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
-
 const PENDING: u8 = 0;
 const RUNNING: u8 = 1;
 const SUCCEEDED: u8 = 2;
 const FAILED: u8 = 3;
 const ABANDONED: u8 = 4;
-
 /// Item lifecycle. Transitions only forward.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -23,7 +19,6 @@ pub enum State {
     Failed,
     Abandoned,
 }
-
 impl State {
     fn from_raw(raw: u8) -> State {
         match raw {
@@ -34,26 +29,22 @@ impl State {
             _ => State::Abandoned,
         }
     }
-
     pub fn is_final(self) -> bool {
         matches!(self, State::Succeeded | State::Failed | State::Abandoned)
     }
 }
-
 /// Per-instance notification channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
     Available,
     Completed,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResultError {
     NotReady,
     Taken,
     Abandoned,
 }
-
 /// Epoch counter with parking support. Bumping never blocks unless a waiter exists.
 struct Notifier {
     epoch: AtomicU64,
@@ -61,7 +52,6 @@ struct Notifier {
     lock: Mutex<()>,
     cv: Condvar,
 }
-
 impl Notifier {
     fn new() -> Self {
         Notifier {
@@ -71,11 +61,9 @@ impl Notifier {
             cv: Condvar::new(),
         }
     }
-
     fn epoch(&self) -> u64 {
         self.epoch.load(SeqCst)
     }
-
     fn bump(&self) {
         self.epoch.fetch_add(1, SeqCst);
         if self.waiters.load(SeqCst) > 0 {
@@ -83,7 +71,6 @@ impl Notifier {
             self.cv.notify_all();
         }
     }
-
     fn wait_change(&self, seen: u64, timeout: Option<Duration>) -> u64 {
         let current = self.epoch();
         if current != seen || timeout == Some(Duration::ZERO) {
@@ -119,12 +106,10 @@ impl Notifier {
         result
     }
 }
-
 struct Channels {
     available: Notifier,
     completed: Notifier,
 }
-
 struct Item<M, P, R, E> {
     meta: M,
     state: AtomicU8,
@@ -133,37 +118,29 @@ struct Item<M, P, R, E> {
     result_taken: AtomicBool,
     notifier: Notifier,
 }
-
-// Payload is only touched by the unique claimer (or queue drop after winning the
-// Pending transition); result is written before the final state is released and
-// read at most once after it is acquired.
 unsafe impl<M: Send + Sync, P: Send, R: Send, E: Send> Send for Item<M, P, R, E> {}
 unsafe impl<M: Send + Sync, P: Send, R: Send, E: Send> Sync for Item<M, P, R, E> {}
-
 impl<M, P, R, E> Item<M, P, R, E> {
     fn state(&self) -> u8 {
         self.state.load(Acquire)
     }
-
     fn try_claim(&self) -> bool {
-        self.state
-            .compare_exchange(PENDING, RUNNING, SeqCst, Relaxed)
-            .is_ok()
+        self.state.compare_exchange(PENDING, RUNNING, SeqCst, Relaxed).is_ok()
     }
 }
-
 struct Node<M, P, R, E> {
     item: Option<Arc<Item<M, P, R, E>>>,
     next: Atomic<Node<M, P, R, E>>,
 }
-
+/// Take-based work queue: `push` returns a `Ticket`, consumers `take`/`take_where` a `Claim`.
+/// Not the sentinel-list queue_list in `l020::b::queue` (`enqueue`/`head`/`iter_active`), which is a
+/// different design for a different consumer set.
 pub struct Queue<M, P, R, E> {
     head: Atomic<Node<M, P, R, E>>,
     tail: Atomic<Node<M, P, R, E>>,
     pending: AtomicUsize,
     channels: Arc<Channels>,
 }
-
 impl<M, P, R, E> Queue<M, P, R, E>
 where
     M: Send + Sync + 'static,
@@ -192,7 +169,6 @@ where
             }),
         }
     }
-
     /// Enqueue at the tail.
     pub fn push(&self, meta: M, payload: P) -> Ticket<M, P, R, E> {
         let item = Arc::new(Item {
@@ -215,7 +191,9 @@ where
                 let tail_ref = unsafe { tail.deref() };
                 let next = tail_ref.next.load(Acquire, guard);
                 if !next.is_null() {
-                    let _ = self.tail.compare_exchange(tail, next, Release, Relaxed, guard);
+                    let _ = self
+                        .tail
+                        .compare_exchange(tail, next, Release, Relaxed, guard);
                     continue;
                 }
                 match tail_ref
@@ -235,14 +213,15 @@ where
         self.channels.available.bump();
         Ticket { item }
     }
-
     /// Claim the oldest Pending item.
     pub fn take(&self) -> Option<Claim<M, P, R, E>> {
         self.take_where(|_| true)
     }
-
     /// Claim the oldest Pending item accepted by `pred`.
-    pub fn take_where<F: FnMut(&M) -> bool>(&self, mut pred: F) -> Option<Claim<M, P, R, E>> {
+    pub fn take_where<F: FnMut(&M) -> bool>(
+        &self,
+        mut pred: F,
+    ) -> Option<Claim<M, P, R, E>> {
         let guard = &epoch::pin();
         let head = self.head.load(Acquire, guard);
         let mut cur = unsafe { head.deref() }.next.load(Acquire, guard);
@@ -266,7 +245,6 @@ where
         self.advance_head(guard);
         None
     }
-
     /// Retire leading nodes whose items are no longer Pending.
     fn advance_head(&self, guard: &Guard) {
         loop {
@@ -284,35 +262,26 @@ where
             if tail == head {
                 let _ = self.tail.compare_exchange(head, next, Release, Relaxed, guard);
             }
-            if self
-                .head
-                .compare_exchange(head, next, Release, Relaxed, guard)
-                .is_ok()
-            {
+            if self.head.compare_exchange(head, next, Release, Relaxed, guard).is_ok() {
                 unsafe { guard.defer_destroy(head) };
             }
         }
     }
-
     /// Number of Pending items.
     pub fn len(&self) -> usize {
         self.pending.load(SeqCst)
     }
-
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
     /// Current event counter of a channel.
     pub fn epoch(&self, ch: Channel) -> u64 {
         self.notifier(ch).epoch()
     }
-
     /// Block until the channel epoch differs from `seen` or the timeout expires.
     pub fn wait_change(&self, ch: Channel, seen: u64, timeout: Option<Duration>) -> u64 {
         self.notifier(ch).wait_change(seen, timeout)
     }
-
     fn notifier(&self, ch: Channel) -> &Notifier {
         match ch {
             Channel::Available => &self.channels.available,
@@ -320,7 +289,6 @@ where
         }
     }
 }
-
 impl<M, P, R, E> Default for Queue<M, P, R, E>
 where
     M: Send + Sync + 'static,
@@ -332,7 +300,6 @@ where
         Self::new()
     }
 }
-
 impl<M, P, R, E> Drop for Queue<M, P, R, E> {
     fn drop(&mut self) {
         unsafe {
@@ -357,29 +324,22 @@ impl<M, P, R, E> Drop for Queue<M, P, R, E> {
         }
     }
 }
-
 /// Producer-side handle to one item.
 pub struct Ticket<M, P, R, E> {
     item: Arc<Item<M, P, R, E>>,
 }
-
 impl<M, P, R, E> Clone for Ticket<M, P, R, E> {
     fn clone(&self) -> Self {
-        Ticket {
-            item: self.item.clone(),
-        }
+        Ticket { item: self.item.clone() }
     }
 }
-
 impl<M, P, R, E> Ticket<M, P, R, E> {
     pub fn state(&self) -> State {
         State::from_raw(self.item.state())
     }
-
     pub fn meta(&self) -> &M {
         &self.item.meta
     }
-
     /// Move the result out (once).
     pub fn take_result(&self) -> Result<Result<R, E>, ResultError> {
         match self.item.state() {
@@ -396,7 +356,6 @@ impl<M, P, R, E> Ticket<M, P, R, E> {
             }
         }
     }
-
     /// Block until the item is final or the timeout expires.
     pub fn wait(&self, timeout: Option<Duration>) -> State {
         let deadline = timeout.and_then(|t| Instant::now().checked_add(t));
@@ -420,7 +379,6 @@ impl<M, P, R, E> Ticket<M, P, R, E> {
         }
     }
 }
-
 /// Exclusive consumer-side ownership of one Running item.
 pub struct Claim<M, P, R, E> {
     item: Arc<Item<M, P, R, E>>,
@@ -428,28 +386,21 @@ pub struct Claim<M, P, R, E> {
     channels: Arc<Channels>,
     done: bool,
 }
-
 impl<M, P, R, E> Claim<M, P, R, E> {
     pub fn meta(&self) -> &M {
         &self.item.meta
     }
-
     pub fn take_payload(&mut self) -> Option<P> {
         self.payload.take()
     }
-
     pub fn ticket(&self) -> Ticket<M, P, R, E> {
-        Ticket {
-            item: self.item.clone(),
-        }
+        Ticket { item: self.item.clone() }
     }
-
     /// Store the result and publish the final state.
     pub fn complete(mut self, result: Result<R, E>) {
         let state = if result.is_ok() { SUCCEEDED } else { FAILED };
         self.finish(state, Some(result));
     }
-
     fn finish(&mut self, state: u8, result: Option<Result<R, E>>) {
         if self.done {
             return;
@@ -463,13 +414,11 @@ impl<M, P, R, E> Claim<M, P, R, E> {
         self.channels.completed.bump();
     }
 }
-
 impl<M, P, R, E> Drop for Claim<M, P, R, E> {
     fn drop(&mut self) {
         self.finish(ABANDONED, None);
     }
 }
-
 #[cfg(test)]
 #[path = "test/queue.rs"]
 mod tests;
