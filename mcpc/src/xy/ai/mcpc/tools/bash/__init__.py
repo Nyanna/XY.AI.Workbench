@@ -8,6 +8,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.bash.run_command import register_run_command_tool
 __all__ = ['BashError', 'BashItem', 'BashItemError', 'bash', 'BashTool', 'register_bash_tool']
 _MAX_STREAM_CHARS = 3000
 
@@ -80,7 +81,7 @@ def bash(items: list[BashItem | dict[str, Any]]) -> list[ProcessResult | BashIte
 class BashTool(ToolDefinition):
     name = 'bash'
     title = 'Run Bash scripts'
-    description = f"Execute Bash scripts for a batch of items. Items run in parallel; Result holds exit code, stdout and stderr, or an error. Reduce the resulting token amount by filtering (grep, head, tail, wc -l). STDOUT and STDERR each have an output limit of {_MAX_STREAM_CHARS} characters per item."
+    description = f'Execute Bash scripts for a batch of items. Items run in parallel; Result holds exit code, stdout and stderr, or an error. Reduce the resulting token amount by filtering (grep, head, tail, wc -l). STDOUT and STDERR each have an output limit of {_MAX_STREAM_CHARS} characters per item.'
     _ITEM_PROPERTIES = {
         'cwd': {
             'type': 'string',
@@ -131,4 +132,5 @@ class BashTool(ToolDefinition):
 
 def register_bash_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(BashTool())
+    register_run_command_tool(registry)
     functions.register(bash)
