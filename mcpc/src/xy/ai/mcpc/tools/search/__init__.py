@@ -151,7 +151,7 @@ def _as_list(value: list[str] | str | None) -> list[str]:
         return [value]
     return list(value)
 
-def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
+def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> tuple[ProcessResult, int]:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
 
     Args:
@@ -163,7 +163,8 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
         limit: Maximum number of matching lines to return (1..``_MAX_LIMIT``).
 
     Returns:
-        ProcessResult with:
+        Tuple ``(result, total_lines)`` where ``total_lines`` is the number of matching
+        lines found before truncation to ``limit``, and ``result`` is a ProcessResult with:
             exit_code: 0 if matches were found, 1 if none were found, >=2 on search error.
             stdout: Matching lines as 'path:line:content', with ``path`` relative to
                 whichever searched directory it was found under, truncated to at most
@@ -207,16 +208,17 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
     stdout = re.sub(f'^(?:{prefix_pattern})', '', result.stdout, flags=re.MULTILINE)
     lines = stdout.splitlines()
     stdout = '\n'.join(lines[:limit])
-    return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
+    return (ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr), len(lines))
 
 def _search_one(item: SearchItem) -> SearchResult:
-    result = _run_search(item.directory, item.pattern, exclude=item.exclude, include=item.include, limit=item.limit)
+    result, total_lines = _run_search(item.directory, item.pattern, exclude=item.exclude,
+                                      include=item.include, limit=item.limit)
     if result.exit_code >= 2:
         raise SearchError(f'search failed (exit code {result.exit_code}): {result.stderr}')
     matches = _parse_search_stdout(result.stdout)
-    total_matches = sum((len(m.matches) for m in matches))
+    total_matches = total_lines
     warning = None
-    if total_matches >= item.limit:
+    if total_matches > item.limit:
         hint = 'narrow pattern, directory or include/exclude filters'
         if item.limit < _MAX_LIMIT:
             hint += f', or raise limit (max {_MAX_LIMIT})'

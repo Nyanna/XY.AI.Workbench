@@ -121,7 +121,7 @@ def _run_one(item: RunCommandItem) -> tuple[ProcessResult, CommandSpec]:
     try:
         return (run_process(['bash', '-c', script], cwd=cwd_path), spec)
     except LaunchError as exc:
-        raise RunCommandError(f'Failed to launch bash: {exc}') from exc
+        raise RunCommandError(f'Failed to launch shell: {exc}') from exc
 
 def _run_one_safe(item: RunCommandItem | dict[str, Any]) -> tuple[ProcessResult, CommandSpec] | RunCommandItemError:
     try:
@@ -154,12 +154,12 @@ def run_command(items: list[RunCommandItem | dict[str, Any]]) -> list[tuple[Proc
 
 class RunCommandTool(ToolDefinition):
     name = 'run_command'
-    title = 'Run predefined commands'
-    description = f"Execute predefined commands by ID, as configured in '{COMMANDS_FILE}' of each working directory. Items run in parallel; placeholder values are passed as name/value pairs. Result holds exit code, stdout and stderr, or an error."
+    title = 'Run predefined tool'
+    description = f"Run predefined tools by given ID. Items run in parallel; placeholder values are passed as name/value pairs. Result holds return code, output, or an error."
     _ITEM_PROPERTIES = {
         'cwd': {
-            'type': 'string', 'description': f"Absolute path to the working directory containing '{COMMANDS_FILE}'."}, 'id': {
-                'type': 'string', 'description': 'ID of the command.'}, 'values': {
+            'type': 'string', 'description': f"Absolute path to the working directory."}, 'id': {
+                'type': 'string', 'description': 'ID.'}, 'values': {
                     'type': 'array', 'description': 'Placeholder replacements.', 'items': {
                         'type': 'object', 'properties': {
                             'name': {

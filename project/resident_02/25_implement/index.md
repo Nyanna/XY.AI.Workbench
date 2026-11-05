@@ -23,6 +23,10 @@ Regeln:
 mod tests;
 ```
 
+Vordefinierte Tool Kommandos ("run_command")
+- "runTests": Führt einen Cargo Testlauf durch.
+- "read.Cargo.toml": Gibt den Inhalt der `Cargo.toml` wieder.
+
 Konflikte und Probleme:
 - Zuerst den Kontext auf bereits erledigte Specs erweitern
 - Dann den Kontext auf zukünftige Konsumenten erweitern
