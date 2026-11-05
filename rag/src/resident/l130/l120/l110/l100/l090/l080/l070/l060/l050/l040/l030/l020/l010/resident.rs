@@ -5,7 +5,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering::*};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle, Thread};
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 use arc_swap::ArcSwap;
 use serde_json::{json, Value};

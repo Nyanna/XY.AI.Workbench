@@ -5,3 +5,4 @@ pub mod host_resources;
 pub mod consistent_snapshots;
 pub mod resident;
 pub mod queue_state;
+pub mod completion_wait;
