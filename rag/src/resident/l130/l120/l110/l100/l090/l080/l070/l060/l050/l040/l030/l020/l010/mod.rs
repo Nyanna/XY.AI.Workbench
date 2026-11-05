@@ -4,3 +4,4 @@ pub mod change_stamp;
 pub mod host_resources;
 pub mod consistent_snapshots;
 pub mod resident;
+pub mod queue_state;

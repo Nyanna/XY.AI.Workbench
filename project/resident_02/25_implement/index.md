@@ -15,6 +15,7 @@ Regeln:
 - Alle Modul-, Datei-, Typ-, Struktur-, Muster- und Funktionsnamen sind englisch und von dir gewählt.
 - Kommentare minimal halten; keine Referenzen auf Planelemente und Plannummern in Kommentaren.
 - Nutze Bash nicht für Retrieval Tasks
+- Prüfe die tatsächliche Umsetzung referenzierter Elemente
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]
