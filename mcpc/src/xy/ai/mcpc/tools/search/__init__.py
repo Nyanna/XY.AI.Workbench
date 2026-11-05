@@ -139,9 +139,17 @@ def _parse_search_stdout(stdout: str) -> list[SearchMatch]:
         grouped[key].append(_make_line_match(int(lineno_str), match.strip()))
     return [SearchMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
-def _as_list(value: list[str] | None) -> list[str]:
-    """Normalize an optional list into a list (empty if ``None``)."""
-    return list(value) if value is not None else []
+def _as_list(value: list[str] | str | None) -> list[str]:
+    """Normalize an optional list into a list (empty if ``None``).
+
+    A bare string is tolerated and treated as a single list item, even though
+    this violates the schema.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
 
 def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> ProcessResult:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
@@ -213,6 +221,7 @@ def _search_one(item: SearchItem) -> SearchResult:
         if item.limit < _MAX_LIMIT:
             hint += f', or raise limit (max {_MAX_LIMIT})'
         warning = f'Limit of {item.limit} matches reached (total {total_matches}); {hint}.'
+    shortened = sum((lm.truncated for m in matches for lm in m.matches))
     error = None
     if shortened:
         error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis ({
