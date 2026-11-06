@@ -1,0 +1,157 @@
+package xy.ai.conscious.core;
+
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
+
+public class SessionConfig {
+	public String keys = "dummy";
+	public Long maxOutputTokens = 128000L;
+	public Double temperature = 0d;
+	public Double topP = 0.1d;
+	public Model model = Model.MCP_TOOLS;
+	public AgentProfile profile;
+	public String[] systemPrompt = new String[] { //
+			"Answer very short and precise", //
+			"Be objective and neutral", //
+			"Don't repeat the input", //
+			"Don't ask follow-up questions", //
+			"#Use $ Markdown inline Latex syntax for math formulas", //
+			"#keep the input language", //
+			"#For generated code use english language", //
+			"#Replace all mathematical symbols and formulas in the input with a $ Latex inline syntax without changing or adding to the text."//
+	};
+	public OutputMode ouputMode = OutputMode.Append;
+	public boolean[] inputModes = new boolean[InputMode.values().length];
+	public Reasoning reasoning = Reasoning.minimal;
+	public CacheMode cacheMode = CacheMode.Default;
+	public Integer reasoningBudget = -1;
+	public String freeText;
+	public String[] enabledTools = new String[0];
+
+	public SessionConfig() {
+		setInputMode(InputMode.SystemPrompt, true);
+		setInputMode(InputMode.Tools, true);
+	}
+
+	public SessionConfig(SessionConfig other) {
+		this.keys = other.keys;
+		this.maxOutputTokens = other.maxOutputTokens;
+		this.temperature = other.temperature;
+		this.topP = other.topP;
+		this.model = other.model;
+		this.profile = other.profile;
+		this.systemPrompt = other.systemPrompt != null ? other.systemPrompt.clone() : null;
+		this.ouputMode = other.ouputMode;
+		this.inputModes = other.inputModes.clone();
+		this.reasoning = other.reasoning;
+		this.cacheMode = other.cacheMode;
+		this.reasoningBudget = other.reasoningBudget;
+		this.freeText = other.freeText;
+		this.enabledTools = other.enabledTools;
+	}
+
+	public String getKeys() {
+		return keys;
+	}
+
+	public void setKeys(String keys) {
+		this.keys = keys;
+	}
+
+	public Long getMaxOutputTokens() {
+		return maxOutputTokens;
+	}
+
+	public void setMaxOutputTokens(Long maxOutputTokens) {
+		this.maxOutputTokens = maxOutputTokens;
+	}
+
+	public Double getTemperature() {
+		return temperature;
+	}
+
+	public void setTemperature(Double temperature) {
+		this.temperature = temperature;
+	}
+
+	public Double getTopP() {
+		return topP;
+	}
+
+	public void setTopP(Double topP) {
+		this.topP = topP;
+	}
+
+	public Model getModel() {
+		return model;
+	}
+
+	public void setModel(Model model) {
+		this.model = model;
+	}
+
+	public void setProfile(AgentProfile profile) {
+		this.profile = profile;
+	}
+
+	public AgentProfile getProfile() {
+		return profile;
+	}
+
+	public Reasoning getReasoning() {
+		return reasoning;
+	}
+
+	public void setReasoning(Reasoning reasoning) {
+		this.reasoning = reasoning;
+	}
+
+	public CacheMode getCacheMode() {
+		return cacheMode;
+	}
+
+	public void setCacheMode(CacheMode cacheMode) {
+		this.cacheMode = cacheMode;
+	}
+
+	public String[] getSystemPrompt() {
+		return systemPrompt;
+	}
+
+	public void setSystemPrompt(String[] systemPrompt) {
+		this.systemPrompt = systemPrompt;
+	}
+
+	public boolean isInputEnabled(InputMode mode) {
+		return inputModes[mode.ordinal()];
+	}
+
+	public void setInputMode(InputMode mode, boolean enable) {
+		inputModes[mode.ordinal()] = enable;
+	}
+
+	public Integer getReasoningBudget() {
+		return reasoningBudget;
+	}
+
+	public void setReasoningBudget(Integer reasoningBudget) {
+		this.reasoningBudget = reasoningBudget;
+	}
+
+	public void setFreeText(String freeText) {
+		this.freeText = freeText;
+	}
+
+	public String getFreeText() {
+		return freeText;
+	}
+	
+	public String[] getEnabledTools() {
+		return enabledTools;
+	}
+	
+	public void setEnabledTools(String[] enabledTools) {
+		this.enabledTools = enabledTools;
+	}
+}

@@ -5,10 +5,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
+import xy.ai.conscious.api.IActiveEditor;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.InputMode;
 import xy.ai.workbench.ActiveEditorListener;
-import xy.ai.workbench.api.IActiveEditor;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.InputMode;
 
 public class InputStats {
 	private int[] inputStats = new int[InputMode.values().length];

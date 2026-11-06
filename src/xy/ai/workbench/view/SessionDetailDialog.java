@@ -10,8 +10,8 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-import xy.ai.workbench.connector.claudecode.CCSession;
-import xy.ai.workbench.connector.claudecode.CCSessionParameters;
+import xy.ai.conscious.connector.claudecode.CCSession;
+import xy.ai.conscious.connector.claudecode.CCSessionParameters;
 
 public class SessionDetailDialog extends Dialog {
 	private final CCSession session;

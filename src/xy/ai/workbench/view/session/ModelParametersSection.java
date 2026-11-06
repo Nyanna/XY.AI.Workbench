@@ -17,11 +17,11 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.core.AgentProfile;
-import xy.ai.workbench.core.CacheMode;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.Model;
-import xy.ai.workbench.core.Reasoning;
+import xy.ai.conscious.core.AgentProfile;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
 
 /**
  * Key/Model/Profile/MaxToken/Temp/TopP/Reasoning/Cache row at the top of the

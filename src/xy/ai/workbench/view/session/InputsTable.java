@@ -6,8 +6,8 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.InputMode;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.InputMode;
 import xy.ai.workbench.view.InputStats;
 
 /**

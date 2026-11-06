@@ -6,10 +6,10 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 
+import xy.ai.conscious.api.IExecutor;
+import xy.ai.conscious.connector.harness.PromptHandler;
+import xy.ai.conscious.core.ConfigManager;
 import xy.ai.workbench.eclipse.EclipseExecutor;
-import xy.ai.workbench.connector.harness.PromptHandler;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.api.IExecutor;
 
 /** Prompt/Enqueue/Batch action buttons. */
 public class ActionButtonsSection {

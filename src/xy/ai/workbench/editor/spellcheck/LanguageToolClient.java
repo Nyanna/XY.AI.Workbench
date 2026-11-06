@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.core.LOG;
+import xy.ai.conscious.core.LOG;
 
 /**
  * Sends text to a local LanguageTool server and returns spelling/grammar

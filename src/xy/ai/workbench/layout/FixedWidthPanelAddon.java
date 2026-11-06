@@ -2,10 +2,10 @@ package xy.ai.workbench.layout;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-
-import jakarta.inject.Inject;
+import java.util.Set;
 
 import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.ui.di.UIEventTopic;
@@ -18,15 +18,14 @@ import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.swt.events.ControlAdapter;
 import org.eclipse.swt.events.ControlEvent;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IPageLayout;
-import org.eclipse.swt.graphics.Rectangle;
 import org.osgi.service.event.Event;
 
-import java.util.HashSet;
-import java.util.Set;
+import jakarta.inject.Inject;
 
 public class FixedWidthPanelAddon {
 	private static final List<String> FIXED_ELEMENT_IDS = List.of("org.eclipse.ui.navigator.ProjectExplorer",

@@ -1,6 +1,6 @@
 package xy.ai.workbench.editor.mdast;
 
-import xy.ai.workbench.tools.LineIndex.Buffer;
+import xy.ai.conscious.tools.LineIndex.Buffer;
 
 public interface IDocumentBuffer extends Buffer {
 

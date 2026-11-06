@@ -23,7 +23,7 @@ import org.eclipse.ui.ide.ResourceUtil;
 import org.eclipse.ui.navigator.CommonNavigator;
 import org.eclipse.ui.navigator.CommonViewer;
 
-import xy.ai.workbench.core.LOG;
+import xy.ai.conscious.core.LOG;
 
 public class MarkdownExplorerView extends CommonNavigator {
 	private IResourceChangeListener resourceChangeListener;

@@ -3,7 +3,6 @@ package xy.ai.workbench.editor;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.ResourcesPlugin;
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jface.dialogs.ErrorDialog;
@@ -15,7 +14,7 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.part.FileEditorInput;
 import org.eclipse.ui.part.MultiPageEditorPart;
 
-import xy.ai.workbench.core.LOG;
+import xy.ai.conscious.core.LOG;
 
 public class AISessionEditor extends MultiPageEditorPart implements IResourceChangeListener {
 

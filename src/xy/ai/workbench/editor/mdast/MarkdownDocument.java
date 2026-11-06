@@ -2,10 +2,10 @@ package xy.ai.workbench.editor.mdast;
 
 import java.util.List;
 
+import xy.ai.conscious.tools.LineIndex;
+import xy.ai.conscious.tools.Scanner;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.tools.LineIndex;
-import xy.ai.workbench.tools.Scanner;
 
 public class MarkdownDocument {
 	private final IDocumentBuffer buffer;

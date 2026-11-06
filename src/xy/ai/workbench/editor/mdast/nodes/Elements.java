@@ -2,11 +2,11 @@ package xy.ai.workbench.editor.mdast.nodes;
 
 import java.util.stream.Stream;
 
+import xy.ai.conscious.commands.AnswerCommand;
+import xy.ai.conscious.connector.claudecode.ProtocolParser;
+import xy.ai.conscious.core.IEditorInterface;
+import xy.ai.conscious.model.AIAnswer;
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.commands.AnswerCommand;
-import xy.ai.workbench.connector.claudecode.ProtocolParser;
-import xy.ai.workbench.editor.IEditorInterface;
-import xy.ai.workbench.models.AIAnswer;
 
 /*
  * Sorting must be inverted, root on bottom contains all 

@@ -33,9 +33,9 @@ import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.editors.text.EditorsUI;
 import org.eclipse.ui.part.ViewPart;
 
+import xy.ai.conscious.core.LOG;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ActiveEditorListener;
-import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.view.ActionManager;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
 

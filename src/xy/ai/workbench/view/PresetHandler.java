@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResourceVisitor;
@@ -19,12 +20,13 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Shell;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 
-import xy.ai.workbench.core.LOG;
-import xy.ai.workbench.core.OutputMode;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.core.OutputMode;
 
 public class PresetHandler {
   public static final String PROMPT_TXT = ".prompt.txt";

@@ -9,14 +9,14 @@ import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
+import xy.ai.conscious.connector.harness.PromptHandler;
+import xy.ai.conscious.core.ConfigManager;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.eclipse.EclipseExecutor;
-import xy.ai.workbench.connector.harness.PromptHandler;
-import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.view.session.ActionButtonsSection;
 import xy.ai.workbench.view.session.InstructionSection;
-import xy.ai.workbench.view.session.OutputModeSection;
 import xy.ai.workbench.view.session.ModelParametersSection;
+import xy.ai.workbench.view.session.OutputModeSection;
 import xy.ai.workbench.view.session.UsageLogSection;
 
 /**

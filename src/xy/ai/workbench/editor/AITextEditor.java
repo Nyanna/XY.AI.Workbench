@@ -5,20 +5,20 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.ITextViewerExtension2;
+import org.eclipse.jface.text.source.AnnotationPainter;
 import org.eclipse.jface.text.source.CompositeRuler;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.IVerticalRuler;
 import org.eclipse.jface.text.source.IVerticalRulerColumn;
 import org.eclipse.jface.text.source.SourceViewer;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.editors.text.TextEditor;
-import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
-import org.eclipse.jface.text.ITextViewerExtension2;
-import org.eclipse.jface.text.source.AnnotationPainter;
-import org.eclipse.swt.SWT;
 import org.eclipse.ui.texteditor.DefaultMarkerAnnotationAccess;
+import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 
 import xy.ai.workbench.editor.mdast.nodes.Node;
 import xy.ai.workbench.editor.outline.MarkdownOutlinePage;

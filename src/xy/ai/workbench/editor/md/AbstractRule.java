@@ -5,7 +5,7 @@ import org.eclipse.jface.text.rules.IRule;
 import org.eclipse.jface.text.rules.IToken;
 import org.eclipse.jface.text.rules.Token;
 
-import xy.ai.workbench.tools.Scanner;
+import xy.ai.conscious.tools.Scanner;
 
 public abstract class AbstractRule implements IRule {
 	private IToken token = Token.UNDEFINED;

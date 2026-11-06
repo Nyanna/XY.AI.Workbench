@@ -8,7 +8,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.core.ConfigManager;
+import xy.ai.conscious.core.ConfigManager;
 import xy.ai.workbench.view.InputStats;
 
 /**

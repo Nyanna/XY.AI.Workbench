@@ -1,12 +1,12 @@
 package xy.ai.workbench.eclipse;
 
-import xy.ai.workbench.api.IExecutor;
-import xy.ai.workbench.api.ext.IGitSupport;
-import xy.ai.workbench.commands.AnswerCommand;
-import xy.ai.workbench.commands.CallCommand;
-import xy.ai.workbench.commands.Command;
-import xy.ai.workbench.connector.harness.Prompt;
-import xy.ai.workbench.models.IModelRequest;
+import xy.ai.conscious.api.IExecutor;
+import xy.ai.conscious.api.ext.IGitSupport;
+import xy.ai.conscious.commands.AnswerCommand;
+import xy.ai.conscious.commands.CallCommand;
+import xy.ai.conscious.commands.Command;
+import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.model.IModelRequest;
 import xy.ai.workbench.view.diff.DiffPanel;
 import xy.ai.workbench.view.diff.OpSnapshotter;
 import xy.ai.workbench.view.diff.SnapshotResult;

@@ -1,6 +1,6 @@
 package xy.ai.workbench.editor.mdast.nodes;
 
-import xy.ai.workbench.tools.Scanner;
+import xy.ai.conscious.tools.Scanner;
 
 public class HeadingSection extends AbstractNode {
 	static final int MAX_ORDER = 6;

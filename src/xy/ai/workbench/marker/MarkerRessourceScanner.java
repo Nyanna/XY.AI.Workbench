@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.eclipse.core.filebuffers.FileBuffers;
 import org.eclipse.core.filebuffers.ITextFileBuffer;
 import org.eclipse.core.filebuffers.ITextFileBufferManager;
@@ -44,12 +45,12 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.LOG;
-import xy.ai.workbench.core.OutputMode;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.IEditorInterface;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.core.OutputMode;
+import xy.ai.conscious.model.AIAnswer;
 import xy.ai.workbench.editor.AISessionEditor;
-import xy.ai.workbench.editor.IEditorInterface;
-import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
   private static final String MARKER_ID = "xy.ai.workbench.promptmarker";

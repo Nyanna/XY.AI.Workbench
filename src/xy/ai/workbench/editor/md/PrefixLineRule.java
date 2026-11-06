@@ -2,7 +2,7 @@ package xy.ai.workbench.editor.md;
 
 import org.eclipse.jface.text.rules.IToken;
 
-import xy.ai.workbench.tools.Scanner;
+import xy.ai.conscious.tools.Scanner;
 
 public class PrefixLineRule extends AbstractRule {
 	private static final int MAX_READ = 200;

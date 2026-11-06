@@ -8,6 +8,8 @@ import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.conscious.core.IEditorInterface;
+
 public class CommentHandler extends AbstractHandler {
 	@Override
 	public Object execute(ExecutionEvent event) throws ExecutionException {

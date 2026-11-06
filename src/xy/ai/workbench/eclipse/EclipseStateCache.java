@@ -2,8 +2,8 @@ package xy.ai.workbench.eclipse;
 
 import java.io.File;
 
+import xy.ai.conscious.api.ext.IFileCache;
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.api.ext.IFileCache;
 
 public class EclipseStateCache implements IFileCache {
 	@Override

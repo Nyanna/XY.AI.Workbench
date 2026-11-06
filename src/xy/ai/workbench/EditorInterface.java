@@ -10,7 +10,6 @@ import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
-
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
@@ -23,17 +22,17 @@ import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
-import xy.ai.workbench.api.IExecutor;
-import xy.ai.workbench.api.IExecutor.IProgress;
-import xy.ai.workbench.connector.AdaptingConnector;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.LOG;
-import xy.ai.workbench.core.OutputMode;
-import xy.ai.workbench.editor.IEditorInterface;
-import xy.ai.workbench.core.Model.KeyPattern;
+import xy.ai.conscious.api.IExecutor;
+import xy.ai.conscious.api.IExecutor.IProgress;
+import xy.ai.conscious.connector.AdaptingConnector;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.IEditorInterface;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.core.OutputMode;
+import xy.ai.conscious.model.AIAnswer;
+import xy.ai.conscious.model.IModelRequest;
+import xy.ai.conscious.model.Model.KeyPattern;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
-import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.models.IModelRequest;
 
 public class EditorInterface implements IEditorInterface{
 	public static final String USER = IEditorInterface.USER;

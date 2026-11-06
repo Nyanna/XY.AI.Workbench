@@ -2,7 +2,7 @@ package xy.ai.workbench.editor.mdast.nodes;
 
 import java.util.Objects;
 
-import xy.ai.workbench.tools.Scanner;
+import xy.ai.conscious.tools.Scanner;
 
 public abstract class AbstractNode {
 	protected static enum Precedence {

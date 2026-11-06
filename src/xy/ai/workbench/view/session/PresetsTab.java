@@ -1,6 +1,7 @@
 package xy.ai.workbench.view.session;
 
 import java.util.ArrayList;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseListener;
@@ -16,8 +17,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.OutputMode;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.OutputMode;
 import xy.ai.workbench.view.PresetHandler;
 
 /**

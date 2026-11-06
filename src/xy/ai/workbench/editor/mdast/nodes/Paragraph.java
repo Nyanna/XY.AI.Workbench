@@ -1,6 +1,6 @@
 package xy.ai.workbench.editor.mdast.nodes;
 
-import xy.ai.workbench.tools.Scanner;
+import xy.ai.conscious.tools.Scanner;
 
 public class Paragraph extends AbstractNode {
 	private final char[] prefix = "\n".toCharArray();

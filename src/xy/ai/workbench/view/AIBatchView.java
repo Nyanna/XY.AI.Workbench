@@ -40,18 +40,18 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
+import xy.ai.conscious.api.IExecutor;
+import xy.ai.conscious.api.IExecutor.IProgress;
+import xy.ai.conscious.batch.AIBatchManager;
+import xy.ai.conscious.batch.AIBatchManager.IBatchListener;
+import xy.ai.conscious.batch.AIBatchResponseManager;
+import xy.ai.conscious.connector.IAIBatch;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.model.AIAnswer;
+import xy.ai.conscious.tools.Time;
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.api.IExecutor;
-import xy.ai.workbench.api.IExecutor.IProgress;
-import xy.ai.workbench.batch.AIBatchManager;
-import xy.ai.workbench.batch.AIBatchManager.IBatchListener;
-import xy.ai.workbench.batch.AIBatchResponseManager;
-import xy.ai.workbench.connector.IAIBatch;
-import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.eclipse.EclipseExecutor;
 import xy.ai.workbench.eclipse.EclipseProgress;
-import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.tools.Time;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
 
 public class AIBatchView extends ViewPart {

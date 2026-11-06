@@ -7,9 +7,9 @@ import org.eclipse.ui.IMemento;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.LOG;
-import xy.ai.workbench.core.SessionConfig;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.core.SessionConfig;
 
 /**
  * (De)serializes {@link SessionConfig} as a single JSON blob instead of

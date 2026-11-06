@@ -1,10 +1,13 @@
 package xy.ai.workbench.view.explorer;
 
-import java.io.*;
-import org.eclipse.core.resources.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+import org.eclipse.core.resources.IContainer;
+import org.eclipse.core.resources.IFile;
 import org.eclipse.ui.model.WorkbenchLabelProvider;
 
-import xy.ai.workbench.core.LOG;
+import xy.ai.conscious.core.LOG;
 
 public class MarkdownLabelProvider extends WorkbenchLabelProvider {
 

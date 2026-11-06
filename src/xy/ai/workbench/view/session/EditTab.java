@@ -10,7 +10,7 @@ import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.core.ConfigManager;
+import xy.ai.conscious.core.ConfigManager;
 
 /** "Edit" tab: raw multi-line editor for the system prompt. */
 public class EditTab {

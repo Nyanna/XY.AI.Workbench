@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -30,8 +31,9 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
-import xy.ai.workbench.connector.harness.IIncludeAdapter;
-import xy.ai.workbench.core.LOG;
+
+import xy.ai.conscious.connector.harness.IIncludeAdapter;
+import xy.ai.conscious.core.LOG;
 import xy.ai.workbench.eclipse.AbstractQueryListener;
 
 public class IncludeAdapter implements IIncludeAdapter {

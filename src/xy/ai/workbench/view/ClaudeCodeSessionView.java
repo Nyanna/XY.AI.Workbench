@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.zip.CRC32;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
@@ -26,19 +27,20 @@ import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
+
 import jakarta.inject.Inject;
+import xy.ai.conscious.connector.claudecode.CCSession;
+import xy.ai.conscious.connector.claudecode.CCSessionManager;
+import xy.ai.conscious.connector.claudecode.CCSessionParameters;
+import xy.ai.conscious.connector.claudecode.SessionState;
+import xy.ai.conscious.core.AgentProfile;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.InputMode;
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ActiveEditorListener;
-import xy.ai.workbench.connector.claudecode.CCSession;
-import xy.ai.workbench.connector.claudecode.CCSessionManager;
-import xy.ai.workbench.connector.claudecode.CCSessionParameters;
-import xy.ai.workbench.connector.claudecode.SessionState;
-import xy.ai.workbench.core.AgentProfile;
-import xy.ai.workbench.core.CacheMode;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.InputMode;
-import xy.ai.workbench.core.Model;
-import xy.ai.workbench.core.Reasoning;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
 
 /**

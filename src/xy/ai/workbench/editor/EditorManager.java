@@ -19,10 +19,10 @@ import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.swt.widgets.Display;
 
+import xy.ai.conscious.tools.RegionList;
 import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.ModificationRange;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.tools.RegionList;
 
 public class EditorManager {
 

@@ -1,11 +1,12 @@
 package xy.ai.workbench.eclipse;
 
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import xy.ai.workbench.api.IExecutor;
+import org.eclipse.swt.widgets.Display;
+
+import xy.ai.conscious.api.IExecutor;
 
 public class EclipseExecutor implements IExecutor {
 

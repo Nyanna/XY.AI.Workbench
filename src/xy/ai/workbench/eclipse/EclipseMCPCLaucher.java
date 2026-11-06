@@ -9,8 +9,8 @@ import org.eclipse.debug.core.ILaunchConfigurationType;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
 import org.eclipse.debug.core.ILaunchManager;
 
-import xy.ai.workbench.api.ext.IMCPCLauncher;
-import xy.ai.workbench.core.LOG;
+import xy.ai.conscious.api.ext.IMCPCLauncher;
+import xy.ai.conscious.core.LOG;
 
 public class EclipseMCPCLaucher implements IMCPCLauncher {
 	private static final String MCPC_LAUNCH_NAME = "MCPC";

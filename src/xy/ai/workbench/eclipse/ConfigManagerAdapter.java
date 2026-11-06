@@ -1,29 +1,29 @@
 package xy.ai.workbench.eclipse;
 
-import java.util.Objects;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.ide.ResourceUtil;
+
+import xy.ai.conscious.api.ext.IFileCache;
+import xy.ai.conscious.connector.mcp.MCPClient;
+import xy.ai.conscious.core.AgentProfile;
+import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.core.InputMode;
+import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
+import xy.ai.conscious.model.Model.KeyPattern;
+import xy.ai.conscious.core.OutputMode;
+import xy.ai.conscious.core.SessionConfig;
 import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.MementoConverter;
-import xy.ai.workbench.api.ext.IFileCache;
-import xy.ai.workbench.connector.mcp.MCPClient;
-import xy.ai.workbench.core.AgentProfile;
-import xy.ai.workbench.core.CacheMode;
-import xy.ai.workbench.core.ConfigManager;
-import xy.ai.workbench.core.InputMode;
-import xy.ai.workbench.core.LOG;
-import xy.ai.workbench.core.Model;
-import xy.ai.workbench.core.Model.KeyPattern;
-import xy.ai.workbench.core.OutputMode;
-import xy.ai.workbench.core.Reasoning;
-
-import xy.ai.workbench.core.SessionConfig;
 
 public class ConfigManagerAdapter extends ConfigManager{
 	private ConfigManager cm;

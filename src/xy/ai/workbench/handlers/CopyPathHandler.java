@@ -2,6 +2,7 @@ package xy.ai.workbench.handlers;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;

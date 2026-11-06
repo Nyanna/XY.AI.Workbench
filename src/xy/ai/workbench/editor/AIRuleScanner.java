@@ -19,9 +19,12 @@ import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
+import xy.ai.conscious.commands.AnswerCommand;
+import xy.ai.conscious.connector.claudecode.ProtocolParser;
+import xy.ai.conscious.core.IEditorInterface;
+import xy.ai.conscious.model.AIAnswer;
+import xy.ai.conscious.tools.RegionList;
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.commands.AnswerCommand;
-import xy.ai.workbench.connector.claudecode.ProtocolParser;
 import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.editor.md.BlockRule;
 import xy.ai.workbench.editor.md.EmphasisRule;
@@ -34,8 +37,6 @@ import xy.ai.workbench.editor.mdast.MarkdownDocument;
 import xy.ai.workbench.editor.mdast.nodes.AbstractNode;
 import xy.ai.workbench.editor.mdast.nodes.Elements;
 import xy.ai.workbench.editor.mdast.nodes.Node;
-import xy.ai.workbench.models.AIAnswer;
-import xy.ai.workbench.tools.RegionList;
 
 /**
  * AST optimized token scanner: instead of trying every markdown rule at every
