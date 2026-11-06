@@ -15,8 +15,9 @@ import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.OutputMode;
+
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.OutputMode;
 import xy.ai.workbench.view.PresetHandler;
 
 /**

@@ -9,13 +9,14 @@ import java.time.format.DateTimeFormatter;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.NullProgressMonitor;
+
+import xy.ai.workbench.api.IProgress;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
@@ -23,8 +24,12 @@ import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
-import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.api.IExecutor;
 import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.OutputMode;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
@@ -63,8 +68,8 @@ public class EditorInterface {
 		markerScanner = null;
 	}
 
-	public void insertTag(Display display, IModelRequest req, IProgressMonitor mon) {
-		display.syncExec(() -> {
+	public void insertTag(IExecutor exec, IModelRequest req, IProgress mon) {
+		exec.syncExec(() -> {
 			OutputMode outputMode = req.getPrompt().config.outputMode;
 			if (OutputMode.New_File.equals(outputMode)) {
 				IContainer parent = editorListener.getLastContainer();
@@ -105,11 +110,11 @@ public class EditorInterface {
 					case Chat:
 						String replace = String.format("\n%s\n%s\n%s\n", AGENT, tag, USER);
 						doc.replace(doc.getLength(), 0, replace);
-						display.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
+						exec.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
 						break;
 					case Append:
 						doc.replace(doc.getLength(), 0, "\n" + tag);
-						display.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
+						exec.asyncExec(() -> textEditor.selectAndReveal(doc.getLength(), 0));
 						break;
 					case Replace:
 						if (tsel != null)
@@ -122,7 +127,7 @@ public class EditorInterface {
 					case New_File:
 						throw new UnsupportedOperationException();
 					}
-					textEditor.doSave(mon);
+					textEditor.doSave(new NullProgressMonitor());
 				} catch (BadLocationException e) {
 					LOG.info("Error adding text", e);
 				}
@@ -135,7 +140,7 @@ public class EditorInterface {
 		return MarkerRessourceScanner.getPromptTag(pattern.name(), req.getID());
 	}
 
-	public void replaceTag(Display display, AIAnswer ans, IProgressMonitor mon) {
+	public void replaceTag(AIAnswer ans, IProgress mon) {
 		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
 		if (ans.showStats && (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode)))
 			ans.answer = ans.print() + "\n" + ans.answer;

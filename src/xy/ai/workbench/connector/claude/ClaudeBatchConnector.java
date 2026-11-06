@@ -5,8 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
+import xy.ai.workbench.api.IProgress;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -20,12 +19,12 @@ import com.anthropic.models.messages.batches.MessageBatch;
 import com.anthropic.models.messages.batches.MessageBatchIndividualResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.connector.IAIBatchConnector;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 
@@ -42,7 +41,7 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
+	public List<IAIBatch> updateBatches(IProgress mon) {
 
 		BatchListPage page = client.messages().batches().list();
 
@@ -54,33 +53,33 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
+	public IAIBatch cancelBatch(IAIBatch entry, IProgress mon) {
 		MessageBatch batch = client.messages().batches().cancel(entry.getID());
 		return new ClaudeBatch(batch.id(), batch);
 	}
 
 	@Override
-	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Load batch", 2);
+	public void loadBatch(IAIBatch entry, IProgress mon) {
+		IProgress sub = mon.setTask("Load batch", 2);
 
-		sub.subTask("Retrieve Batch");
+		sub.setTaskName("Retrieve Batch");
 		MessageBatch batch = client.messages().batches().retrieve(entry.getID());
 		ClaudeBatch oentry = ((ClaudeBatch) entry);
 		oentry.setBatch(batch);
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Retrieve Outputs");
+		sub.setTaskName("Retrieve Outputs");
 		if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty())
 				&& (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState())))
 			try (StreamResponse<MessageBatchIndividualResponse> response = client.messages().batches()
 					.resultsStreaming(batch.id())) {
 
-				SubMonitor sub1 = SubMonitor.convert(sub, "Load output", entry.getTaskCount());
+				IProgress sub1 = mon.setTask("Load output", entry.getTaskCount());
 				oentry.setAnswers(response.stream().map(res -> {
 					if (res.result().isSucceeded())
 						return connector.convertResponse(
 								new ClaudeResponse(res.result().asSucceeded().message(), res.customId()),
-								sub1.split(1));
+								sub1.subProgress());
 					else {
 						AIAnswer an = new AIAnswer(res.customId());
 						if (res.result().isErrored()) {
@@ -110,12 +109,12 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 							an.answer = "Canceled: " + res.result().asCanceled().toString();
 						else if (res.result().isExpired())
 							an.answer = "Expired: " + res.result().asExpired().toString();
-						sub1.worked(1);
+						sub1.worked();
 						return an;
 					}
 				}).collect(Collectors.toList()));
 			}
-		sub.worked(1);
+		sub.worked();
 	}
 
 	@Override
@@ -136,17 +135,17 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 3);
+	public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
+		IProgress sub = mon.setTask("Submit batch", 3);
 
-		sub.subTask("Collect requests");
+		sub.setTaskName("Collect requests");
 		Builder builder = BatchCreateParams.builder();
 		List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
 				.collect(Collectors.toList());
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Convert requests");
-		SubMonitor sub1 = SubMonitor.convert(sub, "Convert request", reqs.size());
+		sub.setTaskName("Convert requests");
+		IProgress sub1 = mon.setTask("Convert request", reqs.size());
 		for (ClaudeRequest req : reqs) {
 			com.anthropic.models.messages.batches.BatchCreateParams.Request.Builder pbuilder = BatchCreateParams.Request
 					.builder();
@@ -163,19 +162,19 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
 			pbuilder.customId(req.getID());
 			pbuilder.params(batchRequestParams);
 			builder.addRequest(pbuilder.build());
-			sub1.worked(1);
+			sub1.worked();
 		}
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Submit batch");
+		sub.setTaskName("Submit batch");
 		MessageBatch batch = client.messages().batches().create(builder.build());
-		sub.worked(1);
+		sub.worked();
 
 		return new ClaudeBatch(batch.id(), batch);
 	}
 
 	@Override
-	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
+	public void convertAnswers(IAIBatch obj, IProgress mon) {
 		// allready converted from SDK
 	}
 }

@@ -4,25 +4,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.swt.widgets.Display;
+import xy.ai.workbench.api.IProgress;
 
 import xy.ai.workbench.ActiveEditorListener;
-import xy.ai.workbench.ConfigManager;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.IncludeAdapter;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model;
+import xy.ai.workbench.api.IExecutor;
+import xy.ai.workbench.api.IMonitoredRunnable;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.commands.ToolCommand;
 import xy.ai.workbench.connector.AdaptingConnector;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Model;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -67,100 +64,81 @@ public class PromptHandler {
 		includeAdapter.initializeBindings();
 	}
 
-	public void execute(Display display) {
-		new PromptJob("Starting Prompt", display).schedule();
+	public void execute(IExecutor exec) {
+		exec.schedule("Starting Prompt", new PromptRun(exec));
 	}
 
-	private class PromptJob extends Job {
-		private final Display display;
+	private class PromptRun implements IMonitoredRunnable {
+		private final IExecutor exec;
 
-		private PromptJob(String name, Display display) {
-			super(name);
-			this.display = display;
+		private PromptRun(IExecutor exec) {
+			this.exec = exec;
 		}
 
 		@Override
-		protected IStatus run(IProgressMonitor mon) {
-			SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 4);
+		public void run(IProgress mon) {
+			IProgress sub = mon.setTask("Executing prompt", 4);
 			String reqId = null;
 			try {
-				sub.subTask("Prepare inputs");
-				var req = prepareRequest(display, false, sub);
-				sub.worked(1);
-				sub.subTask("Insert Tag");
-				editIfc.insertTag(display, req, sub);
+				sub.setTaskName("Prepare inputs");
+				var req = prepareRequest(exec, false, sub);
+				sub.worked();
+				sub.setTaskName("Insert Tag");
+				editIfc.insertTag(exec, req, sub);
 				reqId = req.getID();
-				mon.worked(1);
+				mon.worked();
 
-				sub.subTask("Execute prompt");
-				var ans = executeInner(display, req, sub, this);
-				mon.worked(1);
-				sub.subTask("Process Answer");
-				editIfc.replaceTag(display, ans, sub);
-				mon.worked(1);
+				sub.setTaskName("Execute prompt");
+				AIAnswer ans = executeInner(exec, req, sub);
+				mon.worked();
+				sub.setTaskName("Process Answer");
+				editIfc.replaceTag(ans, sub);
+				mon.worked();
 			} catch (Exception e) {
 				LOG.error(e.getMessage(), e);
 				// uncatched error case
 				if (reqId != null) {
 					AIAnswer error = new AIAnswer(reqId);
 					error.answer = e.getMessage();
-					editIfc.replaceTag(display, error, sub);
+					editIfc.replaceTag(error, sub);
 				}
-				return Status.CANCEL_STATUS;
 			} finally {
 				mon.done();
 			}
-			return Status.OK_STATUS;
 		}
 	}
 
-	public void queueAsync(Display display) {
-		Job.create("Enqueue Prompt", (mon) -> {
-			try {
-				queueSync(display, mon);
-			} catch (Exception e) {
-				LOG.error(e.getMessage(), e);
-				return Status.CANCEL_STATUS;
-			} finally {
-				mon.done();
-			}
-			return Status.OK_STATUS;
-		}).schedule();
+	public void queueAsync(IExecutor exec) {
+		exec.schedule("Enqueue Prompt", mon -> {
+			queueSync(exec, mon);
+		});
 	}
 
-	private void queueSync(Display display, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Enqueue batch prompt", 3);
-		sub.subTask("Prepare inputs");
-		var req = prepareRequest(display, true, sub.split(1));
-		sub.subTask("Insert Tag");
-		editIfc.insertTag(display, req, sub.split(1));
-		sub.subTask("Enqueue prompt");
-		batch.enqueue(req, sub.split(1));
+	private void queueSync(IExecutor exec, IProgress mon) {
+		IProgress sub = mon.setTask("Enqueue batch prompt", 3);
+		sub.setTaskName("Prepare inputs");
+		var req = prepareRequest(exec, true, sub.subProgress());
+		sub.setTaskName("Insert Tag");
+		editIfc.insertTag(exec, req, sub.subProgress());
+		sub.setTaskName("Enqueue prompt");
+		batch.enqueue(req, sub.subProgress());
 	}
 
-	public void queueAndSubmit(Display display) {
-		Job.create("Enqueue Prompt", (mon) -> {
-			try {
-				queueSync(display, mon);
-				batch.submitBatches(mon);
-			} catch (Exception e) {
-				LOG.error(e.getMessage(), e);
-				return Status.CANCEL_STATUS;
-			} finally {
-				mon.done();
-			}
-			return Status.OK_STATUS;
-		}).schedule();
+	public void queueAndSubmit(IExecutor exec) {
+		exec.schedule("Enqueue Prompt", (mon) -> {
+			queueSync(exec, mon);
+			batch.submitBatches(mon);
+		});
 	}
 
-	private IModelRequest prepareRequest(Display display, boolean batchFix, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Preparing Call", 1);
-		sub.subTask("Preparing Call");
-		Prompt prompt = input.buildPrompt(display, batchFix);
+	private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {
+		IProgress sub = mon.setTask("Preparing Call", 1);
+		sub.setTaskName("Preparing Call");
+		Prompt prompt = input.buildPrompt(exec, batchFix);
 		preprocessPrompt(prompt);
 		IModelRequest req = connector.createRequest(prompt, sub);
 		req.setPrompt(prompt);
-		sub.worked(1);
+		sub.worked();
 		return req;
 	}
 
@@ -172,17 +150,17 @@ public class PromptHandler {
 			prompt.config.model = Model.MCP_TOOLS;
 	}
 
-	private AIAnswer executeInner(Display display, IModelRequest req, IProgressMonitor mon, PromptJob job) {
-		display.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
-		IModelResponse resp = connector.executeRequest(req, mon, job);
+	private AIAnswer executeInner(IExecutor exec, IModelRequest req, IProgress mon) {
+		exec.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));
+		IModelResponse resp = connector.executeRequest(req, mon);
 		AIAnswer res = connector.convertResponse(resp, mon);
 		res.prompt = req.getPrompt();
-		display.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
-		triggerSnapshotIfNeeded(req);
+		exec.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
+		triggerSnapshotIfNeeded(exec,req);
 		return res;
 	}
 
-	private void triggerSnapshotIfNeeded(IModelRequest req) {
+	private void triggerSnapshotIfNeeded(IExecutor exec, IModelRequest req) {
 		Prompt prompt = req.getPrompt();
 		if (prompt == null || prompt.arg == null)
 			return;
@@ -195,19 +173,12 @@ public class PromptHandler {
 		boolean revertToolResultDeny = cmd instanceof AnswerCommand ac && ac.action() == AnswerCommand.Action.Deny
 				&& ac.blockType() == AnswerCommand.BlockType.Result;
 
-		Job.create("Workbench-Snapshot", mon -> {
-			try {
-				OpSnapshotter snap = new OpSnapshotter(prompt.arg.project.toFile());
-				SnapshotResult result = revertToolResultDeny ? snap.revertLast() : snap.snapshot(opId);
-				if (result != null && DiffPanel.INSTANCE != null)
-					Display.getDefault().asyncExec(() -> DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository()));
-
-			} catch (Exception e) {
-				LOG.error(e.getMessage(), e);
-				return Status.CANCEL_STATUS;
-			}
-			return Status.OK_STATUS;
-		}).schedule();
+		exec.schedule("Workbench-Snapshot", mon -> {
+			OpSnapshotter snap = new OpSnapshotter(prompt.arg.project.toFile());
+			SnapshotResult result = revertToolResultDeny ? snap.revertLast() : snap.snapshot(opId);
+			if (result != null && DiffPanel.INSTANCE != null)
+				exec.asyncExec(() -> DiffPanel.INSTANCE.onSnapshot(result, snap.getRepository()));
+		});
 	}
 
 	/** Extracts the top-level "id:" field from a captured tool-call/result YAML block. */

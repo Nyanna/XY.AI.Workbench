@@ -3,16 +3,13 @@ package xy.ai.workbench.batch;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.jface.viewers.IStructuredContentProvider;
-import org.eclipse.jface.viewers.TableViewer;
+import xy.ai.workbench.api.IProgress;
 
 import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.connector.IAIBatchConnector;
 import xy.ai.workbench.models.AIAnswer;
 
-public class AIBatchResponseManager implements IStructuredContentProvider {
+public class AIBatchResponseManager {
 	private IAIBatchConnector connector;
 	private List<AIAnswer> loadedAnswers = new ArrayList<>();
 	private IAIBatch lastbatch;
@@ -20,28 +17,23 @@ public class AIBatchResponseManager implements IStructuredContentProvider {
 	public AIBatchResponseManager(IAIBatchConnector connector) {
 		this.connector = connector;
 	}
-
-	@Override
-	public Object[] getElements(Object inputElement) {
-		return loadedAnswers.toArray();
+	
+	public List<AIAnswer> getLoadedAnswers() {
+		return loadedAnswers;
 	}
 
-	public void load(IAIBatch obj, IProgressMonitor mon) {
+	public void load(IAIBatch obj, IProgress mon) {
 		if (obj.equals(lastbatch))
 			return;
 		lastbatch = obj;
 
-		SubMonitor sub = SubMonitor.convert(mon, "Converting answers", 1);
+		IProgress sub = mon.setTask("Converting answers", 1);
 
 		loadedAnswers.clear();
 		if (obj.getResult() != null || obj.getError() != null || obj instanceof NewBatch)
-			connector.convertAnswers(obj, sub.split(1));
+			connector.convertAnswers(obj, sub.subProgress());
 
 		loadedAnswers.addAll(obj.getAnswers());
-	}
-
-	public void updateView(TableViewer reqViewer) {
-		reqViewer.setInput(this);
 	}
 
 	public void clearAnswers() {

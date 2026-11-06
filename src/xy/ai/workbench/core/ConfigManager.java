@@ -1,30 +1,19 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
-import org.eclipse.core.resources.IFile;
-import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IMemento;
-import org.eclipse.ui.ide.ResourceUtil;
-
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.mcp.MCPClient;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.model.ModelResolverRegistry;
 
 public class ConfigManager {
 	private ModelResolverRegistry resolverRegistry = new ModelResolverRegistry();
 
-	private SessionConfig defaultCfg = new SessionConfig();
-	private SessionConfig cfg = defaultCfg;
-	private String activeEditorKey;
-	private Map<String, SessionConfig> editorConfigs = new HashMap<>();
+	protected SessionConfig cfg;
 	private Model[] enabledModels = new Model[0];
 	private AgentProfile[] enabledProfiles = new AgentProfile[0];
 	private List<Consumer<SessionConfig>> systemPromptObs = new ArrayList<>();
@@ -45,9 +34,14 @@ public class ConfigManager {
 	private List<Consumer<OutputMode>> outputModeObs = new ArrayList<>();
 	private List<Consumer<String[]>> enabledToolsObs = new ArrayList<>();
 
-	public ConfigManager(MCPClient mcpClient, ActiveEditorListener editorListener) {
+	public ConfigManager(MCPClient mcpClient) {
 		mcpClient.addConnectObserver(resolverRegistry);
-		editorListener.addTextEditorObserver(e -> activateEditor(e));
+	}
+
+	/**
+	 * hook
+	 */
+	protected void ensureOwnConfig() {
 	}
 
 	public void clearObserver() {
@@ -70,30 +64,9 @@ public class ConfigManager {
 		enabledToolsObs.clear();
 	}
 
-	private void activateEditor(IEditorPart editor) {
-		String key = resolveKey(editor);
-		if (Objects.equals(activeEditorKey, key))
-			return;
-		activeEditorKey = key;
-		SessionConfig target = key == null ? defaultCfg : editorConfigs.getOrDefault(key, cfg);
-		applyConfig(target);
-	}
 
-	private static String resolveKey(IEditorPart editor) {
-		if (editor == null)
-			return null;
-		IFile file = ResourceUtil.getFile(editor.getEditorInput());
-		return file != null ? file.getFullPath().toString() : null;
-	}
 
-	private void ensureOwnConfig() {
-		if (activeEditorKey == null || editorConfigs.containsKey(activeEditorKey))
-			return;
-		cfg = new SessionConfig(cfg);
-		editorConfigs.put(activeEditorKey, cfg);
-	}
-
-	private void applyConfig(SessionConfig target) {
+	public void applyConfig(SessionConfig target) {
 		if (target == cfg)
 			return;
 		cfg = target;
@@ -454,74 +427,6 @@ public class ConfigManager {
 		String[] options = Arrays.stream(reasonings).map((m) -> m.name()).collect(Collectors.toList())
 				.toArray(new String[0]);
 		return options;
-	}
-
-	public void saveConfig(IMemento memento) {
-		MementoConverter.saveConfig(memento, cfg);
-	}
-
-	public void loadConfig(IMemento memento) {
-		String savedKey = activeEditorKey;
-		activeEditorKey = null;
-		cfg = defaultCfg;
-		try {
-			MementoConverter.Snapshot snap = MementoConverter.loadConfig(memento);
-			if (snap == null)
-				return;
-
-			/*
-			 * Order matters: keys must be set (models resolved) before the model itself can
-			 * be restored, and the model must be set before the remaining,
-			 * capability-dependent settings are applied - otherwise setModel()'s own
-			 * defaulting logic would clobber them.
-			 */
-			if (snap.keys != null)
-				setKey(snap.keys);
-
-			if (snap.modelProvider != null) {
-				Model resolved = Arrays.stream(enabledModels)
-						.filter(m -> m.matches(KeyPattern.valueOf(snap.modelProvider), snap.modelDisplayName)).findFirst()
-						.orElse(null);
-				if (resolved != null)
-					setModel(resolved);
-				else
-					LOG.error("Unable to resolve persisted model " + snap.modelProvider + ":" + snap.modelDisplayName
-							+ ", no fallback applied");
-			}
-
-			if (snap.temperature != null)
-				setTemperature(snap.temperature);
-			if (snap.topP != null)
-				setTopP(snap.topP);
-			if (snap.maxOutputTokens != null)
-				setMaxOutputTokens(snap.maxOutputTokens);
-			if (snap.reasoningBudget != null)
-				setReasoningBudget(snap.reasoningBudget);
-			if (snap.reasoning != null)
-				setReasoning(Reasoning.valueOf(snap.reasoning));
-			if (snap.cacheMode != null)
-				setCacheMode(CacheMode.valueOf(snap.cacheMode));
-			if (snap.profile != null)
-				setProfile(AgentProfile.valueOf(snap.profile));
-			if (snap.systemPrompt != null)
-				setSystemPrompt(snap.systemPrompt);
-			if (snap.freeText != null)
-				setSystemFree(snap.freeText);
-			if (snap.outputMode != null)
-				setOuputMode(OutputMode.valueOf(snap.outputMode));
-			if (snap.inputModes != null)
-				for (InputMode mode : InputMode.values())
-					if (mode.ordinal() < snap.inputModes.length)
-						setInputMode(mode, snap.inputModes[mode.ordinal()]);
-			if (snap.enabledTools != null)
-				setEnabledTools(snap.enabledTools);
-		} catch (Exception e) {
-			LOG.error(e.getMessage(), e);
-			LOG.info("Unable to restore config", e);
-		} finally {
-			activeEditorKey = savedKey;
-			cfg = savedKey == null ? defaultCfg : editorConfigs.getOrDefault(savedKey, defaultCfg);
-		}
 	}
 
 	public Capabilities getCapabilities() {

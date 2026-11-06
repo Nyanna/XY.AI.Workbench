@@ -1,4 +1,4 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 public enum Reasoning {
 	minimal, low, medium, high, xhigh, max, Budget, Disabled, Unlimited;

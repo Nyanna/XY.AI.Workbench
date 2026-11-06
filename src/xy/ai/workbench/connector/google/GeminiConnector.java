@@ -6,9 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
+import xy.ai.workbench.api.IProgress;
 
 import com.google.genai.Client;
 import com.google.genai.types.Content;
@@ -25,8 +23,6 @@ import com.google.genai.types.ModalityTokenCount;
 import com.google.genai.types.Part;
 import com.google.genai.types.SafetySetting;
 import com.google.genai.types.ThinkingConfig;
-
-import xy.ai.workbench.Model.KeyPattern;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -34,7 +30,8 @@ import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.mcp.MCPClient;
-import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.core.Reasoning;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
 import xy.ai.workbench.connector.harness.SessionProcessor;
@@ -56,8 +53,8 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	}
 
 	@Override
-	public GeminiRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+	public GeminiRequest createRequest(Prompt prompt, IProgress mon) {
+		IProgress sub = mon.setTask("BuildRequest", 1);
 		FrozenConfig fc = prompt.config;
 		boolean batchFix = prompt.batch;
 
@@ -107,7 +104,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 			appendTools(config, fc.tools);
 
 		GenerateContentConfig contentConfig = config.build();
-		sub.worked(1);
+		sub.worked();
 		return new GeminiRequest(fc.model, proccessedInputs, contentConfig, id + "");
 	}
 
@@ -143,7 +140,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	}
 
 	@Override
-	public GeminiResponse executeRequest(GeminiRequest req, IProgressMonitor mon, Job job) {
+	public GeminiResponse executeRequest(GeminiRequest req, IProgress mon) {
 		var client = Client.builder()//
 				.apiKey(req.getPrompt().config.keys)//
 				.build();
@@ -155,9 +152,9 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 	}
 
 	@Override
-	public AIAnswer convertResponse(GeminiResponse resp, IProgressMonitor mon) {
+	public AIAnswer convertResponse(GeminiResponse resp, IProgress mon) {
 		GenerateContentResponse cresp = resp.response;
-		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
+		IProgress sub = mon.setTask("Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer(resp.id);
 		SessionAnswerBuilder answer = new SessionAnswerBuilder();
@@ -202,7 +199,7 @@ public class GeminiConnector implements IAIConnector<GeminiRequest, GeminiRespon
 		default:
 			res.answer += "Error: " + cresp.finishReason().knownEnum().name();
 		}
-		sub.worked(1);
+		sub.worked();
 		return res;
 	}
 }

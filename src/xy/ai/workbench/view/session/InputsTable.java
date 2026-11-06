@@ -5,9 +5,10 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.InputMode;
+
 import xy.ai.workbench.connector.harness.PromptHandler;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.InputMode;
 
 /**
  * Checkbox table showing/enabling the available prompt input modes.

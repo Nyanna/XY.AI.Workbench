@@ -6,7 +6,6 @@ import java.util.Date;
 
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
@@ -17,6 +16,7 @@ import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.ColumnWeightData;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IDoubleClickListener;
+import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
@@ -41,10 +41,15 @@ import org.eclipse.ui.part.ViewPart;
 
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.LOG;
+import xy.ai.workbench.api.IExecutor;
+import xy.ai.workbench.api.IProgress;
 import xy.ai.workbench.batch.AIBatchManager;
+import xy.ai.workbench.batch.AIBatchManager.IBatchListener;
 import xy.ai.workbench.batch.AIBatchResponseManager;
 import xy.ai.workbench.connector.IAIBatch;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.eclipse.EclipseExecutor;
+import xy.ai.workbench.eclipse.EclipseProgress;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.tools.Time;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
@@ -64,13 +69,28 @@ public class AIBatchView extends ViewPart {
 	private ActionManager act = new ActionManager();
 
 	private AIBatchManager batch;
+	private IStructuredContentProvider batchContent;
 	private AIBatchResponseManager batchRequests;
+	private IStructuredContentProvider batchRequestsContent;
 	private TableColumnLayout tableLayout;
+	private IExecutor exec = new EclipseExecutor();
 
 	@Override
 	public void createPartControl(Composite parent) {
 		batch = Activator.getDefault().batch;
+		batchContent = new IStructuredContentProvider() {
+			@Override
+			public Object[] getElements(Object inputElement) {
+				return batch.getIndex().values().toArray();
+			}
+		};
 		batchRequests = Activator.getDefault().batchRequests;
+		batchRequestsContent = new IStructuredContentProvider() {
+			@Override
+			public Object[] getElements(Object inputElement) {
+				return batchRequests.getLoadedAnswers().toArray();
+			}
+		};
 
 		SashForm sash = new SashForm(parent, SWT.VERTICAL);
 
@@ -115,8 +135,29 @@ public class AIBatchView extends ViewPart {
 			});
 
 			table.requestLayout();
-			batch.setViewer(batchViewer);
-			batchViewer.setContentProvider(batch);
+			batch.setListener(new IBatchListener() {
+				@Override
+				public void update(IAIBatch entry) {
+					exec.syncExec(() -> batchViewer.refresh(entry, true));
+					exec.asyncExec(() -> batchViewer.setInput(batchContent));
+				}
+				
+				@Override
+				public void update() {
+					exec.asyncExec(() -> batchViewer.setInput(batchContent));
+				}
+				
+				@Override
+				public void remove(IAIBatch entry) {
+					exec.syncExec(() -> batchViewer.remove(entry));
+				}
+				
+				@Override
+				public void add(IAIBatch entry) {
+					exec.syncExec(() -> batchViewer.add(entry));
+				}
+			});
+			batchViewer.setContentProvider(batchContent);
 		}
 
 		{
@@ -124,7 +165,7 @@ public class AIBatchView extends ViewPart {
 			reqViewer = new TableViewer(viewerComp,
 					SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER | SWT.FULL_SELECTION);
 			reqViewer.getControl().setLayoutData(new GridData(GridData.FILL, GridData.FILL, true, true));
-			reqViewer.setContentProvider(batchRequests);
+			reqViewer.setContentProvider(batchRequestsContent);
 
 			Table table = reqViewer.getTable();
 			table.setHeaderVisible(true);
@@ -224,7 +265,7 @@ public class AIBatchView extends ViewPart {
 	private void makeActions() {
 		updateRun = () -> {
 			LOG.info("Batch autoupdate");
-			batch.updateBatches(new NullProgressMonitor(), false);
+			batch.updateBatches(new EclipseProgress(new NullProgressMonitor()), false);
 			if (autoUpdate)
 				updateIntervall.schedule(60 * 1000);
 		};
@@ -243,20 +284,20 @@ public class AIBatchView extends ViewPart {
 				}).done();
 		act.create().text("Update Batches", "Retrieves and update batch states") //
 				.image(ISharedImages.IMG_ELCL_SYNCED).pullDown().toolbar() //
-				.job((mon) -> batch.updateBatches(mon, true)).done();
+				.job((mon) -> batch.updateBatches(new EclipseProgress(mon), true)).done();
 		act.create().text("Update Listed Batches only", "Retrieves and update listed batch states only") //
 				.image(ISharedImages.IMG_TOOL_BACK).toolbar() //
-				.job((mon) -> batch.updateBatches(mon, false)).done();
+				.job((mon) -> batch.updateBatches(new EclipseProgress(mon), false)).done();
 		act.create().text("Submit Batches", "Submit unscheduled batches") //
 				.image(ISharedImages.IMG_TOOL_FORWARD).pullDown().toolbar() //
-				.job((mon) -> batch.submitBatches(mon)).done();
+				.job((mon) -> batch.submitBatches(new EclipseProgress(mon))).done();
 		act.create().text("Clear View", "Clear batch list") //
 				.image(ISharedImages.IMG_ETOOL_CLEAR).pullDown().toolbar() //
 				.display(() -> {
 					batch.clearBatches();
 					batchRequests.clearAnswers();
 					batchViewer.refresh();
-					batchRequests.updateView(reqViewer);
+					reqViewer.setInput(batchRequestsContent);
 				}).done();
 		act.create().text("Copy JSON", "Copy JSON for use in batches") //
 				.image(ISharedImages.IMG_TOOL_COPY).contextMenu() //
@@ -286,7 +327,7 @@ public class AIBatchView extends ViewPart {
 				.image(ISharedImages.IMG_TOOL_DELETE).contextMenu() //
 				.selection(batchViewer, IAIBatch.class, (elem) -> {
 					Job.create("Cacel Batch", (mon) -> {
-						batch.cancelBatch(elem, mon);
+						batch.cancelBatch(elem, new EclipseProgress(mon));
 						return Status.OK_STATUS;
 					}).schedule();
 				}).done();
@@ -294,7 +335,7 @@ public class AIBatchView extends ViewPart {
 				.image(ISharedImages.IMG_TOOL_DELETE_DISABLED).contextMenu() //
 				.selection(batchViewer, IAIBatch.class, (elem) -> {
 					Job.create("Cacel Batch", (mon) -> {
-						batch.removeBatch(elem, mon);
+						batch.removeBatch(elem, new EclipseProgress(mon));
 						return Status.OK_STATUS;
 					}).schedule();
 				}).done();
@@ -316,16 +357,16 @@ public class AIBatchView extends ViewPart {
 				Object obj = selection.getFirstElement();
 				if (obj instanceof IAIBatch) {
 					Job.create("Load Batches", (mon) -> {
-						SubMonitor sub = SubMonitor.convert(mon, "Loading Batch", 3);
-						sub.subTask("Loading result from API");
+						IProgress sub = new EclipseProgress(mon).setTask("Loading Batch", 3);
+						sub.setTaskName("Loading result from API");
 						batch.loadBatch((IAIBatch) obj, sub);
-						sub.worked(1);
-						sub.subTask("Converting respones");
+						sub.worked();
+						sub.setTaskName("Converting respones");
 						batchRequests.load((IAIBatch) obj, sub);
-						sub.worked(1);
-						sub.subTask("updating view");
-						Display.getDefault().asyncExec(() -> batchRequests.updateView(reqViewer));
-						sub.worked(1);
+						sub.worked();
+						sub.setTaskName("updating view");
+						Display.getDefault().asyncExec(() -> reqViewer.setInput(batchRequestsContent));
+						sub.worked();
 						sub.done();
 						return Status.OK_STATUS;
 					}).schedule();
@@ -338,7 +379,7 @@ public class AIBatchView extends ViewPart {
 				Object obj = selection.getFirstElement();
 				if (obj instanceof AIAnswer) {
 					Job.create("Process Awswer", (mon) -> {
-						Activator.getDefault().editorInterface.replaceTag(Display.getDefault(), (AIAnswer) obj, mon);
+						Activator.getDefault().editorInterface.replaceTag((AIAnswer) obj, new EclipseProgress(mon));
 					}).schedule();
 				}
 			}

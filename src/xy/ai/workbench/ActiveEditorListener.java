@@ -31,6 +31,8 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.workbench.core.InputMode;
+import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.editor.AISessionEditor;
 import xy.ai.workbench.editor.EditorChangeListener;
 import xy.ai.workbench.view.PartListener2Adapter;

@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-import xy.ai.workbench.LOG;
+import xy.ai.workbench.core.LOG;
 
 public class CCSessionManager {
 	public final static String CREATE_NEW_MARKER = "CREATE_NEW_MARKER";

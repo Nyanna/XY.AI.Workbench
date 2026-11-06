@@ -43,9 +43,10 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.OutputMode;
+
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.OutputMode;
 import xy.ai.workbench.editor.AISessionEditor;
 import xy.ai.workbench.models.AIAnswer;
 
@@ -124,7 +125,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
    *         persisted
    */
   public boolean findAndReplaceMarkers(AIAnswer ans) {
-    ITextEditor hint = ans.prompt != null ? ans.prompt.arg.getEditor() : null;
+    ITextEditor hint = ans.prompt != null ? (ITextEditor) ans.prompt.arg.getEditor() : null;
     if (hint != null && tryReplaceInEditor(ans, hint))
       return true;
     IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();

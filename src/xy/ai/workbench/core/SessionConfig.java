@@ -1,4 +1,4 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 public class SessionConfig {
 	public String keys = "dummy";

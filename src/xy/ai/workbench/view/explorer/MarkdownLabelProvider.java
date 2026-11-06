@@ -4,7 +4,7 @@ import java.io.*;
 import org.eclipse.core.resources.*;
 import org.eclipse.ui.model.WorkbenchLabelProvider;
 
-import xy.ai.workbench.LOG;
+import xy.ai.workbench.core.LOG;
 
 public class MarkdownLabelProvider extends WorkbenchLabelProvider {
 

@@ -1,6 +1,6 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
-import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.core.Model.KeyPattern;
 
 public class Capabilities {
 	private boolean supportTemperature = false;

@@ -1,4 +1,4 @@
-package xy.ai.workbench.tools;
+package xy.ai.workbench.eclipse;
 
 import org.eclipse.search.ui.IQueryListener;
 import org.eclipse.search.ui.ISearchQuery;

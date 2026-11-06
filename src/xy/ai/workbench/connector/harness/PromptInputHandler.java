@@ -6,15 +6,15 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.eclipse.swt.widgets.Display;
 import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.ActiveEditorListener.Selection;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.InputMode;
+import xy.ai.workbench.api.IExecutor;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallEditCommand;
 import xy.ai.workbench.commands.Command;
 import xy.ai.workbench.commands.CommandRegistry;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.InputMode;
 import xy.ai.workbench.editor.md.AbstractRule;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 
@@ -88,9 +88,9 @@ public class PromptInputHandler {
     return result.toString();
   }
 
-  public Prompt buildPrompt(Display display, boolean batch) {
+  public Prompt buildPrompt(IExecutor exec, boolean batch) {
     PromptArguments arg = new PromptArguments();
-    display.syncExec(() -> {
+    exec.syncExec(() -> {
       arg.setEditor(editorListener.getLastTextEditor());
       arg.absoluteFilePath = editorListener.resolveAbsoluteFilePath();
       arg.project = editorListener.resolveProjectPath();

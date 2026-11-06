@@ -29,17 +29,17 @@ import org.eclipse.ui.part.ViewPart;
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.ActiveEditorListener;
-import xy.ai.workbench.AgentProfile;
-import xy.ai.workbench.CacheMode;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.claudecode.CCSession;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
 import xy.ai.workbench.connector.claudecode.CCSessionParameters;
 import xy.ai.workbench.connector.claudecode.SessionState;
+import xy.ai.workbench.core.AgentProfile;
+import xy.ai.workbench.core.CacheMode;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.InputMode;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Reasoning;
 import xy.ai.workbench.view.ActionManager.ActionDescription;
-import xy.ai.workbench.InputMode;
 
 /**
  * Eclipse ViewPart that displays active Claude Code CLI sessions in real time.
@@ -103,7 +103,7 @@ public class ClaudeCodeSessionView extends ViewPart {
   @Override
   public void createPartControl(Composite parent) {
     sessionManager = Activator.getDefault().ccSessionManager;
-    cfg = Activator.getDefault().cfg;
+    cfg = Activator.getDefault().cma.getManager();
     parent.setLayout(new FillLayout());
     // Table composite
     Composite tableComp = new Composite(parent, SWT.NONE);

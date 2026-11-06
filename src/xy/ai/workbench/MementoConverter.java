@@ -7,6 +7,10 @@ import org.eclipse.ui.IMemento;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.SessionConfig;
+
 /**
  * (De)serializes {@link SessionConfig} as a single JSON blob instead of
  * mirroring its structure as a tree of {@link IMemento} children/items. This

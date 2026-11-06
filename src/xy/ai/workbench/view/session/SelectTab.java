@@ -17,8 +17,8 @@ import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.LOG;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.LOG;
 
 /**
  * "Select" tab: toggles system-prompt lines on/off and holds the free-text

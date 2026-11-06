@@ -19,9 +19,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
-import xy.ai.workbench.LOG;
 import xy.ai.workbench.connector.claudecode.JsonUtil;
 import xy.ai.workbench.connector.claudecode.YamlRenderer;
+import xy.ai.workbench.core.LOG;
 
 /**
  * Minimal MCP client over the Streamable-HTTP transport. Connection, session id

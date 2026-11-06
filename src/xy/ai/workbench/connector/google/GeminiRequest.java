@@ -5,7 +5,7 @@ import java.util.List;
 import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
 
-import xy.ai.workbench.Model;
+import xy.ai.workbench.core.Model;
 import xy.ai.workbench.models.AbstractModelRequest;
 
 public class GeminiRequest extends AbstractModelRequest {

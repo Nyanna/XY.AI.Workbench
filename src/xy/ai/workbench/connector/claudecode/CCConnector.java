@@ -7,12 +7,9 @@ import java.util.ArrayList;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
-import xy.ai.workbench.AgentProfile;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model.KeyPattern;
+
+import xy.ai.workbench.api.IMCPCLauncher;
+import xy.ai.workbench.api.IProgress;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.commands.CallEditCommand;
@@ -24,6 +21,9 @@ import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.harness.Role;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
+import xy.ai.workbench.core.AgentProfile;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.connector.harness.IIncludeAdapter;
 import xy.ai.workbench.connector.harness.IncludeProcessor;
 import xy.ai.workbench.models.AIAnswer;
@@ -35,14 +35,15 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   private static final long IDLE_WAIT_MS = 50;
   private final CCRequestBuilder requestBuilder = new CCRequestBuilder();
   private final ProtocolParser jsonParser = new ProtocolParser();
-  private final CCControlClient controlClient = new CCControlClient();
+  private final CCControlClient controlClient;
   private final SessionCallbacks<String> callbacks = new SessionRequestCallbacks();
   private final CCSessionManager sessionManager;
   private final IncludeProcessor<String> includeProcessor;
 
-  public CCConnector(CCSessionManager sessionManager, IIncludeAdapter includeAdapter) {
+  public CCConnector(CCSessionManager sessionManager, IIncludeAdapter includeAdapter, IMCPCLauncher mcpc) {
     this.sessionManager = sessionManager;
     this.includeProcessor = new IncludeProcessor<>(includeAdapter);
+    this.controlClient = new CCControlClient(mcpc);
   }
 
   @Override
@@ -51,8 +52,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   }
 
   @Override
-  public CCRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-    SubMonitor sub = SubMonitor.convert(mon, "Create request", 1);
+  public CCRequest createRequest(Prompt prompt, IProgress mon) {
+	IProgress sub = mon.setTask("Create request", 1);
     Command command = prompt.arg.command;
     String promptText = null;
     if (command == null) {
@@ -65,7 +66,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
       if (promptText.isEmpty())
         throw new IllegalStateException("Prompt text is empty and no command");
     }
-    sub.worked(1);
+    sub.worked();
     String title = promptText == null ? null : promptText.substring(0, Math.min(100, promptText.length())).replace('\n', ' ');
     return new CCRequest(UUID.randomUUID().toString(), title, prompt.config, promptText, prompt.arg);
   }
@@ -79,8 +80,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   }
 
   @Override
-  public CCResponse executeRequest(CCRequest req, IProgressMonitor mon, Job job) {
-    SubMonitor sub = SubMonitor.convert(mon, "Executing prompt", 2);
+  public CCResponse executeRequest(CCRequest req, IProgress mon) {
+	IProgress sub = mon.setTask("Executing prompt", 2);
     CCSession session = null;
     TimeStats ts = new TimeStats();
     ts.start();
@@ -90,13 +91,13 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     params.setTitle(req.title);
     Command command = req.arg.command;
     if (command instanceof ResumeCommand rc) {
-      sub.subTask("Importing session");
+      sub.setTaskName("Importing session");
       sessionManager.importSession(rc.parameter(0), params);
       return new CCResponse(req.id, "Session created");
     }
     if (command instanceof ExitCommand) {
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
-      sub.subTask("Terminating CLI process");
+      sub.setTaskName("Terminating CLI process");
       session.terminate();
       return new CCResponse(req.id, "Session closed!");
     }
@@ -119,7 +120,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
         throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command == null) {
-      sub.subTask("Acquiring session");
+      sub.setTaskName("Acquiring session");
       session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
     } else
       throw new UnsupportedOperationException("Unsupported command: " + command.prefix());
@@ -128,15 +129,15 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
       if (command == null) {
         if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !ts.control(() -> controlClient.isMCPCAvailable()))
           throw new IllegalStateException("MCPC not reachable for AgentProfile");
-        sub.subTask("Sending prompt");
+        sub.setTaskName("Sending prompt");
         String promptJson = requestBuilder.buildPromptJson(req.promptText);
         long t0 = System.nanoTime();
         session.writeLine(promptJson);
         ts.ioMs += (System.nanoTime() - t0) / 1_000_000;
         ts.sent++;
       }
-      sub.subTask("Waiting for answer");
-      return readUntilResult(req, session, sub.split(1), job, ts);
+      sub.setTaskName("Waiting for answer");
+      return readUntilResult(req, session, sub.subProgress(), ts);
     } catch (IOException e) {
       throw new IllegalStateException("Claude Code CLI error", e);
     } finally {
@@ -144,8 +145,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     }
   }
 
-  private CCResponse readUntilResult(CCRequest req, CCSession session, IProgressMonitor mon, Job job, TimeStats ts) throws IOException {
-    SubMonitor sub = SubMonitor.convert(mon, "Reading Claude output", 10000);
+  private CCResponse readUntilResult(CCRequest req, CCSession session, IProgress mon, TimeStats ts) throws IOException {
+	IProgress sub = mon.setTask("Reading Claude output", 10000);
     CCResponse resp = new CCResponse(req.id);
     String line;
     long lastDataAt = System.nanoTime();
@@ -175,8 +176,8 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
           lastDataAt = System.nanoTime();
           ts.received++;
           session.setLastRawLine(line);
-          job.setName(abbreviateForStatus(line));
-          mon.worked(1);
+          IProgress monInner = mon.setTask(abbreviateForStatus(line), 1);
+          monInner.worked();
           jsonParser.parseLine(resp, session, sub, line);
           lastDataAt = System.nanoTime();
         }
@@ -231,7 +232,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   }
 
   @Override
-  public AIAnswer convertResponse(CCResponse resp, IProgressMonitor mon) {
+  public AIAnswer convertResponse(CCResponse resp, IProgress mon) {
     AIAnswer answer = new AIAnswer(resp.id);
     answer.showStats = resp.showStats;
     answer.sessionId = resp.sessionId;

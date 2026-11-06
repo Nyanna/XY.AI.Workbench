@@ -25,7 +25,7 @@ import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.InputMode;
+import xy.ai.workbench.core.InputMode;
 
 public class EditorChangeListener {
 	private SelectionListener selectionListener = new SelectionListener();

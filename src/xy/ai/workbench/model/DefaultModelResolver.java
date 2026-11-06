@@ -3,8 +3,8 @@ package xy.ai.workbench.model;
 import java.util.Arrays;
 import java.util.List;
 
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.KeyPattern;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Model.KeyPattern;
 
 public class DefaultModelResolver implements ModelResolver {
 

@@ -3,13 +3,13 @@ package xy.ai.workbench.connector.harness;
 import java.util.Arrays;
 import java.util.List;
 
-import xy.ai.workbench.AgentProfile;
-import xy.ai.workbench.CacheMode;
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.InputMode;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.OutputMode;
-import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.core.AgentProfile;
+import xy.ai.workbench.core.CacheMode;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.InputMode;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.OutputMode;
+import xy.ai.workbench.core.Reasoning;
 import xy.ai.workbench.tools.Hash;
 
 /**

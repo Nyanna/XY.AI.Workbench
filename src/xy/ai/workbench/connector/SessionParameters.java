@@ -5,11 +5,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import xy.ai.workbench.AgentProfile;
-import xy.ai.workbench.CacheMode;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.harness.FrozenConfig;
+import xy.ai.workbench.core.AgentProfile;
+import xy.ai.workbench.core.CacheMode;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Reasoning;
 import xy.ai.workbench.tools.Hash;
 
 public class SessionParameters {

@@ -2,12 +2,10 @@ package xy.ai.workbench.connector;
 
 import java.util.Collection;
 import java.util.List;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.jobs.Job;
-import xy.ai.workbench.ConfigManager;
+
+import xy.ai.workbench.api.IMCPCLauncher;
+import xy.ai.workbench.api.IProgress;
 import xy.ai.workbench.IncludeAdapter;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.connector.claude.ClaudeBatch;
 import xy.ai.workbench.connector.claude.ClaudeBatchConnector;
@@ -37,6 +35,9 @@ import xy.ai.workbench.connector.openai.OpenAIBatchConnector;
 import xy.ai.workbench.connector.openai.OpenAIConnector;
 import xy.ai.workbench.connector.openai.OpenAIRequest;
 import xy.ai.workbench.connector.openai.OpenAIResponse;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 import xy.ai.workbench.models.IModelResponse;
@@ -57,14 +58,14 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
   private SessionProcessor sessionProcessor;
 
   @SuppressWarnings("unchecked")
-  public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient, IncludeAdapter includeAdapter) {
+  public AdaptingConnector(ConfigManager cfg, CCSessionManager sessionManager, MCPClient mcpClient, IncludeAdapter includeAdapter, IMCPCLauncher mcpc) {
     this.cfg = cfg;
     sessionProcessor = new SessionProcessor<>(includeAdapter);
     batchChad = new OpenAIBatchConnector(cfg, chad = new OpenAIConnector(mcpClient, sessionProcessor));
     batchGemini = new GeminiBatchConnector(cfg, gemini = new GeminiConnector(mcpClient, sessionProcessor));
     batchClaude = new ClaudeBatchConnector(cfg, claude = new ClaudeConnector(mcpClient, sessionProcessor));
     deepseek = new DeepSeekConnector(mcpClient, sessionProcessor);
-    claudeCode = new CCConnector(sessionManager, includeAdapter);
+    claudeCode = new CCConnector(sessionManager, includeAdapter, mcpc);
     mcp = new MCPConnector(mcpClient);
     newBatch = new NewBatchConnector();
   }
@@ -163,24 +164,24 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
   }
 
   @Override
-  public IModelRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+  public IModelRequest createRequest(Prompt prompt, IProgress mon) {
     return getConnector(prompt.config.model).createRequest(prompt, mon);
   }
 
   @Override
-  public List<IAIBatch> updateBatches(IProgressMonitor mon) {
+  public List<IAIBatch> updateBatches(IProgress mon) {
     return getBatchConnector(cfg.getModel()).updateBatches(mon);
   }
 
   @Override
-  public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
+  public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
     return getBatchConnector(cfg.getModel()).submitBatch(entry, mon);
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public IModelResponse executeRequest(IModelRequest request, IProgressMonitor mon, Job job) {
-    return getConnector(request).executeRequest(request, mon, job);
+  public IModelResponse executeRequest(IModelRequest request, IProgress mon) {
+    return getConnector(request).executeRequest(request, mon);
   }
 
   @Override
@@ -190,22 +191,22 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
 
   @SuppressWarnings("unchecked")
   @Override
-  public AIAnswer convertResponse(IModelResponse response, IProgressMonitor mon) {
+  public AIAnswer convertResponse(IModelResponse response, IProgress mon) {
     return getConnector(response).convertResponse(response, mon);
   }
 
   @Override
-  public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
+  public IAIBatch cancelBatch(IAIBatch entry, IProgress mon) {
     return getBatchConnector(entry).cancelBatch(entry, mon);
   }
 
   @Override
-  public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+  public void loadBatch(IAIBatch entry, IProgress mon) {
     getBatchConnector(entry).loadBatch(entry, mon);
   }
 
   @Override
-  public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
+  public void convertAnswers(IAIBatch obj, IProgress mon) {
     getBatchConnector(obj).convertAnswers(obj, mon);
   }
 }

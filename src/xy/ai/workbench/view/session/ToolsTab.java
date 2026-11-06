@@ -12,7 +12,7 @@ import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 
-import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.view.MultiSelectListener;
 
 /** "Tools" tab: multi-select list of tools enabled for the current model. */

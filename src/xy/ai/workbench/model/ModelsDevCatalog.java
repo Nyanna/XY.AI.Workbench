@@ -19,9 +19,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import xy.ai.workbench.Activator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.Capabilities;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.core.Capabilities;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Reasoning;
 
 /**
  * Loads and caches the generic capability catalog from
@@ -131,7 +131,7 @@ public final class ModelsDevCatalog {
 	 * Derives {@link Capabilities} from a models.dev model entry, seeded with the
 	 * given key pattern.
 	 */
-	public Capabilities toCapabilities(xy.ai.workbench.Model.KeyPattern provider, JsonNode node) {
+	public Capabilities toCapabilities(xy.ai.workbench.core.Model.KeyPattern provider, JsonNode node) {
 		Capabilities cap = new Capabilities().key(provider);
 		if (node == null)
 			return cap;

@@ -15,12 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.Tools;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.connector.mcp.MCPClient.IConnectObserver;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Model.KeyPattern;
 
 /**
  * Central, pluggable registry mapping a provider ({@link KeyPattern}) to its

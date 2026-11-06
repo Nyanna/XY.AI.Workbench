@@ -11,7 +11,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import xy.ai.workbench.LOG;
+
+import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.models.TimeStats;
 import xy.ai.workbench.models.TokenStats;
 

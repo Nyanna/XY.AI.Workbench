@@ -1,25 +1,32 @@
-package xy.ai.workbench;
+package xy.ai.workbench.eclipse;
 
 import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 
-public class LOG {
-	public static ILog log;
+import xy.ai.workbench.Activator;
+import xy.ai.workbench.api.ILogging;
 
-	public static void info(String message) {
+public class EclipseLogging implements ILogging {
+	private final ILog log;
+
+	public EclipseLogging(ILog log) {
+		this.log = log;
+	}
+
+	public void info(String message) {
 		log.log(new Status(IStatus.INFO, Activator.PLUGIN_ID, message));
 	}
 
-	public static void info(String message, Throwable throwable) {
+	public void info(String message, Throwable throwable) {
 		log.log(new Status(IStatus.INFO, Activator.PLUGIN_ID, message, throwable));
 	}
 
-	public static void error(String message) {
+	public void error(String message) {
 		log.log(new Status(IStatus.ERROR, Activator.PLUGIN_ID, message));
 	}
 
-	public static void error(String message, Throwable throwable) {
+	public void error(String message, Throwable throwable) {
 		log.log(new Status(IStatus.ERROR, Activator.PLUGIN_ID, message, throwable));
 	}
 }

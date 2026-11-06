@@ -5,9 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
+import xy.ai.workbench.api.IProgress;
 
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.JsonValue;
@@ -29,8 +27,6 @@ import com.openai.models.responses.ResponseUsage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
@@ -38,6 +34,8 @@ import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
 import xy.ai.workbench.connector.harness.SessionProcessor;
 import xy.ai.workbench.connector.mcp.MCPClient;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.models.AIAnswer;
 
 public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIResponse> {
@@ -57,9 +55,9 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public OpenAIRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+	public OpenAIRequest createRequest(Prompt prompt, IProgress mon) {
 		boolean isBackground = false;
-		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+		IProgress sub = mon.setTask("BuildRequest", 1);
 		FrozenConfig fc = prompt.config;
 
 		Builder builder = ResponseCreateParams.builder() //
@@ -100,12 +98,12 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 			appendTools(builder, fc.tools);
 
 		ResponseCreateParams params = builder.build();
-		sub.worked(1);
+		sub.worked();
 		return new OpenAIRequest(params);
 	}
 
 	@Override
-	public OpenAIResponse executeRequest(OpenAIRequest req, IProgressMonitor mon, Job job) {
+	public OpenAIResponse executeRequest(OpenAIRequest req, IProgress mon) {
 		ResponseCreateParams params = ((OpenAIRequest) req).reqquest;
 		boolean isBackground = params.background().orElse(Boolean.FALSE);
 
@@ -128,9 +126,9 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 	}
 
 	@Override
-	public AIAnswer convertResponse(OpenAIResponse response, IProgressMonitor mon) {
+	public AIAnswer convertResponse(OpenAIResponse response, IProgress mon) {
 		Response resp = ((OpenAIResponse) response).response;
-		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
+		IProgress sub = mon.setTask("Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer(resp.safetyIdentifier().orElse("none"));
 		if (resp.usage().isPresent()) {
@@ -190,7 +188,7 @@ public class OpenAIConnector implements IAIConnector<OpenAIRequest, OpenAIRespon
 			}
 			res.answer = answer.toString();
 		}
-		sub.worked(1);
+		sub.worked();
 		return res;
 	}
 

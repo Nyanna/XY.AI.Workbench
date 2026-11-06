@@ -4,98 +4,95 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.jface.viewers.IStructuredContentProvider;
-import org.eclipse.jface.viewers.TableViewer;
-import org.eclipse.swt.widgets.Display;
+import xy.ai.workbench.api.IProgress;
 
 import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.connector.IAIBatchConnector;
 import xy.ai.workbench.models.IModelRequest;
 
-public class AIBatchManager implements IStructuredContentProvider {
+public class AIBatchManager {
 	static final String UNSEND_ID = "New";
 	public static String KEY_REQIDS = "reqIds";
 	private IAIBatchConnector connector;
+	private IBatchListener listener;
 
 	private Map<String, IAIBatch> index = new TreeMap<>();
-	private TableViewer viewer;
 
 	public AIBatchManager(IAIBatchConnector connector) {
 		this.connector = connector;
 	}
-
-	@Override
-	public Object[] getElements(Object inputElement) {
-		return index.values().toArray();
+	
+	public void setListener(IBatchListener listener) {
+		this.listener = listener;
+	}
+	
+	public Map<String, IAIBatch> getIndex() {
+		return index;
 	}
 
-	public void updateBatches(IProgressMonitor mon, boolean updateAll) {
+	public void updateBatches(IProgress mon, boolean updateAll) {
 		List<IAIBatch> updateBatches = connector.updateBatches(mon);
-		SubMonitor sub = SubMonitor.convert(mon, "Update view entry", updateBatches.size());
-		sub.subTask("Update view entries");
+		IProgress sub = mon.setTask("Update view entry", updateBatches.size());
+		sub.setTaskName("Update view entries");
 		for (IAIBatch batch : updateBatches) {
 			if (updateAll)
 				addOrUpdateEntry(batch);
 			else
 				updateEntry(batch);
-			sub.worked(1);
+			sub.worked();
 		}
-		Display.getDefault().asyncExec(() -> viewer.setInput(this));
+		listener.update();
 	}
 
-	public void enqueue(IModelRequest req, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Enqueue request", 1);
-		sub.subTask("Enqueue request");
+	public void enqueue(IModelRequest req, IProgress mon) {
+		IProgress sub = mon.setTask("Enqueue request", 1);
+		sub.setTaskName("Enqueue request");
 		NewBatch unsent = (NewBatch) index.get(UNSEND_ID);
 		if (unsent == null)
 			addOrUpdateEntry(unsent = new NewBatch());
 		unsent.addRequest(req);
 		final IAIBatch toUpdate = unsent;
-		Display.getDefault().syncExec(() -> viewer.refresh(toUpdate, true));
-		Display.getDefault().asyncExec(() -> viewer.setInput(this));
+		listener.update(toUpdate);
 	}
 
-	public void submitBatches(IProgressMonitor mon) {
+	public void submitBatches(IProgress mon) {
 		final NewBatch unsent = (NewBatch) index.get(UNSEND_ID);
 		if (unsent == null || unsent.hasRequests())
 			return;
 
-		SubMonitor sub = SubMonitor.convert(mon, "Submit Batch", 1);
-		IAIBatch res = connector.submitBatch(unsent, sub.split(1));
+		IProgress sub = mon.setTask("Submit Batch", 1);
+		IAIBatch res = connector.submitBatch(unsent, sub.subProgress());
 		addOrUpdateEntry(res);
 
 		unsent.clear();
-		Display.getDefault().syncExec(() -> viewer.refresh(unsent, true));
-		Display.getDefault().asyncExec(() -> viewer.setInput(this));
+		listener.update(unsent);
 	}
 
-	public void cancelBatch(IAIBatch batch, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Cancel Batch", 1);
-		IAIBatch res = connector.cancelBatch(batch, sub.split(1));
+	public void cancelBatch(IAIBatch batch, IProgress mon) {
+		IProgress sub = mon.setTask("Cancel Batch", 1);
+		IAIBatch res = connector.cancelBatch(batch, sub.subProgress());
 		if (res != null) {
-			sub.subTask("Update Batch");
+			sub.setTaskName("Update Batch");
 			batch.updateBy(res);
 			addOrUpdateEntry(batch);
 		}
 	}
 
-	public void removeBatch(IAIBatch batch, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Remove Batch", 1);
+	public void removeBatch(IAIBatch batch, IProgress mon) {
+		IProgress sub = mon.setTask("Remove Batch", 1);
 		index.remove(batch.getID());
-		Display.getDefault().syncExec(() -> viewer.remove(batch));
-		sub.worked(1);
+		listener.remove(batch);
+		sub.worked();
 	}
 
 	private void addOrUpdateEntry(IAIBatch entry) {
 		IAIBatch indexed = index.get(entry.getID());
 		if (indexed == null) {
 			index.put(entry.getID(), entry);
-			Display.getDefault().syncExec(() -> viewer.add(entry));
+			listener.add(entry);
 		} else {
 			indexed.updateBy(entry);
-			Display.getDefault().syncExec(() -> viewer.refresh(indexed, true));
+			listener.update(indexed);
 		}
 	}
 
@@ -103,7 +100,7 @@ public class AIBatchManager implements IStructuredContentProvider {
 		IAIBatch indexed = index.get(entry.getID());
 		if (indexed != null) {
 			indexed.updateBy(entry);
-			Display.getDefault().asyncExec(() -> viewer.refresh(indexed, true));
+			listener.update(indexed);
 		}
 	}
 
@@ -112,7 +109,7 @@ public class AIBatchManager implements IStructuredContentProvider {
 		IAIBatch indexed = index.get(entry.getID());
 		if (indexed == null) {
 			index.put(entry.getID(), entry);
-			Display.getDefault().asyncExec(() -> viewer.add(entry));
+			listener.add(entry);
 		}
 	}
 
@@ -120,20 +117,23 @@ public class AIBatchManager implements IStructuredContentProvider {
 		return connector.requestsToJson(((NewBatch) entry).getRequests());
 	}
 
-	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+	public void loadBatch(IAIBatch entry, IProgress mon) {
 		if (entry.getResult() != null)
 			return;
 
-		SubMonitor sub = SubMonitor.convert(mon, "Load Batch", 1);
-		connector.loadBatch(entry, sub.split(1));
-		Display.getDefault().asyncExec(() -> viewer.refresh(entry, true));
-	}
-
-	public void setViewer(TableViewer viewer) {
-		this.viewer = viewer;
+		IProgress sub = mon.setTask("Load Batch", 1);
+		connector.loadBatch(entry, sub.subProgress());
+		listener.update(entry);
 	}
 
 	public void clearBatches() {
 		index.clear();
+	}
+	
+	public static interface IBatchListener {
+		void update();
+		void update(IAIBatch entry);
+		void add(IAIBatch entry);
+		void remove(IAIBatch entry);
 	}
 }

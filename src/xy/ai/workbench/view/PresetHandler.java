@@ -22,8 +22,9 @@ import org.eclipse.swt.widgets.Shell;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.OutputMode;
+
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.OutputMode;
 
 public class PresetHandler {
   public static final String PROMPT_TXT = ".prompt.txt";

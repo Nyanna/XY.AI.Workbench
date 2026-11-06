@@ -2,7 +2,7 @@ package xy.ai.workbench.model;
 
 import java.util.List;
 
-import xy.ai.workbench.Model;
+import xy.ai.workbench.core.Model;
 
 /**
  * Pluggable model resolution. One resolver instance is responsible for a single

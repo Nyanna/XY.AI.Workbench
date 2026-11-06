@@ -1,0 +1,5 @@
+/.bin/
+/target/
+/bin/
+/.claude/
+/src/xy/ai/workbench/connector/openapi/**/*

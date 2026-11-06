@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.LOG;
+import xy.ai.workbench.core.LOG;
 
 /** File cache for provider HTTP model-list responses, valid for 7 days based on the cache file's last-modified time. */
 public class ModelHttpCache {

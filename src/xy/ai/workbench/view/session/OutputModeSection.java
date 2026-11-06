@@ -10,8 +10,8 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.OutputMode;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.OutputMode;
 
 /** Output mode selector below the system prompt area. */
 public class OutputModeSection {

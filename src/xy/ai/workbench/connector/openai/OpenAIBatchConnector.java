@@ -13,8 +13,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
+import xy.ai.workbench.api.IProgress;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -41,13 +40,13 @@ import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.ResponseCreateParams.Body;
 
-import xy.ai.workbench.ConfigManager;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.BatchState;
 import xy.ai.workbench.batch.NewBatch;
 import xy.ai.workbench.connector.IAIBatch;
 import xy.ai.workbench.connector.IAIBatchConnector;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 
@@ -64,7 +63,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public List<IAIBatch> updateBatches(IProgressMonitor mon) {
+	public List<IAIBatch> updateBatches(IProgress mon) {
 		BatchListParams bparams = BatchListParams.builder() //
 				.limit(100) //
 				.build();
@@ -75,14 +74,14 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public IAIBatch submitBatch(NewBatch entry, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Submit batch", 3);
-		sub.subTask("Convert to JSON");
+	public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
+		IProgress sub = mon.setTask("Submit batch", 3);
+		sub.setTaskName("Convert to JSON");
 		String json = requestsToJson(entry.getRequests());
 		String reqIds = String.join(",", entry.getRequestIDs());
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Write temp file");
+		sub.setTaskName("Write temp file");
 		Path tempFile;
 		try {
 			tempFile = Files.createTempFile("mydata", ".jsonl");
@@ -90,9 +89,9 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		} catch (IOException e) {
 			throw new IllegalStateException(e);
 		}
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Execute request");
+		sub.setTaskName("Execute request");
 		FileCreateParams fileParams = FileCreateParams.builder() //
 				.purpose(FilePurpose.BATCH) //
 				.file(tempFile).build();
@@ -109,12 +108,12 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 				.completionWindow(CompletionWindow._24H) //
 				.build();
 		Batch returned = client.batches().create(batchParams);
-		sub.worked(1);
+		sub.worked();
 		return new OpenAIBatch(returned.id(), returned);
 	}
 
 	@Override
-	public IAIBatch cancelBatch(IAIBatch entry, IProgressMonitor mon) {
+	public IAIBatch cancelBatch(IAIBatch entry, IProgress mon) {
 		if (BatchState.Proccessing.equals(entry.getState())) {
 			Batch batch = client.batches().cancel(entry.getID());
 			return new OpenAIBatch(batch.id(), batch);
@@ -123,13 +122,13 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public void loadBatch(IAIBatch entry, IProgressMonitor mon) {
+	public void loadBatch(IAIBatch entry, IProgress mon) {
 		OpenAIBatch oentry = ((OpenAIBatch) entry);
-		SubMonitor sub = SubMonitor.convert(mon, "Load batch", 3);
-		sub.subTask("Retrieve Batch");
+		IProgress sub = mon.setTask("Load batch", 3);
+		sub.setTaskName("Retrieve Batch");
 		Batch batch = client.batches().retrieve(oentry.getID());
 		oentry.setBatch(batch);
-		sub.worked(1);
+		sub.worked();
 
 		if (batch.errors().isPresent()) {
 			Errors errors = batch.errors().get();
@@ -142,17 +141,17 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 			}
 		}
 
-		sub.subTask("Retrieve Errors");
+		sub.setTaskName("Retrieve Errors");
 		if (oentry.getError() == null && batch.errorFileId().isPresent()) {
 			oentry.setError(getFileAsString(batch.errorFileId().get()));
 		}
-		sub.worked(1);
+		sub.worked();
 
-		sub.subTask("Retrieve Output");
+		sub.setTaskName("Retrieve Output");
 		if (oentry.getResult() == null && batch.outputFileId().isPresent()) {
 			oentry.setResult(getFileAsString(batch.outputFileId().get()));
 		}
-		sub.worked(1);
+		sub.worked();
 	}
 
 	private String getFileAsString(String fileId) {
@@ -203,15 +202,15 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 	}
 
 	@Override
-	public void convertAnswers(IAIBatch obj, IProgressMonitor mon) {
+	public void convertAnswers(IAIBatch obj, IProgress mon) {
 		List<AIAnswer> answ = new ArrayList<>();
 		if (obj.getResult() != null) {
 			String[] split = obj.getResult().split("\n");
-			SubMonitor sub = SubMonitor.convert(mon, "Convert Answers", split.length);
-			sub.subTask("Convert Answers");
+			IProgress sub = mon.setTask("Convert Answers", split.length);
+			sub.setTaskName("Convert Answers");
 			for (String InputJson : split) {
 				answ.add(convertToAnswer(InputJson, mon));
-				sub.worked(1);
+				sub.worked();
 			}
 			sub.done();
 		}
@@ -228,7 +227,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		obj.setAnswers(answ);
 	}
 
-	private AIAnswer convertToAnswer(String bodyJson, IProgressMonitor mon) {
+	private AIAnswer convertToAnswer(String bodyJson, IProgress mon) {
 
 		try {
 			ObjectNode tree = (ObjectNode) ObjectMappers.jsonMapper().readTree(bodyJson);
@@ -247,7 +246,7 @@ public class OpenAIBatchConnector implements IAIBatchConnector {
 		}
 	}
 
-	private AIAnswer convertToAnswer1(String bodyJson, IProgressMonitor mon)
+	private AIAnswer convertToAnswer1(String bodyJson, IProgress mon)
 			throws JsonMappingException, JsonProcessingException {
 		Response resp = ObjectMappers.jsonMapper().readerFor(Response.class).readValue(bodyJson);
 

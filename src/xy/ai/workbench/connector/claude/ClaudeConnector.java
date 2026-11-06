@@ -5,9 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
+import xy.ai.workbench.api.IProgress;
 
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
@@ -22,12 +20,12 @@ import com.anthropic.models.messages.MessageCreateParams.Builder;
 import com.anthropic.models.messages.Metadata;
 import com.anthropic.models.messages.ThinkingConfigEnabled;
 
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
 import xy.ai.workbench.connector.mcp.MCPClient;
-import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.core.Reasoning;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
 import xy.ai.workbench.connector.harness.SessionProcessor;
@@ -50,8 +48,8 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public ClaudeRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+	public ClaudeRequest createRequest(Prompt prompt, IProgress mon) {
+		IProgress sub = mon.setTask("BuildRequest", 1);
 		FrozenConfig fc = prompt.config;
 
 		Builder builder = MessageCreateParams.builder();
@@ -85,7 +83,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 			appendTools(builder, fc.tools);
 
 		MessageCreateParams createParams = builder.build();
-		sub.worked(1);
+		sub.worked();
 		return new ClaudeRequest(createParams);
 	}
 
@@ -113,16 +111,16 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 	}
 
 	@Override
-	public ClaudeResponse executeRequest(ClaudeRequest req, IProgressMonitor mon, Job job) {
+	public ClaudeResponse executeRequest(ClaudeRequest req, IProgress mon) {
 		var client = AnthropicOkHttpClient.builder().apiKey(req.getPrompt().config.keys).build();
 		Message message = client.messages().create(req.params);
 		return new ClaudeResponse(message, req.getID());
 	}
 
 	@Override
-	public AIAnswer convertResponse(ClaudeResponse resp, IProgressMonitor mon) {
+	public AIAnswer convertResponse(ClaudeResponse resp, IProgress mon) {
 		Message msg = resp.response;
-		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
+		IProgress sub = mon.setTask("Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer(resp.id);
 
@@ -148,7 +146,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
 			}
 
 		res.answer = answer.toString();
-		sub.worked(1);
+		sub.worked();
 		return res;
 	}
 }

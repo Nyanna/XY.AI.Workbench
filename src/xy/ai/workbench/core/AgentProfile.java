@@ -1,4 +1,4 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 public enum AgentProfile {
 	basic("default"), author, research, code, python, web_research("web-research"), markdown, code_rw("code-rw"),

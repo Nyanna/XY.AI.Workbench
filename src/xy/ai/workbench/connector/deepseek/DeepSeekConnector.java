@@ -6,9 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.Job;
+import xy.ai.workbench.api.IProgress;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,9 +16,6 @@ import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model.KeyPattern;
-import xy.ai.workbench.Reasoning;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.FrozenConfig;
 import xy.ai.workbench.connector.harness.Prompt;
@@ -61,6 +56,9 @@ import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.Respons
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponseErrorAnyOfPart;
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponseUsage;
 import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.ResponsesCode200Json;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Reasoning;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.connector.harness.Role;
 import xy.ai.workbench.connector.harness.SessionAnswerBuilder;
 import xy.ai.workbench.connector.harness.SessionCallbacks;
@@ -98,8 +96,8 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	}
 
 	@Override
-	public DeepSeekRequest createRequest(Prompt prompt, IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "BuildRequest", 1);
+	public DeepSeekRequest createRequest(Prompt prompt, IProgress mon) {
+		IProgress sub = mon.setTask("BuildRequest", 1);
 		FrozenConfig fc = prompt.config;
 
 		ObjectMapper mapper = new ObjectMapper();
@@ -149,7 +147,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		if (input.size() > 0)
 			part.setInput(new OneOfInput(input));
 
-		sub.worked(1);
+		sub.worked();
 		return new DeepSeekRequest(requestBody, reqId);
 	}
 
@@ -252,7 +250,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	}
 
 	@Override
-	public DeepSeekResponse executeRequest(DeepSeekRequest req, IProgressMonitor mon, Job job) {
+	public DeepSeekResponse executeRequest(DeepSeekRequest req, IProgress mon) {
 		var client = new ResponsesClientImpl(BASE_URL) {
 			@Override
 			protected void customizeRequest(HttpRequest.Builder builder) {
@@ -264,9 +262,9 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 	}
 
 	@Override
-	public AIAnswer convertResponse(DeepSeekResponse response, IProgressMonitor mon) {
+	public AIAnswer convertResponse(DeepSeekResponse response, IProgress mon) {
 		Responses resp = response.response;
-		SubMonitor sub = SubMonitor.convert(mon, "Convert Respone", 1);
+		IProgress sub = mon.setTask("Convert Respone", 1);
 
 		AIAnswer res = new AIAnswer(response.id);
 
@@ -274,7 +272,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 			String body = resp.body();
 			LOG.error("Deepseek request failed: HTTP " + resp.statusCode() + (body.isEmpty() ? "" : " - " + body));
 			res.answer = "HTTP " + resp.statusCode() + (body.isEmpty() ? "" : ": " + body);
-			sub.worked(1);
+			sub.worked();
 			return res;
 		}
 
@@ -282,7 +280,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 		if (code200 == null || !code200.isJson()) {
 			LOG.error(
 					"Unexpected Deepseek response content type: " + (code200 == null ? "none" : code200.contentType()));
-			sub.worked(1);
+			sub.worked();
 			return res;
 		}
 
@@ -361,7 +359,7 @@ public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeek
 				}
 			res.answer = answer.toString();
 		}
-		sub.worked(1);
+		sub.worked();
 		return res;
 	}
 }

@@ -31,7 +31,8 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import xy.ai.workbench.connector.harness.IIncludeAdapter;
-import xy.ai.workbench.tools.AbstractQueryListener;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.eclipse.AbstractQueryListener;
 
 public class IncludeAdapter implements IIncludeAdapter {
   public static final String CONTEXT_PROMPT_TXT = "context.prompt.txt";

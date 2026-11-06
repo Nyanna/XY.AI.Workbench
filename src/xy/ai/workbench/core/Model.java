@@ -1,7 +1,9 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+
+import xy.ai.workbench.Tools;
 
 public class Model {
 

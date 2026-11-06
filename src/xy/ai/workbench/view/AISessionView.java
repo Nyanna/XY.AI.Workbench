@@ -10,8 +10,9 @@ import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.eclipse.EclipseExecutor;
 import xy.ai.workbench.connector.harness.PromptHandler;
+import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.view.session.ActionButtonsSection;
 import xy.ai.workbench.view.session.InstructionSection;
 import xy.ai.workbench.view.session.OutputModeSection;
@@ -29,13 +30,13 @@ public class AISessionView extends ViewPart {
 	@Override
 	public void saveState(IMemento memento) {
 		super.saveState(memento);
-		Activator.getDefault().cfg.saveConfig(memento);
+		Activator.getDefault().cma.saveConfig(memento);
 	}
 
 	@Override
 	public void init(IViewSite site, IMemento memento) throws PartInitException {
 		super.init(site, memento);
-		Activator.getDefault().cfg.loadConfig(memento);
+		Activator.getDefault().cma.loadConfig(memento);
 	}
 
 	@Override
@@ -43,7 +44,7 @@ public class AISessionView extends ViewPart {
 		FormToolkit toolkit = new FormToolkit(parent.getDisplay());
 		ScrolledForm form = toolkit.createScrolledForm(parent);
 		Activator act = Activator.getDefault();
-		ConfigManager cfg = act.cfg;
+		ConfigManager cfg = act.cma.getManager();
 		PromptHandler prompt = act.promptHandler;
 
 		Composite body = form.getBody();
@@ -53,7 +54,7 @@ public class AISessionView extends ViewPart {
 		new InstructionSection(toolkit, () -> form.reflow(true)).create(body, cfg, prompt, getSite().getShell());
 		OutputModeSection.create(toolkit, body, cfg);
 		ActionButtonsSection.create(body, cfg, prompt);
-		UsageLogSection.create(toolkit, body, prompt, parent.getDisplay());
+		UsageLogSection.create(toolkit, body, prompt, new EclipseExecutor());
 
 		prompt.initializeInputs();
 

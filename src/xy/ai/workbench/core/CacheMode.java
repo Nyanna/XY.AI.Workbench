@@ -1,4 +1,4 @@
-package xy.ai.workbench;
+package xy.ai.workbench.core;
 
 public enum CacheMode {
 	Default, Disabled, Minutes_5, Minutes_30, Hours_1;

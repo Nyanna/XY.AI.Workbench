@@ -2,14 +2,12 @@ package xy.ai.workbench.connector.mcp;
 
 import java.util.UUID;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.jobs.Job;
+import xy.ai.workbench.api.IProgress;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.Model.KeyPattern;
 import xy.ai.workbench.commands.CallCommand;
 import xy.ai.workbench.commands.CallEditCommand;
 import xy.ai.workbench.commands.Command;
@@ -17,6 +15,7 @@ import xy.ai.workbench.commands.ExitCommand;
 import xy.ai.workbench.commands.ToolCommand;
 import xy.ai.workbench.connector.IAIConnector;
 import xy.ai.workbench.connector.harness.Prompt;
+import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
@@ -33,7 +32,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	}
 
 	@Override
-	public MCPRequest createRequest(Prompt prompt, IProgressMonitor mon) {
+	public MCPRequest createRequest(Prompt prompt, IProgress mon) {
 		Command command = prompt.arg.command;
 		if (!(command instanceof ExitCommand) && !(command instanceof ToolCommand) && !(command instanceof CallCommand)
 				&& !(command instanceof CallEditCommand))
@@ -44,7 +43,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	}
 
 	@Override
-	public MCPResponse executeRequest(MCPRequest req, IProgressMonitor mon, Job job) {
+	public MCPResponse executeRequest(MCPRequest req, IProgress mon) {
 		if (req.command instanceof ExitCommand) {
 			client.close();
 			return new MCPResponse(req.id, "MCP connection closed");
@@ -82,7 +81,7 @@ public class MCPConnector implements IAIConnector<MCPRequest, MCPResponse> {
 	}
 
 	@Override
-	public AIAnswer convertResponse(MCPResponse resp, IProgressMonitor mon) {
+	public AIAnswer convertResponse(MCPResponse resp, IProgress mon) {
 		AIAnswer answer = new AIAnswer(resp.id);
 		answer.answer = resp.resultText;
 		answer.showStats = false;

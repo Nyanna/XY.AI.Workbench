@@ -6,8 +6,10 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 
-import xy.ai.workbench.ConfigManager;
+import xy.ai.workbench.eclipse.EclipseExecutor;
 import xy.ai.workbench.connector.harness.PromptHandler;
+import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.api.IExecutor;
 
 /** Prompt/Enqueue/Batch action buttons. */
 public class ActionButtonsSection {
@@ -15,19 +17,20 @@ public class ActionButtonsSection {
 	public static void create(Composite body, ConfigManager cfg, PromptHandler prompt) {
 		Composite actions = new Composite(body, SWT.NONE);
 		actions.setLayout(new GridLayout(3, false));
+		IExecutor exec = new EclipseExecutor();
 
 		Button btn = new Button(actions, SWT.PUSH);
 		btn.setText("Prompt");
-		btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> prompt.execute(btn.getDisplay())));
+		btn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> prompt.execute(exec)));
 
 		Button bbtn = new Button(actions, SWT.PUSH);
 		bbtn.setText("Enqueue");
-		bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> prompt.queueAsync(bbtn.getDisplay())));
+		bbtn.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> prompt.queueAsync(exec)));
 
 		Button bsbtn = new Button(actions, SWT.PUSH);
 		bsbtn.setText("Batch");
 		bsbtn.addSelectionListener(
-				SelectionListener.widgetSelectedAdapter(e -> prompt.queueAndSubmit(bsbtn.getDisplay())));
+				SelectionListener.widgetSelectedAdapter(e -> prompt.queueAndSubmit(exec)));
 
 		cfg.addModelObs(m -> {
 			boolean hasBatch = m.cap.isSupportBatch();

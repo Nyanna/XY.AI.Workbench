@@ -4,16 +4,16 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
+import xy.ai.workbench.api.IExecutor;
 import xy.ai.workbench.connector.harness.PromptHandler;
 
 /** Rolling CSV log of token usage per answer. */
 public class UsageLogSection {
 
-	public static void create(FormToolkit toolkit, Composite body, PromptHandler prompt, Display display) {
+	public static void create(FormToolkit toolkit, Composite body, PromptHandler prompt, IExecutor exec) {
 		Composite footer = new Composite(body, SWT.NONE);
 		footer.setLayout(new GridLayout(1, false));
 		footer.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -25,7 +25,7 @@ public class UsageLogSection {
 		usageLog.setLayoutData(gridData);
 
 		prompt.addAnswerObs(a -> {
-			display.asyncExec(() -> {
+			exec.asyncExec(() -> {
 				if (a != null && a.stats.inputToken > 0) {
 					String text = usageLog.getText();
 					if (text == null || text.isEmpty())

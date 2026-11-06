@@ -12,11 +12,11 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import xy.ai.workbench.Capabilities;
-import xy.ai.workbench.LOG;
-import xy.ai.workbench.Model;
-import xy.ai.workbench.Model.KeyPattern;
-import xy.ai.workbench.Reasoning;
+import xy.ai.workbench.core.Capabilities;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.core.Model;
+import xy.ai.workbench.core.Reasoning;
+import xy.ai.workbench.core.Model.KeyPattern;
 
 /**
  * Resolves mainstream chat models currently available for a Deepseek API key.

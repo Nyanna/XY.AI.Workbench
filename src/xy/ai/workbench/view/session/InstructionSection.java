@@ -7,8 +7,9 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.ui.forms.widgets.FormToolkit;
-import xy.ai.workbench.ConfigManager;
+
 import xy.ai.workbench.connector.harness.PromptHandler;
+import xy.ai.workbench.core.ConfigManager;
 
 /**
  * "System Prompt" area: Select/Edit/Tools/Presets tabs plus the input-mode

@@ -6,15 +6,14 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.SubMonitor;
+import xy.ai.workbench.api.IProgress;
+import xy.ai.workbench.core.AgentProfile;
+import xy.ai.workbench.core.LOG;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 
-import xy.ai.workbench.AgentProfile;
 import xy.ai.workbench.EditorInterface;
-import xy.ai.workbench.LOG;
 import xy.ai.workbench.models.TokenStats;
 
 public class ProtocolParser {
@@ -26,7 +25,7 @@ public class ProtocolParser {
 
 	private final HookParser postProcessor = new HookParser();
 
-	public void parseLine(CCResponse resp, CCSession session, SubMonitor sub, String line) {
+	public void parseLine(CCResponse resp, CCSession session, IProgress sub, String line) {
 		JsonNode node;
 		try {
 			node = JsonUtil.readTree(line);
@@ -39,15 +38,15 @@ public class ProtocolParser {
 		String type = JsonUtil.plainText(node.path("type"));
 		try {
 			if ("result".equals(type)) {
-				sub.subTask("Received final result");
+				sub.setTaskName("Received final result");
 				parseResult(resp, node);
 			} else if ("tool_use".equals(type)) {
-				sub.subTask("Received tool use request");
+				sub.setTaskName("Received tool use request");
 				parseToolUse(resp, node);
 			} else if ("system".equals(type)) {
 				String subtype = JsonUtil.plainText(node.path("subtype"));
 				if ("init".equals(subtype)) {
-					sub.subTask("Received system init metadata");
+					sub.setTaskName("Received system init metadata");
 					parseSystemInitEvent(resp, node);
 					updateLastParsedMessage(resp, session);
 				}
@@ -61,7 +60,7 @@ public class ProtocolParser {
 				parseRateLimitEvent(node);
 			} else if ("assistant".equals(type)) {
 				boolean recordToolUse = !AgentProfile.MCPC.equals(session.getParameters().agentProfile);
-				parseAssistantEvents(node, resp, true, recordToolUse, sub.split(1));
+				parseAssistantEvents(node, resp, true, recordToolUse, sub.subProgress());
 				updateLastParsedMessage(resp, session);
 			}
 		} catch (Exception ex) {
@@ -146,8 +145,8 @@ public class ProtocolParser {
 	}
 
 	private void parseAssistantEvents(JsonNode node, CCResponse resp, boolean recordText, boolean recordToolUse,
-			IProgressMonitor mon) {
-		SubMonitor sub = SubMonitor.convert(mon, "Received Claude message", 1);
+			IProgress mon) {
+		IProgress sub = mon.setTask("Received Claude message", 1);
 
 		JsonNode content = node.path("message").path("content");
 		if (content.isArray())
@@ -160,7 +159,7 @@ public class ProtocolParser {
 						text = block.path("text").asText("");
 					if (!text.isEmpty())
 						resp.events.putIfAbsent("thinking\0" + text, EditorInterface.THINKING + "\n" + text);
-					sub.subTask("Claude is thinking");
+					sub.setTaskName("Claude is thinking");
 				} else if (recordText && "text".equals(blockType)) {
 					String text = block.path("text").asText("");
 					if (!text.isEmpty())
@@ -181,11 +180,11 @@ public class ProtocolParser {
 					}
 					if (!text.isEmpty()) {
 						resp.events.putIfAbsent("tool\0" + text, EditorInterface.TOOLUSE + text);
-						sub.subTask("Claude uses tool: " + toolName);
+						sub.setTaskName("Claude uses tool: " + toolName);
 					}
 				}
 			}
-		sub.worked(1);
+		sub.worked();
 	}
 
 	private void collectMessageDeltaEvent(CCResponse resp, JsonNode node) {

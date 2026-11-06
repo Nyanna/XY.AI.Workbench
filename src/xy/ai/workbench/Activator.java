@@ -10,6 +10,10 @@ import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.connector.claudecode.CCSessionManager;
 import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.connector.mcp.MCPClient;
+import xy.ai.workbench.core.LOG;
+import xy.ai.workbench.eclipse.ConfigManagerAdapter;
+import xy.ai.workbench.eclipse.EclipseLogging;
+import xy.ai.workbench.eclipse.EclipseMCPCLaucher;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -23,21 +27,21 @@ public class Activator extends AbstractUIPlugin {
 	private final MCPClient mcpClient = new MCPClient();
 	public final ActiveEditorListener editorListener = new ActiveEditorListener();
 	public final CCSessionManager ccSessionManager = new CCSessionManager();
-	public final ConfigManager cfg = new ConfigManager(mcpClient, editorListener);
+	public final ConfigManagerAdapter cma = new ConfigManagerAdapter(editorListener, mcpClient);
 	private final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
-	private final AdaptingConnector connector = new AdaptingConnector(cfg, ccSessionManager, mcpClient, includeAdapter);
+	private final AdaptingConnector connector = new AdaptingConnector(cma.getManager(), ccSessionManager, mcpClient, includeAdapter, new EclipseMCPCLaucher());
 	public final AIBatchManager batch = new AIBatchManager(connector);
 	public final AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
-	public final EditorInterface editorInterface = new EditorInterface(cfg, editorListener, connector);
-	public final PromptHandler promptHandler = new PromptHandler(cfg, editorListener, connector, batch, editorInterface,
+	public final EditorInterface editorInterface = new EditorInterface(cma.getManager(), editorListener, connector);
+	public final PromptHandler promptHandler = new PromptHandler(cma.getManager(), editorListener, connector, batch, editorInterface,
 			includeAdapter);
 
 	@Override
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
+		LOG.log = new EclipseLogging(Platform.getLog(context.getBundle()));
 		editorInterface.register(context);
-		LOG.log = Platform.getLog(context.getBundle());
 	}
 
 	@Override
