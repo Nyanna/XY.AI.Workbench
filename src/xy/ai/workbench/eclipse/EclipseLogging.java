@@ -5,7 +5,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 
 import xy.ai.workbench.Activator;
-import xy.ai.workbench.api.ILogging;
+import xy.ai.workbench.api.ext.ILogging;
 
 public class EclipseLogging implements ILogging {
 	private final ILog log;

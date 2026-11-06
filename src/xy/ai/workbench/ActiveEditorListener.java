@@ -31,13 +31,14 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.IDocumentProvider;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import xy.ai.workbench.api.IActiveEditor;
 import xy.ai.workbench.core.InputMode;
 import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.editor.AISessionEditor;
 import xy.ai.workbench.editor.EditorChangeListener;
 import xy.ai.workbench.view.PartListener2Adapter;
 
-public class ActiveEditorListener extends PartListener2Adapter implements IPartListener2 {
+public class ActiveEditorListener extends PartListener2Adapter implements IPartListener2, IActiveEditor {
 	private final EditorChangeListener editorListener = new EditorChangeListener();
 	private boolean initialized;
 
@@ -65,6 +66,7 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 		}
 	}
 
+	@Override
 	public ITextEditor getLastTextEditor() {
 		checkInitBindings();
 		return editorListener.getLastTextEditor();
@@ -111,9 +113,7 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 		return file != null ? file.getParent() : ResourcesPlugin.getWorkspace().getRoot();
 	}
 
-	public record Selection(String[] selection, Integer cursorOffset) {
-	}
-
+	@Override
 	public Selection getSelection() {
 		ITextSelection tsel = getLastEditorSelection();
 		if (tsel != null && !tsel.isEmpty() && tsel.getLength() > 1)
@@ -132,6 +132,7 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 		return null;
 	}
 
+	@Override
 	public String resolveAbsoluteFilePath() {
 		IFile file = getLastEditorFile();
 		if (file != null)
@@ -142,11 +143,13 @@ public class ActiveEditorListener extends PartListener2Adapter implements IPartL
 		return null;
 	}
 
+	@Override
 	public Path resolveProjectPath() {
 		IFile file = getLastEditorFile();
 		return file != null ? Paths.get(file.getProject().getLocation().toOSString()) : null;
 	}
 
+	@Override
 	public Selection getFileContent() {
 		ITextEditor textEditor = getLastTextEditor();
 		IDocumentProvider provider;

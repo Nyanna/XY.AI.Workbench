@@ -6,9 +6,9 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
-import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.core.InputMode;
+import xy.ai.workbench.view.InputStats;
 
 /**
  * Checkbox table showing/enabling the available prompt input modes.
@@ -16,7 +16,7 @@ import xy.ai.workbench.core.InputMode;
 public class InputsTable implements InputSelection {
   private ConfigManager cfg;
 
-  public void create(Composite middle, ConfigManager cfg, PromptHandler prompt) {
+  public void create(Composite middle, ConfigManager cfg, InputStats stats) {
     this.cfg = cfg;
     Table table = new Table(middle, SWT.CHECK | SWT.BORDER | SWT.V_SCROLL);
     table.setHeaderVisible(true);
@@ -40,7 +40,7 @@ public class InputsTable implements InputSelection {
     for (int i = 0; i < InputMode.values().length; i++) {
       TableItem item = new TableItem(table, SWT.NONE);
       InputMode mode = InputMode.values()[i];
-      prompt.addInputStatObs(is -> {
+      stats.addInputStatObs(is -> {
         var checked = item.getChecked();
         item.setText(new String[] { "", mode.name().replace("_", " "), is[mode.ordinal()] + "" });
         item.setChecked(checked);

@@ -26,6 +26,7 @@ import xy.ai.workbench.view.session.UsageLogSection;
 public class AISessionView extends ViewPart {
 
 	public static final String ID = "xy.ai.workbench.view.AISessionView";
+	private InputStats inputStats;
 
 	@Override
 	public void saveState(IMemento memento) {
@@ -51,12 +52,14 @@ public class AISessionView extends ViewPart {
 		body.setLayout(new GridLayout());
 
 		new ModelParametersSection(toolkit).create(body, cfg);
-		new InstructionSection(toolkit, () -> form.reflow(true)).create(body, cfg, prompt, getSite().getShell());
+		inputStats = new InputStats(cfg, act.editorListener);
+		new InstructionSection(toolkit, () -> form.reflow(true)).create(body, cfg, inputStats, getSite().getShell());
 		OutputModeSection.create(toolkit, body, cfg);
 		ActionButtonsSection.create(body, cfg, prompt);
 		UsageLogSection.create(toolkit, body, prompt, new EclipseExecutor());
 
-		prompt.initializeInputs();
+		inputStats.initializeInputs();
+		act.includeAdapter.initializeBindings();
 
 		form.reflow(true);
 	}

@@ -8,8 +8,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
-import xy.ai.workbench.connector.harness.PromptHandler;
 import xy.ai.workbench.core.ConfigManager;
+import xy.ai.workbench.view.InputStats;
 
 /**
  * "System Prompt" area: Select/Edit/Tools/Presets tabs plus the input-mode
@@ -30,7 +30,7 @@ public class InstructionSection {
     this.editTab = new EditTab(toolkit, guard, reflow);
   }
 
-  public void create(Composite body, ConfigManager cfg, PromptHandler prompt, Shell shell) {
+  public void create(Composite body, ConfigManager cfg, InputStats stats, Shell shell) {
     Composite middle = new Composite(body, SWT.NONE);
     middle.setLayout(new GridLayout(1, false));
     GridData ldat2 = new GridData(SWT.FILL, SWT.FILL, true, true);
@@ -50,7 +50,7 @@ public class InstructionSection {
     selectTab.create(instr, cfg);
     editTab.create(instr, cfg);
     toolsTab.create(instr, cfg);
-    inputsTable.create(middle, cfg, prompt);
+    inputsTable.create(middle, cfg, stats);
     presetsTab.create(instr, cfg, shell, toolsTab, selectTab, inputsTable);
   }
 }

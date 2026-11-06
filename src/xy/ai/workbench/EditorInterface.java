@@ -11,7 +11,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
 
-import xy.ai.workbench.api.IProgress;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
@@ -25,25 +24,27 @@ import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
 
 import xy.ai.workbench.api.IExecutor;
+import xy.ai.workbench.api.IExecutor.IProgress;
 import xy.ai.workbench.connector.AdaptingConnector;
 import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.core.OutputMode;
+import xy.ai.workbench.editor.IEditorInterface;
 import xy.ai.workbench.core.Model.KeyPattern;
 import xy.ai.workbench.marker.MarkerRessourceScanner;
 import xy.ai.workbench.models.AIAnswer;
 import xy.ai.workbench.models.IModelRequest;
 
-public class EditorInterface {
-	public static final String USER = "User:";
-	public static final String AGENT = "Agent:";
+public class EditorInterface implements IEditorInterface{
+	public static final String USER = IEditorInterface.USER;
+	public static final String AGENT = IEditorInterface.AGENT;
 
-	public static final String TEXT = "Text:";
-	public static final String THINKING = "Thinking:";
-	public static final String THINKING_META = "Thinking Meta:";
-	public static final String TOOLUSE = "Tool:";
-	public static final String TOOLRESULT = "ToolResult:";
-	public static final String CONTROL_REQUEST = "Control Request:";
+	public static final String TEXT = IEditorInterface.TEXT;
+	public static final String THINKING = IEditorInterface.THINKING;
+	public static final String THINKING_META = IEditorInterface.THINKING_META;
+	public static final String TOOLUSE = IEditorInterface.TOOLUSE;
+	public static final String TOOLRESULT = IEditorInterface.TOOLRESULT;
+	public static final String CONTROL_REQUEST = IEditorInterface.CONTROL_REQUEST;
 
 	private final ConfigManager cfg;
 	private final ActiveEditorListener editorListener;
@@ -68,6 +69,7 @@ public class EditorInterface {
 		markerScanner = null;
 	}
 
+	@Override
 	public void insertTag(IExecutor exec, IModelRequest req, IProgress mon) {
 		exec.syncExec(() -> {
 			OutputMode outputMode = req.getPrompt().config.outputMode;
@@ -137,9 +139,10 @@ public class EditorInterface {
 
 	private String generateTag(IModelRequest req) {
 		KeyPattern pattern = connector.getConnector(req).getSupportedKeyPattern();
-		return MarkerRessourceScanner.getPromptTag(pattern.name(), req.getID());
+		return IEditorInterface.getPromptTag(pattern.name(), req.getID());
 	}
 
+	@Override
 	public void replaceTag(AIAnswer ans, IProgress mon) {
 		OutputMode mode = ans.prompt != null ? ans.prompt.config.outputMode : null;
 		if (ans.showStats && (OutputMode.Chat.equals(mode) || OutputMode.Append.equals(mode)))

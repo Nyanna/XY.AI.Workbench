@@ -6,7 +6,6 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import xy.ai.workbench.api.IExecutor;
-import xy.ai.workbench.api.IMonitoredRunnable;
 
 public class EclipseExecutor implements IExecutor {
 

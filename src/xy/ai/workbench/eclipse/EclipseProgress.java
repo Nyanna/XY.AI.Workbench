@@ -3,7 +3,7 @@ package xy.ai.workbench.eclipse;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.SubMonitor;
 
-import xy.ai.workbench.api.IProgress;
+import xy.ai.workbench.api.IExecutor.IProgress;
 
 public class EclipseProgress implements IProgress {
 

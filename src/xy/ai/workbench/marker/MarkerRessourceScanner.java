@@ -48,11 +48,10 @@ import xy.ai.workbench.core.ConfigManager;
 import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.core.OutputMode;
 import xy.ai.workbench.editor.AISessionEditor;
+import xy.ai.workbench.editor.IEditorInterface;
 import xy.ai.workbench.models.AIAnswer;
 
 public class MarkerRessourceScanner implements IResourceChangeListener, IResourceDeltaVisitor {
-  private static final String AIREQ_PREFIX = "xy.ai.req";
-  private static final Pattern PROMPT_TAG_PATTERN = Pattern.compile("\\[" + AIREQ_PREFIX + ":(.*):(.*)\\]", Pattern.CASE_INSENSITIVE);
   private static final String MARKER_ID = "xy.ai.workbench.promptmarker";
   private static final String MARKER_REQ_ID_ATTR = "requestId";
   private static final String MARKER_OFF_ID_ATTR = "offset";
@@ -63,7 +62,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
   public MarkerRessourceScanner(ConfigManager cfg, BundleContext context) {
     this.cfg = cfg;
     ResourcesPlugin.getWorkspace().addResourceChangeListener(this, IResourceChangeEvent.POST_CHANGE);
-    pattern = Pattern.compile("\\[" + AIREQ_PREFIX + ":(.*):(.*)\\]", Pattern.CASE_INSENSITIVE);
+    pattern = Pattern.compile("\\[" + IEditorInterface.AIREQ_PREFIX + ":(.*):(.*)\\]", Pattern.CASE_INSENSITIVE);
   }
 
   public void dispose(BundleContext context) {
@@ -459,13 +458,5 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
       }
     }
     return editors;
-  }
-
-  public static String getPromptTag(String meta, String id) {
-    return String.format("[%s:%s:%s]", AIREQ_PREFIX, meta, id);
-  }
-
-  public static boolean containsPromptTag(String line) {
-    return line != null && PROMPT_TAG_PATTERN.matcher(line).find();
   }
 }

@@ -8,7 +8,8 @@ import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationType;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
 import org.eclipse.debug.core.ILaunchManager;
-import xy.ai.workbench.api.IMCPCLauncher;
+
+import xy.ai.workbench.api.ext.IMCPCLauncher;
 import xy.ai.workbench.core.LOG;
 
 public class EclipseMCPCLaucher implements IMCPCLauncher {

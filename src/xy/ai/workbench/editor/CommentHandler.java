@@ -8,8 +8,6 @@ import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import xy.ai.workbench.editor.md.AbstractRule;
-
 public class CommentHandler extends AbstractHandler {
 	@Override
 	public Object execute(ExecutionEvent event) throws ExecutionException {
@@ -28,10 +26,10 @@ public class CommentHandler extends AbstractHandler {
 				int lineOffset = doc.getLineOffset(i);
 				String line = doc.get(lineOffset, doc.getLineLength(i));
 
-				if (line.trim().startsWith(AbstractRule.LINE_COMMENT))
-					doc.replace(lineOffset + line.indexOf(AbstractRule.LINE_COMMENT), 2, "");
+				if (line.trim().startsWith(IEditorInterface.LINE_COMMENT))
+					doc.replace(lineOffset + line.indexOf(IEditorInterface.LINE_COMMENT), 2, "");
 				else
-					doc.replace(lineOffset, 0, AbstractRule.LINE_COMMENT);
+					doc.replace(lineOffset, 0, IEditorInterface.LINE_COMMENT);
 			}
 		} catch (Exception e) {
 			throw new ExecutionException("Failed to toggle comment", e);

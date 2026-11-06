@@ -8,7 +8,6 @@ import org.eclipse.jface.text.rules.Token;
 import xy.ai.workbench.tools.Scanner;
 
 public abstract class AbstractRule implements IRule {
-	public static final String LINE_COMMENT = "#:";
 	private IToken token = Token.UNDEFINED;
 
 	private boolean docStart;

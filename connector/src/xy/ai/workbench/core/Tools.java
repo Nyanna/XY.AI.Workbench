@@ -1,0 +1,18 @@
+package xy.ai.workbench.core;
+
+public class Tools {
+	private static String toolList = //
+			"ask_user,tools," // top
+					+ "file_stats,read_file,list,grep,search," // retrieve
+					+ "write,edit_marks,edit_line,edit_block,edit_lines," // edit tools
+					+ "ast,ast_read,ast_create,ast_delete,ast_edit_block,ast_edit_marks,ast_find,ast_insert,ast_outline,ast_replace,ast_validate, ast_script," // python ast
+					+ "bash,python,run_command," // scripting
+					+ "markdown,markdown_format," // Dynamic code tools
+					+ "colgrep,exa," // research cpabilities
+					+ "context7_libraries,context7_documentation," // specialised research
+					+ "openalex_search,openalex_semantic_search,openalex_work," + "edit_chars," // seldom used
+					+ "agt_python,agt_markdown,agt_web_research,agt_github_research," // subagents
+					+ "github_get_file,github_get_tree,github_search_code,github_search_commits," // special github
+					+ "github_search_repos,github_issue_read,github_list_issues,github_search_issues";
+	public static String[] ALL = toolList.split(",");
+}

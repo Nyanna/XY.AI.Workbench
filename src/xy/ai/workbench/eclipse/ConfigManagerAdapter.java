@@ -11,6 +11,7 @@ import org.eclipse.ui.IMemento;
 import org.eclipse.ui.ide.ResourceUtil;
 import xy.ai.workbench.ActiveEditorListener;
 import xy.ai.workbench.MementoConverter;
+import xy.ai.workbench.api.ext.IFileCache;
 import xy.ai.workbench.connector.mcp.MCPClient;
 import xy.ai.workbench.core.AgentProfile;
 import xy.ai.workbench.core.CacheMode;
@@ -31,8 +32,8 @@ public class ConfigManagerAdapter extends ConfigManager{
 	private SessionConfig defaultCfg = new SessionConfig();
 	
 
-	public ConfigManagerAdapter(ActiveEditorListener editorListener, MCPClient mcpClient) {
-		super(mcpClient);
+	public ConfigManagerAdapter(ActiveEditorListener editorListener, MCPClient mcpClient, IFileCache cache) {
+		super(mcpClient, cache);
 		this.cm = this;
 		editorListener.addTextEditorObserver(e -> activateEditor(e));
 	}

@@ -14,6 +14,8 @@ import xy.ai.workbench.core.LOG;
 import xy.ai.workbench.eclipse.ConfigManagerAdapter;
 import xy.ai.workbench.eclipse.EclipseLogging;
 import xy.ai.workbench.eclipse.EclipseMCPCLaucher;
+import xy.ai.workbench.eclipse.EclipseStateCache;
+import xy.ai.workbench.eclipse.GitSupport;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -27,14 +29,14 @@ public class Activator extends AbstractUIPlugin {
 	private final MCPClient mcpClient = new MCPClient();
 	public final ActiveEditorListener editorListener = new ActiveEditorListener();
 	public final CCSessionManager ccSessionManager = new CCSessionManager();
-	public final ConfigManagerAdapter cma = new ConfigManagerAdapter(editorListener, mcpClient);
-	private final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
+	public final ConfigManagerAdapter cma = new ConfigManagerAdapter(editorListener, mcpClient, new EclipseStateCache());
+	public final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
 	private final AdaptingConnector connector = new AdaptingConnector(cma.getManager(), ccSessionManager, mcpClient, includeAdapter, new EclipseMCPCLaucher());
 	public final AIBatchManager batch = new AIBatchManager(connector);
 	public final AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
 	public final EditorInterface editorInterface = new EditorInterface(cma.getManager(), editorListener, connector);
 	public final PromptHandler promptHandler = new PromptHandler(cma.getManager(), editorListener, connector, batch, editorInterface,
-			includeAdapter);
+			new GitSupport());
 
 	@Override
 	public void start(BundleContext context) throws Exception {

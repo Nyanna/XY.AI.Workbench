@@ -42,7 +42,7 @@ import org.eclipse.ui.part.ViewPart;
 import jakarta.inject.Inject;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.api.IExecutor;
-import xy.ai.workbench.api.IProgress;
+import xy.ai.workbench.api.IExecutor.IProgress;
 import xy.ai.workbench.batch.AIBatchManager;
 import xy.ai.workbench.batch.AIBatchManager.IBatchListener;
 import xy.ai.workbench.batch.AIBatchResponseManager;

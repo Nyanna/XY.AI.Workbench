@@ -5,7 +5,7 @@ import java.util.stream.Stream;
 import xy.ai.workbench.EditorInterface;
 import xy.ai.workbench.commands.AnswerCommand;
 import xy.ai.workbench.connector.claudecode.ProtocolParser;
-import xy.ai.workbench.editor.md.AbstractRule;
+import xy.ai.workbench.editor.IEditorInterface;
 import xy.ai.workbench.models.AIAnswer;
 
 /*
@@ -16,7 +16,7 @@ public class Elements {
 
 	public static class Basics {
 		public static final ScriptBlock SCRIPTBLOCK = new ScriptBlock();
-		public static final LineCommentBlock LINE_COMMENT = new LineCommentBlock(AbstractRule.LINE_COMMENT);
+		public static final LineCommentBlock LINE_COMMENT = new LineCommentBlock(IEditorInterface.LINE_COMMENT);
 		public static final Paragraph PARAGRAPH = new Paragraph(NONE); // replaced later
 		public static final AbstractNode[] ALL = of(SCRIPTBLOCK, LINE_COMMENT, PARAGRAPH);
 	}
