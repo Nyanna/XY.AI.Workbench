@@ -26,23 +26,36 @@ public class Activator extends AbstractUIPlugin {
 
 	private static Activator plugin;
 
-	private final MCPClient mcpClient = new MCPClient();
-	public final ActiveEditorListener editorListener = new ActiveEditorListener();
-	public final CCSessionManager ccSessionManager = new CCSessionManager();
-	public final ConfigManagerAdapter cma = new ConfigManagerAdapter(editorListener, mcpClient, new EclipseStateCache());
-	public final IncludeAdapter includeAdapter = new IncludeAdapter(editorListener);
-	private final AdaptingConnector connector = new AdaptingConnector(cma.getManager(), ccSessionManager, mcpClient, includeAdapter, new EclipseMCPCLaucher());
-	public final AIBatchManager batch = new AIBatchManager(connector);
-	public final AIBatchResponseManager batchRequests = new AIBatchResponseManager(connector);
-	public final EditorInterface editorInterface = new EditorInterface(cma.getManager(), editorListener, connector);
-	public final PromptHandler promptHandler = new PromptHandler(cma.getManager(), editorListener, connector, batch, editorInterface,
-			new GitSupport());
+	private MCPClient mcpClient;
+	public ActiveEditorListener editorListener;
+	public CCSessionManager ccSessionManager;
+	public ConfigManagerAdapter cma;
+	public IncludeAdapter includeAdapter;
+	private AdaptingConnector connector;
+	public AIBatchManager batch;
+	public AIBatchResponseManager batchRequests;
+	public EditorInterface editorInterface;
+	public PromptHandler promptHandler;
 
 	@Override
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
 		LOG.log = new EclipseLogging(Platform.getLog(context.getBundle()));
+
+		mcpClient = new MCPClient();
+		editorListener = new ActiveEditorListener();
+		ccSessionManager = new CCSessionManager();
+		cma = new ConfigManagerAdapter(editorListener, mcpClient, new EclipseStateCache());
+		includeAdapter = new IncludeAdapter(editorListener);
+		connector = new AdaptingConnector(cma.getManager(), ccSessionManager, mcpClient, includeAdapter,
+				new EclipseMCPCLaucher());
+		batch = new AIBatchManager(connector);
+		batchRequests = new AIBatchResponseManager(connector);
+		editorInterface = new EditorInterface(cma.getManager(), editorListener, connector);
+		promptHandler = new PromptHandler(cma.getManager(), editorListener, connector, batch, editorInterface,
+				new GitSupport());
+
 		editorInterface.register(context);
 	}
 

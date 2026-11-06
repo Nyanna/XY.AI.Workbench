@@ -34,7 +34,8 @@ public class ConfigManagerAdapter extends ConfigManager{
 
 	public ConfigManagerAdapter(ActiveEditorListener editorListener, MCPClient mcpClient, IFileCache cache) {
 		super(mcpClient, cache);
-		this.cm = this;
+		cm = this;
+		cfg = defaultCfg;
 		editorListener.addTextEditorObserver(e -> activateEditor(e));
 	}
 	

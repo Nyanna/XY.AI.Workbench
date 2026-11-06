@@ -37,8 +37,8 @@ public final class ModelsDevCatalog {
 	private final JsonNode root;
 
 	public ModelsDevCatalog(IFileCache cache) {
-		this.root = load();
 		cacheFile = cache.getFile("models-dev-cache.json").toPath();
+		this.root = load();
 	}
 
 	private JsonNode load() {
