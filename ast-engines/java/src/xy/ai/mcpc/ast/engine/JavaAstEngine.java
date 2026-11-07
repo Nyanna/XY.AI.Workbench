@@ -136,7 +136,20 @@ public final class JavaAstEngine {
   }
 
   public TypeDeclaration<?> parseTypeFragment(String code) {
-    return unwrap(parser.parseTypeDeclaration(code), "type declaration");
+    ParseResult<TypeDeclaration<?>> result = parser.parseTypeDeclaration(code);
+    if (result.isSuccessful() && result.getResult().isPresent())
+      return unwrap(result, "type declaration");
+    // parseTypeDeclaration does not accept records, the compilation unit grammar does
+    ParseResult<CompilationUnit> unit = parser.parse(code);
+    if (unit.isSuccessful() && unit.getResult().isPresent()) {
+      CompilationUnit cu = unit.getResult().get();
+      if (cu.getTypes().size() == 1 && cu.getImports().isEmpty() && cu.getPackageDeclaration().isEmpty()) {
+        TypeDeclaration<?> type = cu.getType(0).clone();
+        unwrapSingleStatementBlocks(type);
+        return type;
+      }
+    }
+    return unwrap(result, "type declaration");
   }
 
   public BodyDeclaration<?> parseBodyFragment(String code) {
