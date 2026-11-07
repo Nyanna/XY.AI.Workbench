@@ -2,4 +2,4 @@
 /target/
 /bin/
 /.claude/
-/src/xy/ai/workbench/connector/openapi/**/*
+/src/xy/ai/conscious/connector/openapi/**/*
