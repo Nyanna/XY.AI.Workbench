@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.zip.CRC32;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.ArrayContentProvider;
@@ -18,6 +17,9 @@ import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -27,7 +29,6 @@ import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
-
 import jakarta.inject.Inject;
 import xy.ai.conscious.connector.claudecode.CCSession;
 import xy.ai.conscious.connector.claudecode.CCSessionManager;
@@ -99,6 +100,7 @@ public class ClaudeCodeSessionView extends ViewPart {
   private boolean disposed = false;
   private boolean refreshScheduled = false;
   private long lastRefreshTime = 0;
+  private Color selectionGray;
   private Path currentProjectPath;
   private String currentRelativeFilePath;
 
@@ -114,14 +116,17 @@ public class ClaudeCodeSessionView extends ViewPart {
     Table table = viewer.getTable();
     table.setHeaderVisible(true);
     table.setLinesVisible(true);
+    selectionGray = new Color(table.getDisplay(), 211, 211, 211);
+    table.addListener(SWT.EraseItem, this::paintSelection);
     {
-      createColumn("ID", 10).setLabelProvider(ColumnLabelProvider.createTextProvider(e -> idLabel((CCSession) e)));
-      createColumn("State", 35).setLabelProvider(ColumnLabelProvider.createTextProvider(e -> stateLabel((CCSession) e)));
-      createColumn("Detail", 55).setLabelProvider(ColumnLabelProvider.createTextProvider(e -> detailLabel((CCSession) e)));
+      createColumn("ID", 10).setLabelProvider(rowProvider(e -> idLabel(e)));
+      createColumn("State", 35).setLabelProvider(rowProvider(e -> stateLabel(e)));
+      createColumn("Detail", 55).setLabelProvider(rowProvider(e -> detailLabel(e)));
     }
     viewer.setContentProvider(ArrayContentProvider.getInstance());
     viewer.setInput(new ArrayList<CCSession>());
     viewer.addSelectionChangedListener(event -> {
+      viewer.refresh();
       IStructuredSelection sel = viewer.getStructuredSelection();
       if (sel.isEmpty())
         sessionManager.setSelectedSessionUuid(null);
@@ -165,6 +170,8 @@ public class ClaudeCodeSessionView extends ViewPart {
     disposed = true;
     sessionManager.removeChangeListener(changeListener);
     Display.getDefault().timerExec(-1, ttlRefreshRunnable);
+    if (selectionGray != null)
+      selectionGray.dispose();
     super.dispose();
   }
 
@@ -233,6 +240,57 @@ public class ClaudeCodeSessionView extends ViewPart {
     if (SessionState.Open.equals(s.getState()))
       return formatMMSS(s.getRemainingTtlSeconds());
     return s.getState().name();
+  }
+
+  private ColumnLabelProvider rowProvider(java.util.function.Function<CCSession, String> text) {
+    return new ColumnLabelProvider() {
+
+      @Override
+      public String getText(Object element) {
+        return text.apply((CCSession) element);
+      }
+
+      @Override
+      public Color getBackground(Object element) {
+        return rowBackground((CCSession) element);
+      }
+    };
+  }
+
+  private boolean isLastMinute(CCSession s) {
+    if (!SessionState.Open.equals(s.getState()))
+      return false;
+    long remaining = s.getRemainingTtlSeconds();
+    return remaining >= 0 && remaining < 60;
+  }
+
+  private boolean isBlinkOn(CCSession s) {
+    return s.getRemainingTtlSeconds() % 2 == 0;
+  }
+
+  private Color rowBackground(CCSession s) {
+    if (viewer.getStructuredSelection().toList().contains(s))
+      return selectionBackground(s);
+    if (!SessionState.Open.equals(s.getState()) || s.getRemainingTtlSeconds() < 0)
+      return null;
+    Display display = viewer.getControl().getDisplay();
+    boolean red = isLastMinute(s) && isBlinkOn(s);
+    return display.getSystemColor(red ? SWT.COLOR_RED : SWT.COLOR_YELLOW);
+  }
+
+  private Color selectionBackground(CCSession s) {
+    boolean red = isLastMinute(s) && isBlinkOn(s);
+    return red ? viewer.getControl().getDisplay().getSystemColor(SWT.COLOR_RED) : selectionGray;
+  }
+
+  private void paintSelection(Event e) {
+    if ((e.detail & SWT.SELECTED) == 0 || !(e.item.getData() instanceof CCSession))
+      return;
+    GC gc = e.gc;
+    gc.setBackground(selectionBackground((CCSession) e.item.getData()));
+    gc.setForeground(gc.getDevice().getSystemColor(SWT.COLOR_BLACK));
+    gc.fillRectangle(e.x, e.y, e.width, e.height);
+    e.detail &= ~SWT.SELECTED;
   }
 
   private static String formatMMSS(long totalSeconds) {
