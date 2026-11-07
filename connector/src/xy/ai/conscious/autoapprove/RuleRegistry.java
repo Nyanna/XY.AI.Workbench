@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import xy.ai.conscious.autoapprove.rules.AllowedToolsRule;
+import xy.ai.conscious.autoapprove.rules.DeepPathReadRule;
+import xy.ai.conscious.autoapprove.rules.DenyRootPathRule;
 import xy.ai.conscious.autoapprove.rules.IApprovalRule;
 import xy.ai.conscious.autoapprove.rules.SmallResultRule;
 
@@ -16,6 +18,8 @@ public class RuleRegistry {
   public RuleRegistry() {
     register(new AllowedToolsRule());
     register(new SmallResultRule());
+    register(new DeepPathReadRule());
+    register(new DenyRootPathRule());
   }
 
   public RuleRegistry(List<IApprovalRule> rules) {
