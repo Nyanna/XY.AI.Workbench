@@ -192,15 +192,25 @@ public final class JavaAstEngine {
     return new AppendResult(cu, 1);
   }
 
+  @SuppressWarnings("unchecked")
   public void replace(AddressableNode target, String code) {
     if (target.astNode instanceof NodeGroup group) {
       replaceGroup(group, code);
       return;
     }
     Node node = (Node) target.astNode;
-    Node replacement = parseReplacementFor(node, code);
-    if (!node.replace(replacement))
-      throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be replaced in place: " + target.id);
+    List<Node> fragments = parseInsertionFragments(node, code);
+    if (fragments.size() == 1) {
+      if (!node.replace(fragments.get(0)))
+        throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node could not be replaced in place: " + target.id);
+      return;
+    }
+    NodeList<Node> container = (NodeList<Node>) target.container;
+    int idx = container == null ? -1 : container.indexOf(node);
+    if (idx < 0)
+      throw new AstEngineException(AstEngineException.Kind.CONFLICT, "node no longer present: " + target.id);
+    container.set(idx, fragments.get(0));
+    container.addAll(idx + 1, fragments.subList(1, fragments.size()));
   }
 
   @SuppressWarnings("unchecked")
