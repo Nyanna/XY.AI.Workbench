@@ -1,10 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-BASE_DIR=".bin"
-SRC_BASE="src"
-PKG_PATH="xy/ai/workbench/connector/openapi/deepseek"
-JAR_FILE="${1:-deepseek-connector.jar}"
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+  echo "Usage: $0 <package> <jar-file> [base-dir=.bin]" >&2
+  exit 2
+fi
+
+PKG_PATH="${1//.//}"
+JAR_FILE="$2"
+BASE_DIR="${3:-.bin}"
 
 SRC_DIR="$BASE_DIR/$PKG_PATH"
 
@@ -19,6 +23,6 @@ if ! jar --list --file "$JAR_FILE" | grep -q "^$PKG_PATH/"; then
   exit 1
 fi
 
-find "$BASE_DIR/$PKG_PATH" -mindepth 1 -delete
+find "$SRC_DIR" -mindepth 1 -delete
 
 echo "Created: $JAR_FILE ($(jar --list --file "$JAR_FILE" | grep -vc '/$') Files), $SRC_DIR cleared."
