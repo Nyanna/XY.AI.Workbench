@@ -19,7 +19,7 @@ impl {{ class_name }} {
 
     pub fn from_response(body: &str, status_code: u16, content_type: Option<String>) -> Self {
         Self {
-            node: {{ json_support_fqn|rustmod }}::parse(body),
+            node: {{ json_support_fqn|rustmod }}::parse_body(body, content_type.as_deref()),
             status_code: Some(status_code.to_string()),
             content_type,
         }
@@ -33,9 +33,9 @@ impl {{ class_name }} {
         self.content_type.as_deref()
     }
 
-    /// Response body as JSON text, or an empty string if there is none.
+    /// Response body as JSON text (one value per line for JSON Lines), or an empty string if there is none.
     pub fn body(&self) -> String {
-        if self.node.is_null() { String::new() } else { {{ json_support_fqn|rustmod }}::write(&self.node) }
+        if self.node.is_null() { String::new() } else { {{ json_support_fqn|rustmod }}::write_body(&self.node, self.content_type.as_deref()) }
     }
 {% for c in codes %}
 

@@ -9,3 +9,22 @@ pub fn parse(body: &str) -> serde_json::Value {
 pub fn write(node: &serde_json::Value) -> String {
     serde_json::to_string(node).unwrap_or_default()
 }
+
+pub fn is_json_lines(content_type: Option<&str>) -> bool {
+    content_type.map_or(false, |ct| ct.trim_start().to_ascii_lowercase().starts_with("application/x-jsonl"))
+}
+
+/// JSON Lines bodies (one JSON value per line) are read as an array of their lines.
+pub fn parse_body(body: &str, content_type: Option<&str>) -> serde_json::Value {
+    if !is_json_lines(content_type) {
+        return parse(body);
+    }
+    serde_json::Value::Array(body.lines().filter(|line| !line.trim().is_empty()).map(parse).collect())
+}
+
+pub fn write_body(node: &serde_json::Value, content_type: Option<&str>) -> String {
+    match node {
+        serde_json::Value::Array(lines) if is_json_lines(content_type) => lines.iter().map(|line| write(line) + "\n").collect(),
+        _ => write(node),
+    }
+}

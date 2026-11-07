@@ -18,12 +18,44 @@ final class JsonSupport
         return $decoded;
     }
 
-    public static function write($node): string
+        public static function write($node): string
     {
         $encoded = json_encode($node);
         if ($encoded === false) {
             throw new \RuntimeException('failed to serialize JSON body: ' . json_last_error_msg());
         }
         return $encoded;
+    }
+
+    public static function isJsonLines(?string $contentType): bool
+    {
+        return $contentType !== null && stripos($contentType, 'application/x-jsonl') === 0;
+    }
+
+    /** JSON Lines bodies (one JSON value per line) are read as a list of their lines. */
+    public static function parseBody(string $body, ?string $contentType)
+    {
+        if (!self::isJsonLines($contentType)) {
+            return self::parse($body);
+        }
+        $lines = [];
+        foreach (preg_split('/\R/', $body) as $line) {
+            if (trim($line) !== '') {
+                $lines[] = self::parse($line);
+            }
+        }
+        return $lines;
+    }
+
+    public static function writeBody($node, ?string $contentType): string
+    {
+        if (!self::isJsonLines($contentType) || !is_array($node) || ($node !== [] && array_keys($node) !== range(0, count($node) - 1))) {
+            return self::write($node);
+        }
+        $text = '';
+        foreach ($node as $line) {
+            $text .= self::write($line) . "\n";
+        }
+        return $text;
     }
 }

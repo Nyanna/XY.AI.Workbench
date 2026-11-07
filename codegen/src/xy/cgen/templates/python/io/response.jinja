@@ -19,7 +19,7 @@ class {{ class_name }}:
     @classmethod
     def from_response(cls, body: str, status_code: int, content_type: str | None) -> "{{ class_name }}":
         instance = cls()
-        instance._node = {{ json_support_fqn }}.parse(body)
+        instance._node = {{ json_support_fqn }}.parse_body(body, content_type)
         instance._status_code = str(status_code)
         instance._content_type = content_type
         return instance
@@ -33,8 +33,8 @@ class {{ class_name }}:
         return self._content_type
 
     def body(self) -> str:
-        """Response body as JSON text, or an empty string if there is none."""
-        return '' if self._node is None else {{ json_support_fqn }}.write(self._node)
+        """Response body as JSON text (one value per line for JSON Lines), or an empty string if there is none."""
+        return '' if self._node is None else {{ json_support_fqn }}.write_body(self._node, self._content_type)
 {% for c in codes %}
 
     def get_code_{{ c.status_code }}(self):

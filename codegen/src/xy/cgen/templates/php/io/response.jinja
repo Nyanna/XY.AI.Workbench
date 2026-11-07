@@ -19,7 +19,7 @@ final class {{ class_name }}
     public static function from(string $body, int $statusCode, ?string $contentType): self
     {
         $response = new self();
-        $response->node = {{ json_support_fqn|phpfqn }}::parse($body);
+        $response->node = {{ json_support_fqn|phpfqn }}::parseBody($body, $contentType);
         $response->statusCode = (string) $statusCode;
         $response->contentType = $contentType;
         return $response;
@@ -35,10 +35,10 @@ final class {{ class_name }}
         return $this->contentType;
     }
 
-    /** Response body as JSON text, or an empty string if there is none. */
+    /** Response body as JSON text (one value per line for JSON Lines), or an empty string if there is none. */
     public function body(): string
     {
-        return $this->node === null ? '' : {{ json_support_fqn|phpfqn }}::write($this->node);
+        return $this->node === null ? '' : {{ json_support_fqn|phpfqn }}::writeBody($this->node, $this->contentType);
     }
 {% for c in codes %}
 

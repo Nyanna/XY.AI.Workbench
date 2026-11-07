@@ -25,7 +25,7 @@ public final class {{ class_name }} {
     }
 
     public static {{ class_name }} from(String body, int statusCode, String contentType) {
-        return new {{ class_name }}({{ json_support_fqn }}.parse(body), statusCode, contentType);
+        return new {{ class_name }}({{ json_support_fqn }}.parseBody(body, contentType), statusCode, contentType);
     }
 
     public String statusCode() {
@@ -36,9 +36,9 @@ public final class {{ class_name }} {
         return contentType;
     }
     
-    /** Response body as JSON text, or an empty string if there is none. */
+    /** Response body as JSON text (one value per line for JSON Lines), or an empty string if there is none. */
     public String body() {
-        return node == null ? "" : node.toString();
+        return node == null ? "" : {{ json_support_fqn }}.writeBody(node, contentType);
     }
 {% for c in codes %}
 

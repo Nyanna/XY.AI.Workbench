@@ -7,13 +7,13 @@ what lets fingerprint bottom-up without special-casing cycles.
 import logging
 from dataclasses import dataclass
 from xy.cgen.ingest import IngestedSchema, Operation
+from xy.cgen.ingest.operations import JSONL_CONTENT_TYPE
 from xy.cgen.ingest.refindex import SCHEMA_REF_PREFIX
 from xy.cgen.model.nodes import AnyDictionaryNode, CodeNode, CompositionNode, ContentTypeView, Discriminator, DictionaryNode, Edge, EnumNode, ListNode, Node, ObjectNode, PrimitiveNode, RefNode, RequestNode, ResponseNode, UnsupportedNode
 COMPOSITION_KEYWORDS = ('allOf', 'anyOf', 'oneOf')
 logger = logging.getLogger(__name__)
 _PATH: list[str] = []
 PRIMITIVE_TYPES = ('string', 'integer', 'number', 'boolean', 'null')
-JSON_CONTENT_TYPE = 'application/json'
 
 class SchemaShapeError(ValueError):
     """A schema shape the builder cannot represent; `path` is the schema location at raise time."""
@@ -68,15 +68,21 @@ def _build_operation(operation: Operation) -> OperationModel:
     codes = tuple(
         (CodeNode(
             status_code=status_code,
-            content_types=(
-                ContentTypeView(
-                    content_type=JSON_CONTENT_TYPE,
-                    body=build_edge(
-                        'body',
-                        schema)),
-            )) for status_code,
-         schema in operation.responses.items()))
+            content_types=tuple(
+                (ContentTypeView(
+                    content_type=content_type,
+                    body=_build_response_body(
+                        content_type,
+                        schema)) for content_type,
+                 schema in schemas.items()))) for status_code,
+         schemas in operation.responses.items()))
     return OperationModel(operation=operation, request=request, response=ResponseNode(codes=codes))
+
+def _build_response_body(content_type: str, schema: dict) -> Edge:
+    """JSONL schemas describe one line; the body is the list of all lines."""
+    if content_type == JSONL_CONTENT_TYPE:
+        return Edge(label='body', target=ListNode(elements=(build_edge('element', schema),)))
+    return build_edge('body', schema)
 
 def build_edge(label: str, raw: dict) -> Edge:
     """Build an edge: the target node plus this use site's metadata.

@@ -2,6 +2,7 @@ package {{ package }};
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 /** Shared JSON (de)serialization used by every request/response root class. */
 public final class JsonSupport {
@@ -25,5 +26,34 @@ public final class JsonSupport {
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new RuntimeException("failed to serialize JSON body", e);
         }
+    }
+
+    /** JSON Lines bodies (one JSON value per line) are read as a JSON array of their lines. */
+    public static boolean isJsonLines(String contentType) {
+        return contentType != null && contentType.toLowerCase(java.util.Locale.ROOT).startsWith("application/x-jsonl");
+    }
+
+    public static JsonNode parseBody(String body, String contentType) {
+        if (!isJsonLines(contentType)) {
+            return parse(body);
+        }
+        ArrayNode lines = MAPPER.createArrayNode();
+        for (String line : body.split("\\R")) {
+            if (!line.isBlank()) {
+                lines.add(parse(line));
+            }
+        }
+        return lines;
+    }
+
+    public static String writeBody(JsonNode node, String contentType) {
+        if (!isJsonLines(contentType) || !node.isArray()) {
+            return node.toString();
+        }
+        StringBuilder text = new StringBuilder();
+        for (JsonNode line : node) {
+            text.append(line.toString()).append('\n');
+        }
+        return text.toString();
     }
 }

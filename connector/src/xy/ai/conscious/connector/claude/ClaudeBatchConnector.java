@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.JsonNode;
-
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.batch.BatchState;
 import xy.ai.conscious.batch.NewBatch;
@@ -28,7 +25,6 @@ import xy.ai.conscious.model.Model.KeyPattern;
 
 public class ClaudeBatchConnector implements IAIBatchConnector {
   private static final long PAGE_SIZE = 100;
-
   private V1ClientImpl client;
   private ClaudeConnector connector;
 
@@ -47,17 +43,17 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
     boolean hasMore = true;
     while (hasMore) {
       var resp = client.message_batches_list(null, afterId, PAGE_SIZE);
-      checkStatus("list batches", resp.statusCode(), resp.body());
-      // the generated list response only models the error case
-      JsonNode page = JsonSupport.parse(resp.body());
-      for (JsonNode item : page.path("data")) {
-        MessageBatch batch = new MessageBatch(item);
+      if (resp.getCode200() == null)
+        throw new IllegalStateException("List batches failed (" + resp.statusCode() + "): " + resp.body());
+      var page = resp.getCode200().getJson();
+      var data = page.getData();
+      for (int i = 0; data != null && i < data.size(); i++) {
+        MessageBatch batch = data.get(i);
         batches.add(new ClaudeBatch(batch.getId(), batch));
       }
-      hasMore = page.path("has_more").asBoolean(false);
-      afterId = page.path("last_id").asText(null);
-      if (afterId == null)
-        hasMore = false;
+      var lastId = page.getLastId();
+      afterId = lastId != null && lastId.isString() ? lastId.getString() : null;
+      hasMore = Boolean.TRUE.equals(page.getHasMore()) && afterId != null;
     }
     return batches;
   }
@@ -74,7 +70,6 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
   @Override
   public void loadBatch(IAIBatch entry, IProgress mon) {
     IProgress sub = mon.setTask("Load batch", 2);
-
     sub.setTaskName("Retrieve Batch");
     var resp = client.message_batches_retrieve(entry.getID());
     if (resp.getCode200() == null)
@@ -83,18 +78,13 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
     ClaudeBatch oentry = ((ClaudeBatch) entry);
     oentry.setBatch(batch);
     sub.worked();
-
     sub.setTaskName("Retrieve Outputs");
-    if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty())
-        && (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState()))) {
+    if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty()) && (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState()))) {
       var results = client.message_batches_results(batch.getId());
       checkStatus("retrieve batch results", results.statusCode(), results.body());
-
       IProgress sub1 = mon.setTask("Load output", entry.getTaskCount());
       // results are JSON lines, which the generated response does not model
-      oentry.setAnswers(results.body().lines().filter(l -> !l.isBlank())
-          .map(l -> new MessageBatchIndividualResponse(JsonSupport.parse(l)))
-          .map(res -> convertResult(res, sub1)).collect(Collectors.toList()));
+      oentry.setAnswers(results.body().lines().filter(l -> !l.isBlank()).map(l -> new MessageBatchIndividualResponse(JsonSupport.parse(l))).map(res -> convertResult(res, sub1)).collect(Collectors.toList()));
     }
     sub.worked();
   }
@@ -102,10 +92,7 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
   private AIAnswer convertResult(MessageBatchIndividualResponse res, IProgress progress) {
     OneOfResult result = res.getResult();
     if (result.isSucceededResult())
-      return connector.convertResponse(
-          new ClaudeResponse(result.getSucceededResult().getMessage(), res.getCustomId()),
-          progress.subProgress());
-
+      return connector.convertResponse(new ClaudeResponse(result.getSucceededResult().getMessage(), res.getCustomId()), progress.subProgress());
     AIAnswer an = new AIAnswer(res.getCustomId());
     if (result.isErroredResult())
       an.answer = describeError(result.getErroredResult().getError().getError());
@@ -156,12 +143,9 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
   @Override
   public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
     IProgress sub = mon.setTask("Submit batch", 3);
-
     sub.setTaskName("Collect requests");
-    List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
-        .collect(Collectors.toList());
+    List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r).collect(Collectors.toList());
     sub.worked();
-
     sub.setTaskName("Convert requests");
     IProgress sub1 = mon.setTask("Convert request", reqs.size());
     RequestsList requests = new RequestsList();
@@ -175,14 +159,12 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
     CreateMessageBatchParams params = new CreateMessageBatchParams();
     params.setRequests(requests);
     sub.worked();
-
     sub.setTaskName("Submit batch");
     var resp = client.message_batches_post(params);
     if (resp.getCode200() == null)
       throw new IllegalStateException("Submit batch failed (" + resp.statusCode() + "): " + resp.body());
     MessageBatch batch = resp.getCode200().getJson();
     sub.worked();
-
     return new ClaudeBatch(batch.getId(), batch);
   }
 
