@@ -1,7 +1,6 @@
 - Warnung bei mehrturn-Kontext (>3) ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
 - Never to commands or searches accross Root ("/") in any path argument
 - a writing git command -> deny with reason
-- big >3k result immer pass
 - Virtual Environment – alles außerhalb Project-Path oder Filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
 - **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools basierend auf reason
 - SUbagent LLM einschätzung

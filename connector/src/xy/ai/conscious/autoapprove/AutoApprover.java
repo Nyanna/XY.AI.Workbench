@@ -63,17 +63,13 @@ public class AutoApprover {
     sessions.forget(sessionId);
   }
 
-  /**
-   * Evaluates the rules for the answer. Must be called before the prompt tag is
-   * replaced: warnings are prepended to {@code ans.answer}.
-   *
-   * @param depth number of automatic follow-ups that led to this answer
-   */
   public Decision evaluate(AIAnswer ans, int depth) {
     SessionSnapshot session = sessions.record(ans);
     List<ApprovalItem> items = AnswerParser.parse(ans.answer);
     ApprovalItem item = items.size() == 1 ? items.get(0) : null;
-    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, session);
+    sessions.track(session.id(), items);
+    ApprovalItem call = sessions.callFor(session.id(), item);
+    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session);
     Decision decision = decide(ctx, collect(ctx), depth);
     enrich(ans, decision.warnings());
     publish(decision);
