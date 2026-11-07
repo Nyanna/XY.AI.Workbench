@@ -2,7 +2,6 @@ package xy.ai.conscious.connector.harness;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import xy.ai.conscious.api.IActiveEditor;
 import xy.ai.conscious.api.IActiveEditor.Selection;
 import xy.ai.conscious.api.IExecutor;
@@ -49,6 +48,21 @@ public class PromptInputHandler {
     if (arg.getEditor() == null && !batch)
       throw new IllegalArgumentException("Result editor unset");
     return new Prompt(arg.inputs, batch, frozen, arg);
+  }
+
+  /**
+   * Builds the prompt an operator would have triggered with the given selection,
+   * taking file, project and config from the originating prompt instead of the
+   * editor.
+   */
+  public Prompt followUp(Prompt origin, Selection sel) {
+    PromptArguments arg = new PromptArguments();
+    arg.setEditor(origin.arg.getEditor());
+    arg.absoluteFilePath = origin.arg.absoluteFilePath;
+    arg.project = origin.arg.project;
+    arg.processorEnabled = origin.arg.processorEnabled;
+    detectSelection(sel, arg);
+    return new Prompt(arg.inputs, origin.batch, origin.config.copy(), arg);
   }
 
   private void detectSelection(Selection sel, PromptArguments arg) {

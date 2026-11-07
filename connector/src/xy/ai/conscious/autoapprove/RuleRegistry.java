@@ -1,0 +1,26 @@
+package xy.ai.conscious.autoapprove;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import xy.ai.conscious.autoapprove.rules.IApprovalRule;
+
+/** Ordered registry of rules. */
+public class RuleRegistry {
+
+	private final CopyOnWriteArrayList<IApprovalRule> rules = new CopyOnWriteArrayList<>();
+
+	public RuleRegistry register(IApprovalRule rule) {
+		rules.addIfAbsent(Objects.requireNonNull(rule));
+		return this;
+	}
+
+	public boolean unregister(IApprovalRule rule) {
+		return rules.remove(rule);
+	}
+
+	public List<IApprovalRule> rules() {
+		return List.copyOf(rules);
+	}
+}

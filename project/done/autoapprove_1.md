@@ -2549,3 +2549,969 @@ Ich würde mit dem Gerüst im Package `autoapprove` und `autoapprove/rules` begi
 - `AutoApprover`
 
 Dazu kommen die beiden kleinen Änderungen in `PromptInputHandler` und `PromptHandler`. Soll ich so starten, mit `DENY` vor `ALLOW` vor `ABSTAIN` als Aggregation?
+`arg.setEditor(editorListener.getLastTextEditor())` ist nur ein Hinting für die Tagsuche. Tagersetzung funktioniert global unabhängig vom Editor. Der Dateipfad kann natürlich übernommen werden. Die meisten Objekte können aus dem alten Prompt übernommen werden wie auch die Config.
+SystemInit:  id=123c3b3a-c226-4b4d-8683-f62d56bab1c9, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
+Text:
+ Verstanden: Der Editor ist nur ein Hinweis für die Tag-Suche, Pfad, Projekt und Config kommen aus dem alten Prompt. Dann brauche ich keine Editor-Überladung. Ich prüfe noch, ob sich `FrozenConfig` kopieren lässt.
+ReasoningToken: 665
+Control Request:
+```yaml
+id: 1359-30
+toolName: ast_outline
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+  reason: "Klären, ob FrozenConfig eine Kopie-Methode hat oder mutierbare Felder, die preprocessPrompt überschreibt"
+```
+/answer 1359-30 allow
+Control Request:
+```yaml
+id: 1359-31
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+      nodes:
+      - id: 0gUTBT|NhIzDR
+        signature: import java.util.Arrays;
+      - id: FrozenConfig
+        signature: "/**  * Immutable snapshot of the {"
+        docstring: "Immutable snapshot of the {@link ConfigManager} state, taken once when a"
+        children:
+        - id: FrozenConfig.7vEs3l|JgA7Ah
+          signature: public Model model;
+        - id: FrozenConfig.FrozenConfig
+          signature: "private FrozenConfig(String keys, Model model, AgentProfile profile, Reasoning …"
+        - id: FrozenConfig.from
+          signature: public static FrozenConfig from(ConfigManager cfg)
+          docstring: "Reads all relevant values from {@code cfg} once and renders the system"
+        - id: FrozenConfig.getHash
+          signature: public String getHash()
+          docstring: "Deterministic hash over exactly: model, profile, reasoning, tools,"
+        - id: FrozenConfig.computeHash
+          signature: private String computeHash()
+```
+/answer 1359-31 allow
+Result Stats: id=123c3b3a-c226-4b4d-8683-f62d56bab1c9, total: 100719, in: 36, out: 23454, reason: 368, read: 803307, write: 77229, start: 1794054160160, end: 1794054169777, time: 9545, total: 185635, io: 0, control: 72, sent: 0, recv: 197
+ReasoningToken: 368
+`FrozenConfig` hat einen privaten Konstruktor und keine Kopiermethode. `model` und `keys` sind öffentlich und veränderbar, und `preprocessPrompt` überschreibt sie. Für den Folgeprompt brauche ich deshalb eine kleine Methode `FrozenConfig.copy()`. Ohne sie würde der `Call`-Folgeprompt über `preprocessPrompt` das `model` des Originalprompts auf `MCP_TOOLS` setzen. Ob der Hash dabei gecacht wird, habe ich nicht geprüft.
+
+## Aktualisierter Plan für den Folgeprompt
+
+Statt einer Überladung von `buildPrompt` gibt es eine Fabrikmethode in `PromptInputHandler`:
+
+```java
+Prompt followUp(Prompt origin, Selection sel)
+```
+
+- Sie kopiert Dateipfad, Projekt und Editor-Hint aus `origin.arg` und die Config per `origin.config.copy()`.
+- Sie ruft `detectSelection(sel, arg)` auf, damit Command und YAML wie beim Operator erkannt werden.
+- Dazu braucht sie weder `exec.syncExec` noch den Live-Editor.
+
+`PromptRun` bekommt einen zweiten Konstruktor mit fertigem Prompt. `prepareRequest` überspringt dann `buildPrompt`, danach laufen `preprocessPrompt` und `createRequest` wie bisher.
+
+## Offener Punkt
+
+`insertTag` liest bei den Output-Modi Replace und Cursor die Live-Selektion des Editors. Beim Folgeprompt ist das die Selektion, die der Operator gerade hat. Bei Chat und Append ist das unkritisch. Ich würde das erst einmal so lassen und im Code vermerken. Falls du die Folgeprompts in Replace/Cursor sicher haben willst, müsste der Approver den Modus auf Append zwingen.
+
+## Gerüst
+
+Sobald du dein Okay gibst, lege ich das Gerüst an:
+
+- `autoapprove`: `AutoApprover`, `RuleRegistry`, `AnswerParser`, `ApprovalContext`, `ApprovalItem`, `Decision`, `ApprovalResult`
+- `autoapprove/rules`: `IApprovalRule`, `Verdict`, `Vote`
+- Änderungen: `FrozenConfig.copy()`, `PromptInputHandler.followUp(...)`, der zweite `PromptRun`-Konstruktor und die Einbindung in `run()`
+
+Die Aggregation ist `DENY` vor `ALLOW` vor `ABSTAIN`, Reason und Hint werden zusammengeführt.
+Dann los
+SystemInit:  id=123c3b3a-c226-4b4d-8683-f62d56bab1c9, cwd=/home/user/xyan/xy.ai.workbench/project, model=claude-sonnet-5-5
+Text:
+ Los geht's. Zuerst lese ich die Stellen, die ich ändere, vollständig.
+ReasoningToken: 238
+Control Request:
+```yaml
+id: 1359-32
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+    ids:
+    - FrozenConfig
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+    ids:
+    - PromptInputHandler.3vFeve|ODKP5L
+    - PromptInputHandler.PromptInputHandler
+    - PromptInputHandler.captureYamlBlock
+    - PromptInputHandler.detectFullFile
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    ids:
+    - PromptHandler
+    - PromptHandler.QEglBi|s8XuCw
+    - PromptHandler.addAnswerObs
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/api/IActiveEditor.java
+    ids:
+    - IActiveEditor.Selection
+  reason: "Vollständigen Code von FrozenConfig, PromptInputHandler-Hilfsmethoden und PromptHandler-Feldern lesen, bevor ich sie ändere"
+```
+/answer 1359-32 allow
+Control Request:
+```yaml
+id: 1359-33
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+      nodes:
+      - id: FrozenConfig
+        type: ClassOrInterfaceDeclaration
+        signature: "/**  * Immutable snapshot of the {"
+        docstring: "Immutable snapshot of the {@link ConfigManager} state, taken once when a"
+        children:
+        - id: FrozenConfig.7vEs3l|JgA7Ah
+          type: StatementGroup
+          code: "\tpublic Model model;\n\tpublic String keys;\n\tpublic final AgentProfile profile;\n\tpublic final Reasoning reasoning;\n\tpublic final List<String> tools;\n\tpublic final String systemPrompt;\n\tpublic final Double topP;\n\tpublic final Double temperature;\n\tpublic final Long maxOutputTokens;\n\tpublic final Integer reasoningBudget;\n\tpublic final CacheMode cacheMode;\n\tpublic final OutputMode outputMode;\n\n\tprivate String hash;\n"
+        - id: FrozenConfig.FrozenConfig
+          type: ConstructorDeclaration
+          code: "\tprivate FrozenConfig(String keys, Model model, AgentProfile profile, Reasoning reasoning, List<String> tools,\n\t\t\tString systemPrompt, Double topP, Double temperature, Long maxOutputTokens, Integer reasoningBudget,\n\t\t\tCacheMode cacheMode, OutputMode outputMode) {\n\t\tthis.keys = keys;\n\t\tthis.model = model;\n\t\tthis.profile = profile;\n\t\tthis.reasoning = reasoning;\n\t\tthis.tools = tools;\n\t\tthis.systemPrompt = systemPrompt;\n\t\tthis.topP = topP;\n\t\tthis.temperature = temperature;\n\t\tthis.maxOutputTokens = maxOutputTokens;\n\t\tthis.reasoningBudget = reasoningBudget;\n\t\tthis.cacheMode = cacheMode;\n\t\tthis.outputMode = outputMode;\n\t}\n"
+        - id: FrozenConfig.from
+          type: MethodDeclaration
+          code: "\tpublic static FrozenConfig from(ConfigManager cfg) {\n\t\tString systemPrompt = null;\n\t\tif (cfg.isInputEnabled(InputMode.SystemPrompt)) {\n\t\t\tString[] rawPrompt = cfg.getSystemPrompt();\n\t\t\tStringBuilder sb = new StringBuilder();\n\t\t\tArrays.stream(rawPrompt != null ? rawPrompt : new String[0]).filter(e -> !e.startsWith(\"#\"))\n\t\t\t\t\t.forEach(e -> sb.append(\"- \").append(e).append(\"\\n\"));\n\t\t\tString freeText = cfg.getFreeText();\n\t\t\tif (freeText != null && !freeText.isBlank())\n\t\t\t\tsb.append(\"\\n- \").append(freeText).append(\"\\n\");\n\t\t\tsystemPrompt = sb.toString();\n\t\t}\n\n\t\tString[] rawTools = cfg.isInputEnabled(InputMode.Tools) ? cfg.getEnabledTools() : null;\n\t\tList<String> tools = List.of(rawTools != null ? rawTools : new String[0]);\n\n\t\tString keys = cfg.getKeys();\n\t\tfor (String key : keys.split(\",\"))\n\t\t\tif (cfg.getModel().cap.acceptsKey(key))\n\t\t\t\tkeys = key;\n\n\t\treturn new FrozenConfig(keys, cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt,\n\t\t\t\tcfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(),\n\t\t\t\tcfg.getCacheMode(), cfg.getOuputMode());\n\t}\n"
+        - id: FrozenConfig.getHash
+          type: MethodDeclaration
+          code: "\tpublic String getHash() {\n\t\tif (hash == null)\n\t\t\thash = computeHash();\n\t\treturn hash;\n\t}\n"
+        - id: FrozenConfig.computeHash
+          type: MethodDeclaration
+          code: "\tprivate String computeHash() {\n\t\tString input = (model != null ? model.apiName : \"\") + \"|\" + (profile != null ? profile.name : \"\") + \"|\"\n\t\t\t\t+ (reasoning != null ? reasoning.name() : \"\") + \"|\" + String.join(\",\", tools) + \"|\" + systemPrompt + \"|\"\n\t\t\t\t+ topP + \"|\" + temperature + \"|\" + maxOutputTokens + \"|\" + reasoningBudget;\n\t\treturn Hash.hash(input);\n\t}\n"
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+      nodes:
+      - id: PromptInputHandler.3vFeve|ODKP5L
+        type: StatementGroup
+        code: |2
+            private static final Pattern YAML_BLOCK = Pattern.compile("^```yaml\\R(.*?)^```$", Pattern.MULTILINE | Pattern.DOTALL);
+            private final ConfigManager cfg;
+            private final IActiveEditor editorListener;
+      - id: PromptInputHandler.PromptInputHandler
+        type: ConstructorDeclaration
+        code: |2
+            public PromptInputHandler(ConfigManager cfg, IActiveEditor editorListener) {
+              this.cfg = cfg;
+              this.editorListener = editorListener;
+            }
+      - id: PromptInputHandler.captureYamlBlock
+        type: MethodDeclaration
+        code: |2
+            private String captureYamlBlock(String[] lines, int lineIndex) {
+              StringBuilder prefix = new StringBuilder();
+              for (int i = 0; i < lineIndex && i < lines.length; i++) prefix.append(lines[i]).append("\n");
+              Matcher m = YAML_BLOCK.matcher(prefix);
+              String last = null;
+              while (m.find()) last = m.group(1);
+              return last;
+            }
+      - id: PromptInputHandler.detectFullFile
+        type: MethodDeclaration
+        code: |2
+            private void detectFullFile(Selection content, PromptArguments arg) {
+              if (content == null || content.selection() == null || content.selection().length == 0)
+                return;
+              String[] lines = content.selection();
+              arg.inputs.add(String.join("\n", lines));
+              Integer cursorLine = content.cursorOffset();
+              if (cursorLine != null && cursorLine >= 0 && cursorLine < lines.length && detectedCmd(lines[cursorLine], lines, cursorLine, arg))
+                return;
+              int lastLine = lines.length - 1;
+              detectedCmd(lines[lastLine], lines, lastLine, arg);
+            }
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      nodes:
+      - id: PromptHandler
+        type: ClassOrInterfaceDeclaration
+        signature: "/**  * Prompt-specific orchestration extracted from {"
+        docstring: "Prompt-specific orchestration extracted from {@code AISessionManager}: drives"
+        children:
+        - id: PromptHandler.QEglBi|s8XuCw
+          type: StatementGroup
+          code: "\tprivate final AdaptingConnector connector;\n\tprivate final IEditorInterface editIfc;\n\tprivate final AIBatchManager batch;\n\tprivate final PromptInputHandler input;\n\tprivate final IGitSupport gitSupport;\n\n\tprivate List<Consumer<AIAnswer>> answerObs = new ArrayList<>();\n"
+        - id: PromptHandler.PromptHandler
+          type: ConstructorDeclaration
+          code: "\tpublic PromptHandler(ConfigManager cfg, IActiveEditor editorListener, AdaptingConnector connector,\n\t\t\tAIBatchManager batch, IEditorInterface editIfc, IGitSupport gitSupport) {\n\t\tthis.connector = connector;\n\t\tthis.editIfc = editIfc;\n\t\tthis.batch = batch;\n\t\tthis.input = new PromptInputHandler(cfg, editorListener);\n\t\tthis.gitSupport = gitSupport;\n\t}\n"
+        - id: PromptHandler.addAnswerObs
+          type: MethodDeclaration
+          code: "\tpublic void addAnswerObs(Consumer<AIAnswer> obs) {\n\t\tanswerObs.add(obs);\n\t}\n"
+        - id: PromptHandler.execute
+          type: MethodDeclaration
+          code: "\tpublic void execute(IExecutor exec) {\n\t\texec.schedule(\"Starting Prompt\", new PromptRun(exec));\n\t}\n"
+        - id: PromptHandler.PromptRun
+          type: ClassOrInterfaceDeclaration
+          signature: "private class PromptRun implements IMonitoredRunnable {"
+          children:
+          - id: PromptHandler.PromptRun.dBu9kx|851iHn
+            type: StatementGroup
+            code: "\t\tprivate final IExecutor exec;\n"
+          - id: PromptHandler.PromptRun.PromptRun
+            type: ConstructorDeclaration
+            code: "\t\tprivate PromptRun(IExecutor exec) {\n\t\t\tthis.exec = exec;\n\t\t}\n"
+          - id: PromptHandler.PromptRun.run
+            type: MethodDeclaration
+            code: "\t\t@Override\n\t\tpublic void run(IProgress mon) {\n\t\t\tIProgress sub = mon.setTask(\"Executing prompt\", 4);\n\t\t\tString reqId = null;\n\t\t\ttry {\n\t\t\t\tsub.setTaskName(\"Prepare inputs\");\n\t\t\t\tvar req = prepareRequest(exec, false, sub);\n\t\t\t\tsub.worked();\n\t\t\t\tsub.setTaskName(\"Insert Tag\");\n\t\t\t\teditIfc.insertTag(exec, req, sub);\n\t\t\t\treqId = req.getID();\n\t\t\t\tmon.worked();\n\n\t\t\t\tsub.setTaskName(\"Execute prompt\");\n\t\t\t\tAIAnswer ans = executeInner(exec, req, sub);\n\t\t\t\tmon.worked();\n\t\t\t\tsub.setTaskName(\"Process Answer\");\n\t\t\t\teditIfc.replaceTag(ans, sub);\n\t\t\t\tmon.worked();\n\t\t\t} catch (Exception e) {\n\t\t\t\tLOG.error(e.getMessage(), e);\n\t\t\t\t// uncatched error case\n\t\t\t\tif (reqId != null) {\n\t\t\t\t\tAIAnswer error = new AIAnswer(reqId);\n\t\t\t\t\terror.answer = e.getMessage();\n\t\t\t\t\teditIfc.replaceTag(error, sub);\n\t\t\t\t}\n\t\t\t} finally {\n\t\t\t\tmon.done();\n\t\t\t}\n\t\t}\n"
+        - id: PromptHandler.queueAsync
+          type: MethodDeclaration
+          code: "\tpublic void queueAsync(IExecutor exec) {\n\t\texec.schedule(\"Enqueue Prompt\", mon -> {\n\t\t\tqueueSync(exec, mon);\n\t\t});\n\t}\n"
+        - id: PromptHandler.queueSync
+          type: MethodDeclaration
+          code: "\tprivate void queueSync(IExecutor exec, IProgress mon) {\n\t\tIProgress sub = mon.setTask(\"Enqueue batch prompt\", 3);\n\t\tsub.setTaskName(\"Prepare inputs\");\n\t\tvar req = prepareRequest(exec, true, sub.subProgress());\n\t\tsub.setTaskName(\"Insert Tag\");\n\t\teditIfc.insertTag(exec, req, sub.subProgress());\n\t\tsub.setTaskName(\"Enqueue prompt\");\n\t\tbatch.enqueue(req, sub.subProgress());\n\t}\n"
+        - id: PromptHandler.queueAndSubmit
+          type: MethodDeclaration
+          code: "\tpublic void queueAndSubmit(IExecutor exec) {\n\t\texec.schedule(\"Enqueue Prompt\", (mon) -> {\n\t\t\tqueueSync(exec, mon);\n\t\t\tbatch.submitBatches(mon);\n\t\t});\n\t}\n"
+        - id: PromptHandler.prepareRequest
+          type: MethodDeclaration
+          code: "\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {\n\t\tIProgress sub = mon.setTask(\"Preparing Call\", 1);\n\t\tsub.setTaskName(\"Preparing Call\");\n\t\tPrompt prompt = input.buildPrompt(exec, batchFix);\n\t\tpreprocessPrompt(prompt);\n\t\tIModelRequest req = connector.createRequest(prompt, sub);\n\t\treq.setPrompt(prompt);\n\t\tsub.worked();\n\t\treturn req;\n\t}\n"
+        - id: PromptHandler.preprocessPrompt
+          type: MethodDeclaration
+          code: "\tprivate void preprocessPrompt(Prompt prompt) {\n\t\tfor (String key : prompt.config.keys.split(\",\"))\n\t\t\tif (prompt.config.model.cap.acceptsKey(key))\n\t\t\t\tprompt.config.keys = key;\n\t\tif (prompt.arg.command instanceof CallCommand || prompt.arg.command instanceof ToolCommand)\n\t\t\tprompt.config.model = Model.MCP_TOOLS;\n\t}\n"
+        - id: PromptHandler.executeInner
+          type: MethodDeclaration
+          code: "\tprivate AIAnswer executeInner(IExecutor exec, IModelRequest req, IProgress mon) {\n\t\texec.asyncExec(() -> answerObs.forEach(c -> c.accept(null)));\n\t\tIModelResponse resp = connector.executeRequest(req, mon);\n\t\tAIAnswer res = connector.convertResponse(resp, mon);\n\t\tres.prompt = req.getPrompt();\n\t\texec.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));\n\t\tcheckGitSupport(exec, req);\n\t\treturn res;\n\t}\n"
+        - id: PromptHandler.checkGitSupport
+          type: MethodDeclaration
+          code: "\tpublic void checkGitSupport(IExecutor exec, IModelRequest req) {\n\t\tif (gitSupport == null)\n\t\t\treturn;\n\n\t\tPrompt prompt = req.getPrompt();\n\t\tif (prompt == null || prompt.arg == null)\n\t\t\treturn;\n\n\t\tCommand cmd = prompt.arg.command;\n\t\tif (!(cmd instanceof AnswerCommand) && !(cmd instanceof CallCommand))\n\t\t\treturn;\n\n\t\tgitSupport.triggerSnapshotIfNeeded(exec, req);\n\t}\n"
+      - id: PromptHandler.QEglBi|s8XuCw
+        type: StatementGroup
+        code: "\tprivate final AdaptingConnector connector;\n\tprivate final IEditorInterface editIfc;\n\tprivate final AIBatchManager batch;\n\tprivate final PromptInputHandler input;\n\tprivate final IGitSupport gitSupport;\n\n\tprivate List<Consumer<AIAnswer>> answerObs = new ArrayList<>();\n"
+      - id: PromptHandler.addAnswerObs
+        type: MethodDeclaration
+        code: "\tpublic void addAnswerObs(Consumer<AIAnswer> obs) {\n\t\tanswerObs.add(obs);\n\t}\n"
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/api/IActiveEditor.java
+      nodes:
+      - id: IActiveEditor.Selection
+        type: RecordDeclaration
+        code: "\tpublic record Selection(String[] selection, Integer cursorOffset) {\n\t}\n"
+```
+/answer 1359-33 allow
+Text:
+ Vor dem Schreiben des Codes kläre ich noch vier Details: den YAML-Parser, den Schlüssel für den Tool-Namen im Control Request, die `sessionId`-Befüllung und die Package-Exporte.
+ReasoningToken: 12336
+Control Request:
+```yaml
+id: 1359-34
+toolName: search
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious
+    pattern: class YAML|static .*YAML\b|YAMLMapper|YAMLFactory
+    include:
+    - '*.java'
+    limit: 15
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector
+    pattern: \.sessionId = |toolName|tool_name|path\(\"tool\"\)
+    include:
+    - '*.java'
+    limit: 20
+  - directory:
+    - /home/user/xyan/xy.ai.workbench
+    pattern: Export-Package|autoapprove|conscious\.connector\.harness
+    include:
+    - MANIFEST.MF
+    - build.properties
+    - pom.xml
+    - module-info.java
+    limit: 15
+  reason: "YAML-Parsing-Hilfe, Tool-Schlüssel im Control Request, sessionId-Quelle und Bundle-Exports prüfen"
+```
+/answer 1359-34 allow
+Control Request:
+```yaml
+id: 1359-35
+result:
+  structuredContent:
+    results:
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious
+      matches:
+      - path: connector/claudecode/YamlRenderer.java
+        matches:
+        - import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+        - private final YAMLMapper yaml = YAMLMapper.builder().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+      - path: connector/harness/SessionRenderer.java
+        matches:
+        - private static final YamlRenderer YAML = new YamlRenderer();
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector
+      matches:
+      - path: mcp/MCPConnector.java
+        matches:
+        - String name = call.path("tool").asText(null);
+      - path: claudecode/ProtocolParser.java
+        matches:
+        - String toolName = node.path("name").asText("");
+        - "resp.setToolUse(commented(\"Tool: \" + toolName + \"\\nInput: \" + inputStr + \"\\nID: \" + toolUseId), toolUseId);"
+        - String toolName = block.path("name").asText("");
+        - String text = " " + toolName + "\n";
+        - "sub.setTaskName(\"Claude uses tool: \" + toolName);"
+      - path: claudecode/CCConnector.java
+        matches:
+        - resp.sessionId = session.getID();
+        - answer.sessionId = resp.sessionId;
+      - path: google/GeminiConnector.java
+        matches:
+        - "for (String toolName : tools) {"
+        - JsonNode tool = mcpClient.findTool(toolName);
+        - .name(tool.path("name").asText(toolName))//
+      - path: claude/ClaudeConnector.java
+        matches:
+        - "private void appendTools(CreateMessageParams params, List<String> toolNames) {"
+        - "for (String toolName : toolNames) {"
+        - JsonNode mcpTool = mcpClient.findTool(toolName);
+        - tool.setName(mcpTool.path("name").asText(toolName));
+      - path: openai/OpenAIConnector.java
+        matches:
+        - "for (String toolName : tools) {"
+        - JsonNode tool = mcpClient.findTool(toolName);
+        - .name(tool.path("name").asText(toolName))//
+      - path: deepseek/DeepSeekConnector.java
+        matches:
+        - "for (String toolName : tools) {"
+        - JsonNode tool = mcpClient.findTool(toolName);
+      warning: "Limit of 20 matches reached (total 22); narrow pattern, directory or include/exclude filters, or raise limit (max 50)."
+    - directory:
+      - /home/user/xyan/xy.ai.workbench
+```
+/answer 1359-35 allow
+ReasoningToken: 766
+Control Request:
+```yaml
+id: 1359-36
+toolName: ast_read
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    ids:
+    - NZKTrV|g5OLnZ
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+    ids:
+    - U3FBWT|pBPOgv
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+    ids:
+    - 0gUTBT|NhIzDR
+  reason: "Import-Blöcke der drei zu ändernden Dateien lesen, um Imports korrekt zu ergänzen"
+```
+/answer 1359-36 allow
+Control Request:
+```yaml
+id: 1359-37
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      nodes:
+      - id: NZKTrV|g5OLnZ
+        type: ImportGroup
+        code: |
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.function.Consumer;
+
+          import xy.ai.conscious.api.IActiveEditor;
+          import xy.ai.conscious.api.IExecutor;
+          import xy.ai.conscious.api.IExecutor.IMonitoredRunnable;
+          import xy.ai.conscious.api.IExecutor.IProgress;
+          import xy.ai.conscious.api.ext.IGitSupport;
+          import xy.ai.conscious.batch.AIBatchManager;
+          import xy.ai.conscious.commands.AnswerCommand;
+          import xy.ai.conscious.commands.CallCommand;
+          import xy.ai.conscious.commands.Command;
+          import xy.ai.conscious.commands.ToolCommand;
+          import xy.ai.conscious.connector.AdaptingConnector;
+          import xy.ai.conscious.core.ConfigManager;
+          import xy.ai.conscious.core.IEditorInterface;
+          import xy.ai.conscious.core.LOG;
+          import xy.ai.conscious.model.AIAnswer;
+          import xy.ai.conscious.model.IModelRequest;
+          import xy.ai.conscious.model.IModelResponse;
+          import xy.ai.conscious.model.Model;
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+      nodes:
+      - id: U3FBWT|pBPOgv
+        type: ImportGroup
+        code: |
+          import java.util.regex.Matcher;
+          import java.util.regex.Pattern;
+
+          import xy.ai.conscious.api.IActiveEditor;
+          import xy.ai.conscious.api.IActiveEditor.Selection;
+          import xy.ai.conscious.api.IExecutor;
+          import xy.ai.conscious.commands.AnswerCommand;
+          import xy.ai.conscious.commands.CallEditCommand;
+          import xy.ai.conscious.commands.Command;
+          import xy.ai.conscious.commands.CommandRegistry;
+          import xy.ai.conscious.core.ConfigManager;
+          import xy.ai.conscious.core.IEditorInterface;
+          import xy.ai.conscious.core.InputMode;
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+      nodes:
+      - id: 0gUTBT|NhIzDR
+        type: ImportGroup
+        code: |
+          import java.util.Arrays;
+          import java.util.List;
+
+          import xy.ai.conscious.core.AgentProfile;
+          import xy.ai.conscious.core.ConfigManager;
+          import xy.ai.conscious.core.InputMode;
+          import xy.ai.conscious.core.OutputMode;
+          import xy.ai.conscious.model.CacheMode;
+          import xy.ai.conscious.model.Model;
+          import xy.ai.conscious.model.Reasoning;
+          import xy.ai.conscious.tools.Hash;
+```
+/answer 1359-37 allow
+Text:
+ Jetzt lege ich das Package an. Zuerst Regel-Schnittstelle und Datentypen.
+ReasoningToken: 10053
+Control Request:
+```yaml
+id: 1359-38
+toolName: ast_create
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/Verdict.java
+    source: "package xy.ai.conscious.autoapprove.rules;\n\npublic enum Verdict {\n\tAllow, Deny, Abstain\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/Vote.java
+    source: "package xy.ai.conscious.autoapprove.rules;\n\nimport java.util.ArrayList;\nimport java.util.List;\n\n/**\n * Result of a single rule. Rules only decide; the approver executes. Besides the\n * verdict a rule may attach metadata: a {@code reason} (relevant for Deny), a\n * {@code hint} (relevant for Allow), {@code warnings} that enrich the answer and\n * an {@code instruction} that is sent to the model as a follow-up prompt.\n */\npublic record Vote(Verdict verdict, String reason, String hint, List<String> warnings, String instruction) {\n\n\tprivate static final Vote ABSTAIN = new Vote(Verdict.Abstain, null, null, null, null);\n\n\tpublic Vote {\n\t\tverdict = verdict == null ? Verdict.Abstain : verdict;\n\t\treason = reason == null ? \"\" : reason;\n\t\thint = hint == null ? \"\" : hint;\n\t\twarnings = warnings == null ? List.of() : List.copyOf(warnings);\n\t\tinstruction = instruction == null ? \"\" : instruction;\n\t}\n\n\tpublic static Vote abstain() {\n\t\treturn ABSTAIN;\n\t}\n\n\tpublic static Vote allow() {\n\t\treturn allow(null);\n\t}\n\n\tpublic static Vote allow(String hint) {\n\t\treturn new Vote(Verdict.Allow, null, hint, null, null);\n\t}\n\n\tpublic static Vote deny(String reason) {\n\t\treturn new Vote(Verdict.Deny, reason, null, null, null);\n\t}\n\n\t/** Abstains but adds a warning to the answer. */\n\tpublic static Vote warning(String text) {\n\t\treturn new Vote(Verdict.Abstain, null, null, List.of(text), null);\n\t}\n\n\t/** Abstains but requests a follow-up prompt with the given instruction. */\n\tpublic static Vote instruction(String text) {\n\t\treturn new Vote(Verdict.Abstain, null, null, null, text);\n\t}\n\n\tpublic Vote withWarning(String text) {\n\t\tList<String> all = new ArrayList<>(warnings);\n\t\tall.add(text);\n\t\treturn new Vote(verdict, reason, hint, all, instruction);\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/IApprovalRule.java
+    source: "package xy.ai.conscious.autoapprove.rules;\n\nimport xy.ai.conscious.autoapprove.ApprovalContext;\n\n/**\n * A voter. Every registered rule is evaluated for every answer and decides on\n * its own whether it is applicable; if not it returns {@link Vote#abstain()}.\n * Rules must not have side effects.\n */\npublic interface IApprovalRule {\n\n\tdefault String id() {\n\t\treturn getClass().getSimpleName();\n\t}\n\n\tVote vote(ApprovalContext ctx);\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalResult.java
+    source: "package xy.ai.conscious.autoapprove;\n\npublic enum ApprovalResult {\n\t/** No decision; the answer is not a tool call/result or no rule decided. */\n\tPass,\n\t/** Tool call or result of a control request was rejected. */\n\tDeny,\n\t/** Tool call or result of a control request was approved. */\n\tAllow,\n\t/** Tool call without control request was approved and is executed. */\n\tCall\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalItem.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport com.fasterxml.jackson.databind.JsonNode;\n\n/**\n * A tool call or tool result detected in an answer.\n *\n * @param data parsed YAML block\n * @param yaml raw YAML block content without fences\n */\npublic record ApprovalItem(Kind kind, String id, String tool, JsonNode data, String yaml) {\n\n\tpublic enum Kind {\n\t\tControlCall, ControlResult, ToolCall, ToolResult\n\t}\n\n\tpublic JsonNode arguments() {\n\t\treturn data.path(\"arguments\");\n\t}\n\n\tpublic JsonNode result() {\n\t\treturn data.path(\"result\");\n\t}\n\n\t/** Item belongs to a control request (MCP bound connector). */\n\tpublic boolean isControl() {\n\t\treturn kind == Kind.ControlCall || kind == Kind.ControlResult;\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/SessionSnapshot.java
+    source: |
+      package xy.ai.conscious.autoapprove;
+
+      import java.time.Instant;
+
+      import xy.ai.conscious.model.TokenStats;
+
+      /**
+       * Session state as seen by the rules. Includes the answer under evaluation.
+       *
+       * @param turn   number of answers carrying stats; control request answers are not counted
+       * @param tokens accumulated over all answers of the session
+       */
+      public record SessionSnapshot(String id, int turn, TokenStats tokens, Instant lastActivity) {
+      }
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/SessionTracker.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport java.time.Instant;\nimport java.util.Map;\nimport java.util.concurrent.ConcurrentHashMap;\n\nimport xy.ai.conscious.connector.harness.Prompt;\nimport xy.ai.conscious.model.AIAnswer;\nimport xy.ai.conscious.model.TokenStats;\n\nfinal class SessionTracker {\n\n\tprivate static final class State {\n\t\tint turn;\n\t\tfinal TokenStats tokens = new TokenStats();\n\t\tInstant lastActivity;\n\t\tPrompt lastPrompt;\n\t}\n\n\tprivate final Map<String, State> sessions = new ConcurrentHashMap<>();\n\n\t/** Connectors without own session id leave {@code sessionId == id}; fall back to the prompt's session. */\n\tstatic String keyOf(AIAnswer ans) {\n\t\tif (ans.sessionId != null && !ans.sessionId.equals(ans.id))\n\t\t\treturn ans.sessionId;\n\t\treturn ans.prompt != null ? ans.prompt.sessionId() : ans.id;\n\t}\n\n\tSessionSnapshot record(AIAnswer ans) {\n\t\tString key = keyOf(ans);\n\t\tState s = sessions.computeIfAbsent(key, k -> new State());\n\t\tsynchronized (s) {\n\t\t\tif (ans.showStats)\n\t\t\t\ts.turn++;\n\t\t\ts.tokens.add(ans.stats);\n\t\t\ts.lastActivity = Instant.now();\n\t\t\tif (ans.prompt != null)\n\t\t\t\ts.lastPrompt = ans.prompt;\n\t\t\tTokenStats copy = new TokenStats();\n\t\t\tcopy.add(s.tokens);\n\t\t\treturn new SessionSnapshot(key, s.turn, copy, s.lastActivity);\n\t\t}\n\t}\n\n\tPrompt lastPrompt(String key) {\n\t\tState s = sessions.get(key);\n\t\tif (s == null)\n\t\t\treturn null;\n\t\tsynchronized (s) {\n\t\t\treturn s.lastPrompt;\n\t\t}\n\t}\n\n\tvoid forget(String key) {\n\t\tsessions.remove(key);\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport xy.ai.conscious.connector.harness.Prompt;\nimport xy.ai.conscious.model.AIAnswer;\n\n/**\n * Input of a rule.\n *\n * @param item {@code null} if the answer contains no (or more than one) tool call/result\n */\npublic record ApprovalContext(AIAnswer answer, Prompt prompt, ApprovalItem item, SessionSnapshot session) {\n\n\tpublic boolean hasItem() {\n\t\treturn item != null;\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/RuleVote.java
+    source: |
+      package xy.ai.conscious.autoapprove;
+
+      import xy.ai.conscious.autoapprove.rules.Vote;
+
+      public record RuleVote(String ruleId, Vote vote) {
+      }
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/FollowUp.java
+    source: |
+      package xy.ai.conscious.autoapprove;
+
+      import xy.ai.conscious.api.IActiveEditor.Selection;
+      import xy.ai.conscious.connector.harness.Prompt;
+
+      /**
+       * Prompt to run next, described like an operator action: the prompt it derives
+       * from and the selection that would have been made in the editor.
+       */
+      public record FollowUp(Prompt origin, Selection selection) {
+      }
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/Decision.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport java.util.List;\n\n/**\n * Outcome of one evaluation. Also the event published to listeners.\n *\n * @param item        {@code null} if no single tool call/result was detected\n * @param instruction follow-up instruction requested by rules, empty if none\n * @param followUp    prompt the approver triggers, {@code null} if none\n */\npublic record Decision(String sessionId, ApprovalResult result, ApprovalItem item, String reason, String hint,\n\t\tList<String> warnings, String instruction, List<RuleVote> votes, FollowUp followUp) {\n\n\tpublic Decision {\n\t\tresult = result == null ? ApprovalResult.Pass : result;\n\t\treason = reason == null ? \"\" : reason;\n\t\thint = hint == null ? \"\" : hint;\n\t\twarnings = warnings == null ? List.of() : List.copyOf(warnings);\n\t\tinstruction = instruction == null ? \"\" : instruction;\n\t\tvotes = votes == null ? List.of() : List.copyOf(votes);\n\t}\n\n\tpublic static Decision pass(String sessionId) {\n\t\treturn new Decision(sessionId, ApprovalResult.Pass, null, null, null, null, null, null, null);\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/RuleRegistry.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport java.util.List;\nimport java.util.Objects;\nimport java.util.concurrent.CopyOnWriteArrayList;\n\nimport xy.ai.conscious.autoapprove.rules.IApprovalRule;\n\n/** Ordered registry of rules. */\npublic class RuleRegistry {\n\n\tprivate final CopyOnWriteArrayList<IApprovalRule> rules = new CopyOnWriteArrayList<>();\n\n\tpublic RuleRegistry register(IApprovalRule rule) {\n\t\trules.addIfAbsent(Objects.requireNonNull(rule));\n\t\treturn this;\n\t}\n\n\tpublic boolean unregister(IApprovalRule rule) {\n\t\treturn rules.remove(rule);\n\t}\n\n\tpublic List<IApprovalRule> rules() {\n\t\treturn List.copyOf(rules);\n\t}\n}\n"
+  reason: "Neue Dateien im Package autoapprove und autoapprove/rules anlegen: Regel-Interface, Vote, Datentypen, Registry, Session-Tracking"
+```
+/answer 1359-38 allow
+Text:
+ Jetzt Parser und Approver.
+ReasoningToken: 18
+Control Request:
+```yaml
+id: 1359-39
+toolName: ast_create
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/AnswerParser.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.regex.Matcher;\nimport java.util.regex.Pattern;\n\nimport com.fasterxml.jackson.core.JsonProcessingException;\nimport com.fasterxml.jackson.databind.JsonNode;\nimport com.fasterxml.jackson.dataformat.yaml.YAMLMapper;\n\nimport xy.ai.conscious.autoapprove.ApprovalItem.Kind;\nimport xy.ai.conscious.core.IEditorInterface;\n\n/** Extracts tool calls and tool results from the rendered answer text. */\nfinal class AnswerParser {\n\n\tprivate static final Pattern BLOCK = Pattern.compile(\n\t\t\t\"^(\" + Pattern.quote(IEditorInterface.CONTROL_REQUEST) + \"|\" + Pattern.quote(IEditorInterface.TOOLUSE) + \"|\"\n\t\t\t\t\t+ Pattern.quote(IEditorInterface.TOOLRESULT) + \")[ \\\\t]*\\\\R```yaml\\\\R(.*?)^```[ \\\\t]*$\",\n\t\t\tPattern.MULTILINE | Pattern.DOTALL);\n\tprivate static final YAMLMapper MAPPER = new YAMLMapper();\n\n\tprivate AnswerParser() {\n\t}\n\n\tstatic List<ApprovalItem> parse(String text) {\n\t\tList<ApprovalItem> items = new ArrayList<>();\n\t\tif (text == null || text.isEmpty())\n\t\t\treturn items;\n\t\tMatcher m = BLOCK.matcher(text);\n\t\twhile (m.find()) {\n\t\t\tApprovalItem item = toItem(m.group(1), m.group(2));\n\t\t\tif (item != null)\n\t\t\t\titems.add(item);\n\t\t}\n\t\treturn items;\n\t}\n\n\tprivate static ApprovalItem toItem(String marker, String yaml) {\n\t\tJsonNode node;\n\t\ttry {\n\t\t\tnode = MAPPER.readTree(yaml);\n\t\t} catch (JsonProcessingException e) {\n\t\t\treturn null;\n\t\t}\n\t\tif (node == null || !node.isObject())\n\t\t\treturn null;\n\t\tKind kind;\n\t\tif (IEditorInterface.CONTROL_REQUEST.equals(marker))\n\t\t\tkind = node.has(\"result\") ? Kind.ControlResult : Kind.ControlCall;\n\t\telse\n\t\t\tkind = IEditorInterface.TOOLUSE.equals(marker) ? Kind.ToolCall : Kind.ToolResult;\n\t\tString tool = node.path(\"tool\").asText(node.path(\"name\").asText(\"\"));\n\t\treturn new ApprovalItem(kind, node.path(\"id\").asText(\"\"), tool, node, yaml);\n\t}\n}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/AutoApprover.java
+    source: "package xy.ai.conscious.autoapprove;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Optional;\nimport java.util.concurrent.CopyOnWriteArrayList;\nimport java.util.function.Consumer;\n\nimport xy.ai.conscious.api.IActiveEditor.Selection;\nimport xy.ai.conscious.autoapprove.ApprovalItem.Kind;\nimport xy.ai.conscious.autoapprove.rules.IApprovalRule;\nimport xy.ai.conscious.autoapprove.rules.Vote;\nimport xy.ai.conscious.commands.AnswerCommand;\nimport xy.ai.conscious.commands.CallCommand;\nimport xy.ai.conscious.connector.harness.Prompt;\nimport xy.ai.conscious.core.LOG;\nimport xy.ai.conscious.model.AIAnswer;\n\n/**\n * Evaluates the registered rules against an answer and derives the follow-up\n * prompt. The approver never consumes the answer; it only enriches it and\n * describes the next action as a {@link FollowUp}, which the prompt handler runs\n * as if the operator had made the selection.\n * <p>\n * Aggregation: Deny beats Allow beats Abstain. Reasons, hints, warnings and\n * instructions of all rules are merged.\n */\npublic class AutoApprover {\n\n\tpublic static final int DEFAULT_MAX_CHAIN = 20;\n\n\tprivate final RuleRegistry registry;\n\tprivate final SessionTracker sessions = new SessionTracker();\n\tprivate final List<Consumer<Decision>> listeners = new CopyOnWriteArrayList<>();\n\tprivate volatile int maxChain = DEFAULT_MAX_CHAIN;\n\tprivate volatile String idleInstruction = \"Continue with the task.\";\n\n\tpublic AutoApprover() {\n\t\tthis(new RuleRegistry());\n\t}\n\n\tpublic AutoApprover(RuleRegistry registry) {\n\t\tthis.registry = registry;\n\t}\n\n\tpublic RuleRegistry rules() {\n\t\treturn registry;\n\t}\n\n\tpublic void addListener(Consumer<Decision> listener) {\n\t\tlisteners.add(listener);\n\t}\n\n\t/** Maximum number of consecutive automatic follow-up prompts. */\n\tpublic void setMaxChain(int maxChain) {\n\t\tthis.maxChain = maxChain;\n\t}\n\n\tpublic void setIdleInstruction(String instruction) {\n\t\tthis.idleInstruction = instruction == null ? \"\" : instruction;\n\t}\n\n\tpublic void forget(String sessionId) {\n\t\tsessions.forget(sessionId);\n\t}\n\n\t/**\n\t * Evaluates the rules for the answer. Must be called before the prompt tag is\n\t * replaced: warnings are prepended to {@code ans.answer}.\n\t *\n\t * @param depth number of automatic follow-ups that led to this answer\n\t */\n\tpublic Decision evaluate(AIAnswer ans, int depth) {\n\t\tSessionSnapshot session = sessions.record(ans);\n\t\tList<ApprovalItem> items = AnswerParser.parse(ans.answer);\n\t\tApprovalItem item = items.size() == 1 ? items.get(0) : null;\n\t\tApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, session);\n\t\tDecision decision = decide(ctx, collect(ctx), depth);\n\t\tenrich(ans, decision.warnings());\n\t\tpublish(decision);\n\t\treturn decision;\n\t}\n\n\t/** Called by an external idle trigger. */\n\tpublic Optional<FollowUp> onIdle(String sessionId) {\n\t\tPrompt origin = sessions.lastPrompt(sessionId);\n\t\tString instruction = idleInstruction;\n\t\tif (origin == null || instruction.isBlank())\n\t\t\treturn Optional.empty();\n\t\tFollowUp followUp = new FollowUp(origin, selection(instruction.lines().toList()));\n\t\tpublish(new Decision(sessionId, ApprovalResult.Pass, null, null, null, null, instruction, null, followUp));\n\t\treturn Optional.of(followUp);\n\t}\n\n\tprivate List<RuleVote> collect(ApprovalContext ctx) {\n\t\tList<RuleVote> votes = new ArrayList<>();\n\t\tfor (IApprovalRule rule : registry.rules()) {\n\t\t\ttry {\n\t\t\t\tVote vote = rule.vote(ctx);\n\t\t\t\tvotes.add(new RuleVote(rule.id(), vote == null ? Vote.abstain() : vote));\n\t\t\t} catch (RuntimeException e) {\n\t\t\t\tLOG.error(\"Approval rule failed: \" + rule.id(), e);\n\t\t\t}\n\t\t}\n\t\treturn votes;\n\t}\n\n\tprivate Decision decide(ApprovalContext ctx, List<RuleVote> votes, int depth) {\n\t\tList<String> reasons = new ArrayList<>();\n\t\tList<String> hints = new ArrayList<>();\n\t\tList<String> warnings = new ArrayList<>();\n\t\tList<String> instructions = new ArrayList<>();\n\t\tboolean deny = false;\n\t\tboolean allow = false;\n\t\tfor (RuleVote rv : votes) {\n\t\t\tVote v = rv.vote();\n\t\t\twarnings.addAll(v.warnings());\n\t\t\taddNonBlank(instructions, v.instruction());\n\t\t\tswitch (v.verdict()) {\n\t\t\tcase Deny -> {\n\t\t\t\tdeny = true;\n\t\t\t\taddNonBlank(reasons, v.reason());\n\t\t\t}\n\t\t\tcase Allow -> {\n\t\t\t\tallow = true;\n\t\t\t\taddNonBlank(hints, v.hint());\n\t\t\t}\n\t\t\tcase Abstain -> {\n\t\t\t}\n\t\t\t}\n\t\t}\n\t\tApprovalResult result = resultFor(ctx.item(), deny, allow);\n\t\tString reason = String.join(\"; \", reasons);\n\t\tString hint = String.join(\"; \", hints);\n\t\tString instruction = String.join(\"\\n\", instructions);\n\n\t\tFollowUp followUp = null;\n\t\tif (depth >= maxChain) {\n\t\t\tif (result != ApprovalResult.Pass || !instruction.isEmpty())\n\t\t\t\twarnings.add(\"auto-approve chain limit reached (\" + maxChain + \")\");\n\t\t\tresult = ApprovalResult.Pass;\n\t\t} else {\n\t\t\tfollowUp = followUpFor(ctx, result, reason, hint, instruction);\n\t\t\tif (followUp == null)\n\t\t\t\tresult = ApprovalResult.Pass;\n\t\t}\n\t\treturn new Decision(ctx.session().id(), result, ctx.item(), reason, hint, warnings, instruction, votes,\n\t\t\t\tfollowUp);\n\t}\n\n\tprivate static ApprovalResult resultFor(ApprovalItem item, boolean deny, boolean allow) {\n\t\tif (item == null || item.id().isBlank() || item.kind() == Kind.ToolResult)\n\t\t\treturn ApprovalResult.Pass;\n\t\tif (deny)\n\t\t\treturn ApprovalResult.Deny;\n\t\tif (!allow)\n\t\t\treturn ApprovalResult.Pass;\n\t\treturn item.kind() == Kind.ToolCall ? ApprovalResult.Call : ApprovalResult.Allow;\n\t}\n\n\tprivate FollowUp followUpFor(ApprovalContext ctx, ApprovalResult result, String reason, String hint,\n\t\t\tString instruction) {\n\t\tPrompt origin = ctx.prompt();\n\t\tApprovalItem item = ctx.item();\n\t\tif (origin == null)\n\t\t\treturn null;\n\t\tList<String> lines = switch (result) {\n\t\t\tcase Pass -> instruction.isBlank() ? null : instruction.lines().toList();\n\t\t\tcase Allow -> withBlock(item, command(AnswerCommand.CMD_ANSWER + \" \" + item.id() + \" allow\", hint));\n\t\t\tcase Deny -> item.isControl()\n\t\t\t\t\t? withBlock(item, command(AnswerCommand.CMD_ANSWER + \" \" + item.id() + \" deny\", reason))\n\t\t\t\t\t: List.of(denial(item, reason));\n\t\t\tcase Call -> withBlock(item, CallCommand.CMD_CALL + \" \" + item.id());\n\t\t};\n\t\treturn lines == null ? null : new FollowUp(origin, selection(lines));\n\t}\n\n\t/** Yaml block followed by the command line, as the operator would select it. */\n\tprivate static List<String> withBlock(ApprovalItem item, String commandLine) {\n\t\tList<String> lines = new ArrayList<>();\n\t\tlines.add(\"```yaml\");\n\t\titem.yaml().lines().forEach(lines::add);\n\t\tlines.add(\"```\");\n\t\tlines.add(commandLine);\n\t\treturn lines;\n\t}\n\n\tprivate static String denial(ApprovalItem item, String reason) {\n\t\tString tool = item.tool().isBlank() ? \"\" : \" (\" + item.tool() + \")\";\n\t\tString why = oneLine(reason);\n\t\treturn \"Tool call \" + item.id() + tool + \" was denied\" + (why.isEmpty() ? \".\" : \": \" + why);\n\t}\n\n\tprivate static String command(String base, String extra) {\n\t\tString text = oneLine(extra);\n\t\treturn text.isEmpty() ? base : base + \" \" + text;\n\t}\n\n\tprivate static String oneLine(String s) {\n\t\treturn s == null ? \"\" : s.replaceAll(\"\\\\s+\", \" \").strip();\n\t}\n\n\tprivate static Selection selection(List<String> lines) {\n\t\treturn new Selection(lines.toArray(String[]::new), null);\n\t}\n\n\tprivate static void addNonBlank(List<String> list, String text) {\n\t\tif (text != null && !text.isBlank())\n\t\t\tlist.add(text);\n\t}\n\n\t/** Warnings go in front so the command line stays the last line of the answer. */\n\tprivate static void enrich(AIAnswer ans, List<String> warnings) {\n\t\tif (warnings.isEmpty())\n\t\t\treturn;\n\t\tStringBuilder sb = new StringBuilder();\n\t\tfor (String w : warnings)\n\t\t\tsb.append(\"//warning: \").append(oneLine(w)).append('\\n');\n\t\tans.answer = sb + (ans.answer == null ? \"\" : ans.answer);\n\t}\n\n\tprivate void publish(Decision decision) {\n\t\tfor (Consumer<Decision> l : listeners) {\n\t\t\ttry {\n\t\t\t\tl.accept(decision);\n\t\t\t} catch (RuntimeException e) {\n\t\t\t\tLOG.error(e.getMessage(), e);\n\t\t\t}\n\t\t}\n\t}\n}\n"
+  reason: "AnswerParser (Tool-/Control-Blöcke aus dem Antworttext) und AutoApprover (Regelauswertung, Aggregation, Folgeprompt-Beschreibung) anlegen"
+```
+/answer 1359-39 allow
+Text:
+ Jetzt die Änderungen an den bestehenden Klassen: `FrozenConfig.copy()`, `PromptInputHandler.followUp(...)` und `PromptHandler`.
+Control Request:
+```yaml
+id: 1359-3a
+toolName: ast_insert
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+    id: FrozenConfig.FrozenConfig
+    position: after
+    source: "\t/** Independent copy; {@code model} and {@code keys} are mutated by prompt preprocessing. */\n\tpublic FrozenConfig copy() {\n\t\treturn new FrozenConfig(keys, model, profile, reasoning, tools, systemPrompt, topP, temperature,\n\t\t\t\tmaxOutputTokens, reasoningBudget, cacheMode, outputMode);\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+    id: PromptInputHandler.buildPrompt
+    position: after
+    source: |2
+        /**
+         * Builds the prompt an operator would have triggered with the given selection,
+         * taking file, project and config from the originating prompt instead of the
+         * editor.
+         */
+        public Prompt followUp(Prompt origin, Selection sel) {
+          PromptArguments arg = new PromptArguments();
+          arg.setEditor(origin.arg.getEditor());
+          arg.absoluteFilePath = origin.arg.absoluteFilePath;
+          arg.project = origin.arg.project;
+          arg.processorEnabled = origin.arg.processorEnabled;
+          detectSelection(sel, arg);
+          return new Prompt(arg.inputs, origin.batch, origin.config.copy(), arg);
+        }
+  reason: "FrozenConfig.copy() und PromptInputHandler.followUp(origin, selection) ergänzen"
+```
+/answer 1359-3a allow
+ReasoningToken: 195
+Control Request:
+```yaml
+id: 1359-3b
+toolName: ast_edit_block
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: NZKTrV|g5OLnZ
+    old_text: import xy.ai.conscious.batch.AIBatchManager;
+    new_text: |-
+      import xy.ai.conscious.autoapprove.AutoApprover;
+      import xy.ai.conscious.autoapprove.Decision;
+      import xy.ai.conscious.autoapprove.FollowUp;
+      import xy.ai.conscious.batch.AIBatchManager;
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.QEglBi|s8XuCw
+    old_text: "\tprivate final IGitSupport gitSupport;\n"
+    new_text: "\tprivate final IGitSupport gitSupport;\n\tprivate final AutoApprover approver = new AutoApprover();\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.prepareRequest
+    old_text: "\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {\n\t\tIProgress sub = mon.setTask(\"Preparing Call\", 1);\n\t\tsub.setTaskName(\"Preparing Call\");\n\t\tPrompt prompt = input.buildPrompt(exec, batchFix);"
+    new_text: "\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {\n\t\treturn prepareRequest(exec, batchFix, null, mon);\n\t}\n\n\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, Prompt preset, IProgress mon) {\n\t\tIProgress sub = mon.setTask(\"Preparing Call\", 1);\n\t\tsub.setTaskName(\"Preparing Call\");\n\t\tPrompt prompt = preset != null ? preset : input.buildPrompt(exec, batchFix);"
+  reason: "Imports, Approver-Feld und prepareRequest-Überladung mit vorgefertigtem Prompt in PromptHandler ergänzen"
+```
+/answer 1359-3b allow
+Control Request:
+```yaml
+id: 1359-3c
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      result: success
+      id: NZKTrV|g5OLnZ
+      new_id: 4MFHdZ|HIydwL
+    errors:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      error: Text not found in node; its content appears to have changed.
+      id: PromptHandler.QEglBi|s8XuCw
+      reason: content_changed
+      guess: |2-
+          private final PromptInputHandler input;
+          private final IGitSupport gitSupport;
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      error: Text not found in node.
+      id: PromptHandler.prepareRequest
+      reason: not_found
+      next_step: reread_node
+```
+/answer 1359-3c allow
+Text:
+ Die IDs haben sich durch die Import-Änderung verschoben. Ich lese sie neu.
+ReasoningToken: 49
+Control Request:
+```yaml
+id: 1359-3d
+toolName: ast_find
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+  regexp: private final IGitSupport gitSupport;|private IModelRequest prepareRequest|private class PromptRun
+  reason: "Aktuelle Node-IDs für Felder, prepareRequest und PromptRun nach der Import-Änderung ermitteln"
+```
+/answer 1359-3d allow
+Control Request:
+```yaml
+id: 1359-3e
+result:
+  structuredContent:
+    files:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      nodes:
+      - id: PromptHandler.QEglBi|s8XuCw
+        code: |2
+            private final AdaptingConnector connector;
+            private final IEditorInterface editIfc;
+            private final AIBatchManager batch;
+            private final PromptInputHandler input;
+            private final IGitSupport gitSupport;
+            private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
+      - id: PromptHandler.PromptRun
+        code: |2
+            private class PromptRun implements IMonitoredRunnable {
+              private final IExecutor exec;
+
+              private PromptRun(IExecutor exec) {
+                this.exec = exec;
+              }
+
+              @Override
+              public void run(IProgress mon) {
+                IProgress sub = mon.setTask("Executing prompt", 4);
+                String reqId = null;
+                try {
+                  sub.setTaskName("Prepare inputs");
+                  var req = prepareRequest(exec, false, sub);
+                  sub.worked();
+                  sub.setTaskName("Insert Tag");
+                  editIfc.insertTag(exec, req, sub);
+                  reqId = req.getID();
+                  mon.worked();
+                  sub.setTaskName("Execute prompt");
+                  AIAnswer ans = executeInner(exec, req, sub);
+                  mon.worked();
+                  sub.setTaskName("Process Answer");
+                  editIfc.replaceTag(ans, sub);
+                  mon.worked();
+                } catch (Exception e) {
+                  LOG.error(e.getMessage(), e);
+                  // uncatched error case
+                  if (reqId != null) {
+                    AIAnswer error = new AIAnswer(reqId);
+                    error.answer = e.getMessage();
+                    editIfc.replaceTag(error, sub);
+                  }
+                } finally {
+                  mon.done();
+                }
+              }
+            }
+      - id: PromptHandler.prepareRequest
+        code: |2
+            private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {
+              IProgress sub = mon.setTask("Preparing Call", 1);
+              sub.setTaskName("Preparing Call");
+              Prompt prompt = input.buildPrompt(exec, batchFix);
+              preprocessPrompt(prompt);
+              IModelRequest req = connector.createRequest(prompt, sub);
+              req.setPrompt(prompt);
+              sub.worked();
+              return req;
+            }
+```
+/answer 1359-3e allow
+Text:
+ Die Datei erscheint jetzt mit 2-Leerzeichen-Einrückung, vorher waren es Tabs. Ich prüfe, ob das Werkzeug die ganze Datei umformatiert hat.
+ReasoningToken: 238
+Control Request:
+```yaml
+id: 1359-3f
+toolName: search
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness
+    pattern: ^\t
+    include:
+    - PromptHandler.java
+    - FrozenConfig.java
+    - PromptInputHandler.java
+    limit: 5
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness
+    pattern: "^  [a-z@]"
+    include:
+    - PromptHandler.java
+    - FrozenConfig.java
+    - PromptInputHandler.java
+    limit: 5
+  reason: "Einrückungsstil der geänderten Dateien prüfen (Tabs vs. Leerzeichen), um versehentliche Komplett-Umformatierung zu erkennen"
+```
+/answer 1359-3f deny Das Tut sie, der AST übernimmt die Code Formatierung. Du kannst die Formatierung ignorieren.
+Text:
+ Verstanden, die Formatierung ignoriere ich. Jetzt `PromptRun`, `prepareRequest` und die neuen Methoden.
+ReasoningToken: 530
+Control Request:
+```yaml
+id: 1359-40
+toolName: ast_replace
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.PromptRun
+    source: "\tprivate class PromptRun implements IMonitoredRunnable {\n\t\tprivate final IExecutor exec;\n\t\tprivate final Prompt preset;\n\t\t/** Number of automatic follow-ups that led to this run. */\n\t\tprivate final int depth;\n\n\t\tprivate PromptRun(IExecutor exec) {\n\t\t\tthis(exec, null, 0);\n\t\t}\n\n\t\tprivate PromptRun(IExecutor exec, Prompt preset, int depth) {\n\t\t\tthis.exec = exec;\n\t\t\tthis.preset = preset;\n\t\t\tthis.depth = depth;\n\t\t}\n\n\t\t@Override\n\t\tpublic void run(IProgress mon) {\n\t\t\tIProgress sub = mon.setTask(\"Executing prompt\", 4);\n\t\t\tString reqId = null;\n\t\t\tDecision decision = null;\n\t\t\ttry {\n\t\t\t\tsub.setTaskName(\"Prepare inputs\");\n\t\t\t\tvar req = prepareRequest(exec, false, preset, sub);\n\t\t\t\tsub.worked();\n\t\t\t\tsub.setTaskName(\"Insert Tag\");\n\t\t\t\teditIfc.insertTag(exec, req, sub);\n\t\t\t\treqId = req.getID();\n\t\t\t\tmon.worked();\n\n\t\t\t\tsub.setTaskName(\"Execute prompt\");\n\t\t\t\tAIAnswer ans = executeInner(exec, req, sub);\n\t\t\t\tmon.worked();\n\t\t\t\tsub.setTaskName(\"Process Answer\");\n\t\t\t\tDecision evaluated = evaluate(ans, depth);\n\t\t\t\teditIfc.replaceTag(ans, sub);\n\t\t\t\tdecision = evaluated;\n\t\t\t\tmon.worked();\n\t\t\t} catch (Exception e) {\n\t\t\t\tLOG.error(e.getMessage(), e);\n\t\t\t\t// uncatched error case\n\t\t\t\tif (reqId != null) {\n\t\t\t\t\tAIAnswer error = new AIAnswer(reqId);\n\t\t\t\t\terror.answer = e.getMessage();\n\t\t\t\t\teditIfc.replaceTag(error, sub);\n\t\t\t\t}\n\t\t\t} finally {\n\t\t\t\tmon.done();\n\t\t\t}\n\t\t\tif (decision != null && decision.followUp() != null)\n\t\t\t\tscheduleFollowUp(exec, decision.followUp(), depth + 1);\n\t\t}\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.prepareRequest
+    source: "\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {\n\t\treturn prepareRequest(exec, batchFix, null, mon);\n\t}\n\n\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, Prompt preset, IProgress mon) {\n\t\tIProgress sub = mon.setTask(\"Preparing Call\", 1);\n\t\tsub.setTaskName(\"Preparing Call\");\n\t\tPrompt prompt = preset != null ? preset : input.buildPrompt(exec, batchFix);\n\t\tpreprocessPrompt(prompt);\n\t\tIModelRequest req = connector.createRequest(prompt, sub);\n\t\treq.setPrompt(prompt);\n\t\tsub.worked();\n\t\treturn req;\n\t}\n"
+  reason: "PromptRun um optionalen fertigen Prompt und Tiefe erweitern, Auswertung vor replaceTag und Folgeprompt danach; prepareRequest-Überladung"
+```
+/answer 1359-40 allow
+Control Request:
+```yaml
+id: 1359-41
+result:
+  structuredContent:
+    results:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      result: success
+      id: PromptHandler.PromptRun
+      new_id: PromptHandler.PromptRun
+    errors:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      error: |
+        invalid member declaration: Encountered unexpected token: "private" "private"
+            at line 5, column 3.
+
+        Was expecting:
+
+            <EOF>
+      id: PromptHandler.prepareRequest
+```
+/answer 1359-41 allow
+Text:
+ Ein Node akzeptiert nur ein Member. Ich ändere `prepareRequest` direkt und füge die Delegations-Überladung separat davor ein.
+ReasoningToken: 62
+Control Request:
+```yaml
+id: 1359-42
+toolName: ast_edit_block
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.prepareRequest
+    old_text: "private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {"
+    new_text: "private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, Prompt preset, IProgress mon) {"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.prepareRequest
+    old_text: "Prompt prompt = input.buildPrompt(exec, batchFix);"
+    new_text: "Prompt prompt = preset != null ? preset : input.buildPrompt(exec, batchFix);"
+  reason: prepareRequest um optionalen vorgefertigten Prompt erweitern
+```
+/answer 1359-42 allow
+Text:
+ Jetzt die Delegations-Überladung für `queueSync`, die neuen Methoden und das Feld.
+Control Request:
+```yaml
+id: 1359-43
+toolName: ast_insert
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.prepareRequest
+    position: before
+    source: "\tprivate IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {\n\t\treturn prepareRequest(exec, batchFix, null, mon);\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.addAnswerObs
+    position: after
+    source: "\tpublic AutoApprover approver() {\n\t\treturn approver;\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.executeInner
+    position: after
+    source: "\tprivate Decision evaluate(AIAnswer ans, int depth) {\n\t\ttry {\n\t\t\treturn approver.evaluate(ans, depth);\n\t\t} catch (RuntimeException e) {\n\t\t\tLOG.error(e.getMessage(), e);\n\t\t\treturn Decision.pass(ans.sessionId);\n\t\t}\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.executeInner
+    position: after
+    source: "\tprivate void scheduleFollowUp(IExecutor exec, FollowUp followUp, int depth) {\n\t\ttry {\n\t\t\tPrompt prompt = input.followUp(followUp.origin(), followUp.selection());\n\t\t\texec.schedule(\"Auto Approve\", new PromptRun(exec, prompt, depth));\n\t\t} catch (RuntimeException e) {\n\t\t\tLOG.error(e.getMessage(), e);\n\t\t}\n\t}\n"
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.executeInner
+    position: after
+    source: "\t/** Entry point for an external idle trigger. */\n\tpublic void onIdle(IExecutor exec, String sessionId) {\n\t\tapprover.onIdle(sessionId).ifPresent(f -> scheduleFollowUp(exec, f, 1));\n\t}\n"
+  reason: "Überladung prepareRequest für queueSync, approver()-Getter, evaluate-Wrapper, scheduleFollowUp und onIdle-Einstieg einfügen"
+```
+/answer 1359-43 allow
+Control Request:
+```yaml
+id: 1359-44
+toolName: ast_find
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+  regexp: private final IGitSupport gitSupport;
+  reason: Aktuelle ID der Feldgruppe für das Approver-Feld ermitteln
+```
+/answer 1359-44 allow
+Control Request:
+```yaml
+id: 1359-45
+result:
+  structuredContent:
+    files:
+    - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+      nodes:
+      - id: PromptHandler.QEglBi|s8XuCw
+        code: |2
+            private final AdaptingConnector connector;
+            private final IEditorInterface editIfc;
+            private final AIBatchManager batch;
+            private final PromptInputHandler input;
+            private final IGitSupport gitSupport;
+            private List<Consumer<AIAnswer>> answerObs = new ArrayList<>();
+```
+/answer 1359-45 allow
+Control Request:
+```yaml
+id: 1359-46
+toolName: ast_edit_block
+arguments:
+  items:
+  - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+    id: PromptHandler.QEglBi|s8XuCw
+    old_text: private final IGitSupport gitSupport;
+    new_text: |-
+      private final IGitSupport gitSupport;
+        private final AutoApprover approver = new AutoApprover();
+  reason: Approver-Feld in PromptHandler ergänzen
+```
+/answer 1359-46 allow
+Control Request:
+```yaml
+id: 1359-47
+toolName: ast_validate
+arguments:
+  paths:
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptHandler.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/PromptInputHandler.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/FrozenConfig.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/AutoApprover.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/AnswerParser.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/SessionTracker.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/Decision.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/Vote.java
+  - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/IApprovalRule.java
+  reason: Syntax aller geänderten und neuen Dateien prüfen
+```
+/answer 1359-47 allow
+Text:
+ Die Syntax ist in Ordnung. Das ist aber nur eine Syntaxprüfung, deshalb prüfe ich noch die Aufrufe, die ich angenommen habe (`LOG.error`, `Prompt`/`AIAnswer`-Zugriffe).
+ReasoningToken: 865
+Control Request:
+```yaml
+id: 1359-48
+toolName: search
+arguments:
+  items:
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/core
+    pattern: static .* error\(
+    include:
+    - LOG.java
+    limit: 5
+  - directory:
+    - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness
+    pattern: followUp|evaluate\(|scheduleFollowUp|approver|prepareRequest\(
+    include:
+    - PromptHandler.java
+    limit: 30
+  reason: LOG.error-Signatur bestätigen und die Einbindung in PromptHandler gegenlesen
+```
+/answer 1359-48 allow
+Control Request:
+```yaml
+id: 1359-49
+result:
+  structuredContent:
+    results:
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/core
+      matches:
+      - path: LOG.java
+        matches:
+        - "public static void error(String message) {"
+        - "public static void error(String message, Throwable throwable) {"
+    - directory:
+      - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness
+      matches:
+      - path: PromptHandler.java
+        matches:
+        - private final AutoApprover approver = new AutoApprover();
+        - "public AutoApprover approver() {"
+        - return approver;
+        - "var req = prepareRequest(exec, false, preset, sub);"
+        - "Decision evaluated = evaluate(ans, depth);"
+        - if (decision != null && decision.followUp() != null)
+        - "scheduleFollowUp(exec, decision.followUp(), depth + 1);"
+        - "var req = prepareRequest(exec, true, sub.subProgress());"
+        - "private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, IProgress mon) {"
+        - "return prepareRequest(exec, batchFix, null, mon);"
+        - "private IModelRequest prepareRequest(IExecutor exec, boolean batchFix, Prompt preset, IProgress mon) {"
+        - "approver.onIdle(sessionId).ifPresent(f -> scheduleFollowUp(exec, f, 1));"
+        - "private void scheduleFollowUp(IExecutor exec, FollowUp followUp, int depth) {"
+        - "Prompt prompt = input.followUp(followUp.origin(), followUp.selection());"
+        - "private Decision evaluate(AIAnswer ans, int depth) {"
+        - "return approver.evaluate(ans, depth);"
+```
+/answer 1359-49 allow
+Result Stats: id=123c3b3a-c226-4b4d-8683-f62d56bab1c9, total: 207351, in: 64, out: 70262, reason: 249, read: 2399607, write: 137025, start: 1794054683307, end: 1794054698526, time: 15128, total: 471605, io: 0, control: 91, sent: 0, recv: 394
+ReasoningToken: 249
+Das Gerüst steht und ist in `PromptRun.run` eingebunden. Kompiliert oder getestet habe ich nichts. `ast_validate` hat nur die Syntax geprüft, und ich habe keine Tests geschrieben. Mit `Allow` oder `Deny` solltest du es einmal gegen einen echten Control Request laufen lassen.
+
+## Ablauf
+
+`PromptRun.run` macht jetzt Folgendes:
+
+1. `executeInner` liefert die Antwort.
+2. `evaluate(ans, depth)` befragt die Regeln. Das Ergebnis ist eine `Decision`. Warnungen werden vorn an `ans.answer` gestellt.
+3. `replaceTag` setzt die Antwort ein.
+4. Hat die `Decision` einen `FollowUp`, wird er als neuer `PromptRun` eingeplant (`depth + 1`).
+
+Ein Fehler im Approver führt zu `Pass`. Er kann die Antwort nicht mehr verlieren. Ein fehlerhafter Folgeprompt überschreibt auch den bereits ersetzten Tag nicht.
+
+## Neu
+
+**`autoapprove/`**
+- `AutoApprover` ist der Kern: `evaluate`, `onIdle`, `rules()`, `addListener`, `setMaxChain`, `setIdleInstruction`, `forget`.
+- Dazu kommen `RuleRegistry`, `AnswerParser`, `SessionTracker`, `Decision`, `ApprovalResult` (`Pass`/`Deny`/`Allow`/`Call`), `ApprovalItem`, `ApprovalContext`, `SessionSnapshot`, `FollowUp` und `RuleVote`.
+
+**`autoapprove/rules/`**
+- `IApprovalRule` hat `vote(ApprovalContext)`.
+- `Verdict` ist `Allow`, `Deny` oder `Abstain`.
+- `Vote` trägt `reason`, `hint`, `warnings` und `instruction`. Es gibt Factories wie `Vote.deny("…")`.
+
+**Geändert**
+- `FrozenConfig.copy()`.
+- `PromptInputHandler.followUp(origin, selection)`: Datei, Projekt und Config kommen aus dem alten Prompt, der Rest läuft über `detectSelection`.
+- `PromptHandler`:
+  - `approver()` als Zugang für Regeln und Listener.
+  - `onIdle(exec, sessionId)` als Einstieg für den externen Trigger.
+  - `prepareRequest` kann einen fertigen Prompt entgegennehmen.
+
+Die Folge-Selection ist der YAML-Block plus `/answer <id> allow|deny [text]` bzw. `/call <id>`. Der Operator würde dasselbe markieren.
+
+## Verhalten, das du kennen solltest
+
+- **Aggregation:** `Deny` schlägt `Allow` schlägt `Abstain`. Reasons und Hints werden mit `; ` zusammengeführt.
+- **Mehrere Items:** Enthält eine Antwort mehr als einen Tool-Block, gilt kein Item als erkannt. Die Regeln laufen trotzdem, und Warnungen greifen weiter, aber es gibt keine Tool-Aktion.
+- **Warnungen vorn statt hinten:** Die Zeile `//warning: …` steht vor der Antwort, weil die Kommandozeile sonst nicht mehr die letzte Zeile wäre. Das bräuchte `detectFullFile`.
+- **Kettenlimit:** Es gibt maximal 20 automatische Folgeprompts in Folge. Danach kommt `Pass` mit einer Warnung.
+- **Turn-Zähler:** Er zählt nur Antworten mit `showStats == true`. Control-Request-Antworten zählen nicht mit, denn sie setzen `showStats=false`. Das ist meine Annahme. Ob die Stats dort befüllt sind, habe ich nicht geprüft.
+- **Session-Schlüssel:** Es gilt `ans.sessionId`, falls der Connector eine eigene setzt (bei Claude Code der Fall). Sonst fällt der Schlüssel auf `prompt.sessionId()` zurück.
+- **Tool-Name im Control Request:** Ich lese `tool`, ersatzweise `name`. Das habe ich nicht gegen ein echtes Control-Request-YAML geprüft. Es betrifft nur Regeln, die das Tool abfragen.
+
+## Entscheidungen, die ich getroffen habe und die du prüfen solltest
+
+1. **`Deny` bei direktem Tool-Call:** Es gibt dafür kein Kommando. Ich sende einen Textprompt "Tool call <id> (<tool>) was denied: <reason>". Ob das für die Session-Rekonstruktion der direkten Modelle passt, habe ich nicht geprüft.
+2. **`ToolResult` direkter Modelle:** Sie ergeben immer `Pass`, weil es keine Aktion dafür gibt.
+3. **`Exec` und `CallEditCommand`:** Der Approver nutzt sie noch nicht.
+4. **Output-Modus des Folgeprompts:** `insertTag` liest bei Replace und Cursor weiter die Live-Selektion des Editors.
+
+Der Editor hat nach meiner Änderung `PromptHandler` komplett in 2-Leerzeichen umformatiert. Das hast du schon als erwartet bezeichnet.
+
+Es gibt noch keine konkrete Regel. Ich kann als Nächstes eine Beispielregel schreiben, etwa die Bash-CWD-Ablehnung oder die Cache-Read-Warnung ab Turn 10, und die Idle-Anbindung vorbereiten. Dazu brauche ich von dir den CWD-Schlüssel und die Schwellwerte.
