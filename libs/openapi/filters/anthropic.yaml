@@ -389,7 +389,6 @@ ops:
       - CountMessageTokensResponse
       - FileDocumentSource
       - FileImageSource
-      - ListResponse_MessageBatch_
       - MemoryTool_20250818
       - RequestBashCodeExecutionOutputBlock
       - RequestBashCodeExecutionResultBlock
