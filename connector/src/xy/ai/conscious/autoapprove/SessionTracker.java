@@ -23,7 +23,7 @@ final class SessionTracker {
     final Deque<ApprovalItem> calls = new ArrayDeque<>();
   }
   static final int MAX_CALLS = 10;
-  private static final Pattern CONTROL_ID = Pattern.compile("(.+)-(\\d+)-(\\d+)");
+  private static final Pattern CONTROL_ID = Pattern.compile("(.+)-([0-9a-z]+)-([0-9a-z]+)");
   private final Map<String, State> sessions = new ConcurrentHashMap<>();
 
   /**

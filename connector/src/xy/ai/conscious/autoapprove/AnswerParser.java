@@ -100,7 +100,7 @@ public class AnswerParser {
     }
     if (node == null || !node.isObject())
       return null;
-    String tool = node.path("tool").asText(node.path("name").asText(""));
+    String tool = node.path("tool").asText(node.path("name").asText(node.path("toolName").asText("")));
     return new ApprovalItem(kind, node.path("id").asText(""), tool, node, yaml);
   }
 }
