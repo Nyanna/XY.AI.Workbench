@@ -125,8 +125,10 @@ class McpProtocol:
         control = self.environment.control_manager if self.environment else None
         request_hint: str | None = None
         force_result_review = False
+        request_number = 0
         if control is not None and (not skip_control):
             decision = control.submit_request(session, name, arguments)
+            request_number = decision.request_number
             if not decision.approved:
                 reason = decision.rejection_reason
                 if name == TOOLNAME_ASK_USER:
@@ -162,6 +164,7 @@ class McpProtocol:
                 session,
                 name,
                 result.to_dict(),
+                request_number=request_number,
                 auto_approve=result.auto_approve and (
                     not force_result_review))
             if not decision.approved:

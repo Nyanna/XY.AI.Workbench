@@ -6,3 +6,4 @@
 - **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools basierend auf reason
 - SUbagent LLM einschätzung
 - Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
+- Ein Pfad oberhalb des Projekt pfades wird automatisch nach untern korrigiert, nicht wenn pfad nicht oberhalb sondern anderswo

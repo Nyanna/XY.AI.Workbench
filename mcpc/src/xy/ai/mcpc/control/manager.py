@@ -35,6 +35,8 @@ class ControlDecision:
     'Replacement arguments for the ``request`` phase (``None`` → keep originals).'
     modified_result: dict[str, Any] | None = None
     'Replacement result dict for the ``result`` phase (``None`` → keep original).'
+    request_number: int = 0
+    'Sequence number of the ``request`` phase item; set by :meth:`ToolControlManager.submit_request`.'
     force_result_review: bool = False
     "Set by an ``exec`` approval: behaves like ``allow`` for the request phase\n    but disables any tool-provided ``auto_approve`` for the subsequent result\n    phase, so a questionable command's output is always reviewed before use.\n    "
 
@@ -96,20 +98,28 @@ class ToolControlManager:
 
         Returns a :class:`ControlDecision`.  If the decision includes
         ``modified_arguments``, the caller should substitute them before
-        invoking the tool handler.
+        invoking the tool handler.  ``ControlDecision.request_number`` must be
+        passed to :meth:`submit_result` to reference this call.
         """
+        number = self._next_number()
         if auto_approve or session.control_disabled:
             logger.info('Auto-approving request for %s [%s] (tool-flagged or control disabled)', tool_name, session.id)
-            return ControlDecision(approved=True)
-        item = self._enqueue(session, 'request', tool_name, arguments=arguments, result=None)
-        return self._wait(item)
+            return ControlDecision(approved=True, request_number=number)
+        item = self._enqueue(session, 'request', tool_name, arguments=arguments, result=None, number=number, ref=0)
+        decision = self._wait(item)
+        decision.request_number = number
+        return decision
 
-    def submit_result(self, session: Session, tool_name: str, result: dict[str, Any], *, auto_approve: bool=False) -> ControlDecision:
+    def submit_result(self, session: Session, tool_name: str, result: dict[str, Any], *, request_number: int, auto_approve: bool=False) -> ControlDecision:
         """Block until the controller approves/replaces a tool-call *result*.
 
         Returns a :class:`ControlDecision`.  If the decision includes
         ``modified_result``, the caller should use that instead of the
         original result.
+
+        ``request_number`` is the number of the originating tool call
+        (:attr:`ControlDecision.request_number`); it forms the back reference
+        in the item id.
 
         ``auto_approve`` is a hint set by the *tool itself* (via
         ``ToolResult.auto_approve``), not derived from the shape of the
@@ -118,7 +128,14 @@ class ToolControlManager:
         if auto_approve or session.control_disabled:
             logger.info('Auto-approving result for %s [%s] (tool-flagged or control disabled)', tool_name, session.id)
             return ControlDecision(approved=True)
-        item = self._enqueue(session, 'result', tool_name, arguments=None, result=result)
+        item = self._enqueue(
+            session,
+            'result',
+            tool_name,
+            arguments=None,
+            result=result,
+            number=self._next_number(),
+            ref=request_number)
         return self._wait(item)
 
     def get_pending(self, session_id: str | None=None) -> list[dict[str, Any]]:
@@ -162,9 +179,8 @@ class ToolControlManager:
                 logger.warning('Unknown approval id %s, skipped', item_id)
                 continue
             if approval.get('rejected'):
-                decision = ControlDecision(
-                    approved=False,
-                    rejection_reason=approval.get('reason') or 'Reconsider your approach based on the requirements.')
+                decision = ControlDecision(approved=False, rejection_reason=approval.get(
+                    'reason') or 'Reconsider your approach based on the requirements.')
             else:
                 decision = ControlDecision(
                     approved=True,
@@ -202,10 +218,13 @@ class ToolControlManager:
                         item.tool_name, item.phase, item.id, session_id, reason)
             item._event.set()
 
-    def _enqueue(self, session: Session, phase: str, tool_name: str, arguments: dict[str, Any] | None, result: dict[str, Any] | None) -> _PendingItem:
+    def _next_number(self) -> int:
         with self._lock:
             self._id_counter += 1
-            item_id = f'{self._id_prefix}-{self._id_counter:x}'
+            return self._id_counter
+
+    def _enqueue(self, session: Session, phase: str, tool_name: str, arguments: dict[str, Any] | None, result: dict[str, Any] | None, *, number: int, ref: int) -> _PendingItem:
+        item_id = f'{self._id_prefix}-{number:x}-{ref:x}'
         item = _PendingItem(
             id=item_id,
             phase=phase,
