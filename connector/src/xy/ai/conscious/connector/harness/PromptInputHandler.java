@@ -120,7 +120,7 @@ public class PromptInputHandler {
     detectedCmd(lines[lastLine], lines, lastLine, arg);
   }
 
-  private boolean detectedCmd(String line, String[] lines, int lineIndex, PromptArguments arg) {
+  private static boolean detectedCmd(String line, String[] lines, int lineIndex, PromptArguments arg) {
     Command cmd = CommandRegistry.detect(line);
     if (cmd == null)
       return false;
@@ -131,16 +131,29 @@ public class PromptInputHandler {
     return true;
   }
 
-  /*
-	 * Walks backwards from the command line and keeps the closest preceding ```yaml
-	 * block.
-	 */
-  private String captureYamlBlock(String[] lines, int lineIndex) {
+  private static String captureYamlBlock(String[] lines, int lineIndex) {
     StringBuilder prefix = new StringBuilder();
     for (int i = 0; i < lineIndex && i < lines.length; i++) prefix.append(lines[i]).append("\n");
     Matcher m = YAML_BLOCK.matcher(prefix);
     String last = null;
     while (m.find()) last = m.group(1);
     return last;
+  }
+
+  public record ParsedCommand(Command command, String yaml) {
+  }
+
+  /**
+   * Detects the command on the last line of the text together with the YAML block preceding it.
+   */
+  public static ParsedCommand parseTrailingCommand(String text) {
+    if (text == null || text.isBlank())
+      return null;
+    String[] lines = text.stripTrailing().split("\\R");
+    int last = lines.length - 1;
+    PromptArguments arg = new PromptArguments();
+    if (!detectedCmd(lines[last], lines, last, arg))
+      return null;
+    return new ParsedCommand(arg.command, arg.yaml);
   }
 }

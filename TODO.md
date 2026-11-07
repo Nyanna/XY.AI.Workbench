@@ -21,33 +21,7 @@
 - Bessere Shortcuts für Datei-Erstellung
   - Shortcut für Selection in extra Task auslagern (immer Project-Verzeichnis, notfalls erstellen)
 - Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
-
-### Auto-Runner-Panel
-! autorunner soll überwachung erleichtern, vielleicht einfaches penl und nicht vollen editor anzeigen (performance)
-- Datei-basierte SessionConfig mit Fixierung (muss aber als Editor einmal gestartet worden sein)
-- Auto-Prompt-Panel mit Tabelle
-  - Letztes Kommando pro Datei basierend auf Bedingungen mit Config ausführen – Result wird appended, kein Tag-Replace
-  - Abbruch bei Exception
-  - Statt Control-Request: direkter Aufruf und Result-Modifizierung
-- Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
-- Approval-Tool-Control anders – Tool-Use nur für langwierige teure Operationen
-  - Sonst immer den Output abwarten und zusammen approven
-  - Nur ein Approval-Call + Ergebnis notwendig
-  - Response muss im Autorunner gespiegelt werden (Last Reason) – immer als Letztes
-    - Zusammen mit Stats (Zeichen, ob modifizierend)
-- Request-Approval-Kategorie mit Auto-Approval pro Kategorie und Argument
-  - IO/Web/andere API
-  - Schreiboperation (Pfad)
-  - Große Operation (Batch-Limit)
-  - Viel Kontext (Zeichen-Threshold)
-  - Viele Turns/Cache-Read hoch – per Flag togglebar
-- Auto-Approve im Harness bei kleinerem X-Zeichen-Kontext und kein Fehler → warum nicht auch über MCPC-Controller mit User-Timeout?
-- Virtual Environment – alles außerhalb Project-Path oder Filterliste unsichtbar (grep/ast), funktioniert nicht mit bash/python
-  - Tool außerhalb automatisch umleiten -> Auto-Runner korrigiert Tool Calls oder lehnt ab
-- **Selbstlernende Agenten** – Lazy Common-Knowledge-Base mit dynamischem Memory, erkennt Patterns und Tools
-  - KB zur Vermeidung häufiger Fehler -> Autorunner hat heuristik und regelset
-- Claude Code: Keep-alive-Session, Max-Limit: bei 5min max 1 Stunde, bei 1h max 2h, "warte kurz" random list
-- Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
+- Autoapprover: Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
 
 ### SDK
 - Google/OpenAI SDK entfernen und gegen eigene SDK tauschen

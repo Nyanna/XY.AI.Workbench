@@ -12,23 +12,75 @@ import xy.ai.conscious.commands.CallCommand;
 import xy.ai.conscious.commands.Command;
 import xy.ai.conscious.connector.harness.PromptInputHandler;
 import xy.ai.conscious.connector.harness.PromptInputHandler.ParsedCommand;
+import xy.ai.conscious.connector.harness.Role;
+import xy.ai.conscious.connector.harness.SessionCallbacks;
+import xy.ai.conscious.connector.harness.SessionProcessor;
+import xy.ai.conscious.connector.harness.ToolCall;
+import xy.ai.conscious.connector.harness.ToolResult;
 
 /**
  * Extracts tool calls and tool results from the rendered answer text.
  */
 public class AnswerParser {
   private static final YAMLMapper MAPPER = new YAMLMapper();
+  private static final SessionProcessor<Object> PROCESSOR = new SessionProcessor<>(null);
 
   static List<ApprovalItem> parse(String text) {
     List<ApprovalItem> items = new ArrayList<>();
-    ParsedCommand parsed = PromptInputHandler.parseTrailingCommand(text);
-    if (parsed == null || parsed.yaml() == null)
-      return items;
-    Kind kind = kindOf(parsed.command());
-    ApprovalItem item = kind == null ? null : toItem(kind, parsed.yaml());
+    ApprovalItem item = parseCommandItem(text);
+    if (item == null)
+      item = parseToolResult(text);
     if (item != null)
       items.add(item);
     return items;
+  }
+
+  private static ApprovalItem parseCommandItem(String text) {
+    ParsedCommand parsed = PromptInputHandler.parseTrailingCommand(text);
+    if (parsed == null || parsed.yaml() == null)
+      return null;
+    Kind kind = kindOf(parsed.command());
+    return kind == null ? null : toItem(kind, parsed.yaml());
+  }
+
+  private static ApprovalItem parseToolResult(String text) {
+    if (text == null || text.isBlank())
+      return null;
+    ToolResult[] last = new ToolResult[1];
+    try {
+      PROCESSOR.process(text, true, null, new SessionCallbacks<Object>() {
+
+        @Override
+        public Object message(Role role, String text) {
+          return null;
+        }
+
+        @Override
+        public Object reasoning(Role role, List<String> texts, String meta) {
+          return null;
+        }
+
+        @Override
+        public Object toolCall(ToolCall call) {
+          return null;
+        }
+
+        @Override
+        public Object toolResult(ToolResult result) {
+          last[0] = result;
+          return null;
+        }
+      });
+    } catch (RuntimeException e) {
+      return null;
+    }
+    if (last[0] == null || last[0].node == null)
+      return null;
+    try {
+      return toItem(Kind.ToolResult, MAPPER.writeValueAsString(last[0].node));
+    } catch (JsonProcessingException e) {
+      return null;
+    }
   }
 
   private static Kind kindOf(Command command) {
