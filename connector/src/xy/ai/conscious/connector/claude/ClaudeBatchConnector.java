@@ -9,12 +9,12 @@ import xy.ai.conscious.batch.BatchState;
 import xy.ai.conscious.batch.NewBatch;
 import xy.ai.conscious.connector.IAIBatch;
 import xy.ai.conscious.connector.IAIBatchConnector;
-import xy.ai.conscious.connector.openapi.anthropic.JsonSupport;
 import xy.ai.conscious.connector.openapi.anthropic.V1ClientImpl;
 import xy.ai.conscious.connector.openapi.anthropic.components.MessageBatch;
-import xy.ai.conscious.connector.openapi.anthropic.components.MessageBatchIndividualResponse;
 import xy.ai.conscious.connector.openapi.anthropic.components.OneOfError;
-import xy.ai.conscious.connector.openapi.anthropic.components.OneOfResult;
+import xy.ai.conscious.connector.openapi.anthropic.response.v1.messages.batches.message_batch_id.results.code200.x_jsonl.BodyList;
+import xy.ai.conscious.connector.openapi.anthropic.response.v1.messages.batches.message_batch_id.results.code200.x_jsonl.MessageBatchIndividualResponse;
+import xy.ai.conscious.connector.openapi.anthropic.response.v1.messages.batches.message_batch_id.results.code200.x_jsonl.OneOfResult;
 import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.CreateMessageBatchParams;
 import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.MessageBatchIndividualRequestParams;
 import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.RequestsList;
@@ -81,10 +81,13 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
     sub.setTaskName("Retrieve Outputs");
     if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty()) && (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState()))) {
       var results = client.message_batches_results(batch.getId());
-      checkStatus("retrieve batch results", results.statusCode(), results.body());
+      if (results.getCode200() == null)
+        throw new IllegalStateException("Retrieve batch results failed (" + results.statusCode() + "): " + results.body());
+      BodyList list = results.getCode200().getXJsonl();
       IProgress sub1 = mon.setTask("Load output", entry.getTaskCount());
-      // results are JSON lines, which the generated response does not model
-      oentry.setAnswers(results.body().lines().filter(l -> !l.isBlank()).map(l -> new MessageBatchIndividualResponse(JsonSupport.parse(l))).map(res -> convertResult(res, sub1)).collect(Collectors.toList()));
+      List<AIAnswer> answers = new ArrayList<>();
+      for (int i = 0; i < list.size(); i++) answers.add(convertResult(list.get(i), sub1));
+      oentry.setAnswers(answers);
     }
     sub.worked();
   }
@@ -124,11 +127,6 @@ public class ClaudeBatchConnector implements IAIBatchConnector {
     if (error.isGatewayTimeoutError())
       return "Timeout: " + error.getGatewayTimeoutError().getMessage();
     return "Error: " + error;
-  }
-
-  private void checkStatus(String operation, String statusCode, String body) {
-    if (!"200".equals(statusCode))
-      throw new IllegalStateException("Failed to " + operation + " (" + statusCode + "): " + body);
   }
 
   @Override

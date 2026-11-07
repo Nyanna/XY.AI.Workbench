@@ -1,5 +1,5 @@
 # TODO
-- anthropic openapi 200 korrigieren und package jar
+- anthropic package jar
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
 - Idee alle retrieval calls in einer session zu mergen, so lassen sich kontext dumps erstellen udn wiederverwenden, spart retreval und lopps
 - "resident" in vorhandenes RAG integrieren aber separat startbar
