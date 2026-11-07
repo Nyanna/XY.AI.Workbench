@@ -123,6 +123,7 @@ public class CCSessionParameters extends SessionParameters {
 		}
 
 		cmd.add("--verbose");
+		cmd.add("--disable-slash-commands");
 		// replaced by MCPC
 		// cmd.add("--include-hook-events");
 		cmd.add("--include-partial-messages");
