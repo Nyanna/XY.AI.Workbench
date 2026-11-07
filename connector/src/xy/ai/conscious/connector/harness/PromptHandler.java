@@ -10,7 +10,9 @@ import xy.ai.conscious.api.IExecutor.IMonitoredRunnable;
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.api.ext.IGitSupport;
 import xy.ai.conscious.batch.AIBatchManager;
+import xy.ai.conscious.commands.AnswerCommand;
 import xy.ai.conscious.commands.CallCommand;
+import xy.ai.conscious.commands.Command;
 import xy.ai.conscious.commands.ToolCommand;
 import xy.ai.conscious.connector.AdaptingConnector;
 import xy.ai.conscious.core.ConfigManager;
@@ -142,8 +144,22 @@ public class PromptHandler {
 		AIAnswer res = connector.convertResponse(resp, mon);
 		res.prompt = req.getPrompt();
 		exec.asyncExec(() -> answerObs.forEach(c -> c.accept(res)));
-		if (gitSupport != null)
-			gitSupport.triggerSnapshotIfNeeded(exec, req);
+		checkGitSupport(exec, req);
 		return res;
+	}
+
+	public void checkGitSupport(IExecutor exec, IModelRequest req) {
+		if (gitSupport == null)
+			return;
+
+		Prompt prompt = req.getPrompt();
+		if (prompt == null || prompt.arg == null)
+			return;
+
+		Command cmd = prompt.arg.command;
+		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof CallCommand))
+			return;
+
+		gitSupport.triggerSnapshotIfNeeded(exec, req);
 	}
 }

@@ -3,7 +3,6 @@ package xy.ai.workbench.eclipse;
 import xy.ai.conscious.api.IExecutor;
 import xy.ai.conscious.api.ext.IGitSupport;
 import xy.ai.conscious.commands.AnswerCommand;
-import xy.ai.conscious.commands.CallCommand;
 import xy.ai.conscious.commands.Command;
 import xy.ai.conscious.connector.harness.Prompt;
 import xy.ai.conscious.model.IModelRequest;
@@ -15,13 +14,7 @@ public class GitSupport implements IGitSupport{
 
 	public void triggerSnapshotIfNeeded(IExecutor exec, IModelRequest req) {
 		Prompt prompt = req.getPrompt();
-		if (prompt == null || prompt.arg == null)
-			return;
-
 		Command cmd = prompt.arg.command;
-		if (!(cmd instanceof AnswerCommand) && !(cmd instanceof CallCommand))
-			return;
-
 		String opId = extractYamlId(prompt.arg.yaml);
 		boolean revertToolResultDeny = cmd instanceof AnswerCommand ac && ac.action() == AnswerCommand.Action.Deny
 				&& ac.blockType() == AnswerCommand.BlockType.Result;
