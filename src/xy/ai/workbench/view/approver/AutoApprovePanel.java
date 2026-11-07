@@ -33,7 +33,6 @@ public class AutoApprovePanel extends ViewPart {
   private static final int SESSION_WIDTH = 10;
   private static final int ACTION_WIDTH = 8;
   private static final int TOOL_WIDTH = 16;
-  private static final int REASON_WIDTH = 40;
   private static final int CHARS_WIDTH = 7;
   private static final int DETAIL_MAX = 200;
 
@@ -171,7 +170,8 @@ public class AutoApprovePanel extends ViewPart {
     };
     String tool = item == null ? "-" : isResult ? "Result" : item.tool();
     String detail = item == null ? "" : text(isResult ? item.result() : item.arguments());
-    String line = fit(d.sessionId(), SESSION_WIDTH) + " | " + fit(action, ACTION_WIDTH) + " | " + fit(tool, TOOL_WIDTH) + " | " + pad(Integer.toString(d.answerLength()), CHARS_WIDTH) + " | " + fit(d.reason(), REASON_WIDTH) + " | " + shorten(detail, DETAIL_MAX);
+    String reason = item == null || isResult ? "" : oneLine(item.arguments().path("reason").asText(""));
+    String line = fit(d.sessionId(), SESSION_WIDTH) + " | " + fit(action, ACTION_WIDTH) + " | " + fit(tool, TOOL_WIDTH) + " | " + pad(Integer.toString(d.answerLength()), CHARS_WIDTH) + " | " + reason + ": " + shorten(detail, DETAIL_MAX);
     return new Entry(filter, line);
   }
 
