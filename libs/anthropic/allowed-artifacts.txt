@@ -1,3 +1,0 @@
-anthropic-java
-anthropic-java-client-okhttp
-anthropic-java-core

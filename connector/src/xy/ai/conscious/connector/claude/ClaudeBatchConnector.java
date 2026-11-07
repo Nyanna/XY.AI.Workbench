@@ -5,175 +5,189 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.anthropic.client.AnthropicClient;
-import com.anthropic.client.okhttp.AnthropicOkHttpClient;
-import com.anthropic.core.ObjectMappers;
-import com.anthropic.core.http.StreamResponse;
-import com.anthropic.models.ErrorObject;
-import com.anthropic.models.messages.batches.BatchCreateParams;
-import com.anthropic.models.messages.batches.BatchCreateParams.Builder;
-import com.anthropic.models.messages.batches.BatchListPage;
-import com.anthropic.models.messages.batches.MessageBatch;
-import com.anthropic.models.messages.batches.MessageBatchIndividualResponse;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.batch.BatchState;
 import xy.ai.conscious.batch.NewBatch;
 import xy.ai.conscious.connector.IAIBatch;
 import xy.ai.conscious.connector.IAIBatchConnector;
+import xy.ai.conscious.connector.openapi.anthropic.JsonSupport;
+import xy.ai.conscious.connector.openapi.anthropic.V1ClientImpl;
+import xy.ai.conscious.connector.openapi.anthropic.components.MessageBatch;
+import xy.ai.conscious.connector.openapi.anthropic.components.MessageBatchIndividualResponse;
+import xy.ai.conscious.connector.openapi.anthropic.components.OneOfError;
+import xy.ai.conscious.connector.openapi.anthropic.components.OneOfResult;
+import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.CreateMessageBatchParams;
+import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.MessageBatchIndividualRequestParams;
+import xy.ai.conscious.connector.openapi.anthropic.request.v1.messages.batches.post.json.RequestsList;
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.IModelRequest;
 import xy.ai.conscious.model.Model.KeyPattern;
 
 public class ClaudeBatchConnector implements IAIBatchConnector {
-	private AnthropicClient client;
-	private ClaudeConnector connector;
+  private static final long PAGE_SIZE = 100;
 
-	public ClaudeBatchConnector(ConfigManager cfg, ClaudeConnector connector) {
-		this.connector = connector;
-		cfg.addKeyObs(k -> {
-			if (KeyPattern.Claude.matches(k))
-				this.client = AnthropicOkHttpClient.builder().apiKey(k).build();
-		}, true);
-	}
+  private V1ClientImpl client;
+  private ClaudeConnector connector;
 
-	@Override
-	public List<IAIBatch> updateBatches(IProgress mon) {
+  public ClaudeBatchConnector(ConfigManager cfg, ClaudeConnector connector) {
+    this.connector = connector;
+    cfg.addKeyObs(k -> {
+      if (KeyPattern.Claude.matches(k))
+        this.client = ClaudeConnector.createClient(k);
+    }, true);
+  }
 
-		BatchListPage page = client.messages().batches().list();
+  @Override
+  public List<IAIBatch> updateBatches(IProgress mon) {
+    List<IAIBatch> batches = new ArrayList<>();
+    String afterId = null;
+    boolean hasMore = true;
+    while (hasMore) {
+      var resp = client.message_batches_list(null, afterId, PAGE_SIZE);
+      checkStatus("list batches", resp.statusCode(), resp.body());
+      // the generated list response only models the error case
+      JsonNode page = JsonSupport.parse(resp.body());
+      for (JsonNode item : page.path("data")) {
+        MessageBatch batch = new MessageBatch(item);
+        batches.add(new ClaudeBatch(batch.getId(), batch));
+      }
+      hasMore = page.path("has_more").asBoolean(false);
+      afterId = page.path("last_id").asText(null);
+      if (afterId == null)
+        hasMore = false;
+    }
+    return batches;
+  }
 
-		List<MessageBatch> batches = new ArrayList<>();
-		for (MessageBatch batch : page.autoPager())
-			batches.add(batch);
+  @Override
+  public IAIBatch cancelBatch(IAIBatch entry, IProgress mon) {
+    var resp = client.message_batches_cancel(entry.getID());
+    if (resp.getCode200() == null)
+      throw new IllegalStateException("Cancel batch failed (" + resp.statusCode() + "): " + resp.body());
+    MessageBatch batch = resp.getCode200().getJson();
+    return new ClaudeBatch(batch.getId(), batch);
+  }
 
-		return batches.stream().map(b -> new ClaudeBatch(b.id(), b)).collect(Collectors.toList());
-	}
+  @Override
+  public void loadBatch(IAIBatch entry, IProgress mon) {
+    IProgress sub = mon.setTask("Load batch", 2);
 
-	@Override
-	public IAIBatch cancelBatch(IAIBatch entry, IProgress mon) {
-		MessageBatch batch = client.messages().batches().cancel(entry.getID());
-		return new ClaudeBatch(batch.id(), batch);
-	}
+    sub.setTaskName("Retrieve Batch");
+    var resp = client.message_batches_retrieve(entry.getID());
+    if (resp.getCode200() == null)
+      throw new IllegalStateException("Retrieve batch failed (" + resp.statusCode() + "): " + resp.body());
+    MessageBatch batch = resp.getCode200().getJson();
+    ClaudeBatch oentry = ((ClaudeBatch) entry);
+    oentry.setBatch(batch);
+    sub.worked();
 
-	@Override
-	public void loadBatch(IAIBatch entry, IProgress mon) {
-		IProgress sub = mon.setTask("Load batch", 2);
+    sub.setTaskName("Retrieve Outputs");
+    if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty())
+        && (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState()))) {
+      var results = client.message_batches_results(batch.getId());
+      checkStatus("retrieve batch results", results.statusCode(), results.body());
 
-		sub.setTaskName("Retrieve Batch");
-		MessageBatch batch = client.messages().batches().retrieve(entry.getID());
-		ClaudeBatch oentry = ((ClaudeBatch) entry);
-		oentry.setBatch(batch);
-		sub.worked();
+      IProgress sub1 = mon.setTask("Load output", entry.getTaskCount());
+      // results are JSON lines, which the generated response does not model
+      oentry.setAnswers(results.body().lines().filter(l -> !l.isBlank())
+          .map(l -> new MessageBatchIndividualResponse(JsonSupport.parse(l)))
+          .map(res -> convertResult(res, sub1)).collect(Collectors.toList()));
+    }
+    sub.worked();
+  }
 
-		sub.setTaskName("Retrieve Outputs");
-		if ((oentry.getAnswers() == null || oentry.getAnswers().isEmpty())
-				&& (BatchState.Completed.equals(entry.getState()) || BatchState.Failed.equals(entry.getState())))
-			try (StreamResponse<MessageBatchIndividualResponse> response = client.messages().batches()
-					.resultsStreaming(batch.id())) {
+  private AIAnswer convertResult(MessageBatchIndividualResponse res, IProgress progress) {
+    OneOfResult result = res.getResult();
+    if (result.isSucceededResult())
+      return connector.convertResponse(
+          new ClaudeResponse(result.getSucceededResult().getMessage(), res.getCustomId()),
+          progress.subProgress());
 
-				IProgress sub1 = mon.setTask("Load output", entry.getTaskCount());
-				oentry.setAnswers(response.stream().map(res -> {
-					if (res.result().isSucceeded())
-						return connector.convertResponse(
-								new ClaudeResponse(res.result().asSucceeded().message(), res.customId()),
-								sub1.subProgress());
-					else {
-						AIAnswer an = new AIAnswer(res.customId());
-						if (res.result().isErrored()) {
-							ErrorObject error = res.result().asErrored().error().error();
+    AIAnswer an = new AIAnswer(res.getCustomId());
+    if (result.isErroredResult())
+      an.answer = describeError(result.getErroredResult().getError().getError());
+    else if (result.isCanceledResult())
+      an.answer = "Canceled: " + result.getCanceledResult();
+    else if (result.isExpiredResult())
+      an.answer = "Expired: " + result.getExpiredResult();
+    progress.worked();
+    return an;
+  }
 
-							if (error.isApiError())
-								an.answer = "API Error: " + error.asApiError().message();
-							else if (error.isInvalidRequestError())
-								an.answer = "Invalid Request: " + error.asInvalidRequestError().message();
-							else if (error.isAuthenticationError())
-								an.answer = "Authentication Error: " + error.asAuthenticationError().message();
-							else if (error.isBillingError())
-								an.answer = "Billing Problem: " + error.asBillingError().message();
-							else if (error.isNotFoundError())
-								an.answer = "Not Found: " + error.asNotFoundError().message();
-							else if (error.isOverloadedError())
-								an.answer = "Overloaded: " + error.asOverloadedError().message();
-							else if (error.isPermissionError())
-								an.answer = "Permission Error: " + error.asPermissionError().message();
-							else if (error.isRateLimitError())
-								an.answer = "Rate Limit: " + error.asRateLimitError().message();
-							else if (error.isTimeoutError())
-								an.answer = "Timeout: " + error.asTimeoutError().message();
-							else
-								an.answer = "Error: " + error.toString();
-						} else if (res.result().isCanceled())
-							an.answer = "Canceled: " + res.result().asCanceled().toString();
-						else if (res.result().isExpired())
-							an.answer = "Expired: " + res.result().asExpired().toString();
-						sub1.worked();
-						return an;
-					}
-				}).collect(Collectors.toList()));
-			}
-		sub.worked();
-	}
+  private String describeError(OneOfError error) {
+    if (error.isAPIError())
+      return "API Error: " + error.getAPIError().getMessage();
+    if (error.isInvalidRequestError())
+      return "Invalid Request: " + error.getInvalidRequestError().getMessage();
+    if (error.isAuthenticationError())
+      return "Authentication Error: " + error.getAuthenticationError().getMessage();
+    if (error.isBillingError())
+      return "Billing Problem: " + error.getBillingError().getMessage();
+    if (error.isNotFoundError())
+      return "Not Found: " + error.getNotFoundError().getMessage();
+    if (error.isOverloadedError())
+      return "Overloaded: " + error.getOverloadedError().getMessage();
+    if (error.isPermissionError())
+      return "Permission Error: " + error.getPermissionError().getMessage();
+    if (error.isRateLimitError())
+      return "Rate Limit: " + error.getRateLimitError().getMessage();
+    if (error.isGatewayTimeoutError())
+      return "Timeout: " + error.getGatewayTimeoutError().getMessage();
+    return "Error: " + error;
+  }
 
-	@Override
-	public String requestsToJson(Collection<IModelRequest> reqs) {
-		return requestsToJsonInner(reqs.stream().map(r -> ((ClaudeRequest) r)).collect(Collectors.toList()));
-	}
+  private void checkStatus(String operation, String statusCode, String body) {
+    if (!"200".equals(statusCode))
+      throw new IllegalStateException("Failed to " + operation + " (" + statusCode + "): " + body);
+  }
 
-	private String requestsToJsonInner(Collection<ClaudeRequest> requests) {
-		return requests.stream().map((r) -> requestToJson(r)).collect(Collectors.joining("\n"));
-	}
+  @Override
+  public String requestsToJson(Collection<IModelRequest> reqs) {
+    return requestsToJsonInner(reqs.stream().map(r -> ((ClaudeRequest) r)).collect(Collectors.toList()));
+  }
 
-	private String requestToJson(ClaudeRequest r) {
-		try {
-			return ObjectMappers.jsonMapper().writeValueAsString(r.params._body());
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException("Unable to convert", e);
-		}
-	}
+  private String requestsToJsonInner(Collection<ClaudeRequest> requests) {
+    return requests.stream().map((r) -> r.params.toString()).collect(Collectors.joining("\n"));
+  }
 
-	@Override
-	public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
-		IProgress sub = mon.setTask("Submit batch", 3);
+  @Override
+  public IAIBatch submitBatch(NewBatch entry, IProgress mon) {
+    IProgress sub = mon.setTask("Submit batch", 3);
 
-		sub.setTaskName("Collect requests");
-		Builder builder = BatchCreateParams.builder();
-		List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
-				.collect(Collectors.toList());
-		sub.worked();
+    sub.setTaskName("Collect requests");
+    List<ClaudeRequest> reqs = entry.getRequests().stream().map(r -> (ClaudeRequest) r)
+        .collect(Collectors.toList());
+    sub.worked();
 
-		sub.setTaskName("Convert requests");
-		IProgress sub1 = mon.setTask("Convert request", reqs.size());
-		for (ClaudeRequest req : reqs) {
-			com.anthropic.models.messages.batches.BatchCreateParams.Request.Builder pbuilder = BatchCreateParams.Request
-					.builder();
+    sub.setTaskName("Convert requests");
+    IProgress sub1 = mon.setTask("Convert request", reqs.size());
+    RequestsList requests = new RequestsList();
+    for (ClaudeRequest req : reqs) {
+      MessageBatchIndividualRequestParams item = new MessageBatchIndividualRequestParams();
+      item.setCustomId(req.getID());
+      item.setParams(req.params);
+      requests.add(item);
+      sub1.worked();
+    }
+    CreateMessageBatchParams params = new CreateMessageBatchParams();
+    params.setRequests(requests);
+    sub.worked();
 
-			String json = requestToJson(req);
-			BatchCreateParams.Request.Params batchRequestParams;
-			try {
-				batchRequestParams = ObjectMappers.jsonMapper().readerFor(BatchCreateParams.Request.Params.class)
-						.readValue(json);
-			} catch (JsonProcessingException e) {
-				throw new IllegalStateException("Unable to convert", e);
-			}
+    sub.setTaskName("Submit batch");
+    var resp = client.message_batches_post(params);
+    if (resp.getCode200() == null)
+      throw new IllegalStateException("Submit batch failed (" + resp.statusCode() + "): " + resp.body());
+    MessageBatch batch = resp.getCode200().getJson();
+    sub.worked();
 
-			pbuilder.customId(req.getID());
-			pbuilder.params(batchRequestParams);
-			builder.addRequest(pbuilder.build());
-			sub1.worked();
-		}
-		sub.worked();
+    return new ClaudeBatch(batch.getId(), batch);
+  }
 
-		sub.setTaskName("Submit batch");
-		MessageBatch batch = client.messages().batches().create(builder.build());
-		sub.worked();
-
-		return new ClaudeBatch(batch.id(), batch);
-	}
-
-	@Override
-	public void convertAnswers(IAIBatch obj, IProgress mon) {
-		// allready converted from SDK
-	}
+  @Override
+  public void convertAnswers(IAIBatch obj, IProgress mon) {
+    // already converted while loading the batch
+  }
 }

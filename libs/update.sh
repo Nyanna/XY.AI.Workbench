@@ -9,7 +9,7 @@
 #
 # Usage:
 #   ./update.sh <dirname|root|all>
-#   ./update.sh latest   bump anthropic-java/google-genai/openai-java in
+#   ./update.sh latest   bump google-genai/openai-java in
 #                        libs/pom.xml to their newest release (versions-maven-
 #                        plugin), then run this again with all/root/<dirname>
 #
@@ -17,7 +17,7 @@
 # add any newly-needed artifactId to the relevant allowed-artifacts.txt, then
 # run ./update.sh all.
 
-SDK_ARTIFACTS="com.anthropic:anthropic-java,com.google.genai:google-genai,com.openai:openai-java"
+SDK_ARTIFACTS="com.google.genai:google-genai,com.openai:openai-java"
 
 set -euo pipefail
 

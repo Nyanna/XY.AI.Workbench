@@ -3,9 +3,6 @@
 	<classpathentry exported="true" kind="lib" path="../libs/openai/openai-java-4.58.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="../libs/openai/openai-java-client-okhttp-4.58.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="../libs/openai/openai-java-core-4.58.0.jar"/>
-	<classpathentry exported="true" kind="lib" path="../libs/anthropic/anthropic-java-2.61.0.jar"/>
-	<classpathentry exported="true" kind="lib" path="../libs/anthropic/anthropic-java-client-okhttp-2.61.0.jar"/>
-	<classpathentry exported="true" kind="lib" path="../libs/anthropic/anthropic-java-core-2.61.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="../libs/google/guava-33.7.1-jre.jar"/>
 	<classpathentry exported="true" kind="lib" path="../libs/google/api-common-2.68.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="../libs/google/error_prone_annotations-2.50.0.jar"/>

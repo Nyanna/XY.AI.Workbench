@@ -19,7 +19,7 @@
 		<eclipse.plugins.dir>${eclipse.install.dir}/plugins</eclipse.plugins.dir>
 
 		<libs.dir>${project.basedir}/libs</libs.dir>
-		<compile.classpath>${eclipse.plugins.dir}/*:${libs.dir}/*:${libs.dir}/openai/*:${libs.dir}/google/*:${libs.dir}/anthropic/*</compile.classpath>
+		<compile.classpath>${eclipse.plugins.dir}/*:${libs.dir}/*:${libs.dir}/openai/*:${libs.dir}/google/*</compile.classpath>
 	</properties>
 
 	<build>

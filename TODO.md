@@ -51,7 +51,7 @@
 - Warnung bei mehrturn-Kontext ohne Cache-Hit – gelbe Zeile, vorhergehende Result-Zeile mit Cache-Metriken
 
 ### SDK
-- Google/OpenAI/Anthropic SDK entfernen und gegen eigene SDK tauschen
+- Google/OpenAI SDK entfernen und gegen eigene SDK tauschen
 - Bei OpenAI Cache-Breakpoint-Marker im Editor/Processor schreiben
 
 ## Ideas
