@@ -67,7 +67,16 @@
 			id="xy.ai.workbench.view.diff.DiffPanel"
 			name="AI Diff">
 		</view>
+		<view
+			allowMultiple="false"
+			category="XY.AI.Workbench"
+			class="xy.ai.workbench.view.approver.AutoApprovePanel"
+			icon="icons/sample.png"
+			id="xy.ai.workbench.view.approver.AutoApprovePanel"
+			name="AI Auto Approve">
+		</view>
 	</extension>
+
 	<extension point="org.eclipse.ui.navigator.navigatorContent">
 		<navigatorContent
 			name="AI Content"

@@ -48,6 +48,10 @@ public class AutoApprover {
     listeners.add(listener);
   }
 
+  public void removeListener(Consumer<Decision> listener) {
+    listeners.remove(listener);
+  }
+
   /**
    * Maximum number of consecutive automatic follow-up prompts.
    */
@@ -76,16 +80,13 @@ public class AutoApprover {
     return decision;
   }
 
-  /**
-   * Called by an external idle trigger.
-   */
   public Optional<FollowUp> onIdle(String sessionId) {
     Prompt origin = sessions.lastPrompt(sessionId);
     String instruction = idleInstruction;
     if (origin == null || instruction.isBlank())
       return Optional.empty();
     FollowUp followUp = new FollowUp(origin, selection(instruction.lines().toList()));
-    publish(new Decision(sessionId, ApprovalResult.Pass, null, null, null, null, instruction, null, followUp));
+    publish(new Decision(sessionId, ApprovalResult.Pass, null, null, null, null, instruction, null, followUp, 0));
     return Optional.of(followUp);
   }
 
@@ -143,7 +144,7 @@ public class AutoApprover {
       if (followUp == null)
         result = ApprovalResult.Pass;
     }
-    return new Decision(ctx.session().id(), result, ctx.item(), reason, hint, warnings, instruction, votes, followUp);
+    return new Decision(ctx.session().id(), result, ctx.item(), reason, hint, warnings, instruction, votes, followUp, ctx.answer().answer == null ? 0 : ctx.answer().answer.length());
   }
 
   private static ApprovalResult resultFor(ApprovalItem item, boolean deny, boolean allow) {
