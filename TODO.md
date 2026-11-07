@@ -1,7 +1,5 @@
 # TODO
-- anthropic package jar
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
-- Idee alle retrieval calls in einer session zu mergen, so lassen sich kontext dumps erstellen udn wiederverwenden, spart retreval und lopps
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
 	- AST ID mit in ergebnis
@@ -60,6 +58,7 @@
 - **Markdown-Table** Autoformat-Support
 - **Soft-Prompts** komprimiert erstellen mit LLMLingua und LLM-Selbstkompression
 - **Phases**: Research (human augmented) → Retrieval (Preprocess-Agent: Dateien, Specs, Schemas, Studien, APIs) → Planning (High-Tier) → Execution (Dumb-Agent)
+	- Idee alle retrieval calls in einer session zu mergen, so lassen sich kontext dumps erstellen udn wiederverwenden, spart retreval und lopps
 - Weitere Tools für Research: Semantic Scholar, arXiv API Access
 - neuer modus, platzhalter semantik für code, KI bekommt kontext und ein give_answer tool
 	- der platzhalten wird mit dem give_answer ersetzt
