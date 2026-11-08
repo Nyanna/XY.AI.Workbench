@@ -1,6 +1,7 @@
 package xy.ai.conscious.autoapprove;
 
 import java.util.List;
+import xy.ai.conscious.autoapprove.rules.HoldMarkdownRule;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import xy.ai.conscious.autoapprove.rules.AllowedToolsRule;
@@ -20,6 +21,7 @@ public class RuleRegistry {
     register(new SmallResultRule());
     register(new DeepPathReadRule());
     register(new DenyRootPathRule());
+    register(new HoldMarkdownRule());
   }
 
   public RuleRegistry(List<IApprovalRule> rules) {

@@ -109,6 +109,7 @@ public class AutoApprover {
     List<String> warnings = new ArrayList<>();
     List<String> instructions = new ArrayList<>();
     boolean deny = false;
+    boolean hold = false;
     boolean allow = false;
     for (RuleVote rv : votes) {
       Vote v = rv.vote();
@@ -120,6 +121,10 @@ public class AutoApprover {
             deny = true;
             addNonBlank(reasons, v.reason());
           }
+        case Hold ->
+          {
+            hold = true;
+          }
         case Allow ->
           {
             allow = true;
@@ -130,7 +135,7 @@ public class AutoApprover {
           }
       }
     }
-    ApprovalResult result = resultFor(ctx.item(), deny, allow);
+    ApprovalResult result = resultFor(ctx.item(), deny, hold, allow);
     String reason = String.join("; ", reasons);
     String hint = String.join("; ", hints);
     String instruction = String.join("\n", instructions);
@@ -147,12 +152,12 @@ public class AutoApprover {
     return new Decision(ctx.session().id(), result, ctx.item(), reason, hint, warnings, instruction, votes, followUp, ctx.answer().answer == null ? 0 : ctx.answer().answer.length());
   }
 
-  private static ApprovalResult resultFor(ApprovalItem item, boolean deny, boolean allow) {
+  private static ApprovalResult resultFor(ApprovalItem item, boolean deny, boolean hold, boolean allow) {
     if (item == null || item.id().isBlank() || item.kind() == Kind.ToolResult)
       return ApprovalResult.Pass;
     if (deny)
       return ApprovalResult.Deny;
-    if (!allow)
+    if (hold || !allow)
       return ApprovalResult.Pass;
     return item.kind() == Kind.ToolCall ? ApprovalResult.Call : ApprovalResult.Allow;
   }
