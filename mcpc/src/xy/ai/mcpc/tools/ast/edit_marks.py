@@ -190,7 +190,7 @@ class EditMarksNodeTool(ToolDefinition):
         **PATH_SELECTOR_PROPS}
     _ITEM_REQUIRED = ['path', 'start_marker', 'end_marker', 'content']
     _ITEMS_DESCRIPTION = 'Marker-based edits to apply.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""

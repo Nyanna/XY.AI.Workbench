@@ -327,7 +327,7 @@ class SearchTool(ToolDefinition):
             'description': 'Intent for this item; overrides the batch-level intent.'}}
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent searches to run.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
     input_schema['properties']['intent'] = {
         'type': 'string',
         'enum': list(_INTENTS),

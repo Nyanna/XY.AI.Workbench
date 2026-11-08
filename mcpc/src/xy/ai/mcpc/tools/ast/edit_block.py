@@ -186,7 +186,7 @@ class EditBlockNodeTool(ToolDefinition):
         **PATH_SELECTOR_PROPS}
     _ITEM_REQUIRED = ['path', 'old_text', 'new_text', 'id']
     _ITEMS_DESCRIPTION = 'Block edits to apply.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""

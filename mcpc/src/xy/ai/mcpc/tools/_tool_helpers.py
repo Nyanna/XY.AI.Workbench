@@ -12,18 +12,18 @@ def _compact(value: Any) -> Any:
         return [_compact(v) for v in value]
     return value
 
-def batch_schema(item_properties: dict[str, Any], required: list[str], description: str, *, additional_properties: bool | None=None) -> dict[str, Any]:
+def batch_schema(item_properties: dict[str, Any], required: list[str], description: str) -> dict[str, Any]:
     """Build the standard ``{items: [...]}`` input schema shared by all batch tools.
+
+    Neither the top level nor the items accept properties beyond the declared ones.
 
     Args:
         item_properties: The ``properties`` of a single item.
         required: The ``required`` keys of a single item.
         description: Description of the ``items`` array.
-        additional_properties: If set, forwarded as the item's ``additionalProperties``.
     """
-    item_schema: dict[str, Any] = {'type': 'object', 'properties': item_properties, 'required': required}
-    if additional_properties is not None:
-        item_schema['additionalProperties'] = additional_properties
+    item_schema: dict[str, Any] = {'type': 'object', 'properties': item_properties,
+                                   'required': required, 'additionalProperties': False}
     return {
         'type': 'object',
         'properties': {
@@ -32,7 +32,8 @@ def batch_schema(item_properties: dict[str, Any], required: list[str], descripti
                 'minItems': 1,
                 'items': item_schema,
                 'description': description}},
-        'required': ['items']}
+        'required': ['items'],
+        'additionalProperties': False}
 __all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result', 'batch_schema']
 
 @dataclass

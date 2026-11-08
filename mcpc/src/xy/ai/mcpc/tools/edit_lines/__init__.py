@@ -137,7 +137,7 @@ class EditLinesTool(ToolDefinition):
             'description': 'Replacement text (may be empty to perform a pure deletion).'}}
     _ITEM_REQUIRED = ['path', 'offset', 'amount', 'content']
     _ITEMS_DESCRIPTION = 'Line-range replacements to apply. A given path may only appear once.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_lines`, translating the MCP schema to/from the Python API."""
