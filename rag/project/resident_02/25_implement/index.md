@@ -33,6 +33,6 @@ Konflikte und Probleme:
 
 Festgelegte Verzeichnisstruktur für Module:
 ```yaml
-[include](/home/user/xyan/xy.ai.workbench/project/resident_02/27.tree.yml)
+[include](/home/user/xyan/xy.ai.workbench/rag/project/resident_02/27.tree.yml)
 ```
 - Direkte Kindbeziehung von Modulen sind in Unterverzeichnissen zu erstellen
