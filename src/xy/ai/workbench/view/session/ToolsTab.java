@@ -1,68 +1,57 @@
 package xy.ai.workbench.view.session;
 
 import java.util.Arrays;
-
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.MouseListener;
-import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
-
 import xy.ai.conscious.core.ConfigManager;
-import xy.ai.workbench.view.MultiSelectListener;
+import xy.ai.workbench.view.MultiSelectTable;
 
-/** "Tools" tab: multi-select list of tools enabled for the current model. */
+/**
+ * "Tools" tab: multi-select list of tools enabled for the current model.
+ */
 public class ToolsTab implements ToolSelection {
+  private MultiSelectTable toolsTable;
 
-	private List toolsList;
-	private MultiSelectListener toolsMultiSelect;
+  public void create(TabFolder instr, ConfigManager cfg) {
+    TabItem toolSel = new TabItem(instr, SWT.NONE);
+    toolSel.setText("Tools");
+    Composite comp = new Composite(instr, SWT.NONE);
+    comp.setLayout(new GridLayout());
+    GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
+    ldat3.heightHint = 100;
+    comp.setLayoutData(ldat3);
+    toolSel.setControl(comp);
+    toolsTable = new MultiSelectTable(comp, () -> cfg.setEnabledTools(toolsTable.getSelection()));
+    GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+    gridData.widthHint = 1;
+    gridData.heightHint = 100;
+    toolsTable.setLayoutData(gridData);
+    cfg.addModelObs(m -> {
+      if (m != null)
+        toolsTable.setItems(m.cap.getTools());
+    }, true);
+    cfg.addEnabledToolsObs(t -> {
+      if (!Arrays.equals(toolsTable.getSelection(), t))
+        toolsTable.setSelection(t);
+    }, true);
+  }
 
-	public void create(TabFolder instr, ConfigManager cfg) {
-		TabItem toolSel = new TabItem(instr, SWT.NONE);
-		toolSel.setText("Tools");
+  @Override
+  public String[] getSelection() {
+    return toolsTable.getSelection();
+  }
 
-		Composite comp = new Composite(instr, SWT.NONE);
-		comp.setLayout(new GridLayout());
-		GridData ldat3 = new GridData(SWT.FILL, SWT.FILL, true, true);
-		ldat3.heightHint = 100;
-		comp.setLayoutData(ldat3);
-		toolSel.setControl(comp);
-		toolsList = new List(comp, SWT.MULTI | SWT.V_SCROLL);
+  @Override
+  public void setSelection(String[] items) {
+    toolsTable.setSelection(items);
+  }
 
-		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-		gridData.widthHint = 1;
-		gridData.heightHint = 100;
-		toolsList.setLayoutData(gridData);
-		toolsList.addMouseListener(MouseListener.mouseDownAdapter(m -> toolsList.setFocus()));
-		toolsList.addSelectionListener(
-				SelectionListener.widgetSelectedAdapter(e -> cfg.setEnabledTools(toolsList.getSelection())));
-		cfg.addModelObs(m -> {
-			if (m != null)
-				toolsList.setItems(m.cap.getTools());
-		}, true);
-		toolsMultiSelect = new MultiSelectListener(toolsList);
-		cfg.addEnabledToolsObs(t -> {
-			if (!Arrays.equals(toolsList.getSelection(), t))
-				toolsMultiSelect.setSelection(t);
-		}, true);
-	}
-
-	@Override
-	public String[] getSelection() {
-		return toolsList.getSelection();
-	}
-
-	@Override
-	public void setSelection(String[] items) {
-		toolsMultiSelect.setSelection(items);
-	}
-
-	@Override
-	public void clear() {
-		toolsMultiSelect.clear();
-	}
+  @Override
+  public void clear() {
+    toolsTable.clear();
+  }
 }

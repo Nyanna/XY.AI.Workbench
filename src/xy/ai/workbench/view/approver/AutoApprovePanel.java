@@ -171,7 +171,11 @@ public class AutoApprovePanel extends ViewPart {
     String tool = item == null ? "-" : isResult ? "Result" : item.tool();
     String detail = item == null ? "" : text(isResult ? item.result() : item.arguments());
     String reason = item == null || isResult ? "" : oneLine(item.arguments().path("reason").asText(""));
-    String line = fit(d.sessionId(), SESSION_WIDTH) + " | " + fit(action, ACTION_WIDTH) + " | " + fit(tool, TOOL_WIDTH) + " | " + pad(Integer.toString(d.answerLength()), CHARS_WIDTH) + " | " + reason + ": " + shorten(detail, DETAIL_MAX);
+    String line = fit(d.sessionId(), SESSION_WIDTH) + " | " + fit(action, ACTION_WIDTH) + " | " + fit(tool, TOOL_WIDTH) + " | " + pad(Integer.toString(d.answerLength()), CHARS_WIDTH);
+    if (reason.length() > 0)
+      line += " | " + reason + ":   " + shorten(detail, DETAIL_MAX);
+    else
+      line += " | " + pad("", 15) + shorten(detail, DETAIL_MAX);
     return new Entry(filter, line);
   }
 
