@@ -12,7 +12,7 @@ import xy.ai.conscious.autoapprove.ApprovalItem.Kind;
  */
 public class AllowedToolsRule implements IApprovalRule {
 
-	public static final String[] ALLOWED_TOOLS = { "ast_outline", "ast_read", "ast_validate", "run_command" };
+	public static final String[] ALLOWED_TOOLS = { "ast_outline", "ast_read", "ast_validate", "run_command", "ast_find" };
 
 	private final Set<String> allowed;
 
