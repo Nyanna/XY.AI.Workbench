@@ -1,4 +1,17 @@
 # TODO
+! importhandling, alles source AST call ein addImport und und removeImport hinzufügen
+	- auf basis von ast segmenten import block prüfen und ersetzen oder entfernen
+	- sprachspezifisches import handling
+	- extra ast_import tool zum auslesen und setzen von imports?, oder mit in outline aufnehmen?
+	- import section im AST cache flaggen, haben AST engines eine import unterstützung?
+	- für generische engines nur prüfen ob import text in Datei vorkommt und wenn nicht fehler mit selbst adden, in block XYZ ("following  id's contain imports")
+! rule config, RuleConfig objekt mit Knotenliste, Rules Panel vor Prsets, in YAML speicherbar
+	- default getter in Rule, Liste oberhalb wie preset mit edit marker
+		- unterhalb panel mit autorendering der config liste, config objekt hat default value
+	- übergabe nur wenn abweichend von config, mit enables flag
+	- globales echt enabled flag im approver pnael
+
+
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)

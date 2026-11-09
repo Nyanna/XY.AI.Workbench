@@ -127,7 +127,7 @@ class EditLineTool(ToolDefinition):
             'default': False}}
     _ITEM_REQUIRED = ['path', 'old_line', 'new_lines']
     _ITEMS_DESCRIPTION = 'Single-line edits to apply.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_line`, translating the MCP schema to/from the Python API."""

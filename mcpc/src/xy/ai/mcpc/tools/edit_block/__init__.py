@@ -168,7 +168,7 @@ class EditBlockTool(ToolDefinition):
             'default': False}}
     _ITEM_REQUIRED = ['path', 'old_text', 'new_text']
     _ITEMS_DESCRIPTION = 'Block edits to apply.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`edit_block`, translating the MCP schema to/from the Python API."""

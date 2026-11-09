@@ -110,7 +110,7 @@ class WriteTool(ToolDefinition):
             'description': 'Text to write to the file.'}}
     _ITEM_REQUIRED = ['path', 'mode', 'content']
     _ITEMS_DESCRIPTION = 'Files to write or replace.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`write`, translating the MCP schema to/from the Python API."""

@@ -249,7 +249,7 @@ class ReadTool(ToolDefinition):
             'description': 'Range end: unique marker substring, inclusive. Excludes max_line and max_char.'}}
     _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Files to read.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`_read_file_cached`, translating the MCP schema to/from the Python API."""

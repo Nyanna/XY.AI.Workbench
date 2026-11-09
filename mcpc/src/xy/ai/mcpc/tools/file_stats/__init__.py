@@ -211,7 +211,7 @@ class FileStatsTool(ToolDefinition):
     _ITEM_PROPERTIES = {'path': {'type': 'string', 'description': 'Absolute file path.'}}
     _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Files to compute metrics for.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`file_stats`, translating the MCP schema to/from the Python API."""

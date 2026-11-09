@@ -226,7 +226,7 @@ class ListTool(ToolDefinition):
                     'type': 'boolean', 'description': 'List subdirectories recursively. Default true.'}}
     _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Directories to list.'
-    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION, additional_properties=False)
+    input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
