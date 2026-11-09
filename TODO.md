@@ -1,4 +1,7 @@
 # TODO
+* HRV viewer smarthome, geräte alias einführen für 2,4G/5G
+! Autoapprove panel wie console bei fehlern bei neuem input automatisch aufpoppen
+	- panel globales enabled flag
 ! importhandling, alles source AST call ein addImport und und removeImport hinzufügen
 	- auf basis von ast segmenten import block prüfen und ersetzen oder entfernen
 	- sprachspezifisches import handling
@@ -10,6 +13,7 @@
 		- unterhalb panel mit autorendering der config liste, config objekt hat default value
 	- übergabe nur wenn abweichend von config, mit enables flag
 	- globales echt enabled flag im approver pnael
+! batchsupport aufsplitten in einzelne control messages pro batch
 
 
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
@@ -34,6 +38,8 @@
 - Bessere Shortcuts für Datei-Erstellung
   - Shortcut für Selection in extra Task auslagern (immer Project-Verzeichnis, notfalls erstellen)
 - Autocompletion nach `/`, `<` und nach YAML-Block: `/call`, `/prompt` mit Autocompletion für Includes
+	- bei include autocompletion, zuerst variationen lisen (search, file) dann project Root einfügen /home/user/xyan/xy.ai.workbench
+- Wenn F3 auf /answer <ID> dann code navigation auf den yaml block header mit der ID, wenn result dann nochmal F3 und auf tool call springen
 - Autoapprover: Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
 
 ### SDK

@@ -23,6 +23,8 @@ import xy.ai.conscious.autoapprove.ApprovalItem;
 import xy.ai.conscious.autoapprove.AutoApprover;
 import xy.ai.conscious.autoapprove.Decision;
 import xy.ai.workbench.Activator;
+import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.PlatformUI;
 
 /**
  * Console like log of the decisions of the auto approver for all sessions.
@@ -54,6 +56,7 @@ public class AutoApprovePanel extends ViewPart {
   private Display display;
   private StyledText console;
   private AutoApprover approver;
+  private boolean showOnChange = true;
 
   @Override
   public void createPartControl(Composite parent) {
@@ -61,11 +64,41 @@ public class AutoApprovePanel extends ViewPart {
     console = new StyledText(parent, SWT.READ_ONLY | SWT.V_SCROLL | SWT.H_SCROLL);
     console.setFont(JFaceResources.getTextFont());
     console.setWordWrap(false);
+    approver = Activator.getDefault().promptHandler.approver();
     IActionBars bars = getViewSite().getActionBars();
+    bars.getToolBarManager().add(createDisableAction());
+    bars.getToolBarManager().add(createAutoShowAction());
     bars.getToolBarManager().add(createFilterAction());
     bars.updateActionBars();
-    approver = Activator.getDefault().promptHandler.approver();
     approver.addListener(observer);
+  }
+
+  private Action createDisableAction() {
+    Action action = new Action("Disable Auto Approver", IAction.AS_CHECK_BOX) {
+
+      @Override
+      public void run() {
+        approver.setEnabled(!isChecked());
+      }
+    };
+    action.setToolTipText("Disable the processing of the auto approver");
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_REMOVE));
+    action.setChecked(!approver.isEnabled());
+    return action;
+  }
+
+  private Action createAutoShowAction() {
+    Action action = new Action("Show When Content Changes", IAction.AS_CHECK_BOX) {
+
+      @Override
+      public void run() {
+        showOnChange = isChecked();
+      }
+    };
+    action.setToolTipText("Show this view when new entries are logged");
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ETOOL_DEF_PERSPECTIVE));
+    action.setChecked(showOnChange);
+    return action;
   }
 
   private Action createFilterAction() {
@@ -131,6 +164,8 @@ public class AutoApprovePanel extends ViewPart {
     if (shown.contains(entry.filter())) {
       console.append(entry.line() + "\n");
       scrollToEnd();
+      if (showOnChange)
+        getSite().getPage().bringToTop(this);
     }
   }
 

@@ -31,6 +31,7 @@ public class AutoApprover {
   private final List<Consumer<Decision>> listeners = new CopyOnWriteArrayList<>();
   private volatile int maxChain = DEFAULT_MAX_CHAIN;
   private volatile String idleInstruction = "Continue with the task.";
+  private volatile boolean enabled = true;
 
   public AutoApprover() {
     this(new RuleRegistry());
@@ -52,6 +53,17 @@ public class AutoApprover {
     listeners.remove(listener);
   }
 
+  public boolean isEnabled() {
+    return enabled;
+  }
+
+  /**
+   * Globally switches the processing on or off; while off, answers pass untouched.
+   */
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+  }
+
   /**
    * Maximum number of consecutive automatic follow-up prompts.
    */
@@ -68,6 +80,8 @@ public class AutoApprover {
   }
 
   public Decision evaluate(AIAnswer ans, int depth) {
+    if (!enabled)
+      return Decision.pass(ans.sessionId);
     SessionSnapshot session = sessions.record(ans);
     List<ApprovalItem> items = AnswerParser.parse(ans.answer);
     ApprovalItem item = items.size() == 1 ? items.get(0) : null;
@@ -81,6 +95,8 @@ public class AutoApprover {
   }
 
   public Optional<FollowUp> onIdle(String sessionId) {
+    if (!enabled)
+      return Optional.empty();
     Prompt origin = sessions.lastPrompt(sessionId);
     String instruction = idleInstruction;
     if (origin == null || instruction.isBlank())
