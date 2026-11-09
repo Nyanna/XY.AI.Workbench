@@ -1,7 +1,6 @@
 package xy.ai.workbench.view.session;
 
 import java.util.ArrayList;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseListener;
@@ -16,7 +15,6 @@ import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
-
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.OutputMode;
 import xy.ai.workbench.view.PresetHandler;
@@ -29,7 +27,7 @@ public class PresetsTab {
   private final PresetList presets = new PresetList();
   private final java.util.List<IFile> presetFiles = new ArrayList<>();
 
-  public void create(TabFolder instr, ConfigManager cfg, Shell shell, ToolSelection tools, Clearable instructionSelection, InputSelection inputs) {
+  public void create(TabFolder instr, ConfigManager cfg, Shell shell, ToolSelection tools, Clearable instructionSelection, InputSelection inputs, RuleSelection rules) {
     TabItem presEdit = new TabItem(instr, SWT.NONE);
     presEdit.setText("Presets");
     Composite comp = new Composite(instr, SWT.NONE);
@@ -46,7 +44,7 @@ public class PresetsTab {
 
       @Override
       public void widgetSelected(SelectionEvent e) {
-        PresetHandler.writePreset(cfg.getSystemPrompt(), tools.getSelection(), cfg.getOuputMode(), inputs.getSelection(), shell);
+        PresetHandler.writePreset(cfg.getSystemPrompt(), tools.getSelection(), cfg.getOuputMode(), inputs.getSelection(), rules.getSelection(), shell);
         refreshPresetList();
       }
     });
@@ -77,6 +75,7 @@ public class PresetsTab {
         tools.clear();
         cfg.setEnabledTools(new String[0]);
         inputs.clear();
+        rules.clear();
         cfg.setOuputMode(OutputMode.values()[0]);
       }
     });
@@ -99,6 +98,8 @@ public class PresetsTab {
         cfg.setOuputMode(preset.outputMode);
       if (preset.inputs != null)
         inputs.setSelection(preset.inputs);
+      if (preset.rules != null)
+        rules.setSelection(preset.rules);
     }));
     refreshPresetList();
   }

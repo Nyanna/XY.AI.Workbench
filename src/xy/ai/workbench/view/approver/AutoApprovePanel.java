@@ -24,6 +24,8 @@ import xy.ai.conscious.autoapprove.AutoApprover;
 import xy.ai.conscious.autoapprove.Decision;
 import xy.ai.workbench.Activator;
 import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 
 /**
@@ -165,7 +167,11 @@ public class AutoApprovePanel extends ViewPart {
       console.append(entry.line() + "\n");
       scrollToEnd();
       if (showOnChange)
-        getSite().getPage().bringToTop(this);
+		try {
+			getSite().getPage().showView(ID, null, IWorkbenchPage.VIEW_VISIBLE);
+		} catch (PartInitException e) {
+			// ignore not present
+		}
     }
   }
 
@@ -244,6 +250,6 @@ public class AutoApprovePanel extends ViewPart {
 
   @Override
   public void setFocus() {
-    console.setFocus();
+    // disabled
   }
 }

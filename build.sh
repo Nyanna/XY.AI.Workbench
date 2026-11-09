@@ -68,4 +68,4 @@ fi
 "${MAVEN_HOME}/bin/mvn" -q -ntp -B \
 	-Declipse.install.dir="${ECLIPSE_INSTALL_DIR}" \
 	-Dcompile.classpath="${COMPILE_CLASSPATH}" \
-	"${GOALS[@]}" && echo "Successfull"
+	"${GOALS[@]}" && echo "Successful"

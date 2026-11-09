@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResourceVisitor;
@@ -20,11 +20,9 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Shell;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
-
 import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.core.OutputMode;
 
@@ -38,6 +36,7 @@ public class PresetHandler {
     public List<String> tools;
     public String outputMode;
     public List<String> inputs;
+    public Map<String, Map<String, Object>> rules;
   }
 
   public static class Preset {
@@ -46,6 +45,7 @@ public class PresetHandler {
     public String[] tools;
     public OutputMode outputMode;
     public String[] inputs;
+    public Map<String, Map<String, Object>> rules;
   }
 
   public static IFile[] listPresetFiles() {
@@ -97,6 +97,8 @@ public class PresetHandler {
             preset.outputMode = OutputMode.valueOf(fm.outputMode.trim());
           if (fm.inputs != null)
             preset.inputs = fm.inputs.toArray(new String[0]);
+          if (fm.rules != null)
+            preset.rules = fm.rules;
         } catch (Exception e) {
           LOG.error(e.getMessage(), e);
         }
@@ -107,7 +109,7 @@ public class PresetHandler {
     return preset;
   }
 
-  public static void writePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Shell shell) {
+  public static void writePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, Shell shell) {
     FileDialog dialog = new FileDialog(shell, SWT.SAVE);
     dialog.setFilterPath(resolveDefaultSaveDir());
     dialog.setFilterExtensions(new String[] { "*.prompt.txt" });
@@ -115,7 +117,7 @@ public class PresetHandler {
     String filePath = dialog.open();
     if (filePath == null)
       return;
-    String content = serializePreset(body, tools, outputMode, inputs, "");
+    String content = serializePreset(body, tools, outputMode, inputs, rules, "");
     try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, StandardCharsets.UTF_8))) {
       writer.print(content);
     } catch (IOException e) {
@@ -135,7 +137,7 @@ public class PresetHandler {
     return projects.length > 0 ? projects[0].getLocation().toOSString() : "";
   }
 
-  public static String serializePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, String title) {
+  public static String serializePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, String title) {
     FrontMatter fm = new FrontMatter();
     fm.title = title != null ? title : "";
     if (tools != null && tools.length > 0)
@@ -144,6 +146,8 @@ public class PresetHandler {
       fm.outputMode = outputMode.name();
     if (inputs != null && inputs.length > 0)
       fm.inputs = Arrays.asList(inputs);
+    if (rules != null && !rules.isEmpty())
+      fm.rules = rules;
     StringBuilder sb = new StringBuilder();
     try {
       String yaml = YAML.writeValueAsString(fm);

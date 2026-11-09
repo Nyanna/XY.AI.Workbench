@@ -3,6 +3,8 @@ package xy.ai.conscious.autoapprove;
 import java.util.List;
 import xy.ai.conscious.autoapprove.rules.HoldMarkdownRule;
 import java.util.Objects;
+import java.util.Optional;
+import xy.ai.conscious.autoapprove.rules.RuleSettings;
 import java.util.concurrent.CopyOnWriteArrayList;
 import xy.ai.conscious.autoapprove.rules.AllowedToolsRule;
 import xy.ai.conscious.autoapprove.rules.DeepPathReadRule;
@@ -38,5 +40,17 @@ public class RuleRegistry {
 
   public List<IApprovalRule> rules() {
     return rules;
+  }
+
+  public Optional<IApprovalRule> find(String id) {
+    return rules.stream().filter(r -> r.id().equals(id)).findFirst();
+  }
+
+  /**
+   * Default settings of the rule as an independent clone; empty settings for an
+   * unknown id.
+   */
+  public RuleSettings defaultSettings(String id) {
+    return find(id).map(r -> r.getDefaultSetting().clone()).orElseGet(RuleSettings::new);
   }
 }

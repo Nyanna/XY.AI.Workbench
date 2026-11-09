@@ -15,15 +15,6 @@ import xy.ai.conscious.connector.harness.Prompt;
 import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.model.AIAnswer;
 
-/**
- * Evaluates the registered rules against an answer and derives the follow-up
- * prompt. The approver never consumes the answer; it only enriches it and
- * describes the next action as a {@link FollowUp}, which the prompt handler runs
- * as if the operator had made the selection.
- * <p>
- * Aggregation: Deny beats Allow beats Abstain. Reasons, hints, warnings and
- * instructions of all rules are merged.
- */
 public class AutoApprover {
   public static final int DEFAULT_MAX_CHAIN = 20;
   private final RuleRegistry registry;
@@ -87,7 +78,7 @@ public class AutoApprover {
     ApprovalItem item = items.size() == 1 ? items.get(0) : null;
     sessions.track(session.id(), items);
     ApprovalItem call = sessions.callFor(session.id(), item);
-    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session);
+    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session, registry);
     Decision decision = decide(ctx, collect(ctx), depth);
     enrich(ans, decision.warnings());
     publish(decision);
@@ -109,6 +100,8 @@ public class AutoApprover {
   private List<RuleVote> collect(ApprovalContext ctx) {
     List<RuleVote> votes = new ArrayList<>();
     for (IApprovalRule rule : registry.rules()) {
+      if (!ctx.settings(rule.id()).isActive())
+        continue;
       try {
         Vote vote = rule.vote(ctx);
         votes.add(new RuleVote(rule.id(), vote == null ? Vote.abstain() : vote));

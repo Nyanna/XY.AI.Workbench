@@ -2,6 +2,8 @@ package xy.ai.conscious.connector.harness;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import xy.ai.conscious.autoapprove.rules.RuleSettings;
 import xy.ai.conscious.core.AgentProfile;
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.InputMode;
@@ -11,11 +13,6 @@ import xy.ai.conscious.model.Model;
 import xy.ai.conscious.model.Reasoning;
 import xy.ai.conscious.tools.Hash;
 
-/**
- * Immutable snapshot of the {@link ConfigManager} state, taken once when a
- * {@link Prompt} is frozen. The system prompt is rendered eagerly so that later
- * changes to the live config do not affect already-frozen sessions.
- */
 public class FrozenConfig {
   public Model model;
   public String keys;
@@ -29,9 +26,14 @@ public class FrozenConfig {
   public final Integer reasoningBudget;
   public final CacheMode cacheMode;
   public final OutputMode outputMode;
+  /**
+   * Rule id to settings deviating from the rule defaults. Not part of the hash:
+   * it only steers the evaluation of answers, not the session.
+   */
+  public final Map<String, RuleSettings> ruleSettings;
   private String hash;
 
-  private FrozenConfig(String keys, Model model, AgentProfile profile, Reasoning reasoning, List<String> tools, String systemPrompt, Double topP, Double temperature, Long maxOutputTokens, Integer reasoningBudget, CacheMode cacheMode, OutputMode outputMode) {
+  private FrozenConfig(String keys, Model model, AgentProfile profile, Reasoning reasoning, List<String> tools, String systemPrompt, Double topP, Double temperature, Long maxOutputTokens, Integer reasoningBudget, CacheMode cacheMode, OutputMode outputMode, Map<String, RuleSettings> ruleSettings) {
     this.keys = keys;
     this.model = model;
     this.profile = profile;
@@ -44,13 +46,14 @@ public class FrozenConfig {
     this.reasoningBudget = reasoningBudget;
     this.cacheMode = cacheMode;
     this.outputMode = outputMode;
+    this.ruleSettings = Map.copyOf(RuleSettings.copyOf(ruleSettings));
   }
 
   /**
    * Independent copy; {@code model} and {@code keys} are mutated by prompt preprocessing.
    */
   public FrozenConfig copy() {
-    return new FrozenConfig(keys, model, profile, reasoning, tools, systemPrompt, topP, temperature, maxOutputTokens, reasoningBudget, cacheMode, outputMode);
+    return new FrozenConfig(keys, model, profile, reasoning, tools, systemPrompt, topP, temperature, maxOutputTokens, reasoningBudget, cacheMode, outputMode, ruleSettings);
   }
 
   /**
@@ -73,7 +76,7 @@ public class FrozenConfig {
     String keys = cfg.getKeys();
     for (String key : keys.split(",")) if (cfg.getModel().cap.acceptsKey(key))
       keys = key;
-    return new FrozenConfig(keys, cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt, cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(), cfg.getCacheMode(), cfg.getOuputMode());
+    return new FrozenConfig(keys, cfg.getModel(), cfg.getProfile(), cfg.getReasoning(), tools, systemPrompt, cfg.getTopP(), cfg.getTemperature(), cfg.getMaxOutputTokens(), cfg.getReasoningBudget(), cfg.getCacheMode(), cfg.getOuputMode(), cfg.getRuleSettings());
   }
 
   /**

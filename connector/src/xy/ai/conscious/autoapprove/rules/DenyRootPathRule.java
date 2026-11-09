@@ -7,33 +7,47 @@ import xy.ai.conscious.autoapprove.ApprovalContext;
 import xy.ai.conscious.autoapprove.ApprovalItem;
 import xy.ai.conscious.autoapprove.ApprovalItem.Kind;
 
-/** Denies calls of path-based tools if any path-like argument points at the root directory. */
+/**
+ * Denies the root directory for the tools and path fields of
+ * {@link DeepPathReadRule}.
+ */
 public class DenyRootPathRule implements IApprovalRule {
 
+	public static final String ID = DenyRootPathRule.class.getSimpleName();
 	public static final String REASON = "Don't use the root directory.";
 
-	private final Set<String> tools;
-	private final Set<String> pathFields;
+	private final RuleSettings defaults = new RuleSettings();
 	private final Path cwd;
 
 	public DenyRootPathRule() {
-		this(Set.of(DeepPathReadRule.TOOLS), Set.of(DeepPathReadRule.PATH_FIELDS),
-				Path.of("").toAbsolutePath().normalize());
+		this(Path.of("").toAbsolutePath().normalize());
 	}
 
-	public DenyRootPathRule(Set<String> tools, Set<String> pathFields, Path cwd) {
-		this.tools = Set.copyOf(tools);
-		this.pathFields = Set.copyOf(pathFields);
+	public DenyRootPathRule(Path cwd) {
 		this.cwd = cwd.toAbsolutePath().normalize();
+	}
+
+	@Override
+	public String id() {
+		return ID;
+	}
+
+	@Override
+	public RuleSettings getDefaultSetting() {
+		return defaults.clone();
 	}
 
 	@Override
 	public Vote vote(ApprovalContext ctx) {
 		ApprovalItem item = ctx.item();
-		if (item == null || item.tool() == null || !tools.contains(item.tool()))
+		if (item == null || item.tool() == null)
+			return Vote.abstain();
+		RuleSettings deep = ctx.settings(DeepPathReadRule.ID);
+		if (!deep.getStringSet(DeepPathReadRule.TOOLS_SETTING).contains(item.tool()))
 			return Vote.abstain();
 		if (item.kind() != Kind.ControlCall && item.kind() != Kind.ToolCall)
 			return Vote.abstain();
+		Set<String> pathFields = deep.getStringSet(DeepPathReadRule.PATH_FIELDS_SETTING);
 		for (String value : PathArguments.collect(item.arguments(), pathFields)) {
 			Path path = PathArguments.resolve(cwd, value);
 			if (path != null && PathArguments.isRoot(path))

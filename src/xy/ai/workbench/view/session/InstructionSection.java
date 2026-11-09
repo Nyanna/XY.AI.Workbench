@@ -7,20 +7,17 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.ui.forms.widgets.FormToolkit;
-
 import xy.ai.conscious.core.ConfigManager;
+import xy.ai.workbench.Activator;
 import xy.ai.workbench.view.InputStats;
 
-/**
- * "System Prompt" area: Select/Edit/Tools/Presets tabs plus the input-mode
- * table.
- */
 public class InstructionSection {
   private final FormToolkit toolkit;
   private final UpdateGuard guard = new UpdateGuard();
   private final SelectTab selectTab;
   private final EditTab editTab;
   private final ToolsTab toolsTab = new ToolsTab();
+  private final RulesTab rulesTab = new RulesTab();
   private final PresetsTab presetsTab = new PresetsTab();
   private final InputsTable inputsTable = new InputsTable();
 
@@ -50,7 +47,8 @@ public class InstructionSection {
     selectTab.create(instr, cfg);
     editTab.create(instr, cfg);
     toolsTab.create(instr, cfg);
+    rulesTab.create(instr, cfg, Activator.getDefault().promptHandler.approver().rules());
     inputsTable.create(middle, cfg, stats);
-    presetsTab.create(instr, cfg, shell, toolsTab, selectTab, inputsTable);
+    presetsTab.create(instr, cfg, shell, toolsTab, selectTab, inputsTable, rulesTab);
   }
 }

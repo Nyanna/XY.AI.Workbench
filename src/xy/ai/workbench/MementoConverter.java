@@ -1,12 +1,11 @@
 package xy.ai.workbench;
 
 import java.io.IOException;
-
 import org.eclipse.ui.IMemento;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import java.util.Map;
+import xy.ai.conscious.autoapprove.rules.RuleSettings;
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.core.SessionConfig;
@@ -20,67 +19,66 @@ import xy.ai.conscious.core.SessionConfig;
  * (capability-dependent) order in which the values are actually applied.
  */
 public class MementoConverter {
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
-	private static final ObjectMapper MAPPER = new ObjectMapper();
+  public static void saveConfig(IMemento memento, SessionConfig cfg) {
+    Snapshot snap = new Snapshot();
+    snap.keys = cfg.keys;
+    snap.maxOutputTokens = cfg.maxOutputTokens;
+    snap.temperature = cfg.temperature;
+    snap.topP = cfg.topP;
+    snap.freeText = cfg.freeText;
+    if (cfg.model != null) {
+      snap.modelProvider = cfg.model.cap.getKeyPattern().name();
+      snap.modelDisplayName = cfg.model.displayName;
+    }
+    snap.reasoning = cfg.reasoning != null ? cfg.reasoning.name() : null;
+    snap.cacheMode = cfg.cacheMode != null ? cfg.cacheMode.name() : null;
+    snap.profile = cfg.profile != null ? cfg.profile.name() : null;
+    snap.reasoningBudget = cfg.reasoningBudget;
+    snap.systemPrompt = cfg.systemPrompt;
+    snap.outputMode = cfg.ouputMode != null ? cfg.ouputMode.name() : null;
+    snap.inputModes = cfg.inputModes;
+    snap.enabledTools = cfg.getEnabledTools();
+    snap.ruleSettings = RuleSettings.exportAll(cfg.getRuleSettings());
+    try {
+      memento.createChild("cfg").putString("json", MAPPER.writeValueAsString(snap));
+    } catch (JsonProcessingException e) {
+      LOG.error("Unable to serialize session config", e);
+    }
+  }
 
-	public static void saveConfig(IMemento memento, SessionConfig cfg) {
-		Snapshot snap = new Snapshot();
-		snap.keys = cfg.keys;
-		snap.maxOutputTokens = cfg.maxOutputTokens;
-		snap.temperature = cfg.temperature;
-		snap.topP = cfg.topP;
-		snap.freeText = cfg.freeText;
-		if (cfg.model != null) {
-			snap.modelProvider = cfg.model.cap.getKeyPattern().name();
-			snap.modelDisplayName = cfg.model.displayName;
-		}
-		snap.reasoning = cfg.reasoning != null ? cfg.reasoning.name() : null;
-		snap.cacheMode = cfg.cacheMode != null ? cfg.cacheMode.name() : null;
-		snap.profile = cfg.profile != null ? cfg.profile.name() : null;
-		snap.reasoningBudget = cfg.reasoningBudget;
-		snap.systemPrompt = cfg.systemPrompt;
-		snap.outputMode = cfg.ouputMode != null ? cfg.ouputMode.name() : null;
-		snap.inputModes = cfg.inputModes;
-		snap.enabledTools = cfg.getEnabledTools();
+  public static Snapshot loadConfig(IMemento memento) {
+    if (memento == null)
+      return null;
+    IMemento m = memento.getChild("cfg");
+    String json = m != null ? m.getString("json") : null;
+    if (json == null)
+      return null;
+    try {
+      return MAPPER.readValue(json, Snapshot.class);
+    } catch (IOException e) {
+      LOG.error("Unable to deserialize session config", e);
+      return null;
+    }
+  }
 
-		try {
-			memento.createChild("cfg").putString("json", MAPPER.writeValueAsString(snap));
-		} catch (JsonProcessingException e) {
-			LOG.error("Unable to serialize session config", e);
-		}
-	}
-
-	public static Snapshot loadConfig(IMemento memento) {
-		if (memento == null)
-			return null;
-		IMemento m = memento.getChild("cfg");
-		String json = m != null ? m.getString("json") : null;
-		if (json == null)
-			return null;
-		try {
-			return MAPPER.readValue(json, Snapshot.class);
-		} catch (IOException e) {
-			LOG.error("Unable to deserialize session config", e);
-			return null;
-		}
-	}
-
-	/** Plain, capability-agnostic data snapshot of a {@link SessionConfig}. */
-	public static class Snapshot {
-		public String keys;
-		public Long maxOutputTokens;
-		public Double temperature;
-		public Double topP;
-		public String freeText;
-		public String modelProvider;
-		public String modelDisplayName;
-		public String reasoning;
-		public String cacheMode;
-		public String profile;
-		public Integer reasoningBudget;
-		public String[] systemPrompt;
-		public String outputMode;
-		public boolean[] inputModes;
-		public String[] enabledTools;
-	}
+  public static class Snapshot {
+    public String keys;
+    public Long maxOutputTokens;
+    public Double temperature;
+    public Double topP;
+    public String freeText;
+    public String modelProvider;
+    public String modelDisplayName;
+    public String reasoning;
+    public String cacheMode;
+    public String profile;
+    public Integer reasoningBudget;
+    public String[] systemPrompt;
+    public String outputMode;
+    public boolean[] inputModes;
+    public String[] enabledTools;
+    public Map<String, Map<String, Object>> ruleSettings;
+  }
 }

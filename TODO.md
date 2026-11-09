@@ -1,18 +1,11 @@
 # TODO
 * HRV viewer smarthome, geräte alias einführen für 2,4G/5G
-! Autoapprove panel wie console bei fehlern bei neuem input automatisch aufpoppen
-	- panel globales enabled flag
 ! importhandling, alles source AST call ein addImport und und removeImport hinzufügen
 	- auf basis von ast segmenten import block prüfen und ersetzen oder entfernen
 	- sprachspezifisches import handling
 	- extra ast_import tool zum auslesen und setzen von imports?, oder mit in outline aufnehmen?
 	- import section im AST cache flaggen, haben AST engines eine import unterstützung?
 	- für generische engines nur prüfen ob import text in Datei vorkommt und wenn nicht fehler mit selbst adden, in block XYZ ("following  id's contain imports")
-! rule config, RuleConfig objekt mit Knotenliste, Rules Panel vor Prsets, in YAML speicherbar
-	- default getter in Rule, Liste oberhalb wie preset mit edit marker
-		- unterhalb panel mit autorendering der config liste, config objekt hat default value
-	- übergabe nur wenn abweichend von config, mit enables flag
-	- globales echt enabled flag im approver pnael
 ! batchsupport aufsplitten in einzelne control messages pro batch
 
 
