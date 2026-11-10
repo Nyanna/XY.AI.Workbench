@@ -1,13 +1,6 @@
 # TODO
-* HRV viewer smarthome, geräte alias einführen für 2,4G/5G
-! importhandling, alles source AST call ein addImport und und removeImport hinzufügen
-	- auf basis von ast segmenten import block prüfen und ersetzen oder entfernen
-	- sprachspezifisches import handling
-	- extra ast_import tool zum auslesen und setzen von imports?, oder mit in outline aufnehmen?
-	- import section im AST cache flaggen, haben AST engines eine import unterstützung?
-	- für generische engines nur prüfen ob import text in Datei vorkommt und wenn nicht fehler mit selbst adden, in block XYZ ("following  id's contain imports")
+Testfehler in MCPC
 ! batchsupport aufsplitten in einzelne control messages pro batch
-
 
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
 - "resident" in vorhandenes RAG integrieren aber separat startbar
@@ -48,3 +41,4 @@
 - Weitere Tools für Research: Semantic Scholar, arXiv API Access
 - neuer modus, platzhalter semantik für code, KI bekommt kontext und ein give_answer tool
 	- der platzhalten wird mit dem give_answer ersetzt
+Cannot process command: no active Claude Code session exists

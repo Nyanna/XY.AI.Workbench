@@ -10,7 +10,9 @@ import logging
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Located, SEGMENT_MAX_CHARS, Tree, check_no_control_chars, id_segment
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome
 from xy.ai.mcpc.tools.ast.python._comments import comments_to_annotations
+from xy.ai.mcpc.tools.ast.python._imports import apply_python_imports
 from xy.ai.mcpc.tools.ast.python._nodes import _DEF_TYPES, _IMPORT_TYPES, _StatementGroup, _decorators, _is_expandable
 logger = logging.getLogger('xy.ai.mcpc.tools.ast.python')
 
@@ -214,5 +216,18 @@ class PythonEngine(Engine):
         stmts = self._parse_fragment(code)
         tree.raw.body.extend(stmts)
         return len(stmts)
+
+    def apply_imports(self, tree: Tree, add: list[str], remove: list[str]) -> ImportOutcome:
+
+        def parse(texts: list[str]) -> list[tuple[str, ast.Import | ast.ImportFrom]]:
+            parsed = []
+            for text in texts:
+                check_no_control_chars(text)
+                stmts = self._parse_fragment(text)
+                if len(stmts) != 1 or not isinstance(stmts[0], _IMPORT_TYPES):
+                    raise AstError(f'Not a single import statement: {text.strip()!r}')
+                parsed.append((text.strip(), stmts[0]))
+            return parsed
+        return apply_python_imports(tree.raw.body, parse(add), parse(remove))
 '# Shared instance; the Python engine is stateless.'
 ENGINE = PythonEngine()

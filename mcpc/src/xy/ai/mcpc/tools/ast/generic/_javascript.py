@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 from xy.ai.mcpc.tools.ast.base import SEGMENT_MAX_CHARS, Located, Tree, id_segment
 from xy.ai.mcpc.tools.ast.generic._engine import TreeSitterEngine, _SynthNode
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, apply_treesitter
 __all__ = ['JavaScriptEngine']
 "#: Declaration/definition node types with their own 'name' (and usually 'body') field."
 _CORE_DEF_TYPES = {'function_declaration', 'generator_function_declaration', 'class_declaration', 'method_definition'}
@@ -90,6 +91,10 @@ def _def_body(node: Any) -> Any | None:
     if node.type == 'export_statement' and len(node.named_children) == 1:
         return _def_body(node.named_children[0])
     return None
+
+def _is_directive(node: Any) -> bool:
+    """A ``'use strict'``-style prologue statement."""
+    return node.type == 'expression_statement' and [c.type for c in node.named_children] == ['string']
 
 class JavaScriptEngine(TreeSitterEngine):
     """Tree-sitter JavaScript restructured like the Python/Java engines:
@@ -178,3 +183,6 @@ class JavaScriptEngine(TreeSitterEngine):
                         expandable=False))
         walk(tree.raw.root_node.named_children, tree.raw.root_node, '')
         return results
+
+    def apply_imports(self, tree: Tree, add: list[str], remove: list[str]) -> ImportOutcome:
+        return apply_treesitter(self, tree, add, remove, _IMPORT_TYPES, _is_directive)

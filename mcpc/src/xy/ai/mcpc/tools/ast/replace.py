@@ -1,10 +1,11 @@
 """``ast_replace`` tool: replace selected nodes with new source."""
 from dataclasses import dataclass
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, select_by_path
+from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_path
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
@@ -25,10 +26,14 @@ class ReplaceItem:
         path: Absolute path to the file to modify.
         source: Replacement source.
         id: Unique id of the target node.
+        add_import: Import statements to add if missing, applied after the node edit.
+        remove_import: Import statements to remove if present, applied after the node edit.
     """
     path: str
     source: str
     id: str | None = None
+    add_import: list[str] | None = None
+    remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
 class ReplaceResult:
@@ -44,6 +49,7 @@ class ReplaceResult:
     id: str | None
     result: str
     new_id: str | None = None
+    imports: ImportOutcome | None = None
 
 @dataclass(frozen=True)
 class ReplaceError:
@@ -68,14 +74,16 @@ class ReplaceBatchResult:
     """
     results: list[ReplaceResult]
     errors: list[ReplaceError]
+    notice: str | None = None
 
 def _replace_one(item: ReplaceItem) -> ReplaceResult:
     file_path = core.require_path(item.path)
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=item.id)
     new_id = core.replace_node(target, item.source)
+    imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return ReplaceResult(path=item.path, id=item.id, result='success', new_id=new_id)
+    return ReplaceResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
 
 def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
     """Replace one or more selected nodes with new source.
@@ -103,7 +111,7 @@ def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
             results.append(_replace_one(item))
         except core.AstError as exc:
             errors.append(ReplaceError(path=item.path, id=item.id, error=str(exc)))
-    return ReplaceBatchResult(results=results, errors=errors)
+    return ReplaceBatchResult(results=results, errors=errors, notice=import_notice(results))
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
@@ -114,7 +122,8 @@ class ReplaceNodeTool(ToolDefinition):
         'source': {
             'type': 'string',
             'description': 'Replacement source.'},
-        **PATH_SELECTOR_PROPS}
+        **PATH_SELECTOR_PROPS,
+        **IMPORT_PROPS}
     _ITEM_REQUIRED = ['path', 'source', 'id']
     _ITEMS_DESCRIPTION = 'Node replacements to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
@@ -123,7 +132,13 @@ class ReplaceNodeTool(ToolDefinition):
         """Delegate to :func:`ast_replace`, translating the MCP schema to/from the AST API."""
 
         def item_factory(it: dict[str, Any]) -> ReplaceItem:
-            return ReplaceItem(path=it['path'], source=it['source'], id=it.get('id'))
+            add_import, remove_import = parse_import_args(it)
+            return ReplaceItem(
+                path=it['path'],
+                source=it['source'],
+                id=it.get('id'),
+                add_import=add_import,
+                remove_import=remove_import)
 
         def result_serializer(r: ReplaceResult) -> dict[str, Any]:
             entry = {'path': r.path, 'result': r.result}
@@ -131,6 +146,8 @@ class ReplaceNodeTool(ToolDefinition):
                 entry['id'] = r.id
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
+            if (imports := import_entry(r.imports)) is not None:
+                entry['imports'] = imports
             return entry
 
         def error_serializer(e: ReplaceError) -> dict[str, Any]:

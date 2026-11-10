@@ -4,7 +4,8 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
+from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -29,6 +30,8 @@ class EditMarksItem:
         content: Replacement source for the marked block.
         exact: If False (default), whitespace in start/end is matched tolerantly.
         id: Unique id of the target node. If omitted, the node is searched for by the markers.
+        add_import: Import statements to add if missing, applied after the edit.
+        remove_import: Import statements to remove if present, applied after the edit.
     """
     path: str
     start_marker: str
@@ -36,6 +39,8 @@ class EditMarksItem:
     content: str
     exact: bool = False
     id: str | None = None
+    add_import: list[str] | None = None
+    remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
 class EditMarksResult:
@@ -51,6 +56,7 @@ class EditMarksResult:
     id: str | None
     result: str
     new_id: str | None = None
+    imports: ImportOutcome | None = None
 
 @dataclass(frozen=True)
 class EditMarksError:
@@ -88,6 +94,7 @@ class EditMarksBatchResult:
     """
     results: list[EditMarksResult]
     errors: list[EditMarksError]
+    notice: str | None = None
 
 def _node_marks_guard(engine, begin_marker, end_marker):
     """Guard for tolerant marker edits (see ``ast.edit_block._node_guard``)."""
@@ -125,8 +132,9 @@ def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:
                             exc, 'guess', None), next_step=getattr(
                                 exc, 'next_step', None)) from exc
     new_id = core.replace_node(target, new_source)
+    imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return EditMarksResult(path=item.path, id=item.id, result='success', new_id=new_id)
+    return EditMarksResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
 
 def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
     """Replace everything between the start/end markers inside one or more nodes.
@@ -162,7 +170,7 @@ def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
                                 exc, 'corrected_text', None), guess=getattr(
                                     exc, 'guess', None), next_step=getattr(
                                         exc, 'next_step', None)))
-    return EditMarksBatchResult(results=results, errors=errors)
+    return EditMarksBatchResult(results=results, errors=errors, notice=import_notice(results))
 
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
@@ -187,7 +195,8 @@ class EditMarksNodeTool(ToolDefinition):
             'type': 'boolean',
             'description': "If true, 'start_marker'/'end_marker' must match whitespace exactly. If false (default), whitespace runs match any amount/kind of whitespace.",
             'default': False},
-        **PATH_SELECTOR_PROPS}
+        **PATH_SELECTOR_PROPS,
+        **IMPORT_PROPS}
     _ITEM_REQUIRED = ['path', 'start_marker', 'end_marker', 'content']
     _ITEMS_DESCRIPTION = 'Marker-based edits to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
@@ -196,6 +205,7 @@ class EditMarksNodeTool(ToolDefinition):
         """Delegate to :func:`ast_edit_marks`, translating the MCP schema to/from the AST API."""
 
         def item_factory(it: dict[str, Any]) -> EditMarksItem:
+            add_import, remove_import = parse_import_args(it)
             return EditMarksItem(
                 path=it['path'],
                 start_marker=it['start_marker'],
@@ -204,7 +214,9 @@ class EditMarksNodeTool(ToolDefinition):
                 exact=it.get(
                     'exact',
                     False),
-                id=it.get('id'))
+                id=it.get('id'),
+                add_import=add_import,
+                remove_import=remove_import)
 
         def result_serializer(r: EditMarksResult) -> dict[str, Any]:
             entry = {'path': r.path, 'result': r.result}
@@ -212,6 +224,8 @@ class EditMarksNodeTool(ToolDefinition):
                 entry['id'] = r.id
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
+            if (imports := import_entry(r.imports)) is not None:
+                entry['imports'] = imports
             return entry
 
         def error_serializer(e: EditMarksError) -> dict[str, Any]:

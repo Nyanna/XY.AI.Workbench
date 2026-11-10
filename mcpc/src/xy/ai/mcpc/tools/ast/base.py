@@ -18,7 +18,9 @@ import string
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+if TYPE_CHECKING:
+    from xy.ai.mcpc.tools.ast.imports import ImportOutcome
 
 class AstError(Exception):
     """A user-facing, path-free error raised by the AST tools."""
@@ -456,6 +458,16 @@ class Engine(ABC):
     def append(self, tree: Tree, code: str) -> int:
         """Append ``code`` at ``tree``'s top level; return units appended."""
 
+    def apply_imports(self, tree: Tree, add: list[str], remove: list[str]) -> 'ImportOutcome':
+        """Add missing / remove present import statements (``addImport``/``removeImport``).
+
+    Engines with structural knowledge of their language's import syntax override this,
+    computing all changes first and writing ``tree`` once. The default raises
+    :class:`NotImplementedError`, upon which :func:`core.apply_imports` uses the generic
+    check-only fallback (kept out of this module to avoid an import cycle).
+    """
+        raise NotImplementedError(f'{self.name} has no import support')
+
 def require_path(path_str: str, *, must_exist: bool=True) -> Path:
     """Validate a mandatory absolute path, raising :class:`AstError` on failure."""
     path = Path(path_str)
@@ -467,7 +479,6 @@ def require_path(path_str: str, *, must_exist: bool=True) -> Path:
         if not path.is_file():
             raise AstError('Not a regular file.')
     return path
-
 _CONTROL_CHAR_RE = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
 def check_no_control_chars(code: str) -> None:

@@ -20,6 +20,7 @@ from xy.ai.mcpc.ast.openapi.request.nodes.nodeid.insert.post.json.InsertRequest 
 from xy.ai.mcpc.ast.openapi.request.nodes.nodeid.insert.post.json.PositionEnum import PositionEnum
 from xy.ai.mcpc.ast.openapi.request.nodes.post.json.LocateRequest import LocateRequest
 from xy.ai.mcpc.tools.ast.base import AstAmbiguous, AstError, Engine, Located, Tree, check_no_control_chars
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, apply_rpc
 from xy.ai.mcpc.tools.ast.rpc._process import RpcProcess
 __all__ = ['RpcEngine']
 
@@ -196,3 +197,6 @@ class RpcEngine(Engine):
         payload = self._unwrap(self._rpc().appendTopLevel(request))
         tree.source = payload.get_Source()
         return payload.get_UnitsAppended()
+
+    def apply_imports(self, tree: Tree, add: list[str], remove: list[str]) -> ImportOutcome:
+        return apply_rpc(self, tree, add, remove)

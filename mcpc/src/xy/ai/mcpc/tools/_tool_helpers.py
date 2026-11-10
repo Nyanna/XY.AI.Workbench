@@ -109,4 +109,7 @@ def serialize_batch_result(batch_result: Any, result_serializer: Callable[[Any],
         content['results'] = [result_serializer(r) for r in batch_result.results]
     if hasattr(batch_result, 'errors') and batch_result.errors:
         content['errors'] = [error_serializer(e) for e in batch_result.errors]
+    notice = getattr(batch_result, 'notice', None)
+    if notice:
+        content['notice'] = notice
     return content

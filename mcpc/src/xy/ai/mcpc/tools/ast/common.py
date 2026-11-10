@@ -6,7 +6,14 @@ by its unique ``id`` and uses the reduced :data:`PATH_SELECTOR_PROPS`.
 """
 from typing import Any
 from xy.ai.mcpc.tools.ast import core
-__all__ = ['SELECTOR_PROPS', 'PATH_SELECTOR_PROPS', 'PATH_PROP', 'select_one', 'select_by_path', 'select_by_text']
+__all__ = [
+    'SELECTOR_PROPS',
+    'PATH_SELECTOR_PROPS',
+    'PATH_PROP',
+    'IMPORT_PROPS',
+    'select_one',
+    'select_by_path',
+    'select_by_text']
 '#: Full node selectors – only ``ast_find`` may restrict on node properties.'
 SELECTOR_PROPS = {
     'id': {
@@ -31,6 +38,20 @@ SELECTOR_PROPS = {
 PATH_SELECTOR_PROPS = {'id': SELECTOR_PROPS['id']}
 "#: Absolute-path property shared by every batch tool's item schema."
 PATH_PROP = {'type': 'string', 'description': 'Absolute path to the file (never directories).'}
+'#: Import handling shared by every node-editing tool (replace/insert/delete/edit_*).'
+IMPORT_PROPS = {
+    'addImport': {
+        'type': 'array',
+        'items': {
+            'type': 'string',
+            'minLength': 1},
+        'description': "Import/include/use statements this edit needs, one complete statement per entry in the file's own syntax (e.g. 'import os', 'import a.b.C;', 'use std::fmt;')."},
+    'removeImport': {
+        'type': 'array',
+                'items': {
+                    'type': 'string',
+                    'minLength': 1},
+        'description': 'Import/include/use statements that are no longer needed. Removed if present, ignored otherwise.'}}
 
 def select_one(tree, **selectors: Any) -> core.Located:
     """Return the single node in *tree* matching *selectors*.

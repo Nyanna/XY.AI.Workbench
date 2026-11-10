@@ -1,10 +1,11 @@
 """``ast_insert`` tool: insert statement(s) relative to selected nodes."""
 from dataclasses import dataclass
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, select_by_path
+from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_path
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
@@ -19,11 +20,15 @@ class InsertItem:
         source: Source of the statement(s) to insert.
         position: ``"before"`` or ``"after"`` the selected node. Defaults to ``"after"``.
         id: Unique id of the target node.
+        add_import: Import statements to add if missing, applied after the insert.
+        remove_import: Import statements to remove if present, applied after the insert.
     """
     path: str
     source: str
     position: str = 'after'
     id: str | None = None
+    add_import: list[str] | None = None
+    remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
 class InsertResult:
@@ -41,6 +46,7 @@ class InsertResult:
     result: str
     inserted: int
     ids: list[str] | None = None
+    imports: ImportOutcome | None = None
 
 @dataclass(frozen=True)
 class InsertError:
@@ -65,6 +71,7 @@ class InsertBatchResult:
     """
     results: list[InsertResult]
     errors: list[InsertError]
+    notice: str | None = None
 
 def _insert_one(item: InsertItem) -> InsertResult:
     file_path = core.require_path(item.path)
@@ -73,8 +80,15 @@ def _insert_one(item: InsertItem) -> InsertResult:
     before_ids = {loc.node_id for loc in core.locate_all(tree)}
     inserted = core.insert_node(target, item.source, item.position)
     new_ids = [loc.node_id for loc in core.locate_all(tree) if loc.node_id not in before_ids]
+    imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return InsertResult(path=item.path, id=item.id, result='success', inserted=inserted, ids=new_ids or None)
+    return InsertResult(
+        path=item.path,
+        id=item.id,
+        result='success',
+        inserted=inserted,
+        ids=new_ids or None,
+        imports=imports)
 
 def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
     """Insert statement(s) parsed from ``source`` relative to one or more selected nodes.
@@ -100,7 +114,7 @@ def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
             results.append(_insert_one(item))
         except core.AstError as exc:
             errors.append(InsertError(path=item.path, id=item.id, error=str(exc)))
-    return InsertBatchResult(results=results, errors=errors)
+    return InsertBatchResult(results=results, errors=errors, notice=import_notice(results))
 
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
@@ -118,7 +132,8 @@ class InsertNodeTool(ToolDefinition):
                     'after'],
             'description': 'Placement relative to the selected node.',
             'default': 'after'},
-        **PATH_SELECTOR_PROPS}
+        **PATH_SELECTOR_PROPS,
+        **IMPORT_PROPS}
     _ITEM_REQUIRED = ['path', 'source']
     _ITEMS_DESCRIPTION = 'Insert operations to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
@@ -127,13 +142,16 @@ class InsertNodeTool(ToolDefinition):
         """Delegate to :func:`ast_insert`, translating the MCP schema to/from the AST API."""
 
         def item_factory(it: dict[str, Any]) -> InsertItem:
+            add_import, remove_import = parse_import_args(it)
             return InsertItem(
                 path=it['path'],
                 source=it['source'],
                 position=it.get(
                     'position',
                     'after'),
-                id=it.get('id'))
+                id=it.get('id'),
+                add_import=add_import,
+                remove_import=remove_import)
 
         def result_serializer(r: InsertResult) -> dict[str, Any]:
             entry = {'path': r.path, 'result': r.result, 'inserted': r.inserted}
@@ -141,6 +159,8 @@ class InsertNodeTool(ToolDefinition):
                 entry['id'] = r.id
             if r.ids is not None:
                 entry['ids'] = r.ids
+            if (imports := import_entry(r.imports)) is not None:
+                entry['imports'] = imports
             return entry
 
         def error_serializer(e: InsertError) -> dict[str, Any]:

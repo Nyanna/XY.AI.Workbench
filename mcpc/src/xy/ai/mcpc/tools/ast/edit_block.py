@@ -4,7 +4,8 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
-from xy.ai.mcpc.tools.ast.common import PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
+from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -29,6 +30,8 @@ class EditBlockItem:
         exact: If False (default), whitespace in ``old_text`` is matched tolerantly.
         replace_all: If True, replace every occurrence instead of requiring a single match.
         id: Unique id of the target node. If omitted, the node is searched for by ``old_text``.
+        add_import: Import statements to add if missing, applied after the edit.
+        remove_import: Import statements to remove if present, applied after the edit.
     """
     path: str
     old_text: str
@@ -36,6 +39,8 @@ class EditBlockItem:
     exact: bool = False
     replace_all: bool = False
     id: str | None = None
+    add_import: list[str] | None = None
+    remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
 class EditBlockResult:
@@ -51,6 +56,7 @@ class EditBlockResult:
     id: str | None
     result: str
     new_id: str | None = None
+    imports: ImportOutcome | None = None
 
 @dataclass(frozen=True)
 class EditBlockError:
@@ -86,6 +92,7 @@ class EditBlockBatchResult:
     """
     results: list[EditBlockResult]
     errors: list[EditBlockError]
+    notice: str | None = None
 
 def _node_guard(engine, reference):
     """Guard for tolerant node edits.
@@ -124,8 +131,9 @@ def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
                             exc, 'guess', None), next_step=getattr(
                                 exc, 'next_step', None)) from exc
     new_id = core.replace_node(target, new_source)
+    imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return EditBlockResult(path=item.path, id=item.id, result='success', new_id=new_id)
+    return EditBlockResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
 
 def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
     """Replace occurrence(s) of ``old_text`` with ``new_text`` inside one or more nodes.
@@ -159,7 +167,7 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
                             exc, 'corrected_text', None), guess=getattr(
                                 exc, 'guess', None), next_step=getattr(
                                     exc, 'next_step', None)))
-    return EditBlockBatchResult(results=results, errors=errors)
+    return EditBlockBatchResult(results=results, errors=errors, notice=import_notice(results))
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
@@ -183,7 +191,8 @@ class EditBlockNodeTool(ToolDefinition):
             'type': 'boolean',
             'description': "If true, replace every occurrence of 'old_text' within the node instead of a single unique match.",
             'default': False},
-        **PATH_SELECTOR_PROPS}
+        **PATH_SELECTOR_PROPS,
+        **IMPORT_PROPS}
     _ITEM_REQUIRED = ['path', 'old_text', 'new_text', 'id']
     _ITEMS_DESCRIPTION = 'Block edits to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
@@ -192,6 +201,7 @@ class EditBlockNodeTool(ToolDefinition):
         """Delegate to :func:`ast_edit_block`, translating the MCP schema to/from the AST API."""
 
         def item_factory(it: dict[str, Any]) -> EditBlockItem:
+            add_import, remove_import = parse_import_args(it)
             return EditBlockItem(
                 path=it['path'],
                 old_text=it['old_text'],
@@ -202,7 +212,9 @@ class EditBlockNodeTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False),
-                id=it.get('id'))
+                id=it.get('id'),
+                add_import=add_import,
+                remove_import=remove_import)
 
         def result_serializer(r: EditBlockResult) -> dict[str, Any]:
             entry = {'path': r.path, 'result': r.result}
@@ -210,6 +222,8 @@ class EditBlockNodeTool(ToolDefinition):
                 entry['id'] = r.id
             if r.new_id is not None:
                 entry['new_id'] = r.new_id
+            if (imports := import_entry(r.imports)) is not None:
+                entry['imports'] = imports
             return entry
 
         def error_serializer(e: EditBlockError) -> dict[str, Any]:

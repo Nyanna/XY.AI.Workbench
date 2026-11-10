@@ -15,12 +15,15 @@ re-exported here so the tools only ever import :mod:`.core`.
 """
 from __future__ import annotations
 import hashlib
+import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 from xy.ai.mcpc.tools.ast.base import AstAmbiguous, AstError, AstTextError, Engine, Located, OutlineNode, Tree, build_outline, find, line_range, matches, most_specific, node_outline, read_subtrees, require_path, resolve_by_prefix, to_dict
+from xy.ai.mcpc.tools.ast.imports import ImportOutcome, apply_generic
 from xy.ai.mcpc.tools.ast import generic
 from xy.ai.mcpc.tools.ast import python
+logger = logging.getLogger(__name__)
 _PYTHON_EXTENSIONS = ('.py', '.pyi')
 
 def engine_for_path(path: Path) -> Engine:
@@ -126,6 +129,26 @@ def delete_node(loc: Located) -> None:
 
 def append_nodes(tree: Tree, code: str) -> int:
     return tree.engine.append(tree, code)
+
+def apply_imports(tree: Tree, add: list[str] | None, remove: list[str] | None) -> ImportOutcome | None:
+    """Apply an item's ``addImport``/``removeImport`` to the already edited ``tree``.
+
+    Independent of the node edit: engines compute all import changes first and write them
+    once, so a failure leaves the tree as the node edit left it. It is then reported as
+    ``unchecked``, which puts the notice on the batch. Engines without dedicated support
+    get the generic check-only fallback.
+    """
+    if not add and (not remove):
+        return None
+    try:
+        try:
+            return tree.engine.apply_imports(tree, add or [], remove or [])
+        except NotImplementedError:
+            return apply_generic(tree.engine, tree, add or [], remove or [])
+    except Exception:
+        '# noqa: BLE001 - never fail the edit because of its imports'
+        logger.warning('Import handling failed for %s', tree.path, exc_info=True)
+        return ImportOutcome(unchecked=True)
 
 def empty_tree(path: Path) -> Tree:
     return engine_for_path(path).empty_tree(path)
