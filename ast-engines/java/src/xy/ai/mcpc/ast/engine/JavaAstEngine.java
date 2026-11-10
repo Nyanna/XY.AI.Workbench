@@ -134,6 +134,7 @@ public final class JavaAstEngine {
     String stripped = code.strip();
     return unwrap(parser.parseImport(stripped.endsWith(";") ? stripped : stripped + ";"), "import");
   }
+  private static final String IMPLICIT_CLASS_NAME = "$COMPACT_CLASS";
 
   public TypeDeclaration<?> parseTypeFragment(String code) {
     ParseResult<TypeDeclaration<?>> result = parser.parseTypeDeclaration(code);
@@ -143,7 +144,7 @@ public final class JavaAstEngine {
     ParseResult<CompilationUnit> unit = parser.parse(code);
     if (unit.isSuccessful() && unit.getResult().isPresent()) {
       CompilationUnit cu = unit.getResult().get();
-      if (cu.getTypes().size() == 1 && cu.getImports().isEmpty() && cu.getPackageDeclaration().isEmpty()) {
+      if (cu.getTypes().size() == 1 && !IMPLICIT_CLASS_NAME.equals(cu.getType(0).getNameAsString()) && cu.getImports().isEmpty() && cu.getPackageDeclaration().isEmpty()) {
         TypeDeclaration<?> type = cu.getType(0).clone();
         unwrapSingleStatementBlocks(type);
         return type;

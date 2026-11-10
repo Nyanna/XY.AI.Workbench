@@ -1,5 +1,4 @@
 # TODO
-Testfehler in MCPC
 ! batchsupport aufsplitten in einzelne control messages pro batch
 
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
