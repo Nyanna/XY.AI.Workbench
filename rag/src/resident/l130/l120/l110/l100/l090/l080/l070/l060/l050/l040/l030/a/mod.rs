@@ -2,3 +2,4 @@ pub mod calibration_run;
 pub mod result_kinds;
 pub mod weight_source;
 pub mod pooling_norm;
+pub mod tokenizer;
