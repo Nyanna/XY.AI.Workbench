@@ -76,7 +76,10 @@ def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]],
     for it in raw_items:
         try:
             items.append(item_factory(it))
-        except (KeyError, ValueError, TypeError) as exc:
+        except KeyError as exc:
+            key = exc.args[0] if exc.args else exc
+            return ToolResult(content=[text_content(f'Invalid item: missing required property {key!r}')], is_error=True)
+        except (ValueError, TypeError) as exc:
             return ToolResult(content=[text_content(f'Invalid item: {exc}')], is_error=True)
     try:
         batch_result = batch_fn(items)

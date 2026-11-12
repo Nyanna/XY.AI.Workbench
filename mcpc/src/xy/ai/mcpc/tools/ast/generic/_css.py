@@ -32,7 +32,7 @@ def _css_body(node: Any) -> Any | None:
 def _css_prelude(node: Any, body: Any | None) -> str:
     """Everything before ``node``'s own block (its selector/at-rule header), single-lined.
 
-    Doubles as both ``name`` (id/outline label) and the base for ``signature`` -
+    Doubles as both ``name`` (id/outline label) and the base for ``excert`` -
     there is no separate short identifier to extract: a rule's "name" *is* its
     selector or at-rule prelude, just like a Java method's is its full header.
     """

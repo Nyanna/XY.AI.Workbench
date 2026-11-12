@@ -156,6 +156,14 @@ class McpProtocol:
             result = normalize_result(raw)
         except errors.JsonRpcError:
             raise
+        except KeyError as exc:
+            key = exc.args[0] if exc.args else exc
+            result = ToolResult(
+                content=[
+                    text_content(
+                        f"Tool '{name}' failed: missing required property {
+                            key!r}")],
+                is_error=True)
         except Exception as exc:
             '# noqa: BLE001 - surface as tool error result'
             result = ToolResult(content=[text_content(f"Tool '{name}' failed: {exc}")], is_error=True)
@@ -195,34 +203,23 @@ class McpProtocol:
         return result.to_dict()
 
 def _validate_arguments(schema: dict[str, Any], arguments: dict[str, Any]) -> None:
-    """Minimal validation of *arguments* against an input JSON Schema.
+    """Minimal recursive validation of *arguments* against an input JSON Schema.
 
-    Only the top-level ``required`` list and primitive ``type`` of declared
-    properties are checked — enough to give clients meaningful ``INVALID_PARAMS``
-    errors without pulling in a full JSON Schema implementation.
+    Checks ``required``, ``additionalProperties: false``, primitive ``type``,
+    ``minimum``/``maximum``, ``minItems``, ``enum`` and recurses into nested
+    ``properties`` and array ``items``. Other JSON Schema keywords are ignored.
     """
-    required = schema.get('required', [])
-    missing = [key for key in required if key not in arguments]
-    if missing:
-        raise errors.invalid_params(f'Missing required argument(s): {', '.join(missing)}', {'missing': missing})
-    properties = schema.get('properties', {})
-    type_checks = {
-        'string': str,
-        'number': (
-            int,
-            float),
-        'integer': int,
-        'boolean': bool,
-        'object': dict,
-        'array': list}
-    for key, value in arguments.items():
-        prop = properties.get(key)
-        if not isinstance(prop, dict):
-            continue
-        expected = prop.get('type')
-        py_type = type_checks.get(expected) if isinstance(expected, str) else None
-        if py_type is None:
-            continue
+    _validate_value(schema, arguments, '')
+_TYPE_CHECKS: dict[str, Any] = {'string': str, 'number': (
+    int, float), 'integer': int, 'boolean': bool, 'object': dict, 'array': list}
+
+def _validate_value(schema: Any, value: Any, path: str) -> None:
+    if not isinstance(schema, dict):
+        return
+    label = f"'{path}'" if path else 'arguments'
+    expected = schema.get('type')
+    py_type = _TYPE_CHECKS.get(expected) if isinstance(expected, str) else None
+    if py_type is not None:
         '# bool is a subclass of int; guard the integer/number cases explicitly.'
         if expected in ('number', 'integer') and isinstance(value, bool):
             ok = False
@@ -230,16 +227,50 @@ def _validate_arguments(schema: dict[str, Any], arguments: dict[str, Any]) -> No
             ok = isinstance(value, py_type)
         if not ok:
             raise errors.invalid_params(
-                f"Argument '{key}' must be of type {expected}", {
-                    'argument': key, 'expectedType': expected})
-        if expected in ('number', 'integer'):
-            minimum = prop.get('minimum')
-            if isinstance(minimum, (int, float)) and value < minimum:
-                raise errors.invalid_params(
-                    f"Argument '{key}' must be >= {minimum}", {
-                        'argument': key, 'minimum': minimum})
-            maximum = prop.get('maximum')
-            if isinstance(maximum, (int, float)) and value > maximum:
-                raise errors.invalid_params(
-                    f"Argument '{key}' must be <= {maximum}", {
-                        'argument': key, 'maximum': maximum})
+                f'Argument {label} must be of type {expected}', {
+                    'argument': path, 'expectedType': expected})
+    enum = schema.get('enum')
+    if isinstance(enum, list) and value not in enum:
+        raise errors.invalid_params(f'Argument {label} must be one of {enum}', {'argument': path, 'enum': enum})
+    if expected in ('number', 'integer'):
+        minimum = schema.get('minimum')
+        if isinstance(minimum, (int, float)) and value < minimum:
+            raise errors.invalid_params(
+                f'Argument {label} must be >= {minimum}', {
+                    'argument': path, 'minimum': minimum})
+        maximum = schema.get('maximum')
+        if isinstance(maximum, (int, float)) and value > maximum:
+            raise errors.invalid_params(
+                f'Argument {label} must be <= {maximum}', {
+                    'argument': path, 'maximum': maximum})
+    if isinstance(value, dict):
+        _validate_object(schema, value, path)
+    elif isinstance(value, list):
+        min_items = schema.get('minItems')
+        if isinstance(min_items, int) and len(value) < min_items:
+            raise errors.invalid_params(
+                f'Argument {label} must have at least {min_items} item(s)', {
+                    'argument': path, 'minItems': min_items})
+        item_schema = schema.get('items')
+        for index, element in enumerate(value):
+            _validate_value(item_schema, element, f'{path}[{index}]')
+
+def _validate_object(schema: dict[str, Any], value: dict[str, Any], path: str) -> None:
+    where = f" in '{path}'" if path else ''
+    required = schema.get('required', [])
+    missing = [key for key in required if key not in value]
+    if missing:
+        raise errors.invalid_params(
+            f'Missing required argument(s){where}: {
+                ', '.join(missing)}', {
+                    'missing': missing, 'path': path})
+    properties = schema.get('properties', {})
+    if schema.get('additionalProperties') is False:
+        unexpected = [key for key in value if key not in properties]
+        if unexpected:
+            raise errors.invalid_params(f'Unexpected argument(s){where}: {', '.join(map(str, unexpected))}', {
+                                        'unexpected': unexpected, 'path': path})
+    for key, item in value.items():
+        prop = properties.get(key)
+        if isinstance(prop, dict):
+            _validate_value(prop, item, f'{path}.{key}' if path else key)

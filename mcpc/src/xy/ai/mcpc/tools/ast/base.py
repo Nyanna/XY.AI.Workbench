@@ -104,7 +104,7 @@ class OutlineNode:
 
     ``id`` is the node's unique, primarily name-based path used by every tool to
     address it. ``code`` carries the node's full source and is populated by
-    ``find``/``read`` – ``list`` always leaves it ``None``. ``signature``/
+    ``find``/``read`` – ``list`` always leaves it ``None``. ``excert``/
     ``docstring`` are only set for class/function nodes whose ``code`` is
     *not* included, since the full source already makes them visible.
     Serialization drops ``None``/empty fields, see :func:`to_dict`.
@@ -112,7 +112,7 @@ class OutlineNode:
     id: str
     type: str | None
     lines: str | None
-    signature: str | None
+    excert: str | None
     docstring: str | None
     code: str | None = None
     children: list['OutlineNode'] = field(default_factory=list)
@@ -207,15 +207,15 @@ def id_segment(name: str | None, index: int, used: dict[str, int], *, hash_only:
 def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, with_type: bool=True, children: list[OutlineNode] | None=None) -> OutlineNode:
     """Build an :class:`OutlineNode` describing ``loc`` (source only if ``with_code``, lines only if ``with_lines``).
 
-    ``signature``/``docstring`` are only computed when ``code`` is not, since the
+    ``excert``/``docstring`` are only computed when ``code`` is not, since the
     full source already makes them visible.
     """
     engine = loc.tree.engine
     if with_code:
-        signature = docstring = None
+        excert = docstring = None
         code = engine.node_code(loc.node)
     else:
-        signature = engine.signature(
+        excert = engine.signature(
             loc.node) if engine.is_definition(
                 loc.node_type) else engine.default_signature(
                     loc.node)
@@ -225,7 +225,7 @@ def node_outline(loc: Located, *, with_code: bool=False, with_lines: bool=True, 
         id=loc.node_id,
         type=loc.node_type if with_type else None,
         lines=line_range(loc) if with_lines else None,
-        signature=signature,
+        excert=excert,
         docstring=docstring,
         code=code,
         children=children or [])
@@ -416,9 +416,9 @@ class Engine(ABC):
         """Flatten ``tree`` into every addressable node, in document order."""
 
     def is_definition(self, node_type: str) -> bool:
-        """Whether ``node_type`` is "def-like" enough for a ``signature`` to make
+        """Whether ``node_type`` is "def-like" enough for a ``excert`` to make
         sense. Defaults to ``True`` so every node falls back to a signature
-        (via ``signature``'s own trimmed-content fallback) unless an engine
+        (via ``excert``'s own trimmed-content fallback) unless an engine
         narrows this down; engines with a precise, known node-type set (see
         :class:`xy.ai.mcpc.tools.ast.generic._java.JavaEngine`) should override
         this to exclude statements/imports/etc. where a signature makes no sense."""
