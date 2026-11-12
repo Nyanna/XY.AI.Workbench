@@ -5,3 +5,4 @@ pub mod supported_precisions;
 pub mod kernel_sync;
 pub mod arenas;
 pub mod memory_access;
+pub mod index_contract;
