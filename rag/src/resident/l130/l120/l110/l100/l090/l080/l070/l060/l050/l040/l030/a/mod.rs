@@ -7,3 +7,4 @@ pub mod weight_source;
 pub mod pooling_norm;
 pub mod tokenizer;
 pub mod region_handle;
+pub mod file_index;
