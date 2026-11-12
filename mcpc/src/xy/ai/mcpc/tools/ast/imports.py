@@ -243,7 +243,8 @@ def _rpc_present(engine: Engine, tree: Tree, source: str | None=None) -> tuple[d
 
     ``source`` inspects a candidate text instead of ``tree.source``, without touching the tree.
     """
-    view = tree if source is None else Tree(engine, None, source, tree.path)
+    '# A candidate has no file on disk: passing the path makes the engine reject it as stale.'
+    view = tree if source is None else Tree(engine, None, source, None)
     data = view.source.encode('utf-8')
     starts = _line_starts(data)
     top = [loc for loc in engine.locate_all(view) if '.' not in loc.node_id]
@@ -328,5 +329,10 @@ def apply_rpc(engine: Engine, tree: Tree, add: list[str], remove: list[str]) -> 
     after, _ = _rpc_present(engine, tree, source)
     if any((normalize_import(s) not in after for s in outcome.added)):
         raise AstError(f'Not recognized as an import by the parser: {outcome.added!r}')
+    '# Never lose imports we were not asked to remove (e.g. a mis-reported span).'
+    kept = present.keys() - removed_keys
+    lost = sorted((k for k in kept if k not in after))
+    if lost:
+        raise AstError(f'The import change would drop other imports: {lost!r}')
     tree.source = source
     return outcome
