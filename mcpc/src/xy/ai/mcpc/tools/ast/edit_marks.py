@@ -175,7 +175,7 @@ def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
     title = 'Replace large text regions within AST nodes between markers when id is known'
-    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by a known id, with new 'content', for a batch of items. Returns changed IDs in the result."
+    description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by a known id, with new 'content', for a batch of items."
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'start_marker': {

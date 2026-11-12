@@ -119,7 +119,7 @@ def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
     title = 'Insert AST nodes'
-    description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files. Returns changed IDs in the result."
+    description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files."
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'source': {
