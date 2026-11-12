@@ -1,3 +1,4 @@
+pub mod index;
 pub mod index_open;
 pub mod bookkeeping;
 pub mod reference_index;
