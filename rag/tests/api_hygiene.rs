@@ -7,6 +7,7 @@ const ALLOWED: &[&str] = &[
     "kernel/cuda.rs",
     "kernel/maxsim.rs",
     "l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020/l010/consistent_snapshots.rs",
+    "l130/l120/l110/l100/l090/l080/a/communication_slot/device_transfer/staging_ring.rs",
 ];
 fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(dir).unwrap() {
