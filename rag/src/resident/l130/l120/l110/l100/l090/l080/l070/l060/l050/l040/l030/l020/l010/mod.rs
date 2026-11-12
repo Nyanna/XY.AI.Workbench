@@ -1,3 +1,14 @@
+pub mod background_pool;
+pub mod batching;
+pub mod extensions;
+pub mod free_space;
+pub mod memory_management;
+pub mod model;
+pub mod page_advice;
+pub mod region_pinning;
+pub mod scopes_and_entry_sets;
+pub mod statistics;
+pub mod target_env;
 pub mod capability_model;
 pub mod device_lane_event;
 pub mod queue;
