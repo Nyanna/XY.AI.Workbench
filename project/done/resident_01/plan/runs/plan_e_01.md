@@ -4070,7 +4070,6 @@ result:
             reason: Read lines 76-82 of the plan to edit the section
           ```
           /answer cc92-26 allow
-          [xy.ai.req:ClaudeCode:f39754b1-605c-4f84-8809-33b63c7668bd]
 ```
 /answer cc92-27 deny ändere das per bash
 Control Request:
@@ -4163,7 +4162,6 @@ result:
         reason: Check the real state of plan_e_01.md; line counts reported so far are inconsistent
       ```
       /answer cc92-2c allow
-      [xy.ai.req:ClaudeCode:be143105-bada-404e-a896-186d94dc7c58]
 ```
 /answer cc92-2d allow
 Result Stats: id=2bc6fb48-e6ae-4175-8c0d-8433c0f4ea11, total: 74227, in: 44, out: 22790, reason: 207, read: 864708, write: 51393, start: 1792431624435, end: 1792431632915, time: 8384, total: 173167, io: 0, control: 96, sent: 0, recv: 166
