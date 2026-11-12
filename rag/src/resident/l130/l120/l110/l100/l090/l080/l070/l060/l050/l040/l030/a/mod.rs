@@ -1,4 +1,5 @@
 pub mod bookkeeping;
+pub mod reference_index;
 pub mod calibration_run;
 pub mod result_kinds;
 pub mod weight_source;
