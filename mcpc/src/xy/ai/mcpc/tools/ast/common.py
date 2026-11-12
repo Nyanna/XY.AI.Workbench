@@ -80,21 +80,32 @@ def select_by_path(tree, *, id: str | None=None) -> core.Located:
     return select_one(tree, id=id)
 
 def select_by_text(tree, texts: list[str], *, id: str | None=None) -> core.Located:
-    """Return the node addressed by ``id``, or, if omitted, the single node whose
-    source contains every string in *texts*.
-
-    Nodes fully containing another matching node (an ancestor picked up merely
-    because it contains the descendant) are dropped in favour of the innermost
-    match; nesting alone is therefore not treated as ambiguity.
+    """Return the node addressed by ``id``; if ``id`` is omitted, blank or unusable
+    (stale, wrong, ambiguous), fall back to the single node whose source contains
+    every string in *texts*.
 
     Raises:
-        core.AstError: If ``id`` is given but matches zero/many nodes, or no
-            node contains all of *texts*.
-        core.AstAmbiguous: If several unrelated candidates remain after
-            dropping nested matches; carries their ids as ``candidates``.
+        core.AstError: If no node can be determined. When a non-blank ``id`` was
+            given, the original id error is reported.
+        core.AstAmbiguous: If the text fallback finds several unrelated candidates;
+            carries their ids as ``candidates``.
     """
-    if id is not None:
-        return select_one(tree, id=id)
+    if id is not None and id.strip():
+        try:
+            return select_one(tree, id=id)
+        except core.AstError as id_error:
+            try:
+                return _select_by_contained_text(tree, texts)
+            except core.AstError:
+                raise id_error from None
+    return _select_by_contained_text(tree, texts)
+
+def _select_by_contained_text(tree, texts: list[str]) -> core.Located:
+    """Return the single innermost node whose source contains every string in *texts*.
+
+    Nodes fully containing another matching node are dropped in favour of the
+    innermost match; nesting alone is not treated as ambiguity.
+    """
     candidates = [loc for loc in core.locate_all(tree) if all((text in core.edit_node_source(loc) for text in texts))]
     if not candidates:
         raise core.AstError('No node matched the given text; a node selector (id) is required.')
