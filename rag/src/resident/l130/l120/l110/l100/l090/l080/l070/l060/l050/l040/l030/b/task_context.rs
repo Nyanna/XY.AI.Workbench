@@ -1,6 +1,12 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use log::{debug, warn};
+/// Raw task identifier used by `TaskContext`.
+///
+/// This is a plain `u64` alias, not a distinct type. Do not confuse it with `operation::TaskId`,
+/// the typed struct stored in `Operation` and used in reports. Both carry the same numeric value.
+/// Convert explicitly at the boundary: `.0` of the struct gives the `u64`, and `TaskId(x)` of the
+/// struct wraps one. Any further type with this name must be told apart the same way.
 pub type TaskId = u64;
 pub struct TaskContext<E> {
     id: TaskId,

@@ -2,14 +2,20 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::ops::{Range, RangeInclusive};
-
+/// Raw entry identifier used in entry sets and load plans.
+///
+/// This is a plain `u64` alias, not a distinct type, so the compiler does not separate it from
+/// other integers. Do not confuse it with the structs of the same name:
+/// - `index_contract::EntryId`, the struct used by the index contract and by task results;
+/// - `operation::EntryId`, the operation-level struct used in scored hit results and reports.
+///
+/// Convert explicitly at the boundary: `.0` from a struct gives the `u64` stored here, and
+/// `EntryId(x)` of a struct wraps it. Any further type with this name must be told apart the same way.
 pub type EntryId = u64;
-
 const CHUNK_BITS: u32 = 16;
 const WORDS_PER_CHUNK: usize = 1024;
 const CHUNK_BYTES: u128 = (WORDS_PER_CHUNK * 8) as u128;
 const MIN_RUNS_FOR_BITMAP: usize = 64;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ScopeKind {
@@ -20,7 +26,6 @@ pub enum ScopeKind {
     Prefix,
     Centroid,
 }
-
 impl ScopeKind {
     pub const fn name(self) -> &'static str {
         match self {
@@ -33,7 +38,6 @@ impl ScopeKind {
         }
     }
 }
-
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum Scope {
@@ -45,7 +49,6 @@ pub enum Scope {
     Prefix { bytes: Vec<u8> },
     Centroid { count: u32, radius: Option<f32> },
 }
-
 impl Scope {
     pub fn kind(&self) -> ScopeKind {
         match self {
@@ -57,14 +60,11 @@ impl Scope {
             Scope::Centroid { .. } => ScopeKind::Centroid,
         }
     }
-
     pub fn name(&self) -> &'static str {
         self.kind().name()
     }
 }
-
 type Run = (u64, u64);
-
 #[derive(Clone, Debug)]
 enum Repr {
     /// Sorted, non-overlapping, non-adjacent inclusive runs.
@@ -72,14 +72,12 @@ enum Repr {
     /// Sparse chunked bitmap keyed by `id >> CHUNK_BITS`; no empty chunks.
     Bitmap(BTreeMap<u64, Box<[u64; WORDS_PER_CHUNK]>>),
 }
-
 /// Immutable compact set of `u64` IDs.
 #[derive(Clone, Debug)]
 pub struct EntrySet {
     repr: Repr,
     len: u128,
 }
-
 fn coalesce(sorted: Vec<Run>) -> Vec<Run> {
     let mut out: Vec<Run> = Vec::with_capacity(sorted.len());
     for (s, e) in sorted {
@@ -94,7 +92,6 @@ fn coalesce(sorted: Vec<Run>) -> Vec<Run> {
     }
     out
 }
-
 fn set_bits(words: &mut [u64; WORDS_PER_CHUNK], lo: usize, hi: usize) {
     for wi in (lo / 64)..=(hi / 64) {
         let from = if wi == lo / 64 { lo % 64 } else { 0 };
@@ -103,7 +100,6 @@ fn set_bits(words: &mut [u64; WORDS_PER_CHUNK], lo: usize, hi: usize) {
         words[wi] |= (u64::MAX >> (64 - n)) << from;
     }
 }
-
 fn bitmap_worthwhile(runs: &[Run]) -> bool {
     if runs.len() < MIN_RUNS_FOR_BITMAP {
         return false;
@@ -126,21 +122,25 @@ fn bitmap_worthwhile(runs: &[Run]) -> bool {
     }
     true
 }
-
 fn build_bitmap(runs: &[Run]) -> BTreeMap<u64, Box<[u64; WORDS_PER_CHUNK]>> {
     let mut map: BTreeMap<u64, Box<[u64; WORDS_PER_CHUNK]>> = BTreeMap::new();
     let mask = (1u64 << CHUNK_BITS) - 1;
     for &(s, e) in runs {
         for c in (s >> CHUNK_BITS)..=(e >> CHUNK_BITS) {
             let lo = if c == s >> CHUNK_BITS { (s & mask) as usize } else { 0 };
-            let hi = if c == e >> CHUNK_BITS { (e & mask) as usize } else { mask as usize };
-            let words = map.entry(c).or_insert_with(|| Box::new([0u64; WORDS_PER_CHUNK]));
+            let hi = if c == e >> CHUNK_BITS {
+                (e & mask) as usize
+            } else {
+                mask as usize
+            };
+            let words = map
+                .entry(c)
+                .or_insert_with(|| Box::new([0u64; WORDS_PER_CHUNK]));
             set_bits(words, lo, hi);
         }
     }
     map
 }
-
 fn bitmap_runs(map: &BTreeMap<u64, Box<[u64; WORDS_PER_CHUNK]>>) -> Vec<Run> {
     let mut out: Vec<Run> = Vec::new();
     let mut push = |s: u64, e: u64| match out.last_mut() {
@@ -165,7 +165,6 @@ fn bitmap_runs(map: &BTreeMap<u64, Box<[u64; WORDS_PER_CHUNK]>>) -> Vec<Run> {
     }
     out
 }
-
 struct BitIter<'a> {
     chunks: std::collections::btree_map::Iter<'a, u64, Box<[u64; WORDS_PER_CHUNK]>>,
     chunk: u64,
@@ -173,10 +172,8 @@ struct BitIter<'a> {
     word: usize,
     bits: u64,
 }
-
 impl Iterator for BitIter<'_> {
     type Item = EntryId;
-
     fn next(&mut self) -> Option<EntryId> {
         loop {
             if self.bits != 0 {
@@ -199,37 +196,34 @@ impl Iterator for BitIter<'_> {
         }
     }
 }
-
 enum IterInner<'a> {
-    Runs {
-        runs: std::slice::Iter<'a, Run>,
-        cur: Option<Run>,
-    },
+    Runs { runs: std::slice::Iter<'a, Run>, cur: Option<Run> },
     Bitmap(BitIter<'a>),
 }
-
 impl Iterator for IterInner<'_> {
     type Item = EntryId;
-
     fn next(&mut self) -> Option<EntryId> {
         match self {
-            IterInner::Runs { runs, cur } => loop {
-                if let Some((n, e)) = *cur {
-                    *cur = if n == e { None } else { Some((n + 1, e)) };
-                    return Some(n);
+            IterInner::Runs { runs, cur } => {
+                loop {
+                    if let Some((n, e)) = *cur {
+                        *cur = if n == e { None } else { Some((n + 1, e)) };
+                        return Some(n);
+                    }
+                    *cur = Some(*runs.next()?);
                 }
-                *cur = Some(*runs.next()?);
-            },
+            }
             IterInner::Bitmap(b) => b.next(),
         }
     }
 }
-
 impl EntrySet {
     pub fn empty() -> Self {
-        EntrySet { repr: Repr::Runs(Vec::new()), len: 0 }
+        EntrySet {
+            repr: Repr::Runs(Vec::new()),
+            len: 0,
+        }
     }
-
     pub fn from_ranges<I: IntoIterator<Item = Range<EntryId>>>(ranges: I) -> Self {
         let mut v: Vec<Run> = ranges
             .into_iter()
@@ -239,7 +233,6 @@ impl EntrySet {
         v.sort_unstable();
         Self::from_normalized(coalesce(v))
     }
-
     pub fn from_ids<I: IntoIterator<Item = EntryId>>(ids: I) -> Self {
         let mut v: Vec<EntryId> = ids.into_iter().collect();
         v.sort_unstable();
@@ -247,7 +240,6 @@ impl EntrySet {
         let runs: Vec<Run> = v.into_iter().map(|i| (i, i)).collect();
         Self::from_normalized(coalesce(runs))
     }
-
     fn from_normalized(runs: Vec<Run>) -> Self {
         let len = runs.iter().map(|&(s, e)| (e - s) as u128 + 1).sum();
         let repr = if bitmap_worthwhile(&runs) {
@@ -259,22 +251,18 @@ impl EntrySet {
         };
         EntrySet { repr, len }
     }
-
     fn run_slice(&self) -> Cow<'_, [Run]> {
         match &self.repr {
             Repr::Runs(v) => Cow::Borrowed(v),
             Repr::Bitmap(m) => Cow::Owned(bitmap_runs(m)),
         }
     }
-
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
-
     pub fn len(&self) -> u128 {
         self.len
     }
-
     pub fn contains(&self, id: EntryId) -> bool {
         match &self.repr {
             Repr::Runs(v) => {
@@ -293,20 +281,25 @@ impl EntrySet {
             }
         }
     }
-
     pub fn iter(&self) -> impl Iterator<Item = EntryId> + '_ {
         match &self.repr {
-            Repr::Runs(v) => IterInner::Runs { runs: v.iter(), cur: None },
-            Repr::Bitmap(m) => IterInner::Bitmap(BitIter {
-                chunks: m.iter(),
-                chunk: 0,
-                words: None,
-                word: 0,
-                bits: 0,
-            }),
+            Repr::Runs(v) => {
+                IterInner::Runs {
+                    runs: v.iter(),
+                    cur: None,
+                }
+            }
+            Repr::Bitmap(m) => {
+                IterInner::Bitmap(BitIter {
+                    chunks: m.iter(),
+                    chunk: 0,
+                    words: None,
+                    word: 0,
+                    bits: 0,
+                })
+            }
         }
     }
-
     pub fn union(&self, other: &EntrySet) -> EntrySet {
         if other.is_empty() {
             return self.clone();
@@ -329,7 +322,6 @@ impl EntrySet {
         }
         Self::from_normalized(coalesce(merged))
     }
-
     pub fn intersection(&self, other: &EntrySet) -> EntrySet {
         if self.is_empty() || other.is_empty() {
             return EntrySet::empty();
@@ -352,26 +344,21 @@ impl EntrySet {
         }
         Self::from_normalized(out)
     }
-
     pub fn runs(&self) -> Vec<RangeInclusive<EntryId>> {
         self.run_slice().iter().map(|&(s, e)| s..=e).collect()
     }
 }
-
 impl Default for EntrySet {
     fn default() -> Self {
         EntrySet::empty()
     }
 }
-
 impl PartialEq for EntrySet {
     fn eq(&self, other: &Self) -> bool {
         self.len == other.len && *self.run_slice() == *other.run_slice()
     }
 }
-
 impl Eq for EntrySet {}
-
 impl Hash for EntrySet {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.len.hash(state);
@@ -380,7 +367,6 @@ impl Hash for EntrySet {
         }
     }
 }
-
 #[cfg(test)]
 #[path = "test/scopes_and_entry_sets.rs"]
 mod tests;
