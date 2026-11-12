@@ -11,6 +11,7 @@ import xy.ai.conscious.autoapprove.rules.DeepPathReadRule;
 import xy.ai.conscious.autoapprove.rules.DenyRootPathRule;
 import xy.ai.conscious.autoapprove.rules.IApprovalRule;
 import xy.ai.conscious.autoapprove.rules.SmallResultRule;
+import xy.ai.conscious.autoapprove.rules.ChainLimitRule;
 
 /**
  * Ordered registry of rules.
@@ -21,6 +22,7 @@ public class RuleRegistry {
   public RuleRegistry() {
     register(new AllowedToolsRule());
     register(new SmallResultRule());
+    register(new ChainLimitRule());
     register(new DeepPathReadRule());
     register(new DenyRootPathRule());
     register(new HoldMarkdownRule());

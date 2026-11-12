@@ -16,11 +16,9 @@ import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.model.AIAnswer;
 
 public class AutoApprover {
-  public static final int DEFAULT_MAX_CHAIN = 20;
   private final RuleRegistry registry;
   private final SessionTracker sessions = new SessionTracker();
   private final List<Consumer<Decision>> listeners = new CopyOnWriteArrayList<>();
-  private volatile int maxChain = DEFAULT_MAX_CHAIN;
   private volatile String idleInstruction = "Continue with the task.";
   private volatile boolean enabled = true;
 
@@ -55,13 +53,6 @@ public class AutoApprover {
     this.enabled = enabled;
   }
 
-  /**
-   * Maximum number of consecutive automatic follow-up prompts.
-   */
-  public void setMaxChain(int maxChain) {
-    this.maxChain = maxChain;
-  }
-
   public void setIdleInstruction(String instruction) {
     this.idleInstruction = instruction == null ? "" : instruction;
   }
@@ -78,8 +69,8 @@ public class AutoApprover {
     ApprovalItem item = items.size() == 1 ? items.get(0) : null;
     sessions.track(session.id(), items);
     ApprovalItem call = sessions.callFor(session.id(), item);
-    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session, registry);
-    Decision decision = decide(ctx, collect(ctx), depth);
+    ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session, registry, depth);
+    Decision decision = decide(ctx, collect(ctx));
     enrich(ans, decision.warnings());
     publish(decision);
     return decision;
@@ -112,7 +103,7 @@ public class AutoApprover {
     return votes;
   }
 
-  private Decision decide(ApprovalContext ctx, List<RuleVote> votes, int depth) {
+  private Decision decide(ApprovalContext ctx, List<RuleVote> votes) {
     List<String> reasons = new ArrayList<>();
     List<String> hints = new ArrayList<>();
     List<String> warnings = new ArrayList<>();
@@ -148,16 +139,9 @@ public class AutoApprover {
     String reason = String.join("; ", reasons);
     String hint = String.join("; ", hints);
     String instruction = String.join("\n", instructions);
-    FollowUp followUp = null;
-    if (depth >= maxChain) {
-      if (result != ApprovalResult.Pass || !instruction.isEmpty())
-        warnings.add("auto-approve chain limit reached (" + maxChain + ")");
+    FollowUp followUp = followUpFor(ctx, result, reason, hint, instruction);
+    if (followUp == null)
       result = ApprovalResult.Pass;
-    } else {
-      followUp = followUpFor(ctx, result, reason, hint, instruction);
-      if (followUp == null)
-        result = ApprovalResult.Pass;
-    }
     return new Decision(ctx.session().id(), result, ctx.item(), reason, hint, warnings, instruction, votes, followUp, ctx.answer().answer == null ? 0 : ctx.answer().answer.length());
   }
 

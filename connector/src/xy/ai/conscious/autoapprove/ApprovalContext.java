@@ -4,7 +4,7 @@ import xy.ai.conscious.autoapprove.rules.RuleSettings;
 import xy.ai.conscious.connector.harness.Prompt;
 import xy.ai.conscious.model.AIAnswer;
 
-public record ApprovalContext(AIAnswer answer, Prompt prompt, ApprovalItem item, ApprovalItem call, SessionSnapshot session, RuleRegistry registry) {
+public record ApprovalContext(AIAnswer answer, Prompt prompt, ApprovalItem item, ApprovalItem call, SessionSnapshot session, RuleRegistry registry, int depth) {
 
   public boolean hasItem() {
     return item != null;
