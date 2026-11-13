@@ -28,6 +28,7 @@ Vordefinierte Tool Kommandos ("run_command")
 - "read.Cargo.toml": Gibt den Inhalt der `Cargo.toml` wieder.
 
 Konflikte und Probleme:
+- Erkenne Konflikte und Unstimmigkeiten in Specs und Interfaces
 - Zuerst den Kontext auf bereits erledigte Specs erweitern
 - Dann den Kontext auf zukünftige Konsumenten erweitern
 
