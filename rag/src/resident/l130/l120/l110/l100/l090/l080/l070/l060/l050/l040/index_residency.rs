@@ -6,10 +6,13 @@ use log::warn;
 use super::l030::l020::a::index_contract::{
     AccessMethod, ByteRange, EntryId, Index, Payload,
 };
+
 const MSG_NOT_ATTACHED: &str = "Index nicht angehängt";
 const MSG_TASK_ABORTED: &str = "Lese-Task abgebrochen";
+
 /// Lazily activated index: the slot is filled once by the owner at a later point.
-pub type LazyIndex = Arc<OnceLock<Arc<dyn Index>>>;
+pub type IndexSlot = Arc<OnceLock<Arc<dyn Index>>>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Advice {
     WillNeed,
@@ -17,24 +20,30 @@ pub enum Advice {
     Random,
     Cold,
 }
-/// Hint sink (e.g. the mmap region of the index). Applies the hint to `[offset, offset+len)`.
+
+/// Hint sink (e.g. the mmap region of the index). Applies the hint to `[offset, offset + len)`.
 pub trait MemoryAdvisor: Send + Sync {
     fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), String>;
 }
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransferError(pub String);
+
 impl fmt::Display for TransferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
     }
 }
+
 impl std::error::Error for TransferError {}
+
 /// Copy of the entry bytes (not shared). A missing entry yields both parts empty.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OwnedPayload {
     pub vector: Vec<u8>,
     pub meta: Vec<u8>,
 }
+
 impl From<Payload> for OwnedPayload {
     fn from(payload: Payload) -> Self {
         OwnedPayload {
@@ -43,13 +52,16 @@ impl From<Payload> for OwnedPayload {
         }
     }
 }
+
 type Span = (u64, u64);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum HintPlan {
     None,
     Dense(Span),
     Scattered(Vec<Span>),
 }
+
 fn plan_hints(ranges: &[Option<Span>]) -> HintPlan {
     let mut distinct: Vec<Span> = Vec::new();
     let mut seen: HashSet<Span> = HashSet::new();
@@ -90,6 +102,7 @@ fn plan_hints(ranges: &[Option<Span>]) -> HintPlan {
         HintPlan::Scattered(distinct)
     }
 }
+
 fn locate_hints(index: &dyn Index, ids: &[EntryId]) -> Vec<Option<Span>> {
     let none = vec![None; ids.len()];
     let (Some(min), Some(max)) = (ids.iter().min().copied(), ids.iter().max().copied())
@@ -115,16 +128,19 @@ fn locate_hints(index: &dyn Index, ids: &[EntryId]) -> Vec<Option<Span>> {
         })
         .collect()
 }
+
 struct Inner {
-    index: LazyIndex,
+    index: IndexSlot,
     advisor: Option<Arc<dyn MemoryAdvisor>>,
     idle_after: Duration,
     tracked: Mutex<HashMap<Span, Instant>>,
 }
+
 impl Inner {
     fn tracked(&self) -> MutexGuard<'_, HashMap<Span, Instant>> {
         self.tracked.lock().unwrap_or_else(|e| e.into_inner())
     }
+
     fn hint(&self, offset: u64, len: u64, advice: Advice) {
         let Some(advisor) = &self.advisor else {
             return;
@@ -137,6 +153,7 @@ impl Inner {
         }
         self.tracked().insert((offset, len), Instant::now());
     }
+
     fn apply(&self, plan: &HintPlan) {
         match plan {
             HintPlan::None => {}
@@ -150,28 +167,33 @@ impl Inner {
             }
         }
     }
+
     fn read_all(index: &dyn Index, ids: &[EntryId]) -> Vec<OwnedPayload> {
         ids.iter().map(|&id| index.read(id).into()).collect()
     }
 }
+
 fn not_attached() -> TransferError {
     TransferError(MSG_NOT_ATTACHED.to_string())
 }
+
 fn join_failed<E>(_: E) -> TransferError {
     TransferError(MSG_TASK_ABORTED.to_string())
 }
+
 /// Keeps file-backed index data resident and reads entries through the blocking pool.
-pub struct CpuManager {
+pub struct IndexResidency {
     inner: Arc<Inner>,
 }
-impl CpuManager {
+
+impl IndexResidency {
     /// `advisor = None`: hints are no-ops. `idle_after`: idle threshold for cold marking.
     pub fn new(
-        index: LazyIndex,
+        index: IndexSlot,
         advisor: Option<Arc<dyn MemoryAdvisor>>,
         idle_after: Duration,
-    ) -> CpuManager {
-        CpuManager {
+    ) -> IndexResidency {
+        IndexResidency {
             inner: Arc::new(Inner {
                 index,
                 advisor,
@@ -180,17 +202,21 @@ impl CpuManager {
             }),
         }
     }
+
     fn index(&self) -> Result<Arc<dyn Index>, TransferError> {
         self.inner.index.get().cloned().ok_or_else(not_attached)
     }
+
     /// Synchronous pass-through to the index on the calling thread; `None` if not attached.
     pub fn read_direct(&self, id: EntryId) -> Option<Payload> {
         self.inner.index.get().map(|index| index.read(id))
     }
+
     /// Hints `WillNeed` for `range` and tracks it as used now.
     pub fn secure_residency(&self, range: ByteRange) {
         self.inner.hint(range.offset, range.len, Advice::WillNeed);
     }
+
     /// Marks tracked ranges idle for at least `idle_after` as cold and stops tracking them.
     pub fn mark_idle_cold(&self, now: Instant) -> usize {
         let Some(advisor) = &self.inner.advisor else {
@@ -217,6 +243,7 @@ impl CpuManager {
         }
         idle.len()
     }
+
     /// Reads a single entry; `hint` is the entry's hint range, if known.
     pub async fn read_entry(
         &self,
@@ -231,6 +258,7 @@ impl CpuManager {
             .await
             .map_err(join_failed)
     }
+
     /// Reads several entries in input order with an access pattern derived from their hints.
     pub async fn read_entries(
         &self,
@@ -250,6 +278,7 @@ impl CpuManager {
             .await
             .map_err(join_failed)
     }
+
     /// Like `read_entries`, but the hint ranges are requested from the index.
     pub async fn read_entries_auto(
         &self,
@@ -270,6 +299,7 @@ impl CpuManager {
             .map_err(join_failed)
     }
 }
+
 #[cfg(test)]
-#[path = "test/cpu_manager.rs"]
+#[path = "test/index_residency.rs"]
 mod tests;
