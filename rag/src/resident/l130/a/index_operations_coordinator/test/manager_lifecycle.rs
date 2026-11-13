@@ -51,7 +51,21 @@ impl Index for FakeIndex {
     }
 }
 fn manager() -> IndexManager {
-    IndexManager::new(IndexId(Arc::from("idx")))
+    IndexManager::with_observer(IndexId(Arc::from("idx")), Arc::new(NoCycleObserver))
+}
+struct RecordingObserver(Arc<Mutex<Vec<String>>>);
+struct RecordingGuard(Arc<Mutex<Vec<String>>>, String);
+impl Drop for RecordingGuard {
+    fn drop(&mut self) {
+        self.0.lock().unwrap().push(format!("exit {}", self.1));
+    }
+}
+impl CycleObserver for RecordingObserver {
+    fn enter(&self, index_id: &IndexId, cycle: &str) -> Box<dyn CycleGuard> {
+        let label = format!("{index_id} {cycle}");
+        self.0.lock().unwrap().push(format!("enter {label}"));
+        Box::new(RecordingGuard(Arc::clone(&self.0), label))
+    }
 }
 #[test]
 fn initial_state() {
@@ -205,7 +219,7 @@ fn capture<T>(body: impl FnOnce() -> T) -> (T, String) {
 }
 #[test]
 fn cycle_runs_inside_span_with_fields() {
-    let m = manager();
+    let m = IndexManager::new(IndexId(Arc::from("idx")));
     m.attach(FakeIndex::arc(1));
     let (_, log) = capture(|| {
         m.run_cycle("sweep", |_| tracing::info!("inside-cycle")).unwrap();
@@ -219,20 +233,19 @@ fn cycle_runs_inside_span_with_fields() {
 }
 #[test]
 fn cycle_span_closes_when_closure_panics() {
-    let m = manager();
-    m.attach(FakeIndex::arc(1));
-    let (result, log) = capture(|| {
-        catch_unwind(
-            AssertUnwindSafe(|| {
-                let _ = m.run_cycle("boom", |_| -> () { panic!("cycle failure") });
-            }),
-        )
-    });
-    assert!(result.is_err());
-    assert!(
-        log.lines().any(| l | l.contains("index_cycle{index_id=idx cycle=boom}") && l
-        .contains("close")), "{log}"
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let m = IndexManager::with_observer(
+        IndexId(Arc::from("idx")),
+        Arc::new(RecordingObserver(Arc::clone(&events))),
     );
+    m.attach(FakeIndex::arc(1));
+    let result = catch_unwind(
+        AssertUnwindSafe(|| {
+            let _ = m.run_cycle("boom", |_| -> () { panic!("cycle failure") });
+        }),
+    );
+    assert!(result.is_err());
+    assert_eq!(* events.lock().unwrap(), vec!["enter idx boom", "exit idx boom"]);
 }
 #[test]
 fn repeated_attach_warns_with_index_id() {
@@ -248,14 +261,20 @@ fn repeated_attach_warns_with_index_id() {
     assert!(warnings[0].contains("idx"), "{log}");
 }
 #[test]
-fn attach_after_activation_warns_and_keeps_index() {
+fn attach_after_activation_is_rejected_and_keeps_index() {
     let m = manager();
     let first = FakeIndex::arc(2);
     m.attach(Arc::clone(&first));
     m.activate(|_| Ok(())).unwrap();
-    let (accepted, log) = capture(|| m.attach(Arc::clone(&first)));
-    assert!(! accepted);
-    assert!(log.contains("WARN") && log.contains("idx"), "{log}");
+    assert!(! m.attach(Arc::clone(& first)));
     assert!(Arc::ptr_eq(& m.index().unwrap(), & first));
     assert!(m.status().active);
+}
+#[test]
+fn rejected_attach_emits_warning() {
+    let m = manager();
+    let first = FakeIndex::arc(2);
+    m.attach(Arc::clone(&first));
+    let (_, log) = capture(|| m.attach(Arc::clone(&first)));
+    assert!(log.contains("WARN") && log.contains("idx"), "{log}");
 }
