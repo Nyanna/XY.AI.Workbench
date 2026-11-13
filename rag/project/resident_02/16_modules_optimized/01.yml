@@ -101,8 +101,8 @@
   - Beispiel Reranking, eine zweite Similarity auf dem verengten Scope. Folge-Tasks wie Reranking werden auf Basis der Fakten des Similarity-Reports gesteuert.
 - Name: Processor
   Requirements:
-  - Orchestriert mit Workern, Queues, Notification und Backpressure.
-  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Orchestriert Task-Queue, Operations-Queues und Planner.
+  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam).
   - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
   - Ruft den Planner für die Expansion von Tasks auf.
 - Name: Planner
@@ -182,7 +182,7 @@
   - Jeder Thread bedient sich als Lane selbst an der Queue.
   - Kann auf Anforderung angehalten werden. Dabei werden alle Worker gestoppt und gejoint.
   - Die Zahl der Worker der gesamten Engine ist die Zahl der CPU-Cores minus eins. Das ist eine Obergrenze für Context-Switches, keine Core-Zuordnung (kein Pinning).
-  - Worker parken im Processor und wachen bei jeder Zustandsänderung per Notification auf.
+  - Worker parken im Worker-Pool und werden von dessen Notifier geweckt.
   - Bei CPU-Operationen führt der Worker die Operation synchron aus und kommt mit dem Ergebnis zurück.
   - Bei GPU-Operationen startet der Worker die Operation bzw. den Kernel und kehrt zurück. Nach der Completion-Notification verarbeitet ein freier Worker das Ergebnis.
   - Blockiert ein Worker, etwa in der Compute-Library oder deren Thread-Pool, ist das das natürliche Backpressure-Signal ohne Sonderbehandlung.

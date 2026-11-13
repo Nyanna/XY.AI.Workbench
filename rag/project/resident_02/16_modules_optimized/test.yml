@@ -102,7 +102,7 @@
 - Name: Processor
   Requirements:
   - Orchestriert mit Workern, Queues, Notification und Backpressure.
-  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam).
   - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
   - Ruft den Planner für die Expansion von Tasks auf.
 - Name: Planner

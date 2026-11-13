@@ -517,11 +517,11 @@
 - Name: Processor
   Order: 37
   Responsibilities:
-  - Task-Queue, Operations-Queues, Worker-Pool, Notification und Idle-Notifications besitzen
+  - Task-Queue und Operations-Queues besitzen
   - Planner für die Expansion aufrufen
   Requirements:
-  - Orchestriert mit Workern, Queues, Notification und Backpressure.
-  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Orchestriert Task-Queue, Operations-Queues und Planner.
+  - Besitzt die Task-Queue und drei getrennte Operations-Queues (CPU, GPU, gemeinsam).
   - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
   - Ruft den Planner für die Expansion von Tasks auf.
   Dependencies:
@@ -814,14 +814,14 @@
 - Name: Worker-Pool
   Order: 56
   Responsibilities:
-  - Mindestzahl idle Worker starten, auf CPU-Cores minus eins begrenzen und per Notification aus dem Parkplatz wecken
+  - Mindestzahl idle Worker starten, auf CPU-Cores minus eins begrenzen und per Notifier wecken
   - CPU-Operationen synchron und GPU-Operationen nur startend ausführen und Blockieren als natürliches Backpressure belassen
   Requirements:
   - Startet bei der Initialisierung der Engine über den internen Executor die Mindestzahl idle Threads (Worker).
   - Jeder Thread bedient sich als Lane selbst an der Queue.
   - Kann auf Anforderung angehalten werden. Dabei werden alle Worker gestoppt und gejoint.
   - Die Zahl der Worker der gesamten Engine ist die Zahl der CPU-Cores minus eins. Das ist eine Obergrenze für Context-Switches, keine Core-Zuordnung (kein Pinning).
-  - Worker parken im Processor und wachen bei jeder Zustandsänderung per Notification auf.
+  - Worker parken im Worker-Pool und werden von dessen Notifier geweckt.
   - Bei CPU-Operationen führt der Worker die Operation synchron aus und kommt mit dem Ergebnis zurück.
   - Bei GPU-Operationen startet der Worker die Operation bzw. den Kernel und kehrt zurück. Nach der Completion-Notification verarbeitet ein freier Worker das Ergebnis.
   - Blockiert ein Worker, etwa in der Compute-Library oder deren Thread-Pool, ist das das natürliche Backpressure-Signal ohne Sonderbehandlung.

@@ -117,9 +117,9 @@
   - Steuern auf Basis der Fakten des Similarity-Reports Folge-Tasks, etwa Reranking.
 - Name: Processor
   Requirements:
-  - Orchestriert mit Workern, Queues, Notification und Backpressure.
+  - Orchestriert Task-Queue, Operations-Queues und Planner.
   - Stellt getrennte Operations-Queues für GPU, CPU und gemeinsam bereit.
-  - Besitzt die Task-Queue, drei Operations-Queues (CPU, GPU, gemeinsam), den Parkplatz der Worker (Worker-Pool), die Notification und die Idle-Notifications.
+  - Besitzt die Task-Queue, drei Operations-Queues (CPU, GPU, gemeinsam).
   - Ruft den Planner für die Expansion von Tasks auf.
   - Setzt die Queue viermal unabhängig ein, als Task-Queue und als Operations-Queue für CPU, GPU und gemeinsam, jeweils mit eigenem Set von Notification-Channels.
 - Name: Planner
@@ -213,7 +213,7 @@
   - Kann auf Anforderung angehalten werden. Dabei werden alle Worker gestoppt und gejoint.
   - Startet bei der Initialisierung über den internen Executor eine Mindestzahl idle Threads (Worker).
   - Die Zahl der Worker der gesamten Engine ist die Zahl der CPU-Cores minus eins. Das ist eine Obergrenze für Context-Switches, keine Core-Zuordnung (kein Pinning).
-  - Worker parken im Processor und wachen bei jeder Zustandsänderung per Notification auf.
+  - Worker parken im Worker-Pool und werden von dessen Notifier geweckt.
   - Bei CPU-Operationen führt der Worker die Operation synchron aus und kommt mit dem Ergebnis zurück.
   - Bei GPU-Operationen startet der Worker die Operation bzw. den Kernel und kehrt zurück. Nach der Completion-Notification verarbeitet ein freier Worker das Ergebnis.
   - Blockiert ein Worker, etwa in der Compute-Library oder deren Thread-Pool, ist das das natürliche Backpressure-Signal ohne Sonderbehandlung.
