@@ -10,13 +10,11 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import xy.ai.conscious.api.ext.IMCPCLauncher;
 import xy.ai.conscious.commands.AnswerCommand;
 import xy.ai.conscious.core.IEditorInterface;
@@ -43,7 +41,7 @@ public class CCControlClient {
   private IMCPCLauncher mcpc;
 
   public CCControlClient(IMCPCLauncher mcpc) {
-	  this.mcpc = mcpc;
+    this.mcpc = mcpc;
   }
 
   public void checkControlEndpoint(CCResponse resp, String sessionId) {
@@ -74,9 +72,9 @@ public class CCControlClient {
         return false;
       launchAttempted = true;
     }
-    if(mcpc != null)
-    	return mcpc.startMcpcLaunch(() -> ping());
-	return false;
+    if (mcpc != null)
+      return mcpc.startMcpcLaunch(() -> ping());
+    return false;
   }
 
   private boolean ping() {
@@ -105,6 +103,36 @@ public class CCControlClient {
 
   public ArrayNode deny(String id, String reason) {
     return submit(approvalNode(id, null, null, reason == null ? "" : reason, null, false));
+  }
+
+  /**
+   * Unified answer to a pending item. For allow/exec the YAML block preceding the
+   * answer (if it carries the same id) is always sent along as {@code arguments}
+   * or {@code result}; the server detects whether it differs from the original.
+   * A deny ignores the block.
+   */
+  public ArrayNode answer(String id, AnswerCommand.Action action, String text, String yamlBlock) {
+    if (action == AnswerCommand.Action.Deny)
+      return deny(id, text);
+    JsonNode edited = editedNode(id, yamlBlock);
+    JsonNode arguments = edited == null || edited.path("arguments").isMissingNode() || edited.get("arguments").isNull() ? null : edited.get("arguments");
+    JsonNode result = edited == null || edited.path("result").isMissingNode() || edited.get("result").isNull() ? null : edited.get("result");
+    return submit(approvalNode(id, arguments, result, null, text == null || text.isBlank() ? null : text, action == AnswerCommand.Action.Exec));
+  }
+
+  /**
+   * Parses the YAML block; returns it only if it is an object whose id equals {@code id}.
+   */
+  private JsonNode editedNode(String id, String yamlBlock) {
+    if (yamlBlock == null || yamlBlock.isBlank())
+      return null;
+    JsonNode node;
+    try {
+      node = fromYaml(yamlBlock);
+    } catch (Exception e) {
+      throw new IllegalArgumentException("YAML Error", e);
+    }
+    return node != null && node.isObject() && id != null && id.equals(node.path("id").asText(null)) ? node : null;
   }
 
   public boolean submitEdit(String yamlBlock) {

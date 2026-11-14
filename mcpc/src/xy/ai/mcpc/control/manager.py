@@ -71,6 +71,12 @@ class _PendingItem:
             item['result'] = self.result
         return item
 
+def _changed(submitted: dict[str, Any] | None, original: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return *submitted* only if it differs from *original*; ``None`` means unchanged."""
+    if submitted is None or submitted == original:
+        return None
+    return submitted
+
 class ToolControlManager:
     """Thread-safe manager for human-in-the-loop tool interception.
 
@@ -183,12 +189,10 @@ class ToolControlManager:
                     'reason') or 'Reconsider your approach based on the requirements.')
             else:
                 decision = ControlDecision(
-                    approved=True,
-                    modified_arguments=approval.get('arguments'),
-                    modified_result=approval.get('result'),
-                    approval_hint=approval.get('hint'),
-                    force_result_review=bool(
-                        approval.get('exec')))
+                    approved=True, modified_arguments=_changed(
+                        approval.get('arguments'), item.arguments), modified_result=_changed(
+                            approval.get('result'), item.result), approval_hint=approval.get('hint'), force_result_review=bool(
+                                approval.get('exec')))
             item._decision = decision
             with self._lock:
                 self._pending.pop(item_id, None)

@@ -7,12 +7,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
-
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.api.ext.IMCPCLauncher;
 import xy.ai.conscious.commands.AnswerCommand;
 import xy.ai.conscious.commands.CallCommand;
-import xy.ai.conscious.commands.CallEditCommand;
 import xy.ai.conscious.commands.Command;
 import xy.ai.conscious.commands.ExitCommand;
 import xy.ai.conscious.commands.ResumeCommand;
@@ -53,7 +51,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
   @Override
   public CCRequest createRequest(Prompt prompt, IProgress mon) {
-	IProgress sub = mon.setTask("Create request", 1);
+    IProgress sub = mon.setTask("Create request", 1);
     Command command = prompt.arg.command;
     String promptText = null;
     if (command == null) {
@@ -81,7 +79,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
 
   @Override
   public CCResponse executeRequest(CCRequest req, IProgress mon) {
-	IProgress sub = mon.setTask("Executing prompt", 2);
+    IProgress sub = mon.setTask("Executing prompt", 2);
     CCSession session = null;
     TimeStats ts = new TimeStats();
     ts.start();
@@ -102,16 +100,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
       return new CCResponse(req.id, "Session closed!");
     }
     if (command instanceof AnswerCommand ac) {
-      if (ac.action() == AnswerCommand.Action.Allow)
-        ts.control(() -> controlClient.approve(ac.parameter(0), ac.parameter(2)));
-      else if (ac.action() == AnswerCommand.Action.Exec)
-        ts.control(() -> controlClient.exec(ac.parameter(0), ac.parameter(2)));
-      else
-        ts.control(() -> controlClient.deny(ac.parameter(0), ac.parameter(2)));
-      session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
-    } else if (command instanceof CallEditCommand cec) {
-      if (!ts.control(() -> controlClient.submitEdit(cec.yaml())))
-        throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
+      ts.control(() -> controlClient.answer(ac.parameter(0), ac.action(), ac.parameter(2), ac.yaml()));
       session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command instanceof CallCommand) {
       if (req.arg.yaml == null || req.arg.yaml.isBlank())
@@ -146,7 +135,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   }
 
   private CCResponse readUntilResult(CCRequest req, CCSession session, IProgress mon, TimeStats ts) throws IOException {
-	IProgress sub = mon.setTask("Reading Claude output", 10000);
+    IProgress sub = mon.setTask("Reading Claude output", 10000);
     CCResponse resp = new CCResponse(req.id);
     String line;
     long lastDataAt = System.nanoTime();
