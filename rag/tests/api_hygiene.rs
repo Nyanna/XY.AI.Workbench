@@ -6,6 +6,7 @@ const ALLOWED: &[&str] = &[
     "model/candle_adapter.rs",
     "kernel/cuda.rs",
     "kernel/maxsim.rs",
+    "l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/a/library_adapter.rs",
     "l130/l120/l110/l100/l090/l080/l070/l060/l050/l040/l030/l020/l010/consistent_snapshots.rs",
     "l130/l120/l110/l100/l090/l080/a/communication_slot/device_transfer/staging_ring.rs",
 ];

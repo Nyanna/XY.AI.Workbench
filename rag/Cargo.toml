@@ -58,7 +58,7 @@ static_assertions = "1.1"
 libc = "0.2"
 
 [features]
-default = []
+default = ["cuda"]
 candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
 cuda = ["candle", "dep:cudarc", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 mock = ["dep:rand"]
