@@ -37,6 +37,19 @@ impl fmt::Debug for Extensions {
         f.debug_struct("Extensions").field("len", &self.len()).finish()
     }
 }
+/// Equal when both hold the same types and each type refers to the same shared value.
+impl PartialEq for Extensions {
+    fn eq(&self, other: &Self) -> bool {
+        self.map.len() == other.map.len()
+            && self
+                .map
+                .iter()
+                .all(|(key, entry)| {
+                    other.map.get(key).is_some_and(|rhs| Arc::ptr_eq(entry, rhs))
+                })
+    }
+}
+impl Eq for Extensions {}
 const _: () = {
     #[allow(dead_code)]
     fn assert_send_sync<T: Send + Sync + 'static>() {}
