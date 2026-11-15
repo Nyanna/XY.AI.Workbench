@@ -1,6 +1,6 @@
 # Handover: spec update after the implementation of 66a and D10 (build orders 66, 66a, 66b)
 
-This file continues `handover.md` in the same directory. Read `handover.md` first for environment, rules and tool notes, then this file completely. Talk to the owner in German, short and in plain words, no jargon, no closing summary. Project documents and code comments in English.
+This file continues `handover.md` in the same directory. Read `handover.md` first for environment, rules and tool notes, then this file completely.
 
 ## 1. Done (code, verified)
 
@@ -32,15 +32,3 @@ Special cases in that set:
 3. **Verification pass** over every changed spec (read the sections back with `ast_find` by section id). Points to check: 065 code block (two edits ran on a code-block node whose id changed in between; confirm `PlannedOperation` and `OperationConfig` derive `PartialEq` and have the English doc comments); 078 section 3 (the `start_chain` signature edit replaced the lines from `task: Task<D, StepOutput, E>,` to the `where` clause; confirm that the signature is intact); 126 section 3 (`OpMeta`, `BatchInfo`, impls, `TaskNotClaimable`, `place_step`, `ValueBuilder`); 092 section 4 (no empty bullet); 117 section 4 (item 1 was fixed with `ast_edit_block` after an ambiguous end marker).
 4. `066b_operationsknoten_analyse.md` in the specs directory was not touched (it is not named in `amendments.md`). Ask the owner only if you find a conflict.
 5. Do not run Rust tests for spec-only changes; run `runTests` only if code is touched again.
-
-## 3. Tool notes learned in this session
-
-- `ast_edit_marks`: `start_marker` and `end_marker` must be 10 to 30 characters; the end marker must be unique in the whole node, not only after the start marker (an ambiguous end marker fails with an error; use `ast_edit_block` with a unique `old_text` of 10 to 100 characters instead). If the end marker lies inside the start marker, it fails with `marker_order` (use `ast_edit_block`). Whitespace is flexible, so a marker may contain a newline.
-- Use the section node id (for example `5f5945.ccd4a7`) as `id`, not the id of a code block child: child ids change after an edit. Dotted section ids work for `ast_find(id)`; the root of spec 130 is numeric (`234159`) and breaks `ast_find(id)`, the dotted children work.
-- An empty `content` removes the marked text but may leave an empty line.
-- Results of several edits in one call are reported in order; an `errors` entry names the failed one only by its reason, so read the section back when in doubt.
-- The owner wants search/verification done with the AST tools for code and `read_file` for markdown; the owner rejected a grep-style search over the spec directory used as a pure status check, so check by reading the sections.
-
-## 4. Reply style reminder
-
-Short German summary of what was changed per spec, which edits went beyond the amendment text (see 2.1), and the result of the verification pass. No closing summary beyond that.
