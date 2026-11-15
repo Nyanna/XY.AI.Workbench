@@ -77,15 +77,12 @@ public class AutoApprover {
     return decision;
   }
 
-  /**
-   * A denied tool result must not end up in the prompt file: the answer is
-   * replaced by a short marker; the reason reaches the agent by the follow-up.
-   */
   private static void omitDenied(AIAnswer ans, Decision decision) {
     ApprovalItem item = decision.item();
-    if (decision.result() != ApprovalResult.Deny || item == null || item.kind() != Kind.ToolResult)
+    if (decision.result() != ApprovalResult.Deny || item == null || (item.kind() != Kind.ToolResult && item.kind() != Kind.ControlResult))
       return;
-    ans.answer = "//denied: tool result " + item.id() + " omitted";
+    String text = AnswerParser.omitResult(ans.answer, item);
+    ans.answer = text != null ? text : "//denied: result " + item.id() + " omitted";
   }
 
   public Optional<FollowUp> onIdle(String sessionId) {
@@ -180,23 +177,28 @@ public class AutoApprover {
       case Allow ->
         withBlock(item, command(AnswerCommand.CMD_ANSWER + " " + item.id() + " allow", hint));
       case Deny ->
-        item.isControl() ? withBlock(item, command(AnswerCommand.CMD_ANSWER + " " + item.id() + " deny", reason)) : List.of(denial(item, reason));
+        item.isControl() ? withBlock(deniedYaml(item), command(AnswerCommand.CMD_ANSWER + " " + item.id() + " deny", reason)) : List.of(denial(item, reason));
       case Call ->
         withBlock(item, CallCommand.CMD_CALL + " " + item.id());
     };
     return lines == null ? null : new FollowUp(origin, selection(lines));
   }
 
-  /**
-   * Yaml block followed by the command line, as the operator would select it.
-   */
   private static List<String> withBlock(ApprovalItem item, String commandLine) {
+    return withBlock(item.yaml(), commandLine);
+  }
+
+  private static List<String> withBlock(String yaml, String commandLine) {
     List<String> lines = new ArrayList<>();
     lines.add("```yaml");
-    item.yaml().lines().forEach(lines::add);
+    yaml.lines().forEach(lines::add);
     lines.add("```");
     lines.add(commandLine);
     return lines;
+  }
+
+  private static String deniedYaml(ApprovalItem item) {
+    return item.kind() == Kind.ControlResult ? AnswerParser.omittedYaml(item) : item.yaml();
   }
 
   private static String denial(ApprovalItem item, String reason) {

@@ -325,8 +325,9 @@ public class SessionProcessor<M> implements ISessionIncludeProcessor<M> {
     int[] range = fenceRange(lines, start);
     if (range == null)
       return start;
-    JsonNode node = "json".equalsIgnoreCase(fenceSpecifier(lines, range)) ? readJson(lines, range) : readYaml(lines, range);
-    out.add(call.toolResult(new ToolResult(node.path("id").asText(""), compact(node.path("result")), node)));
+    boolean json = "json".equalsIgnoreCase(fenceSpecifier(lines, range));
+    JsonNode node = json ? readJson(lines, range) : readYaml(lines, range);
+    out.add(call.toolResult(new ToolResult(node.path("id").asText(""), compact(node.path("result")), node, json)));
     return range[1] + 1;
   }
 

@@ -17,6 +17,10 @@ import xy.ai.conscious.connector.harness.SessionCallbacks;
 import xy.ai.conscious.connector.harness.SessionProcessor;
 import xy.ai.conscious.connector.harness.ToolCall;
 import xy.ai.conscious.connector.harness.ToolResult;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import xy.ai.conscious.connector.claudecode.YamlRenderer;
+import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
+import xy.ai.conscious.core.IEditorInterface;
 
 /**
  * Extracts tool calls and tool results from the rendered answer text.
@@ -102,5 +106,83 @@ public class AnswerParser {
       return null;
     String tool = node.path("tool").asText(node.path("name").asText(node.path("toolName").asText("")));
     return new ApprovalItem(kind, node.path("id").asText(""), tool, node, yaml);
+  }
+  static final String OMITTED = "//denied: result omitted";
+  private static final YamlRenderer YAML = new YamlRenderer();
+
+  /**
+   * The answer with the result of the denied item replaced by a marker; null if
+   * the result cannot be located.
+   */
+  static String omitResult(String text, ApprovalItem item) {
+    if (text == null || text.isBlank())
+      return null;
+    return item.kind() == Kind.ControlResult ? omitControlResult(text, item) : omitToolResult(text, item.id());
+  }
+
+  /**
+   * The YAML of the item with the result replaced by a marker.
+   */
+  static String omittedYaml(ApprovalItem item) {
+    return YAML.toYaml(omitted(item));
+  }
+
+  private static ObjectNode omitted(ApprovalItem item) {
+    ObjectNode copy = ((ObjectNode) item.data()).deepCopy();
+    copy.put("result", OMITTED);
+    return copy;
+  }
+
+  private static String omitControlResult(String text, ApprovalItem item) {
+    String[] lines = text.stripTrailing().split("\\R");
+    return IEditorInterface.CONTROL_REQUEST + "\n" + YAML.toYamlBlock(omitted(item)) + "\n" + lines[lines.length - 1];
+  }
+
+  private static String omitToolResult(String text, String id) {
+    SessionAnswerBuilder out = new SessionAnswerBuilder();
+    boolean[] found = new boolean[1];
+    try {
+      PROCESSOR.process(text, true, null, new SessionCallbacks<Object>() {
+
+        @Override
+        public Object message(Role role, String text) {
+          out.text(text);
+          return null;
+        }
+
+        @Override
+        public Object reasoning(Role role, List<String> texts, String meta) {
+          out.reasoning(texts, meta);
+          return null;
+        }
+
+        @Override
+        public Object toolCall(ToolCall call) {
+          out.toolCall(call.id, call.name, call.arguments);
+          return null;
+        }
+
+        @Override
+        public Object toolResult(ToolResult result) {
+          boolean hit = id.equals(result.id);
+          found[0] |= hit;
+          out.toolResult(hit ? omitted(result) : result);
+          return null;
+        }
+      });
+    } catch (RuntimeException e) {
+      return null;
+    }
+    return found[0] ? out.toString() : null;
+  }
+
+  private static ToolResult omitted(ToolResult result) {
+    JsonNode node = null;
+    if (result.node instanceof ObjectNode block) {
+      ObjectNode copy = block.deepCopy();
+      copy.put("result", OMITTED);
+      node = copy;
+    }
+    return new ToolResult(result.id, OMITTED, node, result.json);
   }
 }
