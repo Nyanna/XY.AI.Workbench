@@ -1,5 +1,6 @@
 //! Owns the task queue and the three operations queues and routes planned operations into them.
 use std::sync::Arc;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::ResourceKind;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
     Task, TaskParams,
 };
@@ -39,7 +40,14 @@ impl<PE: std::error::Error + 'static> std::error::Error for ExpandError<PE> {
         }
     }
 }
-pub type TaskQueue<D, T, E> = Queue<TaskParams, Task<D, T, E>, (), ()>;
+/// Task-queue metadata: the task params and the resource kind of the task's first operation, if known.
+/// The Processor does not interpret either.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TaskMeta {
+    pub params: TaskParams,
+    pub first_kind: Option<ResourceKind>,
+}
+pub type TaskQueue<D, T, E> = Queue<TaskMeta, Task<D, T, E>, (), ()>;
 pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
 struct Queues<D, T, E, O, V, R, OE> {
     task: TaskQueue<D, T, E>,
@@ -73,9 +81,14 @@ where
             },
         })
     }
-    pub fn submit(&self, data: D, params: TaskParams) -> Task<D, T, E> {
+    pub fn submit(
+        &self,
+        data: D,
+        params: TaskParams,
+        first_kind: Option<ResourceKind>,
+    ) -> Task<D, T, E> {
         let task = Task::new(data, params.clone());
-        self.queues.task.push(params, task.clone());
+        self.queues.task.push(TaskMeta { params, first_kind }, task.clone());
         task
     }
     pub fn expand(

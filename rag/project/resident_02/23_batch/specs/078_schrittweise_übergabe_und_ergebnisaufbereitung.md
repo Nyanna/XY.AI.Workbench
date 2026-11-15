@@ -25,7 +25,7 @@ Restrictions:
 ## 2. Context
 
 - The Planner supplies the task kind and the chain as a list of step factories. The sub-engine runs a node, calls `set_output` and then `node.advance()`. `advance` calls the continuation handler built here.
-- The handler returns the follow-up node, or nothing at the end of the chain. Without a follow-up, `OperationNode::advance` completes the `Task` with `Ok(output.clone())`. The task result type is therefore `RamData`.
+- The handler returns the follow-up node, or nothing at the end of the chain. Without a follow-up, `OperationNode::advance` completes the `Task` with `Ok(output.clone())`. The task result type is therefore `StepOutput`. Intermediate outputs may stay on the device (`StepOutput::Device`); the last output is always in RAM.
 - The caller (the queue or sub-engine) owns the returned follow-up nodes. It registers them in the `TaskContext` and enqueues them. This module does neither.
 - An executor calls the `Collector` after the task has completed. The task-level result is the `CollectedResult`.
 - The operation kind is unrelated to the data conversion. The conversion depends only on the `ChainKind` and the `DataShape` of the stored `RamData`.
@@ -38,18 +38,25 @@ use embedding_task::EmbeddingTask;
 use similarity_task::SimilarityParams;
 use similarity_report::{ReportOptions, ReportError, SimilarityReport as RankedReport};
 use operation::{RamData, DataShape, EntryId as OpEntryId};
+use materialization::DeviceResult;
 use result_kinds::TaskResult;
 use task_context::TaskContext;
 use task_model::Task;
-use operation_node::{OperationNode, OperationKind};     // OperationNode<O,I,T,D,E>
+use operation_node::{OperationNode, HasOperationKind, OutputHandle};     // OperationNode<O,I,T,D,E>
 use resource_requirements::HasResourceRequirements;
 
-/// Input of a node. Embedding/Similarity: `Data`. Inference (first step): `TextPair(query, passage)`.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ChainInput { Data(RamData), TextPair(String, String) }
+/// Output of one step. `Device` only for steps with `materialize == false`.
+#[derive(Debug, Clone)]
+pub enum StepOutput { Ram(RamData), Device(DeviceResult) }
 
-/// Node type used by this module: I = ChainInput, T = RamData.
-pub type ChainNode<O, D, E> = OperationNode<O, ChainInput, RamData, D, E>;
+/// Input of a node. `Data`: initial data or the actual output of the previous step.
+/// `Upstream`: output of a planned predecessor, read when the step executes.
+/// Inference (first step): `TextPair(query, passage)`.
+#[derive(Debug, Clone)]
+pub enum ChainInput { Data(StepOutput), Upstream(OutputHandle<StepOutput>), TextPair(String, String) }
+
+/// Node type used by this module and by the planned reference chain: I = ChainInput, T = StepOutput.
+pub type ChainNode<O, D, E> = OperationNode<O, ChainInput, StepOutput, D, E>;
 
 /// Builds the operation of one step from that step's actual input and the task context
 /// (the factory takes id and priority from the context).
@@ -79,6 +86,8 @@ pub enum CollectedResult { Task(TaskResult), Report(RankedReport) }
 pub enum ResultError {
     /// No result: empty chain, last operation never stored one, or already taken.
     MissingResult,
+    /// The stored result is still on the device (`StepOutput::Device`).
+    NotMaterialized,
     /// Stored data does not fit the task kind. `task_kind` is "embedding" | "similarity" | "inference".
     KindMismatch { task_kind: &'static str, found: DataShape },
     /// Embedding: texts == 0 or values % texts != 0.
@@ -92,7 +101,7 @@ impl ResultError { /// Always true: all result errors are planning configuration
 
 /// Cloneable handle on the shared result slot. Clone = same slot. Send + Sync.
 #[derive(Clone)]
-pub struct Collector { /* Arc<Mutex<Option<RamData>>>, ChainKind, task_id: u64 */ }
+pub struct Collector { /* Arc<Mutex<Option<StepOutput>>>, ChainKind, task_id: u64 */ }
 impl Collector {
     /// Takes the stored result (once) and converts it per ChainKind.
     pub fn collect(&self) -> Result<CollectedResult, ResultError>;
@@ -108,9 +117,9 @@ pub fn start_chain<O, D, E>(
     kind: ChainKind,
     steps: Vec<StepFactory<O, E>>,
     context: Arc<TaskContext<E>>,
-    task: Task<D, RamData, E>,
+    task: Task<D, StepOutput, E>,
 ) -> ChainStart<O, D, E>
-where O: HasResourceRequirements + OperationKind + Send + Sync + 'static,
+where O: HasResourceRequirements + HasOperationKind + Send + Sync + 'static,
       D: Send + 'static,
       E: Send + Sync + 'static;
 ```
@@ -121,10 +130,10 @@ where O: HasResourceRequirements + OperationKind + Send + Sync + 'static,
 - `steps` empty: `first == None`. `collect()` returns `Err(MissingResult)`.
 - Otherwise `first` is the node of `steps[0]` only. No other node is built yet.
 - `first` is built as `OperationNode::new(context.id(), steps[0](&input0, &context), input0, materialize, task.clone())`.
-- `materialize` is `true` only for the last step of the chain, otherwise `false`.
+- `materialize` is `true` only for the last step of the chain, otherwise `false`. This rule applies only to chains built by `start_chain`. For planned chains the flag comes from the Planner (build order 126). The nodes built here keep `ends_chain() == true`.
 - `input0` is prepared per kind:
-  - **Embedding:** `ChainInput::Data(RamData::TextList(task.input.texts().to_vec()))`. The text count is stored in the `Collector`. An empty list is allowed here.
-  - **Similarity:** `Data(RamData::Floats(..))`. All query vectors are concatenated in query order into one flat sequence. Dimensions are not checked. No queries gives an empty `Floats`.
+  - **Embedding:** `ChainInput::Data(StepOutput::Ram(RamData::TextList(task.input.texts().to_vec())))`. The text count is stored in the `Collector`. An empty list is allowed here.
+  - **Similarity:** `Data(StepOutput::Ram(RamData::Floats(..)))`. All query vectors are concatenated in query order into one flat sequence. Dimensions are not checked. No queries gives an empty `Floats`.
   - **Inference:** `TextPair(query, passage)`, always in this order.
 - `first` has a continuation handler attached (`set_continuation`).
 
@@ -145,6 +154,7 @@ where O: HasResourceRequirements + OperationKind + Send + Sync + 'static,
   - A second call, or a call with an empty slot, returns `Err(MissingResult)`.
   - The result stays consumed even when the conversion fails.
 - Conversion per kind:
+  - The rules below apply to `StepOutput::Ram(data)`. `StepOutput::Device(_)` returns `Err(NotMaterialized)`.
   - **Embedding** accepts only `Floats(v)`. Let `n` be the stored text count.
     - If `n == 0` or `v.len() % n != 0`, return `Err(EmbeddingSplit { values: v.len(), texts: n })`.
     - Otherwise split into `n` vectors of length `v.len()/n`, in order. Result: `Task(TaskResult::Embeddings(..))`.
@@ -161,10 +171,12 @@ where O: HasResourceRequirements + OperationKind + Send + Sync + 'static,
 ## 5. Relied-on elements
 
 - `OperationNode<O,I,T,D,E>`:
-  - `new(task_id: u64, operation: O, input: I, materialize: bool, task: Task<D,T,E>)`, requires `O: HasResourceRequirements + OperationKind`.
+  - `new(task_id: u64, operation: O, input: I, materialize: bool, task: Task<D,T,E>)`, requires `O: HasResourceRequirements + HasOperationKind`.
   - `set_continuation(&mut self, ContinuationHandler)` and `with_continuation(self, ..) -> Self`.
   - `ContinuationHandler = Arc<dyn Fn(&T, &Task<D,T,E>) -> Vec<OperationNode<..>> + Send + Sync>`.
-  - `advance()`: with no handler or an empty result, it completes the task with `Ok(output.clone())`. `T: Clone` is required.
+  - `advance()`: with no handler or an empty result and `ends_chain() == true` (the default), it completes the task with `Ok(output.clone())`. `T: Clone` is required.
+  - `OutputHandle<T>`: cloneable read-only view on a node's output (`get()`).
+- `materialization::DeviceResult`: `Clone + Debug`, a finished device result (region handle and tensor reference).
 - `TaskContext<E>`: `id() -> u64`, `priority() -> i32`. It is used as `Arc<TaskContext<E>>`.
 - `Task<D,T,E>`: `Clone`, a handle on the same task.
 - `operation`:

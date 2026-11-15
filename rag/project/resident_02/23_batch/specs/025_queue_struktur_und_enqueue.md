@@ -4,6 +4,9 @@
 
 Implement, in Rust, the queue data structure and its append operation.
 
+
+Role: this list queue is implemented as module `queue_list`. It is not used for the task queue or the operations queues of the engine; those use the take-based `queue::Queue` (build order 4).
+
 - **Structure:** exactly one singly linked list with an internal sentinel node. There are no separate lists per priority or resource.
 - **Enqueue:** append a node at the end with an atomic compare-and-swap (CAS) on the `next` pointer of the last node.
 - **Signaling:** every enqueue signals all notification channels without blocking.

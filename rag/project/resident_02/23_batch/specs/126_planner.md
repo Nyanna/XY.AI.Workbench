@@ -14,7 +14,7 @@
 
 **Restrictions.**
 - The Planner never pushes into queues. It returns `PlannedOp`s, and the Processor pushes them. A failed `expand` therefore enqueues nothing.
-- It never claims, completes or cancels tasks.
+- It claims the task exactly once, in `expand`, to read its data (`Task::claim`). It never completes or cancels tasks.
 - It does not execute operations, load resources or run workers.
 - It does not call the Expander's internals. It only calls `expander::expand`, or an injected `Expander`.
 - It knows neither the external neural-network library nor GPU execution graphs (CUDA Graphs).
@@ -23,7 +23,7 @@
 
 ## 2. Context
 
-- **Processor** (`processor`): calls `Planner::expand(&Task)` once per task and pushes each returned `PlannedOp{kind: QueueKind, meta, values}` into the queue of its kind, preserving order. The trait contract is `expand(&self, &Task<D,T,E>) -> Result<Vec<PlannedOp<O,V>>, Self::Error>`. It must not block on the Processor's queues. Blocking sub-engine activation is allowed.
+- **Processor** (`processor`): calls `Planner::expand(&Task)` once per task and pushes each returned `PlannedOp{kind: QueueKind, meta, values}` into the queue of its kind, preserving order. The Planner returns one `PlannedOp` per chain (staged release): the first step. The other steps travel inside its payload and are pushed by the step completion after their predecessor finished. The trait contract is `expand(&self, &Task<D,T,E>) -> Result<Vec<PlannedOp<O,V>>, Self::Error>`. It must not block on the Processor's queues. Blocking sub-engine activation is allowed.
 - **Expander** (`expander`): the pure function `expand(&TaskSpec, &PipelineConfigs, &CapabilitySet, Option<&IdleNotification>) -> Result<Vec<PlannedOperation>, ExpandError>`. The order of the chain is the implicit graph. Each `PlannedOperation` has `kind`, `descriptor`, `resource` (`ResourceRequirements`) and `config`. It builds no `Operation<R>`, and the Planner supplies that part. The Embedding chain is tokenizer → encoder → (pooling) → (L2) → (index write). Similarity is scorer+TopK, or cross-encoder tokenization, inference and similarity.
 - **Sub-engines**: pending spec. The Planner relies only on the `Subengine` trait in §3, which it defines. Workers of a queue filter on the `OpMeta` of the items.
 - **Engine**: pending spec. It configures the Planner with sub-engines, models and indexes. It calls `start` and feeds the Idle-Notification via `set_idle`.
@@ -80,18 +80,19 @@ pub struct ExpansionContext<'a> {
     pub idle: &'a IdleNotification,        // snapshot
 }
 
-/// Reads task kind and parameters from a task (the Planner cannot read task data).
+/// Reads task kind and parameters from the claimed task data.
 pub trait TaskResolver<D, T, E>: Send + Sync {
-    fn resolve(&self, task: &Task<D, T, E>) -> (TaskId, TaskSpec);
+    fn resolve(&self, task: &Task<D, T, E>, data: &D) -> (TaskId, TaskSpec);
 }
 
-/// Turns the planned chain into queue payloads (e.g. Operation<R>/OperationNode wiring
-/// of input/output between neighbours). Must return exactly one V per step, in order.
+/// Turns the planned chain into the payload of its first step. The payload carries the
+/// other steps (node and OpMeta each), see "Chain wiring" in section 4.
 pub trait ValueBuilder<D, T, E, V>: Send + Sync {
-    fn build(&self, task: &Task<D, T, E>, steps: &[PlanStep]) -> Vec<V>;
+    /// Also returns the batch information of the first step's payload (`None`: not batchable).
+    fn build(&self, task: &Task<D, T, E>, data: D, spec: &TaskSpec, steps: &[PlanStep]) -> (V, Option<BatchInfo>);
 }
 
-/// Queue metadata of an operation (the `O` of the Processor). Immutable.
+/// Queue metadata of an operation (the `O` of the Processor). Immutable after the push.
 #[derive(Clone, Debug)]
 pub struct OpMeta {
     pub task_id: TaskId,
@@ -102,7 +103,14 @@ pub struct OpMeta {
     pub resource: ResourceRequirements,
     pub required: Requirements,           // == resource.capabilities().clone()
     pub materialize: bool,
+    pub batch: Option<BatchInfo>,         // None when planned; set by the pusher from the payload
 }
+/// Batch key and untruncated row lengths of the payload (build order 117).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BatchInfo { pub key: lane_batching::BatchKey, pub seq_lengths: Vec<usize> }
+impl resource_requirements::HasResourceRequirements for OpMeta { /* &self.resource */ }
+impl operation_node::HasOperationKind for OpMeta { /* self.kind */ }
+impl lane_batching::BatchMeta for OpMeta { /* from self.batch; None / &[] when unset */ }
 #[derive(Clone, Debug)]
 pub struct PlanStep { pub meta: OpMeta, pub planned: PlannedOperation }
 
@@ -121,8 +129,8 @@ pub enum PlanError {
     Expand(ExpandError),
     /// "Subengine {subengine} nicht aktivierbar: {reason}"
     Activation { subengine: String, reason: String },
-    /// ValueBuilder returned a different number of values than steps
-    BuilderMismatch { expected: usize, got: usize },
+    /// "Task nicht beanspruchbar: {0:?}" (cancelled or already claimed)
+    TaskNotClaimable(ClaimError),
 }
 // Display + std::error::Error. PlanError: Send + Sync + 'static.
 
@@ -180,6 +188,11 @@ impl<D, T, E, V> Planner<D, T, E, V> {
     /// Resource kind of the first operation of this task kind, reported in advance.
     pub fn first_resource_kind(&self, spec: &TaskSpec) -> Option<ResourceKind>;
     pub fn first_resource_kind_of_task(&self, task: &Task<D, T, E>) -> Option<ResourceKind>;
+    /// Placement of one step created at run time (stepwise mode). Queue assignment and
+    /// materialization as in `expand` (`next` = the following step, if known); announces the
+    /// resource. Never blocks and never activates (lazy initialization, build order 106).
+    pub fn place_step(&self, task_id: TaskId, priority: i32, op: &PlannedOperation,
+                      next: Option<&PlannedOperation>) -> Result<OpMeta, PlanError>;
 }
 
 impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> {
@@ -211,7 +224,7 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 
 **expand(task)**: strictly in this order. The first error wins, and an error leaves nothing pushed and nothing activated.
 1. Not started → `NotStarted`.
-2. `resolver.resolve(task)` gives `(task_id, spec)`. `TaskSpec::Other{kind}` → `Expand(ForeignTaskKind{expected:"Embedding/Similarity", got:kind})`.
+2. `task.claim()` gives the data `d`. An error gives `TaskNotClaimable(e)`. `resolver.resolve(task, &d)` gives `(task_id, spec)`. `TaskSpec::Other{kind}` → `Expand(ForeignTaskKind{expected:"Embedding/Similarity", got:kind})`. Every error from here on leaves the task `Claimed`; the caller completes it (build order 135).
 3. Model: the chosen model is always the configured default model, whatever the model in the spec. The Planner replaces the model in the spec (`EmbeddingTask.model` or `SimilaritySpec.model`) with the default. A missing default, an unconfigured model, or no expander for (model, `TaskKindTag` of the spec) gives `UnknownModel{model}`. The message names the model.
 4. The expander runs with a snapshot of the idle value and the pipelines. Its `ExpandError` is wrapped as `Expand(..)`.
 5. Queue assignment for every operation, in chain order. Candidates depend on `resource.environment()`:
@@ -226,8 +239,8 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
    The first compatible candidate wins. If none is compatible, the result is `MissingPlanningCapability{kind, resource}`. Every operation needs a queue. No partial result is returned.
 6. Materialization (see below).
 7. For the whole chain, each operation announces itself to the sub-engines that are assigned to its queue and offer its kind, via `announce(&resource)`. Then the Planner activates the deduplicated set of those sub-engines with `activate()`, blocking and one after another. The first failure gives `Activation{subengine, reason}`. Activation is idempotent and happens only when an operation is created, never at `start` or `build`.
-8. `ValueBuilder::build(task, steps)` runs. A wrong number of values gives `BuilderMismatch`.
-9. The result is one `PlannedOp{kind: queue, meta, values}` per step, in chain order. `meta.priority` equals `task.params().priority`. `meta.descriptor` and `meta.resource` are the `PlannedOperation` values unchanged. `meta.required == resource.capabilities()`.
+8. `ValueBuilder::build(task, d, &spec, steps)` runs and returns the payload of the first step and its batch information.
+9. The result is exactly one `PlannedOp{kind: steps[0].meta.queue, meta, values}` with `meta = steps[0].meta` and `meta.batch` set to the batch information returned by the `ValueBuilder` (the Planner cannot read `V`). For every step `meta.priority` equals `task.params().priority`, `meta.descriptor` and `meta.resource` are the `PlannedOperation` values unchanged, and `meta.required == resource.capabilities()`.
 
 **Materialization** (`meta.materialize`)
 - It is `false` only if both of these hold:
@@ -235,6 +248,12 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
   - the following operation is not an `IndexWrite`.
 - In all other cases it is `true`: the last operation (task end), a successor on `CpuOnly` or `Any`, a successor `IndexWrite` (mirroring into the index), or this operation itself on `CpuOnly` or `Any`.
 - It is decided from the Expander's environments before queue assignment, and queue choice does not change it.
+
+**Chain wiring (contract of the reference `ValueBuilder`)**
+- It creates `TaskContext::new(task_id, priority, 1)` once per chain.
+- It builds the nodes in chain order: `OperationNode::new(task_id, steps[k].planned.clone(), input_k, steps[k].meta.materialize, task.clone())`. `input_0` is prepared from `d` as in build order 78; `input_{k+1} = ChainInput::Upstream(nodes[k].output_handle())`, taken before the node is moved.
+- It returns `StepPayload::new(nodes[0], context, rest)` with `rest[k-1] = PlannedStep { placement: steps[k].meta, node: nodes[k] }` for k >= 1. `StepPayload::new` sets `ends_chain` to `false` for every node that has a rest; the last node keeps `true`.
+- It never reads or writes queues.
 
 **Concurrency**
 - `expand` and all accessors take `&self` and can run concurrently from any thread. State sits behind short-lived locks. No lock is held across `activate`, `announce`, the expander or the `ValueBuilder`.

@@ -2,7 +2,7 @@
 
 ## 1. Task, restrictions and boundaries
 
-Implement the pull loop of **one sub-engine**. The loop has exactly one wait condition, the sub-engine's notification. After each wake-up it iterates over the queues, claims suitable entries, executes them and completes them.
+Status: withdrawn. The engine's operations queues are take-based (`queue::Queue`, build order 4). The pull loop is the `WorkerLoop` (build order 131) on the worker-pool threads; its only wait condition is the worker pool's notification (build order 56), and every notification of a sub-engine (build order 92) leads to it. Nothing is implemented for this build order.
 
 - One `PullLoop` is one loop for one sub-engine. The caller spawns it, for example with `tokio::spawn(loop.run())`. The module does not spawn tasks.
 - The loop sequentially pulls from the sub-engine's own queues and the shared queues.

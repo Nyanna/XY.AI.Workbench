@@ -1,18 +1,27 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::expander::OperationConfig;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
-    ExecutionEnvironment, ResourceKind, ResourceRequirements,
+    ExecutionEnvironment, ResourceKind,
+};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
+    OperationDescriptor, OperationParams, ResourceRequirements as DescriptorRequirements,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::TaskParams;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::QueueState;
 struct TestOp {
+    kind: OperationKind,
     requirements: ResourceRequirements,
 }
 impl TestOp {
     fn new(kind: ResourceKind) -> Self {
+        Self::with_kinds(OperationKind::Embedding, kind)
+    }
+    fn with_kinds(kind: OperationKind, resource: ResourceKind) -> Self {
         Self {
-            requirements: ResourceRequirements::new(kind, ExecutionEnvironment::Any),
+            kind,
+            requirements: ResourceRequirements::new(resource, ExecutionEnvironment::Any),
         }
     }
 }
@@ -21,9 +30,9 @@ impl HasResourceRequirements for TestOp {
         &self.requirements
     }
 }
-impl OperationKind for TestOp {
-    fn operation_kind(&self) -> &'static str {
-        "test-op"
+impl HasOperationKind for TestOp {
+    fn operation_kind(&self) -> OperationKind {
+        self.kind
     }
 }
 type Node = OperationNode<TestOp, u32, String, String, String>;
@@ -57,9 +66,11 @@ fn new_node_has_given_parts_and_empty_output() {
     let node = node_with(new_task());
     assert_eq!(* node.input(), 42);
     assert!(node.materialize());
-    assert_eq!(node.operation().operation_kind(), "test-op");
+    assert_eq!(node.task_id(), 7);
+    assert_eq!(node.operation().operation_kind(), OperationKind::Embedding);
     assert!(node.output().is_none());
     assert!(! node.has_continuation());
+    assert!(node.ends_chain());
     assert_eq!(node.task().state(), QueueState::Enqueued);
 }
 #[test]
@@ -246,6 +257,162 @@ fn shared_handler_can_serve_several_nodes_concurrently() {
 fn node_is_send_and_sync() {
     fn assert_send_sync<X: Send + Sync>() {}
     assert_send_sync::<Node>();
+    assert_send_sync::<OutputHandle<String>>();
+}
+#[test]
+fn ends_chain_defaults_to_true_and_can_be_changed() {
+    let mut node = node_with(new_task());
+    assert!(node.ends_chain());
+    node.set_ends_chain(false);
+    assert!(! node.ends_chain());
+    let node = node.with_ends_chain(true);
+    assert!(node.ends_chain());
+    assert!(! node.with_ends_chain(false).ends_chain());
+}
+#[test]
+fn chain_middle_without_handler_leaves_task_untouched() {
+    let node = node_with(claimed_task()).with_ends_chain(false);
+    node.set_output("out".to_string()).unwrap();
+    assert!(node.advance().unwrap().is_empty());
+    assert!(node.advance().unwrap().is_empty());
+    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert!(node.task().result().is_none());
+}
+#[test]
+fn chain_middle_with_empty_handler_result_leaves_task_untouched() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&calls);
+    let node = node_with(claimed_task())
+        .with_ends_chain(false)
+        .with_continuation(
+            handler(move |_, _| {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Vec::new()
+            }),
+        );
+    node.set_output("out".to_string()).unwrap();
+    assert!(node.advance().unwrap().is_empty());
+    assert!(node.advance().unwrap().is_empty());
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(node.task().state(), QueueState::Claimed);
+}
+#[test]
+fn chain_middle_with_follow_up_nodes_returns_them_without_completing() {
+    let node = node_with(claimed_task())
+        .with_ends_chain(false)
+        .with_continuation(
+            handler(|_, task| {
+                vec![
+                    OperationNode::new(8, TestOp::new(ResourceKind::Scorer), 1, false,
+                    task.clone(),)
+                ]
+            }),
+        );
+    node.set_output("out".to_string()).unwrap();
+    assert_eq!(node.advance().unwrap().len(), 1);
+    assert_eq!(node.task().state(), QueueState::Claimed);
+}
+#[test]
+fn only_the_last_of_three_nodes_completes_the_task() {
+    let task = claimed_task();
+    let make = |ends: bool| {
+        OperationNode::new(7, TestOp::new(ResourceKind::Encoder), 0, false, task.clone())
+            .with_ends_chain(ends)
+    };
+    let nodes = [make(false), make(false), make(true)];
+    for (i, node) in nodes.iter().enumerate() {
+        node.set_output(format!("out{i}")).unwrap();
+        node.advance().unwrap();
+        if i < 2 {
+            assert!(task.result().is_none());
+        }
+    }
+    assert_eq!(result_of(& task), Some(Ok("out2".to_string())));
+}
+#[test]
+fn output_handle_follows_the_output_cell() {
+    let node = node_with(new_task());
+    let handle = node.output_handle();
+    let clone = handle.clone();
+    assert!(handle.get().is_none());
+    assert!(! handle.is_set());
+    node.set_output("first".to_string()).unwrap();
+    assert_eq!(handle.get(), node.output());
+    assert_eq!(clone.get().map(String::as_str), Some("first"));
+    assert!(clone.is_set());
+    assert!(node.set_output("second".to_string()).is_err());
+    assert_eq!(handle.get().map(String::as_str), Some("first"));
+}
+#[test]
+fn output_handle_outlives_the_node() {
+    let node = node_with(new_task());
+    let handle = node.output_handle();
+    node.set_output("kept".to_string()).unwrap();
+    drop(node);
+    assert_eq!(handle.get().map(String::as_str), Some("kept"));
+}
+#[test]
+fn output_handle_debug_does_not_need_debug_on_output() {
+    struct Opaque;
+    let cell: OperationNode<TestOp, u32, Opaque, (), ()> = OperationNode::new(
+        1,
+        TestOp::new(ResourceKind::Encoder),
+        0,
+        false,
+        Task::new((), TaskParams::default()),
+    );
+    let handle = cell.output_handle();
+    assert!(format!("{handle:?}") .contains("false"));
+    assert!(cell.set_output(Opaque).is_ok());
+    assert!(format!("{handle:?}") .contains("true"));
+}
+#[test]
+fn successor_reads_predecessor_output_through_its_input() {
+    type Chained = OperationNode<TestOp, OutputHandle<String>, String, String, String>;
+    let task = claimed_task();
+    let first = node_with(task.clone()).with_ends_chain(false);
+    let second: Chained = OperationNode::new(
+        7,
+        TestOp::new(ResourceKind::Scorer),
+        first.output_handle(),
+        true,
+        task,
+    );
+    assert!(second.input().get().is_none());
+    first.set_output("from first".to_string()).unwrap();
+    assert_eq!(second.input().get().map(String::as_str), Some("from first"));
+}
+fn planned_operation() -> PlannedOperation {
+    let resource = ResourceRequirements::new(
+        ResourceKind::Scorer,
+        ExecutionEnvironment::Any,
+    );
+    let params = OperationParams::new(DescriptorRequirements {
+        resource: None,
+        model: None,
+        mode: None,
+    });
+    PlannedOperation {
+        kind: OperationKind::Similarity,
+        descriptor: OperationDescriptor::new(OperationKind::Similarity, params),
+        resource,
+        config: OperationConfig::default(),
+    }
+}
+#[test]
+fn planned_operation_provides_both_traits() {
+    let operation = planned_operation();
+    assert_eq!(operation.operation_kind(), OperationKind::Similarity);
+    assert_eq!(operation.resource_requirements().kind(), ResourceKind::Scorer);
+    let node: PlannedNode<u32, String, String, String> = OperationNode::new(
+        3,
+        operation,
+        5,
+        true,
+        new_task(),
+    );
+    assert_eq!(node.task_id(), 3);
+    assert_eq!(node.operation().operation_kind(), OperationKind::Similarity);
 }
 struct CaptureLogger {
     records: Mutex<Vec<(log::Level, String)>>,
@@ -270,7 +437,7 @@ fn new_logs_one_debug_record() {
     log::set_max_level(log::LevelFilter::Debug);
     let _node: Node = OperationNode::new(
         987_654_321,
-        TestOp::new(ResourceKind::CrossEncoder),
+        TestOp::with_kinds(OperationKind::Pooling, ResourceKind::Scorer),
         0,
         true,
         new_task(),
@@ -283,7 +450,7 @@ fn new_logs_one_debug_record() {
     assert_eq!(matching.len(), 1);
     let (level, msg) = matching[0];
     assert_eq!(* level, log::Level::Debug);
-    assert!(msg.contains("test-op"));
-    assert!(msg.contains("CrossEncoder"));
+    assert!(msg.contains("Pooling"));
+    assert!(msg.contains("Scorer"));
     assert!(msg.contains("true"));
 }

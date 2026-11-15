@@ -24,7 +24,8 @@ Implement in Rust the description of one computation step, `Operation<R>`, and i
 ## 2. Context
 
 - A Task (Task-Modell) holds its operations as data. Operation order within the task is the implicit graph: the output of operation *n* feeds operation *n+1*, wired by sharing a `RamSlot` or a device region between them.
-- Workers filter on `OperationParams`/`requirements()` before claiming.
+- The reference engine does not use `Operation<R>`. Its steps are `operation_node::OperationNode<PlannedOperation, ..>`; the hand-over uses `OutputHandle` and `chain_handover::StepOutput`. `OperationKind`, `OperationParams`, `OperationDescriptor`, `RamData`, `DataShape` and the scored-hit types stay in use.
+- Workers filter on the queue metadata (`planner::OpMeta`) before claiming. `OpMeta.descriptor` carries this module's `OperationDescriptor`.
 - Caches and dependency graphs use `OperationParams` and `OperationDescriptor` as keys.
 - Device regions are generic (`R`). A device-side input or output is an `Arc<Pin<R>>`, so the region cannot be evicted while the operation references it.
 - A scored-hit result is an intermediate result. Ranking and summarizing happen after it.

@@ -13,7 +13,7 @@ Restrictions:
 - Use only `std`, `log`, and the project modules `gpu_completion`, `subengine_loop`, and `planner`/`processor` (only through the `ExpandStep` implementation, see §3).
 - No `unsafe`, no spawning, no blocking of its own, no globals.
 - Not in this module:
-  - Waiting on notifications, the async loop, and timers. The caller does that and calls `run_until_idle` after each wake-up.
+  - Waiting on notifications and timers. The caller is `WorkSource::run_once` of the Engine-Fassade on a worker-pool thread; it calls `run_once` and maps `Some` to `Step::Worked` and `None` to `Step::Idle`. Parking and waking is done by the worker pool (build order 56).
   - Queue structure and pushing. The Processor does that.
   - Resource lifecycle and execution. The `SubengineLoop` and the resources do that.
   - Interpreting `FinishedLane`s. The injected handler does that.
@@ -24,7 +24,7 @@ Restrictions:
 - `GpuCompletion::poll()` hands over finished GPU lanes. Notifications may coalesce, so the loop must drain with `poll`.
 - `SubengineLoop::run_iteration(now)` is one feed pass over the own queue and the shared queue. `outcome.progress()` is true iff at least one node was claimed.
 - `Planner::expand(&Task)` decomposes one task and returns `PlannedOp`s, which the Processor pushes. It may block in `Subengine::activate`. Task expansion is therefore the lowest priority, so that results and feeding are never starved by planning.
-- The caller (the worker thread) waits on `SubengineNotifier`, calls `run_until_idle`, then calls `notify_iteration(progress)` using the returned `WorkerReport`.
+- The caller is the worker-pool thread (see §1). CPU work runs synchronously inside a feed call. GPU work is only launched inside a feed call; after the completion notification any free worker finishes it in `GpuResults`, where `on_finished` passes each `FinishedLane` to the lane resource that owns its tag (`LaneResource::on_finished`, build order 117).
 
 ## 3. Interface
 
@@ -33,20 +33,21 @@ use std::sync::Arc;
 use std::time::Instant;
 use gpu_completion::{GpuCompletion, FinishedLane};
 use subengine_loop::{SubengineLoop, ResourceExec, IterationOutcome};
-use queue_iter::QueueNode;
+use queue::Claim;
 use resource_requirements::HasResourceRequirements;
 
 /// One feed pass of a sub-engine. Non-blocking.
 pub trait FeedStep: Send {
     fn feed(&mut self, now: Instant) -> IterationOutcome;
 }
-impl<N, H> FeedStep for SubengineLoop<N, H>
-where N: QueueNode<Payload = H::Payload>, N::Meta: HasResourceRequirements, H: ResourceExec
+impl<M, P, H> FeedStep for std::sync::Arc<SubengineLoop<M, P, H>>
+where M: HasResourceRequirements + Send + Sync + 'static, P: Send + 'static,
+      H: ResourceExec<Entry = Claim<M, P, (), ()>>
 { /* calls run_iteration(now) */ }
 
-/// Expansion of at most one new task per call (takes it from the task source,
-/// calls `Planner::expand`, hands the PlannedOps to the Processor, and handles
-/// an expansion error itself, e.g. by failing the task).
+/// Expansion of at most one new task per call (takes it from the task source, preferring a
+/// task for an underserved resource, calls `Processor::expand`, and handles an expansion
+/// error itself). Implemented by the Engine-Fassade.
 pub trait ExpandStep: Send {
     /// true = one task was taken and handled, whether its expansion succeeded or failed.
     /// false = no task available. May block only inside Planner::expand (sub-engine activation).

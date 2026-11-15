@@ -18,7 +18,7 @@ Each worker serves itself from the queues by repeatedly calling a work function 
 
 ## 2. Context
 
-- The Queue module (`Queue<M,P,R,E>`) is lock-free and unbounded. It offers `take`, `take_where`, `push`, per-queue epochs and `wait_change`. The Processor only owns the queues (task, CPU, GPU, shared). The Facade implements `WorkSource` and chooses compatible items inside `run_once`, for example with `take_where` over `Operation::requirements()`.
+- The Queue module (`Queue<M,P,R,E>`) is lock-free and unbounded. It offers `take`, `take_where`, `push`, per-queue epochs and `wait_change`. The Processor only owns the queues (task, CPU, GPU, shared). The Facade implements `WorkSource`: `run_once(worker)` runs one step of that worker's `WorkerLoop` (build order 131), which feeds the GPU and CPU sub-engines and expands tasks.
 - Because a worker must wake on a change in any queue, the pool owns one pool-wide `Notifier`. The owner of the `WorkSource` (the Facade) calls `notify()` after every state change: a push, a completion, a GPU completion event, or a stop request.
 - CPU operation: inside `run_once` the worker runs the operation synchronously and completes the claim with the result.
 - GPU operation: inside `run_once` the worker only launches the kernel or copy on its `Lane`. It records an `Event` and returns. After the completion notification, any free worker processes the result as a normal item. The Facade arranges this, not the pool.
@@ -142,8 +142,8 @@ From Queue (used by the Facade's `WorkSource`, not by the pool itself):
 - `Queue::take` and `Queue::take_where(pred)` claim an item atomically (at most one consumer per item). `Claim::complete(self, Result<R,E>)` finalizes it. Dropping a `Claim` without completing sets the state to `Abandoned`.
 - `push` does not notify the pool. The owner of the `WorkSource` (the Facade) must call it after pushes and after completions.
 
-From Operation (informational):
-- `Operation::requirements()` is what the Facade filters on inside `run_once`.
+From Worker-Loop (informational):
+- `WorkerLoop::run_once(now) -> Option<Stage>`; `Some` maps to `Step::Worked`, `None` to `Step::Idle`.
 
 From Device/Lane/Event (informational):
 - `Lane::record_event() -> Result<Event, LaneError>` is what a GPU launch uses to produce a completion marker. The Facade calls `notify()` when that completion is observed. `Event: Send + Sync`.

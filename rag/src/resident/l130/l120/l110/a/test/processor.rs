@@ -51,17 +51,32 @@ fn submit_pushes_into_task_queue() {
         priority: 3,
         ..Default::default()
     };
-    let t = p.submit(7, params.clone());
+    let t = p.submit(7, params.clone(), Some(ResourceKind::Encoder));
     assert_eq!(t.params(), & params);
     assert_ne!(p.task_queue().epoch(Channel::Available), a);
     assert_eq!(p.task_queue().len(), 1);
     let claim = p.task_queue().take().unwrap();
-    assert_eq!(claim.meta(), & params);
+    assert_eq!(claim.meta().params, params);
+    assert_eq!(claim.meta().first_kind, Some(ResourceKind::Encoder));
+}
+#[test]
+fn task_queue_can_be_filtered_by_first_kind() {
+    let p = make(vec![], false);
+    p.submit(1, TaskParams::default(), Some(ResourceKind::Encoder));
+    p.submit(2, TaskParams::default(), None);
+    p.submit(3, TaskParams::default(), Some(ResourceKind::Scorer));
+    let mut claim = p
+        .task_queue()
+        .take_where(|m| m.first_kind == Some(ResourceKind::Scorer))
+        .unwrap();
+    let payload = claim.take_payload().unwrap();
+    assert_eq!(payload.claim().unwrap(), 3);
+    assert_eq!(p.task_queue().len(), 2);
 }
 #[test]
 fn expand_routes_in_order() {
     let p = make(vec![QueueKind::Gpu, QueueKind::Cpu, QueueKind::Gpu], false);
-    let t = p.submit(1, TaskParams::default());
+    let t = p.submit(1, TaskParams::default(), None);
     let tickets = p.expand(&t).unwrap();
     assert_eq!(tickets.len(), 3);
     assert_eq!(tickets[1].0, QueueKind::Cpu);
@@ -74,10 +89,10 @@ fn expand_routes_in_order() {
 #[test]
 fn expand_empty_and_error() {
     let p = make(vec![], false);
-    let t = p.submit(1, TaskParams::default());
+    let t = p.submit(1, TaskParams::default(), None);
     assert!(p.expand(& t).unwrap().is_empty());
     let p = make(vec![QueueKind::Cpu], true);
-    let t = p.submit(1, TaskParams::default());
+    let t = p.submit(1, TaskParams::default(), None);
     assert!(matches!(p.expand(& t), Err(ExpandError::Planner(PErr))));
     assert_eq!(p.ops_queue(QueueKind::Cpu).len(), 0);
 }
@@ -85,7 +100,7 @@ fn expand_empty_and_error() {
 fn queues_are_independent() {
     let p = make(vec![], false);
     let e = p.ops_queue(QueueKind::Cpu).epoch(Channel::Available);
-    p.submit(1, TaskParams::default());
+    p.submit(1, TaskParams::default(), None);
     p.ops_queue(QueueKind::Gpu).push(1, 1);
     assert_eq!(p.ops_queue(QueueKind::Cpu).epoch(Channel::Available), e);
     assert!(std::ptr::eq(p.ops_queue(QueueKind::Gpu), p.ops_queue(QueueKind::Gpu)));

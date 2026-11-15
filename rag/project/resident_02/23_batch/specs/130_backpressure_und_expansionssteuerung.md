@@ -5,7 +5,7 @@
 **Task.** Implement the Rust module `backpressure`. It does three things:
 - It holds the Idle-Notifications as a **set per sub-engine kind** (`ResourceKind`), not as a queue.
 - It lets a notification expire on a hit or when the resource is busy.
-- It decides whether a task may be expanded now, and which waiting task is chosen first. A task may be expanded only if there is an Idle-Notification or the operations queue is empty. A task whose first operation needs an underserved resource is preferred.
+- It decides which waiting task is expanded first: a task whose first operation needs an underserved resource is preferred. It never withholds, delays or refuses an expansion.
 
 **Restrictions.**
 - The module does not expand tasks, call the Planner, or touch queues. It does not claim or enqueue anything.
@@ -19,8 +19,9 @@
 - **Auslastungsmeldung** provides `LoadReport{kind, device, capacity, throughput}`. `capacity == 0` means the sub-engine accepts nothing, i.e. the resource is busy.
 - **Planner** reports the resource kind of the first operation of a task kind in advance (`first_resource_kind(&TaskSpec) -> Option<ResourceKind>`, `first_resource_kind_of_task`). The caller passes this value in. This module never calls the Planner.
 - **Resource-Requirements** provides `ResourceKind`, the sub-engine kind and the key of the "Art".
-- **Queue-Iteration** is not called directly. The caller derives "operations queue empty" from it, e.g. `iter_active(head).next().is_none()` on the operations queues, and passes it in as `bool`.
-- **Caller** (the engine or processor feed side): it calls `report_iteration` after each `run_iteration`, `observe_load` for load reports, and `select` before each expansion. The caller then expands the chosen task through the Planner.
+- Idle notifications are a prioritisation hint for the expansion. Nothing is withheld, delayed or refused: there are three operations queues, so no single "queue empty" condition exists.
+- **Queues** are not used.
+- **Caller** (the Engine-Fassade): its feed steps call `report_iteration` after each `run_iteration`; it calls `observe_load` for load reports. The expansion stage of the Worker-Loop (build order 131) asks `underserved()` and prefers a waiting task whose first resource kind is in that set; otherwise it takes the oldest task.
 
 ## 3. Interface
 
@@ -62,12 +63,9 @@ impl ExpansionControl {
     pub fn underserved(&self) -> Vec<ResourceKind>;
     pub fn has_idle(&self) -> bool;
 
-    /// true iff operations_queue_empty || has_idle().
-    pub fn may_expand(&self, operations_queue_empty: bool) -> bool;
-
-    /// Chooses the index in `candidates` to expand next, or None if expansion is not allowed
-    /// (or candidates is empty). Does not change any state.
-    pub fn select<T>(&self, operations_queue_empty: bool, candidates: &[Candidate<T>]) -> Option<usize>;
+    /// Chooses the index in `candidates` to expand next; None only if `candidates` is empty.
+    /// Does not change any state and never withholds an expansion.
+    pub fn select<T>(&self, candidates: &[Candidate<T>]) -> Option<usize>;
 }
 ```
 
@@ -91,12 +89,10 @@ impl ExpansionControl {
 - `observe_load(r)` with `r.capacity == 0` removes **all** notifications of `r.kind`. The report does not identify the resource key. Reports with `capacity > 0` change nothing and create no notification.
 - Notifications otherwise never expire: no time decay, and expansion does not consume them.
 
-**Expansion permission**
-- `may_expand(empty)` is `empty || has_idle()`.
-- `select` returns `None` if `candidates` is empty or `may_expand(empty)` is false.
-- Otherwise `select` returns the index of the **first** candidate whose `first_kind` is `Some(k)` with `k` in `underserved()`. If there is none, it returns index `0`, the oldest candidate. This fallback also applies to candidates with `first_kind == None`.
+**Selection**
+- `select` returns `None` only if `candidates` is empty.
+- Otherwise it returns the index of the first candidate whose `first_kind` is `Some(k)` with `k` in `underserved()`. If there is none, it returns index `0`, the oldest candidate; this also applies to candidates with `first_kind == None`.
 - Candidate order is the caller's fairness order, and `select` keeps it among equals.
-- When permission comes from an empty queue with no notifications, no kind is underserved, so the result is `Some(0)`.
 - `select` is pure and repeatable for an unchanged state.
 
 **Concurrency**
@@ -117,4 +113,4 @@ impl ExpansionControl {
 - `auslastungsmeldung`: `LoadReport{kind: ResourceKind, device: DeviceHandle, capacity: usize, throughput: f64}`. `capacity == 0` means it accepts nothing.
 - `resource_requirements`: `ResourceKind` is `#[non_exhaustive]` and `Copy + Eq + Hash + Ord`. Handle it only through equality and hashing, with no exhaustive matches.
 - Planner (used by the caller, not here): `first_resource_kind(&TaskSpec) -> Option<ResourceKind>`. For Embedding it is `Tokenizer`, for a Similarity with a scorer it is `Scorer`, for a Similarity with a cross-encoder it is `Tokenizer`, and for `TaskSpec::Other` it is `None`. It equals the `resource.kind()` of the first operation produced.
-- Queue-Iteration (used by the caller): `iter_active(head)` is non-blocking, and an empty iteration means no active entry.
+- Queues: not used.

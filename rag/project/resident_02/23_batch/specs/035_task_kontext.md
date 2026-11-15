@@ -23,15 +23,15 @@ Restrictions:
 
 ## 2. Context
 
-The system uses one `TaskContext` per task. Every operation of the task holds an `Arc` clone, and operations are queue entries (`Task`/`EntryState`).
+The system uses one `TaskContext` per task. Every operation of the task holds an `Arc` clone. Operations are items of the take-based operations queues (`queue::Queue`); their payload (`step_completion::StepPayload`) holds the clone.
 
 How the neighbors interact with this module:
 - **Creation:** The queue or operation creator creates the context with the initial number of open operations.
 - **Follow-ups:** An operation that produces follow-up operations calls `register_follow_ups(n)` **before** it enqueues them and **before** it calls `complete_operation()` for itself. The queue module appends the follow-ups at the end of the queue.
 - **Completion:** A worker calls `complete_operation()` after finishing an operation. A `true` return means the task has completed successfully.
 - **Failure:** A worker calls `fail(e)` on an error. This cancels the task.
-- **Claim check:** The queue or worker checks `is_cancelled()` when claiming. Operations of a cancelled task must fail the claim. This module only provides the flag. The claim itself is done by `queue_state`.
-- **Completion tracking:** Task completion is tracked only by this counter, never by the result of the `queue_state` entry.
+- **Cancel check:** The step completion (`StepPayload::finish`) checks `is_cancelled()` after the operation ran and discards its output. The operations queue has no cancel state. This module only provides the flag.
+- **Completion tracking:** The counter tells when every operation of the task is accounted for. The `Task` itself is completed by the operation node that ends the chain (`OperationNode::advance` with `ends_chain() == true`). In a linear chain the `true` of `complete_operation()` belongs to that same step.
 - **Types:** `priority: i32` matches `TaskParams.priority` of Task-Modell. `E` is the worker error type, as in `Task<D,T,E>`.
 
 ## 3. Interface
@@ -108,4 +108,4 @@ impl<E> TaskContext<E> {
 None are taken verbatim. The module only aligns with the following, from Task-Modell and Queue-Zustandsmodell:
 - `TaskParams.priority: i32`.
 - The error type `E` is the same one used in `Task<D,T,E>`.
-- Operations that find the task cancelled via `is_cancelled()` must fail the claim. The claim error for that case is `ClaimError::Cancelled` of `queue_state`. Producing it is not the job of this module.
+- Operations that find the task cancelled via `is_cancelled()` discard their output (`StepPayload::finish`). This module does not produce that behavior.

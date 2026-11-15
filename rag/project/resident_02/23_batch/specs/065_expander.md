@@ -10,7 +10,7 @@ Es unterstützt zwei Task-Arten:
 
 Einschränkungen:
 - Es ist zustandslos. Es hat keine Queues, Worker und Notification und startet keine Subengines.
-- Es führt keine Operation aus und baut keine `Operation<R>` (keine Regionen, keine `TaskId`, keine Priority). Der Planner baut daraus die `Operation<R>`.
+- It executes no operation and builds no `Operation<R>` (no regions, no `TaskId`, no priority). In the reference engine `PlannedOperation` itself is the operation of an operation node (`OperationNode<PlannedOperation, ..>`); nobody builds an `Operation<R>` from it.
 - Das Ergebnis hängt nicht von Nutzdaten ab. Texte, Query-Vektoren und Payload werden nicht gelesen.
 - Es führt keine I/O aus, hat keinen globalen Zustand und keinen `unsafe`-Code. Einzige Nebenwirkung ist der Debug-Log.
 - Zusätzliche Crate-Abhängigkeit: `log`.
@@ -88,8 +88,8 @@ pub type PipelineConfigs = HashMap<String, PipelineConfig>;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct IdleNotification { pub idle_devices: Vec<DeviceKind> }
 
-/// Eine geplante Operation samt Konfiguration.
-#[derive(Clone, Debug)]
+/// A planned operation with its configuration.
+#[derive(Clone, Debug, PartialEq)]
 pub struct PlannedOperation {
     pub kind: OperationKind,
     pub descriptor: OperationDescriptor,
@@ -97,8 +97,8 @@ pub struct PlannedOperation {
     pub config: OperationConfig,
 }
 
-/// Nicht belegte Felder sind None.
-#[derive(Clone, Debug, Default)]
+/// Fields that are not used are None.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct OperationConfig {
     pub index: Option<IndexId>,
     pub tokenizer: Option<ModelId>,
@@ -229,7 +229,7 @@ Genau drei Operationen:
 ## 5. Relied-on elements
 
 - `operation`:
-  - `OperationKind` (`#[non_exhaustive]`) mit den Varianten `Tokenization`, `Embedding`, `Pooling`, `L2Normalization`, `Similarity`, `TopK`, `IndexWrite`, `Inference`.
+  - `OperationKind` (`#[non_exhaustive]`) with the variants `Tokenization`, `Embedding`, `Pooling`, `L2Normalization`, `Similarity`, `TopK`, `IndexWrite`, `Inference`, `DeviceToRam`. The mapping treats the enum as `#[non_exhaustive]`; the expander never produces `DeviceToRam`.
   - `OperationParams::new(operation::ResourceRequirements{resource, model, mode})`, mit `with_top_k(usize)` und `with_dimension(usize)` (jeweils `self` konsumierend).
   - `OperationDescriptor::new(kind, params)`.
   - `operation::ResourceRequirements` hat die Felder `resource`, `model` und `mode`, alle `Option<String>` (`Default`).

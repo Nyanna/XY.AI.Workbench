@@ -33,4 +33,6 @@
 - Batch zur Erstellung der Spezifikationen starten (23_batch/batch_specs.py -> 23_batch/specs)
 
 - Implementierungslauf
+- Braucht korrekturen mehrfach Konflikte mit nicht passenden Interfaces oder duplizierten Aspekten
+	- Ein Review der Modulhierarchy (vielleicht mit Opus) wäre sinnvoll -> auf redundanzen Prüfen
 ...
