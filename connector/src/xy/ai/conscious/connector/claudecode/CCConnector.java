@@ -88,32 +88,38 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     CCSessionParameters params = new CCSessionParameters(req.arg.project, fc.systemPrompt, fc.tools, fc.model, fc.reasoning, fc.profile, fc.keys, fc.cacheMode, relativeFilePath);
     params.setTitle(req.title);
     Command command = req.arg.command;
+    // A follow-up (e.g. auto-approved answer) stays in the session it originates from; only a fresh,
+    // user-triggered prompt falls back to the session currently selected in the UI.
+    String selectedUuid = req.arg.sessionUuid != null ? req.arg.sessionUuid : sessionManager.getSelectedSessionUuid();
     if (command instanceof ResumeCommand rc) {
       sub.setTaskName("Importing session");
       sessionManager.importSession(rc.parameter(0), params);
       return new CCResponse(req.id, "Session created");
     }
     if (command instanceof ExitCommand) {
-      session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
+      session = sessionManager.getSession(selectedUuid, params);
       sub.setTaskName("Terminating CLI process");
       session.terminate();
       return new CCResponse(req.id, "Session closed!");
     }
     if (command instanceof AnswerCommand ac) {
+      // resolve the session first: do not answer the control request if its session is gone
+      session = sessionManager.getSession(selectedUuid, params);
       ts.control(() -> controlClient.answer(ac.parameter(0), ac.action(), ac.parameter(2), ac.yaml()));
-      session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command instanceof CallCommand) {
       if (req.arg.yaml == null || req.arg.yaml.isBlank())
         throw new IllegalArgumentException("No preceding ```yaml block found before /call");
+      session = sessionManager.getSession(selectedUuid, params);
       if (!ts.control(() -> controlClient.submitEdit(req.arg.yaml)))
         throw new IllegalArgumentException("Invalid or incomplete edit YAML block");
-      session = sessionManager.getSession(sessionManager.getSelectedSessionUuid(), params);
     } else if (command == null) {
       sub.setTaskName("Acquiring session");
-      session = sessionManager.requestSession(sessionManager.getSelectedSessionUuid(), params);
+      session = sessionManager.requestSession(selectedUuid, params);
     } else
       throw new UnsupportedOperationException("Unsupported command: " + command.prefix());
     try {
+      if (req.arg.sessionUuid == null)
+        req.arg.sessionUuid = session.getSessionUuid();
       session.setInPrompt(true);
       if (command == null) {
         if (AgentProfile.MCPC.equals(session.getParameters().agentProfile) && !ts.control(() -> controlClient.isMCPCAvailable()))

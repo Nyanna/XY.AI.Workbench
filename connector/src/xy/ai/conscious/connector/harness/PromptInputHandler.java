@@ -50,17 +50,13 @@ public class PromptInputHandler {
     return new Prompt(arg.inputs, batch, frozen, arg);
   }
 
-  /**
-   * Builds the prompt an operator would have triggered with the given selection,
-   * taking file, project and config from the originating prompt instead of the
-   * editor.
-   */
   public Prompt followUp(Prompt origin, Selection sel) {
     PromptArguments arg = new PromptArguments();
     arg.setEditor(origin.arg.getEditor());
     arg.absoluteFilePath = origin.arg.absoluteFilePath;
     arg.project = origin.arg.project;
     arg.processorEnabled = origin.arg.processorEnabled;
+    arg.sessionUuid = origin.arg.sessionUuid;
     detectSelection(sel, arg);
     return new Prompt(arg.inputs, origin.batch, origin.config.copy(), arg);
   }
