@@ -71,9 +71,21 @@ public class AutoApprover {
     ApprovalItem call = sessions.callFor(session.id(), item);
     ApprovalContext ctx = new ApprovalContext(ans, ans.prompt, item, call, session, registry, depth);
     Decision decision = decide(ctx, collect(ctx));
+    omitDenied(ans, decision);
     enrich(ans, decision.warnings());
     publish(decision);
     return decision;
+  }
+
+  /**
+   * A denied tool result must not end up in the prompt file: the answer is
+   * replaced by a short marker; the reason reaches the agent by the follow-up.
+   */
+  private static void omitDenied(AIAnswer ans, Decision decision) {
+    ApprovalItem item = decision.item();
+    if (decision.result() != ApprovalResult.Deny || item == null || item.kind() != Kind.ToolResult)
+      return;
+    ans.answer = "//denied: tool result " + item.id() + " omitted";
   }
 
   public Optional<FollowUp> onIdle(String sessionId) {
@@ -146,10 +158,12 @@ public class AutoApprover {
   }
 
   private static ApprovalResult resultFor(ApprovalItem item, boolean deny, boolean hold, boolean allow) {
-    if (item == null || item.id().isBlank() || item.kind() == Kind.ToolResult)
+    if (item == null || item.id().isBlank())
       return ApprovalResult.Pass;
     if (deny)
       return ApprovalResult.Deny;
+    if (item.kind() == Kind.ToolResult)
+      return ApprovalResult.Pass;
     if (hold || !allow)
       return ApprovalResult.Pass;
     return item.kind() == Kind.ToolCall ? ApprovalResult.Call : ApprovalResult.Allow;
@@ -186,9 +200,9 @@ public class AutoApprover {
   }
 
   private static String denial(ApprovalItem item, String reason) {
-    String tool = item.tool().isBlank() ? "" : " (" + item.tool() + ")";
+    String tool = item.tool() == null || item.tool().isBlank() ? "" : " (" + item.tool() + ")";
     String why = oneLine(reason);
-    return "Tool call " + item.id() + tool + " was denied" + (why.isEmpty() ? "." : ": " + why);
+    return (item.kind() == Kind.ToolResult ? "Tool result " : "Tool call ") + item.id() + tool + " was denied" + (why.isEmpty() ? "." : ": " + why);
   }
 
   private static String command(String base, String extra) {
