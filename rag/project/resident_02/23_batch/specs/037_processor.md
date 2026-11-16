@@ -20,7 +20,7 @@ It calls the Planner to expand tasks into operations.
 
 - `Queue<M,P,R,E>` is a lock-free MPMC queue with the channels `Available` and `Completed` and with `take`, `take_where`, `epoch` and `wait_change`.
 - `Task<D,T,E>` is a cheap handle with its own state and result. Its params are `TaskParams`.
-- Producers call `Processor::submit`. A task is pushed into the task queue as `Queue<TaskParams, Task<D,T,E>, (), ()>`, with the task handle as payload.
+- Producers call `Processor::submit`. A task is pushed into the task queue as `Queue<TaskMeta, Task<D,T,E>, (), ()>`, with the task handle as payload. `TaskMeta` holds the task params and the resource kind of the task's first operation, if the caller knows it.
 - The Planner turns a task into operations. The Processor pushes these into the operations queue of the matching kind: `Queue<O, V, R, OE>`. `O` is the operation metadata, and `V` is the values payload.
 - Workers take from the queues, and waking is done by `worker_pool::Notifier`, which the caller of `submit` triggers.
 - The Planner module's spec was pending when this spec was written. The `Planner` trait in §3 is the only contract the Processor assumes of it.
@@ -30,6 +30,7 @@ It calls the Planner to expand tasks into operations.
 ```rust
 use std::sync::Arc;
 use queue::{Queue, Ticket, Channel};
+use resource_requirements::ResourceKind;
 use task_model::{Task, TaskParams};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -48,7 +49,12 @@ pub trait Planner<D, T, E, O, V>: Send + Sync {
 #[derive(Debug)]
 pub enum ExpandError<PE> { Planner(PE) }
 
-pub type TaskQueue<D, T, E> = Queue<TaskParams, Task<D, T, E>, (), ()>;
+/// Task-queue metadata: the task params and the resource kind of the task's first operation, if known.
+/// The Processor does not interpret either.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TaskMeta { pub params: TaskParams, pub first_kind: Option<ResourceKind> }
+
+pub type TaskQueue<D, T, E> = Queue<TaskMeta, Task<D, T, E>, (), ()>;
 pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
 
 pub struct Processor<D, T, E, O, V, R, OE, PL> { /* private */ }
@@ -58,9 +64,9 @@ impl<D, T, E, O, V, R, OE, PL> Processor<D, T, E, O, V, R, OE, PL>
 where PL: Planner<D, T, E, O, V> {
     pub fn new(planner: PL) -> Arc<Self>;
 
-    /// Create a Task, push (params.clone(), task.clone()) into the task queue,
+    /// Create a Task, push (TaskMeta { params: params.clone(), first_kind }, task.clone()) into the task queue,
     /// and return the handle. Never blocks, never fails.
-    pub fn submit(&self, data: D, params: TaskParams) -> Task<D, T, E>;
+    pub fn submit(&self, data: D, params: TaskParams, first_kind: Option<ResourceKind>) -> Task<D, T, E>;
 
     /// Call the Planner for `task` and push each PlannedOp into the operations queue of its kind
     /// (order of the returned Vec preserved). Returns a ticket per op, in order.
@@ -80,7 +86,8 @@ where PL: Planner<D, T, E, O, V> {
 - `task_queue()` and `ops_queue(k)` return the same instance on every call. `ops_queue(Cpu)`, `ops_queue(Gpu)` and `ops_queue(Shared)` are three distinct instances.
 
 **submit**
-- The new task is `Enqueued` and has the given params. The task queue gets exactly one item whose meta equals `params` and whose payload is a clone of the returned handle (same task).
+- The new task is `Enqueued` and has the given params. The task queue gets exactly one item whose meta equals `TaskMeta { params, first_kind }` and whose payload is a clone of the returned handle (same task).
+- The Processor does not interpret `first_kind`. It only stores it for the caller that later takes tasks with `take_where`.
 - `Channel::Available` of the task queue is bumped by the push. Nothing else is notified.
 
 **expand**
@@ -110,3 +117,6 @@ From `Task-Modell`:
 - `Task::new(data, TaskParams) -> Task`, `params() -> &TaskParams`.
 - `TaskParams { priority: i32, resource: Option<String>, model: Option<String>, mode: Option<String> }` is `Clone + Default`.
 - `claim`, `complete`, `cancel` and `wait` exist. The Processor does not call them.
+
+From `resource_requirements`:
+- `ResourceKind` is `Copy + Eq + Hash`. The Processor only stores it in `TaskMeta`.

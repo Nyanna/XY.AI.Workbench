@@ -70,7 +70,6 @@ impl NotificationTopology {
 - `notify_iteration(true)` calls the wake function once. `notify_iteration(false)` does nothing, so an iteration without progress does not wake the workers by itself and cannot cause a busy loop.
 - Signals sent while no worker is parked are not lost: the worker pool compares epochs before parking (build order 56). Several signals may lead to one wake-up.
 
-
 **Concurrency**
 - All methods are callable concurrently from any thread or task through `&self` or clones. No lock is held and nothing is lost.
 - A signal wakes all parked workers. Any of them may handle the event.

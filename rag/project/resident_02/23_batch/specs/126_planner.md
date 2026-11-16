@@ -40,7 +40,7 @@ use model_registry::ModelRegistry;
 use operation::{OperationDescriptor, OperationKind, TaskId};
 use processor::{PlannedOp, QueueKind};
 use resource_requirements::{IndexId, ModelId, ResourceKind, ResourceRequirements, ExecutionEnvironment};
-use task_model::Task;
+use task_model::{ClaimError, Task};
 
 /// Which expander applies to (model, task kind).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -187,6 +187,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
     pub fn resource_status(&self, kind: ResourceKind, model: Option<&ModelId>) -> ResourceStatus;
     /// Resource kind of the first operation of this task kind, reported in advance.
     pub fn first_resource_kind(&self, spec: &TaskSpec) -> Option<ResourceKind>;
+    /// The Engine puts this value into the task-queue metadata (`processor::TaskMeta.first_kind`).
     pub fn first_resource_kind_of_task(&self, task: &Task<D, T, E>) -> Option<ResourceKind>;
     /// Placement of one step created at run time (stepwise mode). Queue assignment and
     /// materialization as in `expand` (`next` = the following step, if known); announces the

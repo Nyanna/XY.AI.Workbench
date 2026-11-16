@@ -21,7 +21,7 @@
 ## 2. Context
 
 - **Planner** drives `CpuSubengine` through the `Subengine` trait: `start`, `capabilities`, `offers`, `announce`, `activate`, `is_loaded`. All except `is_loaded` delegate unchanged to the `SubengineCore`. Activation creates only lanes and loads nothing.
-- **Subengine-Loop / Lane-Batching.** `LaneResource` (one worker thread per `Lane`) executes claimed payloads. `CpuSubengine` supplies the lanes (topology) and the `BatchRunner` (`cpu_runner`). Inside the runner every operation runs synchronously on the lane's worker thread. It returns its result, to the task and to index callers, before the runner returns.
+- **Subengine-Loop / Lane-Batching.** `LaneResource` executes claimed payloads on the worker-pool thread that claimed them. `CpuSubengine` supplies the lanes (topology) and the `BatchRunner` (`cpu_runner`). Inside the runner every operation runs synchronously on that worker thread, and `run` returns `Launch::Finished`. It returns its result, to the task and to index callers, before the runner returns.
 - **Memory.** Index segments are RAM regions described as `IndexSegment` (`RegionHandle` + `Layout`). Handle resolution is done only by the injected `HostSegments`.
 - **Lifecycle.** All CPU resources are registered with `MemoryClass::Ram`. The RAM TTL is much shorter than the VRAM TTL. The `LifecycleConfig` is validated by `LifecycleConfig::new`.
 - **Calibration.** It runs on a `BackgroundPool` (low-priority OS threads, no async runtime) and is never run on lane threads.
@@ -51,7 +51,7 @@ use manager::{LazyIndex, Manager, ManagerConfig, ManagerError, SlotAddr, SlotTra
 use memory_access::TensorRef;
 use model_descriptor::ModelDescriptor;
 use model_registry::{LoadedEncoder, ModelRegistry};
-use queue_iter::QueueNode;
+use queue::Queue;
 use resource_lifecycle::{Lease, LifecycleConfig, ResourceKey};
 use resource_requirements::{IndexId, ModelId, ResourceKind};
 use subengine_core::{IndexSegment, QueueRegistrations, SubengineCore, SubengineError};
@@ -204,9 +204,9 @@ impl CpuSubengine {
     pub fn register_model(&self, model: ModelId, setup: ModelSetup) -> Result<(), CpuError>;
 
     /// Builds the LaneResource: one Lane (no stream) per topology lane; cfg.device must be DeviceHandle::Cpu.
-    pub fn lane_resource<N>(self: &Arc<Self>, cfg: LaneResourceConfig<N>,
-                            runner: Arc<dyn BatchRunner<N::Payload>>) -> Result<Arc<LaneResource<N>>, CpuError>
-    where N: QueueNode, N::Payload: BatchPayload, N::Meta: lane_batching::BatchMeta + resource_requirements::HasResourceRequirements;
+    pub fn lane_resource<M, P>(self: &Arc<Self>, cfg: LaneResourceConfig<M, P>,
+                                runner: Arc<dyn BatchRunner<P>>) -> Result<Arc<LaneResource<M, P>>, CpuError>
+    where P: BatchPayload, M: lane_batching::BatchMeta + resource_requirements::HasResourceRequirements + Send + Sync + 'static;
 
     /// End-of-iteration eviction of all CPU resources and kernels. Returns evicted keys. Also marks idle residency ranges cold.
     pub fn evict_expired(&self, now: Instant) -> Vec<ResourceKey>;
@@ -328,6 +328,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 **4.8 Runner.**
 - `cpu_runner(sub).run(lane, batch)` builds a `CpuContext` and calls `P::execute_batch(batch, &ctx)`. It returns when all work is done. Panics are left to `lane_batching`, which catches them.
 - It adds no scheduling, batching or locking. The context is cheap to create and holds no state.
+- For the reference payload (`EngineStep`, build order 135) `execute_batch` runs each task's operation and then calls `step.finish(output, &*sink)`; on an execution error, or when `finish` returns an error, it calls `step.fail(error, || 0)`. One task's error never affects the other tasks of the batch. `collect` is never called for CPU lanes.
 
 **4.9 Calibration.**
 - `calibrate` submits one job to the calibration `BackgroundPool`, whose threads have the lowest scheduling priority. The caller gets a `JobFuture`.

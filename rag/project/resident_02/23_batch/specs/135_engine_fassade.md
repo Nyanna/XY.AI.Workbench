@@ -11,19 +11,22 @@
 **Restrictions.**
 - The facade implements no planning, expansion, operation execution, resource loading, scheduling or queue logic. It only wires and delegates.
 - It never calls `Subengine::announce` or `activate`, `ModelRegistry::load_encoder` or `encoder_resource`, or `Index` methods.
-- It never claims or completes a `Task`. It only cancels tasks (see §4, Shutdown, and the plan-error rule).
+- It never claims a `Task`. It cancels tasks (see §4, Shutdown) and completes a task only after an expansion error (see §4, expansion stage).
 - No `unsafe`, no globals. Crates: `log`, `std`.
 - Out of scope: restart after shutdown, dynamic model/index/sub-engine changes after start, feeding `Planner::set_idle` (callers may use `Engine::planner()`).
 
 ## 2. Context
 
-- **Processor** owns the task queue, the three operations queues. `submit(data, params)` pushes a task. `expand(&task)` calls the Planner and pushes the planned ops. It has no worker loop. It is constructed as `Processor::new(planner)`.
+- **Processor** owns the task queue, the three operations queues. `submit(data, params, first_kind)` pushes a task. `expand(&task)` calls the Planner and pushes the planned ops. It has no worker loop. It is constructed as `Processor::new(planner)`.
 - **Planner** (`planner::Planner<D,T,E,V>`) implements `processor::Planner<D,T,E,OpMeta,V>`. It is configured through `PlannerBuilder`: sub-engines, models, default model, indexes. `Planner::start` starts the sub-engines. It is the only place they are started.
-- **Worker-Pool** (`worker_pool::WorkerPool`) runs threads that call `WorkSource::run_once`. The facade supplies the `WorkSource` (the task dispatcher). The worker count is only the number of dispatcher threads. Sub-engines pull operations with their own lanes.
-- **Subengine** (`planner::Subengine`, e.g. `ComputeSubengine`) pulls operations from the Processor's ops queues. Dropping the last `Arc` of a `ComputeSubengine` shuts it down.
+- **Worker-Pool** (`worker_pool::WorkerPool`) runs the engine's only worker threads, which call `WorkSource::run_once`. The facade's `WorkSource` holds one `WorkerLoop` (build order 131) per worker: GPU results, GPU feeds, CPU feeds and task expansion.
+- **Subengine** (`subengine::SubengineHandle`, build order 134) wraps a concrete CPU or GPU sub-engine (build orders 137, 139). Its feeds pull operations from the Processor's ops queues inside the workers' `WorkerLoop`.
 - **Modellregister** (`Arc<ModelRegistry>`) is passed to the Planner. The model set is fixed before start.
 - **Index contract** (`index_contract::Index`) is what registered indexes implement. The facade only stores them.
-- **Queue** and **Queue state** are used for the task queue: `Queue<TaskParams, Task<D,T,E>, (), ()>`.
+- **Queue** and **Queue state** are used for the task queue: `Queue<TaskMeta, Task<D,T,E>, (), ()>` (`processor::TaskQueue`). `TaskMeta { params: TaskParams, first_kind: Option<ResourceKind> }` carries the task params and the resource kind of the task's first operation.
+- **Step completion** (`step_completion`, build order 66a): the reference payload is `EngineStep { step: StepPayload<OpMeta, PlannedOperation, ChainInput, StepOutput, D, E>, sink: Arc<dyn FollowUpSink<OpMeta, StepPayload<OpMeta, PlannedOperation, ChainInput, StepOutput, D, E>>> }`, and the operations queues are `Queue<OpMeta, EngineStep<D, E>, (), ()>`. The Engine implements the sink: `submit(Some(meta), payload)` wraps the payload into an `EngineStep` with the same sink, sets `meta.batch` from it, pushes into `ops_queue(meta.queue)` and calls `NotificationTopology::notify_push()`; `submit(None, payload)` first calls `Planner::place_step` for the node's operation.
+- **Expansion control** (`backpressure`, build order 130): the feed steps report every iteration with `report_iteration`; the expansion stage prefers tasks for underserved resources. Nothing is withheld.
+- **Notification** (`notification_topology`, build order 92): created with the worker pool's `Notifier::notify` as wake function.
 - The Queue-Iteration module is not used by the facade.
 
 ## 3. Interface
@@ -86,6 +89,8 @@ where D: Send + 'static, T: Send + Sync + 'static, E: Send + Sync + 'static,
     pub fn task_resolver(self, r: Arc<dyn TaskResolver<D, T, E>>) -> Self;
     /// Required. Passed to `PlannerBuilder::new`.
     pub fn value_builder(self, v: Arc<dyn ValueBuilder<D, T, E, V>>) -> Self;
+    /// Required. Maps an expansion error to the task error for tasks the Planner already claimed.
+    pub fn plan_error(self, f: Arc<dyn Fn(&PlanError) -> E + Send + Sync>) -> Self;
     /// Prebuilt sub-engine (the caller wired its queues). Configuration order is kept.
     pub fn subengine(self, s: Arc<dyn Subengine>) -> Self;
     /// Sub-engine created at `start` from the Engine's queues. `name` must equal `Subengine::name()`.
@@ -136,7 +141,8 @@ impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE> {
 - `start()` checks the required fields in this order. The first missing one returns `Err(EngineError::Config { field })`:
   1. `"model"` (no `model()` call),
   2. `"task_resolver"`,
-  3. `"value_builder"`.
+  3. `"value_builder"`,
+  4. `"plan_error"`.
 - Display of the missing-model error: `Konfigurationsfehler: Pflichtfeld 'model' fehlt`. The field name `model` appears in the message.
 - Duplicate index IDs return `DuplicateIndex(id)`. This is checked before anything is created.
 - Start sequence after validation. The first error aborts, and everything already created is dropped (sub-engines stop via Drop):
@@ -144,7 +150,7 @@ impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE> {
   2. Build the `Planner`, share it as `Arc`, and create the `Processor` through a thin forwarding newtype that implements `processor::Planner`.
   3. Run each `subengine_with` factory with the `EngineWiring`, in configuration order, and bind the result into its deferred wrapper. A factory error becomes `Subengine{name, reason}`. A wrapper's `name()` is the configured name. A wrapper forwards all `Subengine` methods to the bound instance. Before binding, `start()` and `activate()` return `Err("nicht gebunden")`. Binding happens before step 4, so the Planner never sees an unbound wrapper.
   4. `Planner::start()`. A failure becomes `Planner(StartFailed{..})`.
-  5. `worker_pool::WorkerPool::start(cfg, dispatcher)`. A failure becomes `Pool(text)`.
+  5. Build one `WorkerLoop` per worker (feeds from every `SubengineHandle::feeds_for_worker`, the shared `GpuCompletion`, `on_finished` routing over the handles, and the expansion step) and `worker_pool::WorkerPool::start(cfg, work_source)`. A failure becomes `Pool(text)`.
 - After a successful `start()` the engine is ready. `start` creates no model or device resources:
   - The facade calls neither `announce` nor `activate` nor any registry load.
   - Every `is_index_loaded` is `Some(false)`.
@@ -155,20 +161,21 @@ impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE> {
 - The same IDs are passed to the Planner (`PlannerBuilder::index`), so `engine.planner().indexes()` lists them.
 
 **Enqueue**
-- `enqueue` calls `Processor::submit(data, params)`, then `Notifier::notify()` of the Worker-Pool. It never blocks and returns the task handle in state `Enqueued` with the given params.
-- `enqueue_embedding` and `enqueue_similarity` behave exactly like `enqueue`. The facade does not inspect `data`. The task kind is determined by the `TaskResolver` at expansion.
+- `enqueue` calls `Processor::submit(data, params, None)`, then `Notifier::notify()` of the Worker-Pool. It never blocks and returns the task handle in state `Enqueued` with the given params.
+- `enqueue_embedding` and `enqueue_similarity` behave like `enqueue`, except that they pass `Planner::first_resource_kind_of_task(..)` as `first_kind` to `Processor::submit`. The Processor stores it in `TaskMeta.first_kind` and does not interpret it. The facade does not inspect `data`. The task kind is determined by the `TaskResolver` at expansion.
 - After shutdown has begun, `enqueue*` returns `Err(ShutDown)` and submits nothing.
 - Enqueues are guarded by a read lock on the `closed` flag, held across submit and notify. Shutdown sets the flag under the write lock. Therefore every task accepted before shutdown is either taken by a worker or cancelled by shutdown, and none is lost.
 
-**Task dispatcher (`WorkSource`, internal, observable)**
-- `run_once` does the following:
-  1. `task_queue().take()`. If it returns `None`, the result is `Step::Idle`.
-  2. Take the payload (the `Task` handle).
-  3. If the task is already `Completed` or `Cancelled`, skip expansion. Otherwise call `Processor::expand(&task)` once and drop the tickets.
-  4. If `expand` fails (`ExpandError::Planner`), log `warn!` and call `task.cancel()`. Waiters then get `Cancelled`.
-  5. Always `claim.complete(Ok(()))`, then return `Step::Worked`.
-- The dispatcher never claims or completes a `Task`. Claiming and completing is up to the injected components (ValueBuilder/operations).
-- If `closed` is set, `run_once` returns `Idle` without taking anything.
+**Work source and expansion stage (internal, observable)**
+- `run_once(worker)` locks that worker's `WorkerLoop` and calls `run_once(Instant::now())`. `Some(_)` gives `Step::Worked`, `None` gives `Step::Idle`.
+- The expansion stage (`ExpandStep::expand_next`) does, in this order:
+  1. If `closed` is set, return `false`.
+  2. Take a task from the task queue: if `ExpansionControl::underserved()` is not empty, first try `take_where(|m| m.first_kind.map_or(false, |k| underserved.contains(&k)))` (`m` is the `TaskMeta`) for a task whose first kind is underserved; otherwise, or if that gives `None`, `take()`. `None` returns `false`.
+  3. Take the payload (the `Task` handle). If the task is already `Completed` or `Cancelled`, skip expansion. Otherwise call `Processor::expand(&task)` once, drop the tickets and call `NotificationTopology::notify_push()`.
+  4. If `expand` fails (`ExpandError::Planner(e)`), log `warn!`. If the task is `Claimed`, call `task.complete(Err(plan_error(&e)))`; otherwise call `task.cancel()`.
+  5. Always `claim.complete(Ok(()))`, then return `true`.
+- The facade never claims a `Task`. The Planner claims it inside `expand`; the operation node that ends the chain completes it. The facade completes it only after an expansion error (step 4).
+- A task that the Planner claimed cannot be cancelled with `Task::cancel` (it returns `false`); its chain runs to the end.
 - `expand` may block in `Subengine::activate`. This is backpressure and is not interrupted.
 
 **Shutdown (strict order)**
@@ -189,9 +196,9 @@ impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE> {
 
 - `processor`:
   - `Processor::new(planner) -> Arc<Self>`.
-  - `submit(&self, D, TaskParams) -> Task`: never blocks or fails.
+  - `submit(&self, D, TaskParams, Option<ResourceKind>) -> Task`: never blocks or fails.
   - `expand(&self, &Task) -> Result<Vec<(QueueKind, Ticket)>, ExpandError<PL::Error>>`: does not claim, complete or cancel the task.
-  - `task_queue() -> &Queue<TaskParams, Task<D,T,E>, (), ()>`.
+  - `task_queue() -> &TaskQueue<D,T,E>`, with `TaskQueue<D,T,E> = Queue<TaskMeta, Task<D,T,E>, (), ()>` and `TaskMeta { params: TaskParams, first_kind: Option<ResourceKind> }` (`Debug, Clone, PartialEq`).
   - `ops_queue(QueueKind) -> &Queue<O,V,R,OE>`.
   - `processor::Planner<D,T,E,O,V>` trait with `type Error` and `expand`.
   - `QueueKind { Cpu, Gpu, Shared }`.
@@ -203,6 +210,7 @@ impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE> {
   - `Planner::indexes()`, `resource_status`.
   - `PlannerConfigError` (`Debug, Clone, PartialEq, Eq, Display, Error`).
   - `OpMeta`.
+  - `Planner::first_resource_kind_of_task` (resource kind of the first operation of a task, reported in advance) and `Planner::place_step`.
   - `trait Subengine: Send + Sync { name, start, capabilities, offers, announce, activate, is_loaded(ResourceKind, Option<&ModelId>) }`.
   - Planner `expand` is called by the Processor, once per task. It blocks only in `activate`.
 - `worker_pool`:

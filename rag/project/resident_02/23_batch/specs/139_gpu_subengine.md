@@ -23,7 +23,7 @@
 - The module is **not coupled** to concrete kernels, models or indexes. It knows them only as `ResourceKey`, `ModelId`, `IndexId`, `Kernel` and `Index` through the interfaces below.
 - All CUDA calls sit behind `GpuBackend` (§3). The module contains no `unsafe`, no `cudarc` or `candle_core` import, and no globals.
 - All device work goes through lanes with a stream, via `SubengineCore::with_lane` or a `LaneResource`. The default stream is never used.
-- The module starts an operation on a free lane and **returns without waiting for the result**. A worker processes the result after the completion notification (`LaneResource` and `notify_result`). The module adds no polling and no blocking waits.
+- The module starts an operation on a free lane and **returns without waiting for the result**: its `BatchRunner::run` launches the batch and returns `Launch::Pending`; the `LaneResource` hands lane and event to `GpuCompletion`. After the completion notification a free worker processes the result (stage `GpuResults` of build order 131, `LaneResource::on_finished`, `BatchRunner::collect`), which finishes or fails every task (`StepPayload::finish`/`fail`). The lease is held until then, so weights stay alive while the device reads them. The module adds no polling and no blocking waits.
 - **FP16 is the default** GPU data type. BF16 is never offered or accepted as a compute or storage type, and there is no Tensor-Core path.
 - Nothing is loaded at construction, `start` or `announce`. Loading happens only lazily through the lifecycle (`request_init` → `LoadTicket`).
 - The module does not plan, does not own queues and does not run the Subengine-Loop. It does not redefine types of other modules.
@@ -69,7 +69,7 @@ use manager::{LazyIndex, Manager, ManagerConfig, ManagerError, SlotTransfer, Upl
 use memory_access::Region;
 use model_descriptor::ModelDescriptor;
 use model_registry::{LoadedEncoder, ModelRegistry};
-use queue_iter::QueueNode;
+use queue::Queue;
 use resource_lifecycle::{InitRequest, LifecycleConfig, LifecycleError, LoadTicket, ResourceRegistry};
 use resource_requirements::{HasResourceRequirements, IndexId, ModelId, ResourceKind};
 use speicherverwaltung::MemError;
@@ -228,9 +228,9 @@ impl GpuSubengine {
     pub fn stream_entries(&self, index: &IndexId, ids: &[EntryId]) -> Result<UploadReport, GpuError>;
 
     /// Builds a lane resource with `worker_lanes` new Query lanes (own streams) for the Subengine-Loop.
-    pub fn build_lane_resource<N>(&self, cfg: LaneResourceConfig<N>, runner: Arc<dyn BatchRunner<N::Payload>>)
-        -> Result<Arc<LaneResource<N>>, GpuError>
-    where N: QueueNode, N::Payload: BatchPayload, N::Meta: BatchMeta + HasResourceRequirements;
+    pub fn build_lane_resource<M, P>(&self, cfg: LaneResourceConfig<M, P>, runner: Arc<dyn BatchRunner<P>>)
+        -> Result<Arc<LaneResource<M, P>>, GpuError>
+    where P: BatchPayload, M: BatchMeta + HasResourceRequirements + Send + Sync + 'static;
 }
 impl planner::Subengine for GpuSubengine { /* name, start, capabilities, offers, announce, activate, is_loaded */ }
 
@@ -349,7 +349,7 @@ impl GpuSubengine {
 - **Staging.** Host-to-VRAM transfers run on the CopyH2D lane and the Update lane of the core. The pinned Staging and MappedHost regions are available through `arena_region`. This module does not itself copy index data.
 - **Lane resource.** `build_lane_resource`:
   - rejects a `cfg.device` different from `self.device()` with `InvalidConfig`;
-  - creates `worker_lanes` lanes of kind `Query` with `LaneConfig::preset(Query, device)`. Each has its own stream from the backend and `lane_workspace_bytes` workspace;
+  - creates `worker_lanes` lanes of kind `Query` with `LaneConfig::preset(Query, device)`. Each has its own stream from the backend and `lane_workspace_bytes` workspace. No threads are started; `cfg.completion` must be `Some` (else `InvalidConfig`);
   - passes them to `LaneResource::new`. Stream errors give `Backend`, and `LaneSetError` gives `LaneSet`.
   - These lanes are independent of the core's lanes.
 

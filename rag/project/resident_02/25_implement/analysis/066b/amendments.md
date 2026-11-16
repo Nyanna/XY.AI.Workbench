@@ -1002,3 +1002,26 @@ New:
 
 New:
 >   - creates `worker_lanes` lanes of kind `Query` with `LaneConfig::preset(Query, device)`. Each has its own stream from the backend and `lane_workspace_bytes` workspace. No threads are started; `cfg.completion` must be `Some` (else `InvalidConfig`);
+
+
+## D10 (decided): task-queue metadata with the first resource kind
+
+Applied to the specs together with the other amendments. Code: `processor.rs` (`TaskMeta`, `TaskQueue`, `submit`).
+
+### 037 Processor
+
+- **§2**: the task queue is `Queue<TaskMeta, Task<D,T,E>, (), ()>`. `TaskMeta` holds the task params and the resource kind of the task's first operation, if the caller knows it.
+- **§3**: new `use resource_requirements::ResourceKind;`. New type `pub struct TaskMeta { pub params: TaskParams, pub first_kind: Option<ResourceKind> }` (`Debug, Clone, PartialEq`). `pub type TaskQueue<D, T, E> = Queue<TaskMeta, Task<D, T, E>, (), ()>;`. `submit(&self, data: D, params: TaskParams, first_kind: Option<ResourceKind>) -> Task<D, T, E>`.
+- **§4 submit**: the task queue gets exactly one item whose meta equals `TaskMeta { params, first_kind }`. The Processor does not interpret `first_kind`.
+- **§5**: `resource_requirements::ResourceKind` is `Copy + Eq + Hash`.
+
+### 135 Engine-Fassade
+
+- **§2**: the task queue is `Queue<TaskMeta, Task<D,T,E>, (), ()>`; `submit(data, params, first_kind)`.
+- **§4 Enqueue**: `enqueue` calls `Processor::submit(data, params, None)`. `enqueue_embedding` and `enqueue_similarity` pass `Planner::first_resource_kind_of_task(..)` as `first_kind`.
+- **§4 expansion stage**: with a non-empty `underserved()` it first tries `take_where(|m| m.first_kind.map_or(false, |k| underserved.contains(&k)))` (`m` is the `TaskMeta`), otherwise or without a result `take()`.
+- **§5**: `submit(&self, D, TaskParams, Option<ResourceKind>)`, `task_queue() -> &TaskQueue<D,T,E>`, `TaskMeta`, `Planner::first_resource_kind_of_task`, `Planner::place_step`.
+
+### 126 Planner
+
+- **§3**: doc comment on `first_resource_kind_of_task`: the Engine puts this value into `processor::TaskMeta.first_kind`. No other change.
