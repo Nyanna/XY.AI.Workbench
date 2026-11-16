@@ -149,6 +149,10 @@ class ReadNodeTool(ToolDefinition):
                 for lr in list_batch.results:
                     entry: dict[str, Any] = {'path': lr.path, 'nodes': [core.to_dict(n) for n in lr.nodes]}
                     if ids:
+                        warning = f'ast_read fell back to ast_outline: ids {
+                            ids!r} resolved to no node; returning the full outline of {
+                                lr.path} instead.'
+                        entry['warnings'] = [warning]
                         entry['errors'] = [
                             f'ids {
                                 ids!r} resolved to no node; redirected to ast_outline, returning the full outline instead.']
