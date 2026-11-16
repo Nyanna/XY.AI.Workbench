@@ -1,23 +1,24 @@
-# Spezifikation: CPU-Backend (Build-Order 72)
+# Specification: CPU Backend (Build-Order 72)
 
 ## 1. Task, restrictions and boundaries
 
-**Task.** Rust-Modul `cpu_backend`. Es führt jede Arena als genullten, zusammenhängenden RAM-Bereich und prüft Schreiben, Lesen und Kopieren auf Regionsbasis. Es liefert das Budget aus den Summen der Arenen und erfüllt die gemeinsame Backend-Schnittstelle `MemoryBackend`. Außerdem stellt es Regionen über die Speicherzugriff-Schnittstelle (`memory_access::RegionBackend`) bereit.
+**Task.** Rust module `cpu_backend`. It holds every arena as one zeroed, contiguous RAM block and checks writes, reads and copies per region. It reports the budget from the sums over the arenas and implements the shared backend interface `MemoryBackend` (spec 072a). It also exposes regions through the memory-access interface (`memory_access::RegionBackend`).
 
-**Nicht Teil des Moduls:**
-- Keine Streams, kein Staging und keine Lanes. `Staging` wird nicht bereitgestellt.
-- Keine eigene Platzierung, Generationsverwaltung oder Liveness-Buchführung. Das macht `Bookkeeping`. Keine eigene Deferred-Free-Logik. Das macht `Allocator`.
-- Keine Eviction, keine Policy, keine Device-Adressen nach außen.
-- `ArenaKind`, `Arena`, `ArenaSet`, `Budget`, `Region`, `Allocator`, `Event` und `RegionHandle` werden nicht neu definiert.
+**Not part of the module:**
+- No streams, no staging, no lanes. `Staging` is not provided.
+- No placement, generation management or liveness bookkeeping of its own. `Bookkeeping` does that. No deferred-free logic of its own. `Allocator` does that.
+- No eviction, no policy, no device addresses to the outside.
+- `MemoryBackend`, `BackendError`, `ALLOC_GRANULE` and `MAX_ALIGN` are not defined here (spec 072a).
+- `ArenaKind`, `Arena`, `ArenaSet`, `Budget`, `Region`, `Allocator`, `Event` and `RegionHandle` are not redefined.
 
 ## 2. Context
 
-- `arenas` liefert Arenen, Kapazitäten und `Budget`. `bookkeeping` vergibt `Region` (first-fit, Alignment 1) und prüft Liveness. `allocator` setzt Deferred Free darauf (`Allocator`/`AllocatorSet`). `memory_access` definiert `RegionBackend` und `Region` (Zugriffs-Handle). `device` liefert `Event` und `DeviceKind::Cpu`.
-- Zwei Typen heißen `Region`. In dieser Spezifikation gilt:
-  - `BRegion` = `bookkeeping::Region` ist das Handle aller Backend-Methoden.
-  - `AccessRegion` = `memory_access::Region` ist das Zugriffs-Handle für Encoder.
-- Die gemeinsame Backend-Schnittstelle lag zum Zeitpunkt der Erstellung nicht als Spezifikation vor. Das Trait `MemoryBackend` unten ist ihre Fassung für dieses Modul. Andere Backends implementieren es gleich.
-- Adressen im RAM verlassen das Backend nie. Alle Schnittstellen arbeiten mit `BRegion`, Offsets und Byte-Slices.
+- `arenas` provides arenas, capacities and `Budget`. `bookkeeping` hands out `Region` (first-fit, alignment 1) and checks liveness. `allocator` adds deferred free on top (`Allocator`/`AllocatorSet`). `memory_access` defines `RegionBackend` and `Region` (access handle). `device` provides `Event` and `DeviceKind::Cpu`. `memory_backend` (072a) provides the trait, the error type and the allocation constants.
+- Three region types exist. In this specification:
+  - `RegionHandle` is the handle of all public backend methods.
+  - `BRegion` = `bookkeeping::Region` is used internally and in the bridge methods `handle_of` and `region_of`.
+  - `AccessRegion` = `memory_access::Region` is the access handle for encoders.
+- Addresses in RAM never leave the backend. All interfaces work with handles, offsets and byte slices.
 
 ## 3. Interface
 
@@ -25,149 +26,122 @@
 use std::sync::Arc;
 use arenas::{ArenaCapacities, ArenaKind, Budget, MemInfo, MemoryQuery};
 use bookkeeping::Region as BRegion;
-use device::Event;
+use memory_backend::{BackendError, MemoryBackend};
 use memory_access::Region as AccessRegion;
 use region_handle::RegionHandle;
 
-/// Granularität: jede Allokationslänge wird auf ein Vielfaches davon aufgerundet.
-pub const ALLOC_GRANULE: u64 = 64;
-/// Maximal unterstütztes Alignment (Zweierpotenz).
-pub const MAX_ALIGN: u64 = 64;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BackendError {
-    /// Erschöpfung. requested = aufgerundete Länge; free = Allocator::available().
-    OutOfMemory { arena: ArenaKind, requested: u64, free: u64 },
-    /// Display: "Allokation fehlgeschlagen"
-    AllocationFailed,
-    /// Display: "stale Region"
-    StaleRegion,
-}
-impl std::fmt::Display for BackendError {}
-impl std::error::Error for BackendError {}
-impl From<allocator::AllocatorError> for BackendError {} // 1:1 Abbildung der drei Varianten
-
-/// Gemeinsame nebenläufige Backend-Schnittstelle.
-pub trait MemoryBackend: Send + Sync {
-    fn allocate(&self, arena: ArenaKind, size: u64, align: u64) -> Result<BRegion, BackendError>;
-    fn free(&self, region: &BRegion) -> Result<(), BackendError>;
-    fn free_deferred(&self, region: &BRegion, event: Event) -> Result<(), BackendError>;
-    fn budget(&self) -> Budget;
-    fn write(&self, region: &BRegion, offset: u64, src: &[u8]) -> Result<(), BackendError>;
-    fn read(&self, region: &BRegion, offset: u64, dst: &mut [u8]) -> Result<(), BackendError>;
-    /// Kopiert src.len Bytes von Beginn src nach Beginn dst.
-    fn copy(&self, src: &BRegion, dst: &BRegion) -> Result<(), BackendError>;
-}
-
 /// Send + Sync.
-pub struct CpuBackend { /* ArenaSet, Arc<Bookkeeping>, AllocatorSet, Puffer je Arena, generations */ }
+pub struct CpuBackend { /* ArenaSet, Arc<Bookkeeping>, AllocatorSet, one buffer per arena, generation reserve */ }
 
 impl CpuBackend {
-    /// Legt für jede ArenaKind außer Staging mit Kapazität > 0 einen genullten
-    /// RAM-Bereich an (Fehlschlag der Speicherbeschaffung => Err(OutOfMemory{requested: Kapazität, free: 0})).
-    /// Arenen mit Kapazität 0 werden angelegt (leer). `generations` fließt in die Generationsreserve ein.
+    /// Creates one zeroed RAM block for every ArenaKind except Staging, also for capacity 0 (empty).
+    /// Failure to obtain memory => Err(OutOfMemory{arena, requested: capacity, free: 0}).
+    /// `generations` feeds the generation reserve.
     pub fn new(caps: ArenaCapacities, generations: u32) -> Result<CpuBackend, BackendError>;
 
-    /// Zugriff auf eine Region über die einheitliche Speicherzugriff-Schnittstelle.
-    /// Err(StaleRegion), wenn die Region jetzt nicht live ist.
-    pub fn access(&self, region: &BRegion) -> Result<AccessRegion, BackendError>;
+    /// Byte access through the uniform memory-access interface. StaleRegion if the region is not live.
+    pub fn access(&self, region: &RegionHandle) -> Result<AccessRegion, BackendError>;
 
-    /// Konvertierung nach RegionHandle (Generation(region.generation as u64)); StaleRegion, wenn nicht live.
+    pub fn write(&self, region: &RegionHandle, offset: u64, src: &[u8]) -> Result<(), BackendError>;
+    pub fn read(&self, region: &RegionHandle, offset: u64, dst: &mut [u8]) -> Result<(), BackendError>;
+    /// Copies src.len() bytes from the start of src to the start of dst.
+    pub fn copy(&self, src: &RegionHandle, dst: &RegionHandle) -> Result<(), BackendError>;
+
+    /// Bridge to the allocator-level type. StaleRegion if the region is not live.
     pub fn handle_of(&self, region: &BRegion) -> Result<RegionHandle, BackendError>;
-    /// Umkehrung; StaleRegion, wenn Generation > u32::MAX oder die Region nicht live ist.
+    /// StaleRegion if the generation exceeds u32::MAX or the region is not live.
     pub fn region_of(&self, handle: &RegionHandle) -> Result<BRegion, BackendError>;
 
-    pub fn reap(&self) -> usize; // delegiert an alle Allocatoren, Summe der Rückgaben
+    pub fn reap(&self) -> usize; // delegates to all allocators, sum of the results
 }
 
 impl MemoryBackend for CpuBackend {}
-impl MemoryQuery for CpuBackend {} // query() => Ok(MemInfo{ free, total }) wie budget(), nie Err
+impl MemoryQuery for CpuBackend {} // query() => Ok(MemInfo{ free, total }) as budget(), never Err
 ```
 
 ## 4. Behavior and invariants
 
-**Arenen**
-- Jede Arena außer `Staging` ist ein einzelner, bei `new` mit Nullen gefüllter RAM-Bereich der konfigurierten Kapazität. Er wird nicht gestreamt und nicht gestaged. Der Bereich ändert Größe und Ort nicht.
-- Die Arenen werden über `ArenaSet::ensure` angelegt. Dabei wird ein Budget ohne Einschränkung übergeben (`free = total = u64::MAX`, Reserve 0). Eine RAM-Prüfung findet nur über die Speicherbeschaffung statt (`try_reserve`, kein Abort).
-- Jede Arena erhält einen `Allocator` (`DeviceKind::Cpu`) in einem gemeinsamen `AllocatorSet` mit einem gemeinsamen `Bookkeeping`.
-- Wiederverwendete Bereiche nach Freigabe werden nicht neu genullt.
+**Arenas**
+- Every arena except `Staging` is a single RAM block, filled with zeros in `new`, of the configured capacity. It is not streamed and not staged. It never changes size or location.
+- The block is aligned to `ALLOC_GRANULE`.
+- Arenas are created through `ArenaSet::ensure` with an unrestricted budget (`free = total = u64::MAX`, reserve 0). The only RAM check is the memory acquisition itself (`try_reserve`-style, no abort).
+- Every arena gets an `Allocator` (`DeviceKind::Cpu`) in a shared `AllocatorSet` with one shared `Bookkeeping`.
+- Space that is reused after a free is not zeroed again.
 
-**Allokation**
-- Gültig sind `size > 0`, `align` als Zweierpotenz mit `1 ≤ align ≤ MAX_ALIGN`, und die Arena existiert (nicht `Staging`, nicht unbekannt). Sonst gilt `AllocationFailed`.
-- Die Länge wird auf ein Vielfaches von `ALLOC_GRANULE` aufgerundet. Überlauf dabei ergibt `AllocationFailed`. Die Region hat `len` = aufgerundete Länge.
-- Da alle Längen Vielfache von 64 sind und first-fit bei 0 beginnt, ist jeder Offset ein Vielfaches von 64 und damit für jedes `align ≤ 64` ausgerichtet. Die Puffer sind ebenfalls 64-Byte-ausgerichtet.
-- Die Fehlerabbildung kommt vom `Allocator`. Erschöpfung und Fault Injection ergeben `OutOfMemory`, alles andere `AllocationFailed`.
-- Die Allokation geht über `Allocator::allocate`, das zuerst abgeschlossene Deferred Frees einsammelt.
+**Allocation**
+- Request validation and rounding come from `memory_backend::rounded_len`. An arena that does not exist (`Staging`) gives `AllocationFailed`.
+- The region has `len` = rounded length. As all lengths are multiples of 256 and first-fit starts at 0, every offset is a multiple of 256.
+- Error mapping comes from the `Allocator`: exhaustion and fault injection give `OutOfMemory`, everything else `AllocationFailed`.
+- Allocation goes through `Allocator::allocate`, which first collects completed deferred frees.
 
-**Freigabe**
-- `free` und `free_deferred` delegieren an den `Allocator` der Region (`AllocatorSet::allocator_for`). Fremde, nicht live, bereits vorgemerkte oder doppelt freigegebene Regionen ergeben `StaleRegion`.
-- Die Region bleibt nach `free_deferred` bis zum Abschluss des Events live. Sie wird erst nach `reap` frei, das auch `allocate` aufruft.
+**Free**
+- `free` and `free_deferred` resolve the handle with `region_of` and delegate to the `Allocator` of the region (`AllocatorSet::allocator_for`). Foreign, not live, already pending or already freed regions give `StaleRegion`.
+- After `free_deferred` the region stays live until the event completes. It becomes free after `reap`, which `allocate` also calls.
 
-**Lesen, Schreiben, Kopieren**
-- `read`, `write` und `copy` prüfen vor jedem Zugriff:
-  1. `Bookkeeping::is_live` für jede beteiligte Region,
-  2. `offset.checked_add(len) ≤ region.len`, überlaufsicher,
-  3. dass der Bereich in der Arena liegt.
-- Eine Verletzung ergibt `StaleRegion`. Es wird nichts gelesen, geschrieben oder kopiert und kein Zustand geändert.
-- Ein Zugriff mit Länge 0 ist bei live Region und `offset ≤ region.len` ein erfolgreicher No-op.
-- `copy` kopiert `src.len` Bytes. Ist `dst.len < src.len`, ergibt es `StaleRegion`. Bytes hinter `src.len` in `dst` bleiben unverändert.
-- Innerhalb einer Arena ist `copy` überlappungssicher (memmove-Semantik, auch bei überlappenden Regionen). Zwischen Arenen läuft `copy` über einen Zwischenpuffer: erst Quelle in den Puffer lesen, dann Puffer ins Ziel schreiben. Es wird nie mehr als ein Arena-Lock gleichzeitig gehalten.
-- Die Liveness-Prüfung und der Zugriff sind nicht atomar gegenüber einem parallelen `free`. Ein Zugriff, der mit einem `free` konkurriert, ist speichersicher und liest oder schreibt nur im Arena-Puffer.
-- Disjunkte Bereiche beeinflussen sich nicht. Bei überlappenden konkurrierenden Zugriffen ist das Ergebnis eine beliebige Verschränkung der Bytes, aber ohne Undefined Behavior (also keine Data Races im Rust-Sinn).
-- Die Auflösung von Regionen auf Adressen oder Pufferbereiche ist intern (nicht `pub`). Es gibt keine öffentliche Funktion, die Pointer, Adressen oder Referenzen auf Arena-Speicher liefert.
+**Read, write, copy** (inherent methods, not part of `MemoryBackend`)
+- Before every access, `read`, `write` and `copy`:
+  1. resolve each handle to a live `BRegion` (`StaleRegion` if it is not live or the generation does not fit `u32`),
+  2. check `offset.checked_add(len) <= region.len`, overflow safe,
+  3. check that the range lies inside the arena.
+- A violation gives `StaleRegion`. Nothing is read, written or copied and no state changes.
+- An access of length 0 is a successful no-op for a live region and `offset <= region.len`.
+- `copy` copies `src.len` bytes. If `dst.len < src.len` the result is `StaleRegion`. Bytes of `dst` behind `src.len` stay unchanged.
+- Inside one arena `copy` is overlap safe (memmove semantics). Between arenas it goes through an intermediate buffer: read the source into the buffer, then write the buffer into the target. No more than one arena lock is held at a time.
+- Liveness check and access are not atomic with respect to a concurrent `free`. An access that races with a `free` is memory safe and only reads or writes inside the arena buffer.
+- Disjoint ranges do not influence each other. Concurrent overlapping accesses produce an arbitrary interleaving of bytes, without undefined behavior.
+- The resolution of regions to addresses or buffer ranges is internal. No public function returns pointers, addresses or references to arena memory.
 
 **Budget**
-- `budget()` ist `Budget { free, total, generation_reserve }` mit:
-  - `free` = Σ `Allocator::available()` über alle Arenen im Set,
-  - `total` = Σ Kapazitäten dieser Arenen, saturierend,
-  - `generation_reserve` = `caps.generation_reserve(generations)` mit den Kapazitäten aus `new`.
-- `budget()` schlägt nie fehl. Es gilt `free ≤ total`.
-- Wartende (deferred) Regionen zählen als belegt und nicht als frei. `budget()` sammelt nicht ein.
-- `MemoryQuery::query` liefert `MemInfo { free, total }` aus denselben Summen.
+- `budget()` is `Ok(Budget { free, total, generation_reserve })` with:
+  - `free` = sum of `Allocator::available()` over all arenas in the set,
+  - `total` = sum of the capacities of these arenas, saturating,
+  - `generation_reserve` = `caps.generation_reserve(generations)` with the capacities from `new`.
+- `budget()` never fails. `free <= total` holds.
+- Deferred regions count as used. `budget()` does not collect.
+- `available(arena)` is `Allocator::available()` of that arena, 0 for an arena without allocator.
+- `MemoryQuery::query` returns `MemInfo { free, total }` from the same sums.
 
-**Speicherzugriff-Schnittstelle (`access`)**
-- Der gelieferte `AccessRegion` hat `len() == region.len` und adressiert die Bytes `[region.offset, region.offset + region.len)` der Arena.
-- Das interne `RegionBackend` ist `Send + Sync + Debug`. `read_raw` und `write_raw` prüfen bei jedem Zugriff erneut die Liveness (`BRegion` wird im Backend gehalten). Ist sie nicht mehr live, kommt `AccessError::Backend("stale Region")`.
-- Die Bereichsprüfung gegen `len` macht `memory_access`. Das Backend verlässt sich darauf.
-- Klone des `AccessRegion` teilen den Zustand. Ein Schreiben über `access` ist für `read` der Backend-Methoden sichtbar und umgekehrt (Read-your-writes).
-- Passt `region.len` nicht in `usize`, ergibt `access` `StaleRegion`.
+**Memory-access interface (`access`)**
+- The returned `AccessRegion` has `len() == region.len()` and addresses the bytes `[region.offset, region.offset + region.len)` of the arena.
+- The internal `RegionBackend` is `Send + Sync + Debug`. `read_raw` and `write_raw` re-check liveness on every access (the resolved `BRegion` is held). If it is no longer live the result is `AccessError::Backend("stale Region")`.
+- The range check against `len` is done by `memory_access`. The backend relies on it.
+- Clones of the `AccessRegion` share state. A write through `access` is visible to `read` of the backend and vice versa (read-your-writes).
+- If `region.len` does not fit into `usize`, `access` gives `StaleRegion`.
 
 **Handles**
-- `handle_of` baut mit `RegionHandle::new_in` gegen die Arena. Fehler daraus ergeben `StaleRegion`.
+- `allocate` returns the handle built with `RegionHandle::new_in` against the arena. A failure there gives `StaleRegion`, and the region is freed again.
+- `handle_of` additionally requires the region to be live.
 
 **Concurrency**
-- Alle Methoden nehmen `&self` und sind aus mehreren Threads nutzbar. `CpuBackend` ist `Send + Sync`.
-- Es gibt keine Deadlocks. Die Lock-Reihenfolge ist Allocator, dann Bookkeeping. Arena-Locks werden nicht verschachtelt. Es laufen keine Callbacks (außer `Event::is_complete` im `Allocator`) unter Arena-Locks.
-- Vergiftete Locks werden nicht propagiert. Der innere Zustand wird übernommen, es gibt keinen Panic.
+- All methods take `&self` and can be used from several threads. `CpuBackend` is `Send + Sync`.
+- No deadlocks. Lock order: allocator, then bookkeeping. Arena locks are not nested. No callbacks run under arena locks (except `Event::is_complete` inside the `Allocator`).
+- Poisoned locks are not propagated. The inner state is taken over, there is no panic.
 
 ## 5. Relied-on elements
+
+**`memory_backend`:** `MemoryBackend`, `BackendError`, `rounded_len`, `ALLOC_GRANULE`, `MAX_ALIGN`.
 
 **`arenas`**
 - `ArenaKind { Weights, IndexSegments, Workspace, Staging, ParameterBlock, MappedHost }`, `#[non_exhaustive]`, `Copy + Eq + Hash`.
 - `ArenaCapacities { get, set, device_need, generation_reserve(g) = idx - idx / max(g,1) }`, `Default`.
-- `ArenaSet::new(caps)`, `ensure(kind, &Budget) -> Result<Arena, BudgetError>` (idempotent, Kapazität bleibt fest), `get`.
-- `Arena { kind, capacity }`.
-- `Budget { free, total, generation_reserve }`.
-- `MemInfo { free, total }`.
+- `ArenaSet::new(caps)`, `ensure(kind, &Budget) -> Result<Arena, BudgetError>` (idempotent, capacity stays fixed), `get`.
+- `Arena { kind, capacity }`, `Budget { free, total, generation_reserve }`, `MemInfo { free, total }`.
 - `trait MemoryQuery: Send + Sync { fn query(&self) -> Result<MemInfo, String>; }`.
 
 **`bookkeeping`**
 - `Region { arena, offset, len, generation: u32 }`: `Copy`, `Eq`, `Hash`.
-- `Bookkeeping::new(Arc<ArenaSet>)`.
-- `is_live(&Region) -> bool`.
-- `live_bytes(arena)`.
-- Die Vergabe ist first-fit, Alignment 1, `len == 0` ist ein Fehler.
+- `Bookkeeping::new(Arc<ArenaSet>)`, `is_live(&Region) -> bool`.
+- Placement is first-fit, alignment 1, `len == 0` is an error.
 
 **`allocator`**
 - `Allocator::new(Arena, DeviceKind, Arc<Bookkeeping>)`, `allocate(len)`, `free(&Region)`, `free_deferred(&Region, Event)`, `reap() -> usize`, `available() -> u64`, `is_live`.
-- `AllocatorSet::new(Arc<Bookkeeping>, &[(Arena, DeviceKind)])`, `allocator(kind) -> Option<&Allocator>`, `allocator_for(&Region) -> Result<&Allocator, AllocatorError>`, `size_hint`.
-- `AllocatorError { OutOfMemory{arena, requested, free}, AllocationFailed, StaleRegion }`.
-- `available = capacity - live_bytes`.
+- `AllocatorSet::new(Arc<Bookkeeping>, &[(Arena, DeviceKind)])`, `allocator(kind) -> Option<&Allocator>`, `allocator_for(&Region) -> Result<&Allocator, AllocatorError>`.
+- `AllocatorError { OutOfMemory{arena, requested, free}, AllocationFailed, StaleRegion }`. `available = capacity - live_bytes`.
 
 **`region_handle`**
 - `Generation(pub u64)`.
-- `RegionHandle::new_in(&Arena, offset, len, Generation) -> Result<RegionHandle, RegionError>`.
-- Zugriffe `arena()`, `offset()`, `len()`, `generation()`.
+- `RegionHandle::new(ArenaKind, offset, len, Generation)` and `new_in(&Arena, offset, len, Generation) -> Result<RegionHandle, RegionError>`.
+- Accessors `arena()`, `offset()`, `len()`, `generation()`, `with_generation`.
 
 **`memory_access`**
 - `trait RegionBackend: Send + Sync + Debug { fn len(&self) -> usize; fn read_raw(&self, offset: usize, dst: &mut [u8]) -> Result<(), AccessError>; fn write_raw(&self, offset: usize, src: &[u8]) -> Result<(), AccessError>; }`.
@@ -176,4 +150,4 @@ impl MemoryQuery for CpuBackend {} // query() => Ok(MemInfo{ free, total }) wie 
 
 **`device`**
 - `DeviceKind::Cpu`.
-- `Event`: `Clone + Send + Sync`, `is_complete()` blockiert nie.
+- `Event`: `Clone + Send + Sync`, `is_complete()` never blocks.

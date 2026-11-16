@@ -21,7 +21,7 @@ Alle Transfers laufen im Blocking-Pool (`page_advice::read_blocking`).
 ## 2. Condensed Context
 
 - **Aufrufer** (Lader/Planer) übergeben Entry-Listen. Die Sink (z. B. ein Adapter auf `SegmentStore`) erhält `LoadedSegment` und gibt die Region später selbst frei.
-- **`GpuBackend`** (Build 73) liefert `allocate`, `free`, `free_after`, `upload`, `mapped_write`, `mapped_device_addr`, `device`. Device-Adressen verlassen es nie, daher arbeitet dieses Modul nur mit `RegionHandle` und absoluten Arena-Offsets.
+- **`GpuBackend`** (Build 73) liefert `allocate`, `free`, `free_deferred`, `upload`, `mapped_write`, `mapped_device_addr`, `device`. Device-Adressen verlassen es nie, daher arbeitet dieses Modul nur mit `RegionHandle` und absoluten Arena-Offsets.
 - **`staging_ring::StagingRing`** (Build 40) ist der Slot-Ring des Gather-Pfads.
   - Er ist nicht `gpu_backend::StagingRing`, das ist ein anderer Typ.
   - Slots werden erst nach Event-Abschluss wiederverwendet.
@@ -35,7 +35,8 @@ Alle Transfers laufen im Blocking-Pool (`page_advice::read_blocking`).
 use std::sync::Arc;
 use index_contract::{Index, EntryId, Stamp, ByteRange as IndexByteRange, IndexError};
 use region_handle::RegionHandle;
-use gpu_backend::{GpuBackend, PinnedBuffer, BackendError};
+use gpu_backend::{GpuBackend, PinnedBuffer};
+use memory_backend::BackendError;
 use staging_ring::{StagingRing, StagingError, TransferError};
 use page_advice::AdviceTarget;
 
@@ -145,7 +146,7 @@ impl DeviceTransfer {
 - Jede Region hat die Länge der vom Backend gerundeten Größe. Offsets in `bounds` sind absolut: `region.offset()` + relativer Offset.
 - Wird eine Region nach `allocate` nicht an die Sink übergeben (Fehler oder `Sink`-Fehler), wird sie freigegeben.
   - Fehler vor dem Absenden der Kopie: `backend.free`.
-  - Fehler beim Warten auf das Event: `backend.free_after(region, event)`.
+  - Fehler beim Warten auf das Event: `backend.free_deferred(region, event)`.
 - Alle Instanzen sind nebenläufig nutzbar (`&self`). Verschiedene Aufrufe teilen den Ring. Jeder erhält distinkte Slots.
 
 **`load_segment`: Zuordnung und Direktprüfung**
@@ -217,7 +218,7 @@ Report: `bytes = total`, `segments = 1`. Es gibt keinen Staging-Slot, keine Kopi
   - `mapped_write(&self, &RegionHandle, offset: usize, &[u8]) -> Result<(), BackendError>`
     - Region in `MappedHost`. Sie führt kein Driver-Call aus.
   - `mapped_device_addr() -> Option<u64>`
-  - Über `MemoryBackend`: `allocate(arena, size, align) -> Result<RegionHandle, _>`, `free`, `free_after(&RegionHandle, Event)`.
+  - Über `MemoryBackend`: `allocate(arena, size, align) -> Result<RegionHandle, _>`, `free`, `free_deferred(&RegionHandle, Event)` (spec 072a).
     - `size == 0` ist ein Fehler. `align` ist eine Potenz von 2, 1..=256.
     - Die Region ist auf 256 Byte gerundet und liegt bei 256-Byte-Offsets.
   - `enum HostSource<'a> { Pageable(&'a [u8]), Pinned(&'a PinnedBuffer) }`

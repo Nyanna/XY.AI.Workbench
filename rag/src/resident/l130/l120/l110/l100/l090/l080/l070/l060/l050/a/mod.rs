@@ -1,5 +1,7 @@
+pub mod cpu_backend;
 pub mod encoder_interface;
 pub mod expander;
+pub mod memory_backend;
 pub mod operation_node;
 pub mod similarity_report;
 pub mod step_completion;

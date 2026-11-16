@@ -226,8 +226,7 @@ def _search_one(item: SearchItem) -> SearchResult:
     shortened = sum((lm.truncated for m in matches for lm in m.matches))
     error = None
     if shortened:
-        error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis ({
-            _MAX_LINE_LENGTH // 2} leading and trailing characters kept).'
+        error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis.'
     return SearchResult(directory=item.directory, matches=matches, warning=warning, error=error)
 
 def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:

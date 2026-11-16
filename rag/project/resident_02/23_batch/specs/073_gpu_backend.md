@@ -7,13 +7,14 @@
 - Es stellt Mapped Host-Memory bereit.
 - Es führt D2D-, H2D- und D2H-Transfers asynchron auf einem eigenen Copy-Stream aus, mit Pinned Buffern und Events.
 - Es löst Regionen intern auf Device-Adressen auf. Diese Adressen verlassen das Backend nicht. Ausnahmen sind `mapped_device_addr` und die Adresse im `DeviceBlock` an den Library-Adapter.
-- Es erfüllt die gemeinsame Backend-Schnittstelle `MemoryBackend` (Abschnitt 3).
+- It implements `MemoryBackend` from `memory_backend` (spec 072a), the shared backend interface.
 
 **Nicht Teil des Moduls:**
 - Keine Platzierung, Generationsvergabe oder Liveness-Logik. Das macht `Bookkeeping`, der Allocator nutzt es.
 - Keine Eviction, keine Policy, keine Kernel-Starts.
 - Keine Redefinition von `ArenaKind`, `Arena`, `RegionHandle`, `Region`, `Event`, `Lane`, `AccessError`, `Budget` oder `MemInfo`.
 - Keine CPU-Variante.
+- No own definition of `MemoryBackend`, `BackendError`, `TransferDirection`, `ALLOC_GRANULE` or `MAX_ALIGN`. They come from `memory_backend` (spec 072a).
 - Kein Retry und kein Fallback bei Treiberfehlern.
 
 **Treiberzugriff.** Dieses Modul darf zusätzlich zum Library-Adapter die CUDA-Driver-API über `cudarc` nutzen (Crate bereits im Manifest, nichts hinzufügen oder umversionieren). Es darf `candle_core::cuda_backend::CudaDevice` ausschließlich zum Füllen von `DeviceBlock` erzeugen. Beide teilen den Primary-Context des Ordinals.
@@ -33,50 +34,17 @@
 ## 3. Interface
 
 ```rust
-use arenas::{ArenaCapacities, ArenaKind, Budget, BudgetError};
+use arenas::{ArenaCapacities, ArenaKind};
 use region_handle::RegionHandle;
-use allocator::AllocatorError;
-use memory_access::AccessError;
 use device::{DeviceHandle, Event};
 use layout::Layout;
-use library_adapter::{AdapterError, LibTensor};
+use library_adapter::LibTensor;
+use memory_backend::{BackendError, MemoryBackend, TransferDirection};
 
-pub const ALLOC_GRANULE: u64 = 256; // Bytes
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TransferDirection { D2D, H2D, D2H }
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BackendError {
-    /// Display: "Device-Speicher nicht verfügbar" (+ ": {0}" mit Treiber-/Grundtext)
-    DeviceMemoryUnavailable(String),
-    /// Display enthält Richtung und Begründung
-    Transfer { direction: TransferDirection, reason: String },
-    /// Display: "stale Region"
-    StaleRegion,
-    /// Region gehört nicht zur erwarteten Arena (Mapped-Host-Zugriff)
-    ArenaMismatch { expected: ArenaKind, found: ArenaKind },
-    /// Fit-Check / Speicherabfrage
-    Budget(BudgetError),
-    /// Fehler aus Allocator (Allokation, Free)
-    Alloc(AllocatorError),
-    /// Bereichsfehler bei Mapped-Host-Zugriff
-    Access(AccessError),
-    Adapter(AdapterError),
-}
-impl std::fmt::Display for BackendError {}
-impl std::error::Error for BackendError {}
-
-/// Gemeinsame nebenläufige Backend-Schnittstelle.
-pub trait MemoryBackend: Send + Sync {
-    /// Allokation in einer Arena. `align` Potenz von 2, 1..=256 (0 gilt als 1).
-    fn allocate(&self, arena: ArenaKind, size: u64, align: u64) -> Result<RegionHandle, BackendError>;
-    fn free(&self, region: &RegionHandle) -> Result<(), BackendError>;
-    /// Frei erst, wenn `event` abgeschlossen ist.
-    fn free_after(&self, region: &RegionHandle, event: Event) -> Result<(), BackendError>;
-    /// Frisch vom Treiber; generation_reserve = 0.
-    fn budget(&self) -> Result<Budget, BackendError>;
-}
+// MemoryBackend, BackendError, TransferDirection, ALLOC_GRANULE (256) and MAX_ALIGN (256)
+// are defined once in memory_backend (spec 072a). This module only implements the trait.
+// The former variant Alloc(AllocatorError) is gone: allocator errors map 1:1 to the flat variants.
+// align == 0 is AllocationFailed. free_after is named free_deferred.
 
 /// Pinned, genullter Host-Buffer (cuMemHostAlloc). Send + Sync.
 pub struct PinnedBuffer { /* ptr, len */ }
@@ -142,7 +110,7 @@ impl GpuBackend {
     /// Idempotent; wird auch von Drop aufgerufen.
     pub fn shutdown(&self);
 }
-impl MemoryBackend for GpuBackend {}
+impl MemoryBackend for GpuBackend {}   // budget() = fresh driver query, generation_reserve = 0
 impl Drop for GpuBackend {}
 ```
 
@@ -172,13 +140,14 @@ impl Drop for GpuBackend {}
 - `budget()` fragt bei jedem Aufruf den Treiber neu ab, nutzt keinen Cache und loggt das Ergebnis auf `debug!`. Ein Fehler ergibt `Budget(MemoryQueryFailed)`.
 
 **Allokation und Freigabe**
-- `allocate` rundet `size` auf ein Vielfaches von `ALLOC_GRANULE`. Dadurch ist jeder Offset ein Vielfaches von 256 und erfüllt jedes erlaubte `align`.
+- `allocate` validates and rounds with `memory_backend::rounded_len` (a multiple of `ALLOC_GRANULE`). Dadurch ist jeder Offset ein Vielfaches von 256 und erfüllt jedes erlaubte `align`.
 - `allocate` liefert `RegionHandle{arena, offset, len = gerundete Größe, Generation(region.generation as u64)}`.
 - Fehler:
-  - `size == 0`, Überlauf beim Runden, `align` keine Potenz von 2 oder `> 256`: `Alloc(AllocationFailed)`.
-  - Sonstige Fehler: Abbildung durch den `Allocator` (`Alloc(OutOfMemory{..})` usw.).
+  - `size == 0`, Überlauf beim Runden, `align` 0, keine Potenz von 2 oder `> 256`: `AllocationFailed`.
+  - Sonstige Fehler: Abbildung durch den `Allocator` (`OutOfMemory{..}` usw., flache `BackendError`-Varianten).
 - Konvertierung `RegionHandle → bookkeeping::Region`: Ist `generation > u32::MAX`, gilt das Handle als stale.
-- `free` und `free_after` delegieren an `AllocatorSet::allocator_for(..)`, `free` bzw. `free_deferred`. Fehler werden als `Alloc(StaleRegion)` usw. durchgereicht.
+- `free` und `free_deferred` delegieren an `AllocatorSet::allocator_for(..)`, `free` bzw. `free_deferred`. Fehler werden als `StaleRegion` usw. durchgereicht.
+- `available(arena)` returns `Allocator::available()` of the arena's allocator, and `Ok(0)` for `Staging` and for arenas without a block.
 - Ein Handle mit nicht passender Generation, einer anderen Arena oder einer Arena ohne Block ist nicht live.
 
 **Liveness und Auflösung (intern)**
