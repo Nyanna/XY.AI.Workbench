@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import org.eclipse.core.filebuffers.FileBuffers;
 import org.eclipse.core.filebuffers.ITextFileBuffer;
 import org.eclipse.core.filebuffers.ITextFileBufferManager;
@@ -44,7 +43,6 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.osgi.framework.BundleContext;
-
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.IEditorInterface;
 import xy.ai.conscious.core.LOG;
@@ -73,10 +71,7 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
   @Override
   public boolean visit(IResourceDelta delta) throws CoreException {
     IResource rsc = delta.getResource();
-    if (
-    rsc.getType() == IResource.FILE &&
-    rsc.getName().endsWith(".md") &&
-    delta.getKind() == IResourceDelta.CHANGED && rsc instanceof IFile && (delta.getFlags() & IResourceDelta.CONTENT) != 0)
+    if (rsc.getType() == IResource.FILE && rsc.getName().endsWith(".md") && delta.getKind() == IResourceDelta.CHANGED && rsc instanceof IFile && (delta.getFlags() & IResourceDelta.CONTENT) != 0)
       Job.create("Scanning file for markers", mon -> {
         rescannFile((IFile) rsc);
         return Status.OK_STATUS;
@@ -459,5 +454,40 @@ public class MarkerRessourceScanner implements IResourceChangeListener, IResourc
       }
     }
     return editors;
+  }
+
+  /**
+   * Resolves the editor a prompt was started in: the hint if it is still open,
+   * otherwise any open editor showing the given file.
+   */
+  public ITextEditor findOpenEditor(Object hint, String absoluteFilePath) {
+    java.util.List<ITextEditor> open = getOpenTextEditors();
+    if (hint instanceof ITextEditor && open.contains(hint))
+      return (ITextEditor) hint;
+    if (absoluteFilePath == null || absoluteFilePath.isBlank())
+      return null;
+    java.nio.file.Path target = java.nio.file.Paths.get(absoluteFilePath).toAbsolutePath().normalize();
+    for (ITextEditor editor : open) {
+      java.nio.file.Path location = locationOf(editor.getEditorInput());
+      if (target.equals(location))
+        return editor;
+    }
+    return null;
+  }
+
+  private static java.nio.file.Path locationOf(IEditorInput input) {
+    try {
+      if (input instanceof IFileEditorInput) {
+        org.eclipse.core.runtime.IPath loc = ((IFileEditorInput) input).getFile().getLocation();
+        return loc != null ? loc.toFile().toPath().toAbsolutePath().normalize() : null;
+      }
+      if (input instanceof org.eclipse.ui.IURIEditorInput) {
+        java.net.URI uri = ((org.eclipse.ui.IURIEditorInput) input).getURI();
+        return "file".equals(uri.getScheme()) ? java.nio.file.Paths.get(uri).toAbsolutePath().normalize() : null;
+      }
+    } catch (RuntimeException e) {
+      // unresolvable input
+    }
+    return null;
   }
 }
