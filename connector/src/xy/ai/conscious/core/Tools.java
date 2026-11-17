@@ -5,7 +5,7 @@ public class Tools {
 			"ask_user,tools," // top
 					+ "file_stats,read_file,list,grep,search," // retrieve
 					+ "write,edit_marks,edit_line,edit_block,edit_lines," // edit tools
-					+ "ast,ast_read,ast_create,ast_delete,ast_edit_block,ast_edit_marks,ast_find,ast_insert,ast_outline,ast_replace,ast_validate, ast_script," // python ast
+					+ "ast,ast_read,ast_find,ast_outline,ast_create,ast_delete,ast_edit_block,ast_edit_marks,ast_insert,ast_replace,ast_edit,ast_validate, ast_script," // python ast
 					+ "bash,python,run_command," // scripting
 					+ "markdown,markdown_format," // Dynamic code tools
 					+ "colgrep,exa," // research cpabilities

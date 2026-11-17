@@ -12,7 +12,7 @@ and a ``validate`` compile check.
 """
 from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools.ast import create, delete, edit_block, edit_marks, find, insert, read, replace, script, validate
+from xy.ai.mcpc.tools.ast import create, delete, edit, edit_block, edit_marks, find, insert, read, replace, script, validate
 from xy.ai.mcpc.tools.ast import outline
 __all__ = ['register_ast_tools', 'ALIAS']
 '#: Alias name that activates the whole family in one go.'
@@ -27,12 +27,10 @@ _ALIAS_MEMBERS = (
     'ast_replace',
     'ast_delete',
     'ast_create',
+    'ast_edit',
     'ast_validate')
 ALIAS_READ = 'ast-read'
-_ALIAS_READ_MEMBERS = (
-    'ast_outline',
-    'ast_find',
-    'ast_read')
+_ALIAS_READ_MEMBERS = ('ast_outline', 'ast_find', 'ast_read')
 
 def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     """Register every ``ast_*`` tool and the ``ast`` alias."""
@@ -45,6 +43,7 @@ def register_ast_tools(registry: ToolRegistry, functions: FunctionRegistry) -> N
     replace.register(registry, functions)
     delete.register(registry, functions)
     create.register(registry, functions)
+    edit.register(registry, functions)
     script.register(registry, functions)
     validate.register(registry, functions)
     registry.register_alias(ALIAS, _ALIAS_MEMBERS)

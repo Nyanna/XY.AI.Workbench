@@ -1,7 +1,4 @@
 # TODO
-! neues AST tool das alle editoperationen verein via batch
-	- aber nicht liste sondern openapi save, liste pro edit operation
-	- tool bekommt dynamischen schema zusammengebaut aus aktivierten tools
 ! mit agent ignore verezichniss ignorieren (.mcpcignore)
 	- oder umgekehrt, nur die allow liste
 	- datei caching und nur bei bedarf aktualisieren, zusätzlich config über agent
