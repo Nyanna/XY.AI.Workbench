@@ -152,8 +152,8 @@ class ReadNodeTool(ToolDefinition):
                         warning = f'ast_read fell back to ast_outline: ids {
                             ids!r} resolved to no node; returning the full outline of {
                                 lr.path} instead.'
-                        entry['warnings'] = [warning]
-                        entry['errors'] = [
+                        entry['warning'] = [warning]
+                        entry['error'] = [
                             f'ids {
                                 ids!r} resolved to no node; redirected to ast_outline, returning the full outline instead.']
                     results.append(entry)

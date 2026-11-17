@@ -86,13 +86,13 @@ class SearchResult:
     Attributes:
         directory: The directory list exactly as given in the input.
         matches: The matches found, grouped by file (empty if none).
-        warning: Set if ``limit`` was reached and further matches may exist.
-        error: Set if match lines exceeded the maximum length and were shortened with an ellipsis.
+        warning: Set if ``limit`` was reached and further matches may exist, or if match lines
+            exceeded the maximum length and were shortened with an ellipsis.
+
     """
     directory: list[str]
     matches: list[SearchMatch]
     warning: str | None = None
-    error: str | None = None
 
 @dataclass(frozen=True)
 class SearchItemError:
@@ -224,10 +224,10 @@ def _search_one(item: SearchItem) -> SearchResult:
             hint += f', or raise limit (max {_MAX_LIMIT})'
         warning = f'Limit of {item.limit} matches reached (total {total_matches}); {hint}.'
     shortened = sum((lm.truncated for m in matches for lm in m.matches))
-    error = None
     if shortened:
-        error = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle with an ellipsis.'
-    return SearchResult(directory=item.directory, matches=matches, warning=warning, error=error)
+        shortened_warning = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle.'
+        warning = f'{warning} {shortened_warning}' if warning else shortened_warning
+    return SearchResult(directory=item.directory, matches=matches, warning=warning)
 
 def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     """Regroup a file's line matches by the most specific enclosing AST node.
