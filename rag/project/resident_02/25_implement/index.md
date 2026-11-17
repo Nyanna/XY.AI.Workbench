@@ -1,7 +1,6 @@
 
 Zielverzeichnis: `/home/user/xyan/xy.ai.workbench/rag/src/resident` entsprechend dann `/home/user/xyan/xy.ai.workbench/rag/src/resident/l130...`
 Modell (multilingual-e5-small): `/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small`
-Wichtige Datei: `/home/user/xyan/xy.ai.workbench/rag/Cargo.toml`
 Wurzel ist: `/home/user/xyan/xy.ai.workbench/rag/src/lib.rs`. Sie enthält `pub mod resident;` bereits.
 
 Umgebung:
@@ -14,8 +13,8 @@ Regeln:
 - Projektdokumente und Code-Kommentare ausschließlich in Englisch.
 - Alle Modul-, Datei-, Typ-, Struktur-, Muster- und Funktionsnamen sind englisch und von dir gewählt.
 - Kommentare minimal halten; keine Referenzen auf Planelemente und Plannummern in Kommentaren.
-- Nutze Bash nicht für Retrieval Tasks
 - Prüfe die tatsächliche Umsetzung referenzierter Elemente
+- Prüfe die Verwendung bestehender Elemente statt eigener neuer Implementierung, wenn die Spec das impliziert 
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]
