@@ -173,7 +173,7 @@ Report: `bytes = r.len`, `segments = 1`, `entries_done = n`.
 1. Stamps aller Entries werden einmal vorab erfasst, vor jedem Datenzugriff. Entries mit `None` gelten als entfernt.
 2. Ist `Range` deklariert und liefert `byte_ranges(e[0], e[n-1])` `Ok`, wird je Bereich `Advice::Random` gesetzt. Fehler werden nur geloggt.
 3. Wiederholt, bis alle Entries erledigt sind:
-   - **Slot holen:** `ring.acquire()`. Das wartet auf freie Slots. `StagingError::Transfer(t)` wird zu `Transfer(t)`, jeder andere Fehler zu `Staging(..)`.
+   - **Slot holen:** `ring.acquire_wait()`. Das wartet auf freie Slots, auch wenn alle Slots belegt sind und keiner übertragen wird; `Exhausted` tritt nicht auf. Ein Aufruf hält höchstens einen Slot und wartet nie auf den Ring, solange er einen hält. `StagingError::Transfer(t)` wird zu `Transfer(t)`, jeder andere Fehler zu `Staging(..)`.
    - **Bepacken:** Die verbleibenden Entries werden in aufsteigender Reihenfolge verarbeitet (Gathering).
      - Entfernte Entries werden übersprungen, ohne Platz zu belegen, und als erledigt gezählt.
      - Sonst wird `Index::read(id).vector` gelesen. Anfang `off = align_up(cur, align)`. Passt der Entry (`off + len <= slot_size`), wird er bei `off` in den Slot geschrieben (`with_payload`). Der nächste Entry beginnt hinter ihm.
@@ -187,7 +187,7 @@ Report: `bytes = r.len`, `segments = 1`, `entries_done = n`.
      - Mit dem zurückgegebenen Event: `ring.begin_transfer(slot, event.clone())`, dann `event.wait()`. Ein Fehler beim Warten ergibt `Transfer(H2D)`.
    - **Melden:** `LoadedSegment`, `bounds[k]` = absolute Entry-Anfänge, End-Marker `region.offset() + end`. Danach `sink.accept`, und `bytes += end`.
    - **Fortschritt:** Erledigte Entries dieses Durchlaufs = gepackte + entfernte. Sind es 0 (und kein `ArenaExhausted`), kommt `GatherNoProgress`.
-4. Der Slot wird erst durch das abgeschlossene Event wieder frei (Ring-Garantie). Das Modul gibt einen InFlight-Slot nie selbst frei.
+4. Der Slot wird erst durch das abgeschlossene Event wieder frei (Ring-Garantie). Das Modul gibt einen InFlight-Slot nie selbst frei. Scheitert das Warten auf das Event, bleiben Slot (InFlight) und Region (`free_deferred`) in Quarantäne, bis das Event abschließt; spätere Aufrufe können beim Slot-Holen mit derselben Ursache als `Transfer(..)` scheitern. Das Modul erholt sich nicht selbst.
 5. Ein Durchlauf erzeugt ein Segment (`segments += 1`). `entries_done` = n bei Erfolg.
 
 **`load_mapped` (direktes Mapping)**
@@ -225,7 +225,8 @@ Report: `bytes = total`, `segments = 1`. Es gibt keinen Staging-Slot, keine Kopi
   - `PinnedBuffer`: `Send + Sync`.
   - `BackendError`: `Clone + Debug + PartialEq + Eq`.
 - **`staging_ring::StagingRing`** (`Send + Sync`):
-  - `acquire() -> Result<SlotId, StagingError>` (blockierend).
+  - `acquire() -> Result<SlotId, StagingError>` (blockierend, `Exhausted` wenn alle Slots belegt sind und keiner übertragen wird).
+  - `acquire_wait() -> Result<SlotId, StagingError>`: wie `acquire`, wartet aber statt `Exhausted`.
   - `with_payload`, `payload_ptr(slot) -> Result<*mut u8, _>`. Er ist nur gültig, solange der Slot Occupied oder InFlight ist.
   - `begin_transfer(slot, Event)`: Occupied → InFlight.
   - `release(slot)`: Occupied → Free.

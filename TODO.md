@@ -1,5 +1,13 @@
 # TODO
+! neues AST tool das alle editoperationen verein via batch
 ! batchsupport aufsplitten in einzelne control messages pro batch
+	- aber nicht liste sondern openapi save, liste pro edit operation
+! mit agent ignore verezichniss ignorieren
+
+Einheitliche warnings und fehler durch helper auf item oder batch ebene
+      warning: "Limit of 30 matches reached (total 681); narrow pattern, directory or include/exclude filters, or raise limit (max 50)."
+      error: 2 match line(s) exceeded 300 characters and were shortened in the middle with an ellipsis.
+
 
 - claude code hat bei den permissions auch schon einen deny/allow reason, wie wird der oim tool result abgebildet?
 - "resident" in vorhandenes RAG integrieren aber separat startbar

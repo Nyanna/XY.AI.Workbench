@@ -62,6 +62,8 @@ impl StagingRing {
 
     /// Blocking acquire. Free -> Occupied.
     pub fn acquire(&self) -> Result<SlotId, StagingError>;
+    /// Like acquire, but waits instead of returning Exhausted when all slots are Occupied.
+    pub fn acquire_wait(&self) -> Result<SlotId, StagingError>;
 
     /// Occupied only. Runs f with exclusive access to the payload (length slot_size).
     /// f must not call back into this ring (it may deadlock).
@@ -122,6 +124,8 @@ impl StagingRing {
 - `acquire` on a ring whose candidate is InFlight with a pending mock blocks until another thread calls `complete()`.
 - A failed mock gives `Err(Transfer{direction: H2D, ..})`.
 - With all slots Occupied and none InFlight, `acquire` returns `Exhausted`.
+- `acquire_wait` follows the same candidate and event-wait rules as `acquire`. With all slots Occupied and none InFlight it waits until a slot is released or begins a transfer, and never returns `Exhausted`. It is for callers that hold at most one slot and never wait on the ring while holding it; a caller that holds several slots can deadlock itself and uses `acquire`.
+- After a failed event wait the slot stays InFlight and is not reused (quarantine). Later `acquire` and `acquire_wait` calls that reach this slot as candidate wait for its event again and return `Transfer` while it has not completed.
 
 ## 5. Relied-on elements
 From Device/Lane/Event:
