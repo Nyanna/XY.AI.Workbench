@@ -5,7 +5,9 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
-from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome, parse_import_args
+from xy.ai.mcpc.tools.ast.outcomes import NodeError, edit_payload, node_key
+from xy.ai.mcpc.tools.results import ItemResult
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -43,23 +45,27 @@ class EditBlockItem:
     remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
-class EditBlockResult:
+class EditBlockResult(ItemResult):
     """Result of applying a single block edit.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
         id: The id exactly as given in the input, for result association.
-        result: Always ``"success"``.
         new_id: The node's new id, only set if the edit changed it.
     """
     path: str
     id: str | None
-    result: str
     new_id: str | None = None
     imports: ImportOutcome | None = None
 
+    def key(self) -> dict[str, Any]:
+        return node_key(self.path, self.id)
+
+    def payload(self) -> dict[str, Any]:
+        return edit_payload(new_id=self.new_id, imports=self.imports)
+
 @dataclass(frozen=True)
-class EditBlockError:
+class EditBlockError(NodeError):
     """Error applying a single block edit.
 
     Attributes:
@@ -73,26 +79,28 @@ class EditBlockError:
         guess: Unverified single-candidate guess at old_text's current form, if any.
         next_step: Fallback instruction (e.g. 'reread_node') when no fix could be determined.
     """
-    path: str
-    id: str | None
-    error: str
     candidates: list[str] | None = None
     reason: str | None = None
     corrected_text: str | None = None
     guess: str | None = None
     next_step: str | None = None
 
-@dataclass(frozen=True)
-class EditBlockBatchResult:
+    def payload(self) -> dict[str, Any]:
+        details = {
+            'candidates': self.candidates,
+            'reason': self.reason,
+            'corrected_text': self.corrected_text,
+            'guess': self.guess,
+            'next_step': self.next_step}
+        return {k: v for k, v in details.items() if v is not None}
+
+class EditBlockBatchResult(ImportCheckedBatchResult[EditBlockResult, EditBlockError]):
     """Result of :func:`ast_edit_block`.
 
     Attributes:
         results: One :class:`EditBlockResult` per successfully applied edit.
         errors: One :class:`EditBlockError` per edit that failed.
     """
-    results: list[EditBlockResult]
-    errors: list[EditBlockError]
-    notice: str | None = None
 
 def _node_guard(engine, reference):
     """Guard for tolerant node edits.
@@ -133,7 +141,7 @@ def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
     new_id = core.replace_node(target, new_source)
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return EditBlockResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
+    return EditBlockResult(path=item.path, id=item.id, new_id=new_id, imports=imports)
 
 def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
     """Replace occurrence(s) of ``old_text`` with ``new_text`` inside one or more nodes.
@@ -167,7 +175,7 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
                             exc, 'corrected_text', None), guess=getattr(
                                 exc, 'guess', None), next_step=getattr(
                                     exc, 'next_step', None)))
-    return EditBlockBatchResult(results=results, errors=errors, notice=import_notice(results))
+    return EditBlockBatchResult(results=results, errors=errors)
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
@@ -215,34 +223,7 @@ class EditBlockNodeTool(ToolDefinition):
                 id=it.get('id'),
                 add_import=add_import,
                 remove_import=remove_import)
-
-        def result_serializer(r: EditBlockResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'result': r.result}
-            if r.id is not None:
-                entry['id'] = r.id
-            if r.new_id is not None:
-                entry['new_id'] = r.new_id
-            if (imports := import_entry(r.imports)) is not None:
-                entry['imports'] = imports
-            return entry
-
-        def error_serializer(e: EditBlockError) -> dict[str, Any]:
-            entry = {'path': e.path, 'error': e.error}
-            if e.id is not None:
-                entry['id'] = e.id
-            for field in ('candidates', 'reason', 'corrected_text', 'guess', 'next_step'):
-                value = getattr(e, field)
-                if value is not None:
-                    entry[field] = value
-            return entry
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            ast_edit_block,
-            core.AstError,
-            result_serializer,
-            error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, ast_edit_block, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockNodeTool())

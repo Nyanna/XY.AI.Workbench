@@ -3,7 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.server.json_codec import JsonCodec
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 if TYPE_CHECKING:
     from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 __all__ = ['FunctionTool', 'ToolHandlerFn', 'ToolProvider']
@@ -28,8 +29,20 @@ class FunctionTool(ToolDefinition):
         self.annotations = annotations
         self._handler = handler
 
-    def handle(self, ctx: ToolContext) -> ToolResult | str | dict[str, Any]:
-        return self._handler(ctx)
+    def handle(self, ctx: ToolContext) -> ToolResult:
+        return _coerce(self._handler(ctx))
+
+def _coerce(value: ToolResult | str | dict[str, Any] | None) -> ToolResult:
+    """Adapt the convenience return types of embedded handlers to :class:`ToolResult`."""
+    if isinstance(value, ToolResult):
+        return value
+    if value is None:
+        return ToolResult()
+    if isinstance(value, str):
+        return ToolResult(content=[text_content(value)])
+    if isinstance(value, dict):
+        return ToolResult(content=[text_content(JsonCodec.encode(value))], structured_content=value)
+    raise TypeError(f'Unsupported tool return type: {type(value)!r}')
 
 def register_tool(tool: ToolDefinition | ToolProvider, registry: ToolRegistry, environment: AppEnvironment) -> None:
     if isinstance(tool, ToolProvider):

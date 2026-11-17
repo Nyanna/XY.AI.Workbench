@@ -23,13 +23,13 @@ def test_tool_search_to_tool_call_round_trip_with_bash(registry: ToolRegistry):
     session = Session(id='smoke-tools')
     '# 1) discover `bash` by keyword; the same search must not repeat it.'
     search_result = _call(registry, session, 'tool_search', keywords='bash working directory')
-    names = [t['name'] for t in search_result.structured_content['tools']]
+    names = [t['name'] for t in search_result.structured_content['results']]
     assert 'bash' in names
     repeat = _call(registry, session, 'tool_search', keywords='bash working directory')
-    assert repeat.structured_content['tools'] == []
+    assert not repeat.structured_content.get('results')
     '# 2) inspect its usage; repeating the same request yields a hint, not the info again.'
     usage = _call(registry, session, 'tool_usage', names=['bash'])
-    assert usage.structured_content['usages'][0]['signature'].startswith('bash(')
+    assert usage.structured_content['results'][0]['signature'].startswith('bash(')
     usage_repeat = _call(registry, session, 'tool_usage', names=['bash'])
     assert 'already returned' in usage_repeat.structured_content['errors'][0]['error']
     '# 3) call `bash` via tool_call; result and a new variable persist in the session.'
@@ -48,7 +48,7 @@ def test_tool_search_to_tool_call_round_trip_with_bash(registry: ToolRegistry):
     call3 = _call(registry, session, 'tool_call', tool_ids=[], code=f"print('x' * {STREAM_SPILL_THRESHOLD + 1})")
     assert 'stdout' not in call3.structured_content
     spill_var = call3.structured_content['stdout_var']
-    assert spill_var in call3.content[0]['text']
+    assert spill_var in call3.warnings[0]
     '# 6) the spilled content is retrievable by name in a later call (context persists).'
     call4 = _call(registry, session, 'tool_call', tool_ids=[], code=f'print(len({spill_var}))')
     assert call4.structured_content['stdout'] == f'{STREAM_SPILL_THRESHOLD + 2}\n'

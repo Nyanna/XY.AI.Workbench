@@ -9,6 +9,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient, McpClientError
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['GitHubBridge', 'GitHubTool', 'register_github_tools']
 _GET_FILE_SCHEMA: dict[str,
                        Any] = {'type': 'object',
@@ -877,8 +878,8 @@ class GitHubTool(ToolDefinition):
         try:
             result = self._core(**ctx.arguments)
         except McpBridgeError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content=result)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(RawPayload(result, reason='shape defined by the remote GitHub MCP server'))
 _TOOLS: list[tuple[str,
                    str,
                    str,

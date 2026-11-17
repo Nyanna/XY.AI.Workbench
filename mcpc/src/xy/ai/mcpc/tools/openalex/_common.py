@@ -6,6 +6,7 @@ from xy.ai.mcpc.config import ServerConfig
 from xy.ai.mcpc.openalex import OpenAlexAPIError, OpenAlexClient, Work, project_results
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
+from xy.ai.mcpc.tools.results import RawPayload
 logger = logging.getLogger('xy.ai.mcpc.tools.openalex')
 '#: Hard caps that mirror the OpenAlex API limits.'
 MAX_PER_PAGE = 50
@@ -63,13 +64,18 @@ def error_result(exc: Exception) -> ToolResult:
     if isinstance(exc, OpenAlexAPIError) and exc.status is not None:
         message = f'{message} (status {exc.status})'
     logger.error('OpenAlex request failed: %s', message, exc_info=exc)
-    return ToolResult(content=[text_content(message)], is_error=True)
+    return ToolResult.failure(message)
 
-def ok_result(structured: dict[str, Any]) -> ToolResult:
+def ok_result(structured: dict[str, Any], warnings: list[str] | None=None) -> ToolResult:
     """# OpenAlex occasionally returns fields (titles, abstracts, ...) that"""
     '# contain raw non-printable control characters; strip them so downstream'
     '# consumers (notably YAML block-scalar rendering) never choke on them.'
-    return ToolResult(structured_content=sanitize_value(structured))
+    return ToolResult.ok(
+        RawPayload(
+            sanitize_value(structured),
+            reason='shape defined by the OpenAlex API',
+            warnings=tuple(
+                warnings or [])))
 
 def summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     meta = data.get('meta') or {}

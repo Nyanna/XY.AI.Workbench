@@ -1,16 +1,11 @@
 """Common helpers for tool definition and request handling."""
-from dataclasses import dataclass, asdict
 from typing import Any, Callable, TypeVar
-from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
-
-def _compact(value: Any) -> Any:
-    """Recursively drop ``None`` values and empty lists from a dataclass-derived structure."""
-    if isinstance(value, dict):
-        return {k: _compact(v) for k, v in value.items() if v is not None and v != []}
-    if isinstance(value, list):
-        return [_compact(v) for v in value]
-    return value
+from xy.ai.mcpc.tools.results import BatchResult
+__all__ = ['require_items', 'handle_batch_tool', 'batch_tool_result', 'serialize_batch_result', 'batch_schema']
+T = TypeVar('T')
+ResultPayload = Callable[[Any], dict[str, Any]]
 
 def batch_schema(item_properties: dict[str, Any], required: list[str], description: str) -> dict[str, Any]:
     """Build the standard ``{items: [...]}`` input schema shared by all batch tools.
@@ -34,14 +29,6 @@ def batch_schema(item_properties: dict[str, Any], required: list[str], descripti
                 'description': description}},
         'required': ['items'],
         'additionalProperties': False}
-__all__ = ['BatchError', 'require_items', 'handle_batch_tool', 'serialize_batch_result', 'batch_schema']
-
-@dataclass
-class BatchError:
-    """Error from a single batch item."""
-    error: str
-T = TypeVar('T')
-R = TypeVar('R')
 
 def require_items(ctx: ToolContext, key: str='items') -> 'tuple[list[Any], ToolResult | None]':
     """Return the non-empty list at *key* in ``ctx.arguments``, or an error result.
@@ -52,10 +39,28 @@ def require_items(ctx: ToolContext, key: str='items') -> 'tuple[list[Any], ToolR
     """
     values = ctx.arguments.get(key) or []
     if not values:
-        return ([], ToolResult(content=[text_content(f"'{key}' must be a non-empty list.")], is_error=True))
+        return ([], ToolResult.failure(f"'{key}' must be a non-empty list."))
     return (values, None)
 
-def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], Any], error_class: type, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None, auto_approve: bool=False) -> ToolResult:
+def serialize_batch_result(batch_result: BatchResult[Any, Any], result_payload: ResultPayload | None=None) -> dict[str, Any]:
+    """Serialize the populated ``results``/``errors`` lists of a batch result.
+
+    Warnings are not part of this dict; they travel via :attr:`ToolResult.warnings`.
+    """
+    if not isinstance(batch_result, BatchResult):
+        raise TypeError(f'Expected a BatchResult, got {type(batch_result).__name__}')
+    return batch_result.to_dict(result_payload)
+
+def batch_tool_result(batch_result: BatchResult[Any, Any], result_payload: ResultPayload | None=None, auto_approve: bool=False) -> ToolResult:
+    """Wrap a batch result into a :class:`ToolResult` carrying its call-wide warnings."""
+    return ToolResult.ok(
+        batch_result,
+        auto_approve=auto_approve,
+        structured=serialize_batch_result(
+            batch_result,
+            result_payload))
+
+def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]], T], batch_fn: Callable[[list[T]], BatchResult[Any, Any]], error_class: type, result_payload: ResultPayload | None=None, auto_approve: bool=False) -> ToolResult:
     """Common handler for batch-processing tools.
 
     Args:
@@ -63,11 +68,11 @@ def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]],
         item_factory: Function to convert raw dict to typed item.
         batch_fn: Function to process list of items, returning batch result.
         error_class: Exception class raised by `batch_fn` for whole-batch failures.
-        result_serializer: Optional custom serializer for result items (default: asdict).
-        error_serializer: Optional custom serializer for error items (default: asdict).
+        result_payload: Optional context-dependent payload for result items (default: ``payload()``).
+        auto_approve: Approve the call automatically if no item failed.
 
     Returns:
-        ToolResult with serialized batch result.
+        ToolResult with serialized batch result and its warnings.
     """
     raw_items, error = require_items(ctx)
     if error is not None:
@@ -78,41 +83,11 @@ def handle_batch_tool(ctx: ToolContext, item_factory: Callable[[dict[str, Any]],
             items.append(item_factory(it))
         except KeyError as exc:
             key = exc.args[0] if exc.args else exc
-            return ToolResult(content=[text_content(f'Invalid item: missing required property {key!r}')], is_error=True)
+            return ToolResult.failure(f'Invalid item: missing required property {key!r}')
         except (ValueError, TypeError) as exc:
-            return ToolResult(content=[text_content(f'Invalid item: {exc}')], is_error=True)
+            return ToolResult.failure(f'Invalid item: {exc}')
     try:
         batch_result = batch_fn(items)
     except error_class as exc:
-        return ToolResult(content=[text_content(str(exc))], is_error=True)
-    content = serialize_batch_result(
-        batch_result,
-        result_serializer=result_serializer,
-        error_serializer=error_serializer)
-    has_error = hasattr(batch_result, 'errors') and batch_result.errors
-    return ToolResult(structured_content=content, auto_approve=not has_error and auto_approve)
-
-def serialize_batch_result(batch_result: Any, result_serializer: Callable[[Any], dict[str, Any]] | None=None, error_serializer: Callable[[Any], dict[str, Any]] | None=None) -> dict[str, Any]:
-    """Serialize a batch result, only including non-empty result/error lists.
-    
-    Args:
-        batch_result: Object with optional `results` and `errors` attributes.
-        result_serializer: Optional custom serializer for result items (default: asdict).
-        error_serializer: Optional custom serializer for error items (default: asdict).
-    
-    Returns:
-        Dict with only populated fields.
-    """
-    if result_serializer is None:
-        result_serializer = lambda r: _compact(asdict(r)) if hasattr(r, '__dataclass_fields__') else r
-    if error_serializer is None:
-        error_serializer = lambda e: _compact(asdict(e)) if hasattr(e, '__dataclass_fields__') else e
-    content: dict[str, Any] = {}
-    if hasattr(batch_result, 'results') and batch_result.results:
-        content['results'] = [result_serializer(r) for r in batch_result.results]
-    if hasattr(batch_result, 'errors') and batch_result.errors:
-        content['errors'] = [error_serializer(e) for e in batch_result.errors]
-    notice = getattr(batch_result, 'notice', None)
-    if notice:
-        content['notice'] = notice
-    return content
+        return ToolResult.failure(str(exc))
+    return batch_tool_result(batch_result, result_payload, auto_approve)

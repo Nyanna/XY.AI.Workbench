@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import ItemPayload
 __all__ = ['MarkdownError', 'MarkdownRunner', 'MarkdownTool', 'register_markdown_tool']
 _EXAMPLE = 'import { read, write } from \'to-vfile\';\nimport { createRemark } from \'./remark.js\';\nimport { visit } from \'unist-util-visit\';\n\nconst processor = createRemark({\n  // frontmatter: true, // if required\n  // behead: { depth: 1 }, // if required\n});\n\nprocessor.use(() => (tree, file) => {\n  // insert code here\n});\n\n// read file – replace \'path/to/file.md\' with the actual file path\nconst file = await read(\'path/to/file.md\');\n\n// parse to AST\nconst tree = await processor.run(processor.parse(file), file);\n\n// Extract headings\nconst headings = [];\nvisit(tree, \'heading\', (node) => {\n    headings.push({\n    depth: node.depth,\n    text: node.children.map(c => c.value || c.children?.map(x => x.value).join(\'\') || \'\').join(\'\').trim()\n    });\n});\n\n// format output\nawait processor.process(file);\nfile.path = \'path/to/file.md\';\nawait write(file);\n\nconsole.log(String("Done"));\n'
 _DESCRIPTION = 'AST-based reading, writing, modifying and transforming of Markdown files. Provide a TypeScript (ESM) script that uses `remark` (with `remark-behead` and `remark-frontmatter` available) to operate on Markdown. Returns the exit code, standard output and, if present, standard error.\n\nFollow this pattern:\n\n```typescript\n' + _EXAMPLE + '```'
@@ -84,8 +85,8 @@ class MarkdownTool(ToolDefinition):
         try:
             result = self._runner.markdown(args['script'])
         except MarkdownError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result, ctx)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(ItemPayload(pack_process_result(result, ctx)))
 
 def register_markdown_tool(registry: ToolRegistry, environment: AppEnvironment) -> None:
     tool = MarkdownTool(environment.config.markdown_env_dir)

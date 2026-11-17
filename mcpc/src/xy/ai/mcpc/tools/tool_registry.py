@@ -6,10 +6,11 @@ per-session configuration (:attr:`Session.enabled_tools`).
 """
 from dataclasses import dataclass, field
 from typing import Any, Callable
-from xy.ai.mcpc.server.json_codec import JsonCodec
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.results import WARNINGS_KEY, WARNINGS_SCHEMA
 from abc import ABC, abstractmethod
+from xy.ai.mcpc.tools.results import ToolPayload
 '#: Default value for the Anthropic-specific ``anthropic/maxResultSizeChars``'
 '#: meta annotation, applied generically to every tool result (see'
 '#: :meth:`ToolResult.to_dict`). This tells Anthropic-compatible MCP clients'
@@ -24,17 +25,39 @@ class ToolResult:
     is_error: bool = False
     auto_approve: bool = False
     message: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.is_error and self.structured_content:
-            raise ValueError('ToolResult: structured_content must not be set when is_error is True.')
+        if self.is_error and (self.structured_content or self.warnings):
+            raise ValueError('ToolResult: error results carry neither structured_content nor warnings.')
+        if self.structured_content and RESERVED_ROOT_KEYS & self.structured_content.keys():
+            raise ValueError(
+                'ToolResult: reserved key in structured_content; use ToolResult.warnings / ToolResult.message.')
+
+    @classmethod
+    def ok(cls, payload: ToolPayload, *, auto_approve: bool=False, content: list[dict[str, Any]] | None=None, structured: dict[str, Any] | None=None) -> 'ToolResult':
+        """Wrap a typed payload; *structured* replaces its wire form for context-dependent rendering."""
+        return cls(
+            content=list(
+                content or []),
+            structured_content=payload.to_dict() if structured is None else structured,
+            warnings=payload.all_warnings(),
+            auto_approve=auto_approve and (
+                not payload.failed))
+
+    @classmethod
+    def failure(cls, message: str) -> 'ToolResult':
+        return cls(content=[text_content(message)], is_error=True)
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         if self.content:
             result['content'] = list(self.content)
-        if self.structured_content:
-            result['structuredContent'] = dict(self.structured_content)
+        if self.structured_content or self.warnings:
+            structured = dict(self.structured_content or {})
+            if self.warnings:
+                structured[WARNINGS_KEY] = list(self.warnings)
+            result['structuredContent'] = structured
         if self.message:
             attach_message(result, self.message)
         if self.is_error:
@@ -51,11 +74,8 @@ def attach_message(result: dict[str, Any], message: str) -> None:
     result['structuredContent'] = structured
     reference = f"The user attached a message: read '{MESSAGE_PROPERTY}' in structuredContent."
     result['content'] = [*result.get('content', []), text_content(reference)]
-'#: A handler receives the invocation context and returns one of:'
-'#: * a :class:`ToolResult`,'
-'#: * a ``str`` (wrapped as a single text content block),'
-'#: * a ``dict`` (treated as structured content, also rendered as JSON text).'
-ToolHandler = Callable[[ToolContext], 'ToolResult | str | dict[str, Any]']
+'#: A handler receives the invocation context and returns a :class:`ToolResult`.'
+ToolHandler = Callable[[ToolContext], 'ToolResult']
 
 @dataclass(slots=True)
 class Tool:
@@ -107,10 +127,10 @@ class ToolDefinition(ABC):
     annotations: dict[str, Any] | None = None
 
     @abstractmethod
-    def handle(self, ctx: ToolContext) -> 'ToolResult | str | dict[str, Any]':
+    def handle(self, ctx: ToolContext) -> 'ToolResult':
         ...
 
-    def __call__(self, ctx: ToolContext) -> 'ToolResult | str | dict[str, Any]':
+    def __call__(self, ctx: ToolContext) -> 'ToolResult':
         return self.handle(ctx)
 
     def to_tool(self) -> Tool:
@@ -123,23 +143,11 @@ class ToolDefinition(ABC):
             output_schema=self.output_schema,
             annotations=self.annotations)
 
-def normalize_result(value: 'ToolResult | str | dict[str, Any] | None') -> ToolResult:
-    """Coerce whatever a handler returned into a :class:`ToolResult`."""
-    if isinstance(value, ToolResult):
-        return value
-    if value is None:
-        return ToolResult(content=[])
-    if isinstance(value, str):
-        return ToolResult(content=[text_content(value)])
-    if isinstance(value, dict):
-        '# A dict already shaped like a CallToolResult is passed through.'
-        if 'content' in value and isinstance(value['content'], list):
-            return ToolResult(content=value['content'], structured_content=value.get(
-                'structuredContent'), is_error=bool(value.get('isError', False)))
-        '# Otherwise treat the dict as structured content.'
-        rendered = JsonCodec.encode(value)
-        return ToolResult(content=[text_content(rendered)], structured_content=value)
-    raise TypeError(f'Unsupported tool return type: {type(value)!r}')
+def normalize_result(value: object) -> ToolResult:
+    """Return *value* if it is a :class:`ToolResult`, otherwise fail loudly."""
+    if not isinstance(value, ToolResult):
+        raise TypeError(f'Tool handlers must return ToolResult, got {type(value).__name__}')
+    return value
 "#: Name of the mandatory reason property injected into every tool's input"
 '#: schema (see :func:`_inject_property`).'
 REASON_PROPERTY = 'reason'
@@ -148,6 +156,8 @@ REASON_PROPERTY = 'reason'
 '#: :meth:`ToolResult.to_dict`) — must live there, not top-level, since MCP'
 '#: clients drop unknown top-level ``CallToolResult`` fields silently.'
 MESSAGE_PROPERTY = 'messageFromUser'
+'#: Root keys of ``structuredContent`` written only by :meth:`ToolResult.to_dict`.'
+RESERVED_ROOT_KEYS = frozenset({WARNINGS_KEY, MESSAGE_PROPERTY})
 
 def _inject_property(schema: dict[str, Any], name: str, description: str, *, required: bool, first: bool=False) -> dict[str, Any]:
     """Return *schema* with an additional property generically injected.
@@ -185,6 +195,12 @@ def _with_mandatory_reason(schema: dict[str, Any]) -> dict[str, Any]:
         'Precise, specific reason for this tool call (what exactly is being retrievedand why it is needed now), shown to the authorizing user.',
         required=True,
         first=True)
+
+def _with_warnings_property(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return *schema* announcing the root ``warnings`` array written by :meth:`ToolResult.to_dict`."""
+    schema = dict(schema)
+    schema['properties'] = {**schema.get('properties', {}), WARNINGS_KEY: WARNINGS_SCHEMA}
+    return schema
 
 class ToolRegistry:
     """Process-wide registry of available tools."""
@@ -235,11 +251,11 @@ class ToolRegistry:
         if tool.name in self._tools:
             raise ValueError(f'Tool already registered: {tool.name}')
         tool.input_schema = _with_mandatory_reason(tool.input_schema)
-        '# Applied unconditionally: ToolResult.to_dict() may attach controlHint'
-        '# to *any* result regardless of whether the tool declared an'
-        '# outputSchema, so the schema must always document it too.'
+        '# Applied unconditionally: ToolResult.to_dict() may attach warnings to *any*'
+        '# result regardless of whether the tool declared an outputSchema, so the'
+        '# schema must always document them too.'
         base_output_schema = tool.output_schema or {'type': 'object', 'properties': {}}
-        tool.output_schema = base_output_schema
+        tool.output_schema = _with_warnings_property(base_output_schema)
         meta: dict[str, Any] = {'anthropic/maxResultSizeChars': ANTHROPIC_MAX_RESULT_SIZE_CHARS}
         tool.meta = meta
         self._tools[tool.name] = tool

@@ -14,6 +14,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import SinglePayload
 __all__ = [
     'ToolCallError',
     'ToolCallExecution',
@@ -151,17 +152,22 @@ def run_tool_call(namespace: dict[str, Any], code: str) -> ToolCallExecution:
         error = f'Script failed: {type(exc).__name__}: {exc}'
     return ToolCallExecution(stdout=stdout_buf.getvalue(), stderr=stderr_buf.getvalue(), error=error)
 
+@dataclass(frozen=True, kw_only=True)
+class ToolCallOutput(SinglePayload):
+    """Captured output of a script; spilled streams are referenced by variable name.
+
+    ``exception`` is the script's own failure, not a failure of the tool call.
+    """
+    stdout: str | None = None
+    stderr: str | None = None
+    stdout_var: str | None = None
+    stderr_var: str | None = None
+    exception: str | None = None
+
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
     title = 'Run a script against injected tools'
-    description = (
-        'Run Python code against a restricted, session-persistent context. '
-        'Only text sent to print() is returned to the context — variable '
-        'assignments alone (e.g. `r = tool(...)`) are persisted only. '
-        'Complex objects are not auto-formatted: inspect their structure '
-        '(e.g. via tool_usage/type_sources) and explicitly iterate/print '
-        'the fields you need (e.g. `for x in r.results: print(x["title"])`).'
-    )
+    description = 'Run Python code against a restricted, session-persistent context. Only text sent to print() is returned to the context — variable assignments alone (e.g. `r = tool(...)`) are persisted only. Complex objects are not auto-formatted: inspect their structure (e.g. via the type sources shown by tool_usage) and explicitly iterate/print the fields you need (e.g. `for x in r.results: print(x["title"])`).'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -172,11 +178,7 @@ class ToolCallTool(ToolDefinition):
                 'description': "Ids of functions to inject into 'code' as same-named variables."},
             'code': {
                 'type': 'string',
-                'description': (
-                    'Python script; restricted builtins, no imports. '
-                    'Must explicitly print() any result you want to see — '
-                    'assignments are session-persistent. '
-                    'iterate/extract fields yourself before printing.')}},
+                        'description': 'Python script; restricted builtins, no imports. Must explicitly print() any result you want to see — assignments are session-persistent. iterate/extract fields yourself before printing.'}},
         'required': [
             'tool_ids',
             'code']}
@@ -190,28 +192,25 @@ class ToolCallTool(ToolDefinition):
         try:
             inject_tools(self._functions, namespace, list(args.get('tool_ids', [])))
         except ToolCallError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult.failure(str(exc))
         execution = run_tool_call(namespace, args['code'])
-        structured: dict[str, Any] = {}
-        notices: list[str] = []
+        fields: dict[str, str] = {}
+        warnings: list[str] = []
         if len(execution.stdout) > STREAM_SPILL_THRESHOLD:
             var_name = _spill(namespace, execution.stdout, 'stdout')
-            structured['stdout_var'] = var_name
-            notices.append(f"STDOUT exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it (e.g. slicing, splitlines(), grep-like logic) and print only what's needed via a follow-up tool_call using '{var_name}'.")
+            fields['stdout_var'] = var_name
+            warnings.append(f"STDOUT exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it (e.g. slicing, splitlines(), grep-like logic) and print only what's needed via a follow-up tool_call using '{var_name}'.")
         else:
-            structured['stdout'] = execution.stdout
+            fields['stdout'] = execution.stdout
         if execution.stderr:
             if len(execution.stderr) > STREAM_SPILL_THRESHOLD:
                 var_name = _spill(namespace, execution.stderr, 'stderr')
-                structured['stderr_var'] = var_name
-                notices.append(
+                fields['stderr_var'] = var_name
+                warnings.append(
                     f"STDERR exceeded {STREAM_SPILL_THRESHOLD} characters and was stored as '{var_name}' in the persistent context. Filter it and re-print via a follow-up tool_call using '{var_name}'.")
             else:
-                structured['stderr'] = execution.stderr
-        if execution.error is not None:
-            structured['error'] = execution.error
-        content = [text_content(n) for n in notices]
-        return ToolResult(content=content, structured_content=structured)
+                fields['stderr'] = execution.stderr
+        return ToolResult.ok(ToolCallOutput(exception=execution.error, warnings=tuple(warnings), **fields))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolCallTool(functions))

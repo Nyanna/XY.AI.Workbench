@@ -9,6 +9,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.bash.run_command import register_run_command_tool
+from xy.ai.mcpc.tools.process import ProcessBatchResult, ProcessItemError, ProcessOutput
 __all__ = ['BashError', 'BashItem', 'BashItemError', 'bash', 'BashTool', 'register_bash_tool']
 _MAX_STREAM_CHARS = 3000
 
@@ -109,26 +110,26 @@ class BashTool(ToolDefinition):
                     raise TypeError("'script' must be a list of strings")
                 items.append(BashItem(cwd=it['cwd'], script=script))
             except (KeyError, TypeError) as exc:
-                return ToolResult(content=[text_content(f'Invalid item: {exc!r}')], is_error=True)
+                return ToolResult.failure(f'Invalid item: {exc!r}')
         try:
             outcomes = bash(items)
         except BashError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        results: list[dict[str, Any]] = []
-        content: list[dict[str, Any]] = []
-        for outcome in outcomes:
+            return ToolResult.failure(str(exc))
+        results: list[ProcessOutput] = []
+        errors: list[ProcessItemError] = []
+        for index, outcome in enumerate(outcomes):
             if isinstance(outcome, BashItemError):
-                results.append({'error': outcome.error})
+                errors.append(ProcessItemError(index=index, error=outcome.error))
                 continue
-            packed = pack_process_result(
-                outcome,
-                ctx,
-                normalize_output=True,
-                omit_zero_exit_code=True,
-                max_stream_chars=_MAX_STREAM_CHARS)
-            results.append(packed.structured_content or {})
-            content.extend(packed.content or [])
-        return ToolResult(content=content, structured_content={'results': results})
+            results.append(
+                pack_process_result(
+                    outcome,
+                    ctx,
+                    normalize_output=True,
+                    omit_zero_exit_code=True,
+                    max_stream_chars=_MAX_STREAM_CHARS,
+                    index=index))
+        return ToolResult.ok(ProcessBatchResult(results=results, errors=errors))
 
 def register_bash_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(BashTool())

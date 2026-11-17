@@ -135,7 +135,7 @@ def apply_imports(tree: Tree, add: list[str] | None, remove: list[str] | None) -
 
     Independent of the node edit: engines compute all import changes first and write them
     once, so a failure leaves the tree as the node edit left it. It is then reported as
-    ``unchecked``, which puts the notice on the batch. Engines without dedicated support
+    ``unchecked``, which adds a warning to the batch. Engines without dedicated support
     get the generic check-only fallback.
     """
     if not add and (not remove):

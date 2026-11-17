@@ -15,6 +15,7 @@ from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.exa.bridge import get_bridge
 from xy.ai.mcpc.tools.mcp.exa.core import extract_results, fetch_cache, logger, normalize_item, strip_empty
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['WebFetchResult', 'web_fetch_exa', 'WebFetchExaTool', 'register']
 _DESCRIPTION = "Read a webpage's full content as clean markdown. Use to read any URL."
 _INPUT_SCHEMA: dict[str,
@@ -149,11 +150,12 @@ class WebFetchExaTool(ToolDefinition):
             result = web_fetch_exa(urls=urls, maxCharacters=args.get('maxCharacters'))
         except McpBridgeError as exc:
             logger.warning('web_fetch_exa failed: %s', exc)
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult.failure(str(exc))
         except Exception as exc:
             logger.exception('web_fetch_exa: unexpected error')
-            return ToolResult(content=[text_content(f'Unexpected error in web_fetch_exa: {exc}')], is_error=True)
-        return ToolResult(structured_content={'results': result.results})
+            return ToolResult.failure(f'Unexpected error in web_fetch_exa: {exc}')
+        return ToolResult.ok(RawPayload({'results': result.results},
+                                        reason='shape defined by the remote Exa MCP server'))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebFetchExaTool())

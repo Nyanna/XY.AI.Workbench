@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.exa.bridge import get_bridge
 from xy.ai.mcpc.tools.mcp.exa.core import extract_results, logger, normalize_item, search_cache, strip_empty
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['WebSearchResult', 'web_search_exa', 'WebSearchExaTool', 'register']
 _DESCRIPTION = 'Search the web for any topic and get clean, ready-to-use content.\n\nBest for: Finding current information, facts, or answering questions about any topic.\nReturns: an overview per result (id, title, author, excerpt) without text or url; call web_search_exa_results with the ids to get url and full text.'
 _INPUT_SCHEMA: dict[str,
@@ -139,10 +140,10 @@ class WebSearchExaTool(ToolDefinition):
             result = web_search_exa(query=args['query'], numResults=args.get('numResults'))
         except McpBridgeError as exc:
             logger.warning('web_search_exa failed: %s', exc)
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
+            return ToolResult.failure(str(exc))
         except Exception as exc:
             logger.exception('web_search_exa: unexpected error')
-            return ToolResult(content=[text_content(f'Unexpected error in web_search_exa: {exc}')], is_error=True)
+            return ToolResult.failure(f'Unexpected error in web_search_exa: {exc}')
         "# Keep 'results' present even when empty:"
         '# field, and strip_empty()-ing the whole dict here previously dropped it'
         '# entirely on empty results, producing a schema-violating, effectively'
@@ -150,7 +151,7 @@ class WebSearchExaTool(ToolDefinition):
         structured: dict[str, Any] = {'results': result.results}
         if result.autoprompt_string:
             structured['autoprompt_string'] = result.autoprompt_string
-        return ToolResult(structured_content=structured)
+        return ToolResult.ok(RawPayload(structured, reason='shape defined by the remote Exa MCP server'))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebSearchExaTool())

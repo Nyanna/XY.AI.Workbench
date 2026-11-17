@@ -6,7 +6,8 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result
+from xy.ai.mcpc.tools._tool_helpers import require_items, batch_tool_result
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.tools.list import ListError, ListItem
 from xy.ai.mcpc.tools.list import list as _list_dirs
 __all__ = [
@@ -19,7 +20,7 @@ __all__ = [
 _MAX_DIR_EXPANSION = 5
 
 @dataclass(frozen=True)
-class OutlineNodesResult:
+class OutlineNodesResult(ItemResult):
     """Nodes of a single file.
 
     Attributes:
@@ -31,8 +32,14 @@ class OutlineNodesResult:
     path: str
     nodes: list[core.OutlineNode]
 
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        return {'nodes': [core.to_dict(n) for n in self.nodes]}
+
 @dataclass(frozen=True)
-class OutlineNodesError:
+class OutlineNodesError(ItemError):
     """Error listing a single file.
 
     Attributes:
@@ -40,18 +47,17 @@ class OutlineNodesError:
         error: The error message.
     """
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class OutlineNodesBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class OutlineNodesBatchResult(BatchResult[OutlineNodesResult, OutlineNodesError]):
     """Result of :func:`ast_outline`.
 
     Attributes:
         results: One :class:`OutlineNodesResult` per successfully listed file.
         errors: One :class:`OutlineNodesError` per file that failed.
     """
-    results: list[OutlineNodesResult]
-    errors: list[OutlineNodesError]
 
 def _expand_path(path_str: str) -> list[str]:
     """Expand *path_str* to its own single-element list, unless it names a
@@ -90,11 +96,7 @@ def _directory_listing_hint(path: str) -> str:
     if batch.errors:
         return f'{hint} Listing failed: {batch.errors[0].error}'
     result = batch.results[0]
-    parts = [hint]
-    if result.warning:
-        parts.append(result.warning)
-    parts.extend(result.entries)
-    return '\n'.join(parts)
+    return '\n'.join([hint, *result.warnings, *result.entries])
 
 def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatchResult:
     """List the hierarchical AST-node tree of one or more files.
@@ -137,7 +139,7 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 class OutlineNodesTool(ToolDefinition):
     name = 'ast_outline'
     title = 'Hierarchical AST outline with IDs from a set of defined files'
-    description = "Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, type, docstring, children, imports, and segments. Other AST tools require IDs as input."
+    description = 'Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, type, docstring, children, imports, and segments. Other AST tools require IDs as input.'
     input_schema = {
         'type': 'object',
         'properties': {
@@ -155,11 +157,7 @@ class OutlineNodesTool(ToolDefinition):
         if error is not None:
             return error
         with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
-        batch = ast_outline(paths=paths, with_lines=with_lines)
-        result_serializer = lambda r: {'path': r.path, 'nodes': [core.to_dict(n) for n in r.nodes]}
-        error_serializer = lambda e: {'path': e.path, 'error': e.error}
-        content = serialize_batch_result(batch, result_serializer, error_serializer)
-        return ToolResult(structured_content=content)
+        return batch_tool_result(ast_outline(paths=paths, with_lines=with_lines))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(OutlineNodesTool())

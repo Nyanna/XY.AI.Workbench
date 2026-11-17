@@ -5,7 +5,9 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_PROP, select_by_text
-from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome, parse_import_args
+from xy.ai.mcpc.tools.ast.outcomes import NodeError, edit_payload, node_key
+from xy.ai.mcpc.tools.results import ItemResult
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -43,23 +45,27 @@ class EditMarksItem:
     remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
-class EditMarksResult:
+class EditMarksResult(ItemResult):
     """Result of applying a single marker-based edit.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
         id: The id exactly as given in the input, for result association.
-        result: Always ``"success"``.
         new_id: The node's new id, only set if the edit changed it.
     """
     path: str
     id: str | None
-    result: str
     new_id: str | None = None
     imports: ImportOutcome | None = None
 
+    def key(self) -> dict[str, Any]:
+        return node_key(self.path, self.id)
+
+    def payload(self) -> dict[str, Any]:
+        return edit_payload(new_id=self.new_id, imports=self.imports)
+
 @dataclass(frozen=True)
-class EditMarksError:
+class EditMarksError(NodeError):
     """Error applying a single marker-based edit.
 
     Attributes:
@@ -74,9 +80,6 @@ class EditMarksError:
         guess: Unverified single-candidate guess at the marker's current form, if any.
         next_step: Fallback instruction (e.g. 'reread_node') when no fix could be determined.
     """
-    path: str
-    id: str | None
-    error: str
     candidates: list[str] | None = None
     reason: str | None = None
     position: str | None = None
@@ -84,17 +87,18 @@ class EditMarksError:
     guess: str | None = None
     next_step: str | None = None
 
-@dataclass(frozen=True)
-class EditMarksBatchResult:
+    def payload(self) -> dict[str, Any]:
+        details = {'candidates': self.candidates, 'reason': self.reason, 'position': self.position,
+                   'corrected_text': self.corrected_text, 'guess': self.guess, 'next_step': self.next_step}
+        return {k: v for k, v in details.items() if v is not None}
+
+class EditMarksBatchResult(ImportCheckedBatchResult[EditMarksResult, EditMarksError]):
     """Result of :func:`ast_edit_marks`.
 
     Attributes:
         results: One :class:`EditMarksResult` per successfully applied edit.
         errors: One :class:`EditMarksError` per edit that failed.
     """
-    results: list[EditMarksResult]
-    errors: list[EditMarksError]
-    notice: str | None = None
 
 def _node_marks_guard(engine, begin_marker, end_marker):
     """Guard for tolerant marker edits (see ``ast.edit_block._node_guard``)."""
@@ -134,7 +138,7 @@ def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:
     new_id = core.replace_node(target, new_source)
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return EditMarksResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
+    return EditMarksResult(path=item.path, id=item.id, new_id=new_id, imports=imports)
 
 def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
     """Replace everything between the start/end markers inside one or more nodes.
@@ -170,7 +174,7 @@ def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
                                 exc, 'corrected_text', None), guess=getattr(
                                     exc, 'guess', None), next_step=getattr(
                                         exc, 'next_step', None)))
-    return EditMarksBatchResult(results=results, errors=errors, notice=import_notice(results))
+    return EditMarksBatchResult(results=results, errors=errors)
 
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
@@ -217,34 +221,7 @@ class EditMarksNodeTool(ToolDefinition):
                 id=it.get('id'),
                 add_import=add_import,
                 remove_import=remove_import)
-
-        def result_serializer(r: EditMarksResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'result': r.result}
-            if r.id is not None:
-                entry['id'] = r.id
-            if r.new_id is not None:
-                entry['new_id'] = r.new_id
-            if (imports := import_entry(r.imports)) is not None:
-                entry['imports'] = imports
-            return entry
-
-        def error_serializer(e: EditMarksError) -> dict[str, Any]:
-            entry = {'path': e.path, 'error': e.error}
-            if e.id is not None:
-                entry['id'] = e.id
-            for field in ('candidates', 'reason', 'position', 'corrected_text', 'guess', 'next_step'):
-                value = getattr(e, field)
-                if value is not None:
-                    entry[field] = value
-            return entry
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            ast_edit_marks,
-            core.AstError,
-            result_serializer,
-            error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, ast_edit_marks, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksNodeTool())

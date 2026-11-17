@@ -10,6 +10,7 @@ from xy.ai.mcpc.tools._tool_helpers import batch_schema, require_items
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
+from xy.ai.mcpc.tools.process import ProcessBatchResult, ProcessItemError, ProcessOutput
 __all__ = [
     'COMMANDS_FILE',
     'RunCommandError',
@@ -155,10 +156,10 @@ def run_command(items: list[RunCommandItem | dict[str, Any]]) -> list[tuple[Proc
 class RunCommandTool(ToolDefinition):
     name = 'run_command'
     title = 'Run predefined tool'
-    description = f"Run predefined tools by given ID. Items run in parallel; placeholder values are passed as name/value pairs. Result holds return code, output, or an error."
+    description = f'Run predefined tools by given ID. Items run in parallel; placeholder values are passed as name/value pairs. Result holds return code, output, or an error.'
     _ITEM_PROPERTIES = {
         'cwd': {
-            'type': 'string', 'description': f"Absolute path to the working directory."}, 'id': {
+            'type': 'string', 'description': f'Absolute path to the working directory.'}, 'id': {
                 'type': 'string', 'description': 'ID.'}, 'values': {
                     'type': 'array', 'description': 'Placeholder replacements.', 'items': {
                         'type': 'object', 'properties': {
@@ -179,27 +180,27 @@ class RunCommandTool(ToolDefinition):
                 values = {v['name']: v['value'] for v in it.get('values') or []}
                 items.append(RunCommandItem(cwd=it['cwd'], id=it['id'], values=values))
             except (KeyError, TypeError, AttributeError) as exc:
-                return ToolResult(content=[text_content(f'Invalid item: {exc!r}')], is_error=True)
+                return ToolResult.failure(f'Invalid item: {exc!r}')
         try:
             outcomes = run_command(items)
         except RunCommandError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        results: list[dict[str, Any]] = []
-        content: list[dict[str, Any]] = []
-        for outcome in outcomes:
+            return ToolResult.failure(str(exc))
+        results: list[ProcessOutput] = []
+        errors: list[ProcessItemError] = []
+        for index, outcome in enumerate(outcomes):
             if isinstance(outcome, RunCommandItemError):
-                results.append({'error': outcome.error})
+                errors.append(ProcessItemError(index=index, error=outcome.error))
                 continue
             result, spec = outcome
-            packed = pack_process_result(
-                result,
-                ctx,
-                normalize_output=True,
-                omit_zero_exit_code=True,
-                max_stream_chars=_MAX_STREAM_CHARS if spec.spill_to_disk else None)
-            results.append(packed.structured_content or {})
-            content.extend(packed.content or [])
-        return ToolResult(content=content, structured_content={'results': results})
+            results.append(
+                pack_process_result(
+                    result,
+                    ctx,
+                    normalize_output=True,
+                    omit_zero_exit_code=True,
+                    max_stream_chars=_MAX_STREAM_CHARS if spec.spill_to_disk else None,
+                    index=index))
+        return ToolResult.ok(ProcessBatchResult(results=results, errors=errors))
 
 def register_run_command_tool(registry: ToolRegistry) -> None:
     registry.register(RunCommandTool())

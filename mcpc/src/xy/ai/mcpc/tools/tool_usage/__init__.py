@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = ['ToolUsageError', 'ToolUsageInfo', 'describe_function', 'ToolUsageTool', 'register']
 _SEEN_STATE_KEY = 'tool_usage_seen'
 '#: Project package prefix identifying a "self-declared" (non-stdlib) type.'
@@ -95,6 +96,28 @@ def describe_function(functions: FunctionRegistry, function_id: str) -> ToolUsag
             continue
     return ToolUsageInfo(signature=signature, docstring=entry.doc, type_sources=sources)
 
+@dataclass(frozen=True)
+class UsageResult(ItemResult):
+    """Usage description of one function, mirroring its requested name."""
+    name: str
+    signature: str
+    docstring: str
+    type_sources: list[str]
+
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+@dataclass(frozen=True)
+class UsageError(ItemError):
+    """A function whose usage could not be returned, mirroring its requested name."""
+    name: str
+
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+class UsageBatchResult(BatchResult[UsageResult, UsageError]):
+    """Usage descriptions per requested function name."""
+
 class ToolUsageTool(ToolDefinition):
     name = 'tool_usage'
     title = 'Show function-based tool usage'
@@ -118,27 +141,28 @@ class ToolUsageTool(ToolDefinition):
         if error is not None:
             return error
         seen: set[str] = ctx.session.state.setdefault(_SEEN_STATE_KEY, set())
-        usages: list[dict[str, Any]] = []
-        errors: list[dict[str, str]] = []
+        usages: list[UsageResult] = []
+        errors: list[UsageError] = []
         for name in names:
             if name in seen:
                 errors.append(
-                    {'name': name, 'error': f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result."})
+                    UsageError(
+                        name=name,
+                        error=f"Usage for '{name}' was already returned earlier in this session; refer to that earlier result."))
                 continue
             try:
                 info = describe_function(self._functions, name)
             except ToolUsageError as exc:
-                errors.append({'name': name, 'error': str(exc)})
+                errors.append(UsageError(name=name, error=str(exc)))
                 continue
             seen.add(name)
-            usages.append({'name': name,
-                           'signature': info.signature,
-                           'docstring': info.docstring,
-                           'type_sources': info.type_sources})
-        structured_content: dict[str, Any] = {'usages': usages}
-        if errors:
-            structured_content['errors'] = errors
-        return ToolResult(structured_content=structured_content)
+            usages.append(
+                UsageResult(
+                    name=name,
+                    signature=info.signature,
+                    docstring=info.docstring,
+                    type_sources=info.type_sources))
+        return ToolResult.ok(UsageBatchResult(results=usages, errors=errors))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolUsageTool(functions))

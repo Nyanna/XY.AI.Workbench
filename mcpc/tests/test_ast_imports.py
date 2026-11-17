@@ -52,7 +52,7 @@ def test_python_adds_missing_imports_after_existing_ones(tmp_path: Path):
                     'import sys',
                     'import os',
                     'from os import path'])])
-    assert not result.errors and result.notice is None
+    assert not result.errors and (not result.all_warnings())
     assert result.results[0].imports.added == ['import sys', 'from os import path']
     text = Path(path).read_text()
     assert text.index('import os') < text.index('import sys') < text.index(
@@ -92,7 +92,7 @@ def test_python_invalid_import_keeps_edit_and_flags_notice(tmp_path: Path):
     path = _write(tmp_path, 'm.py', PY_SOURCE)
     result = ast_insert(items=[InsertItem(path=path, source='z = 5', id='A', add_import=['x = 1'])])
     assert not result.errors
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     text = Path(path).read_text()
     assert 'z = 5' in text and 'x = 1' not in text
 
@@ -106,7 +106,7 @@ def test_delete_file_ignores_imports_but_flags_notice(tmp_path: Path):
     path = _write(tmp_path, 'm.py', PY_SOURCE)
     result = ast_delete(items=[DeleteItem(path=path, add_import=['import sys'])])
     assert not result.errors
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     assert not Path(path).exists()
 '# --------------------------------------------------------------------------- javascript'
 
@@ -123,7 +123,7 @@ def test_javascript_add_and_remove(tmp_path: Path):
                     'import { c } from "c";',
                     'import a from "a"'],
                 remove_import=["import {b} from 'b';"])])
-    assert not result.errors and result.notice is None
+    assert not result.errors and (not result.all_warnings())
     assert result.results[0].imports.added == ['import { c } from "c";']
     assert result.results[0].imports.removed == ["import {b} from 'b';"]
     text = Path(path).read_text()
@@ -148,7 +148,7 @@ def test_javascript_non_import_keeps_edit_and_flags_notice(tmp_path: Path):
     node = _first_id(path, 'function_declaration')
     result = ast_replace(items=[ReplaceItem(path=path, source='function f() {}', id=node, add_import=['const a = 1;'])])
     assert not result.errors
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     text = Path(path).read_text()
     assert 'function f() {}' in text and 'const a' not in text
 
@@ -168,7 +168,7 @@ def test_failing_engine_keeps_edit_and_flags_notice(tmp_path: Path, monkeypatch)
                 id=node,
                 add_import=["import c from 'c';"])])
     assert not result.errors
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     assert Path(path).read_text() == JS_SOURCE.replace('return 1', 'return 2')
 '# --------------------------------------------------------------------------- generic fallback'
 
@@ -182,7 +182,7 @@ def test_generic_present_import_needs_no_notice(tmp_path: Path):
                 source=node.node.text.decode(),
                 id=node.node_id,
                 add_import=['import "fmt"'])])
-    assert not result.errors and result.notice is None
+    assert not result.errors and (not result.all_warnings())
 
 def test_generic_missing_import_is_not_written_but_flagged(tmp_path: Path):
     path = _write(tmp_path, 'm.go', GO_SOURCE)
@@ -195,7 +195,7 @@ def test_generic_missing_import_is_not_written_but_flagged(tmp_path: Path):
                 id=node.node_id,
                 add_import=['import "os"'])])
     assert not result.errors
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     assert 'import "os"' not in Path(path).read_text()
 
 def test_generic_removes_whole_line_only(tmp_path: Path):
@@ -208,7 +208,7 @@ def test_generic_removes_whole_line_only(tmp_path: Path):
                 source=node.node.text.decode(),
                 id=node.node_id,
                 remove_import=['import "fmt"'])])
-    assert not result.errors and result.notice is None
+    assert not result.errors and (not result.all_warnings())
     assert 'import "fmt"' not in Path(path).read_text()
 
 def test_generic_unsafe_remove_is_flagged(tmp_path: Path):
@@ -221,7 +221,7 @@ def test_generic_unsafe_remove_is_flagged(tmp_path: Path):
                 source=node.node.text.decode(),
                 id=node.node_id,
                 remove_import=['fmt.Println'])])
-    assert result.notice == IMPORT_NOTICE
+    assert result.all_warnings() == [IMPORT_NOTICE]
     assert 'fmt.Println(1)' in Path(path).read_text()
 
 @pytest.mark.parametrize('bad', [[''], 'import os', [1]])

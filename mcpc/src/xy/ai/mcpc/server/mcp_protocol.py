@@ -16,6 +16,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolRegistry, normalize_result, ToolR
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import AppEnvironment
 from xy.ai.mcpc.tools.ask_user import TOOLNAME_ASK_USER
+from xy.ai.mcpc.tools.ask_user import AskUserResult
 logger = logging.getLogger('xy.ai.mcpc.protocol')
 '# Methods a client may call before the initialize handshake has completed.'
 _PRE_INIT_METHODS = {'initialize', 'ping'}
@@ -132,21 +133,16 @@ class McpProtocol:
             if not decision.approved:
                 reason = decision.rejection_reason
                 if name == TOOLNAME_ASK_USER:
-                    return ToolResult(
-                        structured_content={
-                            'answer': reason or 'No answer given, anticipate and proceed'}).to_dict()
-                return ToolResult(
-                    content=[
-                        text_content(
-                            f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.')],
-                    is_error=True).to_dict()
+                    return _ask_user_answer(reason or 'No answer given, anticipate and proceed')
+                return ToolResult.failure(
+                    f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.').to_dict()
             if decision.modified_arguments is not None:
                 arguments = decision.modified_arguments
             force_result_review = decision.force_result_review
             if decision.approval_hint:
                 "# For ask_user, an approval hint *is* the human's answer"
                 if name == TOOLNAME_ASK_USER:
-                    return ToolResult(structured_content={'answer': decision.approval_hint}).to_dict()
+                    return _ask_user_answer(decision.approval_hint)
                 request_hint = decision.approval_hint
         context = ToolContext(session=session, arguments=arguments)
         '# Tool execution errors are reported *inside* the result (isError=true)'
@@ -158,15 +154,10 @@ class McpProtocol:
             raise
         except KeyError as exc:
             key = exc.args[0] if exc.args else exc
-            result = ToolResult(
-                content=[
-                    text_content(
-                        f"Tool '{name}' failed: missing required property {
-                            key!r}")],
-                is_error=True)
+            result = ToolResult.failure(f"Tool '{name}' failed: missing required property {key!r}")
         except Exception as exc:
             '# noqa: BLE001 - surface as tool error result'
-            result = ToolResult(content=[text_content(f"Tool '{name}' failed: {exc}")], is_error=True)
+            result = ToolResult.failure(f"Tool '{name}' failed: {exc}")
         if control is not None and (not skip_control):
             decision = control.submit_result(
                 session,
@@ -178,14 +169,9 @@ class McpProtocol:
             if not decision.approved:
                 reason = decision.rejection_reason
                 if name == TOOLNAME_ASK_USER:
-                    return ToolResult(
-                        structured_content={
-                            'answer': reason or 'No answer given, anticipate and proceed'}).to_dict()
-                return ToolResult(
-                    content=[
-                        text_content(
-                            f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.')],
-                    is_error=True).to_dict()
+                    return _ask_user_answer(reason or 'No answer given, anticipate and proceed')
+                return ToolResult.failure(
+                    f'Rejected by User: {reason}' if reason else 'Rejected by User. No reason was given; Reconsider your approach based on the requirements.').to_dict()
             hint_parts = [h for h in (request_hint, decision.approval_hint) if h]
             combined_hint = '\n'.join(hint_parts) if hint_parts else None
             if decision.modified_result is not None:
@@ -196,11 +182,14 @@ class McpProtocol:
             if combined_hint and name == TOOLNAME_ASK_USER:
                 '# Same exception as in the request phase: for ask_user the'
                 '# hint *is* the answer, not an independent side-channel field.'
-                return ToolResult(structured_content={'answer': combined_hint}).to_dict()
+                return _ask_user_answer(combined_hint)
             if combined_hint and decision.modified_result is not None:
                 attach_message(result_dict, combined_hint)
             return result_dict
         return result.to_dict()
+
+def _ask_user_answer(answer: str) -> dict[str, Any]:
+    return ToolResult.ok(AskUserResult(answer=answer)).to_dict()
 
 def _validate_arguments(schema: dict[str, Any], arguments: dict[str, Any]) -> None:
     """Minimal recursive validation of *arguments* against an input JSON Schema.

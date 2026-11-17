@@ -1,6 +1,8 @@
 """``ast_replace`` tool: replace selected nodes with new source."""
 from dataclasses import dataclass
-from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome, parse_import_args
+from xy.ai.mcpc.tools.ast.outcomes import NodeError, edit_payload, node_key
+from xy.ai.mcpc.tools.results import ItemResult
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -36,23 +38,26 @@ class ReplaceItem:
     remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
-class ReplaceResult:
+class ReplaceResult(ItemResult):
     """Result of a single node replacement.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
         id: The id exactly as given in the input, for result association.
-        result: Always ``"success"``.
         new_id: The node's new id, only set if the replacement changed it.
     """
     path: str
     id: str | None
-    result: str
     new_id: str | None = None
     imports: ImportOutcome | None = None
 
-@dataclass(frozen=True)
-class ReplaceError:
+    def key(self) -> dict[str, Any]:
+        return node_key(self.path, self.id)
+
+    def payload(self) -> dict[str, Any]:
+        return edit_payload(new_id=self.new_id, imports=self.imports)
+
+class ReplaceError(NodeError):
     """Error applying a single node replacement.
 
     Attributes:
@@ -60,21 +65,14 @@ class ReplaceError:
         id: The id exactly as given in the input, for result association.
         error: The error message.
     """
-    path: str
-    id: str | None
-    error: str
 
-@dataclass(frozen=True)
-class ReplaceBatchResult:
+class ReplaceBatchResult(ImportCheckedBatchResult[ReplaceResult, ReplaceError]):
     """Result of :func:`ast_replace`.
 
     Attributes:
         results: One :class:`ReplaceResult` per successful replacement.
         errors: One :class:`ReplaceError` per replacement that failed.
     """
-    results: list[ReplaceResult]
-    errors: list[ReplaceError]
-    notice: str | None = None
 
 def _replace_one(item: ReplaceItem) -> ReplaceResult:
     file_path = core.require_path(item.path)
@@ -83,7 +81,7 @@ def _replace_one(item: ReplaceItem) -> ReplaceResult:
     new_id = core.replace_node(target, item.source)
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return ReplaceResult(path=item.path, id=item.id, result='success', new_id=new_id, imports=imports)
+    return ReplaceResult(path=item.path, id=item.id, new_id=new_id, imports=imports)
 
 def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
     """Replace one or more selected nodes with new source.
@@ -111,7 +109,7 @@ def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
             results.append(_replace_one(item))
         except core.AstError as exc:
             errors.append(ReplaceError(path=item.path, id=item.id, error=str(exc)))
-    return ReplaceBatchResult(results=results, errors=errors, notice=import_notice(results))
+    return ReplaceBatchResult(results=results, errors=errors)
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
@@ -139,30 +137,7 @@ class ReplaceNodeTool(ToolDefinition):
                 id=it.get('id'),
                 add_import=add_import,
                 remove_import=remove_import)
-
-        def result_serializer(r: ReplaceResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'result': r.result}
-            if r.id is not None:
-                entry['id'] = r.id
-            if r.new_id is not None:
-                entry['new_id'] = r.new_id
-            if (imports := import_entry(r.imports)) is not None:
-                entry['imports'] = imports
-            return entry
-
-        def error_serializer(e: ReplaceError) -> dict[str, Any]:
-            entry = {'path': e.path, 'error': e.error}
-            if e.id is not None:
-                entry['id'] = e.id
-            return entry
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            ast_replace,
-            core.AstError,
-            result_serializer,
-            error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, ast_replace, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReplaceNodeTool())

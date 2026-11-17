@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = ['ValidateError', 'FileCheck', 'ValidateResult', 'ast_validate', 'ValidateTool', 'register']
 
 class ValidateError(Exception):
@@ -72,6 +73,25 @@ def ast_validate(paths: list[str]) -> ValidateResult:
     files = [_check(p) for p in paths]
     return ValidateResult(all_ok=all((f.ok for f in files)), files=files)
 
+@dataclass(frozen=True)
+class ValidFile(ItemResult):
+    """A file that compiled."""
+    path: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+@dataclass(frozen=True)
+class InvalidFile(ItemError):
+    """A file that did not compile; ``error`` carries the message with line number."""
+    path: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class ValidateBatchResult(BatchResult[ValidFile, InvalidFile]):
+    """Compile check per input path."""
+
 class ValidateTool(ToolDefinition):
     name = 'ast_validate'
     title = 'Validate files'
@@ -94,13 +114,17 @@ class ValidateTool(ToolDefinition):
         try:
             result = ast_validate(paths)
         except ValidateError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(
-            structured_content={
-                'all_ok': result.all_ok,
-                'files': [
-                    f.__dict__ for f in result.files]},
-            auto_approve=result.all_ok)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(
+            ValidateBatchResult(
+                results=[
+                    ValidFile(
+                        path=f.path) for f in result.files if f.ok],
+                errors=[
+                    InvalidFile(
+                        path=f.path,
+                        error=f.error or 'invalid') for f in result.files if not f.ok]),
+            auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ValidateTool())

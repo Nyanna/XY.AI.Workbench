@@ -1,14 +1,22 @@
 """``web_search_exa_results`` - stage 2: resolve ``web_search_exa`` ids to url and text."""
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import logger, search_cache, strip_empty
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import unknown_ids_warnings
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['web_search_exa_results', 'WebSearchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_search_exa to their full text.'
 _INPUT_SCHEMA: dict[str, Any] = {'type': 'object', 'properties': {'ids': {'type': 'array', 'items': {
     'type': 'string'}, 'minItems': 1, 'description': 'Result ids returned by web_search_exa.'}}, 'required': ['ids']}
+
+def _resolve(ids: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    items = search_cache.get_many(ids)
+    known = {item['id'] for item in items}
+    results = [strip_empty({'id': item['id'], 'url': item.get('url'), 'text': item.get('text')}) for item in items]
+    return (results, [i for i in ids if i not in known])
 
 def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
     """Resolve ids from a prior ``web_search_exa`` call to url and full text.
@@ -19,11 +27,10 @@ def web_search_exa_results(ids: list[str]) -> list[dict[str, Any]]:
     Returns:
         One entry per known id, with ``id``, ``url`` and ``text``.
     """
-    items = search_cache.get_many(ids)
-    missing = [i for i in ids if i not in {item['id'] for item in items}]
+    results, missing = _resolve(ids)
     if missing:
         logger.warning('web_search_exa_results: unknown or expired id(s): %s', missing)
-    return [strip_empty({'id': item['id'], 'url': item.get('url'), 'text': item.get('text')}) for item in items]
+    return results
 
 class WebSearchExaResultsTool(ToolDefinition):
     name = 'web_search_exa_results'
@@ -36,11 +43,13 @@ class WebSearchExaResultsTool(ToolDefinition):
         if error is not None:
             return error
         try:
-            results = web_search_exa_results(ids=ids)
+            results, missing = _resolve(ids)
         except Exception as exc:
             logger.exception('web_search_exa_results failed')
-            return ToolResult(content=[text_content(f'Error resolving web_search_exa results: {exc}')], is_error=True)
-        return ToolResult(structured_content={'results': results}, auto_approve=False)
+            return ToolResult.failure(f'Error resolving web_search_exa results: {exc}')
+        return ToolResult.ok(RawPayload({'results': results},
+                                        reason='shape defined by the remote Exa MCP server',
+                                        warnings=tuple(unknown_ids_warnings(missing))))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebSearchExaResultsTool())

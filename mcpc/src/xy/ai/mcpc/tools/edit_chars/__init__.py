@@ -5,6 +5,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import Done
 __all__ = ['EditCharsError', 'EditCharsResult', 'edit_chars', 'EditCharsTool', 'register_edit_chars_tool']
 
 class EditCharsError(Exception):
@@ -87,8 +88,8 @@ class EditCharsTool(ToolDefinition):
                 length=args['length'],
                 content=args['content'])
         except EditCharsError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'result': result.result}, auto_approve=True)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(Done(result=result.result), auto_approve=True)
 
 def register_edit_chars_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditCharsTool())

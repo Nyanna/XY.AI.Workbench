@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.edit_block import EditBlockItem, edit_block
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'EditLineError',
     'EditLineItem',
@@ -41,27 +42,28 @@ class EditLineItem:
     replace_all: bool = False
 
 @dataclass(frozen=True)
-class EditLineResult:
+class EditLineResult(ItemResult):
     """Result of applying a single line edit, mirroring its input path for result association."""
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class EditLineItemError:
+class EditLineItemError(ItemError):
     """Error applying a single line edit, mirroring its input path for result association."""
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class EditLineBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class EditLineBatchResult(BatchResult[EditLineResult, EditLineItemError]):
     """Result of :func:`edit_line`.
 
     Attributes:
         results: One :class:`EditLineResult` per successfully applied edit.
         errors: One :class:`EditLineItemError` per edit that failed.
     """
-    results: list[EditLineResult]
-    errors: list[EditLineItemError]
 
 def _edit_line_one(item: EditLineItem) -> EditLineResult:
     if '\n' in item.old_line or '\r' in item.old_line:
@@ -75,7 +77,7 @@ def _edit_line_one(item: EditLineItem) -> EditLineResult:
     batch = edit_block([block_item])
     if batch.errors:
         raise EditLineError(batch.errors[0].error)
-    return EditLineResult(path=item.path, result=batch.results[0].result)
+    return EditLineResult(path=item.path)
 
 def edit_line(items: list[EditLineItem]) -> EditLineBatchResult:
     """Replace a single line with one or more lines, in one or more files.

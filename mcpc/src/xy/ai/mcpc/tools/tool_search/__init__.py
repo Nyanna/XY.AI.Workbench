@@ -4,6 +4,8 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionEntry, FunctionRegistry
+from dataclasses import dataclass
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = ['search_functions', 'ToolSearchTool', 'register']
 _SEEN_STATE_KEY = 'tool_search_seen'
 
@@ -44,6 +46,25 @@ def search_functions(functions: FunctionRegistry, keywords: str, seen: set[str])
     seen.update((e.id for e in matches))
     return matches
 
+@dataclass(frozen=True)
+class ToolMatch(ItemResult):
+    """A function matching the search keywords."""
+    name: str
+    docstring: str
+
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+@dataclass(frozen=True)
+class ToolMatchError(ItemError):
+    name: str
+
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+class ToolSearchBatchResult(BatchResult[ToolMatch, ToolMatchError]):
+    """Functions matching the keywords of a search."""
+
 class ToolSearchTool(ToolDefinition):
     name = 'tool_search'
     title = 'Search function-based tools'
@@ -63,8 +84,8 @@ class ToolSearchTool(ToolDefinition):
         args: dict[str, Any] = ctx.arguments
         seen: set[str] = ctx.session.state.setdefault(_SEEN_STATE_KEY, set())
         matches = search_functions(self._functions, args['keywords'], seen)
-        tools = [{'name': e.name, 'docstring': _first_doc_line(e.doc)} for e in matches]
-        return ToolResult(structured_content={'tools': tools})
+        tools = [ToolMatch(name=e.name, docstring=_first_doc_line(e.doc)) for e in matches]
+        return ToolResult.ok(ToolSearchBatchResult(results=tools))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ToolSearchTool(functions))

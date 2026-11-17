@@ -9,6 +9,7 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = ['FileNodesResult', 'FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
 
 @dataclass(frozen=True)
@@ -179,6 +180,28 @@ def ast_find(paths: list[str], *, id: str | None=None, name: str | None=None, no
             with_type=with_type) for p in paths]
     return FindNodesResult(files=files)
 
+@dataclass(frozen=True)
+class FileNodes(ItemResult):
+    """Wire form of :class:`FileNodesResult`."""
+    path: str
+    nodes: list[dict[str, Any]]
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        return {'nodes': self.nodes}
+
+@dataclass(frozen=True)
+class FindItemError(ItemError):
+    path: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class FindBatchResult(BatchResult[FileNodes, FindItemError]):
+    """One :class:`FileNodes` per input path."""
+
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
     title = 'Find code, text, id, and content within the specified files.'
@@ -220,9 +243,14 @@ class FindNodesTool(ToolDefinition):
                 regexp=args.get('regexp'),
                 with_lines=with_lines)
         except core.AstError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'files': [{'path': f.path, 'nodes': [
-                          core.to_dict(n) for n in f.nodes]} for f in result.files]})
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(
+            FindBatchResult(
+                results=[
+                    FileNodes(
+                        path=f.path,
+                        nodes=[
+                            core.to_dict(n) for n in f.nodes]) for f in result.files]))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(FindNodesTool())

@@ -1,6 +1,8 @@
 """``ast_insert`` tool: insert statement(s) relative to selected nodes."""
 from dataclasses import dataclass
-from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome, parse_import_args
+from xy.ai.mcpc.tools.ast.outcomes import NodeError, edit_payload, node_key
+from xy.ai.mcpc.tools.results import ItemResult
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -31,25 +33,28 @@ class InsertItem:
     remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
-class InsertResult:
+class InsertResult(ItemResult):
     """Result of a single insert operation.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
         id: The id exactly as given in the input, for result association.
-        result: Always ``"success"``.
         inserted: Number of top-level statements parsed from ``source`` and inserted.
         ids: The newly inserted top-level node(s)' ids.
     """
     path: str
     id: str | None
-    result: str
     inserted: int
     ids: list[str] | None = None
     imports: ImportOutcome | None = None
 
-@dataclass(frozen=True)
-class InsertError:
+    def key(self) -> dict[str, Any]:
+        return node_key(self.path, self.id)
+
+    def payload(self) -> dict[str, Any]:
+        return edit_payload(imports=self.imports, inserted=self.inserted, ids=self.ids)
+
+class InsertError(NodeError):
     """Error applying a single insert operation.
 
     Attributes:
@@ -57,21 +62,14 @@ class InsertError:
         id: The id exactly as given in the input, for result association.
         error: The error message.
     """
-    path: str
-    id: str | None
-    error: str
 
-@dataclass(frozen=True)
-class InsertBatchResult:
+class InsertBatchResult(ImportCheckedBatchResult[InsertResult, InsertError]):
     """Result of :func:`ast_insert`.
 
     Attributes:
         results: One :class:`InsertResult` per successful insert.
         errors: One :class:`InsertError` per insert that failed.
     """
-    results: list[InsertResult]
-    errors: list[InsertError]
-    notice: str | None = None
 
 def _insert_one(item: InsertItem) -> InsertResult:
     file_path = core.require_path(item.path)
@@ -82,13 +80,7 @@ def _insert_one(item: InsertItem) -> InsertResult:
     new_ids = [loc.node_id for loc in core.locate_all(tree) if loc.node_id not in before_ids]
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return InsertResult(
-        path=item.path,
-        id=item.id,
-        result='success',
-        inserted=inserted,
-        ids=new_ids or None,
-        imports=imports)
+    return InsertResult(path=item.path, id=item.id, inserted=inserted, ids=new_ids or None, imports=imports)
 
 def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
     """Insert statement(s) parsed from ``source`` relative to one or more selected nodes.
@@ -114,7 +106,7 @@ def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
             results.append(_insert_one(item))
         except core.AstError as exc:
             errors.append(InsertError(path=item.path, id=item.id, error=str(exc)))
-    return InsertBatchResult(results=results, errors=errors, notice=import_notice(results))
+    return InsertBatchResult(results=results, errors=errors)
 
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
@@ -152,30 +144,7 @@ class InsertNodeTool(ToolDefinition):
                 id=it.get('id'),
                 add_import=add_import,
                 remove_import=remove_import)
-
-        def result_serializer(r: InsertResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'result': r.result, 'inserted': r.inserted}
-            if r.id is not None:
-                entry['id'] = r.id
-            if r.ids is not None:
-                entry['ids'] = r.ids
-            if (imports := import_entry(r.imports)) is not None:
-                entry['imports'] = imports
-            return entry
-
-        def error_serializer(e: InsertError) -> dict[str, Any]:
-            entry = {'path': e.path, 'error': e.error}
-            if e.id is not None:
-                entry['id'] = e.id
-            return entry
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            ast_insert,
-            core.AstError,
-            result_serializer,
-            error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, ast_insert, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(InsertNodeTool())

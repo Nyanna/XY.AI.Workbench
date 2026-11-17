@@ -1,5 +1,5 @@
 """Edit-block tool – edits an exact block of text (old -> new) in a file, for a batch of items."""
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult, compact_asdict
 __all__ = [
     'EditBlockError',
     'EditBlockItem',
@@ -48,31 +49,35 @@ class EditBlockItem:
     replace_all: bool = False
 
 @dataclass(frozen=True)
-class EditBlockResult:
+class EditBlockResult(ItemResult):
     """Result of applying a single block edit, mirroring its input path for result association."""
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class EditBlockItemError:
+class EditBlockItemError(ItemError):
     """Error applying a single block edit, mirroring its input path for result association."""
     path: str
-    error: str
     reason: str | None = None
     corrected_text: str | None = None
     guess: str | None = None
     next_step: str | None = None
 
-@dataclass(frozen=True)
-class EditBlockBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        return compact_asdict(self, exclude={'path', 'error'})
+
+class EditBlockBatchResult(BatchResult[EditBlockResult, EditBlockItemError]):
     """Result of :func:`edit_block`.
 
     Attributes:
         results: One :class:`EditBlockResult` per successfully applied edit.
         errors: One :class:`EditBlockItemError` per edit that failed.
     """
-    results: list[EditBlockResult]
-    errors: list[EditBlockItemError]
 
 def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
     file_path = Path(item.path)
@@ -106,7 +111,7 @@ def _edit_block_one(item: EditBlockItem) -> EditBlockResult:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
         raise EditBlockError(f'Write failed: {exc}') from exc
-    return EditBlockResult(path=item.path, result='success')
+    return EditBlockResult(path=item.path)
 
 def edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
     """Replace occurrence(s) of ``old_text`` with ``new_text`` in one or more files.
@@ -184,16 +189,7 @@ class EditBlockTool(ToolDefinition):
                 replace_all=it.get(
                     'replaceAll',
                     False))
-
-        def error_serializer(e: EditBlockItemError) -> dict[str, Any]:
-            return {k: v for k, v in asdict(e).items() if v is not None}
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            edit_block,
-            EditBlockError,
-            error_serializer=error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, edit_block, EditBlockError, auto_approve=True)
 
 def register_edit_block_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditBlockTool())

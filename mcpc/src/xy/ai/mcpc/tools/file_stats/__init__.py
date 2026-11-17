@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'FileStatsError',
     'FileStatsItem',
@@ -39,7 +40,7 @@ class FileStatsItem:
     path: str
 
 @dataclass(frozen=True)
-class FileStatsResult:
+class FileStatsResult(ItemResult):
     path: str
     size_bytes: int
     lines: int
@@ -54,22 +55,24 @@ class FileStatsResult:
     words_per_line_avg: float
     checksum: str
 
-@dataclass(frozen=True)
-class FileStatsItemError:
-    """Error computing metrics for a single file, mirroring its input path for result association."""
-    path: str
-    error: str
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class FileStatsBatchResult:
+class FileStatsItemError(ItemError):
+    """Error computing metrics for a single file, mirroring its input path for result association."""
+    path: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class FileStatsBatchResult(BatchResult[FileStatsResult, FileStatsItemError]):
     """Result of :func:`file_stats`.
 
     Attributes:
         results: One :class:`FileStatsResult` per file whose metrics could be computed.
         errors: One :class:`FileStatsItemError` per file that failed.
     """
-    results: list[FileStatsResult]
-    errors: list[FileStatsItemError]
 
 def _calculate_complexity(text: str) -> float:
     """Calculate data structure complexity (0.0 to 1.0).
@@ -206,7 +209,7 @@ def file_stats(items: list[FileStatsItem]) -> FileStatsBatchResult:
 class FileStatsTool(ToolDefinition):
     name = 'file_stats'
     title = 'File stats'
-    resultDescription = 'The result object contains file metadata: path, size_bytes, line and word counts, complexity score (0.0–1.0), ISO 8601 timestamps (created, modified, accessed), line length metrics (min, max, avg), average words per line, and a sha256 content checksum.'
+    resultDescription = 'The result object contains file metadata: path, size in bytes, line and word counts, complexity score (0.0–1.0), ISO 8601 timestamps (created, modified, accessed), line length metrics (min, max, avg), average words per line, and a sha256 content checksum.'
     description = 'Get file metrics for access and processing planning, for a batch of items: complexity, timestamps, size, line/word counts, and line length statistics. ' + resultDescription
     _ITEM_PROPERTIES = {'path': {'type': 'string', 'description': 'Absolute file path.'}}
     _ITEM_REQUIRED = ['path']

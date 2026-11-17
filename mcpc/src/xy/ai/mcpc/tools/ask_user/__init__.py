@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.results import SinglePayload
 __all__ = ['AskUserError', 'AskUserResult', 'ask_user', 'AskUserTool', 'register_ask_user_tool', 'TOOLNAME_ASK_USER']
 _NOT_ANSWERED = 'The user did not answer. Proceed on your own.'
 TOOLNAME_ASK_USER = 'ask_user'
@@ -16,8 +17,8 @@ TOOLNAME_ASK_USER = 'ask_user'
 class AskUserError(Exception):
     """Raised when a question cannot be asked."""
 
-@dataclass(frozen=True)
-class AskUserResult:
+@dataclass(frozen=True, kw_only=True)
+class AskUserResult(SinglePayload):
     answer: str
 
 def ask_user(question: str) -> str:
@@ -49,7 +50,7 @@ class AskUserTool(ToolDefinition):
         'properties': {
             'question': {
                 'type': 'string',
-                'description': "The question to ask the user."}},
+                'description': 'The question to ask the user.'}},
         'required': ['question']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:
@@ -59,7 +60,7 @@ class AskUserTool(ToolDefinition):
             result = ask_user(args['question'])
         except AskUserError as exc:
             return ToolResult(content=[text_content(str(exc))])
-        return ToolResult(structured_content={'answer': result})
+        return ToolResult.ok(AskUserResult(answer=result))
 
 def register_ask_user_tool(registry: ToolRegistry) -> None:
     registry.register(AskUserTool())

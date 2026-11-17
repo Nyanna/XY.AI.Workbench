@@ -188,13 +188,15 @@ def _node_id(path: str, needle: str) -> str:
 def test_ast_edit_block_case1_escaped_docstring(tmp_path: Path):
     path = _write(tmp_path, 'probe.py', _PROBE_SOURCE)
     node_id = _node_id(path, 'web_fetch_exa')
-    batch = ast_edit_block(items=[AstEditBlockItem(
-        path=path,
-        old_text='Fetches page content and caches each full result (incl. text and url) by id;\nreturns only an overview with file_stats-style text metrics, no text/url.',
-        new_text='Fetches page content and caches each full result (incl. text) by id; returns\nan overview with url and file_stats-style text metrics, but no text.',
-        id=node_id)])
+    batch = ast_edit_block(
+        items=[
+            AstEditBlockItem(
+                path=path,
+                old_text='Fetches page content and caches each full result (incl. text and url) by id;\nreturns only an overview with file_stats-style text metrics, no text/url.',
+                new_text='Fetches page content and caches each full result (incl. text) by id; returns\nan overview with url and file_stats-style text metrics, but no text.',
+                id=node_id)])
     assert not batch.errors
-    assert batch.results[0].result == 'success'
+    assert len(batch.results) == 1
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'incl. text) by id; returns' in text
@@ -202,13 +204,15 @@ def test_ast_edit_block_case1_escaped_docstring(tmp_path: Path):
 def test_ast_edit_block_case2_hallucinated_quotes(tmp_path: Path):
     path = _write(tmp_path, 'probe.py', _PROBE_SOURCE)
     node_id = _node_id(path, 'consecutive urls are')
-    batch = ast_edit_block(items=[AstEditBlockItem(
-        path=path,
-        old_text="'#: line, then the page's extracted markdown content; consecutive urls are\\''",
-        new_text='"#: line (optionally preceded by a \'Published:\' line); consecutive urls are"',
-        id=node_id)])
+    batch = ast_edit_block(
+        items=[
+            AstEditBlockItem(
+                path=path,
+                old_text="'#: line, then the page's extracted markdown content; consecutive urls are\\''",
+                new_text='"#: line (optionally preceded by a \'Published:\' line); consecutive urls are"',
+                id=node_id)])
     assert not batch.errors
-    assert batch.results[0].result == 'success'
+    assert len(batch.results) == 1
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'Published:' in text
@@ -230,9 +234,16 @@ def test_ast_edit_block_rejects_corrupting_edit(tmp_path: Path):
 def test_ast_edit_marks_between_markers(tmp_path: Path):
     path = _write(tmp_path, 'm.py', 'A = 1\nB = 2\nC = 3\n')
     node_id = _node_id(path, 'A = 1')
-    batch = ast_edit_marks(items=[AstEditMarksItem(path=path, start_marker='A = 1', end_marker='C = 3', content='A = 99', id=node_id)])
+    batch = ast_edit_marks(
+        items=[
+            AstEditMarksItem(
+                path=path,
+                start_marker='A = 1',
+                end_marker='C = 3',
+                content='A = 99',
+                id=node_id)])
     assert not batch.errors
-    assert batch.results[0].result == 'success'
+    assert len(batch.results) == 1
     text = Path(path).read_text(encoding='utf-8')
     ast.parse(text)
     assert 'A = 99' in text

@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'WriteError',
     'WriteItem',
@@ -33,27 +34,28 @@ class WriteItem:
     content: str
 
 @dataclass(frozen=True)
-class WriteResult:
+class WriteResult(ItemResult):
     """Result of writing a single file, mirroring its input path for result association."""
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class WriteItemError:
+class WriteItemError(ItemError):
     """Error writing a single file, mirroring its input path for result association."""
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class WriteBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class WriteBatchResult(BatchResult[WriteResult, WriteItemError]):
     """Result of :func:`write`.
 
     Attributes:
         results: One :class:`WriteResult` per successfully written file.
         errors: One :class:`WriteItemError` per file that failed.
     """
-    results: list[WriteResult]
-    errors: list[WriteItemError]
 
 def _write_one(item: WriteItem) -> WriteResult:
     file_path = Path(item.path)
@@ -66,7 +68,7 @@ def _write_one(item: WriteItem) -> WriteResult:
             fh.write(item.content)
     except OSError as exc:
         raise WriteError(f'Write failed: {exc}') from exc
-    return WriteResult(path=item.path, result='success')
+    return WriteResult(path=item.path)
 
 def write(items: list[WriteItem]) -> WriteBatchResult:
     """Write or replace one or more target files, for a batch of items.

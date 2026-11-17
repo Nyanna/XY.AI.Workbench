@@ -15,6 +15,8 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.server.session import AgentSubSession
 from xy.ai.mcpc.tools.agent.profiles import DEFAULT_PROFILES, AgentProfile, ProfileRegistry
+from dataclasses import dataclass
+from xy.ai.mcpc.tools.results import SinglePayload
 __all__ = ['AgentProfile', 'ProfileRegistry', 'AgentTool', 'AgentProfileTool', 'register_agent_tools']
 _MODELS = tuple((m.value for m in Model))
 _EFFORTS = tuple((e.value for e in Effort))
@@ -41,7 +43,7 @@ def _cache_mode(profile: AgentProfile | None, tools: list[str]) -> str:
     return CacheMode.MINUTES_5.value if tools else CacheMode.DISABLED.value
 
 def _error(message: str) -> ToolResult:
-    return ToolResult(content=[text_content(message)], is_error=True)
+    return ToolResult.failure(message)
 
 def _run_agent(ctx: ToolContext, *, environment: AppEnvironment, profile: AgentProfile | None, system_prompt_override: str | None) -> ToolResult:
     """Shared implementation behind both the agent tool and its wrappers."""
@@ -111,10 +113,15 @@ def _resume_agent(ctx: ToolContext, environment: AppEnvironment, resume_id: str,
     record.touch()
     return _result(result.text, resume_id, is_error=result.is_error)
 
+@dataclass(frozen=True, kw_only=True)
+class AgentReply(SinglePayload):
+    response: str
+    session_id: str
+
 def _result(text: str, session_id: str, *, is_error: bool) -> ToolResult:
     if is_error:
-        return ToolResult(content=[text_content(text)], is_error=True)
-    return ToolResult(structured_content={'response': text, 'session_id': session_id})
+        return ToolResult.failure(text)
+    return ToolResult.ok(AgentReply(response=text, session_id=session_id))
 
 class AgentTool(ToolDefinition):
     """Raw agent tool (rarely called directly); profile is selected via the ``profile`` argument."""

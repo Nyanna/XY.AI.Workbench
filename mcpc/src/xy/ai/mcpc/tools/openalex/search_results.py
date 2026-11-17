@@ -3,6 +3,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolResult
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import unknown_ids_warnings
 from ._common import logger, ok_result, search_cache
 __all__ = ['openalex_search_results', 'OpenalexSearchResultsTool']
 _DESCRIPTION = 'Resolve ids returned by openalex_search or openalex_semantic_search to their full record.'
@@ -14,6 +15,11 @@ _INPUT_SCHEMA: dict[str,
                                                    'description': 'Result ids (OpenAlex ids) returned by openalex_search or openalex_semantic_search.'}},
                             'required': ['ids']}
 
+def _resolve(ids: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    items = search_cache.get_many(ids)
+    found = {item['id'] for item in items}
+    return (items, [i for i in ids if i not in found])
+
 def openalex_search_results(ids: list[str]) -> list[dict[str, Any]]:
     """Resolve ids from a prior openalex_search/openalex_semantic_search call to full records.
 
@@ -24,9 +30,7 @@ def openalex_search_results(ids: list[str]) -> list[dict[str, Any]]:
     Returns:
         One full record per known id.
     """
-    items = search_cache.get_many(ids)
-    found = {item['id'] for item in items}
-    missing = [i for i in ids if i not in found]
+    items, missing = _resolve(ids)
     if missing:
         logger.warning('openalex_search_results: unknown or expired id(s): %s', missing)
     return items
@@ -41,4 +45,5 @@ class OpenalexSearchResultsTool(ToolDefinition):
         ids, error = require_items(ctx, key='ids')
         if error is not None:
             return error
-        return ok_result({'results': openalex_search_results(ids=ids)})
+        items, missing = _resolve(ids)
+        return ok_result({'results': items}, warnings=unknown_ids_warnings(missing))

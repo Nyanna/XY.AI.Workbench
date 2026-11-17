@@ -20,6 +20,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import Done
 __all__ = ['ScriptTree', 'ScriptError', 'AstScriptResult', 'ast_script', 'ScriptTool', 'register']
 _SAFE_BUILTINS = {
     name: getattr(
@@ -159,6 +160,10 @@ def ast_script(path: str, code: str) -> AstScriptResult:
         return AstScriptResult(result='success', value=repr(env['result']))
     return AstScriptResult(result='success')
 
+@dataclass(frozen=True, kw_only=True)
+class ScriptDone(Done):
+    value: str | None = None
+
 class ScriptTool(ToolDefinition):
     name = 'ast_script'
     title = 'Run AST script'
@@ -182,11 +187,8 @@ class ScriptTool(ToolDefinition):
         try:
             result = ast_script(args['path'], args['code'])
         except (core.AstError, ScriptError) as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        structured: dict[str, Any] = {'result': result.result}
-        if result.value is not None:
-            structured['value'] = result.value
-        return ToolResult(structured_content=structured)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(ScriptDone(result=result.result, value=result.value))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ScriptTool())

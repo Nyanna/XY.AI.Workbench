@@ -5,6 +5,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import ItemPayload
 __all__ = ['PythonError', 'python', 'PythonTool', 'register_python_tool']
 
 class PythonError(Exception):
@@ -50,8 +51,8 @@ class PythonTool(ToolDefinition):
         try:
             result = python(args['script'])
         except PythonError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return pack_process_result(result, ctx)
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(ItemPayload(pack_process_result(result, ctx)))
 
 def register_python_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(PythonTool())

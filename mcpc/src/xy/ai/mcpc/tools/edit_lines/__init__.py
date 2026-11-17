@@ -6,6 +6,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'EditLinesError',
     'EditLinesItem',
@@ -35,27 +36,28 @@ class EditLinesItem:
     content: str
 
 @dataclass(frozen=True)
-class EditLinesResult:
+class EditLinesResult(ItemResult):
     """Result of applying a single line-range replacement, mirroring its input path for result association."""
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class EditLinesItemError:
+class EditLinesItemError(ItemError):
     """Error applying a single line-range replacement, mirroring its input path for result association."""
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class EditLinesBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class EditLinesBatchResult(BatchResult[EditLinesResult, EditLinesItemError]):
     """Result of :func:`edit_lines`.
 
     Attributes:
         results: One :class:`EditLinesResult` per successfully applied edit.
         errors: One :class:`EditLinesItemError` per edit that failed.
     """
-    results: list[EditLinesResult]
-    errors: list[EditLinesItemError]
 
 def _edit_lines_one(item: EditLinesItem) -> EditLinesResult:
     file_path = Path(item.path)
@@ -77,7 +79,7 @@ def _edit_lines_one(item: EditLinesItem) -> EditLinesResult:
         file_path.write_text(new_text, encoding='utf-8')
     except OSError as exc:
         raise EditLinesError(f'Replace failed: {exc}') from exc
-    return EditLinesResult(path=item.path, result='success')
+    return EditLinesResult(path=item.path)
 
 def edit_lines(items: list[EditLinesItem]) -> EditLinesBatchResult:
     """Replace a range of lines in one or more files, for a batch of items.

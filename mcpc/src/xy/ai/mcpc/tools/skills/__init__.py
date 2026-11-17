@@ -1,7 +1,7 @@
 """Skills – on-demand hints an agent can request, for a batch of items.
 
 A *skill* is a small, easy-to-maintain unit combining metadata (name, title,
-description, hint) with a real, named module-level function backing it as
+description, usage) with a real, named module-level function backing it as
 ``core`` (``FunctionRegistry`` requires actually existing functions with a
 real signature/docstring). All skills are exposed through a single batching
 tool so several skills can be fetched in one call.
@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'Skill',
     'SKILLS',
@@ -32,7 +33,7 @@ class Skill(ABC):
     name: str
     title: str
     description: str
-    hint: str
+    usage: str
 
     @staticmethod
     @abstractmethod
@@ -55,7 +56,7 @@ class MarkdownFormatSkill(Skill):
     name = 'markdown_format'
     title = 'markdown-format'
     description = 'Preferred formatting rules for Pandoc-compatible Markdown documents. Load when formatting rules are requested or required.'
-    hint = 'Apply proactively whenever creating, editing, or reviewing Markdown documents — even when formatting is not explicitly mentioned.'
+    usage = 'Apply proactively whenever creating, editing, or reviewing Markdown documents — even when formatting is not explicitly mentioned.'
     core = staticmethod(markdown_format)
 '#: All declared skills. Append here to add a new one.'
 SKILLS: list[Skill] = [MarkdownFormatSkill()]
@@ -73,27 +74,32 @@ class SkillsItem:
     name: str
 
 @dataclass(frozen=True)
-class SkillsResult:
+class SkillsResult(ItemResult):
     """Result of fetching a single skill, mirroring its input name for result association."""
     name: str
     instructions: str
 
-@dataclass(frozen=True)
-class SkillsItemError:
-    """Error fetching a single skill, mirroring its input name for result association."""
-    name: str
-    error: str
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+    def payload(self) -> dict[str, Any]:
+        return {'instructions': self.instructions}
 
 @dataclass(frozen=True)
-class SkillsBatchResult:
+class SkillsItemError(ItemError):
+    """Error fetching a single skill, mirroring its input name for result association."""
+    name: str
+
+    def key(self) -> dict[str, Any]:
+        return {'name': self.name}
+
+class SkillsBatchResult(BatchResult[SkillsResult, SkillsItemError]):
     """Result of :func:`get_skills`.
 
     Attributes:
         results: One :class:`SkillsResult` per successfully fetched skill.
         errors: One :class:`SkillsItemError` per skill that could not be resolved.
     """
-    results: list[SkillsResult]
-    errors: list[SkillsItemError]
 
 def _skill_by_name(name: str) -> Skill:
     for skill in SKILLS:
@@ -148,7 +154,7 @@ class SkillsTool(ToolDefinition):
         'required': ['items']}
 
     def __init__(self) -> None:
-        catalog = '\n'.join((f'- {skill.name}: {skill.description}' for skill in SKILLS))
+        catalog = '\n'.join((f'- {skill.name}: {skill.description}\n  Usage: {skill.usage}' for skill in SKILLS))
         self.description = f'Load one or more on-demand skill hints, for a batch of items. Available skills:\n{catalog}'
 
     def handle(self, ctx: ToolContext) -> ToolResult:

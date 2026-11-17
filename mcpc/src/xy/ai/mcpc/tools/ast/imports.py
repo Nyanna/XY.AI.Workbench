@@ -10,11 +10,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Tree, check_no_control_chars
+from xy.ai.mcpc.tools.results import BatchResult, E, R
 __all__ = [
     'IMPORT_NOTICE',
     'ImportOutcome',
+    'ImportCheckedBatchResult',
     'parse_import_args',
-    'import_notice',
     'import_entry',
     'normalize_import',
     'apply_generic',
@@ -48,11 +49,12 @@ def parse_import_args(item: dict[str, Any]) -> tuple[list[str] | None, list[str]
     """``(addImport, removeImport)`` of a raw MCP item; ``ValueError`` on malformed values."""
     return (_string_list(item, 'addImport'), _string_list(item, 'removeImport'))
 
-def import_notice(results: list[Any]) -> str | None:
-    """The single batch-level hint, if any result carries unchecked imports."""
-    if any((r.imports is not None and r.imports.unchecked for r in results)):
-        return IMPORT_NOTICE
-    return None
+class ImportCheckedBatchResult(BatchResult[R, E]):
+    """Batch result whose call-wide warning is derived from its items' unchecked imports."""
+
+    def derived_warnings(self) -> tuple[str, ...]:
+        unchecked = any((r.imports is not None and r.imports.unchecked for r in self.results))
+        return (IMPORT_NOTICE,) if unchecked else ()
 
 def import_entry(outcome: ImportOutcome | None) -> dict[str, list[str]] | None:
     """Serialized ``imports`` field of a result, or ``None`` if nothing changed."""

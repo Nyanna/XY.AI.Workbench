@@ -1,6 +1,8 @@
 """``ast_delete`` tool: delete selected nodes, or whole files if none selected."""
 from dataclasses import dataclass
-from xy.ai.mcpc.tools.ast.imports import ImportOutcome, import_entry, import_notice, parse_import_args
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome, parse_import_args
+from xy.ai.mcpc.tools.ast.outcomes import NodeError, edit_payload, node_key
+from xy.ai.mcpc.tools.results import ItemResult
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -20,7 +22,7 @@ class DeleteItem:
         id: Unique id of the target node. Omit to delete the whole file.
         add_import: Import statements to add if missing, applied after the delete.
         remove_import: Import statements to remove if present, applied after the delete.
-            Both are ignored (and flagged in the batch notice) when a whole file is deleted.
+            Both are ignored (and flagged in the batch warnings) when a whole file is deleted.
     """
     path: str
     id: str | None = None
@@ -28,21 +30,24 @@ class DeleteItem:
     remove_import: list[str] | None = None
 
 @dataclass(frozen=True)
-class DeleteResult:
+class DeleteResult(ItemResult):
     """Result of deleting a single node or file.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
         id: The id exactly as given in the input, for result association.
-        result: Always ``"success"``.
     """
     path: str
     id: str | None
-    result: str
     imports: ImportOutcome | None = None
 
-@dataclass(frozen=True)
-class DeleteError:
+    def key(self) -> dict[str, Any]:
+        return node_key(self.path, self.id)
+
+    def payload(self) -> dict[str, Any]:
+        return edit_payload(imports=self.imports)
+
+class DeleteError(NodeError):
     """Error deleting a single node or file.
 
     Attributes:
@@ -50,21 +55,14 @@ class DeleteError:
         id: The id exactly as given in the input, for result association.
         error: The error message.
     """
-    path: str
-    id: str | None
-    error: str
 
-@dataclass(frozen=True)
-class DeleteBatchResult:
+class DeleteBatchResult(ImportCheckedBatchResult[DeleteResult, DeleteError]):
     """Result of :func:`ast_delete`.
 
     Attributes:
         results: One :class:`DeleteResult` per successfully deleted item.
         errors: One :class:`DeleteError` per item that failed.
     """
-    results: list[DeleteResult]
-    errors: list[DeleteError]
-    notice: str | None = None
 
 def _delete_one(item: DeleteItem) -> DeleteResult:
     file_path = core.require_path(item.path)
@@ -78,13 +76,13 @@ def _delete_one(item: DeleteItem) -> DeleteResult:
         if not any(parent.iterdir()):
             parent.rmdir()
         unchecked = ImportOutcome(unchecked=True) if item.add_import or item.remove_import else None
-        return DeleteResult(path=item.path, id=None, result='success', imports=unchecked)
+        return DeleteResult(path=item.path, id=None, imports=unchecked)
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=item.id)
     core.delete_node(target)
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return DeleteResult(path=item.path, id=item.id, result='success', imports=imports)
+    return DeleteResult(path=item.path, id=item.id, imports=imports)
 
 def ast_delete(items: list[DeleteItem]) -> DeleteBatchResult:
     """Delete one or more selected nodes, or whole files if their ``id`` is omitted.
@@ -112,7 +110,7 @@ def ast_delete(items: list[DeleteItem]) -> DeleteBatchResult:
             results.append(_delete_one(item))
         except core.AstError as exc:
             errors.append(DeleteError(path=item.path, id=item.id, error=str(exc)))
-    return DeleteBatchResult(results=results, errors=errors, notice=import_notice(results))
+    return DeleteBatchResult(results=results, errors=errors)
 
 class DeleteTool(ToolDefinition):
     name = 'ast_delete'
@@ -129,15 +127,7 @@ class DeleteTool(ToolDefinition):
         def item_factory(it: dict[str, Any]) -> DeleteItem:
             add_import, remove_import = parse_import_args(it)
             return DeleteItem(path=it['path'], id=it.get('id'), add_import=add_import, remove_import=remove_import)
-
-        def result_serializer(r: DeleteResult) -> dict[str, Any]:
-            entry = {'path': r.path, 'result': r.result}
-            if r.id is not None:
-                entry['id'] = r.id
-            if (imports := import_entry(r.imports)) is not None:
-                entry['imports'] = imports
-            return entry
-        return handle_batch_tool(ctx, item_factory, ast_delete, core.AstError, result_serializer, auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, ast_delete, core.AstError, auto_approve=True)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(DeleteTool())

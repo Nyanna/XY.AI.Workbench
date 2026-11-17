@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.ast import core
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'CreateFileItem',
     'CreateFileResult',
@@ -30,18 +31,19 @@ class CreateFileItem:
     overwrite: bool = False
 
 @dataclass(frozen=True)
-class CreateFileResult:
+class CreateFileResult(ItemResult):
     """Result of creating a single file.
 
     Attributes:
         path: The path exactly as given in the input, for result association.
-        result: Always ``"success"``.
     """
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class CreateFileError:
+class CreateFileError(ItemError):
     """Error creating a single file.
 
     Attributes:
@@ -49,18 +51,17 @@ class CreateFileError:
         error: The error message.
     """
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class CreateFilesResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class CreateFilesResult(BatchResult[CreateFileResult, CreateFileError]):
     """Result of :func:`ast_create`.
 
     Attributes:
         results: One :class:`CreateFileResult` per file created successfully.
         errors: One :class:`CreateFileError` per file that failed.
     """
-    results: list[CreateFileResult]
-    errors: list[CreateFileError]
 
 def _create_one(item: CreateFileItem) -> CreateFileResult:
     file_path = core.require_path(item.path, must_exist=False)
@@ -69,7 +70,7 @@ def _create_one(item: CreateFileItem) -> CreateFileResult:
     tree = core.parse_for(item.path, item.source)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     core.CACHE.save(file_path, tree)
-    return CreateFileResult(path=item.path, result='success')
+    return CreateFileResult(path=item.path)
 
 def ast_create(items: list[CreateFileItem]) -> CreateFilesResult:
     """Create one or more files from source (each validated by parsing it).

@@ -20,6 +20,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'ListError',
     'ListItem',
@@ -66,28 +67,32 @@ class ListItem:
     recursive: bool = True
 
 @dataclass(frozen=True)
-class ListResult:
+class ListResult(ItemResult):
     """Result of listing a single directory, mirroring its input path for result association."""
     path: str
     entries: list[str]
-    warning: str | None = None
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        return {'entries': self.entries}
 
 @dataclass(frozen=True)
-class ListItemError:
+class ListItemError(ItemError):
     """Error listing a single directory, mirroring its input path for result association."""
     path: str
-    error: str
 
-@dataclass(frozen=True)
-class ListBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class ListBatchResult(BatchResult[ListResult, ListItemError]):
     """Result of :func:`list`.
 
     Attributes:
         results: One :class:`ListResult` per successfully listed directory.
         errors: One :class:`ListItemError` per directory that failed.
     """
-    results: list[ListResult]
-    errors: list[ListItemError]
 
 def _list_one(item: ListItem) -> ListResult:
     """List all files below the absolute directory ``item.path``, grouped like ``ls -R``.
@@ -147,7 +152,7 @@ def _list_one(item: ListItem) -> ListResult:
             entries.append(f'{header}: ({count} file{('s' if count != 1 else '')})')
             entries.append(groups[rel_dir][0])
         warning = f"Result reduced because the total number of entries ({match_count}) exceeds the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter."
-        return ListResult(path=item.path, entries=entries, warning=warning)
+        return ListResult(path=item.path, entries=entries, warnings=(warning,))
     '# Step 2: the per-level reduction still exceeds the limit, so collapse the'
     '# tree depth and aggregate file counts below each top-level directory.'
 
@@ -170,7 +175,7 @@ def _list_one(item: ListItem) -> ListResult:
         entries.append(f'{header}: ({count} file{('s' if count != 1 else '')} below)')
     warning = f"Result reduced to top-level directories the limit of {_MAX_ENTRIES} is exceeded ({
         len(level1_counts)}). Narrow down the result using the 'pattern' regular expression parameter."
-    return ListResult(path=item.path, entries=entries, warning=warning)
+    return ListResult(path=item.path, entries=entries, warnings=(warning,))
 
 def _dedupe_hierarchy(items: list[ListItem]) -> list[ListItem]:
     """Remove items whose path lies below another item's path in the same directory hierarchy.
@@ -233,10 +238,7 @@ class ListTool(ToolDefinition):
 
         def item_factory(it: dict[str, Any]) -> ListItem:
             return ListItem(path=it['path'], pattern=it.get('pattern'), recursive=it.get('recursive', True))
-
-        def result_serializer(r):
-            return {'path': r.path, 'entries': r.entries, **({'warning': r.warning} if r.warning else {})}
-        return handle_batch_tool(ctx, item_factory, list, ListError, result_serializer)
+        return handle_batch_tool(ctx, item_factory, list, ListError)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ListTool())

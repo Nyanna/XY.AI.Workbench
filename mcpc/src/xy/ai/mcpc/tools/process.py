@@ -30,14 +30,14 @@ import os
 import re
 import subprocess
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.ast import core as _ast_core
 from xy.ai.mcpc.tools.ast.outline import ast_outline as _ast_outline
 from xy.ai.mcpc.tools.file_stats import compute_file_stats as _compute_file_stats
 from xy.ai.mcpc.tools.tool_context import ToolContext
-from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 _BLANK_RUN_RE = re.compile('[ \\t]+$', re.MULTILINE)
 _MULTI_BLANK_RE = re.compile('\\n{3,}')
 
@@ -49,6 +49,34 @@ class ProcessResult:
     exit_code: int
     stdout: str
     stderr: str
+
+@dataclass(frozen=True)
+class ProcessOutput(ItemResult):
+    """Wire form of a finished process; ``index`` associates it with its input item in a batch."""
+    index: int | None = None
+    exit_code: int | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    stdout_file: str | None = None
+    stdout_file_stats: dict[str, Any] | None = None
+    stdout_file_outline: list[dict[str, Any]] | None = None
+    stderr_file: str | None = None
+    stderr_file_stats: dict[str, Any] | None = None
+    stderr_file_outline: list[dict[str, Any]] | None = None
+
+    def key(self) -> dict[str, Any]:
+        return {} if self.index is None else {'index': self.index}
+
+@dataclass(frozen=True)
+class ProcessItemError(ItemError):
+    """An item that could not be run at all."""
+    index: int
+
+    def key(self) -> dict[str, Any]:
+        return {'index': self.index}
+
+class ProcessBatchResult(BatchResult[ProcessOutput, ProcessItemError]):
+    """Outcomes of a batch of process runs, associated with the input by ``index``."""
 
 def run_process(cmd: list[str], *, cwd: str | os.PathLike[str] | None=None, stdin: str | None=None) -> ProcessResult:
     """Run *cmd* to completion and return its captured result.
@@ -92,78 +120,59 @@ def _spill_to_file(text: str, label: str) -> str:
         raise
     return path
 
-def _spill_extra_info(path: str, ctx: ToolContext) -> dict[str, Any]:
-    """Compute the extra structured info attached for a spilled-to-disk stream.
-
-    Always includes ``file_stats``; additionally includes ``ast_outline`` when
-    the ``ast_outline`` tool is enabled for the session.
-    """
-    info: dict[str, Any] = {'file_stats': asdict(_compute_file_stats(Path(path)))}
+def _spill_extra_info(path: str, ctx: ToolContext) -> tuple[dict[str, Any], list[dict[str, Any]] | None, list[str]]:
+    """Describe a spilled-to-disk stream: file stats, plus the outline when ``ast_outline`` is enabled."""
+    stats = _compute_file_stats(Path(path)).payload()
+    outline: list[dict[str, Any]] | None = None
+    warnings: list[str] = []
     if {'tools', 'ast_outline'} & ctx.session.enabled_tools:
         batch = _ast_outline(paths=[path])
         if batch.results:
-            info['ast_outline'] = [_ast_core.to_dict(n) for n in batch.results[0].nodes]
+            outline = [_ast_core.to_dict(n) for n in batch.results[0].nodes]
         elif batch.errors:
-            info['ast_outline'] = {'error': batch.errors[0].error}
-    return info
+            warnings.append(f'ast_outline of `{path}` failed: {batch.errors[0].error}')
+    return (stats, outline, warnings)
 
-def pack_process_result(result: ProcessResult, ctx: ToolContext, *, normalize_output: bool=False, omit_zero_exit_code: bool=False, max_stream_chars: int | None=None) -> ToolResult:
-    """Pack a :class:`ProcessResult` into the MCP output schema.
+def pack_process_result(result: ProcessResult, ctx: ToolContext, *, normalize_output: bool=False, omit_zero_exit_code: bool=False, max_stream_chars: int | None=None, index: int | None=None) -> ProcessOutput:
+    """Pack a :class:`ProcessResult` into a :class:`ProcessOutput`.
 
-    * ``normalize_output`` — when ``True``, post-process STDOUT/STDERR to
-      improve YAML block-scalar compatibility (see :func:`_normalize_stream`).
-    * ``omit_zero_exit_code`` — when ``True``, ``exit_code`` is left out of the
-      result entirely if the process exited with code ``0``.
-    * ``max_stream_chars`` — safety limit on the number of characters of
-      STDOUT/STDERR returned inline.  When a stream exceeds this limit, its
-      full content is written to a temp file instead; the structured
-      result then carries the absolute path (``stdout_file``/``stderr_file``)
-      in place of the raw text, plus ``stdout_file_stats``/``stderr_file_stats``
-      (and, when the ``ast_outline`` tool is enabled, ``stdout_file_outline``/
-      ``stderr_file_outline``) describing that file, so the caller can keep
-      operating on it (e.g. with the ``read`` tool) without the oversized
-      content ever passing through the result payload.  ``None`` (the
-      default) disables the limit.
+    * ``normalize_output`` — post-process STDOUT/STDERR to improve YAML
+      block-scalar compatibility (see :func:`_normalize_stream`).
+    * ``omit_zero_exit_code`` — leave ``exit_code`` out if the process exited with 0.
+    * ``max_stream_chars`` — safety limit on the characters of STDOUT/STDERR
+      returned inline. A longer stream is written to a temp file; the output then
+      carries ``<stream>_file`` plus ``<stream>_file_stats`` (and
+      ``<stream>_file_outline`` when the ``ast_outline`` tool is enabled) instead of
+      the text, and a warning says so. ``None`` disables the limit.
+    * ``index`` — position of the item in the input, for batch association.
 
-    ``stdout`` is always present; ``stderr`` is included whenever it is
-    non-empty. The result carries no separate text content block —
-    ``structured_content`` alone conveys STDOUT/STDERR, avoiding duplication.
-
-    A non-zero ``exit_code`` is a normal outcome of running *cmd* (the tool
-    call itself succeeded), not an MCP-level failure — ``is_error`` is
-    therefore never set here.
+    ``stdout`` is present unless spilled; ``stderr`` whenever it is non-empty. A
+    non-zero ``exit_code`` is a normal outcome, not a failure of the tool call.
     """
     stdout = result.stdout
     stderr = result.stderr
     if normalize_output:
         stdout = _normalize_stream(stdout)
         stderr = _normalize_stream(stderr)
-    content: list[dict[str, Any]] = []
-    structured: dict[str, Any] = {}
-    if not omit_zero_exit_code or result.exit_code != 0:
-        structured['exit_code'] = result.exit_code
+    fields: dict[str, Any] = {}
+    warnings: list[str] = []
+
+    def spill(label: str, text: str) -> None:
+        path = _spill_to_file(text, label)
+        stats, outline, notes = _spill_extra_info(path, ctx)
+        fields[f'{label}_file'] = path
+        fields[f'{label}_file_stats'] = stats
+        fields[f'{label}_file_outline'] = outline
+        warnings.append(f'{label.upper()} limit of characters exceeded, output saved to `{path}`. Reduce the resulting token amount: filter it with targeted commands (grep, head, tail, awk, ast_outline).')
+        warnings.extend(notes)
     if max_stream_chars is not None and len(stdout) > max_stream_chars:
-        stdout_file = _spill_to_file(stdout, 'stdout')
-        content.append(
-            text_content(
-                f'STDOUT limit of characters exceeded, output saved to `{stdout_file}`. Reduce the resulting token amount: filter it with targeted commands (grep, head, tail, awk, ast_outline)'))
-        structured['stdout_file'] = stdout_file
-        for key, value in _spill_extra_info(stdout_file, ctx).items():
-            structured[f'stdout_file_{key}'] = value
+        spill('stdout', stdout)
     else:
-        structured['stdout'] = stdout
+        fields['stdout'] = stdout
     if stderr:
         if max_stream_chars is not None and len(stderr) > max_stream_chars:
-            stderr_file = _spill_to_file(stderr, 'stderr')
-            content.append(
-                text_content(
-                    f'STDERR limit of characters exceeded, output saved to `{stderr_file}`. Reduce the resulting token amount: filter it with targeted commands (grep, head, tail, awk, ast_outline).'))
-            structured['stderr_file'] = stderr_file
-            for key, value in _spill_extra_info(stderr_file, ctx).items():
-                structured[f'stderr_file_{key}'] = value
+            spill('stderr', stderr)
         else:
-            structured['stderr'] = stderr
-    '# Simple success with auto_approve when exit code is 0 and both streams are empty'
-    if result.exit_code == 0 and (not stdout) and (not stderr):
-        return ToolResult(structured_content={'result': 'success'}, auto_approve=False)
-    return ToolResult(content=content, structured_content=structured)
+            fields['stderr'] = stderr
+    exit_code = None if omit_zero_exit_code and result.exit_code == 0 else result.exit_code
+    return ProcessOutput(index=index, exit_code=exit_code, warnings=tuple(warnings), **fields)

@@ -1,6 +1,5 @@
 """Search tool – recursive extended-regex search for retrieval, for a batch of items."""
 from dataclasses import dataclass, replace
-from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools._directories import normalize_directories
@@ -9,6 +8,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 import re
 from xy.ai.mcpc.tools.ast import core
 __all__ = [
@@ -80,37 +80,37 @@ class SearchItem:
     intent: str | None = None
 
 @dataclass(frozen=True)
-class SearchResult:
+class SearchResult(ItemResult):
     """Result of a single search.
 
     Attributes:
         directory: The directory list exactly as given in the input.
         matches: The matches found, grouped by file (empty if none).
-        warning: Set if ``limit`` was reached and further matches may exist, or if match lines
-            exceeded the maximum length and were shortened with an ellipsis.
-
+        warnings: Set if ``limit`` was reached and further matches may exist, and, separately,
+            if match lines exceeded the maximum length and were shortened with an ellipsis.
     """
     directory: list[str]
     matches: list[SearchMatch]
-    warning: str | None = None
+
+    def key(self) -> dict[str, Any]:
+        return {'directory': self.directory}
 
 @dataclass(frozen=True)
-class SearchItemError:
+class SearchItemError(ItemError):
     """Error running a single search, mirroring its input for result association."""
     directory: list[str]
     pattern: str
-    error: str
 
-@dataclass(frozen=True)
-class SearchBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'directory': self.directory, 'pattern': self.pattern}
+
+class SearchBatchResult(BatchResult[SearchResult, SearchItemError]):
     """Result of :func:`search`.
 
     Attributes:
         results: One :class:`SearchResult` per successfully executed search.
         errors: One :class:`SearchItemError` per search that failed.
     """
-    results: list[SearchResult]
-    errors: list[SearchItemError]
 
 def _make_line_match(lineno: int, text: str) -> SearchLineMatch:
     if len(text) <= _MAX_LINE_LENGTH:
@@ -216,18 +216,17 @@ def _search_one(item: SearchItem) -> SearchResult:
     if result.exit_code >= 2:
         raise SearchError(f'search failed (exit code {result.exit_code}): {result.stderr}')
     matches = _parse_search_stdout(result.stdout)
-    total_matches = total_lines
-    warning = None
-    if total_matches > item.limit:
+    warnings: list[str] = []
+    if total_lines > item.limit:
         hint = 'narrow pattern, directory or include/exclude filters'
         if item.limit < _MAX_LIMIT:
             hint += f', or raise limit (max {_MAX_LIMIT})'
-        warning = f'Limit of {item.limit} matches reached (total {total_matches}); {hint}.'
+        warnings.append(f'Limit of {item.limit} matches reached (total {total_lines}); {hint}.')
     shortened = sum((lm.truncated for m in matches for lm in m.matches))
     if shortened:
-        shortened_warning = f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle.'
-        warning = f'{warning} {shortened_warning}' if warning else shortened_warning
-    return SearchResult(directory=item.directory, matches=matches, warning=warning)
+        warnings.append(
+            f'{shortened} match line(s) exceeded {_MAX_LINE_LENGTH} characters and were shortened in the middle.')
+    return SearchResult(directory=item.directory, matches=matches, warnings=tuple(warnings))
 
 def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     """Regroup a file's line matches by the most specific enclosing AST node.
@@ -339,6 +338,7 @@ class SearchTool(ToolDefinition):
         enabled = ctx.session.enabled_tools
         with_lines = bool(_LINE_TOOLS & enabled)
         with_nodes = bool(_NODE_TOOLS & enabled)
+        intents: dict[int, str] = {}
 
         def item_factory(it: dict[str, Any]) -> SearchItem:
             return SearchItem(
@@ -368,30 +368,23 @@ class SearchTool(ToolDefinition):
                 entry['matches'] = lines if editing else list(dict.fromkeys(lines))
             return entry
 
-        def result_serializer(rendered: tuple[SearchResult, str]) -> dict[str, Any]:
-            r, item_intent = rendered
-            entry: dict[str, Any] = {'directory': r.directory}
-            if r.matches:
-                entry['matches'] = [file_dict(m, item_intent) for m in r.matches]
-            if r.warning is not None:
-                entry['warning'] = r.warning
-            if r.error is not None:
-                entry['error'] = r.error
-            return entry
+        def result_payload(r: SearchResult) -> dict[str, Any]:
+            if not r.matches:
+                return {}
+            return {'matches': [file_dict(m, intents[id(r)]) for m in r.matches]}
 
-        def error_serializer(e: SearchItemError) -> dict[str, Any]:
-            return {'directory': e.directory, 'pattern': e.pattern, 'error': e.error}
-
-        def run(items: list[SearchItem]) -> SimpleNamespace:
-            results: list[tuple[SearchResult, str]] = []
+        def run(items: list[SearchItem]) -> SearchBatchResult:
+            results: list[SearchResult] = []
             errors: list[SearchItemError] = []
             for item in items:
                 batch = search([item], intent=intent, with_nodes=with_nodes)
                 effective = item.intent if item.intent is not None else intent
-                results += [(r, effective) for r in batch.results]
+                for r in batch.results:
+                    intents[id(r)] = effective
+                results += batch.results
                 errors += batch.errors
-            return SimpleNamespace(results=results, errors=errors)
-        return handle_batch_tool(ctx, item_factory, run, SearchError, result_serializer, error_serializer)
+            return SearchBatchResult(results=results, errors=errors)
+        return handle_batch_tool(ctx, item_factory, run, SearchError, result_payload)
 
 def register_search_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(SearchTool())

@@ -7,7 +7,8 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
-from xy.ai.mcpc.tools._tool_helpers import require_items, serialize_batch_result, batch_schema
+from xy.ai.mcpc.tools._tool_helpers import require_items, batch_tool_result, batch_schema
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.server.session import Session
 __all__ = [
     'ReadError',
@@ -51,7 +52,7 @@ class ReadItem:
     end: str | None = None
 
 @dataclass(frozen=True)
-class ReadResult:
+class ReadResult(ItemResult):
     """Result of reading a single file, mirroring its input path for result association."""
     path: str
     content: str
@@ -60,22 +61,29 @@ class ReadResult:
     unchanged: str | None = None
     'Explanatory message if identical to a previous read with the same parameters, else None (set by :class:`ReadTool`, never by :func:`read_file`).'
 
-@dataclass(frozen=True)
-class ReadItemError:
-    """Error reading a single file, mirroring its input path for result association."""
-    path: str
-    error: str
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        if self.unchanged:
+            return {'checksum': self.checksum, 'unchanged': self.unchanged}
+        return {'checksum': self.checksum, 'content': self.content}
 
 @dataclass(frozen=True)
-class ReadBatchResult:
+class ReadItemError(ItemError):
+    """Error reading a single file, mirroring its input path for result association."""
+    path: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+class ReadBatchResult(BatchResult[ReadResult, ReadItemError]):
     """Result of :func:`read_file`.
 
     Attributes:
         results: One :class:`ReadResult` per successfully read file.
         errors: One :class:`ReadItemError` per file that failed.
     """
-    results: list[ReadResult]
-    errors: list[ReadItemError]
 
 def _cache_key(session_id: str, item: ReadItem) -> str:
     payload = json.dumps({'session': session_id, 'item': item.__dict__}, sort_keys=True)
@@ -209,14 +217,6 @@ def _read_file_cached(items: list[ReadItem], session: Session) -> ReadBatchResul
             results.append(result)
     return ReadBatchResult(results=results, errors=errors)
 
-def _serialize_read_result(result: ReadResult) -> dict[str, Any]:
-    entry: dict[str, Any] = {'path': result.path, 'checksum': result.checksum}
-    if result.unchanged:
-        entry['unchanged'] = result.unchanged
-    else:
-        entry['content'] = result.content
-    return entry
-
 class ReadTool(ToolDefinition):
     name = 'read_file'
     title = 'Read file content'
@@ -266,10 +266,7 @@ class ReadTool(ToolDefinition):
                 start=it.get('start'),
                 end=it.get('end')) for it in raw_items]
         batch = _read_file_cached(items, ctx.session)
-        structured_content = serialize_batch_result(batch, result_serializer=_serialize_read_result)
-        has_error = bool(batch.errors)
-        all_full_file = all((r.is_full_file for r in batch.results))
-        return ToolResult(structured_content=structured_content, auto_approve=not has_error and all_full_file)
+        return batch_tool_result(batch, auto_approve=all((r.is_full_file for r in batch.results)))
 
 def register_read_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ReadTool())

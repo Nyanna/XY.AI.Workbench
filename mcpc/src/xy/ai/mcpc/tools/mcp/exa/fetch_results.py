@@ -5,11 +5,13 @@ Optionally filters the text line-wise with an extended regular expression
 """
 import re
 from typing import Any
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
 from xy.ai.mcpc.tools._tool_helpers import require_items
+from xy.ai.mcpc.tools.results import unknown_ids_warnings
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
 _DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their full text, optionally filter long pages.'
 _INPUT_SCHEMA: dict[str,
@@ -41,6 +43,17 @@ def _grep_lines(text: str, pattern: str, context: int) -> str:
             grouped.append([i])
     return '\n--\n'.join(('\n'.join((lines[i] for i in group)) for group in grouped))
 
+def _resolve(ids: list[str], pattern: str | None, context: int) -> tuple[list[dict[str, Any]], list[str]]:
+    items = fetch_cache.get_many(ids)
+    known = {item['id'] for item in items}
+    results = []
+    for item in items:
+        text = item.get('text') or ''
+        if pattern:
+            text = _grep_lines(text, pattern, context)
+        results.append(strip_empty({'id': item['id'], 'text': text}))
+    return (results, [i for i in ids if i not in known])
+
 def web_fetch_exa_results(ids: list[str], pattern: str | None=None, context: int=1) -> list[dict[str, Any]]:
     """Resolve ids from a prior ``web_fetch_exa`` call to url and full text.
 
@@ -54,16 +67,9 @@ def web_fetch_exa_results(ids: list[str], pattern: str | None=None, context: int
     Returns:
         One entry per known id, with ``id`` and ``text``.
     """
-    items = fetch_cache.get_many(ids)
-    missing = [i for i in ids if i not in {item['id'] for item in items}]
+    results, missing = _resolve(ids, pattern, context)
     if missing:
         logger.warning('web_fetch_exa_results: unknown or expired id(s): %s', missing)
-    results = []
-    for item in items:
-        text = item.get('text') or ''
-        if pattern:
-            text = _grep_lines(text, pattern, context)
-        results.append(strip_empty({'id': item['id'], 'text': text}))
     return results
 
 class WebFetchExaResultsTool(ToolDefinition):
@@ -78,14 +84,16 @@ class WebFetchExaResultsTool(ToolDefinition):
         if error is not None:
             return error
         try:
-            results = web_fetch_exa_results(ids=ids, pattern=args.get('pattern'), context=args.get('context', 1))
+            results, missing = _resolve(ids, args.get('pattern'), args.get('context', 1))
         except re.error as exc:
             logger.warning('web_fetch_exa_results: invalid pattern %r: %s', args.get('pattern'), exc)
-            return ToolResult(content=[text_content(f'Invalid pattern: {exc}')], is_error=True)
+            return ToolResult.failure(f'Invalid pattern: {exc}')
         except Exception as exc:
             logger.exception('web_fetch_exa_results failed')
-            return ToolResult(content=[text_content(f'Error resolving web_fetch_exa results: {exc}')], is_error=True)
-        return ToolResult(structured_content={'results': results}, auto_approve=False)
+            return ToolResult.failure(f'Error resolving web_fetch_exa results: {exc}')
+        return ToolResult.ok(RawPayload({'results': results},
+                                        reason='shape defined by the remote Exa MCP server',
+                                        warnings=tuple(unknown_ids_warnings(missing))))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(WebFetchExaResultsTool())

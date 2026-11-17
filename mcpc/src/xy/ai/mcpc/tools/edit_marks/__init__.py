@@ -1,5 +1,5 @@
 """Edit Marks tool – replaces the text strictly including two markers, for a batch of items."""
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult, compact_asdict
 __all__ = [
     'EditMarksError',
     'EditMarksItem',
@@ -47,32 +48,36 @@ class EditMarksItem:
     exact: bool = False
 
 @dataclass(frozen=True)
-class EditMarksResult:
+class EditMarksResult(ItemResult):
     """Result of applying a single marker-based replacement, mirroring its input path for result association."""
     path: str
-    result: str
+
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
 
 @dataclass(frozen=True)
-class EditMarksItemError:
+class EditMarksItemError(ItemError):
     """Error applying a single marker-based replacement, mirroring its input path for result association."""
     path: str
-    error: str
     reason: str | None = None
     position: str | None = None
     corrected_text: str | None = None
     guess: str | None = None
     next_step: str | None = None
 
-@dataclass(frozen=True)
-class EditMarksBatchResult:
+    def key(self) -> dict[str, Any]:
+        return {'path': self.path}
+
+    def payload(self) -> dict[str, Any]:
+        return compact_asdict(self, exclude={'path', 'error'})
+
+class EditMarksBatchResult(BatchResult[EditMarksResult, EditMarksItemError]):
     """Result of :func:`edit_marks`.
 
     Attributes:
         results: One :class:`EditMarksResult` per successfully applied edit.
         errors: One :class:`EditMarksItemError` per edit that failed.
     """
-    results: list[EditMarksResult]
-    errors: list[EditMarksItemError]
 
 def edit_marks_text(text: str, begin_marker: str, content: str, end_marker: str, exact: bool=False) -> str:
     """Replace everything between and including 'begin_marker' and 'end_marker' with content, in *text*.
@@ -131,7 +136,7 @@ def _edit_marks_one(item: EditMarksItem) -> EditMarksResult:
         file_path.write_text(result_text, encoding='utf-8')
     except OSError as exc:
         raise EditMarksError(f'Write failed: {exc}') from exc
-    return EditMarksResult(path=item.path, result='success')
+    return EditMarksResult(path=item.path)
 
 def edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
     """Replace everything between and including 'begin_marker' and 'end_marker' with content, in one or more files.
@@ -207,16 +212,7 @@ class EditMarksTool(ToolDefinition):
                 exact=it.get(
                     'exact',
                     False))
-
-        def error_serializer(e: EditMarksItemError) -> dict[str, Any]:
-            return {k: v for k, v in asdict(e).items() if v is not None}
-        return handle_batch_tool(
-            ctx,
-            item_factory,
-            edit_marks,
-            EditMarksError,
-            error_serializer=error_serializer,
-            auto_approve=True)
+        return handle_batch_tool(ctx, item_factory, edit_marks, EditMarksError, auto_approve=True)
 
 def register_edit_marks_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditMarksTool())

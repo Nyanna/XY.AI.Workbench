@@ -12,6 +12,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = [
     'Context7Bridge',
     'Library',
@@ -30,7 +31,6 @@ _RESOLVE_SCHEMA: dict[str,
                                                        'description': "User's original question or task – used for relevance ranking (e.g. 'How to manage state with hooks')."}},
                               'required': ['libraryName',
                                            'query']}
-
 _QUERY_DOCS_DESCRIPTION = 'Fetch documentation and code examples for a library from Context7.\n\nBest for: Retrieving accurate API docs, usage examples, and configuration guides for any library or framework.\nUse context7_libraries first to obtain the correct libraryId.\nReturns: Documentation snippets and code examples relevant to the query.\n\nKeep each query scoped to a single concept. For multi-concept questions, make separate calls per concept unless the question is about how the concepts interact.\n'
 _QUERY_DOCS_SCHEMA: dict[str,
                          Any] = {'type': 'object',
@@ -40,7 +40,6 @@ _QUERY_DOCS_SCHEMA: dict[str,
                                                           'description': "The question or task to find documentation for, scoped to a single concept. Be specific and include relevant details (e.g. 'React useEffect cleanup function examples')."}},
                                  'required': ['libraryId',
                                               'query']}
-
 _NOT_FOUND_TRIGGER = 'No documentation found for library'
 _BLOCK_SEPARATOR = re.compile('(?m)^-{3,}\\s*$')
 _LIBRARY_FIELD = re.compile('(?m)^-\\s*(.+?):\\s*(.*)$')
@@ -147,8 +146,9 @@ class Context7LibrariesTool(ToolDefinition):
         try:
             libraries = context7_libraries(libraryName=args['libraryName'], query=args['query'])
         except McpBridgeError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'libraries': [asdict(library) for library in libraries]})
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(RawPayload({'libraries': [asdict(
+            library) for library in libraries]}, reason='shape defined by the remote Context7 MCP server'))
 
 class Context7DocumentationTool(ToolDefinition):
     name = 'context7_documentation'
@@ -161,8 +161,9 @@ class Context7DocumentationTool(ToolDefinition):
         try:
             sections = context7_documentation(libraryId=args['libraryId'], query=args['query'])
         except McpBridgeError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'sections': [asdict(section) for section in sections]})
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(RawPayload(
+            {'sections': [asdict(section) for section in sections]}, reason='shape defined by the remote Context7 MCP server'))
 
 def register_context7_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     """Register the Context7-backed ``context7_libraries`` and

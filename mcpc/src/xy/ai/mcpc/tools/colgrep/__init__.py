@@ -11,6 +11,7 @@ from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
+from xy.ai.mcpc.tools.results import RawPayload
 __all__ = ['ColgrepError', 'ColgrepResult', 'colgrep', 'ColgrepTool', 'register_colgrep_tool']
 _COLGREP_BIN = '/home/user/.cargo/bin/colgrep'
 _CONTEXT_LINES = '2'
@@ -258,8 +259,8 @@ class ColgrepTool(ToolDefinition):
                 exclude=args.get('exclude') or [],
                 exclude_dir=args.get('exclude_dir') or [])
         except ColgrepError as exc:
-            return ToolResult(content=[text_content(str(exc))], is_error=True)
-        return ToolResult(structured_content={'results': result.results})
+            return ToolResult.failure(str(exc))
+        return ToolResult.ok(RawPayload({'results': result.results}, reason='shape defined by the colgrep binary'))
 
 def register_colgrep_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(ColgrepTool())
