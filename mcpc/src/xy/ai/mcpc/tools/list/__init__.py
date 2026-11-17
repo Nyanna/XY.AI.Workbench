@@ -20,6 +20,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
+from xy.ai.mcpc.tools._mcpcignore import McpcIgnore
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 __all__ = [
     'ListError',
@@ -114,6 +115,7 @@ def _list_one(item: ListItem) -> ListResult:
     dir_path = normalize_directory(dir_path)
     if not dir_path.is_dir():
         raise ListError('Directory not found or not a directory.')
+    access = McpcIgnore(dir_path)
     try:
         regex = re.compile(item.pattern) if item.pattern else None
     except re.error as exc:
@@ -121,11 +123,14 @@ def _list_one(item: ListItem) -> ListResult:
     groups: dict[str, list[str]] = {}
     match_count = 0
     for root, dirs, files in os.walk(str(dir_path)):
+        dirs[:] = [d for d in dirs if access.is_dir_visible(Path(root) / d)]
         rel_dir = os.path.relpath(root, str(dir_path))
         matched_files = []
         header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
         match_against_path = regex is not None and '/' in item.pattern
         for file in sorted(files):
+            if not access.is_file_allowed(Path(root) / file):
+                continue
             candidate = f'{header}/{file}' if match_against_path else file
             if regex is None or regex.search(candidate):
                 matched_files.append(file)

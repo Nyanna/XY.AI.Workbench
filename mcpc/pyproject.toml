@@ -16,6 +16,7 @@ keywords = ["mcp", "model-context-protocol", "json-rpc", "streamable-http"]
 # WebSocket transport (an additional, optional interface) uses "websockets".
 dependencies = [
     "websockets>=13",
+    "pathspec>=0.12",
 ]
 
 [project.scripts]

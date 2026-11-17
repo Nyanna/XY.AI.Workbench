@@ -1,11 +1,7 @@
 # TODO
-! mit agent ignore verezichniss ignorieren (.mcpcignore)
-	- oder umgekehrt, nur die allow liste
-	- datei caching und nur bei bedarf aktualisieren, zusätzlich config über agent
-	- recursiv vom Zielpfad additiv (invers, höchste zuerst, gitignore syntax)
-		- Dann Zusätzlich per Header für session
-		- Dann Zusätzlich in session per tool call, ja tool call zur veränderung
-			- vielleicht exec_command und extra tool
+- MCPC ignore Dann Zusätzlich per Header für session
+	- Dann Zusätzlich in session per tool call, ja tool call zur veränderung
+	- vielleicht exec_command und extra tool
 
 - "resident" in vorhandenes RAG integrieren aber separat startbar
 - Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)

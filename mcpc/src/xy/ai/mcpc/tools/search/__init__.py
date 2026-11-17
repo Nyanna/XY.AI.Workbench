@@ -8,6 +8,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
+from xy.ai.mcpc.tools._mcpcignore import McpcIgnore
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 import re
 from xy.ai.mcpc.tools.ast import core
@@ -203,6 +204,15 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
         result = run_process(cmd)
     except LaunchError as exc:
         raise SearchError(f'Failed to launch: {exc}') from exc
+    matchers = {p: McpcIgnore(p) for p in directory_paths}
+    allowed_lines = []
+    for line in result.stdout.splitlines():
+        file_path = Path(line.partition(':')[0])
+        owner = next((p for p in directory_paths if p in file_path.parents), None)
+        if owner is None or matchers[owner].is_file_allowed(file_path):
+            allowed_lines.append(line)
+    result = ProcessResult(exit_code=result.exit_code if allowed_lines else min(
+        result.exit_code, 1), stdout='\n'.join(allowed_lines), stderr=result.stderr)
     prefixes = sorted((str(p).rstrip('/') + '/' for p in directory_paths), key=len, reverse=True)
     prefix_pattern = '|'.join((re.escape(p) for p in prefixes))
     stdout = re.sub(f'^(?:{prefix_pattern})', '', result.stdout, flags=re.MULTILINE)
