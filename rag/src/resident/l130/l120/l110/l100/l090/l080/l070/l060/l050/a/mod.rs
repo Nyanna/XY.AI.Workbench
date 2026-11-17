@@ -9,3 +9,4 @@ pub mod load_meter;
 pub mod precision_calibration_profiles;
 pub mod gpu_backend;
 pub mod table_swap;
+pub mod segments;
