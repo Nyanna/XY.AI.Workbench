@@ -31,6 +31,7 @@ Konflikte und Probleme:
 - Erkenne Konflikte und Unstimmigkeiten in Specs und Interfaces
 - Zuerst den Kontext auf bereits erledigte Specs erweitern
 - Dann den Kontext auf zukünftige Konsumenten erweitern
+- Features wurden entfernt, es wird standardmäßig mit GPU gebaut
 
 Festgelegte Verzeichnisstruktur für Module:
 ```yaml
