@@ -28,19 +28,17 @@ def test_builtin_default_excludes_vcs_and_cache_dirs(tmp_path: Path):
     '# the default judges the full absolute path, so an excluded name anywhere above hides it too'
     assert not ignore.is_allowed(tmp_path / 'build' / 'a.txt')
 
-def test_rules_of_all_files_add_up(tmp_path: Path):
-    (tmp_path / '.mcpcignore').write_text('*.py\n')
+def test_a_path_must_be_allowed_by_every_file_in_the_chain(tmp_path: Path):
+    (tmp_path / '.mcpcignore').write_text('*.py\n*.txt\n*.md\n')
     sub = tmp_path / 'sub'
     sub.mkdir()
-    (sub / '.mcpcignore').write_text('!secret.py\n*.txt\n')
-    '# allowed by the parent'
+    (sub / '.mcpcignore').write_text('!secret.py\n*.py\n*.txt\n*.rs\n')
     assert ignore.is_allowed(sub / 'a.py')
-    '# allowed by the child'
     assert ignore.is_allowed(sub / 'a.txt')
-    '# denied by the child'
     assert not ignore.is_allowed(sub / 'secret.py')
-    '# nobody allows it'
     assert not ignore.is_allowed(sub / 'a.md')
+    assert not ignore.is_allowed(sub / 'a.rs')
+    assert not ignore.is_allowed(sub / 'a.log')
 
 @pytest.mark.parametrize('content', ['*.py\n!secret.py\n', '!secret.py\n*.py\n'])
 def test_deny_wins_regardless_of_rule_order(tmp_path: Path, content: str):
@@ -112,21 +110,20 @@ def test_new_parent_file_is_discovered_and_removed_files_fall_back_to_default(tm
     sub.mkdir()
     child_file = sub / '.mcpcignore'
     child_file.write_text('b.py\n')
+    assert ignore.is_allowed(sub / 'b.py')
     assert not ignore.is_allowed(sub / 'a.py')
     parent_file = tmp_path / '.mcpcignore'
-    parent_file.write_text('*.py\n')
+    parent_file.write_text('*.py\n!b.py\n')
     _expire(monkeypatch)
-    assert ignore.is_allowed(sub / 'a.py')
+    assert not ignore.is_allowed(sub / 'b.py')
     parent_file.unlink()
     child_file.unlink()
     _expire(monkeypatch, 12.0)
-    '# nothing left in the chain -> built-in default'
     assert ignore.is_allowed(sub / 'a.txt')
     assert not ignore.is_allowed(sub / '.git' / 'config')
 
-@pytest.mark.parametrize(('content', 'name'), [(None, 'node_modules'), ('*\n!hidden/\n', 'hidden')])
+@pytest.mark.parametrize(('content', 'name'), [(None, 'node_modules'), ('*\n!hidden/\n', 'hidden'), ('*\n!hidden\n', 'hidden')])
 def test_an_excluded_directory_is_itself_not_allowed(tmp_path: Path, content: str | None, name: str):
-    """# is_excluded and is_allowed must not contradict each other for the directory itself"""
     if content is not None:
         (tmp_path / '.mcpcignore').write_text(content)
     directory = tmp_path / name
@@ -137,7 +134,6 @@ def test_an_excluded_directory_is_itself_not_allowed(tmp_path: Path, content: st
 
 def test_a_corrupt_file_at_first_load_does_not_open_everything(tmp_path: Path):
     (tmp_path / '.mcpcignore').write_bytes(b'\xff\xfe\xfa*.py\n')
-    '# not valid UTF-8: an allow list must fail closed, not fall back to the permissive default'
     assert not ignore.is_allowed(tmp_path / 'a.txt')
     assert not ignore.is_allowed(tmp_path / 'a.py')
 
@@ -148,7 +144,6 @@ def test_a_file_that_becomes_corrupt_keeps_hiding_what_it_did_not_allow(tmp_path
     assert not ignore.is_allowed(tmp_path / 'a.txt')
     file.write_bytes(b'\xff\xfe\xfa*.py\n')
     _expire(monkeypatch)
-    '# either the last good rules stay or everything is hidden, but a.txt must not become visible'
     assert not ignore.is_allowed(tmp_path / 'a.txt')
 
 def test_list_applies_ignore_files_found_below_the_start_directory(tmp_path: Path):
