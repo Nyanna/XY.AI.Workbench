@@ -74,18 +74,24 @@ def _read_one(item: ReadItem, *, with_lines: bool) -> ReadResult:
     nodes, unresolved = core.read_subtrees(core.locate_all(tree), item.ids, with_lines=with_lines)
     return ReadResult(path=item.path, nodes=nodes, warnings=tuple(unresolved))
 
-def _outline_instead(item: ReadItem, *, with_lines: bool) -> tuple[list[ReadResult], list[ReadError]]:
-    """The file's full outline, noting the redirect if ids were given but none resolved."""
+def _outline_instead(item: ReadItem, *, with_lines: bool, prior_warnings: tuple[str, ...]=()) -> tuple[list[ReadResult], list[ReadError]]:
+    """The file's full outline; the result always carries a warning that this is a fallback."""
     outline = ast_outline([item.path], with_lines=with_lines)
+    if item.ids:
+        reason = f'ids {item.ids!r} resolved to no node'
+    else:
+        reason = 'no ids were given'
     results = [
         ReadResult(
             path=r.path,
             nodes=r.nodes,
             warnings=(
-                f'ast_read fell back to ast_outline: ids {
-                    item.ids!r} resolved to no node; returning the full outline of {
-                        r.path} instead.',
-            ) if item.ids else ()) for r in outline.results]
+                f'ast_read fell back to ast_outline: {reason}; returning the full outline of {
+                    r.path} instead.',
+                *
+                prior_warnings,
+                *
+                r.warnings)) for r in outline.results]
     return (results, [ReadError(path=e.path, error=e.error) for e in outline.errors])
 
 def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult:
@@ -103,7 +109,7 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
     Per item, falls back to :func:`ast_outline` when ``ids`` is empty or looks like
     agents habitually mis-guessing a root id (``root``/``_module_``/``module``) and
     none of them resolve to a node: returns that file's full outline instead of an
-    error, and notes the redirect in the item's ``warnings`` (if ids were given).
+    error, and always notes the redirect in the item's ``warnings`` (also when no ids were given).
 
     Args:
         items: Per-file node ids to read. Must be non-empty.
@@ -129,7 +135,8 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
                 errors.append(ReadError(path=item.path, error=str(exc)))
                 continue
         if read is None or (not read.nodes and _looks_like_root_intent(item.ids)):
-            outlined, outline_errors = _outline_instead(item, with_lines=with_lines)
+            outlined, outline_errors = _outline_instead(
+                item, with_lines=with_lines, prior_warnings=read.warnings if read is not None else ())
             results += outlined
             errors += outline_errors
             continue
