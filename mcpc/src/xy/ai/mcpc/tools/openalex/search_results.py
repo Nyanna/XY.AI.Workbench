@@ -4,9 +4,10 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolResult
 from xy.ai.mcpc.tools._tool_helpers import require_items
 from xy.ai.mcpc.tools.results import unknown_ids_warnings
-from ._common import logger, ok_result, search_cache
+from ._common import logger, ok_result, record_document, search_cache
+from xy.ai.mcpc.tools.persist import PATH_PROPERTY, persist_result
 __all__ = ['openalex_search_results', 'OpenalexSearchResultsTool']
-_DESCRIPTION = 'Resolve ids returned by openalex_search or openalex_semantic_search to their full record.'
+_DESCRIPTION = 'Resolve ids returned by openalex_search or openalex_semantic_search to their full record. With `path`, the records are saved as Markdown.'
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'ids': {'type': 'array',
@@ -14,6 +15,7 @@ _INPUT_SCHEMA: dict[str,
                                                    'minItems': 1,
                                                    'description': 'Result ids (OpenAlex ids) returned by openalex_search or openalex_semantic_search.'}},
                             'required': ['ids']}
+_INPUT_SCHEMA['properties']['path'] = PATH_PROPERTY
 
 def _resolve(ids: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
     items = search_cache.get_many(ids)
@@ -46,4 +48,7 @@ class OpenalexSearchResultsTool(ToolDefinition):
         if error is not None:
             return error
         items, missing = _resolve(ids)
+        if ctx.arguments.get('path'):
+            return persist_result([record_document(item) for item in items], ctx.arguments['path'],
+                                  ctx, reason='file outlines of persisted results', warnings=unknown_ids_warnings(missing))
         return ok_result({'results': items}, warnings=unknown_ids_warnings(missing))

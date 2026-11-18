@@ -12,8 +12,10 @@ from xy.ai.mcpc.tools.mcp.exa.core import fetch_cache, logger, strip_empty
 from xy.ai.mcpc.tools._tool_helpers import require_items
 from xy.ai.mcpc.tools.results import unknown_ids_warnings
 from xy.ai.mcpc.tools.results import RawPayload
+from xy.ai.mcpc.tools.persist import PATH_PROPERTY, persist_result
+from xy.ai.mcpc.tools.mcp.exa.core import exa_document
 __all__ = ['web_fetch_exa_results', 'WebFetchExaResultsTool', 'register']
-_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their full text, optionally filter long pages.'
+_DESCRIPTION = 'Resolve ids returned by web_fetch_exa to their full text, optionally filter long pages. With `path`, the (filtered) text is saved as Markdown.'
 _INPUT_SCHEMA: dict[str,
                     Any] = {'type': 'object',
                             'properties': {'ids': {'type': 'array',
@@ -26,6 +28,7 @@ _INPUT_SCHEMA: dict[str,
                                                        'description': 'Context lines kept before/after each match (default: 1); only used with pattern.',
                                                        'minimum': 0}},
                             'required': ['ids']}
+_INPUT_SCHEMA['properties']['path'] = PATH_PROPERTY
 
 def _grep_lines(text: str, pattern: str, context: int) -> str:
     """Keep lines matching *pattern* plus *context* lines around each match ('grep -E' style)."""
@@ -91,6 +94,15 @@ class WebFetchExaResultsTool(ToolDefinition):
         except Exception as exc:
             logger.exception('web_fetch_exa_results failed')
             return ToolResult.failure(f'Error resolving web_fetch_exa results: {exc}')
+        if args.get('path'):
+            cached = {item['id']: item for item in fetch_cache.get_many([r['id'] for r in results])}
+            documents = [exa_document(cached[r['id']], r.get('text', '')) for r in results]
+            return persist_result(
+                documents,
+                args['path'],
+                ctx,
+                reason='file outlines of persisted results',
+                warnings=unknown_ids_warnings(missing))
         return ToolResult.ok(RawPayload({'results': results},
                                         reason='shape defined by the remote Exa MCP server',
                                         warnings=tuple(unknown_ids_warnings(missing))))

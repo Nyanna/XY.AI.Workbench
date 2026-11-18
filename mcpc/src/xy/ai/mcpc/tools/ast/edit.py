@@ -1,5 +1,6 @@
 """``ast_edit`` tool: all modifying AST tools in a single call."""
 from __future__ import annotations
+from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.ast.create import CreateFileTool
 from xy.ai.mcpc.tools.ast.delete import DeleteTool
@@ -9,7 +10,14 @@ from xy.ai.mcpc.tools.ast.insert import InsertNodeTool
 from xy.ai.mcpc.tools.ast.replace import ReplaceNodeTool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.tool_context import ToolContext
+from xy.ai.mcpc.tools.results import ItemError, RawPayload
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+
+@dataclass(frozen=True, kw_only=True)
+class _SectionError(ItemError):
+
+    def key(self) -> dict[str, Any]:
+        return {}
 __all__ = ['EditTool', 'register']
 '# Execution order: files must exist before edits, deletions come last.'
 _STEPS: tuple[tuple[str, ToolDefinition], ...] = (('create', CreateFileTool()), ('insert', InsertNodeTool(
@@ -39,7 +47,7 @@ class EditTool(ToolDefinition):
                 continue
             sub = tool.handle(ToolContext(session=ctx.session, arguments={'items': items}))
             if sub.is_error:
-                sections[key] = {'error': _error_text(sub)}
+                sections[key] = _SectionError(error=_error_text(sub)).to_dict()
                 approve = False
                 continue
             sections[key] = sub.structured_content or {}
@@ -47,7 +55,11 @@ class EditTool(ToolDefinition):
             approve = approve and sub.auto_approve
         if not sections:
             return ToolResult.failure('At least one non-empty operation list is required.')
-        return ToolResult(structured_content=sections, warnings=list(dict.fromkeys(warnings)), auto_approve=approve)
+        payload = RawPayload(
+            sections,
+            reason='composes the payloads of the individual edit tools',
+            warnings=tuple(warnings))
+        return ToolResult.ok(payload, auto_approve=approve)
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:
     registry.register(EditTool())

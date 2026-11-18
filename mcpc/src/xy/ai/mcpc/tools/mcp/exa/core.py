@@ -5,6 +5,7 @@ import random
 import string
 from typing import Any, Callable
 from xy.ai.mcpc.tools.mcp.bridge import McpBridgeError
+from xy.ai.mcpc.tools.persist import Document
 __all__ = ['normalize_item', 'strip_empty', 'extract_results', 'ResultCache', 'search_cache', 'fetch_cache', 'logger']
 '#: Shared logger for the whole ``exa`` tool family.'
 logger = logging.getLogger('xy.ai.mcpc.tools.mcp.exa')
@@ -26,6 +27,13 @@ def strip_empty(value: Any) -> Any:
     if isinstance(value, list):
         return [strip_empty(v) for v in value]
     return value
+
+def exa_document(item: dict[str, Any], text: str | None=None) -> Document:
+    """Markdown document of a cached Exa result; *text* overrides the cached full text."""
+    title = item.get('title') or item.get('url') or item['id']
+    body = f'# {title}\n\n{(text if text is not None else item.get('text') or '')}'
+    meta = {key: item.get(key) for key in ('id', 'url', 'title', 'author', 'publishedDate')}
+    return Document(name=str(title), body=body, metadata=meta)
 
 def extract_results(raw: dict[str, Any], remote_tool: str, *, text_parser: 'Callable[[str], list[dict[str, Any]]] | None'=None) -> list[dict[str, Any]]:
     """Pull the ``results`` array out of a raw Exa ``CallToolResult`` payload.

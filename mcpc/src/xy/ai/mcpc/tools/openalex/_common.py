@@ -7,6 +7,7 @@ from xy.ai.mcpc.openalex import OpenAlexAPIError, OpenAlexClient, Work, project_
 from xy.ai.mcpc.tools.tool_registry import ToolResult, text_content
 from xy.ai.mcpc.utils.text_sanitize import sanitize_value
 from xy.ai.mcpc.tools.results import RawPayload
+from xy.ai.mcpc.tools.persist import Document
 logger = logging.getLogger('xy.ai.mcpc.tools.openalex')
 '#: Hard caps that mirror the OpenAlex API limits.'
 MAX_PER_PAGE = 50
@@ -76,6 +77,15 @@ def ok_result(structured: dict[str, Any], warnings: list[str] | None=None) -> To
             reason='shape defined by the OpenAlex API',
             warnings=tuple(
                 warnings or [])))
+
+def record_document(record: dict[str, Any]) -> Document:
+    """Markdown document of a full OpenAlex record; all fields but the abstract go to the front matter."""
+    title = record.get('title') or record.get('display_name') or record.get('id') or 'work'
+    body = f'# {title}'
+    if record.get('abstract'):
+        body += f'\n\n## Abstract\n\n{record['abstract']}'
+    meta = {key: value for key, value in sanitize_value(record).items() if key != 'abstract'}
+    return Document(name=str(title), body=body, metadata=meta)
 
 def summarise_list(data: dict[str, Any]) -> dict[str, Any]:
     meta = data.get('meta') or {}

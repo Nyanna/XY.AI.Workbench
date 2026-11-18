@@ -4,9 +4,10 @@ from xy.ai.mcpc.openalex import DEFAULT_WORK_PRESET, OpenAlexError, parse_entity
 from xy.ai.mcpc.openalex.presets import WORK_PRESET_NAMES
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolResult
-from ._common import WorkResult, error_result, get_client, ok_result
+from ._common import WorkResult, error_result, get_client, ok_result, record_document
+from xy.ai.mcpc.tools.persist import PATH_PROPERTY, persist_result
 _WORK_PRESETS = list(WORK_PRESET_NAMES)
-_WORK_DESCRIPTION = 'Fetch a single OpenAlex work by identifier. Accepts an OpenAlex id (W2741809807), an OpenAlex URL, a DOI (10.7717/peerj.4375 or a doi.org URL) or a namespaced id such as pmid:14907713. Returns the full record by default, with the abstract reconstructed to plain text.'
+_WORK_DESCRIPTION = 'Fetch a single OpenAlex work by identifier. Accepts an OpenAlex id (W2741809807), an OpenAlex URL, a DOI (10.7717/peerj.4375 or a doi.org URL) or a namespaced id such as pmid:14907713. Returns the full record by default, with the abstract reconstructed to plain text. With `path`, the record is saved as Markdown.'
 _WORK_INPUT_SCHEMA: dict[str,
                          Any] = {'type': 'object',
                                  'properties': {'id': {'type': 'string',
@@ -15,6 +16,7 @@ _WORK_INPUT_SCHEMA: dict[str,
                                                            'enum': _WORK_PRESETS,
                                                            'description': 'Field preset (default: full). Use a narrower preset such as bibliographic or abstract to reduce size.'}},
                                  'required': ['id']}
+_WORK_INPUT_SCHEMA['properties']['path'] = PATH_PROPERTY
 
 def _openalex_work_raw(id: str, fields: str | None=None) -> dict[str, Any]:
     client = get_client()
@@ -52,4 +54,7 @@ class OpenalexWorkTool(ToolDefinition):
             structured = _openalex_work_raw(id=args['id'], fields=args.get('fields'))
         except OpenAlexError as exc:
             return error_result(exc)
+        if args.get('path'):
+            return persist_result([record_document(structured['work'])], args['path'],
+                                  ctx, reason='file outlines of persisted results')
         return ok_result(structured)

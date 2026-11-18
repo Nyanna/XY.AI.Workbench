@@ -13,6 +13,7 @@ from xy.ai.mcpc.tools.tool_context import AppEnvironment, ToolContext
 from xy.ai.mcpc.tools.mcp.bridge import McpBridge, McpBridgeError, compact
 from xy.ai.mcpc.tools.mcp.client import McpClient
 from xy.ai.mcpc.tools.results import RawPayload
+from xy.ai.mcpc.tools.persist import PATH_PROPERTY, Document, persist_result
 __all__ = [
     'Context7Bridge',
     'Library',
@@ -31,7 +32,7 @@ _RESOLVE_SCHEMA: dict[str,
                                                        'description': "User's original question or task – used for relevance ranking (e.g. 'How to manage state with hooks')."}},
                               'required': ['libraryName',
                                            'query']}
-_QUERY_DOCS_DESCRIPTION = 'Fetch documentation and code examples for a library from Context7.\n\nBest for: Retrieving accurate API docs, usage examples, and configuration guides for any library or framework.\nUse context7_libraries first to obtain the correct libraryId.\nReturns: Documentation snippets and code examples relevant to the query.\n\nKeep each query scoped to a single concept. For multi-concept questions, make separate calls per concept unless the question is about how the concepts interact.\n'
+_QUERY_DOCS_DESCRIPTION = 'Fetch documentation and code examples for a library from Context7.\n\nBest for: Retrieving accurate API docs, usage examples, and configuration guides for any library or framework.\nUse context7_libraries first to obtain the correct libraryId.\nReturns: Documentation snippets and code examples relevant to the query. With `path`, the documentation is saved as Markdown and only a file outline is returned.\n\nKeep each query scoped to a single concept. For multi-concept questions, make separate calls per concept unless the question is about how the concepts interact.\n'
 _QUERY_DOCS_SCHEMA: dict[str,
                          Any] = {'type': 'object',
                                  'properties': {'libraryId': {'type': 'string',
@@ -40,6 +41,7 @@ _QUERY_DOCS_SCHEMA: dict[str,
                                                           'description': "The question or task to find documentation for, scoped to a single concept. Be specific and include relevant details (e.g. 'React useEffect cleanup function examples')."}},
                                  'required': ['libraryId',
                                               'query']}
+_QUERY_DOCS_SCHEMA['properties']['path'] = PATH_PROPERTY
 _NOT_FOUND_TRIGGER = 'No documentation found for library'
 _BLOCK_SEPARATOR = re.compile('(?m)^-{3,}\\s*$')
 _LIBRARY_FIELD = re.compile('(?m)^-\\s*(.+?):\\s*(.*)$')
@@ -162,6 +164,13 @@ class Context7DocumentationTool(ToolDefinition):
             sections = context7_documentation(libraryId=args['libraryId'], query=args['query'])
         except McpBridgeError as exc:
             return ToolResult.failure(str(exc))
+        if args.get('path'):
+            document = Document(name=f'{args['libraryId']} {args['query']}',
+                                body=f'# {args['query']}\n\n' + '\n\n---\n\n'.join((s.content for s in sections)),
+                                metadata={'source': 'context7',
+                                          'libraryId': args['libraryId'],
+                                          'query': args['query']})
+            return persist_result([document], args['path'], ctx, reason='file outlines of persisted results')
         return ToolResult.ok(RawPayload(
             {'sections': [asdict(section) for section in sections]}, reason='shape defined by the remote Context7 MCP server'))
 
