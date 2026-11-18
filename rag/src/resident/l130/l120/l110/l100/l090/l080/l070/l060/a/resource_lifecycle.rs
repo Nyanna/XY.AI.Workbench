@@ -22,9 +22,9 @@ pub enum ResourceState {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LifecycleConfig {
-    pub ram_ttl: Duration,
-    pub vram_ttl: Duration,
-    pub backoff: Duration,
+    ram_ttl: Duration,
+    vram_ttl: Duration,
+    backoff: Duration,
 }
 impl LifecycleConfig {
     pub fn new(
@@ -36,6 +36,15 @@ impl LifecycleConfig {
             return Err(LifecycleError::InvalidConfig);
         }
         Ok(Self { ram_ttl, vram_ttl, backoff })
+    }
+    pub fn ram_ttl(&self) -> Duration {
+        self.ram_ttl
+    }
+    pub fn vram_ttl(&self) -> Duration {
+        self.vram_ttl
+    }
+    pub fn backoff(&self) -> Duration {
+        self.backoff
     }
     fn ttl(&self, class: MemoryClass) -> Duration {
         match class {
