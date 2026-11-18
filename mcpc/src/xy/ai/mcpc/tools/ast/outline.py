@@ -139,7 +139,7 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 class OutlineNodesTool(ToolDefinition):
     name = 'ast_outline'
     title = 'Hierarchical AST outline with IDs from a set of defined files'
-    description = 'Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, type, docstring, children, imports, and segments. Other AST tools require IDs as input.'
+    description = 'Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, types, excert, docstring, children, imports, and segments but never the full content. Other AST tools require IDs as input.'
     input_schema = {
         'type': 'object',
         'properties': {
