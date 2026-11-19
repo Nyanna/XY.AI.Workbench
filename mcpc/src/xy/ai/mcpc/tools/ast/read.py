@@ -10,7 +10,15 @@ from xy.ai.mcpc.tools.ast.outline import ast_outline
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.tools.tool_registry import ToolFeature
-__all__ = ['ReadItem', 'ReadResult', 'ReadError', 'ReadBatchResult', 'ast_read', 'ReadNodeTool', 'register']
+__all__ = [
+    'AST_READ_DESCRIPTION',
+    'ReadItem',
+    'ReadResult',
+    'ReadError',
+    'ReadBatchResult',
+    'ast_read',
+    'ReadNodeTool',
+    'register']
 _ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', '', '*'}
 
 def _looks_like_root_intent(ids: list[str]) -> bool:
@@ -143,12 +151,13 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
             continue
         results.append(read)
     return ReadBatchResult(results=results, errors=errors)
+AST_READ_DESCRIPTION = 'After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs.'
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
     features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Reads the code, text, and content of the nodes identified by the given IDs within the specified files.'
-    description = 'After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs.'
+    description = AST_READ_DESCRIPTION
     _ITEM_PROPERTIES = {
         'path': PATH_PROP,
         'ids': {

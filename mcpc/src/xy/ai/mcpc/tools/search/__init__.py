@@ -21,6 +21,7 @@ __all__ = [
     'SearchResult',
     'SearchItemError',
     'SearchBatchResult',
+    'SEARCH_DESCRIPTION',
     'search',
     'SearchTool',
     'register_search_tool']
@@ -293,11 +294,12 @@ def search(items: list[SearchItem], *, with_nodes: bool=False) -> SearchBatchRes
 def _check_intent(intent: str) -> None:
     if intent not in _INTENTS:
         raise SearchError(f'Invalid intent {intent!r}; expected one of {', '.join(_INTENTS)}.')
+SEARCH_DESCRIPTION = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
 
 class SearchTool(ToolDefinition):
     name = 'search'
     title = 'Search code, text, id, and content within directories'
-    description = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
+    description = SEARCH_DESCRIPTION
     _ITEM_PROPERTIES = {
         'directory': {
             'type': 'array',

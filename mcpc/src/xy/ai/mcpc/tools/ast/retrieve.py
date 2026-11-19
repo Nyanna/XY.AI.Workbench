@@ -8,15 +8,24 @@ the response in a follow-up call.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
-from xy.ai.mcpc.tools.ast.find import FindNodesTool
-from xy.ai.mcpc.tools.ast.outline import OutlineNodesTool
-from xy.ai.mcpc.tools.ast.read import ReadNodeTool
+from xy.ai.mcpc.tools.ast.find import AST_FIND_DESCRIPTION, FindNodesTool
+from xy.ai.mcpc.tools.ast.outline import AST_OUTLINE_DESCRIPTION, OutlineNodesTool
+from xy.ai.mcpc.tools.ast.read import AST_READ_DESCRIPTION, ReadNodeTool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import ItemError, RawPayload
-from xy.ai.mcpc.tools.search import SearchTool
+from xy.ai.mcpc.tools.search import SEARCH_DESCRIPTION, SearchTool
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolFeature, ToolRegistry, ToolResult
-__all__ = ['RetrieveTool', 'register']
+__all__ = [
+    'RETRIEVE_INTRO',
+    'RETRIEVE_SEARCH_USAGE',
+    'RETRIEVE_OUTLINE_USAGE',
+    'RETRIEVE_FIND_USAGE',
+    'RETRIEVE_READ_USAGE',
+    'RETRIEVE_NOTES',
+    'RETRIEVE_DESCRIPTION',
+    'RetrieveTool',
+    'register']
 
 @dataclass(frozen=True, kw_only=True)
 class _SectionError(ItemError):
@@ -39,12 +48,29 @@ def _merge(parts: list[dict[str, Any]]) -> dict[str, Any]:
             else:
                 merged.setdefault(key, value)
     return merged
+RETRIEVE_INTRO = 'Run search, outline, find and read operations.'
+RETRIEVE_SEARCH_USAGE = '`search`: list of items, each in the format of the tool `search`.'
+RETRIEVE_OUTLINE_USAGE = '`outline`: list of absolute file paths, as in the tool `ast_outline`.'
+RETRIEVE_FIND_USAGE = '`find`: list of independent queries, each in the format of the tool `ast_find`.'
+RETRIEVE_READ_USAGE = '`read`: list of items, each in the format of the tool `ast_read`.'
+RETRIEVE_NOTES = 'The lists are processed independently.'
+
+def _tool_section(usage: str, tool_name: str, tool_description: str) -> str:
+    """Usage line of a list parameter followed by the description of the tool it delegates to."""
+    return f'{usage}\nDescription of `{tool_name}`: {tool_description}'
+
+RETRIEVE_DESCRIPTION = '\n\n'.join(
+    (RETRIEVE_INTRO, _tool_section(
+        RETRIEVE_SEARCH_USAGE, 'search', SEARCH_DESCRIPTION), _tool_section(
+            RETRIEVE_OUTLINE_USAGE, 'ast_outline', AST_OUTLINE_DESCRIPTION), _tool_section(
+                RETRIEVE_FIND_USAGE, 'ast_find', AST_FIND_DESCRIPTION), _tool_section(
+                    RETRIEVE_READ_USAGE, 'ast_read', AST_READ_DESCRIPTION), RETRIEVE_NOTES))
 
 class RetrieveTool(ToolDefinition):
     name = 'ast_retrieve'
     features = frozenset({ToolFeature.INPUT_ASTID})
-    title = 'Batch of retrieval operations (search, outline, find, read)'
-    description = 'Run search, outline, find and read operations in one call. search: items of the tool search. outline: absolute file paths, as in ast_outline. find: list of queries, each in the format of ast_find. read: items of the tool ast_read.'
+    title = 'Batch of retrieval and search operations (search, outline, find, read)'
+    description = RETRIEVE_DESCRIPTION
     input_schema = {
         'type': 'object',
         'properties': {

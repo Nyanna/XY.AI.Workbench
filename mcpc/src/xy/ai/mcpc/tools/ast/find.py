@@ -11,7 +11,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.tools.tool_registry import ToolFeature
-__all__ = ['FileNodesResult', 'FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
+__all__ = ['AST_FIND_DESCRIPTION', 'FileNodesResult', 'FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
 
 @dataclass(frozen=True)
 class FileNodesResult:
@@ -202,11 +202,12 @@ class FindItemError(ItemError):
 
 class FindBatchResult(BatchResult[FileNodes, FindItemError]):
     """One :class:`FileNodes` per input path."""
+AST_FIND_DESCRIPTION = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source. Use this when looking up content without IDs or when retrieving the whole node for a term.'
 
 class FindNodesTool(ToolDefinition):
     name = 'ast_find'
     title = 'Find code, text, id, and content within the specified files.'
-    description = 'Filter the AST-node tree of a list of files by type, name, id, line range, parent type, text substring or regexp (grep). Returns matches per file with their full source. Use this when looking up content without IDs.'
+    description = AST_FIND_DESCRIPTION
     input_schema = {
         'type': 'object',
         'properties': {
