@@ -21,7 +21,7 @@ Crate-Modul `update_queue`.
 - Der Manager stellt Updates ein, z. B. per `Reconciliation::for_each_delete` (Delete) oder nach dem Laden eines Entry (Bind). Später ruft er `apply` auf.
 - Das `ResidencyDirectory` (`reconcile`) hält je residentem Entry Slot und bekannten Stamp. `SlotAssignment` (`slot_layout`, pro Segment, in `AddressMap`-Entries per `Arc` geteilt) hält Slot ↔ `EntryRef`.
 - `apply` hält Directory und Slot-Bindings konsistent. Deletes laufen zuerst, damit Slots frei sind, bevor Binds sie belegen.
-- Es gibt zwei Typen namens `SegmentId`: `reconcile::SegmentId(u32)` (in `SlotRef`) und `address_map::SegmentId(u32)` (in der Map). Die Konversion ist `address_map::SegmentId(slot_ref.segment.0)`.
+- `SegmentId` and `SlotRef` are defined once in `segments`; `reconcile` and `address_map` re-export them, so no conversion is needed.
 
 ## 3. Interface
 
@@ -94,7 +94,7 @@ impl UpdateQueue {
 - Reihenfolge: zuerst alle `Unbind`, aufsteigend nach `EntryId`. Danach alle `Bind`, aufsteigend nach `EntryId`.
 - **Unbind** (`entry`, `slot`):
   1. `dir.remove(entry.entry)`. Das geschieht immer, auch wenn das Segment nicht abgebildet ist.
-  2. Segment suchen: `map.get(address_map::SegmentId(slot.segment.0))`. Fehlt es, wird `Warning::UnmappedTarget` erzeugt und die Slot-Bindung bleibt unberührt.
+  2. Segment suchen: `map.get(slot.segment)`. Fehlt es, wird `Warning::UnmappedTarget` erzeugt und die Slot-Bindung bleibt unberührt.
   3. Die Slot-Bindung wird nur gelöst, wenn sie noch dem Entry gehört: `assignment.slot_of_entry(entry) == Some(slot.slot)`. Dann `assignment.unbind(slot.slot)`. Sonst bleibt sie unverändert, ohne Warnung. Nicht `lookup` verwenden, denn das liefert für ungültige Slots `None`.
   4. Das Update zählt als angewandt, auch bei `UnmappedTarget`.
 - **Bind** (`entry`, `slot`, `stamp`):
@@ -122,7 +122,7 @@ impl UpdateQueue {
 - `reconcile`
   - `ResidencyDirectory` (`&self`, Send + Sync): `insert(id: EntryId, slot: SlotRef, known: Stamp) -> Option<Resident>`, `remove(id) -> Option<Resident>`, `get(id) -> Option<Resident>`.
   - `Resident { slot: SlotRef, stamp: ChangeStamp }`.
-  - `SlotRef { segment: reconcile::SegmentId(pub u32), slot: Slot }` (Copy, Eq).
+  - `SlotRef { segment: SegmentId(pub u64), slot: Slot }` (Copy, Eq), defined in `segments` and re-exported by `reconcile`.
 - `index_contract`: `EntryId(pub u64)` (Copy, Ord, Hash). `Stamp(pub u64)`.
 - `change_stamp`: `ChangeStamp` (Copy, Eq, Debug, kein `Ord`), `as_raw() -> u64`.
 - `slot_layout`
@@ -135,5 +135,5 @@ impl UpdateQueue {
 - `address_map`
   - `AddressMap::get(&self, SegmentId) -> Option<&Entry>`.
   - `Entry::assignment(&self) -> &Arc<SlotAssignment>`.
-  - `address_map::SegmentId(pub u32)`.
+  - `address_map::SegmentId` (re-export of `segments::SegmentId(pub u64)`).
 - `kernel_layout::Slot(pub u32)`.

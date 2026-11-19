@@ -37,8 +37,7 @@ use slot_layout::{SegmentView, SlotError};
 
 pub type ManifestGeneration = u64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct SegmentId(pub u64);
+pub use segments::SegmentId; // single definition: SegmentId(pub u64), not redefined here
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManifestError {

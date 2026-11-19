@@ -15,7 +15,7 @@ Crate-Modul `reconcile`.
 - Der Reconciler verändert das Directory nie. Der Manager pflegt es nach Reload, Entfernen und eigenem Upsert.
 - Es gibt keine Update-Queue-Typen. Entfernungen werden nur als Liste und über einen Callback geliefert.
 - Das Modul schreibt nie in den Index.
-- Es gibt kein `unsafe` und keine Abhängigkeiten außer `std`, `index_contract`, `change_stamp` und `kernel_layout::Slot`.
+- Es gibt kein `unsafe` und keine Abhängigkeiten außer `std`, `index_contract`, `change_stamp`, `kernel_layout::Slot` und `segments::{SegmentId, SlotRef}`.
 
 ## 2. Context
 
@@ -34,11 +34,10 @@ use change_stamp::ChangeStamp;
 use kernel_layout::Slot;
 
 // ---------- Residency-Verzeichnis ----------
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct SegmentId(pub u32);
+pub use segments::SegmentId; // single definition: SegmentId(pub u64)
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SlotRef { pub segment: SegmentId, pub slot: Slot }
+pub use segments::SlotRef; // single definition, same fields as:
+// pub struct SlotRef { pub segment: SegmentId, pub slot: Slot }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resident { pub slot: SlotRef, pub stamp: ChangeStamp } // stamp = bekannter Stamp
@@ -178,7 +177,7 @@ impl Reconciler {
 
 **kernel_layout**
 - `Slot(pub u32)` ist `Copy + Eq + Hash + Debug`.
-- `Slot` und `SegmentId` bilden zusammen die Position im Residency-Verzeichnis. Segmentgröße und Slot-Layout (`slot_layout`) werden hier nicht benötigt.
+- `Slot` und `segments::SegmentId(pub u64)` bilden zusammen die Position im Residency-Verzeichnis (`SlotRef` is defined in `segments`; `reconcile` only re-exports it). Segmentgröße und Slot-Layout (`slot_layout`) werden hier nicht benötigt.
 
 **consistency**
 - Die Identität `(EntryId, ChangeStamp)` und "der Index gewinnt" gelten unverändert. Dieses Modul nutzt `consistency` nicht direkt.

@@ -14,7 +14,7 @@ static_assertions::assert_impl_all!(MappingStore : Send, Sync);
 static_assertions::assert_impl_all!(SegmentId : Send, Sync);
 static_assertions::assert_impl_all!(MapError : Send, Sync);
 const SLOT_BYTES: u64 = 512;
-fn entry_at(id: u32, offset: u64, slots: u32) -> Entry {
+fn entry_at(id: u64, offset: u64, slots: u32) -> Entry {
     let region = RegionHandle::new(
             ArenaKind::IndexSegments,
             offset,
@@ -86,7 +86,7 @@ fn adjacent_allowed_and_sorted() {
     m.add(entry_at(3, 2048, 2)).unwrap();
     m.add(entry_at(1, 0, 2)).unwrap();
     m.add(entry_at(2, 1024, 2)).unwrap();
-    let ids: Vec<u32> = m.segments().iter().map(|e| e.id().0).collect();
+    let ids: Vec<u64> = m.segments().iter().map(|e| e.id().0).collect();
     assert_eq!(ids, vec![1, 2, 3]);
     assert_eq!(m.len(), 3);
     assert!(! m.is_empty());

@@ -113,11 +113,14 @@ fn put_picks_lowest_free_slot_across_segments() {
         .map(|i| store.put(EntryId(i), b"x").unwrap())
         .collect();
     assert_eq!(
-        refs, vec![SlotRef { segment : a, slot : 0 }, SlotRef { segment : a, slot : 1 },
-        SlotRef { segment : b, slot : 0 }, SlotRef { segment : b, slot : 1 },]
+        refs, vec![SlotRef { segment : a, slot : Slot(0) }, SlotRef { segment : a, slot :
+        Slot(1) }, SlotRef { segment : b, slot : Slot(0) }, SlotRef { segment : b, slot :
+        Slot(1) },]
     );
-    assert_eq!(store.remove(EntryId(1)), Some(SlotRef { segment : a, slot : 1 }));
-    assert_eq!(store.put(EntryId(9), b"y").unwrap(), SlotRef { segment : a, slot : 1 });
+    assert_eq!(store.remove(EntryId(1)), Some(SlotRef { segment : a, slot : Slot(1) }));
+    assert_eq!(
+        store.put(EntryId(9), b"y").unwrap(), SlotRef { segment : a, slot : Slot(1) }
+    );
     assert_eq!(store.put(EntryId(10), b"z"), Err(SlotError::NoFreeSlot));
     assert_eq!(store.slot_of(EntryId(10)), None);
     assert_eq!(
@@ -201,7 +204,7 @@ fn remove_keeps_bytes_until_next_put() {
     );
     let again = store.put(EntryId(2), &[1]).unwrap();
     assert_eq!(again, slot);
-    assert_eq!(store.entries_in(id).unwrap(), vec![(0, EntryId(2))]);
+    assert_eq!(store.entries_in(id).unwrap(), vec![(Slot(0), EntryId(2))]);
 }
 #[test]
 fn mapping_lookup_and_entries_in_order() {
@@ -210,11 +213,18 @@ fn mapping_lookup_and_entries_in_order() {
     store.put(EntryId(10), b"b").unwrap();
     store.put(EntryId(20), b"c").unwrap();
     store.remove(EntryId(10));
-    assert_eq!(store.entries_in(id).unwrap(), vec![(0, EntryId(30)), (2, EntryId(20))]);
-    assert_eq!(store.slot_of(EntryId(20)), Some(SlotRef { segment : id, slot : 2 }));
-    assert_eq!(store.entry_at(SlotRef { segment : id, slot : 2 }), Some(EntryId(20)));
-    assert_eq!(store.entry_at(SlotRef { segment : id, slot : 1 }), None);
-    assert_eq!(store.entry_at(SlotRef { segment : SegmentId(7), slot : 0 }), None);
+    assert_eq!(
+        store.entries_in(id).unwrap(), vec![(Slot(0), EntryId(30)), (Slot(2),
+        EntryId(20))]
+    );
+    assert_eq!(
+        store.slot_of(EntryId(20)), Some(SlotRef { segment : id, slot : Slot(2) })
+    );
+    assert_eq!(
+        store.entry_at(SlotRef { segment : id, slot : Slot(2) }), Some(EntryId(20))
+    );
+    assert_eq!(store.entry_at(SlotRef { segment : id, slot : Slot(1) }), None);
+    assert_eq!(store.entry_at(SlotRef { segment : SegmentId(7), slot : Slot(0) }), None);
     assert_eq!(
         store.entries_in(SegmentId(7)), Err(SlotError::UnknownSegment(SegmentId(7)))
     );
@@ -238,8 +248,8 @@ fn remove_segment_returns_sorted_entries_and_drops_mapping() {
     assert_eq!(
         store.read(EntryId(2), & mut [0u8; 1]), Err(SlotError::UnknownEntry(EntryId(2)))
     );
-    assert_eq!(store.entry_at(SlotRef { segment : a, slot : 0 }), None);
-    assert_eq!(store.slot_of(EntryId(9)), Some(SlotRef { segment : b, slot : 0 }));
+    assert_eq!(store.entry_at(SlotRef { segment : a, slot : Slot(0) }), None);
+    assert_eq!(store.slot_of(EntryId(9)), Some(SlotRef { segment : b, slot : Slot(0) }));
     assert_eq!(store.remove_segment(a), Err(SlotError::UnknownSegment(a)));
     assert_eq!(store.segment_ids(), vec![b]);
     assert!(store.add_segment(h1, mem(8)).is_ok());
@@ -254,12 +264,14 @@ fn backend_failure_leaves_mapping_untouched() {
     assert!(matches!(store.put(EntryId(2), b"x"), Err(SlotError::Access(_))));
     assert_eq!(store.slot_of(EntryId(2)), None);
     assert!(matches!(store.put(EntryId(1), & [2; 4]), Err(SlotError::Access(_))));
-    assert_eq!(store.slot_of(EntryId(1)), Some(SlotRef { segment : id, slot : 0 }));
+    assert_eq!(
+        store.slot_of(EntryId(1)), Some(SlotRef { segment : id, slot : Slot(0) })
+    );
     fail.store(false, Ordering::SeqCst);
     let mut buf = [0u8; 4];
     store.read(EntryId(1), &mut buf).unwrap();
     assert_eq!(buf, [1; 4]);
-    assert_eq!(store.put(EntryId(2), b"x").unwrap().slot, 1);
+    assert_eq!(store.put(EntryId(2), b"x").unwrap().slot, Slot(1));
 }
 #[test]
 fn segment_desc_and_entry_of_addr() {

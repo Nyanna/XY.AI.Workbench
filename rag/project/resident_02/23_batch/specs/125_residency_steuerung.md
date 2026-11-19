@@ -77,8 +77,7 @@ pub enum ResidencyError {
     Slot(SlotError),
     Arena(SegmentArenaError),
     Backing(String),
-    IdOverflow,                          // Segment-/Slot-ID passt nicht in u32 des Directory
-}
+    }
 impl std::fmt::Display for ResidencyError {}
 impl std::error::Error for ResidencyError {}
 
@@ -231,7 +230,7 @@ impl ResidencyController {
 **Nebenläufigkeit und Fehler**
 - Lock-Reihenfolge: Index-Lock → Arena/Store/Publisher (je intern) → Retire-Liste (Blatt). Die Registry wird nur kurz gehalten (Arc klonen). Unter dem Registry-Lock und dem Retire-Lock laufen keine Aufrufe in andere Module.
 - Mappings des Publishers nehmen nur den Retire-Lock, nie den Index-Lock. Es gibt kein Deadlock zwischen `run_gap` und `ensure`/`evict`.
-- Vergiftete Locks werden übernommen. Es gibt keine Panics bei gültigen Eingaben. IDs aus `segments::SegmentId(u64)` und Slot `u64` werden für `reconcile::SlotRef` mit `u32::try_from` umgesetzt. Bei Überlauf kommt `IdOverflow` (der Entry wird dann nicht gemappt, d. h. `store.remove`).
+- Vergiftete Locks werden übernommen. Es gibt keine Panics bei gültigen Eingaben. `segments::SlotRef` wird unverändert im Directory abgelegt; es gibt keine ID-Umsetzung.
 - Fehlschlag in `ensure` oder `evict` lässt Directory, Store und Tabelle konsistent. Jeder Eintrag im Directory hat einen Slot im Store mit dem Stamp, mit dem er geladen wurde.
 
 ## 5. Relied-on elements
@@ -241,16 +240,16 @@ impl ResidencyController {
 - **`reconcile`:**
   - `load_entry(&dyn Index, EntryId) -> Option<LoadedEntry{stamp: Stamp, payload, retries}>`.
   - `ResidencyDirectory` (`insert(id, SlotRef, Stamp) -> Option<Resident>`, `remove`, `get`, `len`, `iter`), alle `&self`.
-  - `SlotRef{segment: reconcile::SegmentId(u32), slot: kernel_layout::Slot(u32)}`.
+  - `SlotRef{segment: SegmentId(u64), slot: kernel_layout::Slot(u32)}` (`segments::SlotRef`, re-exported by `reconcile`).
   - `Reconciler::new(&Arc<dyn Index>)` (hält den Index nur schwach, daher hält der Controller den `Arc<dyn Index>` selbst), `reconcile(&mut self, &ResidencyDirectory) -> Option<Reconciliation{removed, reload, current, ..}>`, `pending(&self) -> bool`.
   - Der Reconciler verändert das Directory nie.
 - **`segments`:**
   - `SegmentStore::new(slot_size) -> Result<_, SlotError>`.
   - `add_segment(&self, RegionHandle, MemRegion) -> Result<segments::SegmentId, SlotError>`.
   - `remove_segment(&self, id) -> Result<RemovedSegment{id, handle, entries}, SlotError>` (gibt nichts frei).
-  - `put(&self, EntryId, &[u8]) -> Result<segments::SlotRef{segment: SegmentId(u64), slot: u64}, SlotError>`. `put` eines gemappten Entries überschreibt seinen Slot; `NoFreeSlot` ohne Zustandsänderung; `PayloadTooLarge` bei `len > slot_size`.
+  - `put(&self, EntryId, &[u8]) -> Result<segments::SlotRef{segment: SegmentId(u64), slot: Slot(u32)}, SlotError>`. `put` eines gemappten Entries überschreibt seinen Slot; `NoFreeSlot` ohne Zustandsänderung; `PayloadTooLarge` bei `len > slot_size`.
   - `remove(&self, EntryId) -> Option<segments::SlotRef>` (Slot sofort wiederverwendbar).
-  - `entries_in(&self, SegmentId) -> Result<Vec<(u64, EntryId)>, SlotError>` (nur belegte Slots).
+  - `entries_in(&self, SegmentId) -> Result<Vec<(Slot, EntryId)>, SlotError>` (nur belegte Slots).
   - `segment_ids()`, `stats() -> SegmentStats{segments, slots_total, slots_used}`.
   - Alle `&self`, `Send + Sync`.
   - `add_segment` verlangt `handle.arena() == IndexSegments`, `handle.len() >= slot_size` und `mem.len() == handle.len()`.
