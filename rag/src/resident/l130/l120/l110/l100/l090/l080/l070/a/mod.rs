@@ -5,3 +5,4 @@ pub mod index_build;
 pub mod text_normalization;
 pub mod tokenizer_loader;
 pub mod reconcile;
+pub mod manifest;
