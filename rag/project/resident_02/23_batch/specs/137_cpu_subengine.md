@@ -4,7 +4,7 @@
 
 **Task.** `CpuSubengine` is the CPU realisation of a sub-engine. It composes `subengine_core::SubengineCore` (Device = `DeviceHandle::Cpu`, own queue `Cpu`) with the following:
 - the CPU topology: sockets, cores (resources) and lanes (threads);
-- RAM-resident, lazily loaded resources: encoders, tokenizers and normalizer configs;
+- RAM-resident, lazily loaded resources: encoders and tokenizers (the tokenizer carries its configured normalizer);
 - its own CPU kernel register with SIMD score kernels;
 - the `CpuManager` component (registry of the attached indexes: segments, `FileLazyIndex`, `Manager` and one `IndexResidency` per index);
 - low-priority calibration.
@@ -55,7 +55,7 @@ use queue::Queue;
 use resource_lifecycle::{Lease, LifecycleConfig, ResourceKey};
 use resource_requirements::{IndexId, ModelId, ResourceKind};
 use subengine_core::{IndexSegment, QueueRegistrations, SubengineCore, SubengineError};
-use text_normalization::{NormalizationParams, ResolvedNormalization, TextNormalizer};
+use text_normalization::{NormalizationParams, NormalizerLoader, TextNormalizer, TextPreprocessor};
 use tokenizer_loader::LoadedTokenizer;
 
 /// CPU device structure: sockets -> cores (resources) -> lanes. Lane = one thread of the processor.
@@ -200,7 +200,8 @@ impl CpuSubengine {
     pub fn topology(&self) -> &CpuTopology;
     pub fn default_dtype(&self) -> DType;            // F32
 
-    /// Registers encoder, tokenizer and normalizer resources of the model (Ram). Loads nothing.
+    /// Registers encoder and tokenizer resources of the model (Ram). The tokenizer resource
+    /// carries the model's normalizer config. Loads nothing.
     pub fn register_model(&self, model: ModelId, setup: ModelSetup) -> Result<(), CpuError>;
 
     /// Builds the LaneResource: one Lane (no stream) per topology lane; cfg.device must be DeviceHandle::Cpu.
@@ -223,7 +224,8 @@ pub struct CpuContext<'a> { /* &CpuSubengine, &Lane */ }
 impl<'a> CpuContext<'a> {
     pub fn encoder(&self, model: &ModelId) -> Result<Lease<LoadedEncoder>, CpuError>;
     pub fn tokenizer(&self, model: &ModelId) -> Result<Lease<LoadedTokenizer>, CpuError>;
-    pub fn normalizer(&self, model: &ModelId) -> Result<Lease<ResolvedNormalization>, CpuError>;
+    /// The model's text preprocessor (cheap clone; identity if the model has no external normalizer).
+    pub fn preprocessor(&self, model: &ModelId) -> Result<TextPreprocessor, CpuError>;
     /// Applies the model's external TextNormalizer (identity if none).
     pub fn preprocess<'t>(&self, model: &ModelId, text: &'t str) -> Result<Cow<'t, str>, CpuError>;
     /// Synchronous: loads encoder if needed, encode_async + wait + receive result.
@@ -264,18 +266,19 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - `name`, `start`, `capabilities`, `offers`, `announce` and `activate` equal the `SubengineCore` behavior. `start` and `activate` are idempotent. `activate` never loads models, tokenizers or indexes.
 - `is_loaded(kind, model)`:
   - `Encoder`: true iff the lifecycle state of the model's encoder resource is `Ready`. `model == None` means any model.
-  - `Tokenizer`, `Normalizer`: the same rule on their registries.
+  - `Tokenizer`: the same rule on the tokenizer registry.
+  - `Normalizer`: the same answer as `Tokenizer` for the same model, because the normalizer config is part of the tokenizer.
   - `Scorer`, `Index`: the core's answer.
   - A kind that is not in `offers` is always false. It is read-only and never activates or loads.
 
 **4.4 Resources and lifecycle.**
-- `register_model` registers three resources, all with `MemoryClass::Ram`, in three `ResourceRegistry`s. Nothing is loaded.
+- `register_model` builds the model's `TextPreprocessor` once, from `ModelSetup.external_normalizer`, and keeps it in the model entry. It registers two resources, both with `MemoryClass::Ram`, in two `ResourceRegistry`s. Nothing is loaded.
   - `"enc:{model}"`: loader from `ModelRegistry::encoder_resource(descriptor, DeviceClass::Cpu).loader`.
-  - `"tok:{model}"`: `TokenizerLoader::from_descriptor`.
-  - `"norm:{model}"`: `NormalizerLoader::new(normalization, TextPreprocessor::new(external_normalizer))`.
+  - `"tok:{model}"`: `TokenizerLoader::from_descriptor(&descriptor).with_normalization(Arc::new(NormalizerLoader::new(normalization, preprocessor.clone())))`. The config is baked into the tokenizer when it loads.
+  - There is no separate normalizer resource. The normalizer config lives in the tokenizer, and the `Normalizer` kind is answered from the tokenizer state (4.3).
 - The encoder therefore uses the library CPU backend (`DeviceClass::Cpu`) with the descriptor's `compute_dtype(Cpu)`. FP32 is the default.
 - A second `register_model` for the same id gives `AlreadyRegistered`. A model without setup gives `UnknownModel`.
-- Acquire rules (`CpuContext::encoder/tokenizer/normalizer`), implemented with `request_init(key, 0, Instant::now())`:
+- Acquire rules (`CpuContext::encoder/tokenizer`), implemented with `request_init(key, 0, Instant::now())`:
   - `Ready(lease)`: returned.
   - `Started(ticket)`: run `ticket.run(now)` on the calling thread. Success: re-request and return the lease. `Err(Failed(m))`: `CpuError::Load(m)`.
   - `Loading`: the caller sleeps 1 ms and retries until the state is `Ready` or `Backoff`. It does not spin without a sleep.
@@ -283,8 +286,9 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
   - `Unavailable`: `CpuError::Unavailable(key)`.
 - This is the first-access lazy load. A load happens at most once per resource, guaranteed by the lifecycle.
 - Leases taken inside an operation are released with `release(Instant::now())` after the operation, so the TTL counts from the end of use.
-- The RAM TTL (`lifecycle.ram_ttl`) applies to everything. `evict_expired(now)` calls `evict_expired` on the three registries and `CpuKernelRegister::evict_expired(now, ram_ttl)`. It returns all evicted keys, with kernels as `"kernel:{name}:{dtype:?}"`. It also calls `CpuManager::mark_idle_cold(now)`. Cold marks are advice only: they evict nothing and add no keys to the result.
-- Evicted encoders, tokenizers and normalizers are reloaded on the next access. Kernels are recreated from their registered kernel object on demand. Entries with live leases or `Arc`s are never evicted. Eviction never unregisters anything.
+- The RAM TTL (`lifecycle.ram_ttl`) applies to everything. `evict_expired(now)` calls `evict_expired` on the two registries and `CpuKernelRegister::evict_expired(now, ram_ttl)`. It returns all evicted keys, with kernels as `"kernel:{name}:{dtype:?}"`. It also calls `CpuManager::mark_idle_cold(now)`. Cold marks are advice only: they evict nothing and add no keys to the result.
+- Evicted encoders and tokenizers are reloaded on the next access. Kernels are recreated from their registered kernel object on demand. Entries with live leases or `Arc`s are never evicted. Eviction never unregisters anything.
+- The `TextPreprocessor` is not a lifecycle resource. It lives in the model entry and is never evicted. `CpuContext::preprocessor(model)` returns a clone of it, or `UnknownModel`. It takes no lease and loads nothing. `preprocess(model, text)` is `preprocessor(model)?.apply(text)`, with `NormalizeError(m)` mapped to `CpuError::Normalize(m)`.
 
 **4.5 Index and `CpuManager`.**
 - `attach` order:
@@ -367,8 +371,8 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
   - `LifecycleConfig::new(ram_ttl, vram_ttl, backoff)`.
 - **`model_registry`:** `ModelRegistry::{encoder_resource(self: &Arc<Self>, Arc<ModelDescriptor>, DeviceClass) -> EncoderResource{key, init_cost, loader}, scorer_available(Metric)}`, `LoadedEncoder::encoder() -> &Encoder`.
 - **`encoder_interface`:** `Encoder::encode_async(&self, &Lane, &TensorRef, &TensorRef, rows, seq_len, Vec<TaskSender>) -> Result<CompletionEvent, EncoderError>`, `oneshot()`, `CompletionEvent::wait()`, `TaskOutcome = Result<(), EncoderError>`.
-- **`tokenizer_loader`:** `TokenizerLoader::from_descriptor`, `LoadedTokenizer`.
-- **`text_normalization`:** `NormalizerLoader::new(params, TextPreprocessor)`, `TextPreprocessor::{new, apply}`, `ResolvedNormalization`, `TextNormalizer`.
+- **`tokenizer_loader`:** `TokenizerLoader::{from_descriptor, with_normalization}`, `LoadedTokenizer`.
+- **`text_normalization`:** `NormalizerLoader::new(params, TextPreprocessor)`, `TextPreprocessor::{new, apply}` (`Clone`), `ResolvedNormalization`, `TextNormalizer`.
 - **`index_residency`:** `IndexResidency::{new(IndexSlot, Option<Arc<dyn MemoryAdvisor>>, Duration), mark_idle_cold(Instant) -> usize}`, `IndexSlot = Arc<OnceLock<Arc<dyn Index>>>`, `MemoryAdvisor`. `IndexSlot` is not `manager::LazyIndex`: `FileLazyIndex` fills the slot, and `Manager` calls the trait.
 - **`index_contract` / `file_index`:** `Index` trait, `FileIndex::open(path, IndexHeader, OpenOptions)`, errors as `FileIndexError` (Display used for `IndexOpen`).
 - **`manager`:** `Manager::new(core, IndexId, Arc<dyn LazyIndex>, Arc<dyn SlotTransfer>, ManagerConfig)`, `SlotTransfer::write_slot(&self, &mut Lane, &IndexSegment, slot: u32, byte_offset: u64, vector: &[u8])`, `LazyIndex::get`, `SlotAddr{segment, slot}`, `Manager::{pin, entries_at, upload, sync, apply_updates}`.

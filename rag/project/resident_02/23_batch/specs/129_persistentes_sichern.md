@@ -124,7 +124,7 @@ impl IndexSaver {
 - Eine Zeile je `SnapshotEntry`, aufsteigend nach `entry_id`. Eine Zeile je Entry, ohne Duplikate.
 - Spalten laut `index_format::column_schema(header.dimension)` in dieser Reihenfolge: `entry_id` ← `id.0`, `change_stamp` ← `stamp.as_raw()`, `vector` ← `data.vector` (FP16 LE, als Float16-Elemente der FixedSizeList), `target_file`, `char_start`, `char_end` ← `data.source`, `checksum` ← `data.checksum()`.
 - Stamps, Vektorbytes, Verweise und Checksums werden unverändert übernommen. Es gibt keine Neuberechnung, kein `recompute` und kein Neuvergeben von Stamps.
-- Footer-Key-Value: `header.with_max_stamp(snapshot.max_stamp).to_kv()` (15 Paare). Zusätzliche Keys wie `ARROW:schema` des Parquet-Writers sind erlaubt.
+- Footer-Key-Value: `header.with_max_stamp(snapshot.max_stamp).to_kv()` (16 Paare). Zusätzliche Keys wie `ARROW:schema` des Parquet-Writers sind erlaubt.
 - Ist die Länge eines Vektors ungleich `header.vector_bytes()`, wird nicht geschrieben (Fehler, siehe unten).
 - Ein Snapshot mit 0 Entries ist gültig. Es entsteht eine Datei mit Schema und Header, 0 Zeilen und 0 Row-Groups.
 - Parquet-Writer-Eigenschaften:
@@ -166,7 +166,7 @@ impl IndexSaver {
 pub fn column_schema(dimension: usize) -> Result<Schema, FormatError>;
 impl IndexHeader {
     pub fn with_max_stamp(&self, max_stamp: u64) -> IndexHeader;
-    pub fn to_kv(&self) -> Vec<(String, String)>;   // genau 15 Paare
+    pub fn to_kv(&self) -> Vec<(String, String)>;   // genau 16 Paare
     pub fn vector_bytes(&self) -> usize;            // dimension * 2
     pub fn column_schema(&self) -> Result<Schema, FormatError>;
     // Felder u. a.: schema_version: u64, model_id: String, model_revision: String, dimension: usize

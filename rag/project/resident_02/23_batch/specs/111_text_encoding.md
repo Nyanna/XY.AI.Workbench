@@ -12,7 +12,7 @@ Restrictions:
 
 ## 2. Context
 - `tokenizer_loader` provides `LoadedTokenizer`. It holds the tokenizer, with padding off and truncation set to `max_seq_len` (special tokens included), plus `pad_token_id`, the prefix schema and `max_seq_len`.
-- `text_normalization` provides `TextPreprocessor::apply`. It is the external normalizer. The tokenizer runs its own normalization.
+- `text_normalization` provides `TextPreprocessor::apply`. It is the external normalizer. The tokenizer runs its own normalization, including the steps configured through `tokenizer_loader`.
 - `batching` (Batch-Bildung) provides `build_batches(&[Vec<u32>], &BatchConfig)`. It does the sorting by length, the padding and the `positions` mapping.
 - The caller supplies the `EncodingSchema` (below), the `BatchConfig` and the loaded dependencies.
 
@@ -100,7 +100,7 @@ From `tokenizer_loader`:
 From `text_normalization`:
 - `TextPreprocessor::apply<'a>(&self, text: &'a str) -> Result<Cow<'a, str>, NormalizeError>`.
 - `NormalizeError(pub String)`: Debug, Clone, PartialEq, Eq.
-- The tokenizer does its own normalization. Do not repeat it here.
+- The tokenizer's normalizer (built-in plus configured extension) runs inside `encode_batch`. This module neither configures nor inspects it. It only applies the external `TextPreprocessor`.
 
 From `batching`:
 - `build_batches(seqs: &[Vec<u32>], cfg: &BatchConfig) -> Result<Vec<Batch>, BatchError>`.

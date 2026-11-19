@@ -18,6 +18,7 @@ Restrictions:
 - `ResourceRegistry<H>` (module `resource_lifecycle`) loads resources lazily through `Arc<dyn ResourceLoader<H>>`. Here `H = LoadedTokenizer`.
 - The caller registers `TokenizerLoader` with the registry. Nothing is read from disk before the first `load()`.
 - Consumers later use `LoadedTokenizer` for encoding. They read the tokenizer, pad token, schema and `max_seq_len` from it.
+- `text_normalization` supplies `ResolvedNormalization`. The tokenizer file may already contain a normalizer. The configured steps extend it and never replace it (section 4, step 0).
 
 ## 3. Interface
 ```rust
@@ -26,6 +27,7 @@ use std::sync::Arc;
 use tokenizers::Tokenizer;
 use crate::model_descriptor::ModelDescriptor;
 use crate::resource_lifecycle::ResourceLoader;
+use crate::text_normalization::ResolvedNormalization;
 
 /// Fixed file name in the directory of the model config (parent of `config_path`).
 pub const TOKENIZER_FILE_NAME: &str = "tokenizer.json";
@@ -48,6 +50,8 @@ pub enum TokenizerLoadError {
     NoPadToken { id: String },
     /// Truncation rejected. Display: "Trunkierung abgelehnt (Tokenizer {id}): {cause}"
     Truncation { id: String, cause: String },
+    /// Normalization config not obtainable or rejected by the tokenizer. Display: "Normalisierung abgelehnt (Tokenizer {id}): {cause}"
+    Normalization { id: String, cause: String },
 }
 impl std::fmt::Display for TokenizerLoadError { /* as above */ }
 impl std::error::Error for TokenizerLoadError {}
@@ -70,11 +74,18 @@ impl LoadedTokenizer {
     pub fn pad_token(&self) -> &str;
     pub fn pad_token_id(&self) -> u32;
     pub fn tokenizer(&self) -> &Tokenizer;
+    /// Extends the tokenizer's normalizer with the configured steps (section 4, step 0).
+    /// Consumes self, so it runs before the value is shared.
+    pub fn with_normalization(self, n: ResolvedNormalization) -> Result<Self, TokenizerLoadError>;
+    /// The config applied by `with_normalization` (the default if none was applied).
+    pub fn normalization(&self) -> ResolvedNormalization;
 }
 
 /// Lazy loader for `ResourceRegistry<LoadedTokenizer>`. Construction does no I/O.
 pub struct TokenizerLoader { /* private */ }
 impl TokenizerLoader {
+    /// Config source for step 0. It is read in `load()`. Without it, no config is applied.
+    pub fn with_normalization(self, source: Arc<dyn ResourceLoader<ResolvedNormalization>>) -> Self;
     pub fn from_descriptor(descriptor: &ModelDescriptor) -> Self;   // path/schema/max_seq_len captured, file not touched
     pub fn from_file(path: PathBuf, schema: TokenizerSchema, max_seq_len: usize) -> Self;
     pub fn from_tokenizer(tokenizer: Tokenizer, id: String, schema: TokenizerSchema, max_seq_len: usize) -> Self;
@@ -98,6 +109,11 @@ impl ResourceLoader<LoadedTokenizer> for TokenizerLoader {
 - The remaining steps are identical to loading from a file.
 
 **Steps after getting the tokenizer, in this order**
+0. **Normalization** (only if a config source was set with `TokenizerLoader::with_normalization`): the config is obtained from the source (`Err(msg)` returns `Normalization { id, cause: msg }`) and applied with `LoadedTokenizer::with_normalization`.
+   - If the config equals `ResolvedNormalization::default()`, the tokenizer stays untouched. Its serialization is then identical to the unconfigured tokenizer.
+   - Otherwise the extension steps are built in this order: NFD (NFKD if `unicode_form` is `Nfkc` or `Nfkd`) followed by `StripAccents`, if `strip_accents`; `Lowercase`, if `lowercase`; the step for `unicode_form`, if it is not `None`.
+   - The normalizer is set to `Sequence[extension steps…, existing normalizer]`, or to the extension steps alone if the tokenizer has none. The existing normalizer is never replaced or inspected.
+   - If the tokenizer rejects the new normalizer, return `Normalization { id, cause }`.
 1. **Pad token**, first hit wins:
    1. the pad token configured in the tokenizer's padding parameters (`get_padding()`, `pad_token` with `pad_id`),
    2. the token `<pad>`,
@@ -136,4 +152,6 @@ pub trait ResourceLoader<H>: Send + Sync {
 ```
 `ResourceRegistry<H>` needs `H: Send + Sync + 'static`. It runs the loader synchronously on the caller's thread and catches panics. On `Err(msg)` it goes to Backoff. The registry owns registration (`register(key, class, Arc<dyn ResourceLoader<H>>)`), not this module.
 
-From the `tokenizers` crate: `Tokenizer::from_file`, `with_padding(Option<PaddingParams>)`, `with_truncation(Option<TruncationParams>) -> Result<_, _>`, `get_padding()`, `token_to_id`, `Clone`. `Tokenizer` is `Send + Sync`.
+From `text_normalization`: `ResolvedNormalization { unicode_form: UnicodeForm, lowercase: bool, strip_accents: bool }` (Debug, Clone, Copy, PartialEq, Eq, Default; the default changes nothing) and `UnicodeForm::{None, Nfc, Nfd, Nfkc, Nfkd}`. The config source is any `ResourceLoader<ResolvedNormalization>`, normally `NormalizerLoader`.
+
+From the `tokenizers` crate: `Tokenizer::from_file`, `with_padding(Option<PaddingParams>)`, `with_truncation(Option<TruncationParams>) -> Result<_, _>`, `get_padding()`, `token_to_id`, `Clone`, `get_normalizer()`, `with_normalizer(..)`, `normalizers::{Sequence, NFD, NFKD, NFC, NFKC, StripAccents, Lowercase}`. `Tokenizer` is `Send + Sync`.

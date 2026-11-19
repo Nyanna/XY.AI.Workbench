@@ -21,8 +21,9 @@ Restrictions:
 ## 2. Context
 
 - Chunk text passes through `TextPreprocessor::apply` first. After that, the caller prepends prefixes or markers, then tokenizes.
-- The tokenizer applies its own normalizer, configured with `ResolvedNormalization`.
-- The tokenizer-normalizer config is a loadable resource of class `MemoryClass::Ram`. `NormalizerLoader` implements `ResourceLoader<ResolvedNormalization>`. The caller registers it in the `ResourceRegistry` and gets the config through `request_init`, which is lazy. This module neither registers nor evicts anything.
+- The tokenizer's normalizer is a single slot that `tokenizer.json` may already fill. `ResolvedNormalization` never replaces it. `tokenizer_loader` prepends the configured steps to it when it loads the tokenizer.
+- Order of effect on a chunk text: external `TextNormalizer` (`TextPreprocessor::apply`), then the steps configured by `ResolvedNormalization`, then the tokenizer's built-in normalizer, then tokenization.
+- The tokenizer-normalizer config is consumed by `tokenizer_loader`. It obtains the config from `NormalizerLoader::load` (pure, CPU only, no I/O) and applies it when it loads the tokenizer. `NormalizerLoader` implements `ResourceLoader<ResolvedNormalization>`, so the owner of the tokenizer loader can pass it on as the config source. Registering it as a separate resource is not required. This module neither registers nor evicts anything.
 - `TextPreprocessor` itself is cheap and holds no lifecycle state.
 
 ## 3. Interface
@@ -44,7 +45,8 @@ pub struct NormalizationParams {
     pub strip_accents: bool,
 }
 
-/// Config for the tokenizer's own normalizer. All steps are applied by the tokenizer, never by this module.
+/// Additive config for the tokenizer's normalizer. The default value changes nothing.
+/// All steps are applied by the tokenizer, never by this module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ResolvedNormalization {
     pub unicode_form: UnicodeForm,
@@ -60,6 +62,9 @@ pub trait TextNormalizer: Send + Sync {
     fn normalize<'a>(&self, text: &'a str) -> Result<Cow<'a, str>, NormalizeError>;
     /// Steps this normalizer performs itself (default: none).
     fn performed_steps(&self) -> NormalizationParams { NormalizationParams::default() }
+    /// Stable id of this normalizer's behavior, including its version. It must change whenever
+    /// the output for any input changes. Empty (the default) means: never changes text.
+    fn id(&self) -> &str { "" }
 }
 
 /// Returns the input unchanged (Cow::Borrowed).
@@ -74,6 +79,8 @@ impl TextPreprocessor {
     pub fn new(external: Option<Arc<dyn TextNormalizer>>) -> Self;
     /// Applies the external normalizer. Without one, returns Cow::Borrowed(text).
     pub fn apply<'a>(&self, text: &'a str) -> Result<Cow<'a, str>, NormalizeError>;
+    /// Id of the external normalizer, or "" without one. Identifies the preprocessing in persisted artifacts.
+    pub fn id(&self) -> &str;
     /// Resolves the tokenizer config without double steps (see section 4).
     pub fn resolve(&self, params: &NormalizationParams) -> ResolvedNormalization;
 }
@@ -108,12 +115,22 @@ impl ResourceLoader<ResolvedNormalization> for NormalizerLoader {
 - Steps that the external normalizer does not declare stay unchanged. The external normalizer runs before the tokenizer and wins on overlap.
 - Without an external normalizer, or with `IdentityNormalizer`, `resolve(params)` equals `params` field by field.
 - `resolve` is pure, deterministic and idempotent. It does not fail.
-- `apply` never performs `unicode_form`, `lowercase` or `strip_accents`. These steps run only once, in the tokenizer, according to `ResolvedNormalization`.
+- `apply` never performs `unicode_form`, `lowercase` or `strip_accents`. These steps run only in the tokenizer, according to `ResolvedNormalization`, never in this module.
+
+**Relation to the tokenizer's built-in normalizer**
+- A tokenizer file may already contain a normalizer. `ResolvedNormalization` never replaces it. `tokenizer_loader` prepends the configured steps to it.
+- The configured steps are idempotent. This module does not inspect the built-in normalizer. If the built-in normalizer already performs a step, that step runs twice with no further effect. Models whose built-in normalizer is sufficient use the default parameters.
+- The default `ResolvedNormalization` (`UnicodeForm::None`, `false`, `false`) changes nothing.
 
 **Lazy initialization**
 - Neither `NormalizerLoader::new` nor `TextPreprocessor::new` does work. Work happens only in `load()`.
 - `load()` returns `Ok(preprocessor.resolve(&params))`, is deterministic and has no side effects. Repeated calls return equal values. It does not fail and uses no GPU or I/O.
 - The result is `Send + Sync`, which satisfies `ResourceRegistry<ResolvedNormalization>`.
+
+**Preprocessing id (`id`)**
+- `TextPreprocessor::id()` returns `external.id()`, or `""` without an external normalizer. It is pure and cheap and does not call `normalize`.
+- `IdentityNormalizer::id()` is `""`.
+- The default `TextNormalizer::id()` is `""`. A normalizer that changes text must override it, because an index records this id and treats equal ids as equal preprocessing. This module cannot detect a missing override.
 
 **Concurrency**
 - `TextPreprocessor` is `Clone`, and the clones share the same `Arc` normalizer. `apply` and `resolve` take `&self` and can run concurrently from any number of threads. They hold no mutable state and no locks.

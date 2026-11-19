@@ -14,6 +14,7 @@
 
 - `ModelDescriptor` liefert Model-ID, Dimension, Pooling, Normalisierung, Präfixe, Datentypen und `max_seq_len`. Die Model-Revision liefert der Aufrufer als Parameter.
 - `LoadedTokenizer` liefert die Tokenizer-Definition für den Fingerprint.
+- The id of the external text preprocessing (`TextPreprocessor::id()`) is passed in by the caller as a plain string. This module does not depend on `text_normalization`.
 - Der Index (Parquet, Arrow-Schema) legt pro Entry eine Zeile ab. Die Stamps stehen in einer eigenen Spalte, damit das Einlesen der Stamps keine Vektoren lädt.
 - Gemischtes Indexieren auf CPU und GPU ist erlaubt. Deshalb sind Compute-Datentyp und Max-Stamp nicht bindend.
 - `ChangeStamp` ist opak. Der Header führt den Max-Stamp daher als Rohwert `u64` (`StampCounter::max_raw()`, `None` entspricht 0).
@@ -57,6 +58,7 @@ pub const KEY_STORAGE_DTYPE: &str = "storage_dtype";
 pub const KEY_COMPUTE_DTYPE: &str = "compute_dtype";
 pub const KEY_MAX_SEQ_LEN: &str = "max_seq_len";
 pub const KEY_TOKENIZER_FINGERPRINT: &str = "tokenizer_fingerprint";
+pub const KEY_PREPROCESSING_ID: &str = "preprocessing_id";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HeaderPooling { MaskedMean, PerToken }     // Text: "masked_mean", "per_token"
@@ -111,18 +113,20 @@ pub struct IndexHeader {
     pub compute_dtype: String,          // Text, z. B. "cpu=F32,gpu=F32"
     pub max_seq_len: usize,
     pub tokenizer_fingerprint: TokenizerFingerprint,
+    pub preprocessing_id: String,       // id of the external text preprocessing, "" = none
 }
 
 impl IndexHeader {
     /// Ableitung aus Modellbeschreibung.
     pub fn from_descriptor(d: &ModelDescriptor, model_revision: &str,
-                           tokenizer_fingerprint: TokenizerFingerprint) -> Result<IndexHeader, FormatError>;
+                           tokenizer_fingerprint: TokenizerFingerprint,
+                           preprocessing_id: &str) -> Result<IndexHeader, FormatError>;
     pub fn dimension(&self) -> usize;
     /// dimension * 2 (FP16).
     pub fn vector_bytes(&self) -> usize;
     /// Kopie mit anderem Max-Stamp.
     pub fn with_max_stamp(&self, max_stamp: u64) -> IndexHeader;
-    /// Verlustfrei: genau 15 Paare in der Key-Reihenfolge der Konstanten oben.
+    /// Verlustfrei: genau 16 Paare in der Key-Reihenfolge der Konstanten oben.
     pub fn to_kv(&self) -> Vec<(String, String)>;
     /// Liest und validiert; unbekannte Zusatz-Keys (z. B. "ARROW:schema") werden ignoriert.
     pub fn from_kv(pairs: &[(String, String)]) -> Result<IndexHeader, FormatError>;
@@ -163,7 +167,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 **Ableitung** (`from_descriptor`):
 - `schema_version = 1`, `max_stamp = 0`, `hash_algorithm = Fast64`, `hash_version = 1`.
 - `model_id`, `dimension`, `normalization`, `query_prefix`, `passage_prefix` und `max_seq_len` werden unverändert aus dem Descriptor übernommen (Präfixe ohne Trimmen).
-- `model_revision` und `tokenizer_fingerprint` stammen von den Parametern.
+- `model_revision`, `tokenizer_fingerprint` and `preprocessing_id` come from the parameters. `preprocessing_id` is `TextPreprocessor::id()` and is the empty string without an external normalizer. It is stored unchanged.
 - `Pooling::Mean` wird zu `MaskedMean`. `Pooling::Cls` hat keinen Header-Wert und ergibt `SchemaIncompatible` (Key `pooling`).
 - `storage_dtype` muss `DType::F16` sein, sonst `SchemaIncompatible` (Key `storage_dtype`, erwartet `F16`).
 - `compute_dtype` wird als Text `cpu=<X>,gpu=<Y>` geschrieben. `<X>` und `<Y>` sind `DType::to_safetensors()` von `compute_dtypes.cpu` bzw. `.gpu`.
@@ -195,7 +199,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
   - `schema_version`, `hash_algorithm`, `hash_version`
   - `model_id`, `model_revision`, `dimension`
   - `pooling`, `normalization`, `query_prefix`, `passage_prefix`
-  - `storage_dtype`, `max_seq_len`, `tokenizer_fingerprint`
+  - `storage_dtype`, `max_seq_len`, `tokenizer_fingerprint`, `preprocessing_id`
 - `max_stamp` und `compute_dtype` werden ignoriert. Unterschiede dort sind nie ein Fehler.
 - Bei Abweichungen kommt `SchemaIncompatible` mit einem `Mismatch` je abweichendem Key.
   - `expected` ist der Wert aus `expected`, `found` der Wert aus `self`, jeweils im Key-Value-Text.
@@ -207,6 +211,8 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - Format `fnv1a64:` plus genau 16 kleine Hex-Stellen mit führenden Nullen. Beispiel: Hash `0x2a` ergibt `fnv1a64:000000000000002a`.
 - `from_loaded` ist deterministisch. Gleiche Tokenizer-Definition ergibt denselben Fingerprint, auch über mehrere Aufrufe und Threads.
 - Schlägt `to_string(false)` fehl, kommt `TokenizerDefinition(msg)`.
+- The fingerprint is computed from the loaded tokenizer after its normalization config was applied. It therefore covers the effective tokenizer normalizer (built-in plus configured extension). A default `ResolvedNormalization` leaves the tokenizer, and so the fingerprint, unchanged.
+- The fingerprint does not cover an external `TextNormalizer`. That is covered by `preprocessing_id`.
 - `parse(as_str())` ist die Identität.
 
 **Hash-Festlegung:**
