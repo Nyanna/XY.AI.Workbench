@@ -88,14 +88,14 @@ All types are `Send + Sync + 'static` value types. `encode` takes `&self` and ha
 - Shared truncation rule `cut(ids, n)`:
   - If `len <= n`, do nothing.
   - Otherwise keep the first `n` tokens.
-  - If the last token of the original encoding is a special token (`special_tokens_mask == 1`) and `n >= 1`, the result is the first `n-1` tokens followed by that last token. The result has length exactly `n`.
+  - `cut` looks at the last token of the sequence it receives, together with that token's `special_tokens_mask` entry. In Query mode this is the last token of the tokenizer encoding. In Document mode it is the last token left after the pad removal below, so a trailing pad token in the text is removed first and never counts as the preserved last token. If that last token is a special token (`special_tokens_mask == 1`) and `n >= 1`, the result is the first `n-1` tokens followed by that last token. The result has length exactly `n`.
 - **Query mode** (`Query`):
   1. Apply `cut(ids, max_query_len)`.
   2. Append `mask_token_id` until the length is exactly `max_query_len`.
   3. Result: `ids.len() == max_query_len` and `attention_mask.len() == max_query_len`, all 1. Padded positions are not masked out.
   4. If the general truncation already shortened the sequence below `max_query_len` (because `max_seq_len < max_query_len`), padding still brings it to exactly `max_query_len`.
 - **Document mode** (`Passage`):
-  1. Remove every token whose ID equals `tokenizer.pad_token_id()`.
+  1. Remove every token whose ID equals `tokenizer.pad_token_id()`, together with its `special_tokens_mask` entry. The remaining tokens and entries are passed to `cut`.
   2. Apply `cut(ids, max_document_len)`.
   3. No padding. The length is at most `max_document_len`.
   4. The `attention_mask` is all 1 and as long as `ids`.
