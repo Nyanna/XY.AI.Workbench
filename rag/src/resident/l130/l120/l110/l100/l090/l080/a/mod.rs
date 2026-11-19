@@ -6,3 +6,4 @@ pub mod launch_modes;
 pub mod update_queue;
 pub mod text_encoding;
 pub mod encoding_schemata;
+pub mod index_format;
