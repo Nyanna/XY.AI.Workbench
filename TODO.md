@@ -1,4 +1,6 @@
 # TODO
+- besserer markdown ast durch node basierte markdown AST engine, aktuel sind listenelemente einzelne Knoten
+	- elemente Pages, Headings Absätze und darin Code blöcke. Wenn zu groß splitten, wenn zu klein mergen
 - Batch requests für autoapprover aufsplitten und einzelnen durch die rules schicken, für calls nach festem batch schema
 
 - MCPC ignore Dann Zusätzlich per Header für session
