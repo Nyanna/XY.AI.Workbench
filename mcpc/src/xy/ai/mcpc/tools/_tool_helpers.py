@@ -1,11 +1,53 @@
 """Common helpers for tool definition and request handling."""
+from pathlib import Path
 from typing import Any, Callable, TypeVar
 from xy.ai.mcpc.tools.tool_registry import ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.results import BatchResult
-__all__ = ['require_items', 'handle_batch_tool', 'batch_tool_result', 'serialize_batch_result', 'batch_schema']
+__all__ = [
+    'require_items',
+    'handle_batch_tool',
+    'batch_tool_result',
+    'serialize_batch_result',
+    'batch_schema',
+    'resolve_script_source']
 T = TypeVar('T')
 ResultPayload = Callable[[Any], dict[str, Any]]
+
+def resolve_script_source(source: str, base_dir: 'str | Path | None'=None) -> str:
+    """Return script text, loading it from a file if *source* is just a file path.
+
+    *source* is treated as a path only if, after stripping surrounding
+    whitespace, it is a single line (nothing but the path) that resolves to an
+    existing regular file. The file extension is not checked. Otherwise
+    *source* is returned unchanged and treated as script content.
+
+    Args:
+        source: Script content, or an absolute/relative path to a script file.
+        base_dir: Directory against which a relative path is resolved
+            (default: current working directory).
+
+    Returns:
+        The file's text content if *source* names an existing file, else
+        *source* itself.
+
+    Raises:
+        OSError: If the file exists but cannot be read.
+        UnicodeDecodeError: If the file is not valid UTF-8 text.
+    """
+    candidate = source.strip()
+    if not candidate or '\n' in candidate or '\r' in candidate:
+        return source
+    try:
+        path = Path(candidate)
+        if not path.is_absolute() and base_dir is not None:
+            path = Path(base_dir) / path
+        if not path.is_file():
+            return source
+    except (OSError, ValueError):
+        '# e.g. name too long or embedded NUL: not a path, so plain script content'
+        return source
+    return path.read_text(encoding='utf-8')
 
 def batch_schema(item_properties: dict[str, Any], required: list[str], description: str) -> dict[str, Any]:
     """Build the standard ``{items: [...]}`` input schema shared by all batch tools.

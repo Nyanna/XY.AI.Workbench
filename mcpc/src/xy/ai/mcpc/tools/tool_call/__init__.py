@@ -9,6 +9,7 @@ later reuse.
 """
 import contextlib
 import io
+from xy.ai.mcpc.tools._tool_helpers import resolve_script_source
 from dataclasses import dataclass, field
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -181,7 +182,7 @@ class ToolCallTool(ToolDefinition):
                 'description': "Ids of functions to inject into 'code' as same-named variables."},
             'code': {
                 'type': 'string',
-                        'description': 'Python script; restricted builtins, no imports. Must explicitly print() any result you want to see — assignments are session-persistent. iterate/extract fields yourself before printing.'}},
+                        'description': 'Python script, or an absolute/relative path to a script file (only if the value is nothing but a path to an existing file); restricted builtins, no imports. Must explicitly print() any result you want to see — assignments are session-persistent. iterate/extract fields yourself before printing.'}},
         'required': [
             'tool_ids',
             'code']}
@@ -196,7 +197,11 @@ class ToolCallTool(ToolDefinition):
             inject_tools(self._functions, namespace, list(args.get('tool_ids', [])))
         except ToolCallError as exc:
             return ToolResult.failure(str(exc))
-        execution = run_tool_call(namespace, args['code'])
+        try:
+            code = resolve_script_source(args['code'])
+        except (OSError, UnicodeDecodeError) as exc:
+            return ToolResult.failure(f'Failed to read script file: {exc}')
+        execution = run_tool_call(namespace, code)
         fields: dict[str, str] = {}
         warnings: list[str] = []
         if len(execution.stdout) > STREAM_SPILL_THRESHOLD:

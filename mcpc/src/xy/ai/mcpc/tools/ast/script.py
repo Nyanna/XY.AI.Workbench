@@ -14,6 +14,7 @@ Python ``ast.Module`` is safely mutable in place – tree-sitter's parse tree is
 read-only and must be edited through ``tree``'s methods instead.
 """
 import ast
+from xy.ai.mcpc.tools._tool_helpers import resolve_script_source
 from dataclasses import dataclass
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
@@ -132,7 +133,9 @@ def ast_script(path: str, code: str) -> AstScriptResult:
 
     Args:
         path: Absolute path to the file whose AST is exposed as ``tree``.
-        code: Python script to execute against ``tree``. May assign a module-level
+        code: Python script to execute against ``tree``, or an absolute/relative
+            path to a script file (used if the value is only a path to an existing
+            file). May assign a module-level
             name ``result`` to return an arbitrary value (reported as its ``repr()``).
 
     Returns:
@@ -145,6 +148,10 @@ def ast_script(path: str, code: str) -> AstScriptResult:
     """
     file_path = core.require_path(path)
     tree = core.CACHE.get_tree(file_path)
+    try:
+        code = resolve_script_source(code)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ScriptError(f'Failed to read script file: {exc}') from exc
     env: dict[str, Any] = {'tree': ScriptTree(tree), 'ast': ast}
     sandbox_globals = {'__builtins__': _SAFE_BUILTINS}
     try:
@@ -176,7 +183,7 @@ class ScriptTool(ToolDefinition):
                 'description': 'Absolute path to the file.'},
             'code': {
                 'type': 'string',
-                'description': "Python source executed with 'tree' and 'ast' as only globals; assign 'result' to return a value; no import statements; builtins limited to isinstance/issubclass/getattr/setattr/hasattr/delattr/len/list/dict/set/tuple/str/int/float/bool/enumerate/range/sorted/reversed/zip/map/filter/any/all/min/max/sum/type/repr. tree API: find(id=None, node_type=None, name=None, parent_type=None)->list[Located]; locate_all()->list[Located] (every addressable node, document order); node_code(loc)->str; replace(loc, code)->str|None; insert(loc, code, position='after'|'before')->int; delete(loc)->None; append(code)->int; source->str; path. Located attrs (engine-independent, mirror the id/type/lines/code fields used by ast_outline/ast_find/ast_read/ast_edit_*/ast_replace/ast_insert/ast_delete): node_id (unique dotted name/hash path from root, e.g. 'MyClass.method' — the id used by every ast_* tool); node_type (reported type, e.g. 'FunctionDef'/'pair'); name (simple name or None); lineno/end_lineno (1-based inclusive span, i.e. the 'lines' field elsewhere); parent_type (enclosing node's type, None at top level); expandable (True = pure container of nested defs, i.e. what 'read' descends into instead of inlining code); node/parent (opaque node handles for use only as tree.* arguments, never introspect their internals); index (position among parent's addressable children); tree (owning Tree; use its .source/.path, nothing else). Note: 'signature'/'docstring' shown by list/find/read (one-line header / short doc, only set for definition-like nodes when code is omitted) have no direct Located field; derive via node_code(loc) if needed."}},
+                'description': "Python source (or an absolute/relative path to a script file, if the value is nothing but a path to an existing file) executed with 'tree' and 'ast' as only globals; assign 'result' to return a value; no import statements; builtins limited to isinstance/issubclass/getattr/setattr/hasattr/delattr/len/list/dict/set/tuple/str/int/float/bool/enumerate/range/sorted/reversed/zip/map/filter/any/all/min/max/sum/type/repr. tree API: find(id=None, node_type=None, name=None, parent_type=None)->list[Located]; locate_all()->list[Located] (every addressable node, document order); node_code(loc)->str; replace(loc, code)->str|None; insert(loc, code, position='after'|'before')->int; delete(loc)->None; append(code)->int; source->str; path. Located attrs (engine-independent, mirror the id/type/lines/code fields used by ast_outline/ast_find/ast_read/ast_edit_*/ast_replace/ast_insert/ast_delete): node_id (unique dotted name/hash path from root, e.g. 'MyClass.method' — the id used by every ast_* tool); node_type (reported type, e.g. 'FunctionDef'/'pair'); name (simple name or None); lineno/end_lineno (1-based inclusive span, i.e. the 'lines' field elsewhere); parent_type (enclosing node's type, None at top level); expandable (True = pure container of nested defs, i.e. what 'read' descends into instead of inlining code); node/parent (opaque node handles for use only as tree.* arguments, never introspect their internals); index (position among parent's addressable children); tree (owning Tree; use its .source/.path, nothing else). Note: 'signature'/'docstring' shown by list/find/read (one-line header / short doc, only set for definition-like nodes when code is omitted) have no direct Located field; derive via node_code(loc) if needed."}},
         'required': [
             'path',
             'code']}

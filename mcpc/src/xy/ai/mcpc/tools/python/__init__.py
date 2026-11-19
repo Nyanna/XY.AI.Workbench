@@ -1,5 +1,6 @@
-"""Python tool – executes a Python script directly from context (no file)."""
+"""Python tool – executes a Python script given as content or as a path to a script file."""
 import sys
+from xy.ai.mcpc.tools._tool_helpers import resolve_script_source
 from typing import Any
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -15,7 +16,8 @@ def python(script: str) -> ProcessResult:
     """Feed ``script`` to a fresh Python interpreter on standard input.
     
     Args:
-        script: Python script content to execute.
+        script: Python script content to execute, or an absolute/relative path
+            to a script file (used if the value is only a path to an existing file).
     
     Returns:
         ProcessResult with:
@@ -29,6 +31,10 @@ def python(script: str) -> ProcessResult:
         PythonError: If Python binary cannot be launched.
     """
     try:
+        script = resolve_script_source(script)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise PythonError(f'Failed to read script file: {exc}') from exc
+    try:
         return run_process([sys.executable, '-'], stdin=script)
     except LaunchError as exc:
         raise PythonError(f'Failed to launch Python: {exc}') from exc
@@ -36,13 +42,13 @@ def python(script: str) -> ProcessResult:
 class PythonTool(ToolDefinition):
     name = 'python'
     title = 'Run Python script'
-    description = 'Execute a Python script passed directly as content. Returns the exit code, standard output and, if present, standard error output.'
+    description = 'Execute a Python script passed as content or as a file path. Returns the exit code, standard output and, if present, standard error output.'
     input_schema = {
         'type': 'object',
         'properties': {
             'script': {
                 'type': 'string',
-                'description': 'Python script content to execute.'}},
+                'description': 'Python script content to execute, or an absolute or relative path to a script file (only if the value consists of nothing but a path to an existing file).'}},
         'required': ['script']}
 
     def handle(self, ctx: ToolContext) -> ToolResult:

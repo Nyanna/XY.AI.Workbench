@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from xy.ai.mcpc.tools._tool_helpers import batch_schema, require_items
+from xy.ai.mcpc.tools._tool_helpers import batch_schema, require_items, resolve_script_source
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult, text_content
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, pack_process_result, run_process
@@ -40,8 +40,14 @@ def _bash_one(item: BashItem) -> ProcessResult:
         raise BashError('Working directory not found or not a directory.')
     if not item.script:
         raise BashError("'script' must be a non-empty list.")
+    script = item.script
+    if len(script) == 1:
+        try:
+            script = [resolve_script_source(script[0], cwd_path)]
+        except (OSError, UnicodeDecodeError) as exc:
+            raise BashError(f'Failed to read script file: {exc}') from exc
     try:
-        return run_process(['bash', '-c', '\n'.join(item.script)], cwd=cwd_path)
+        return run_process(['bash', '-c', '\n'.join(script)], cwd=cwd_path)
     except LaunchError as exc:
         raise BashError(f'Failed to launch bash: {exc}') from exc
 
@@ -92,7 +98,7 @@ class BashTool(ToolDefinition):
             'minItems': 1,
             'items': {
                     'type': 'string'},
-            'description': 'Bash commands executed sequentially in the same process.'}}
+            'description': 'Bash commands executed sequentially in the same process. Alternatively a single entry holding only an absolute path, or a path relative to cwd, of an existing script file, whose content is then executed.'}}
     _ITEM_REQUIRED = ['cwd', 'script']
     _ITEMS_DESCRIPTION = 'Bash runs, executed in parallel.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
