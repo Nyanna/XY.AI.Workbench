@@ -10,6 +10,7 @@ from xy.ai.mcpc.tools.ast.common import SELECTOR_PROPS
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = ['FileNodesResult', 'FindNodesResult', 'ast_find', 'FindNodesTool', 'register']
 
 @dataclass(frozen=True)
@@ -229,7 +230,7 @@ class FindNodesTool(ToolDefinition):
         paths, error = require_items(ctx, key='paths')
         if error is not None:
             return error
-        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
+        with_lines = ctx.has_feature(ToolFeature.INPUT_LINENO)
         try:
             result = ast_find(
                 paths=paths,

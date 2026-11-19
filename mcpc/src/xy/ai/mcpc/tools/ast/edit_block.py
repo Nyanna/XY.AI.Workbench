@@ -12,6 +12,7 @@ from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditBlockItem',
     'EditBlockResult',
@@ -179,6 +180,7 @@ def ast_edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
 
 class EditBlockNodeTool(ToolDefinition):
     name = 'ast_edit_block'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Replace short text within AST nodes'
     description = "Replace occurrences of short 'old_text' with 'new_text', within nodes addressed by prior known id, for a batch of items. Don't use for large edits, use ast_edit_marks instead."
     _ITEM_PROPERTIES = {

@@ -131,9 +131,11 @@ class IgnoreConfiguration:
             self._rules = _Rules(lines)
             self._stamp = stamp
         except (OSError, ValueError):
-            '# unreadable/invalid: retry at the next check'
-            self._rules = None
-            self._stamp = None
+            '# unreadable/invalid: fail closed and retry at the next check. Keep the'
+            '# previous rules; if there were none, deny everything below this directory.'
+            if self._rules is None:
+                self._rules = _Rules(['!*'])
+            self._stamp = stamp
 
     def _parent_configuration(self) -> IgnoreConfiguration | None:
         """Nearest configuration above this one; searched again at most every 5 s."""

@@ -8,7 +8,7 @@ from xy.ai.mcpc.control import ToolControlManager
 from xy.ai.mcpc.server.session import SessionStore, Session
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 if TYPE_CHECKING:
-    from xy.ai.mcpc.tools.tool_registry import ToolRegistry
+    from xy.ai.mcpc.tools.tool_registry import ToolFeature, ToolRegistry
     from xy.ai.mcpc.tools.agent.profiles import ProfileRegistry
 
 @dataclass(slots=True)
@@ -17,6 +17,13 @@ class ToolContext:
     """
     session: 'Session'
     arguments: dict[str, Any]
+    registry: 'ToolRegistry | None' = None
+
+    def has_feature(self, feature: 'ToolFeature') -> bool:
+        """Whether an enabled tool of this session supports *feature* (False without registry)."""
+        if self.registry is None:
+            return False
+        return self.registry.session_has_feature(self.session, feature)
 
 @dataclass(slots=True)
 class AppEnvironment:

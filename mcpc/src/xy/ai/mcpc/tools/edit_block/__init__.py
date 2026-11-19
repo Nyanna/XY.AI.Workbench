@@ -8,6 +8,7 @@ from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_in_block, line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult, compact_asdict
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditBlockError',
     'EditBlockItem',
@@ -149,6 +150,7 @@ def edit_block(items: list[EditBlockItem]) -> EditBlockBatchResult:
 
 class EditBlockTool(ToolDefinition):
     name = 'edit_block'
+    features = frozenset({ToolFeature.INPUT_LINENO})
     title = 'Replace text in file'
     description = "Replace a short text inside one or more files, for a batch of items. 'old_text' must occur exactly once, unless 'replaceAll' is set. By default whitespace (spaces, tabs, newlines) is matched tolerantly; set 'exact' to require exact whitespace matching."
     _ITEM_PROPERTIES = {

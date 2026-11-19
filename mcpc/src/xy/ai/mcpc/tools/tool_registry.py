@@ -5,6 +5,7 @@ given client actually sees is derived by reconciling the registry against the
 per-session configuration (:attr:`Session.enabled_tools`).
 """
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable
 from xy.ai.mcpc.server.session import Session
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -77,6 +78,16 @@ def attach_message(result: dict[str, Any], message: str) -> None:
 '#: A handler receives the invocation context and returns a :class:`ToolResult`.'
 ToolHandler = Callable[[ToolContext], 'ToolResult']
 
+class ToolFeature(Enum):
+    """Capability flags a tool may declare at registration.
+
+    Other tools (e.g. ``search``) adapt their output depending on whether an
+    enabled tool of the session supports a feature.
+    """
+    INPUT_LINENO = 'input_lineno'
+    INPUT_ASTID = 'input_astid'
+    PROVIDES_OUTLINE = 'provides_outline'
+
 @dataclass(slots=True)
 class Tool:
     """A registered tool and its MCP metadata."""
@@ -88,6 +99,7 @@ class Tool:
     output_schema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
     meta: dict[str, Any] | None = None
+    features: frozenset[ToolFeature] = frozenset()
 
     def to_spec(self) -> dict[str, Any]:
         """Return the MCP ``Tool`` object advertised via ``tools/list``."""
@@ -125,6 +137,7 @@ class ToolDefinition(ABC):
     title: str | None = None
     output_schema: dict[str, Any] | None = {'type': 'object'}
     annotations: dict[str, Any] | None = None
+    features: frozenset[ToolFeature] = frozenset()
 
     @abstractmethod
     def handle(self, ctx: ToolContext) -> 'ToolResult':
@@ -141,7 +154,8 @@ class ToolDefinition(ABC):
             handler=self,
             title=self.title,
             output_schema=self.output_schema,
-            annotations=self.annotations)
+            annotations=self.annotations,
+            features=self.features)
 
 def normalize_result(value: object) -> ToolResult:
     """Return *value* if it is a :class:`ToolResult`, otherwise fail loudly."""
@@ -243,6 +257,11 @@ class ToolRegistry:
     def is_enabled(self, session: Session, name: str) -> bool:
         """Whether *name* is enabled for *session*, honouring tool-set aliases."""
         return name in self.expand_aliases(session.enabled_tools)
+
+    def session_has_feature(self, session: Session, feature: ToolFeature) -> bool:
+        """Whether any tool enabled for *session* supports *feature*."""
+        enabled = self.expand_aliases(session.enabled_tools)
+        return any((feature in t.features for t in self._tools.values() if t.name in enabled))
 
     def register(self, tool: ToolDefinition) -> Tool:
         tool = tool.to_tool()

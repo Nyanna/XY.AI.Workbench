@@ -38,6 +38,7 @@ from xy.ai.mcpc.tools.ast.outline import ast_outline as _ast_outline
 from xy.ai.mcpc.tools.file_stats import compute_file_stats as _compute_file_stats
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 _BLANK_RUN_RE = re.compile('[ \\t]+$', re.MULTILINE)
 _MULTI_BLANK_RE = re.compile('\\n{3,}')
 
@@ -125,7 +126,7 @@ def _spill_extra_info(path: str, ctx: ToolContext) -> tuple[dict[str, Any], list
     stats = _compute_file_stats(Path(path)).payload()
     outline: list[dict[str, Any]] | None = None
     warnings: list[str] = []
-    if {'tools', 'ast_outline'} & ctx.session.enabled_tools:
+    if ctx.has_feature(ToolFeature.PROVIDES_OUTLINE):
         batch = _ast_outline(paths=[path])
         if batch.results:
             outline = [_ast_core.to_dict(n) for n in batch.results[0].nodes]

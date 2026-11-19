@@ -8,6 +8,7 @@ from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult, compact_asdict
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditMarksError',
     'EditMarksItem',
@@ -173,6 +174,7 @@ def edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
 
 class EditMarksTool(ToolDefinition):
     name = 'edit_marks'
+    features = frozenset({ToolFeature.INPUT_LINENO})
     title = 'Replace text between two marks'
     description = "Replace everything between and including the unique 'begin_marker' and 'end_marker' markers, found in one or more files, with new 'content', for a batch of items."
     _ITEM_PROPERTIES = {

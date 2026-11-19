@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools._directories import normalize_directories
-from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolFeature, ToolRegistry, ToolResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.process import LaunchError, ProcessResult, run_process
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
@@ -25,11 +25,10 @@ __all__ = [
     'SearchTool',
     'register_search_tool']
 _DEFAULT_LIMIT = 15
-_INTENTS = ('survey', 'editing')
+_INTENTS_WITHOUT_LOCATION = ('probe', 'survey', 'sample', 'check_existence', 'find_examples_or_conventions')
+_INTENTS_WITH_LOCATION = ('locate_for_edit', 'retrieve_context', 'locate_error', 'edit')
+_INTENTS = _INTENTS_WITHOUT_LOCATION + _INTENTS_WITH_LOCATION
 _DEFAULT_INTENT = 'survey'
-_LINE_TOOLS = frozenset({'read_file', 'edit_marks', 'edit_line', 'edit_block', 'edit_lines'})
-_NODE_TOOLS = frozenset({'ast_read', 'ast_edit_block', 'ast_edit_marks', 'ast_insert', 'ast_replace'})
-_INTENT_DESCRIPTION = "What you will do with the results. 'survey': only need to know which files/matches exist. 'editing': you will edit the matched code next; results then include the addressing info (line numbers and/or AST node ids) required by the enabled edit tools."
 _MAX_LIMIT = 50
 _MAX_LINE_LENGTH = 300
 
@@ -71,7 +70,8 @@ class SearchItem:
         exclude: Globs of file names to exclude from the search, if given.
         include: Globs of file names to include in the search, if given.
         limit: Maximum number of matches to return (1..``_MAX_LIMIT``). Applies per item, not per batch.
-        intent: Overrides the batch-level intent for this item, if given.
+        intent: Purpose of this search (one of ``_INTENTS``); intents with location information also
+            return line numbers / AST node ids. Defaults to ``_DEFAULT_INTENT``.
     """
     directory: list[str]
     pattern: str
@@ -260,32 +260,30 @@ def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
     nodes = [SearchNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
     return SearchMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
 
-def search(items: list[SearchItem], *, intent: str=_DEFAULT_INTENT, with_nodes: bool=False) -> SearchBatchResult:
+def search(items: list[SearchItem], *, with_nodes: bool=False) -> SearchBatchResult:
     """Run one or more independent searches. Limits apply per item, not per batch.
 
     Args:
         items: Searches to run. Must be non-empty.
-        intent: Default intent for all items; ``SearchItem.intent`` takes precedence.
-        with_nodes: If true, items with intent ``'editing'`` resolve matched lines to AST node ids
+        with_nodes: If true, items with a location intent resolve matched lines to AST node ids
             (see :class:`SearchMatch`).
 
     Returns:
         SearchBatchResult: one result per successful search, one error per failed search.
 
     Raises:
-        SearchError: If items is empty or the batch-level intent is invalid.
+        SearchError: If items is empty.
     """
     if not items:
         raise SearchError("'items' must be a non-empty list.")
-    _check_intent(intent)
     results: list[SearchResult] = []
     errors: list[SearchItemError] = []
     for item in items:
         try:
-            effective = item.intent if item.intent is not None else intent
+            effective = item.intent if item.intent is not None else _DEFAULT_INTENT
             _check_intent(effective)
             result = _search_one(item)
-            if effective == 'editing' and with_nodes:
+            if effective in _INTENTS_WITH_LOCATION and with_nodes:
                 result = replace(result, matches=[_resolve_nodes(m, item.directory) for m in result.matches])
             results.append(result)
         except SearchError as exc:
@@ -329,22 +327,18 @@ class SearchTool(ToolDefinition):
         'intent': {
             'type': 'string',
             'enum': list(_INTENTS),
-            'description': 'Intent for this item; overrides the batch-level intent.'}}
+            'default': _DEFAULT_INTENT}}
     _ITEM_REQUIRED = ['directory', 'pattern']
     _ITEMS_DESCRIPTION = 'Independent searches to run.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
-    input_schema['properties']['intent'] = {
-        'type': 'string',
-        'enum': list(_INTENTS),
-        'default': _DEFAULT_INTENT,
-        'description': 'Default intent for all items.' + _INTENT_DESCRIPTION}
+
+    def __init__(self, registry: ToolRegistry) -> None:
+        self._registry = registry
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func: translating the MCP schema to/from the Python API."""
-        intent = ctx.arguments.get('intent', _DEFAULT_INTENT)
-        enabled = ctx.session.enabled_tools
-        with_lines = bool(_LINE_TOOLS & enabled)
-        with_nodes = bool(_NODE_TOOLS & enabled)
+        with_lines = self._registry.session_has_feature(ctx.session, ToolFeature.INPUT_LINENO)
+        with_nodes = self._registry.session_has_feature(ctx.session, ToolFeature.INPUT_ASTID)
         intents: dict[int, str] = {}
 
         def item_factory(it: dict[str, Any]) -> SearchItem:
@@ -365,14 +359,14 @@ class SearchTool(ToolDefinition):
             return [lm.match for lm in lms]
 
         def file_dict(m: SearchMatch, item_intent: str) -> dict[str, Any]:
-            editing = item_intent == 'editing'
+            located = item_intent in _INTENTS_WITH_LOCATION
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
             if m.nodes:
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
-                    n.matches, editing and with_lines)} for n in m.nodes]
+                    n.matches, located and with_lines)} for n in m.nodes]
             if m.matches:
-                lines = line_dicts(m.matches, editing and (with_lines or with_nodes))
-                entry['matches'] = lines if editing else list(dict.fromkeys(lines))
+                lines = line_dicts(m.matches, located and (with_lines or with_nodes))
+                entry['matches'] = lines if located else list(dict.fromkeys(lines))
             return entry
 
         def result_payload(r: SearchResult) -> dict[str, Any]:
@@ -384,8 +378,8 @@ class SearchTool(ToolDefinition):
             results: list[SearchResult] = []
             errors: list[SearchItemError] = []
             for item in items:
-                batch = search([item], intent=intent, with_nodes=with_nodes)
-                effective = item.intent if item.intent is not None else intent
+                batch = search([item], with_nodes=with_nodes)
+                effective = item.intent if item.intent is not None else _DEFAULT_INTENT
                 for r in batch.results:
                     intents[id(r)] = effective
                 results += batch.results
@@ -394,5 +388,5 @@ class SearchTool(ToolDefinition):
         return handle_batch_tool(ctx, item_factory, run, SearchError, result_payload)
 
 def register_search_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:
-    registry.register(SearchTool())
+    registry.register(SearchTool(registry))
     functions.register(search)

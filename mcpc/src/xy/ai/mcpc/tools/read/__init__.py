@@ -10,6 +10,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import require_items, batch_tool_result, batch_schema
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.server.session import Session
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'ReadError',
     'ReadItem',
@@ -219,6 +220,7 @@ def _read_file_cached(items: list[ReadItem], session: Session) -> ReadBatchResul
 
 class ReadTool(ToolDefinition):
     name = 'read_file'
+    features = frozenset({ToolFeature.INPUT_LINENO})
     title = 'Read file content'
     description = 'Read one or more files as text, optionally sliced to a range, for a batch of items.'
     _ITEM_PROPERTIES = {

@@ -11,6 +11,7 @@ from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'ReplaceItem',
     'ReplaceResult',
@@ -113,6 +114,7 @@ def ast_replace(items: list[ReplaceItem]) -> ReplaceBatchResult:
 
 class ReplaceNodeTool(ToolDefinition):
     name = 'ast_replace'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Replace the complete source of the AST nodes identified by the given IDs with new content.'
     description = 'Replace the source or text of selected AST nodes in a batch; operations may target the same or different files. Returns the updated IDs.'
     _ITEM_PROPERTIES = {

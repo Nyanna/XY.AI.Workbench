@@ -12,6 +12,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.results import ItemError, RawPayload
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 
 @dataclass(frozen=True, kw_only=True)
 class _SectionError(ItemError):
@@ -28,6 +29,7 @@ def _error_text(result: ToolResult) -> str:
 
 class EditTool(ToolDefinition):
     name = 'ast_edit'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Batch of AST modifications'
     description = 'Run create, insert, replace, edit_block, edit_marks and delete operations in one call. Each list has the item format of the tool ast_<list name>.'
     input_schema = {
@@ -45,7 +47,7 @@ class EditTool(ToolDefinition):
             items = ctx.arguments.get(key)
             if not items:
                 continue
-            sub = tool.handle(ToolContext(session=ctx.session, arguments={'items': items}))
+            sub = tool.handle(ToolContext(session=ctx.session, arguments={'items': items}, registry=ctx.registry))
             if sub.is_error:
                 sections[key] = _SectionError(error=_error_text(sub)).to_dict()
                 approve = False

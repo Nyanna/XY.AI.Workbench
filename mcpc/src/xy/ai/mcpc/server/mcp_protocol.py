@@ -144,7 +144,7 @@ class McpProtocol:
                 if name == TOOLNAME_ASK_USER:
                     return _ask_user_answer(decision.approval_hint)
                 request_hint = decision.approval_hint
-        context = ToolContext(session=session, arguments=arguments)
+        context = ToolContext(session=session, arguments=arguments, registry=self.registry)
         '# Tool execution errors are reported *inside* the result (isError=true)'
         try:
             with session.lock:

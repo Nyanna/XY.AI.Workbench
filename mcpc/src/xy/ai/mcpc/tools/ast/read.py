@@ -9,6 +9,7 @@ from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.ast.outline import ast_outline
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = ['ReadItem', 'ReadResult', 'ReadError', 'ReadBatchResult', 'ast_read', 'ReadNodeTool', 'register']
 _ROOT_INTENT_IDS = {'root', '_module_', '__module__', 'module', '', '*'}
 
@@ -145,6 +146,7 @@ def ast_read(items: list[ReadItem], *, with_lines: bool=True) -> ReadBatchResult
 
 class ReadNodeTool(ToolDefinition):
     name = 'ast_read'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Reads the code, text, and content of the nodes identified by the given IDs within the specified files.'
     description = 'After `ast_outline` or `ast_find`, reads the code, text, content, and children of the given AST node IDs within the given list of absolute file paths (never directories). Use this when you already know the IDs.'
     _ITEM_PROPERTIES = {
@@ -160,7 +162,7 @@ class ReadNodeTool(ToolDefinition):
 
     def handle(self, ctx: ToolContext) -> ToolResult:
         """Delegate to :func:`ast_read`, translating the MCP schema to/from the AST API."""
-        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
+        with_lines = ctx.has_feature(ToolFeature.INPUT_LINENO)
 
         def item_factory(it: dict[str, Any]) -> ReadItem:
             return ReadItem(path=it['path'], ids=it.get('ids') or [])

@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.edit_block import EditBlockItem, edit_block
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditLineError',
     'EditLineItem',
@@ -107,6 +108,7 @@ def edit_line(items: list[EditLineItem]) -> EditLineBatchResult:
 
 class EditLineTool(ToolDefinition):
     name = 'edit_line'
+    features = frozenset({ToolFeature.INPUT_LINENO})
     title = 'Replace a single line in file'
     description = "Replace exactly one line inside one or more files with one or more lines, for a batch of items. 'old_line' must be a single line without a newline character. Choose 'old_line' to be unique within the file. 'old_line' must occur exactly once, unless 'replaceAll' is set. By default whitespace is matched tolerantly; set 'exact' to require exact whitespace matching."
     _ITEM_PROPERTIES = {

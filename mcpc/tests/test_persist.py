@@ -63,10 +63,10 @@ def test_directory_name_collision_gets_suffix(tmp_path, ctx):
     persist_result(_docs()[:1], str(tmp_path), ctx, reason='test')
     assert sorted((p.name for p in tmp_path.iterdir())) == ['First-Result-2.md', 'First-Result.md']
 
-def test_outline_included_when_ast_outline_enabled(tmp_path):
+def test_outline_included_when_ast_outline_enabled(registry: ToolRegistry, tmp_path):
     session = Session(id='persist-outline')
     session.enabled_tools.add('ast_outline')
-    ctx = ToolContext(session=session, arguments={})
+    ctx = ToolContext(session=session, arguments={}, registry=registry)
     result = persist_result(_docs()[:1], str(tmp_path / 'o.md'), ctx, reason='test')
     assert result.structured_content['files'][0]['outline']
 

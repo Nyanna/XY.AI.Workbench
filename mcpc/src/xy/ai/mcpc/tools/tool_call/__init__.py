@@ -15,6 +15,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolRegistry, ToolRes
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import SinglePayload
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'ToolCallError',
     'ToolCallExecution',
@@ -166,6 +167,8 @@ class ToolCallOutput(SinglePayload):
 
 class ToolCallTool(ToolDefinition):
     name = 'tool_call'
+    '# Generic executor of every registered function, hence all features are reachable through it.'
+    features = frozenset({ToolFeature.INPUT_LINENO, ToolFeature.INPUT_ASTID, ToolFeature.PROVIDES_OUTLINE})
     title = 'Run a script against injected tools'
     description = 'Run Python code against a restricted, session-persistent context. Only text sent to print() is returned to the context — variable assignments alone (e.g. `r = tool(...)`) are persisted only. Complex objects are not auto-formatted: inspect their structure (e.g. via the type sources shown by tool_usage) and explicitly iterate/print the fields you need (e.g. `for x in r.results: print(x["title"])`).'
     input_schema = {

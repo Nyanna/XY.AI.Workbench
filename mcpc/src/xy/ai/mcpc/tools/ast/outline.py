@@ -10,6 +10,7 @@ from xy.ai.mcpc.tools._tool_helpers import require_items, batch_tool_result
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 from xy.ai.mcpc.tools.list import ListError, ListItem
 from xy.ai.mcpc.tools.list import list as _list_dirs
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'OutlineNodesResult',
     'OutlineNodesError',
@@ -138,6 +139,7 @@ def ast_outline(paths: list[str], *, with_lines: bool=True) -> OutlineNodesBatch
 
 class OutlineNodesTool(ToolDefinition):
     name = 'ast_outline'
+    features = frozenset({ToolFeature.PROVIDES_OUTLINE})
     title = 'Hierarchical AST outline with IDs from a set of defined files'
     description = 'Given a list of one or more file names, returns a hierarchical AST tree with IDs, classes, functions, sections, types, excert, docstring, children, imports, and segments but never the full content. Other AST tools require IDs as input.'
     input_schema = {
@@ -156,7 +158,7 @@ class OutlineNodesTool(ToolDefinition):
         paths, error = require_items(ctx, key='paths')
         if error is not None:
             return error
-        with_lines = bool({'tools', 'edit_lines'} & ctx.session.enabled_tools)
+        with_lines = ctx.has_feature(ToolFeature.INPUT_LINENO)
         return batch_tool_result(ast_outline(paths=paths, with_lines=with_lines))
 
 def register(registry: ToolRegistry, functions: FunctionRegistry) -> None:

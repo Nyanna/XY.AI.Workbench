@@ -1,4 +1,7 @@
 # TODO
+! kombiniertes retrieval tool mit list search und find
+- Batch requests für autoapprover aufsplitten und einzelnen durch die rules schicken, für calls nach festem batch schema
+
 - MCPC ignore Dann Zusätzlich per Header für session
 	- Dann Zusätzlich in session per tool call, ja tool call zur veränderung
 	- vielleicht exec_command und extra tool

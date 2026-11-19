@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool, batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditLinesError',
     'EditLinesItem',
@@ -120,6 +121,7 @@ def edit_lines(items: list[EditLinesItem]) -> EditLinesBatchResult:
 
 class EditLinesTool(ToolDefinition):
     name = 'edit_lines'
+    features = frozenset({ToolFeature.INPUT_LINENO})
     title = 'Replace lines in file by line offsets'
     description = 'Replace a range of lines inside one or more existing files with new content, for a batch of items. The range is defined by a zero-based line ``offset`` and an ``amount`` (number of lines to remove starting at the offset). The supplied ``content`` is written in place of the removed lines; it should include its own trailing newline if a line break is wanted. A given path may only be edited once per batch, since offsets can shift after a prior edit.'
     _ITEM_PROPERTIES = {

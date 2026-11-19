@@ -12,6 +12,7 @@ from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools._text_match import replace_between, marks_line_preserving, TextMatchError
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = [
     'EditMarksItem',
     'EditMarksResult',
@@ -178,6 +179,7 @@ def ast_edit_marks(items: list[EditMarksItem]) -> EditMarksBatchResult:
 
 class EditMarksNodeTool(ToolDefinition):
     name = 'ast_edit_marks'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Replace large text regions within AST nodes between markers when id is known'
     description = "Replace everything between and including the unique 'start_marker' and 'end_marker' markers, found within nodes addressed by a known id, with new 'content', for a batch of items."
     _ITEM_PROPERTIES = {

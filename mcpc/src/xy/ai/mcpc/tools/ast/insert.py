@@ -11,6 +11,7 @@ from xy.ai.mcpc.tools.ast.common import IMPORT_PROPS, PATH_SELECTOR_PROPS, PATH_
 from xy.ai.mcpc.tools._tool_helpers import batch_schema
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools._tool_helpers import handle_batch_tool
+from xy.ai.mcpc.tools.tool_registry import ToolFeature
 __all__ = ['InsertItem', 'InsertResult', 'InsertError', 'InsertBatchResult', 'ast_insert', 'InsertNodeTool', 'register']
 
 @dataclass(frozen=True)
@@ -110,6 +111,7 @@ def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
 
 class InsertNodeTool(ToolDefinition):
     name = 'ast_insert'
+    features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Insert AST nodes'
     description = "Insert source relative to selected nodes ('before' or 'after'), for a batch of items; several operations may target the same or different files."
     _ITEM_PROPERTIES = {
