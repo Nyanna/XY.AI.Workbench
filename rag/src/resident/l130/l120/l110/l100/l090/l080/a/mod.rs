@@ -4,3 +4,5 @@ pub mod communication_slot;
 pub mod kernel_scoring;
 pub mod launch_modes;
 pub mod update_queue;
+pub mod text_encoding;
+pub mod encoding_schemata;
