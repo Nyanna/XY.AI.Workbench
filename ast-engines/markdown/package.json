@@ -3,7 +3,11 @@
   "description": "Augmentation for Agent based Markdown file handlind",
   "type": "module",
   "main": "",
-  "scripts": {},
+  "scripts": {
+    "start": "node src/xy/ai/mcpc/ast/engine/Main.ts",
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
   "keywords": [
     "Agent",
     "Markdown",
