@@ -6,8 +6,6 @@
 	- vielleicht exec_command und extra tool
 
 - "resident" in vorhandenes RAG integrieren aber separat startbar
-- Per AST Markdown Absätze direkt finden (mehr Kontext, nur ein Tool Call)
-	- AST ID mit in ergebnis
 - vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
 - RAG als tool in subprozess server anbinden
 	- Multilayer RAG engine auf filesystem und parquet basis in python
@@ -16,7 +14,7 @@
 		- Liefern, Datei AST ID und Zeile			
 
 ### Tools
-- Auch AST für JS/TS
+- Auch AST für JS/TS/HTML(mit tidy, normalized)
 - Include-Handling
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   	- ist ein speicher hash prompt, zieldatei im cahe für session, eher backup als cache
