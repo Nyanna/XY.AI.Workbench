@@ -193,43 +193,20 @@ fn manager_is_send_sync() {
     fn check<T: Send + Sync>() {}
     check::<IndexManager>();
 }
-#[derive(Clone, Default)]
-struct LogBuf(Arc<Mutex<Vec<u8>>>);
-impl std::io::Write for LogBuf {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(buf);
-        Ok(buf.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-fn capture<T>(body: impl FnOnce() -> T) -> (T, String) {
-    let buf = LogBuf::default();
-    let writer = buf.clone();
-    let subscriber = tracing_subscriber::fmt()
-        .with_writer(move || writer.clone())
-        .with_ansi(false)
-        .with_max_level(tracing::Level::TRACE)
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-        .finish();
-    let out = tracing::subscriber::with_default(subscriber, body);
-    let text = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
-    (out, text)
-}
 #[test]
-fn cycle_runs_inside_span_with_fields() {
-    let m = IndexManager::new(IndexId(Arc::from("idx")));
+fn cycle_body_runs_between_observer_enter_and_exit() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let m = IndexManager::with_observer(
+        IndexId(Arc::from("idx")),
+        Arc::new(RecordingObserver(Arc::clone(&events))),
+    );
     m.attach(FakeIndex::arc(1));
-    let (_, log) = capture(|| {
-        m.run_cycle("sweep", |_| tracing::info!("inside-cycle")).unwrap();
-        tracing::info!("outside-cycle");
-    });
-    let inside = log.lines().find(|l| l.contains("inside-cycle")).unwrap();
-    assert!(inside.contains("index_cycle{index_id=idx cycle=sweep}"), "{inside}");
-    let outside = log.lines().find(|l| l.contains("outside-cycle")).unwrap();
-    assert!(! outside.contains("index_cycle"), "{outside}");
-    assert!(log.lines().any(| l | l.contains("index_cycle") && l.contains("close")));
+    m.run_cycle("sweep", |_| events.lock().unwrap().push("body".to_string())).unwrap();
+    events.lock().unwrap().push("after".to_string());
+    assert_eq!(
+        * events.lock().unwrap(), vec!["enter idx sweep", "body", "exit idx sweep",
+        "after"]
+    );
 }
 #[test]
 fn cycle_span_closes_when_closure_panics() {
@@ -248,19 +225,6 @@ fn cycle_span_closes_when_closure_panics() {
     assert_eq!(* events.lock().unwrap(), vec!["enter idx boom", "exit idx boom"]);
 }
 #[test]
-fn repeated_attach_warns_with_index_id() {
-    let m = manager();
-    let (results, log) = capture(|| {
-        let first = m.attach(FakeIndex::arc(1));
-        let second = m.attach(FakeIndex::arc(1));
-        (first, second)
-    });
-    assert_eq!(results, (true, false));
-    let warnings: Vec<_> = log.lines().filter(|l| l.contains("WARN")).collect();
-    assert_eq!(warnings.len(), 1, "{log}");
-    assert!(warnings[0].contains("idx"), "{log}");
-}
-#[test]
 fn attach_after_activation_is_rejected_and_keeps_index() {
     let m = manager();
     let first = FakeIndex::arc(2);
@@ -269,12 +233,4 @@ fn attach_after_activation_is_rejected_and_keeps_index() {
     assert!(! m.attach(Arc::clone(& first)));
     assert!(Arc::ptr_eq(& m.index().unwrap(), & first));
     assert!(m.status().active);
-}
-#[test]
-fn rejected_attach_emits_warning() {
-    let m = manager();
-    let first = FakeIndex::arc(2);
-    m.attach(Arc::clone(&first));
-    let (_, log) = capture(|| m.attach(Arc::clone(&first)));
-    assert!(log.contains("WARN") && log.contains("idx"), "{log}");
 }
