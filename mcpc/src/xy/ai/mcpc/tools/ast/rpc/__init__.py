@@ -9,6 +9,7 @@ reusable process-supervision/``Engine`` plumbing; per-language modules like
 from __future__ import annotations
 from xy.ai.mcpc.tools.ast.rpc._engine import RpcEngine
 from xy.ai.mcpc.tools.ast.rpc._java import JavaEngine
+from xy.ai.mcpc.tools.ast.rpc._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.rpc._process import RpcProcess
 from xy.ai.mcpc.tools.ast.rpc._rust import RustEngine
-__all__ = ['RpcEngine', 'RpcProcess', 'JavaEngine', 'RustEngine']
+__all__ = ['RpcEngine', 'RpcProcess', 'JavaEngine', 'MarkdownEngine', 'RustEngine']

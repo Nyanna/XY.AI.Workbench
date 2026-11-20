@@ -2,8 +2,9 @@
 
 Split into :mod:`xy.ai.mcpc.tools.ast.generic._engine` (the universal
 :class:`TreeSitterEngine`, exposing a grammar's native structure as-is) and
-per-language overrides such as :mod:`xy.ai.mcpc.tools.ast.generic._markdown`
-(:class:`MarkdownEngine`); this module re-exports the package's public
+per-language overrides such as :mod:`xy.ai.mcpc.tools.ast.generic._css`; the
+Java, Rust and Markdown back-ends live in :mod:`xy.ai.mcpc.tools.ast.rpc`.
+This module re-exports the package's public
 surface, dispatches a language symbol to its engine, and hands out the
 whole-file :class:`~xy.ai.mcpc.tools.ast.generic._text.PlainTextEngine`
 fallback (via :func:`fallback_engine`) for extensions no grammar covers.
@@ -14,9 +15,9 @@ from xy.ai.mcpc.tools.ast.generic._css import CssEngine
 from xy.ai.mcpc.tools.ast.generic._engine import GenericEngine, TreeSitterEngine
 from xy.ai.mcpc.tools.ast.generic._html import HtmlEngine
 from xy.ai.mcpc.tools.ast.generic._javascript import JavaScriptEngine
-from xy.ai.mcpc.tools.ast.generic._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.generic._text import PlainTextEngine
 from xy.ai.mcpc.tools.ast.rpc._java import JavaEngine
+from xy.ai.mcpc.tools.ast.rpc._markdown import MarkdownEngine
 from xy.ai.mcpc.tools.ast.rpc._rust import RustEngine
 from xy.ai.mcpc.tools.ast.generic._xml import XmlEngine
 from xy.ai.mcpc.tools.ast.generic._yaml import YamlEngine
