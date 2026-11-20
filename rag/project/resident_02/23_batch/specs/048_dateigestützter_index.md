@@ -1,10 +1,13 @@
 # Spezifikation: Dateigestützter Index (Build-Order 48)
 
+**Status: withdrawn.** Its tasks are taken over: opening, lazy loading, stamps, ids: 047; header and schema: 113; reading and binding: 113b; payload and checksum: 121; in-memory changes, signal, `Index` implementation: 122; atomic saving: 129. The module `file_index.rs`, its test file and its `mod` line are removed at the cutover (see 113b).
+
 ## 1. Aufgabe, Einschränkungen, Grenzen
 
 **Aufgabe:** Das Crate-Modul `file_index` liefert `FileIndex`, eine konkrete Implementierung von `index_contract::Index`. Der Index liegt persistent in **einer Parquet-Datei** mit Arrow-Schema. Das Modul öffnet die Datei per mmap oder File-Read, verwaltet Änderungen im Speicher und sichert sie atomar mit `save`.
 
 **Grenzen:**
+
 - Es gibt keine Suche, keine Vektorkonvertierung und keine Modellprüfung. Der Aufrufer liefert den erwarteten Header (`model_id`, `dimension`) fertig.
 - Erlaubt sind nur Crates aus `/home/user/xyan/xy.ai.workbench/rag/Cargo.toml`. `Cargo.toml` wird nicht geändert. Für Parquet und Arrow werden `parquet` und `arrow` genutzt. Für mmap wird der dort gelisteten mmap-Crate genutzt.
 - Es gibt keinen Auto-Save, auch nicht in `Drop`. Die Datei entsteht oder ändert sich nur durch `save`.
@@ -72,6 +75,7 @@ impl Index for FileIndex { /* vollständiger Vertrag, siehe §4 */ }
 ## 4. Behavior und Invarianten
 
 **Dateiformat**
+
 - Eine Parquet-Datei, Zeilen aufsteigend nach `id` sortiert, ohne Duplikate. Arrow-Schema, alle Spalten non-null:
   - `id`: UInt64
   - `stamp`: UInt64 (Rohwert, ≥ 1)
@@ -85,6 +89,7 @@ impl Index for FileIndex { /* vollständiger Vertrag, siehe §4 */ }
 - Schreiben: unkomprimiert (damit mmap ohne Dekompression lesbar bleibt). `max_row_group_size = max(rows_per_group, 1)`.
 
 **open**
+
 - Fehlt die Datei, entsteht ein leerer Index: Signal `Stamp(0)`, leerer Zähler. Es wird nichts auf die Platte geschrieben, die Datei entsteht erst beim ersten `save`. Das Elternverzeichnis wird dabei nicht geprüft.
 - Ist die Datei vorhanden, wird immer (unabhängig von `verify`) der Footer-Header gegen `expected` verglichen. Eine Abweichung oder ein fehlender Schlüssel ergibt `HeaderMismatch` mit dem Feldnamen (`"model_id"`, `"dimension"` oder `"dtype"`). Ein nicht lesbares Parquet ergibt `Corrupt`. Ein IO-Fehler ergibt `Io`.
 - `verify == true` prüft zusätzlich:
@@ -98,6 +103,7 @@ impl Index for FileIndex { /* vollständiger Vertrag, siehe §4 */ }
 - `AccessMode::Mmap` mappt die Datei. `AccessMode::File` liest per File-Read. Beide Modi haben identisches beobachtbares Verhalten.
 
 **Index-Vertrag**
+
 - `dtype()` ist `header().dtype`. `access_methods()` ist `&[]`. Alle optionalen Methoden liefern über die Defaults `Unsupported`.
 - `stamp` und `stamps` kommen aus dem Speicher und berühren weder Datei noch Vektordaten.
 - `read` liefert zuerst ungesicherte Änderungen. Ein ungesicherter Delete ergibt `Payload::default()`. Sonst wird die Zeile aus der Datei gelesen. `read` darf blockieren. Bei IO- oder Dekodierfehlern nach erfolgreichem `open` liefert `read` `Payload::default()` und ändert keinen Zustand.
@@ -112,6 +118,7 @@ impl Index for FileIndex { /* vollständiger Vertrag, siehe §4 */ }
 - `subscribe()` liefert einen Observer auf das `StampSignal`.
 
 **save**
+
 - Schreibt den Gesamtstand (gesicherte Zeilen plus Änderungen, ohne gelöschte) als vollständige neue Datei. Dazu gehören Header und `index.max_stamp`. `save` ruft die Datenquelle nicht verändernd auf.
 - Ablauf: temporäre Datei im selben Verzeichnis wie `path` schreiben, `fsync` der Datei, `rename` über `path`, `fsync` des Verzeichnisses. Fehlt das Elternverzeichnis, entsteht ein Fehler. Bei jedem Fehler wird die temporäre Datei entfernt, soweit möglich, und die alte Datei bleibt unverändert.
 - Ein Leser sieht immer die vollständig alte oder die vollständig neue Datei.
@@ -122,6 +129,7 @@ impl Index for FileIndex { /* vollständiger Vertrag, siehe §4 */ }
 - Der Zeilenaufbau einer Row-Group richtet sich nach `rows_per_group`. Das Verhalten ist beobachtbar nur über die Parquet-Metadaten.
 
 **Nebenläufigkeit**
+
 - `FileIndex: Send + Sync`. Alle `&self`-Methoden sind von beliebig vielen Threads aufrufbar, ohne externes Locking. Es gibt keine Verklemmung.
 - Ein `read` blockiert Writes anderer Entries nicht dauerhaft.
 - Ein stehender Observer hindert weder Writes noch `save`.

@@ -3,6 +3,7 @@
 ## 1. Task, restrictions and boundaries
 
 **Task.** `CpuSubengine` is the CPU realisation of a sub-engine. It composes `subengine_core::SubengineCore` (Device = `DeviceHandle::Cpu`, own queue `Cpu`) with the following:
+
 - the CPU topology: sockets, cores (resources) and lanes (threads);
 - RAM-resident, lazily loaded resources: encoders and tokenizers (the tokenizer carries its configured normalizer);
 - its own CPU kernel register with SIMD score kernels;
@@ -10,13 +11,14 @@
 - low-priority calibration.
 
 **Restrictions.**
+
 - Everything runs on the CPU in RAM. There are no streams, no staging memory and no async copies. Slot data is copied synchronously and directly.
-- The default compute dtype is `DType::F32`. BF16 and F16 have no CPU scoring path (`has_scoring_kernel(Cpu, F16) == false`).
+- The default compute dtype is `DType::F32`. BF16 and F16 have no CPU scoring path (`has_scoring_kernel(Cpu, F16) == false`). The index vectors are FP16, but `has_scoring_kernel(Cpu, F16)` refers to the compute dtype and is unaffected: rows are converted to f32 before scoring (§4.6).
 - It is not coupled to concrete kernels, models or indexes. Everything is registered or injected: model setups, `EncoderFactory` (via `ModelRegistry`), index specs and `HostSegments`.
 - It does no planning, queue selection, queue pulling, scoring-result selection (no top-k) or tokenizing logic. It does not reimplement `SubengineCore`, `Manager`, `LaneResource` or the lifecycle.
 - It never calls `SubengineCore::adopt_encoder`. Encoders live only in the lifecycle registry, so eviction really frees them.
 - It does not use the async runtime and starts no timer. The caller calls `evict_expired(now)`.
-- `unsafe` is allowed only inside the SIMD kernels (`std::arch`). They need runtime feature detection and a scalar fallback. There are no globals. Crates: `log`, plus the project modules in §5.
+- `unsafe` is allowed only inside the SIMD kernels (`std::arch`). They need runtime feature detection and a scalar fallback. There are no globals. Crates: `log`, `half`, plus the project modules in §5.
 
 ## 2. Context
 
@@ -40,7 +42,10 @@ use calibration_run::{CalibrationBackend, CalibrationConfig, CalibrationError, C
 use capability_model::CapabilitySet;
 use device_lane_event::{DeviceHandle, Lane};
 use encoder_interface::EncoderError;
-use file_index::{FileIndex, IndexHeader, OpenOptions};
+use index_format::IndexHeader;
+use index_open::{LazyIndexFile, OpenOptions};
+use parquet_decoder::ParquetDecoder;
+use entry_store::{EntryStore, PayloadChecksums};
 use index_contract::Index;
 use index_residency::{IndexResidency, MemoryAdvisor};
 use kernel_register::KernelRegister;
@@ -83,9 +88,9 @@ impl CpuSubengineConfig { pub fn new(name: impl Into<String>, topology: CpuTopol
 /// Memory backend for RAM segments. Resolves RegionHandle internally (never done in this module).
 pub trait HostSegments: Send + Sync {
     fn write(&self, segment: &IndexSegment, byte_offset: u64, bytes: &[u8]) -> Result<(), String>;
-    /// Zero-copy read access to `count` f32 values starting at `byte_offset`.
-    fn with_f32(&self, segment: &IndexSegment, byte_offset: u64, count: usize,
-                f: &mut dyn FnMut(&[f32])) -> Result<(), String>;
+    /// Zero-copy read access to `count` FP16 elements (little-endian bytes) starting at `byte_offset`.
+    fn with_f16(&self, segment: &IndexSegment, byte_offset: u64, count: usize,
+                f: &mut dyn FnMut(&[u8])) -> Result<(), String>;
 }
 
 pub struct CpuDeps {
@@ -106,8 +111,8 @@ pub struct ModelSetup {
 pub struct IndexSpec {
     pub index: IndexId,
     pub path: PathBuf,
-    pub header: IndexHeader,
-    pub open: OpenOptions,
+    pub header: IndexHeader,   // expected header (`IndexHeader::from_descriptor(..)`)
+    pub open: OpenOptions,     // `index_open::OpenOptions` (`use_mmap`, `verify`); no `row_group_rows`: the CPU sub-engine does not save
     pub segments: Vec<IndexSegment>,   // order = segment positions of Manager and SlotAddr.segment
     pub manager: ManagerConfig,
     pub advisor: Option<Arc<dyn MemoryAdvisor>>,   // None: residency hints are no-ops
@@ -136,7 +141,7 @@ pub enum CpuError {
     Unavailable(ResourceKey),
     Encoder(EncoderError),
     Normalize(String),
-    /// "Index öffnen fehlgeschlagen: {0}"
+    /// "Index öffnen fehlgeschlagen: {0}" ({0}: Display of `OpenError`, which contains the decoder's header or binding text)
     IndexOpen(String),
     /// "kein CPU-Kernel {name} für {dtype:?}"
     NoKernel { name: String, dtype: DType },
@@ -169,7 +174,7 @@ impl CpuManager {
     /// Adopts all segments into the core, builds IndexSlot + FileLazyIndex + Manager + IndexResidency. Opens/loads nothing.
     pub fn attach(&self, spec: IndexSpec) -> Result<Arc<Manager>, CpuError>;
     pub fn manager(&self, index: &IndexId) -> Option<Arc<Manager>>;
-    /// Opens the FileIndex on the first call (first access), then returns the same Arc. A failure is not cached.
+    /// Opens the index (`LazyIndexFile` and `EntryStore`) on the first call (first access), then returns the same Arc. A failure is not cached.
     pub fn index(&self, index: &IndexId) -> Result<Arc<dyn Index>, CpuError>;
     pub fn segments(&self, index: &IndexId) -> Option<Vec<IndexSegment>>;
     pub fn residency(&self, index: &IndexId) -> Option<Arc<IndexResidency>>;
@@ -246,7 +251,8 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 ## 4. Behavior and invariants
 
 **4.1 Construction (`new`).** The first error wins, as `InvalidConfig`/`Subengine`/`Pool`.
-- A `LifecycleConfig` is accepted as given. The caller creates it with `LifecycleConfig::new`, which enforces vram_ttl > ram_ttl.
+
+- A `LifecycleConfig` is accepted as given. The caller creates it with `LifecycleConfig::new`, which enforces vram\_ttl > ram\_ttl.
 - The `SubengineConfig` for the core is:
   - `device = Cpu`, `own_queue = Cpu`.
   - `own_capabilities = precision_capabilities(DeviceKind::Cpu) ∪ extra_capabilities`. The default is therefore exactly `{operands:{fp32}, scoring:{fp32}}`.
@@ -257,12 +263,14 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - `new` creates no lane, loads nothing and opens no file. Only the calibration pool threads (`"{name}-calib"`, `max(1, calibration_threads)`) are started.
 
 **4.2 Topology and lanes.**
+
 - A device has sockets, a socket has cores, a core has lanes. A lane is a thread of the processor.
 - `lane_resource` creates exactly `topology.lane_count()` `Lane`s with `Lane::new(LaneConfig::preset(LaneKind::Query, DeviceHandle::Cpu), None)`. They have no stream, so `record_event` gives `NoStreamBackend`. This is not an error here.
 - If `cfg.device != DeviceHandle::Cpu`, it returns `InvalidConfig`. `LaneSetError` is wrapped as `Lane`.
 - No thread pinning is performed.
 
 **4.3 Subengine trait.**
+
 - `name`, `start`, `capabilities`, `offers`, `announce` and `activate` equal the `SubengineCore` behavior. `start` and `activate` are idempotent. `activate` never loads models, tokenizers or indexes.
 - `is_loaded(kind, model)`:
   - `Encoder`: true iff the lifecycle state of the model's encoder resource is `Ready`. `model == None` means any model.
@@ -272,6 +280,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
   - A kind that is not in `offers` is always false. It is read-only and never activates or loads.
 
 **4.4 Resources and lifecycle.**
+
 - `register_model` builds the model's `TextPreprocessor` once, from `ModelSetup.external_normalizer`, and keeps it in the model entry. It registers two resources, both with `MemoryClass::Ram`, in two `ResourceRegistry`s. Nothing is loaded.
   - `"enc:{model}"`: loader from `ModelRegistry::encoder_resource(descriptor, DeviceClass::Cpu).loader`.
   - `"tok:{model}"`: `TokenizerLoader::from_descriptor(&descriptor).with_normalization(Arc::new(NormalizerLoader::new(normalization, preprocessor.clone())))`. The config is baked into the tokenizer when it loads.
@@ -291,37 +300,48 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - The `TextPreprocessor` is not a lifecycle resource. It lives in the model entry and is never evicted. `CpuContext::preprocessor(model)` returns a clone of it, or `UnknownModel`. It takes no lease and loads nothing. `preprocess(model, text)` is `preprocessor(model)?.apply(text)`, with `NormalizeError(m)` mapped to `CpuError::Normalize(m)`.
 
 **4.5 Index and `CpuManager`.**
+
 - `attach` order:
   1. Reject a duplicate index with `AlreadyAttached`.
   2. `core.adopt_index_segment` for each segment in order. Errors give `Subengine`.
   3. Create an empty `IndexSlot` and build a `FileLazyIndex` that owns a clone of it.
   4. Build `Manager::new(core, index_id, lazy, CpuSlotTransfer, spec.manager)`. Errors give `Manager`.
+
 5. Build `IndexResidency::new(slot, spec.advisor, spec.idle_after)`. It does not open the index.
+
 - Nothing is opened. `attach` touches no file and no memory.
-- `FileLazyIndex::get` calls `FileIndex::open(path, header, open)` on the first successful call and caches the `Arc`. A failure gives `Err(text)` and is not cached.
+- `FileLazyIndex::get` builds the index as follows:
+  1. If `spec.path` does not exist: `EntryStore::new(header, None, checksums)`.
+  2. Otherwise build a **new** `LazyIndexFile::new(path, decoder, open)` on every attempt, call `ensure_open()`, and on `Err(e)` return `Err(e.to_string())` and drop it. A failure is therefore not cached, although `LazyIndexFile` remembers its own failure.
+  3. On success build `EntryStore::new(header, Some(Arc::new(file)), checksums)`.
+  4. The decoder is `ParquetDecoder::new(header.clone(), Arc::new(entry_payload::compute_checksum_parts))`, `checksums` is `PayloadChecksums::new(decoder)`.
+  5. The rest (storing in the `IndexSlot` with `OnceLock::set`, same instance for `Manager`, `CpuManager::index` and `IndexResidency`) is unchanged.
 - After a successful open, `FileLazyIndex::get` stores the `Arc` in its `IndexSlot` with `OnceLock::set`. If another thread filled the slot first, the opened instance is dropped and the stored one is returned. So the `Manager`, `CpuManager::index` and `IndexResidency` always see the same instance, and no lock is held across the open.
 - `IndexResidency` never activates the index. Until the first successful `get` the slot is empty and its reads report "not attached".
 - `CpuManager::residency` returns the `IndexResidency` of an attached index. `CpuManager::mark_idle_cold(now)` calls `IndexResidency::mark_idle_cold(now)` for each attached index and returns the sum. It holds no registry lock across the advisor calls.
-- `CpuManager::index` (and `CpuContext::index`) maps this to `Arc<dyn Index>`. An open error gives `IndexOpen`. An unknown id gives `UnknownIndex`.
+- `CpuManager::index` (and `CpuContext::index`) maps this to `Arc<dyn Index>`. An open error gives `IndexOpen` with the `Display` of `OpenError` (which contains the decoder's header or binding text). An unknown id gives `UnknownIndex`.
 - The `CpuSlotTransfer` implementation of `SlotTransfer::write_slot` calls `HostSegments::write(segment, byte_offset, vector)` directly. It does not use the lane's stream, and it copies nothing into a staging buffer.
-- `Manager` semantics (pin, lookup, upload, sync, apply_updates) are unchanged and not redefined. `Manager::upload` and `Manager::apply_updates` need an active core (`NotActive` otherwise).
+- Index vectors are `dimension × 2` bytes (FP16 LE) and `Manager` passes them unchanged, so `ManagerConfig.slot_bytes == header.vector_bytes()`. `CpuSlotTransfer::write_slot` is unchanged.
+- `Manager` semantics (pin, lookup, upload, sync, apply\_updates) are unchanged and not redefined. `Manager::upload` and `Manager::apply_updates` need an active core (`NotActive` otherwise).
 - All index operations are synchronous. Results are returned to the caller on return, including `Stamp` and reports.
 
 **4.6 Scoring (`CpuContext::score`).** Synchronous on the calling lane thread. Kernel name: `Dot` gives `"score_dot"`, `NegL2Sq` gives `"score_negl2"`, both with `DType::F32`.
+
 - Validation order, first error wins:
   1. The index is attached, else `UnknownIndex`.
   2. For each entry, `segment < segments.len()`, `slots.start <= slots.end`, and `slots.end <= Manager config slots_per_segment`. Otherwise `BadSlots`.
-  3. `query.len() * 4 == slot_bytes`, else `QueryDimMismatch`. An empty query is rejected the same way.
+  3. `query.len() * 2 == slot_bytes`, else `QueryDimMismatch`. An empty query is rejected the same way.
   4. The kernel is obtained from `CpuKernelRegister`, else `NoKernel`.
-- Rows are read with `HostSegments::with_f32(segment, slot * slot_bytes, n * dim, ..)`. This is zero-copy. A host error gives `Host`.
+- Rows are read with `HostSegments::with_f16(segment, slot * slot_bytes, n * dim, ..)` (zero-copy, little-endian FP16 bytes). `CpuContext::score` converts the rows block-wise (at most 1024 rows per block) into a scratch `Vec<f32>` with `half::f16::to_f32` and calls the unchanged `CpuScoreKernel::score(query, rows_f32, dim, out)`. Accumulation stays f32. A host error gives `Host`.
 - The result contains one `CpuScored` per requested slot. The order is entry order, then ascending slot. It is not sorted, and there is no selection or top-k.
 - A higher score is better. `Dot = Σqᵢxᵢ`, `NegL2Sq = −Σ(qᵢ−xᵢ)²`, accumulated in f32. NaN and Inf pass through unchanged.
-- SIMD kernels use runtime detection (x86_64 AVX2+FMA, aarch64 NEON). Otherwise they use the scalar fallback. SIMD and scalar results agree within float tolerance. Bit reproducibility is not promised.
+- SIMD kernels use runtime detection (x86\_64 AVX2+FMA, aarch64 NEON). Otherwise they use the scalar fallback. SIMD and scalar results agree within float tolerance. Bit reproducibility is not promised.
 - Slots that are not resident are not checked. The caller pins with `Manager::pin` and maps results through `Manager::entries_at`. A `None` there means skip.
 - No state is held across the call except the pinned `Lease` of the caller.
 - The CPU path does not use `kernel_scoring::Scorer`. For `Scorer` registrations, the core is used as follows: for each `Metric` with `models.scorer_available(metric)`, `new` calls `core.adopt_scorer(metric)`. Metrics without a registry scorer are skipped silently.
 
 **4.7 Encoding (`CpuContext::encode`).**
+
 - It acquires the encoder lease (§4.4). It creates `oneshot()`. It calls `Encoder::encode_async(lane, input, output, rows, seq_len, vec![tx])`.
 - It then calls `CompletionEvent::wait()` and `rx.recv()`.
 - It returns `Ok(())` or `Encoder(e)`. An event error is passed through as `Encoder(Device)`.
@@ -330,11 +350,13 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - No stream, event or staging memory of the lane is used.
 
 **4.8 Runner.**
+
 - `cpu_runner(sub).run(lane, batch)` builds a `CpuContext` and calls `P::execute_batch(batch, &ctx)`. It returns when all work is done. Panics are left to `lane_batching`, which catches them.
 - It adds no scheduling, batching or locking. The context is cheap to create and holds no state.
 - For the reference payload (`EngineStep`, build order 135) `execute_batch` runs each task's operation and then calls `step.finish(output, &*sink)`; on an execution error, or when `finish` returns an error, it calls `step.fail(error, || 0)`. One task's error never affects the other tasks of the batch. `collect` is never called for CPU lanes.
 
 **4.9 Calibration.**
+
 - `calibrate` submits one job to the calibration `BackgroundPool`, whose threads have the lowest scheduling priority. The caller gets a `JobFuture`.
 - The job runs `run_calibration(Target{subengine: name, model_id: descriptor.model_id}, &own_capabilities, &descriptor, backend.as_ref(), &RobustStatistics, &config)`.
 - The result is returned unchanged. A panic gives `JobError::Panicked` through the future.
@@ -346,6 +368,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - Dropping `CpuSubengine` drains and joins the pool (`BackgroundPool` drop semantics).
 
 **4.10 Concurrency and errors.**
+
 - All methods take `&self` and are callable from any thread.
 - State sits behind short-lived locks. No lock is held across loader runs, index IO, `HostSegments`, `with_lane`, kernels or encoding.
 - Equal configuration gives equal capabilities, registrations and slot assignments.
@@ -374,7 +397,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - **`tokenizer_loader`:** `TokenizerLoader::{from_descriptor, with_normalization}`, `LoadedTokenizer`.
 - **`text_normalization`:** `NormalizerLoader::new(params, TextPreprocessor)`, `TextPreprocessor::{new, apply}` (`Clone`), `ResolvedNormalization`, `TextNormalizer`.
 - **`index_residency`:** `IndexResidency::{new(IndexSlot, Option<Arc<dyn MemoryAdvisor>>, Duration), mark_idle_cold(Instant) -> usize}`, `IndexSlot = Arc<OnceLock<Arc<dyn Index>>>`, `MemoryAdvisor`. `IndexSlot` is not `manager::LazyIndex`: `FileLazyIndex` fills the slot, and `Manager` calls the trait.
-- **`index_contract` / `file_index`:** `Index` trait, `FileIndex::open(path, IndexHeader, OpenOptions)`, errors as `FileIndexError` (Display used for `IndexOpen`).
+- **`index_contract` / `entry_store` / `index_open` / `parquet_decoder`:** `Index` trait, `EntryStore`, `LazyIndexFile::{new, ensure_open}` and `ParquetDecoder`/`PayloadChecksums`, which `FileLazyIndex` builds; errors as `OpenError` (Display used for `IndexOpen`).
 - **`manager`:** `Manager::new(core, IndexId, Arc<dyn LazyIndex>, Arc<dyn SlotTransfer>, ManagerConfig)`, `SlotTransfer::write_slot(&self, &mut Lane, &IndexSegment, slot: u32, byte_offset: u64, vector: &[u8])`, `LazyIndex::get`, `SlotAddr{segment, slot}`, `Manager::{pin, entries_at, upload, sync, apply_updates}`.
 - **`lane_batching`:** `LaneResource::new(cfg, Vec<Lane>, Arc<dyn BatchRunner<P>>)`, `BatchRunner::run(&self, &mut Lane, ExecBatch<P>)`, `ExecBatch`, `BatchPayload`, `BatchMeta`, `LaneResourceConfig`, `LaneSetError`.
 - **`calibration_run`:** `run_calibration(Target, &CapabilitySet, &ModelDescriptor, &dyn CalibrationBackend, &dyn Statistics, &CalibrationConfig)`. `Statistics::{dispersion(&[f64], DispersionKind) -> Option<f64>, estimate(&[f64], EstimatorKind) -> Option<f64>}`.

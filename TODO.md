@@ -1,4 +1,7 @@
 # TODO
+!verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
+	- sortierung vielleicht in filter und customizations
+!Der AI explorer zeigt /done/ folder nicht mehr richtig an 
 - Batch requests für autoapprover aufsplitten und einzelnen durch die rules schicken, für calls nach festem batch schema
 
 - MCPC ignore Dann Zusätzlich per Header für session

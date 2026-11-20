@@ -7,3 +7,5 @@ pub mod update_queue;
 pub mod text_encoding;
 pub mod encoding_schemata;
 pub mod index_format;
+pub mod meta_codec;
+pub mod parquet_decoder;

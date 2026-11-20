@@ -3,10 +3,12 @@
 ## 1. Aufgabe, Einschränkungen, Grenzen
 
 **Aufgabe:** Das Crate-Modul `index_residency` liefert `IndexResidency`. Es hat zwei Aufgaben:
+
 - Es sichert die Residency dateigestützter Index-Daten im Page-Cache und markiert Bereiche nach Leerlauf als „cold“.
 - Es liest einzelne und mehrere Entries mit Zugriffsmuster im Blocking-Pool.
 
 **Grenzen:**
+
 - `IndexResidency` ist eine Komponente der CPU-Subengine, weder der Fassade noch des Index. Es enthält keine Suche, keinen Index, keine Persistenz und keine Schreibpfade.
 - Das Modul speichert keine Referenz auf die CPU-Subengine, um Zyklen zu vermeiden. Die Subengine konstruiert es und übergibt den lazy Index.
 - Es startet keinen eigenen Timer und keinen Hintergrund-Thread. Die Leerlauf-Markierung läuft nur, wenn der Eigentümer `mark_idle_cold` aufruft.
@@ -15,10 +17,10 @@
 
 ## 2. Kontext
 
-- Das RAM ist die Primärinstanz. Lesezugriffe gehen direkt an den `Index` (`index_contract::Index`, `Arc<dyn Index>`). Der Index ist typischerweise ein `FileIndex` (Parquet, mmap) und kann größer als das RAM sein. Die Page-Cache-Residency wird deshalb über Hinweise gesteuert.
+- Das RAM ist die Primärinstanz. Lesezugriffe gehen direkt an den `Index` (`index_contract::Index`, `Arc<dyn Index>`). Der Index ist typischerweise ein `EntryStore` über einem `LazyIndexFile` (Parquet, mmap) und kann größer als das RAM sein. Die Page-Cache-Residency wird deshalb über Hinweise gesteuert.
 - Der Index wird lazy aktiviert. Der Manager hält einen geteilten Slot, der erst später gefüllt wird. Bis dahin ist der Index „nicht angehängt“.
 - `Index::read` darf blockieren (IO). Deshalb laufen alle Lesezugriffe über den Blocking-Pool (`tokio::task::spawn_blocking`).
-- Ein Hinweisbereich ist ein `index_contract::ByteRange` (`offset`/`len` im Speicher des Index). Der Index liefert ihn über die optionale Zugriffsmethode `Range` (`byte_ranges`). `FileIndex` deklariert keine Zugriffsmethoden. Dann entfallen die Hinweise, und das ist kein Fehler.
+- Ein Hinweisbereich ist ein `index_contract::ByteRange` (`offset`/`len` im Speicher des Index). Der Index liefert ihn über die optionale Zugriffsmethode `Range` (`byte_ranges`). `EntryStore` deklariert keine Zugriffsmethoden. Dann entfallen die Hinweise, und das ist kein Fehler.
 
 ## 3. Interface
 
@@ -77,6 +79,7 @@ impl IndexResidency {
 ## 4. Behavior und Invarianten
 
 **Allgemein**
+
 - Alle Methoden sind von beliebig vielen Tasks/Threads gleichzeitig aufrufbar, ohne externes Locking.
 - Hinweisfehler (`Err` der `MemoryAdvisor`) werden nur mit Warn-Log gemeldet. Sie lassen nie ein Lesen scheitern und nie `mark_idle_cold` abbrechen.
 - Ohne Advisor (`None`) passiert bei Hinweisen und Cold-Markierung nichts. Das ist kein Fehler.
@@ -84,6 +87,7 @@ impl IndexResidency {
 - `read_direct` ruft `Index::read` auf dem aufrufenden Thread auf. Es liefert `None`, wenn der Index nicht angehängt ist.
 
 **Residency und Cold**
+
 - `secure_residency(r)` ruft `advise(r.offset, r.len, WillNeed)` auf und setzt die Nutzungszeit von `r` auf `Instant::now()`. Der Schlüssel ist `(offset, len)`.
 - Jeder in Lesezugriffen mit `WillNeed`, `Sequential` oder `Random` hinterlegte Hinweisbereich wird ebenfalls so verfolgt und seine Nutzungszeit aktualisiert.
 - `mark_idle_cold(now)` ruft für jeden verfolgten Bereich mit `now.saturating_duration_since(letzte Nutzung) >= idle_after` `advise(.., Cold)` auf und entfernt ihn aus der Verfolgung.
@@ -91,7 +95,8 @@ impl IndexResidency {
 - Ohne Advisor liefert `mark_idle_cold` 0 und ändert nichts.
 - Bereiche mit `len == 0` werden weder gehintet noch verfolgt.
 
-**read_entry**
+**read\_entry**
+
 1. Ist `hint` gesetzt, wird `WillNeed` darauf gesetzt (siehe oben).
 2. `Index::read(id)` läuft in `spawn_blocking`.
 3. Das Ergebnis wird in `OwnedPayload` kopiert (Vektor und Meta). Ein fehlender Entry ergibt zwei leere Vektoren und ist kein Fehler.
@@ -99,7 +104,8 @@ impl IndexResidency {
 - Ist der Index nicht angehängt, ist das Ergebnis `Err(TransferError("Index nicht angehängt"))`.
 - Wird die Blocking-Task abgebrochen oder ist sie panicked (`JoinError`), ist das Ergebnis `Err(TransferError("Lese-Task abgebrochen"))`. Der Text ist exakt so.
 
-**read_entries**
+**read\_entries**
+
 - Bei leerer Eingabe ist das Ergebnis `Ok(vec![])`. Das gilt vor der Prüfung des Index und ohne Hinweise.
 - Bei nicht-leerer Eingabe und nicht angehängtem Index ist das Ergebnis `Err(TransferError("Index nicht angehängt"))`.
 - Das Ergebnis hat genau `entries.len()` Elemente in Eingabereihenfolge, auch bei Duplikaten (jedes Duplikat wird geliefert). Fehlende Entries ergeben ein leeres `OwnedPayload` an ihrer Stelle.
@@ -112,7 +118,8 @@ impl IndexResidency {
 - Alle Hinweise werden vor dem Lesen gesetzt. Die Bereiche werden verfolgt, bei dichtem Muster der `span` als ein Bereich.
 - Das Lesen erfolgt in einer einzigen `spawn_blocking`-Task, nacheinander in Eingabereihenfolge. Ein Abbruch ergibt `Err(TransferError("Lese-Task abgebrochen"))`.
 
-**read_entries_auto**
+**read\_entries\_auto**
+
 - Bei leerer Eingabe ist das Ergebnis `Ok(vec![])`. Ist der Index nicht angehängt, gilt dieselbe Fehlerregel wie bei `read_entries`.
 - In der Blocking-Task wird `Index::byte_ranges(min_id, max_id)` (inklusiv, über die Eingabe-IDs) aufgerufen, falls `AccessMethod::Range` in `access_methods()` steht.
 - Ein Entry `id` gehört zu einem `ByteRange` `r`, wenn `r.first.0 <= id.0 < r.first.0 + r.count` gilt (saturierend). Sein Hinweisbereich ist dann `(r.offset, r.len)`.
@@ -123,6 +130,7 @@ impl IndexResidency {
 ## 5. Relied-on elements
 
 Aus `index_contract` (unverändert):
+
 ```rust
 pub struct EntryId(pub u64);                       // Ord, Copy
 pub struct SharedBytes(pub Arc<[u8]>);             // Deref<Target=[u8]>
@@ -137,7 +145,9 @@ pub trait Index: Send + Sync {
     /* weitere Methoden werden nicht genutzt */
 }
 ```
+
 - `ByteRange` beschreibt zusammenhängend gespeicherte Entries: `len` ist die Summe der Bytes, `count` die Anzahl, `offset` ist relativ zum Speicher des Index.
 - `Index` ist object-safe und von mehreren Threads ohne Locking nutzbar.
-- `FileIndex` (`file_index`) implementiert `Index` mit `access_methods() == &[]`. Dort liefert `byte_ranges` `Unsupported(Range)`, und alle Lesezugriffe laufen ohne Hinweise. `read` liefert bei IO- oder Dekodierfehlern `Payload::default()`.
-- Der Index ist ein reiner Index-Vertrag. Weder `FileIndex` noch der Vertrag bieten eine eigene mmap- oder `madvise`-Schnittstelle. Deshalb stammt die Hinweisquelle von außen (`MemoryAdvisor`).
+- `EntryStore` (`entry_store`) implementiert `Index` mit `access_methods() == &[]`. Dort liefert `byte_ranges` `Unsupported(Range)`, und alle Lesezugriffe laufen ohne Hinweise. `read` liefert bei IO- oder Dekodierfehlern `Payload::default()`.
+- Der Index ist ein reiner Index-Vertrag. Weder `EntryStore` noch der Vertrag bieten eine eigene mmap- oder `madvise`-Schnittstelle. Deshalb stammt die Hinweisquelle von außen (`MemoryAdvisor`).
+- Test fixture: `EntryStore::new(header, None, checksum)` with `upsert(id, vector, meta)`, vector length `dimension × 2`, meta empty or from `meta_codec::encode_meta`. No file is needed.

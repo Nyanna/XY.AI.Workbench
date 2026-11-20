@@ -5,7 +5,8 @@
 **Aufgabe:** Rust-Modul `index_open`. Es öffnet eine Index-Datei beim ersten Zugriff und liest Header, Schema, IDs und Stamps ohne Vektor-Dekodierung ein. Optional verifiziert es dabei die ganze Datei. Vektoren und Nutzdaten dekodiert es beim ersten Gebrauch, je Batch genau einmal.
 
 **Nicht Teil des Moduls:**
-- Das Datei- und Spaltenformat. Header-Parsing, Spaltendekodierung und Checksum-Berechnung liefert ein injizierter `FormatDecoder` (§3). Das Modul erfindet kein Format.
+
+- Das Datei- und Spaltenformat. Header-Parsing, Spaltendekodierung und Checksum-Berechnung liefert ein injizierter `FormatDecoder` (§3). Das Modul erfindet kein Format. The production decoder is `parquet_decoder::ParquetDecoder`.
 - Schreiben, Löschen, Publication und Signal.
 - Die Implementierung von `Index` (Allgemeiner Index-Vertrag). Das Modul liefert den geladenen, lesbaren Zustand. Der konkrete Index delegiert an ihn.
 - Alle anderen Fachmodule.
@@ -106,6 +107,7 @@ Zusicherung: `LazyIndexFile: Send + Sync` (Test per static assertion).
 ## 4. Verhalten und Invarianten
 
 **Öffnen**
+
 - `new` führt kein IO aus. Der erste Aufruf einer anderen Methode löst `ensure_open` aus. Parallele erste Zugriffe öffnen genau einmal, die anderen warten und erhalten dasselbe Ergebnis.
 - Das Öffnungsergebnis, auch ein Fehler, wird gemerkt. Jeder spätere Zugriff liefert denselben `OpenError`. Es gibt keinen Retry.
 - Zugriffsart:
@@ -122,13 +124,16 @@ Zusicherung: `LazyIndexFile: Send + Sync` (Test per static assertion).
   - Bei `verify == false` wird das Ergebnis „übersprungen“ geloggt.
 - Fehlerabbildung: Jeder Datei-, Lese-, Mapping-, Format- oder Checksum-Fehler wird zu `OpenError::Unavailable { path, cause }`. `path` ist der Pfad, `cause` die Ursache im Klartext. Es gibt kein Panic.
 - Log (`tracing::info!`, einmal bei Erfolg): Pfad, Schema-Version, Model-ID, Model-Revision, Zugriffsart, Anzahl Row-Groups und Checksum-Ergebnis (`ok` oder `übersprungen`). Fehlschläge werden mit `error!` und Pfad und Ursache geloggt.
+- The decoder performs the model binding in `read_info`. A binding or format error is an `OpenError::Unavailable` with the decoder's text and is remembered. A `LazyIndexFile` is created only for a path that exists. For a missing path the caller builds an index without file (`entry_store`).
 
 **Stamps und IDs**
+
 - `stamps()` und `stamp()` lösen nie Vektor-Dekodierung aus. Sie arbeiten nur auf der geladenen ID-/Stamp-Tabelle.
 - `stamps()` ist ein Snapshot, aufsteigend nach `EntryId`, ohne Duplikate.
 - Bei Öffnungsfehler liefern sie den gemerkten `OpenError`.
 
 **Lazy Loading**
+
 - Zeile `r` (Dateireihenfolge, 0-basiert) gehört zu Batch `r / 4096`. Ein Batch umfasst die Zeilen `[k*4096, min((k+1)*4096, rows))`.
 - Der erste Zugriff auf einen Vektor oder Nutzdaten einer Zeile dekodiert ihren ganzen Batch über `decoder.decode_rows`, vollständig (Vektor und Nutzdaten zusammen).
 - Jeder Batch wird höchstens einmal dekodiert, auch bei gleichzeitigen Zugriffen mehrerer Threads (einmalige Initialisierung je Batch). Andere Threads warten auf das Ergebnis. Verschiedene Batches dekodieren unabhängig und parallel.
@@ -142,6 +147,7 @@ Zusicherung: `LazyIndexFile: Send + Sync` (Test per static assertion).
 - Ist der Index nicht verfügbar, verhalten sich `read_vector`, `read_meta` und `read` wie bei einem Dekodier-Fehler (leer bzw. `None`, `error!`-Log). Sie geben den `OpenError` nicht zurück.
 
 **Nebenläufigkeit**
+
 - Alle Methoden sind `&self`, von beliebig vielen Threads aufrufbar, ohne externes Locking.
 - Nach dem Öffnen ist die ID-/Stamp-Tabelle unveränderlich und lock-frei lesbar.
 - Lesemethoden dürfen blockieren (IO, Page-Faults). Im Async-Kontext gehören sie in `page_advice::read_blocking`.
@@ -149,22 +155,27 @@ Zusicherung: `LazyIndexFile: Send + Sync` (Test per static assertion).
 ## 5. Relied-on elements
 
 Aus `change_stamp`:
+
 ```rust
 StampCounter::resume(stored_max: Option<u64>, highest_present: Option<u64>) -> StampCounter
 // nächstes next() liefert max(stored, highest) + 1; base == 0 verhält sich wie new()
 ```
+
 `StampCounter: Send + Sync`.
 
 Aus `index_contract`:
+
 ```rust
 pub struct EntryId(pub u64);   // Ord, Hash
 pub struct Stamp(pub u64);     // Ord; Stamp(0) wird nie an Writes vergeben
 pub struct SharedBytes(pub Arc<[u8]>);  // Default = leer, Clone billig
 pub struct Payload { pub vector: SharedBytes, pub meta: SharedBytes } // Default = beide leer
 ```
+
 Vertrag: `stamp` und `stamps` berühren keine Vektordaten. `stamps` ist nach `EntryId` sortiert und duplikatfrei.
 
 Aus `page_advice`:
+
 ```rust
 pub enum Advice { WillNeed, Sequential, Random, Cold }
 pub struct ByteRange { pub start: u64, pub end: u64 }   // [start, end)
@@ -172,4 +183,5 @@ pub struct MmapAdvisor; impl MmapAdvisor { pub fn new(map: Arc<memmap2::Mmap>) -
 pub fn advise(target: &dyn AdviceTarget, advice: Advice, range: ByteRange) -> Result<(), AdviceError>;
 pub async fn read_blocking<T, F>(f: F) -> Result<T, BlockingError> where F: FnOnce() -> T + Send + 'static, T: Send + 'static;
 ```
+
 Hinweise sind unverbindlich. Ein leerer Bereich ist ein No-op.

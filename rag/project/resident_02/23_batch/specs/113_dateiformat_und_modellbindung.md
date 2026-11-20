@@ -5,6 +5,7 @@
 **Aufgabe:** Das Modul legt das Spalten-Schema und den Index-Header der Parquet-Indexdatei fest. Der Header steht als Key-Value-Metadaten im Datei-Footer. Das Modul prüft die Bindung einer Datei an das Modell über Model-ID, Dimension und Pipeline-Merkmale. Es bildet den Tokenizer-Fingerprint und hält Algorithmus und Version des schnellen 64-Bit-Hash fest.
 
 **Grenzen:**
+
 - Es führt keine I/O aus. Es liest und schreibt keine Parquet-Dateien und berechnet keine Content-Hashes von Dateien. Es vergibt keine Stamps.
 - Es hat keinen globalen Zustand, keine Threads und kein `unsafe`.
 - Der Aufrufer (Parquet-Schreiber/-Leser) überträgt die Key-Value-Paare in den Footer und zurück.
@@ -18,6 +19,7 @@
 - Der Index (Parquet, Arrow-Schema) legt pro Entry eine Zeile ab. Die Stamps stehen in einer eigenen Spalte, damit das Einlesen der Stamps keine Vektoren lädt.
 - Gemischtes Indexieren auf CPU und GPU ist erlaubt. Deshalb sind Compute-Datentyp und Max-Stamp nicht bindend.
 - `ChangeStamp` ist opak. Der Header führt den Max-Stamp daher als Rohwert `u64` (`StampCounter::max_raw()`, `None` entspricht 0).
+- `from_kv`, `check_binding` and `check_column_schema` are called by `parquet_decoder`. The writer (`index_save`) calls `to_kv` and `column_schema`.
 
 ## 3. Interface
 
@@ -165,6 +167,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - `Utf8` wird nur als `Utf8` akzeptiert, nicht als `LargeUtf8`.
 
 **Ableitung** (`from_descriptor`):
+
 - `schema_version = 1`, `max_stamp = 0`, `hash_algorithm = Fast64`, `hash_version = 1`.
 - `model_id`, `dimension`, `normalization`, `query_prefix`, `passage_prefix` und `max_seq_len` werden unverändert aus dem Descriptor übernommen (Präfixe ohne Trimmen).
 - `model_revision`, `tokenizer_fingerprint` and `preprocessing_id` come from the parameters. `preprocessing_id` is `TextPreprocessor::id()` and is the empty string without an external normalizer. It is stored unchanged.
@@ -175,6 +178,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - Alle Verstöße werden gesammelt gemeldet. Die Funktion validiert sonst nichts und paniert nie.
 
 **Key-Value-Darstellung:**
+
 - Zahlen stehen als Dezimal-`u64`-Text, ohne Vorzeichen und ohne Leerraum.
 - Enum-Texte:
   - Pooling: `masked_mean` oder `per_token`.
@@ -195,6 +199,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - `schema_version` wird beim Lesen nur als Zahl geprüft. Eine Abweichung von 1 erkennt `check_binding`.
 
 **Bindung** (`file.check_binding(&expected)`):
+
 - Verglichen werden Gleichheit von:
   - `schema_version`, `hash_algorithm`, `hash_version`
   - `model_id`, `model_revision`, `dimension`
@@ -208,6 +213,7 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - Model-ID und Dimension sind die einzige harte Modellbindung. Die übrigen Merkmale sind die Pipeline-Merkmale, die Vektoren vergleichbar machen.
 
 **Fingerprint:**
+
 - Format `fnv1a64:` plus genau 16 kleine Hex-Stellen mit führenden Nullen. Beispiel: Hash `0x2a` ergibt `fnv1a64:000000000000002a`.
 - `from_loaded` ist deterministisch. Gleiche Tokenizer-Definition ergibt denselben Fingerprint, auch über mehrere Aufrufe und Threads.
 - Schlägt `to_string(false)` fehl, kommt `TokenizerDefinition(msg)`.
@@ -216,10 +222,12 @@ Alle Typen sind reine Wertetypen und `Send + Sync + 'static`. Alle Funktionen si
 - `parse(as_str())` ist die Identität.
 
 **Hash-Festlegung:**
+
 - `HASH_ALGORITHM = Fast64` und `HASH_VERSION = 1` gelten für die Content-Prüfung bei Dateiänderungen. Eine Änderung von Algorithmus oder Version bricht die Bindung.
 - Dieses Modul berechnet diesen Content-Hash nicht.
 
 **Abgeleitete Werte:**
+
 - `vector_bytes() == dimension * 2`.
 - `with_max_stamp(m)` ändert nur `max_stamp`.
 

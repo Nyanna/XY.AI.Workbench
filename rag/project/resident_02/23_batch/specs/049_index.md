@@ -1,9 +1,13 @@
 # Spezifikation: Index (Build-Order 49)
 
+**Status: withdrawn.** No spec and no code uses this spec. It defines a tree-based index with its own `EntryId`/`Stamp` aliases and `IndexError`, which collide with `index_contract`. Its `IndexHeader` (with `producing_profile`, without prefixes and sequence length) and its statement that prefixes and `max_seq_len` do not invalidate an index are void. `index_format` (113) is the only header and binding definition. `index.rs`, `test/index.rs` and the `mod` line are removed at the cutover (see 113b).
+
 ## 1. Aufgabe, Einschränkungen, Grenzen
+
 **Aufgabe:** Rust-Modul `index`. Es hält Entries, Vektordaten und die Traversal-Struktur (Baum) als Source of Truth. Dieselbe Instanz dient als RAM-Darstellung und als persistente Darstellung. Es meldet Änderungen und liefert Struktur und Change-Stamps.
 
 **Einschränkungen:**
+
 - Das Modul kennt keine Subengine, kein Profil, keinen Kernel, keine Geometrie und kein Modell. Es löst keine Scopes auf.
 - Die einzige Modellbindung ist der `IndexHeader`: Model-ID, Dimension und Pipeline-Merkmale. Es führt kein Embedding aus, rechnet keine Ähnlichkeit und konvertiert keine Datentypen.
 - Entry-Payloads sind opake Bytes. Modelle wie Dateien, Sliding Windows, AST-Knoten, Chunks oder fraktale Strukturen bildet der Aufrufer darauf ab (Baum plus Geschwisterreihenfolge). Das Modul kennt sie nicht.
@@ -11,11 +15,13 @@
 - Abhängig sind nur `std`, `layout::DType` und `model_descriptor`. Es gibt keine Fremd-Crates, außer `thiserror` ist ohnehin im Projekt. Es gibt keine globalen Zustände.
 
 ## 2. Kontext
+
 - `ModelDescriptor` (Modellbeschreibung) liefert `model_id`, `dimension`, `storage_dtype`, `pooling` und `normalization`. Der Index bindet sich nur daran.
 - Verbraucher wie Expander, Kernel-Mirror und Subengines nutzen den Index über `Index` (lesen, Batch-Änderungen, Stamps, Change-Feed). Sie sind dem Index unbekannt.
 - Vektoren verschiedener Modelle sind nicht vergleichbar. Deshalb lehnt der Index ein Öffnen mit abweichendem Header ab. `producing_profile` ist nur optionale Diagnose und wird nie verglichen.
 
 ## 3. Interface
+
 ```rust
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
@@ -130,7 +136,9 @@ impl<'a> IndexView<'a> {
 ```
 
 ## 4. Verhalten und Invarianten
+
 **Laden und Header**
+
 - `open` führt keine I/O aus. Jede weitere Methode außer `path` und `subscribe` lädt beim ersten Aufruf genau einmal. Das Laden ist thread-sicher. Parallele Erstzugriffe laden nicht doppelt.
 - Der geladene Header muss `is_compatible(expected)` erfüllen. Sonst liefert jeder Zugriff `ModelMismatch { expected, found }`. Es wird nichts verändert, nichts überschrieben und nichts migriert.
 - Ein anderes `producing_profile` ist kein Mismatch. Der gespeicherte Wert bleibt erhalten.
@@ -139,12 +147,14 @@ impl<'a> IndexView<'a> {
 - Ein Ladefehler ist nicht sticky, wenn er nur transient war (`Io`). Der nächste Zugriff versucht erneut zu laden.
 
 **Persistenz**
+
 - Das Format ist binär, little endian, hat Magic und Formatversion, speichert Header, Stamps, nächste ID und alle Entries samt Reihenfolge und enthält eine Prüfsumme. Die Details bestimmt die Implementierung.
 - `apply` ändert den RAM-Zustand sofort. Die Datei ändert sich nur durch `flush`. Nach `flush` und erneutem `open` sind Entries, Vektoren, Baum, Geschwisterreihenfolge, Entry-Stamps, globaler Stamp, Struktur-Stamp und nächste ID bitgleich wiederhergestellt.
 - `flush` schreibt nie teilweise in die Zielatei. Bei einem Fehler bleibt die alte Datei intakt. `flush` auf einem nie geladenen Index ist ein No-op ohne Fehler. Der Index schreibt nie implizit, auch nicht bei `Drop`.
 - Intern darf der Index Byte-Buffer, Spaltenformate oder mmap nutzen. Sichtbar ist nur dieses Verhalten.
 
 **Mutation**
+
 - `apply` ist atomar. Schlägt eine Op fehl, ändert sich nichts, der Stamp bleibt, und es gibt keine Events.
 - Ein nicht leerer, erfolgreicher Batch erhöht den globalen Stamp um genau 1. Alle Changes des Batches tragen diesen Stamp, ebenso die `stamp`-Felder der betroffenen Entries.
 - `Insert` vergibt die nächste ID (monoton, nie wiederverwendet, auch nicht nach `Remove`). Fehlt `ParentRef::Entry(id)`, ist es `InvalidParent`. `New(i)` muss auf einen früheren `Insert` im selben Batch zeigen, sonst `InvalidParent`.
@@ -157,11 +167,13 @@ impl<'a> IndexView<'a> {
 - Kinder bleiben in der Reihenfolge der Einfügung (Geschwisterreihenfolge), außer `Move` mit `position`.
 
 **Change-Feed**
+
 - `changes_since(s)` liefert alle Changes mit Stamp > s in Stamp-Reihenfolge (innerhalb eines Batches in Op-Reihenfolge). `to` ist der aktuelle Stamp. Bei `s == stamp()` ist die Liste leer. Bei `s > stamp()` ist sie ebenfalls leer.
 - Das Log liegt nur im RAM und wird nicht persistiert. Nach dem Laden ist `oldest` gleich dem geladenen Stamp. Ist `s < oldest`, so gilt `HistoryTruncated { oldest }`, und der Aufrufer muss neu synchronisieren (`read` + `iter`). Der Index darf das Log begrenzen (mindestens die letzten 10 000 Changes), dann steigt `oldest` entsprechend.
 - `subscribe` liefert einen Receiver. Er empfängt jeden Change nach dem Commit, in Stamp-Reihenfolge, ohne Lücken und ohne Duplikate. Gesendet wird, bevor `apply` zurückkehrt. Ein Receiver, der gedroppt wurde, wird still entfernt und führt nie zu Fehlern oder Blockaden (unbegrenzter Kanal). `subscribe` löst kein Laden aus. Changes aus dem Laden selbst gibt es nicht.
 
 **Concurrency**
+
 - `Index` ist `Send + Sync`. Lesen läuft parallel, `apply` und `flush` sind gegenseitig und gegen Leser ausgeschlossen (RwLock).
 - Jeder Leser sieht nur komplette Batches. `read` liefert einen konsistenten Schnappschuss, solange `f` läuft. Ein Aufruf einer `Index`-Methode aus `f` ist verboten und darf blockieren.
 - `get`, `children` und `len` sind einzelne konsistente Lesevorgänge.
@@ -169,12 +181,16 @@ impl<'a> IndexView<'a> {
 - Kein Lock-Poisoning ist nach außen sichtbar. Ein Panic in einem Subscriber ist ausgeschlossen, weil nur Kanäle genutzt werden.
 
 ## 5. Relied-on elements
+
 Aus `layout` (verbatim):
+
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DType { F32, F16, BF16, U8, U32, I64 }
 ```
+
 Aus `model_descriptor` (nur diese Felder und Typen, alle öffentlich, `Send + Sync + 'static`):
+
 ```rust
 pub enum Pooling { Mean, Cls }            // Debug, Clone, Copy, PartialEq, Eq, Hash
 pub enum Normalization { L2, None }       // Debug, Clone, Copy, PartialEq, Eq, Hash
@@ -183,4 +199,5 @@ pub struct ModelDescriptor {
     pub normalization: Normalization, pub storage_dtype: DType, /* weitere Felder ungenutzt */
 }
 ```
+
 `IndexHeader::from_descriptor` kopiert genau `model_id`, `dimension`, `storage_dtype`, `pooling` und `normalization`. Der Index validiert den Descriptor nicht (das tut `validate()` des Aufrufers). Präfixe, `max_seq_len`, Pfade und Compute-Datentypen gehen nicht in den Header ein. Ihre Änderung invalidiert den Index nicht.

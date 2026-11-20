@@ -5,6 +5,7 @@
 **Aufgabe:** Das Modul schreibt einen konsistenten Snapshot eines Index atomar als Parquet-Indexdatei. Der Ablauf ist Temp-Datei, fsync, Rename, fsync des Verzeichnisses. Gleichzeitige Saves werden serialisiert.
 
 **Nicht Teil des Moduls:**
+
 - Das Spalten-Schema und der Header (`index_format`).
 - Die Checksum-Berechnung (`entry_payload`).
 - Die Stamp-Vergabe (`change_stamp`).
@@ -12,7 +13,7 @@
 - Dirty-Verwaltung, Publication und Signal. Sie gehören dem Index, der `SnapshotSource` implementiert.
 - Retry, Scheduling und Trigger für Saves.
 
-**Crates:** `parquet` und `arrow` (nur die bereits in der `Cargo.toml` stehenden), `tracing`, `thiserror`, `std`. Neue Crates sind verboten. Interne Module: `index_format`, `entry_payload`, `change_stamp`, `index_contract`.
+**Crates:** `parquet` und `arrow` (nur die bereits in der `Cargo.toml` stehenden), `tracing`, `thiserror`, `std`. Neue Crates sind verboten. Interne Module: `index_format`, `entry_payload`, `change_stamp`, `index_contract`, `entry_store` (for the `StoreSource` adapter only).
 
 Das Modul ist blockierend. Async-Aufrufer rufen `save` über `page_advice::read_blocking` auf.
 
@@ -22,6 +23,10 @@ Das Modul ist blockierend. Async-Aufrufer rufen `save` über `page_advice::read_
 - Dieses Modul bekommt den Zustand über die Schnittstelle `SnapshotSource`. Sie liefert einen in sich konsistenten Snapshot, die Ursprungsdatei und den Speicher bereits zusammengeführt.
 - Nach erfolgreichem Schreiben meldet das Modul dem Index den Snapshot-Token. Der Index löscht damit nur den Dirty-Zustand, der zum Snapshot gehört. Änderungen, die während des Schreibens eintrafen, bleiben dirty.
 - Die geschriebene Datei wird von `index_open` gelesen: Footer-Header, Schema laut `index_format`, IDs aufsteigend ohne Duplikate, Checksums unverändert.
+- Reader rules the saver must satisfy: entries ascending and unique by id, `1 <= stamp.as_raw() <= snapshot.max_stamp` for every entry, vectors of exactly `vector_bytes()`, no nulls.
+- `SaveConfig.row_group_rows` replaces `OpenOptions.rows_per_group` of the withdrawn spec 048. A default of 8192 is set by the caller.
+- The saver writes `target_file`, `char_start`, `char_end` and `checksum` from `EntryData` directly, not from `meta` bytes.
+- The caller of `IndexSaver::save` is not defined by any spec of this chain. A later spec for the indexing path defines it: it builds `IndexSaver::new(config, Arc::new(StoreSource::new(store)))` and calls `save` through `page_advice::read_blocking`. At the latest the shutdown of `resident` should save the index. Before that, a thread may save periodically and lazily on entry.
 
 ## 3. Interface
 
@@ -103,24 +108,41 @@ impl IndexSaver {
 
 `IndexSaver`, `SaveOutcome` und `SaveError` sind `Send + Sync + 'static` (Test per static assertion).
 
+Adapter that makes `EntryStore` the snapshot source:
+
+```rust
+use entry_store::EntryStore;
+
+pub struct StoreSource { /* Arc<EntryStore> */ }
+impl StoreSource { pub fn new(store: Arc<EntryStore>) -> Self; }
+impl SnapshotSource for StoreSource {}
+```
+
+- `snapshot()`: `store.export()`. `Ok(None)` gives `None`. `Err(e)` is logged with `error!` and gives `None` (the store stays dirty, the saver reports `Unchanged`). `Ok(Some(x))` gives `Snapshot { token: SnapshotToken(x.seq), max_stamp: x.max_stamp, entries }`, where every entry becomes `SnapshotEntry { id, stamp: ChangeStamp::from_raw(stamp.0), data: EntryData::from_stored(vector, SourceRef::from_meta(&meta)?, checksum) }`. A `MetaError` is treated like `Err(e)`. `from_stored` keeps the stored checksum and does not recompute it.
+- `mark_saved(token)`: `store.mark_saved_upto(token.0)`.
+
 ## 4. Verhalten und Invarianten
 
 **Serialisierung**
+
 - `save` nimmt zuerst einen exklusiven Lock (`Mutex<()>`). Der Lock wird bis nach `mark_saved` bzw. bis zum Fehlerende gehalten. Gleichzeitige Saves laufen nacheinander.
 - `snapshot()` wird erst unter dem Lock aufgerufen. Ein wartender Save sieht deshalb den Zustand nach dem vorherigen Save. Ist er dann nicht mehr dirty, liefert er `Unchanged`.
 - Ein Lock-Poisoning ist kein Panic. Der Lock wird weiterverwendet (`into_inner`).
 
 **Ohne Änderung**
+
 - Liefert `snapshot()` `None`, kommt `Ok(Unchanged)`.
 - Es wird nichts erzeugt oder verändert (keine Temp-Datei, kein Rename). `mark_saved` wird nicht aufgerufen.
 
 **Mit Änderung**
+
 - Der Snapshot wird einmal gezogen und vollständig geschrieben.
 - Änderungen, die danach eintreffen, gehören nicht zur Datei. Sie bleiben dirty, weil `mark_saved(snapshot.token)` nur den Stand bis zum Token quittiert.
 - Bei Erfolg kommt `Ok(Written { rows, row_groups })`. Danach wird genau einmal `mark_saved(token)` aufgerufen.
 - Bei Fehler wird `mark_saved` nicht aufgerufen. Der Index bleibt dirty.
 
 **Dateiinhalt**
+
 - Eine Zeile je `SnapshotEntry`, aufsteigend nach `entry_id`. Eine Zeile je Entry, ohne Duplikate.
 - Spalten laut `index_format::column_schema(header.dimension)` in dieser Reihenfolge: `entry_id` ← `id.0`, `change_stamp` ← `stamp.as_raw()`, `vector` ← `data.vector` (FP16 LE, als Float16-Elemente der FixedSizeList), `target_file`, `char_start`, `char_end` ← `data.source`, `checksum` ← `data.checksum()`.
 - Stamps, Vektorbytes, Verweise und Checksums werden unverändert übernommen. Es gibt keine Neuberechnung, kein `recompute` und kein Neuvergeben von Stamps.
@@ -135,14 +157,17 @@ impl IndexSaver {
   - Header als Key-Value-Metadaten im Footer.
 
 **Atomares Schreiben**
+
 1. Die Temp-Datei liegt im selben Verzeichnis wie das Ziel, Name `<Zieldateiname>.tmp`. Sie wird neu angelegt, mit Truncate. Eine Temp-Datei eines früheren Absturzes wird überschrieben.
 2. Alle Row-Groups schreiben und den Writer schließen (Footer).
 3. `File::sync_all` auf der Temp-Datei.
 4. `rename(temp, ziel)` ersetzt das Ziel atomar.
 5. Das übergeordnete Verzeichnis öffnen und `sync_all` darauf ausführen.
+
 - Das Ziel ist zu jedem Zeitpunkt entweder die vollständige alte oder die vollständige neue Datei.
 
 **Fehler**
+
 - Jeder Fehler in Schema, Vektorlänge, Arrow-/Parquet-Schreiben, I/O, fsync, Rename oder Verzeichnis-fsync ergibt `SaveError::Unavailable { path, cause }`. `path` ist der Zielpfad, `cause` die Ursache im Klartext. Es gibt keinen Panic.
 - Bei einem Fehler vor dem Rename wird die Temp-Datei gelöscht (best effort, ein Lösch-Fehler wird nur geloggt) und das Ziel bleibt unangetastet.
 - Schlägt der Rename fehl, wird die Temp-Datei gelöscht und das Ziel bleibt unangetastet.
@@ -151,10 +176,12 @@ impl IndexSaver {
 - Es gibt keinen Retry. Der nächste `save` beginnt neu.
 
 **Logging**
+
 - Bei `Written` genau ein `info!` mit Pfad, Schema-Version (`header.schema_version`), Modell (`model_id`, `model_revision`), Zeilenzahl und Row-Group-Zahl.
 - Bei `Unchanged` kein `info!` (höchstens `debug!`).
 
 **Nebenläufigkeit**
+
 - `save` kann von beliebig vielen Threads gleichzeitig aufgerufen werden.
 - Ein Save blockiert Writer des Index nicht. Das Halten des Saver-Locks verhindert keine Änderungen am Index. `snapshot()` verantwortet die kurze Konsistenz-Sperre im Index.
 - Der Saver lockt nicht den Index.
