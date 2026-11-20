@@ -269,6 +269,13 @@ pub enum LaneKind {
 /// Opaque stream. Implemented by the GPU binding; CPU lanes have none.
 pub trait StreamBackend: Send + Sync + fmt::Debug {
     fn record_event(&self) -> Result<Box<dyn GpuEventBackend>, String>;
+    /// Runs `f` once all work enqueued on the stream so far has completed, on a thread owned by
+    /// the backend. `f` must not call into the device API. `Ok(true)`: registered.
+    /// `Ok(false)`: not supported, `f` is dropped unused.
+    fn notify_on_complete(&self, f: Box<dyn FnOnce() + Send>) -> Result<bool, String> {
+        drop(f);
+        Ok(false)
+    }
 }
 #[derive(Clone, Debug)]
 pub struct LaneConfig {
