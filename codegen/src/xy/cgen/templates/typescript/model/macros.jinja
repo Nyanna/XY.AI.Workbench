@@ -1,0 +1,51 @@
+{# Emits an optional doc comment and leaves the output positioned at the member's indentation. #}
+{% macro tsdoc(description, example_repr, indent="  ") %}
+{% if description or example_repr %}
+{{ indent }}/**
+{% if description %}
+{% for line in description.split('\n') %}
+{{ indent }} * {{ line | replace('*/', '*\\/') }}
+{% endfor %}
+{% endif %}
+{% if example_repr %}
+{{ indent }} * Example: {{ example_repr | replace('*/', '*\\/') }}
+{% endif %}
+{{ indent }} */
+{% endif %}
+{{ indent -}}
+{% endmacro %}
+{% macro imports(fqns, package, self_fqn, modules, type_only=false) %}
+{% for fqn in (fqns | tsimports(self_fqn)) %}
+import {{ 'type ' if type_only else '' }}{ {{ fqn.split('.')[-1] }} as {{ fqn | tsref }} } from {{ fqn | tspath(package) | tojson }};
+{% endfor %}
+{% for fqn in modules %}
+import * as {{ fqn | tsref }} from {{ fqn | tspath(package) | tojson }};
+{% endfor %}
+{% endmacro %}
+{# Reads `child` and returns the typed view; the caller declares `child` beforehand. #}
+{% macro read(x, self_fqn) %}
+{% if x.category == 'primitive' %}
+    if (child === undefined || child === null) {
+      return null;
+    }
+    return child as {{ x.java_type }};
+{% elif x.category == 'enum' %}
+    if (child === undefined || child === null) {
+      return null;
+    }
+    return child as {{ x.java_type | tsref(self_fqn) }};
+{% elif x.category == 'any_dictionary' %}
+    return child ?? null;
+{% elif x.category == 'composition' %}
+    if (child === undefined) {
+      return null;
+    }
+    return new {{ x.java_type | tsref(self_fqn) }}(child as ConstructorParameters<typeof {{ x.java_type | tsref(self_fqn) }}>[0]);
+{% else %}
+    if (child === undefined || child === null) {
+      return null;
+    }
+    return new {{ x.java_type | tsref(self_fqn) }}(child as ConstructorParameters<typeof {{ x.java_type | tsref(self_fqn) }}>[0]);
+{% endif %}
+{% endmacro %}
+{% macro jsval(x) %}{% if x.category in ('complex', 'composition') %}value === null ? null : value.node{% else %}value{% endif %}{% endmacro %}

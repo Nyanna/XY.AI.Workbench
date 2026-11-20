@@ -48,5 +48,10 @@ def _emit_code(code_node, model, writer) -> None:
     name = model.name_of(code_node)
     content_types = build_content_type_branches(code_node, model)
     template = get_env(model.language).get_template('io/code.jinja')
-    content = template.render(package=name.package, class_name=name.class_name, content_types=content_types)
+    content = template.render(
+        package=name.package,
+        class_name=name.class_name,
+        content_types=content_types,
+        json_support_fqn=json_support_fqn(
+            model.base_package))
     _write(name, content, writer, model.language)

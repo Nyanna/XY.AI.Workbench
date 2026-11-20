@@ -49,7 +49,7 @@ OpenAPI YAML Schema
 ### Command-Line Interface
 
 ```bash
-cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>] [--language java|php|python]
+cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <package.name>] [--language java|php|python|rust|typescript]
 ```
 
 ### Arguments
@@ -57,7 +57,18 @@ cgen --schema <path-to-openapi.yaml> --out <output-directory> [--base-package <p
 - `--schema` (required): Path to the OpenAPI 3.1 YAML schema file
 - `--out` (required): Output directory where generated Java sources will be written
 - `--base-package` (optional): Root package for generated code
-- `--language` (optional): Target language, `java`, `php` or `python` (default: `java`); selects the `templates/<language>` directory
+- `--language` (optional): Target language, `java`, `php`, `python`, `rust` or `typescript` (default: `java`); selects the `templates/<language>` directory
+
+### TypeScript target
+
+`--language typescript` generates `.ts` files that need no runtime dependency: the client uses the global `fetch`, the server `node:http`.
+
+- **Runtime**: Node >= 22.18 (or >= 23.6) runs the output directly via type stripping; the generated code only uses erasable syntax (no `enum`, no parameter properties), so any other TypeScript toolchain works as well.
+- **Modules**: ESM only, relative imports carry the `.ts` extension. The output directory must lie within a package with `"type": "module"`. For `tsc` use `module`/`moduleResolution: nodenext` with `allowImportingTsExtensions`.
+- **Client**: `XxxClientImpl(baseUrl, fetchImpl = fetch)`; override `customizeRequest(request)` to set e.g. `Authorization`. All operation methods return a `Promise`.
+- **Server**: extend the abstract `XxxServer`, implement the operation methods (same signatures as the client interface) and call `start(port)`, or use `handle(req, res)` as a request listener of your own `node:http` server.
+- **Models**: proxies over the parsed JSON value with `getX()`/`setX()` returning `T | null`; enums are `const` objects plus a union type of the same name.
+- Parameter names that are TypeScript-only reserved words (e.g. `delete`, `function`, `in`) are not escaped.
 
 ## Project Structure
 

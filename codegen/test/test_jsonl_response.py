@@ -10,7 +10,8 @@ from xy.cgen.model.nodes import ListNode, RefNode
 JSONL = 'application/x-jsonl'
 JSON = 'application/json'
 LANGUAGES = [('java', 'java', 'parseBody', 'writeBody'), ('python', 'py', 'parse_body', 'write_body'),
-             ('php', 'php', 'parseBody', 'writeBody'), ('rust', 'rs', 'parse_body', 'write_body')]
+             ('php', 'php', 'parseBody', 'writeBody'), ('rust', 'rs', 'parse_body', 'write_body'),
+             ('typescript', 'ts', 'parseBody', 'writeBody')]
 
 def make_spec(response_content: str) -> str:
     return textwrap.dedent("        openapi: 3.1.0\n        info:\n          title: test\n          version: '1'\n        paths:\n          /batches/results:\n            get:\n              operationId: getResults\n              responses:\n                '200':\n                  description: Successful Response\n                  content:\n        ") + \

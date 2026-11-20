@@ -8,7 +8,8 @@ from xy.cgen.lang.rust import RUST
 from xy.cgen.lang.java import JAVA
 from xy.cgen.lang.php import PHP
 from xy.cgen.lang.python import PYTHON
-LANGUAGES = {'java': JAVA, 'php': PHP, 'python': PYTHON, 'rust': RUST}
+from xy.cgen.lang.typescript import TYPESCRIPT
+LANGUAGES = {'java': JAVA, 'php': PHP, 'python': PYTHON, 'rust': RUST, 'typescript': TYPESCRIPT}
 
 def get_language(language: str) -> LanguageSupport:
     return LANGUAGES[language]
