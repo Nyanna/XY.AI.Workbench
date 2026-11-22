@@ -4,7 +4,7 @@
 
 **Task.** Implement the Rust module `gpu_subengine`, the CUDA implementation of a sub-engine. It consists of three components.
 
-1. **`GpuManager`** is the GPU manager and a separate component.
+1. **`GpuDeviceManager`** is the manager of the GPU devices and a separate component. It is not the `GpuManager` of an index (build order 138).
    - It enumerates the CUDA devices through an injected `GpuBackend`.
    - It retains exactly **one primary context per GPU** and keeps it for its own lifetime.
    - It builds one `GpuSubengine` per usable GPU.
@@ -16,10 +16,11 @@
 3. **`VramManager`** manages the VRAM of one GPU.
    - **Arenas.** It reserves the six arenas once, checks the budget, and keeps the Weights extents.
    - **Models.** It keeps encoder models in a swappable VRAM lifecycle registry (TTL).
-   - **Index segments.** It streams them through `manager::Manager` in batches.
+   - **Index segments.** It reserves the arena for them and builds the segment structures of each attached index (§4.5). The memory manager of an index (`gpu_manager::GpuManager`, 138) places entries in segments and publishes them. The coordinator (`index_ops::IndexOperations`, 140) serializes that.
    - It is the bridge between the index in RAM and its VRAM representation.
 
 **Restrictions.**
+
 - The module is **not coupled** to concrete kernels, models or indexes. It knows them only as `ResourceKey`, `ModelId`, `IndexId`, `Kernel` and `Index` through the interfaces below.
 - All CUDA calls sit behind `GpuBackend` (§3). The module contains no `unsafe`, no `cudarc` or `candle_core` import, and no globals.
 - All device work goes through lanes with a stream, via `SubengineCore::with_lane` or a `LaneResource`. The default stream is never used.
@@ -37,9 +38,9 @@
   - The lane resource owns its lanes and worker threads. It aggregates a batch and calls `notify_result` once per batch.
   - This module builds `LaneResource`s but does not run the loop.
 - **Subengine core (132):**
-  - It owns encoder, scorer and index-segment handles, creates lanes on `activate`, and registers resources.
+  - It owns encoder and scorer handles, creates lanes on `activate`, and registers resources. It does not own the segments of an index. The `GpuManager` of the index creates them in the IndexSegments arena.
   - Its lane kinds are Query, Insert, Update, CopyH2D and CopyD2H.
-- **Manager (136):** maps `EntryId` to a slot in a segment and streams entries into VRAM. It is created here, one per attached index.
+- **GPU-Manager (138) and coordinator (140):** the memory manager of one index in VRAM. It maps entries to slots in segments, publishes segments and keeps the residency in sync with the index. The sub-engine builds one pair for each attached index and provides the services they need (§4.5).
 - **Memory modules:**
   - `arenas` defines six arenas, the budget and the fit-check.
   - `speicherverwaltung` (`Speicher`) is the sub-allocator.
@@ -59,13 +60,22 @@ use std::time::{Duration, Instant};
 use arenas::{Arena, ArenaCapacities, ArenaKind, Budget, BudgetError, MemoryQuery};
 use capability_model::CapabilitySet;
 use capability_detection::{CapabilityConfig, DetectError, DetectedCapabilities, GpuProbe};
-use device_lane_event::{DeviceHandle, Lane, Priority, StreamBackend};
+use device_lane_event::{DeviceHandle, Event, Lane, Priority, StreamBackend};
 use index_contract::EntryId;
 use kernel_register::KernelRegister;
 use kernel_scoring::Metric;
 use layout::DType;
 use lane_batching::{BatchPayload, BatchMeta, BatchRunner, LaneResource, LaneResourceConfig, LaneSetError};
-use manager::{LazyIndex, Manager, ManagerConfig, ManagerError, SlotTransfer, UploadReport};
+use manager::LazyIndex;
+use manager_lifecycle::IndexManager;
+use gpu_manager::{EnsureReport, GpuManager, GpuManagerError, GpuServices, LoadedQueue, StructureLock};
+use index_ops::{IndexOpError, IndexOperations, ManagedIndex};
+use residency::{BackendFactory, IndexSpec, ResidencyBackend};
+use scope_resolution::{CellSelector, ScopeResolverRegistry};
+use scopes::EntrySet;
+use table_swap::{RootSlot, TableSink, TableSwap, TableSwapError};
+use kernel_layout::Addr;
+use region_handle::RegionHandle;
 use memory_access::Region;
 use model_descriptor::ModelDescriptor;
 use model_registry::{LoadedEncoder, ModelRegistry};
@@ -73,7 +83,7 @@ use queue::Queue;
 use resource_lifecycle::{InitRequest, LifecycleConfig, LifecycleError, LoadTicket, ResourceRegistry};
 use resource_requirements::{HasResourceRequirements, IndexId, ModelId, ResourceKind};
 use speicherverwaltung::MemError;
-use subengine_core::{IndexSegment, PathPolicy, QueueRegistrations, SubengineCore, SubengineError};
+use subengine_core::{PathPolicy, QueueRegistrations, SubengineCore, SubengineError};
 use target_env::ComputeCapability;
 use weight_source::{LoadedWeights, WeightError, WeightFile};
 
@@ -90,7 +100,7 @@ pub struct GpuDeviceInfo {
 
 pub trait GpuBackend: Send + Sync {
     fn devices(&self) -> Result<Vec<GpuDeviceInfo>, String>;
-    /// Retains the primary context of the device. Called at most once per device by GpuManager.
+    /// Retains the primary context of the device. Called at most once per device by GpuDeviceManager.
     fn retain_primary_context(&self, ordinal: u32) -> Result<(), String>;
     fn probe(&self, ordinal: u32) -> Arc<dyn GpuProbe>;
     /// New stream in the primary context of the device.
@@ -99,8 +109,16 @@ pub trait GpuBackend: Send + Sync {
     /// Reserves the memory of an arena once: VRAM for device arenas, pinned host memory for
     /// Staging and MappedHost. Dropping the Region frees it. Offsets in the Region start at 0.
     fn reserve_arena(&self, ordinal: u32, arena: Arena) -> Result<Region, String>;
-    /// Host-to-slot copy of the sub-engine's index segments.
-    fn slot_transfer(&self, ordinal: u32) -> Arc<dyn SlotTransfer>;
+    /// Device address of byte 0 of a region of the IndexSegments arena.
+    fn device_base(&self, ordinal: u32, handle: &RegionHandle) -> Option<Addr>;
+    /// Copies `bytes` into the region at `offset` on the CopyH2D path. The event completes when the content is visible to the device.
+    fn write_visible(&self, ordinal: u32, handle: &RegionHandle, offset: u64, bytes: &[u8]) -> Result<Event, String>;
+    /// Writes the kernel table (`SegmentEntry[]` bytes) to VRAM, ordered before work later submitted on `lane`.
+    /// Returns the device address of the table.
+    fn write_kernel_table(&self, ordinal: u32, lane: &mut Lane, table: &[u8]) -> Result<u64, String>;
+    /// Sink and root slot for the `TableSwap` of the sub-engine.
+    fn table_sink(&self, ordinal: u32) -> Arc<dyn TableSink>;
+    fn root_slot(&self, ordinal: u32) -> Arc<dyn RootSlot>;
 }
 
 // ---------- Configuration ----------
@@ -124,7 +142,7 @@ impl Default for GpuConfig { /* F16, headroom DEFAULT_HEADROOM, generations 1, w
                                 lifecycle ram_ttl 60s / vram_ttl 600s / backoff 5s, deadlines 30s / 300s */ }
 
 #[derive(Clone, Debug)]
-pub struct GpuManagerConfig {
+pub struct GpuDeviceManagerConfig {
     pub devices: Option<Vec<u32>>,          // None = all backend devices
     pub gpu: GpuConfig,                     // applied to every device
 }
@@ -135,6 +153,8 @@ pub struct GpuShared {
     pub kernels: Arc<KernelRegister>,
     pub registry: Arc<ModelRegistry>,
     pub registrations: Arc<QueueRegistrations>,
+    pub resolver: Arc<ScopeResolverRegistry>,
+    pub cell_selector: Option<Arc<dyn CellSelector>>,
 }
 
 // ---------- Errors ----------
@@ -152,7 +172,9 @@ pub enum GpuError {
     Memory(MemError),
     Budget(BudgetError),
     Lifecycle(LifecycleError),
-    Manager(ManagerError),
+    IndexMemory(GpuManagerError),
+    IndexOp(IndexOpError),
+    Table(TableSwapError),
     Weights(WeightError),
     LaneSet(LaneSetError),
     /// "Modell {0:?} nicht registriert" / "Index {0:?} nicht angebunden" / "Index {0:?} bereits angebunden"
@@ -163,13 +185,13 @@ pub enum GpuError {
 }
 // Display + std::error::Error. Send + Sync + 'static.
 
-// ---------- GPU-Manager ----------
+// ---------- GPU device manager ----------
 
-pub struct GpuManager { /* backend, primary contexts, Vec<Arc<GpuSubengine>> */ }   // Send + Sync
-impl GpuManager {
+pub struct GpuDeviceManager { /* backend, primary contexts, Vec<Arc<GpuSubengine>> */ }   // Send + Sync
+impl GpuDeviceManager {
     /// Enumerates devices, retains one primary context per selected device, detects capabilities
     /// and builds one GpuSubengine per device. Loads nothing, reserves no VRAM.
-    pub fn new(backend: Arc<dyn GpuBackend>, shared: GpuShared, cfg: GpuManagerConfig) -> Result<GpuManager, GpuError>;
+    pub fn new(backend: Arc<dyn GpuBackend>, shared: GpuShared, cfg: GpuDeviceManagerConfig) -> Result<GpuDeviceManager, GpuError>;
     pub fn devices(&self) -> &[GpuDeviceInfo];                    // of the usable devices
     pub fn subengines(&self) -> Vec<Arc<GpuSubengine>>;           // ordered by ordinal
     pub fn subengine(&self, ordinal: u32) -> Option<Arc<GpuSubengine>>;
@@ -220,19 +242,26 @@ impl GpuSubengine {
     /// End-of-iteration eviction of expired models (VRAM TTL). Returns the evicted models.
     pub fn evict_expired_models(&self, now: Instant) -> Vec<ModelId>;
 
-    // Indexes. Segments come from the memory backend (RegionHandle + Layout).
-    pub fn attach_index(&self, index: IndexId, segments: Vec<IndexSegment>, lazy: Arc<dyn LazyIndex>,
-                        cfg: ManagerConfig) -> Result<Arc<Manager>, GpuError>;
-    pub fn manager(&self, index: &IndexId) -> Option<Arc<Manager>>;
-    /// Streams the entries into VRAM in batches of `upload_batch` (§4.5).
-    pub fn stream_entries(&self, index: &IndexId, ids: &[EntryId]) -> Result<UploadReport, GpuError>;
+    // Indexes. The GpuManager of an index creates its segments dynamically in the IndexSegments arena.
+    pub fn attach_index(&self, index: IndexId, manager: Arc<IndexManager>, spec: IndexSpec)
+        -> Result<Arc<IndexMemory>, GpuError>;
+    pub fn index_memory(&self, index: &IndexId) -> Option<Arc<IndexMemory>>;
+    /// Loads the entries into VRAM in batches of `upload_batch` (§4.5).
+    pub fn ensure_entries(&self, index: &IndexId, ids: &[EntryId]) -> Result<EnsureReport, GpuError>;
 
     /// Builds a lane resource with `worker_lanes` new Query lanes (own streams) for the Subengine-Loop.
     pub fn build_lane_resource<M, P>(&self, cfg: LaneResourceConfig<M, P>, runner: Arc<dyn BatchRunner<P>>)
         -> Result<Arc<LaneResource<M, P>>, GpuError>
     where P: BatchPayload, M: BatchMeta + HasResourceRequirements + Send + Sync + 'static;
 }
+/// Memory manager and coordinator of one attached index. Send + Sync.
+pub struct IndexMemory { pub gpu: Arc<GpuManager>, pub ops: Arc<IndexOperations> }
+
 impl planner::Subengine for GpuSubengine { /* name, start, capabilities, offers, announce, activate, is_loaded */ }
+
+/// Builds the memory manager and coordinator of an index for the `ResidencyController` (125).
+/// `create` is `attach_index` and returns the `IndexOperations` of the new `IndexMemory`.
+impl BackendFactory for GpuSubengine {}
 
 /// FP16-first path policy of the GPU. Used by GpuSubengine; public for tests.
 pub struct Fp16FirstPolicy { /* default dtype, kernel names */ }
@@ -242,7 +271,7 @@ impl Fp16FirstPolicy {
 impl PathPolicy for Fp16FirstPolicy { /* §4.3 */ }
 
 impl GpuSubengine {
-    /// Used by GpuManager. Validates, builds the core; creates no lane and reserves no VRAM.
+    /// Used by GpuDeviceManager. Validates, builds the core; creates no lane and reserves no VRAM.
     pub fn new(info: GpuDeviceInfo, backend: Arc<dyn GpuBackend>, shared: GpuShared, cfg: GpuConfig)
         -> Result<Arc<GpuSubengine>, GpuError>;
 }
@@ -251,19 +280,21 @@ impl GpuSubengine {
 ## 4. Behavior and invariants
 
 ### 4.1 Configuration (`GpuConfig::validate`, first error wins, `InvalidConfig`)
+
 - `default_dtype` must be F16 or F32. BF16 and non-float types are rejected.
 - `worker_lanes >= 1` and `upload_batch >= 1`.
 - `lifecycle.vram_ttl >= 2 * lifecycle.ram_ttl` ("clearly longer"). The lifecycle itself only guarantees `>`.
 - `vram_init_deadline >= 2 * ram_init_deadline`.
 
-`GpuManager::new` and `GpuSubengine::new` validate.
+`GpuDeviceManager::new` and `GpuSubengine::new` validate.
 
-### 4.2 GpuManager and VRAM arenas
-- `GpuManager::new`:
+### 4.2 GpuDeviceManager and VRAM arenas
+
+- `GpuDeviceManager::new`:
   - Calls `backend.devices()`. An error gives `Backend`.
   - With `devices = Some(list)`, a missing ordinal gives `InvalidConfig` and no device is retained.
   - For each selected device, in ascending ordinal order:
-    - `retain_primary_context` is called exactly once. This is the single primary context of the device; all lanes and streams of the device belong to it. The context stays retained for the lifetime of the `GpuManager`.
+    - `retain_primary_context` is called exactly once. This is the single primary context of the device; all lanes and streams of the device belong to it. The context stays retained for the lifetime of the `GpuDeviceManager`.
     - Capabilities are detected with `detect_capabilities(Gpu(n), Some(probe), &cfg.capability)`.
   - With `devices = None`, a device whose context retention or detection fails is skipped and logged at `warn!`.
   - With an explicit list, such a failure returns the error.
@@ -279,6 +310,7 @@ impl GpuSubengine {
 - The VRAM budget is limited. Nothing grows. Overflow gives an error (`Memory(OutOfMemory)` or `Budget`), never a new reservation.
 
 ### 4.3 Capabilities, lanes, FP16, paths
+
 - `GpuSubengine::new` builds `SubengineConfig`:
   - `name = "gpu:{ordinal}"`.
   - `device = Gpu(ordinal)`.
@@ -302,6 +334,7 @@ impl GpuSubengine {
 - The policy only decides. The core loads a kernel only through `KernelRegister::request(path.kernel, path.dtype, path.variant)`. This module holds no kernel cache; the Kernel-Register caches, compiles and swaps kernels.
 
 ### 4.4 Weights: RAM to VRAM, swap
+
 - `stage_weights(file, select)` computes the required size with the same layout rule as `WeightFile::copy_to_arena`:
   - tensors in file order, each start aligned up to `WEIGHT_ALIGN`;
   - size = end of the last selected tensor.
@@ -321,6 +354,7 @@ impl GpuSubengine {
 - Extents of live sets never overlap. Concurrent `stage_weights` calls get disjoint extents.
 
 ### 4.5 Models, index streaming, batching
+
 - **Model lifecycle.**
   - `register_model(model, descriptor)` registers `ModelRegistry::encoder_resource(descriptor, DeviceClass::Gpu).loader` in a `ResourceRegistry<LoadedEncoder>` with `MemoryClass::Vram`.
   - The registry key is `"gpu:{ordinal}:{model_id}"`. It is **not** `encoder_key`, because that is only architecture-specific and would collide for two models of one architecture.
@@ -332,20 +366,30 @@ impl GpuSubengine {
   - `evict_expired_models(now)` calls `evict_expired` and returns the keys mapped back to `ModelId`s. TTL is `lifecycle.vram_ttl`; models in use (lease alive), loading or in backoff are never evicted.
   - A model is swapped in again lazily by the next `request_model`.
 - **Encoder ownership.** Encoders live only in this registry. They are not adopted into the core, because the core keeps adopted `Arc`s until it is dropped and would block swapping.
-- **Index attach.** `attach_index`:
-  - requires every `segment.index == index`, otherwise `InvalidConfig`;
+- **Segment structures.** After `ensure_arenas`, the sub-engine builds these shared parts once, on the first `attach_index`:
+  - one `Bookkeeping::new(arena_set)` over the `ArenaSet` of the `VramManager`, and an `AllocatorSet::new(bookkeeping, &[(Arena{IndexSegments, capacity}, DeviceKind::Gpu)])`;
+  - `allocators.shared(ArenaKind::IndexSegments)` (119c C3) as the one `Arc<Allocator>` of the arena, and on top of it `SegmentArena::new(allocator, SegmentArenaConfig)`;
+  - one `TableSwap::new(allocator, backend.table_sink(ordinal), backend.root_slot(ordinal))` with that same allocator.
+  - Segments of all attached indexes live in this one arena and in this one table.
+- **Index attach.** `attach_index(index, manager, spec)`:
+  - requires `ResourceKind::Index` in `core.offers()` and `vram.arenas_ready()`. Otherwise it returns `InvalidConfig`;
   - rejects an already attached index with `AlreadyAttached`;
-  - calls `core.adopt_index_segment` for each segment in order;
-  - then calls `Manager::new(core, index, lazy, backend.slot_transfer(ordinal), cfg)`.
-  - It stores and returns the `Arc<Manager>`. It loads and uploads nothing, and does not activate the index.
-  - A failure gives `Subengine(..)` or `Manager(..)`, and no manager is stored.
-- **Streaming.** `stream_entries(index, ids)`:
+  - builds the services of this index (an implementation of `GpuServices`):
+    - shared: the arena and the `TableSwap` from above;
+    - own to the index: `MappingStore::new()`, `ManifestStore::new(StoreConfig::default())`, `Eviction::new(label, swap, store, allocators, TierBudget::for_vram(&cfg.arenas, generations, headroom), TierBudget::default())`, `UpdateQueue::new()`, an `Arc<Mutex<ResidencyDirectory>>` and a `StructureLock`;
+    - `device_base`, `write_visible` and `write_kernel_table` forward to the backend with the ordinal of the sub-engine;
+  - creates one `LoadedQueue`, then `GpuManager::new(services, Arc::new(ManagedIndex::new(manager.clone())), shared.resolver, shared.cell_selector, queue.clone(), cfg)` with `cfg` built from `spec`, then `IndexOperations::new(manager, gpu.clone(), queue)`;
+  - stores and returns the `Arc<IndexMemory>`. It loads nothing and does not activate the index.
+  - A failure gives `IndexMemory(..)`, `IndexOp(..)` or `Subengine(..)`, and nothing is stored.
+  - All evictions of the sub-engine see the same IndexSegments capacity. The arena is the hard limit, so `make_room` only frees the segments of its own index.
+- **Residency backend.** `BackendFactory::create(id, spec, manager)` is `attach_index(id, manager, spec)` and returns the `IndexOperations` as `Arc<dyn ResidencyBackend>`.
+- **Loading entries.** `ensure_entries(index, ids)`:
   - It de-duplicates `ids` in first-occurrence order and cuts them into chunks of `upload_batch`.
-  - It calls `Manager::upload` per chunk, in order, and merges the `UploadReport`s by appending the lists.
-  - The chunks bound the time the CopyH2D lane is held and let eviction and uploading interleave.
-  - A failing entry lands in `failed` and does not abort the other entries. Entries already resident are not copied again.
+  - Per chunk, in order, it calls `ops.load(|_, _| gpu.ensure(&EntrySet::from_ids(chunk)))` and merges the `EnsureReport`s by appending the lists and adding the counters.
+  - The chunks bound the time the CopyH2D lane is held and let eviction and loading interleave.
+  - A failing entry lands in `failed` and does not abort the other entries. Entries already resident or waiting for their bind are not copied again.
   - An unknown index gives `UnknownIndex`. Empty `ids` gives an empty report without any index call.
-  - Eviction of entries (LRU, swapping) and update application stay in `Manager`; they remain callable through `manager(index)`.
+  - Eviction of segments and the application of updates stay in `GpuManager` and in the Communication-Slot; they remain callable through `index_memory(index)`.
 - **Staging.** Host-to-VRAM transfers run on the CopyH2D lane and the Update lane of the core. The pinned Staging and MappedHost regions are available through `arena_region`. This module does not itself copy index data.
 - **Lane resource.** `build_lane_resource`:
   - rejects a `cfg.device` different from `self.device()` with `InvalidConfig`;
@@ -354,6 +398,7 @@ impl GpuSubengine {
   - These lanes are independent of the core's lanes.
 
 ### 4.6 `Subengine` implementation and concurrency
+
 - `activate`:
   - It runs `vram.ensure_arenas()` first, then `core.activate()`.
   - It is idempotent and serialized. Errors come back as `Err(Display)` and are not cached.
@@ -366,8 +411,8 @@ impl GpuSubengine {
   - It is read-only, never activates and never loads.
 - All other trait methods delegate to the core unchanged.
 - **Thread safety.**
-  - All methods take `&self` and are callable from any thread. `GpuManager`, `GpuSubengine`, `VramManager`, `WeightSet` and `GpuError` are `Send + Sync` (static assertion in a test).
-  - No lock is held across backend calls, `Manager` or `Index` calls, `ticket.run` or `with_lane`.
+  - All methods take `&self` and are callable from any thread. `GpuDeviceManager`, `GpuSubengine`, `IndexMemory`, `VramManager`, `WeightSet` and `GpuError` are `Send + Sync` (static assertion in a test).
+  - No lock is held across backend calls, `GpuManager`, `IndexOperations` or `Index` calls, `ticket.run` or `with_lane`.
   - The VRAM allocator and the model map use short locks.
 - **Unavailability.** If the sub-engine is not active, lane work fails with `Subengine(NotActive)`. No panic occurs on valid use.
 - **Determinism.** The same configuration and call sequence give the same capabilities, registrations and weight offsets.
@@ -393,7 +438,7 @@ impl GpuSubengine {
 - **Capability-Erkennung:**
   - `detect_capabilities(DeviceHandle, Option<&dyn GpuProbe>, &CapabilityConfig) -> Result<DetectedCapabilities, DetectError>`.
   - `GpuProbe { compute_capability() -> Option<ComputeCapability>, device_name() -> Option<String> }`.
-  - On CC 7.5 the result contains fp32, fp16, int8_dp4a and on/off.
+  - On CC 7.5 the result contains fp32, fp16, int8\_dp4a and on/off.
   - It contains no Tensor-Core or BF16 value.
 - **Unterstützte Precisions:** the GPU has scoring kernels for F32 and F16. BF16 is never a compute path.
 - **`resource_lifecycle`:**
@@ -412,12 +457,20 @@ impl GpuSubengine {
   - `LaneResourceConfig { own_head, shared_head, filter, limit, notifier, kind, device }`.
   - `LaneResource` implements `ResourceExec` and `LoadReporting`. `execute` is non-blocking.
   - Batch aggregation and `notify_result` (once per batch) are done by this component.
-- **`manager`:**
-  - `Manager::new(Arc<SubengineCore>, IndexId, Arc<dyn LazyIndex>, Arc<dyn SlotTransfer>, ManagerConfig) -> Result<Manager, ManagerError>`.
-  - It requires `ResourceKind::Index` in `core.offers()`.
-  - `upload(&[EntryId]) -> UploadReport { uploaded, already_resident, evicted, failed }`, with LRU eviction of unpinned entries.
+- **`gpu_manager` (138):**
+  - `GpuManager::new(Arc<dyn GpuServices>, Arc<dyn LazyIndex>, Arc<ScopeResolverRegistry>, Option<Arc<dyn CellSelector>>, LoadedQueue, GpuManagerConfig)` and `ensure(&EntrySet) -> Result<EnsureReport, GpuManagerError>`.
+  - `trait GpuServices` (`arena`, `table_swap`, `mapping_store`, `manifests`, `eviction`, `updates`, `residency`, `structure_lock`, `device_base`, `write_visible`, `write_kernel_table`), `StructureLock::new()`, `LoadedQueue::default()`.
   - Its calls never block kernels.
-  - `SlotTransfer::write_slot(&self, &mut Lane, &IndexSegment, slot, byte_offset, &[u8]) -> Result<(), String>`.
+- **`index_ops` (140):** `IndexOperations::new(Arc<IndexManager>, Arc<GpuManager>, LoadedQueue)`, `load(op)`, `ManagedIndex::new(Arc<IndexManager>)`, and `impl ResidencyBackend for IndexOperations`.
+- **`residency` (125):** `IndexSpec`, `BackendFactory::create(&IndexId, &IndexSpec, Arc<IndexManager>) -> Result<Arc<dyn ResidencyBackend>, String>`.
+- **`manager_lifecycle` (050):** `IndexManager` (`attach`, `index`, `run_cycle`).
+- **`manager`:** `trait LazyIndex: Send + Sync`.
+- **Segment structures:**
+  - `table_swap`: `TableSwap::new(Arc<Allocator>, Arc<dyn TableSink>, Arc<dyn RootSlot>)`, `TableSink`, `RootSlot`.
+  - `address_map`: `MappingStore::new()`. `manifest`: `ManifestStore::new(StoreConfig)`.
+  - `eviction`: `Eviction::new(index, swap, store, allocators, TierBudget, TierBudget)` and `TierBudget::for_vram(&ArenaCapacities, generations, headroom)`.
+  - `update_queue`: `UpdateQueue::new()`. `reconcile`: `ResidencyDirectory::new()`.
+  - `segment_arena`: `SegmentArena::new(Arc<Allocator>, SegmentArenaConfig)`. `allocator`: `AllocatorSet::{new, shared, allocator_for}` (119c C3) and `Bookkeeping::new(Arc<ArenaSet>)`.
 - **`arenas`:**
   - `ArenaKind { Weights, IndexSegments, Workspace, Staging, ParameterBlock, MappedHost }`.
   - `ArenaCapacities::{get, set, device_need, generation_reserve(generations)}`.
@@ -434,7 +487,7 @@ impl GpuSubengine {
   - `WeightFile::{tensors() -> &[WeightInfo], copy_to_arena(&Arena, &Region, base_offset, &dyn Fn(&str) -> bool) -> Result<LoadedWeights, WeightError>}`.
   - Layout: file order, start = `align_up(cursor, 256)`, one `Region::write` per tensor.
   - `WeightInfo { name, dtype, shape, data_begin, data_end }`.
-- **`index_contract`:** `EntryId`; `Index` is used only through `Manager`.
+- **`index_contract`:** `EntryId`; `Index` is used only through `GpuManager` and `IndexOperations`.
 - **`kernel_register`:** `KernelRegister::request(name, dtype, Variant)` is the only way to load a kernel. BF16 is rejected.
 - **`target_env`:** `ComputeCapability { major, minor }`.
 - **`region_handle`:** `RegionHandle` is pointer-free and never resolved here.
