@@ -28,8 +28,8 @@ class InsertItem:
     """
     path: str
     source: str
+    id: str
     position: str = 'after'
-    id: str | None = None
     add_import: list[str] | None = None
     remove_import: list[str] | None = None
 
@@ -128,7 +128,7 @@ class InsertNodeTool(ToolDefinition):
             'default': 'after'},
         **PATH_SELECTOR_PROPS,
         **IMPORT_PROPS}
-    _ITEM_REQUIRED = ['path', 'source']
+    _ITEM_REQUIRED = ['path', 'source', 'id']
     _ITEMS_DESCRIPTION = 'Insert operations to apply.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
 
@@ -143,7 +143,7 @@ class InsertNodeTool(ToolDefinition):
                 position=it.get(
                     'position',
                     'after'),
-                id=it.get('id'),
+                id=it['id'],
                 add_import=add_import,
                 remove_import=remove_import)
         return handle_batch_tool(ctx, item_factory, ast_insert, core.AstError, auto_approve=True)

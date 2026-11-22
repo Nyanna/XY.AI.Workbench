@@ -46,7 +46,19 @@ FILE_DOC = '# Doc\n\nintro\n\n## Part 1\n\nalpha\n\n## Part 2\n\nbeta\n'
 def engine() -> MarkdownEngine:
     return MarkdownEngine()
 
-def _find(engine: MarkdownEngine, tree: Tree, node_id: str) -> Located:
+def _section_id(tree: Tree, *names: str) -> str:
+    names_by_id = {loc.node_id: loc.name for loc in tree.engine.locate_all(tree) if loc.node_type == 'Section'}
+    for node_id in names_by_id:
+        parts = node_id.split('.')
+        if tuple(names_by_id.get('.'.join(parts[:n])) for n in range(1, len(parts) + 1)) == names:
+            return node_id
+    raise LookupError(names)
+
+def _file_id(path: str, *names: str) -> str:
+    return _section_id(core.load(path)[1], *names)
+
+def _find(engine: MarkdownEngine, tree: Tree, *names: str) -> Located:
+    node_id = _section_id(tree, *names)
     return next((loc for loc in engine.locate_all(tree) if loc.node_id == node_id))
 
 def _ids(engine: MarkdownEngine, source: str) -> list[str]:
@@ -192,7 +204,9 @@ def test_locate_all_builds_heading_tree(engine: MarkdownEngine) -> None:
             'Section',
         'BlockGroup']
     sections = [loc for loc in located if loc.node_type == 'Section']
-    assert [loc.node_id for loc in sections] == ['Title', 'Title.Section_A', 'Title.Section_B']
+    section_ids = [loc.node_id for loc in sections]
+    assert len(set(section_ids)) == 3
+    assert all(i.startswith(section_ids[0] + '.') for i in section_ids[1:])
     assert [loc.name for loc in sections] == ['Title', 'Section A', 'Section B']
     assert located[0].parent_type == 'Root'
     assert all((loc.parent_type == 'Section' for loc in located[1:]))
@@ -200,9 +214,9 @@ def test_locate_all_builds_heading_tree(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_line_ranges_are_one_based_and_inclusive(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    ranges = {loc.node_id: (loc.lineno, loc.end_lineno)
+    ranges = {loc.name: (loc.lineno, loc.end_lineno)
               for loc in engine.locate_all(tree) if loc.node_type == 'Section'}
-    assert ranges == {'Title': (1, 11), 'Title.Section_A': (5, 7), 'Title.Section_B': (9, 11)}
+    assert ranges == {'Title': (1, 11), 'Section A': (5, 7), 'Section B': (9, 11)}
 
 @requires_engine
 def test_child_ids_extend_parent_id_and_are_unique(engine: MarkdownEngine) -> None:
@@ -210,7 +224,7 @@ def test_child_ids_extend_parent_id_and_are_unique(engine: MarkdownEngine) -> No
     ids = [loc.node_id for loc in located]
     assert len(ids) == len(set(ids))
     for loc in located[1:]:
-        assert loc.node_id.startswith('Title.')
+        assert loc.node_id.startswith(located[0].node_id + '.')
 
 @requires_engine
 def test_anonymous_block_ids_are_content_stable(engine: MarkdownEngine) -> None:
@@ -226,7 +240,7 @@ def test_anonymous_block_ids_are_content_stable(engine: MarkdownEngine) -> None:
 def test_signature_docstring_and_code(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
     title = _find(engine, tree, 'Title')
-    section_a = _find(engine, tree, 'Title.Section_A')
+    section_a = _find(engine, tree, 'Title', 'Section A')
     assert engine.signature(title.node) == '# Title'
     assert engine.signature(section_a.node) == '## Section A'
     assert engine.docstring(section_a.node) == 'First paragraph.'
@@ -249,32 +263,35 @@ def test_frontmatter_is_its_own_node(engine: MarkdownEngine) -> None:
     assert [loc.node_type for loc in located] == ['Frontmatter', 'Section', 'BlockGroup']
     assert (located[0].lineno, located[0].end_lineno) == (1, 3)
     assert located[0].parent_type == 'Root'
-    assert located[1].node_id == 'H1'
+    assert located[1].name == 'H1' and '.' not in located[1].node_id
 
 @requires_engine
 def test_setext_headings_are_sections(engine: MarkdownEngine) -> None:
     located = engine.locate_all(engine.parse('Setext\n======\n\npara\n\nSub\n---\n\nmore\n'))
     sections = [loc for loc in located if loc.node_type == 'Section']
-    assert [loc.node_id for loc in sections] == ['Setext', 'Setext.Sub']
+    assert [loc.name for loc in sections] == ['Setext', 'Sub']
+    assert sections[1].node_id.startswith(sections[0].node_id + '.')
     assert [engine.signature(loc.node) for loc in sections] == ['# Setext', '## Sub']
 
 @requires_engine
 def test_skipped_heading_levels_nest_under_previous(engine: MarkdownEngine) -> None:
-    ids = _ids(engine, '# A\n\n#### Deep\n\ntext\n\n## B\n')
-    assert [i for i in ids if '|' not in i] == ['A', 'A.Deep', 'A.B']
+    sections = [loc for loc in engine.locate_all(engine.parse('# A\n\n#### Deep\n\ntext\n\n## B\n')) if loc.node_type == 'Section']
+    assert [loc.name for loc in sections] == ['A', 'Deep', 'B']
+    assert all(loc.node_id.startswith(sections[0].node_id + '.') and loc.node_id.count('.') == 1 for loc in sections[1:])
 
 @requires_engine
 def test_duplicate_headings_get_numbered_ids(engine: MarkdownEngine) -> None:
     ids = [i for i in _ids(engine, '# T\n\n## A\n\nx\n\n## A\n\ny\n') if '|' not in i]
-    assert ids == ['T', 'T.A', 'T.A_2']
+    assert len(ids) == 3 and ids[2] == ids[1] + '_2'
     ids = [i for i in _ids(engine, '# A\n\n# A\n') if '|' not in i]
-    assert ids == ['A', 'A_2']
+    assert len(ids) == 2 and ids[1] == ids[0] + '_2'
 
 @requires_engine
 def test_headings_inside_code_quote_and_list_are_not_sections(engine: MarkdownEngine) -> None:
     source = '# Real\n\n```\n# not heading\n```\n\n> # quoted\n\n- # in list\n\n## Next\n'
-    sections = [loc.node_id for loc in engine.locate_all(engine.parse(source)) if loc.node_type == 'Section']
-    assert sections == ['Real', 'Real.Next']
+    sections = [loc for loc in engine.locate_all(engine.parse(source)) if loc.node_type == 'Section']
+    assert [loc.name for loc in sections] == ['Real', 'Next']
+    assert sections[1].node_id.startswith(sections[0].node_id + '.')
 
 @requires_engine
 def test_mixed_blocks_form_one_block_group(engine: MarkdownEngine) -> None:
@@ -295,7 +312,7 @@ def test_unicode_headings_and_content(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_thematic_breaks_do_not_split_sections(engine: MarkdownEngine) -> None:
     located = engine.locate_all(engine.parse('# A\n\nx\n\n---\n\n# B\n\ny\n'))
-    assert [loc.node_id for loc in located if loc.node_type == 'Section'] == ['A', 'B']
+    assert [loc.name for loc in located if loc.node_type == 'Section'] == ['A', 'B']
     assert all((loc.parent_type != 'Page' for loc in located))
 '# ---------------------------------------------------------------------------'
 '# Mutationen'
@@ -312,16 +329,18 @@ def test_replace_paragraph(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_replace_section_with_new_heading_and_body(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    engine.replace(_find(engine, tree, 'Title.Section_A'), '## Section A2\n\nnew body')
+    engine.replace(_find(engine, tree, 'Title', 'Section A'), '## Section A2\n\nnew body')
     assert engine.serialize(
         tree) == '# Title\n\nIntro text.\n\n## Section A2\n\nnew body\n\n## Section B\n\nSecond paragraph.\n'
-    assert 'Title.Section_A2' in _ids(engine, tree.source)
-    assert 'Title.Section_A' not in _ids(engine, tree.source)
+    reparsed = engine.parse(tree.source)
+    assert _section_id(reparsed, 'Title', 'Section A2')
+    with pytest.raises(LookupError):
+        _section_id(reparsed, 'Title', 'Section A')
 
 @requires_engine
 def test_replace_changes_heading_level(engine: MarkdownEngine) -> None:
     tree = engine.parse('# A\n\n## B\n\nb\n\n## C\n\nc\n')
-    engine.replace(_find(engine, tree, 'A.B'), '### B3\n\nlevel3')
+    engine.replace(_find(engine, tree, 'A', 'B'), '### B3\n\nlevel3')
     assert engine.serialize(tree) == '# A\n\n### B3\n\nlevel3\n\n## C\n\nc\n'
 
 @requires_engine
@@ -333,26 +352,26 @@ def test_replace_root_section_replaces_whole_document(engine: MarkdownEngine) ->
 @requires_engine
 def test_replace_with_multiple_blocks(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith('Title.Section_B.')))
+    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Section B') + '.')))
     engine.replace(block, 'one\n\n- a\n- b\n\n```js\nx\n```')
     assert engine.serialize(tree).endswith('## Section B\n\none\n\n- a\n- b\n\n```js\nx\n```\n')
 
 @requires_engine
 def test_insert_section_before_and_after(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    assert engine.insert(_find(engine, tree, 'Title.Section_B'), '## Mid\n\nmid', 'before') == 2
+    assert engine.insert(_find(engine, tree, 'Title', 'Section B'), '## Mid\n\nmid', 'before') == 2
     assert engine.serialize(
         tree) == '# Title\n\nIntro text.\n\n## Section A\n\nFirst paragraph.\n\n## Mid\n\nmid\n\n## Section B\n\nSecond paragraph.\n'
     tree = engine.parse(DOC)
-    assert engine.insert(_find(engine, tree, 'Title.Section_B'), '## After\n\nx', 'after') == 2
+    assert engine.insert(_find(engine, tree, 'Title', 'Section B'), '## After\n\nx', 'after') == 2
     assert engine.serialize(tree).endswith('Second paragraph.\n\n## After\n\nx\n')
 
 @requires_engine
 def test_insert_returns_number_of_blocks(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    assert engine.insert(_find(engine, tree, 'Title.Section_A'), 'single', 'after') == 1
+    assert engine.insert(_find(engine, tree, 'Title', 'Section A'), 'single', 'after') == 1
     tree = engine.parse(DOC)
-    assert engine.insert(_find(engine, tree, 'Title.Section_A'), 'p1\n\np2\n\np3', 'after') == 3
+    assert engine.insert(_find(engine, tree, 'Title', 'Section A'), 'p1\n\np2\n\np3', 'after') == 3
 
 @requires_engine
 def test_insert_before_first_node(engine: MarkdownEngine) -> None:
@@ -363,13 +382,13 @@ def test_insert_before_first_node(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_delete_section(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    engine.delete(_find(engine, tree, 'Title.Section_A'))
+    engine.delete(_find(engine, tree, 'Title', 'Section A'))
     assert engine.serialize(tree) == '# Title\n\nIntro text.\n\n## Section B\n\nSecond paragraph.\n'
 
 @requires_engine
 def test_delete_paragraph_and_whole_document(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith('Title.Section_A.')))
+    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Section A') + '.')))
     engine.delete(block)
     assert 'First paragraph.' not in engine.serialize(tree)
     assert '## Section A' in engine.serialize(tree)
@@ -397,7 +416,7 @@ def test_mutation_normalizes_document(engine: MarkdownEngine) -> None:
     source = '# Title\n\n* item one\n* item two\n\n\nSome   *emph*   and __strong__ text.\n\n## Sec\n\nlast\n'
     tree = engine.parse(source)
     assert engine.serialize(tree) == source
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith('Title.Sec.')))
+    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Sec') + '.')))
     engine.replace(block, 'changed')
     assert engine.serialize(
         tree) == '# Title\n\n- item one\n- item two\n\nSome   _emph_   and **strong** text.\n\n## Sec\n\nchanged\n'
@@ -405,7 +424,7 @@ def test_mutation_normalizes_document(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_mutation_normalizes_crlf_to_lf(engine: MarkdownEngine) -> None:
     tree = engine.parse('# A\r\n\r\ntext\r\n\r\n## B\r\n\r\nmore\r\n')
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith('A.B.')))
+    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'A', 'B') + '.')))
     engine.replace(block, 'new')
     assert '\r' not in engine.serialize(tree)
     assert engine.serialize(tree) == '# A\n\ntext\n\n## B\n\nnew\n'
@@ -419,9 +438,9 @@ def test_mutation_keeps_frontmatter(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_mutations_chain_on_the_same_tree(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    engine.replace(_find(engine, tree, 'Title.Section_A'), '## A\n\nfirst')
-    engine.insert(_find(engine, tree, 'Title.A'), '## A2\n\nsecond', 'after')
-    engine.delete(_find(engine, tree, 'Title.Section_B'))
+    engine.replace(_find(engine, tree, 'Title', 'Section A'), '## A\n\nfirst')
+    engine.insert(_find(engine, tree, 'Title', 'A'), '## A2\n\nsecond', 'after')
+    engine.delete(_find(engine, tree, 'Title', 'Section B'))
     engine.append(tree, '## Z\n\nlast')
     assert engine.serialize(tree) == '# Title\n\nIntro text.\n\n## A\n\nfirst\n\n## A2\n\nsecond\n\n## Z\n\nlast\n'
 '# ---------------------------------------------------------------------------'
@@ -446,13 +465,13 @@ def test_unknown_node_id_raises_and_keeps_source(engine: MarkdownEngine, operati
 def test_empty_replacement_is_rejected(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
     with pytest.raises(AstError):
-        engine.replace(_find(engine, tree, 'Title.Section_A'), '')
+        engine.replace(_find(engine, tree, 'Title', 'Section A'), '')
     assert tree.source == DOC
 
 @requires_engine
 def test_control_characters_are_rejected_before_the_call(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    loc = _find(engine, tree, 'Title.Section_A')
+    loc = _find(engine, tree, 'Title', 'Section A')
     with pytest.raises(AstError, match='control character'):
         engine.replace(loc, 'a\x01b')
     with pytest.raises(AstError, match='control character'):
@@ -476,7 +495,7 @@ def test_concurrent_requests_are_isolated(engine: MarkdownEngine) -> None:
 
     def work(i: int) -> bool:
         tree = engine.parse(f'# Doc{i}\n\ntext {i}\n\n## Sub\n\nbody {i}\n')
-        engine.replace(_find(engine, tree, f'Doc{i}.Sub'), f'## Sub\n\nnew {i}')
+        engine.replace(_find(engine, tree, f'Doc{i}', 'Sub'), f'## Sub\n\nnew {i}')
         return tree.source == f'# Doc{i}\n\ntext {i}\n\n## Sub\n\nnew {i}\n'
     with ThreadPoolExecutor(16) as pool:
         assert all(pool.map(work, range(96)))
@@ -501,7 +520,7 @@ def test_large_document(engine: MarkdownEngine) -> None:
         ''.join((f'## Section {i}\n\n' + ''.join((f'Paragraph {i}.{j} lorem ipsum.\n\n' for j in range(5))) for i in range(sections)))
     tree = engine.parse(source)
     assert len(engine.locate_all(tree)) == 1 + 2 * sections
-    engine.replace(_find(engine, tree, f'Big.Section_{sections - 1}'), f'## Section {sections - 1}\n\nX')
+    engine.replace(_find(engine, tree, 'Big', f'Section {sections - 1}'), f'## Section {sections - 1}\n\nX')
     assert tree.source.endswith(f'## Section {sections - 1}\n\nX\n')
     assert 'Section 0' in tree.source
 
@@ -531,44 +550,44 @@ def test_load_uses_markdown_rpc_engine(md_file: str) -> None:
 @requires_engine
 def test_outline_lists_sections_and_blocks(md_file: str) -> None:
     nodes = ast_outline([md_file]).results[0].nodes
-    assert [node.id for node in nodes] == ['Doc']
+    assert [node.id for node in nodes] == [_file_id(md_file, 'Doc')]
     child_ids = [child.id for child in nodes[0].children]
-    assert 'Doc.Part_1' in child_ids and 'Doc.Part_2' in child_ids
+    assert _file_id(md_file, 'Doc', 'Part 1') in child_ids and _file_id(md_file, 'Doc', 'Part 2') in child_ids
     assert nodes[0].excert == '# Doc'
 
 @requires_engine
 def test_find_by_type_and_name(md_file: str) -> None:
     sections = _flatten(ast_find(paths=[md_file], node_type='Section').files[0].nodes)
-    assert [node.id for node in sections] == ['Doc', 'Doc.Part_1', 'Doc.Part_2']
+    assert [node.id for node in sections] == [_file_id(md_file, 'Doc'), _file_id(md_file, 'Doc', 'Part 1'), _file_id(md_file, 'Doc', 'Part 2')]
     named = _flatten(ast_find(paths=[md_file], name='Part 2').files[0].nodes)
-    assert [node.id for node in named] == ['Doc.Part_2']
+    assert [node.id for node in named] == [_file_id(md_file, 'Doc', 'Part 2')]
     assert named[0].code == '## Part 2\n\nbeta\n'
 
 @requires_engine
 def test_read_returns_section_source(md_file: str) -> None:
-    result = ast_read(items=[ReadItem(path=md_file, ids=['Doc.Part_1'])])
+    result = ast_read(items=[ReadItem(path=md_file, ids=[_file_id(md_file, 'Doc', 'Part 1')])])
     assert not result.errors
     assert result.results[0].nodes[0].code == '## Part 1\n\nalpha\n'
 
 @requires_engine
 def test_replace_via_tool_writes_file(md_file: str) -> None:
-    result = ast_replace(items=[ReplaceItem(path=md_file, source='## Part 1\n\nALPHA', id='Doc.Part_1')])
+    result = ast_replace(items=[ReplaceItem(path=md_file, source='## Part 1\n\nALPHA', id=_file_id(md_file, 'Doc', 'Part 1'))])
     assert not result.errors
-    assert result.results[0].new_id == 'Doc.Part_1'
+    assert result.results[0].new_id == _file_id(md_file, 'Doc', 'Part 1')
     assert Path(md_file).read_text(encoding='utf-8') == '# Doc\n\nintro\n\n## Part 1\n\nALPHA\n\n## Part 2\n\nbeta\n'
 
 @requires_engine
 def test_insert_via_tool_reports_ids(md_file: str) -> None:
-    result = ast_insert(items=[InsertItem(path=md_file, source='## Part 1b\n\nmid', id='Doc.Part_1', position='after')])
+    result = ast_insert(items=[InsertItem(path=md_file, source='## Part 1b\n\nmid', id=_file_id(md_file, 'Doc', 'Part 1'), position='after')])
     assert not result.errors
     assert result.results[0].inserted == 2
-    assert result.results[0].ids[0] == 'Doc.Part_1b'
+    assert result.results[0].ids[0] == _file_id(md_file, 'Doc', 'Part 1b')
     assert Path(md_file).read_text(
         encoding='utf-8') == '# Doc\n\nintro\n\n## Part 1\n\nalpha\n\n## Part 1b\n\nmid\n\n## Part 2\n\nbeta\n'
 
 @requires_engine
 def test_delete_via_tool(md_file: str) -> None:
-    result = ast_delete(items=[DeleteItem(path=md_file, id='Doc.Part_2')])
+    result = ast_delete(items=[DeleteItem(path=md_file, id=_file_id(md_file, 'Doc', 'Part 2'))])
     assert not result.errors
     assert Path(md_file).read_text(encoding='utf-8') == '# Doc\n\nintro\n\n## Part 1\n\nalpha\n'
 
@@ -581,14 +600,14 @@ def test_edit_marks_via_tool(md_file: str) -> None:
                 start_marker='alpha',
                 end_marker='alpha',
                 content='gamma',
-                id='Doc.Part_1')])
+                id=_file_id(md_file, 'Doc', 'Part 1'))])
     assert not result.errors
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'gamma' in text and 'alpha' not in text and ('beta' in text)
 
 @requires_engine
 def test_edit_block_via_tool(md_file: str) -> None:
-    result = ast_edit_block(items=[EditBlockItem(path=md_file, old_text='beta', new_text='delta', id='Doc.Part_2')])
+    result = ast_edit_block(items=[EditBlockItem(path=md_file, old_text='beta', new_text='delta', id=_file_id(md_file, 'Doc', 'Part 2'))])
     assert not result.errors
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'delta' in text and 'beta' not in text and ('alpha' in text)
@@ -600,11 +619,11 @@ def test_batch_of_edits_in_one_call(md_file: str) -> None:
             ReplaceItem(
                 path=md_file,
                 source='## Part 1\n\nONE',
-                id='Doc.Part_1'),
+                id=_file_id(md_file, 'Doc', 'Part 1')),
             ReplaceItem(
                 path=md_file,
                 source='## Part 2\n\nTWO',
-                id='Doc.Part_2')])
+                id=_file_id(md_file, 'Doc', 'Part 2'))])
     assert not result.errors and len(result.results) == 2
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'ONE' in text and 'TWO' in text and ('alpha' not in text) and ('beta' not in text)
@@ -641,21 +660,21 @@ def test_cache_follows_external_changes(md_file: str) -> None:
     assert core.CACHE.get_tree(path) is first
     path.write_text('# Other\n\nchanged\n', encoding='utf-8')
     _, second = core.load(md_file)
-    assert [loc.node_id for loc in core.locate_all(second) if loc.node_type == 'Section'] == ['Other']
+    assert [loc.name for loc in core.locate_all(second) if loc.node_type == 'Section'] == ['Other']
 
 @requires_engine
 def test_cache_follows_tool_edits(md_file: str) -> None:
-    ast_replace(items=[ReplaceItem(path=md_file, source='## Part 1\n\nNEW', id='Doc.Part_1')])
+    ast_replace(items=[ReplaceItem(path=md_file, source='## Part 1\n\nNEW', id=_file_id(md_file, 'Doc', 'Part 1'))])
     _, tree = core.load(md_file)
     assert 'NEW' in tree.source
-    result = ast_read(items=[ReadItem(path=md_file, ids=['Doc.Part_1'])])
+    result = ast_read(items=[ReadItem(path=md_file, ids=[_file_id(md_file, 'Doc', 'Part 1')])])
     assert result.results[0].nodes[0].code == '## Part 1\n\nNEW\n'
 
 @requires_engine
 def test_unicode_file_roundtrip_via_tool(tmp_path: Path) -> None:
     path = tmp_path / 'u.md'
     path.write_text('# Grüße\n\nText 日本 😀\n\n## Teil\n\nalt\n', encoding='utf-8')
-    ast_replace(items=[ReplaceItem(path=str(path), source='## Teil\n\nneu äöü', id='Grüße.Teil')])
+    ast_replace(items=[ReplaceItem(path=str(path), source='## Teil\n\nneu äöü', id=_file_id(str(path), 'Grüße', 'Teil'))])
     assert path.read_text(encoding='utf-8') == '# Grüße\n\nText 日本 😀\n\n## Teil\n\nneu äöü\n'
 '# ---------------------------------------------------------------------------'
 '# ast_retrieve über die Tool-Registry'
@@ -671,11 +690,11 @@ def _retrieve(registry: ToolRegistry, arguments: dict):
 @requires_engine
 def test_retrieve_outline_find_read(registry: ToolRegistry, md_file: str) -> None:
     result = _retrieve(registry, {'outline': [md_file], 'find': [{'paths': [md_file], 'name': 'Part 1'}], 'read': [
-                       {'path': md_file, 'ids': ['Doc.Part_2']}]})
+                       {'path': md_file, 'ids': [_file_id(md_file, 'Doc', 'Part 2')]}]})
     assert not result.is_error
     content = result.structured_content
     assert set(content) == {'outline', 'find', 'read'}
-    assert 'Doc.Part_1' in str(content['find'])
+    assert _file_id(md_file, 'Doc', 'Part 1') in str(content['find'])
     assert 'beta' in str(content['read'])
 
 @requires_engine
@@ -686,7 +705,7 @@ def test_retrieve_search_returns_node_ids_usable_for_read(registry: ToolRegistry
     assert not first.is_error
     entry = first.structured_content['search']['results'][0]['matches'][0]
     node_id = entry['nodes'][0]['id']
-    assert node_id.startswith('Doc.Part_2')
+    assert node_id.startswith(_file_id(md_file, 'Doc', 'Part 2'))
     second = _retrieve(registry, {'read': [{'path': md_file, 'ids': [node_id]}]})
     assert not second.is_error
     assert 'beta' in str(second.structured_content['read'])
