@@ -53,31 +53,27 @@ describe('NodeLocator', () => {
   const engine = new MarkdownAstEngine();
   const nodes = locateAll(engine.parseDocument(DOC), engine);
   const section = (name: string) => nodes.find((n) => n.isDefinition && n.name === name)!;
+  const SEG = '[0-9a-zA-Z]{4}';
 
-  it('assigns short, unique, alphanumeric hash ids', () => {
+  it('addresses sections by dot-joined hash segments, unique per document', () => {
     const ids = nodes.map((n) => n.id);
     assert.equal(new Set(ids).size, ids.length);
-    assert.ok(ids.every((id) => /^[0-9a-zA-Z]{5}$/.test(id)));
+    const guide = section('Guide');
+    assert.match(guide.id, new RegExp(`^${SEG}$`));
+    assert.match(section('Über uns').id, new RegExp(`^${guide.id}\\.${SEG}$`));
   });
 
   it('keeps sibling sections with equal names apart', () => {
     const installs = nodes.filter((n) => n.name === 'Install');
     assert.equal(installs.length, 2);
     assert.notEqual(installs[0]!.id, installs[1]!.id);
+    assert.match(installs[1]!.id, /_2$/);
   });
 
   it('keeps section ids stable across edits elsewhere and across repeated runs', () => {
     const changed = locateAll(engine.parseDocument(DOC.replace('let x = 1;', 'let y = 2;')), engine);
     assert.deepEqual(changed.filter((n) => n.isDefinition).map((n) => n.id), nodes.filter((n) => n.isDefinition).map((n) => n.id));
     assert.deepEqual(locateAll(engine.parseDocument(DOC), engine).map((n) => n.id), nodes.map((n) => n.id));
-  });
-
-  it('lengthens ids only as far as needed for uniqueness in large documents', () => {
-    const doc = Array.from({ length: 5000 }, (_, i) => `# Heading ${i}`).join('\n\n');
-    const ids = locateAll(engine.parseDocument(doc), engine).map((n) => n.id);
-    assert.equal(new Set(ids).size, 5000);
-    assert.ok(ids.every((id) => id.length >= 5 && id.length <= 8));
-    assert.ok(ids.filter((id) => id.length === 5).length > 4500);
   });
 
   it('reports section metadata', () => {
@@ -94,7 +90,16 @@ describe('NodeLocator', () => {
     const groups = nodes.filter((n) => !n.isDefinition);
     assert.equal(groups[0]!.type, 'Frontmatter');
     assert.equal(groups[1]!.type, 'BlockGroup');
-    assert.equal(groups[2]!.parentType, 'Section');
+    assert.match(groups[1]!.id, new RegExp(`^${SEG}\\|${SEG}$`));
+    assert.match(groups[2]!.id, new RegExp(`^${section('Guide').id}\\.${SEG}\\|${SEG}$`));
+  });
+
+  it('keeps the group prefix when only the middle changes', () => {
+    const text = 'Alpha beta gamma delta epsilon zeta eta theta MIDDLE iota kappa lambda mu nu xi omicron pi rho sigma tau end.';
+    const before = locateAll(engine.parseDocument(`# A\n\n${text}\n`), engine).find((n) => !n.isDefinition)!.id;
+    const after = locateAll(engine.parseDocument(`# A\n\n${text.replace('MIDDLE', 'CHANGED')}\n`), engine).find((n) => !n.isDefinition)!.id;
+    assert.equal(before.split('|')[0], after.split('|')[0]);
+    assert.notEqual(before, after);
   });
 
   it('splits groups at the character cap', () => {

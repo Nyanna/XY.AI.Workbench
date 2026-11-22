@@ -5,13 +5,16 @@ import { headingText, type MarkdownAstEngine } from './MarkdownAstEngine.ts';
 
 /** A group keeps accumulating sibling blocks until adding the next one would push its source past this many characters. */
 const SEGMENT_MAX_CHARS = 1000;
-const UNSAFE = /[^\p{L}\p{N}_]+/gu;
+
 const HASH_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-/** Shortest public id length; grows per node only while a shorter prefix would collide within the document. */
-const MIN_ID_LENGTH = 5;
 
-const FULL_HASH_LENGTH = 12;
+
+
+
+
+/** Length of the base62 hash segment of a section name and of each half of an anonymous group segment. */
+const HASH_LENGTH = 4;
 
 /**
  * Flattens a markdown tree into every addressable node, in document order. Headings open nested
@@ -19,37 +22,19 @@ const FULL_HASH_LENGTH = 12;
  * frontmatter and consecutive runs of other blocks (paragraphs, lists, code, ...) are collapsed into
  * anonymous groups capped at {@link SEGMENT_MAX_CHARS}.
  *
- * Each node has an internal structural key (heading-name path for sections, content-hash path for
- * anonymous groups). The public id is the shortest prefix (at least {@link MIN_ID_LENGTH} chars) of
- * the base62 hash of that key which is unique within the document, e.g. `a1B2c`. Ids are rebuilt on
- * every call from the live tree.
+ * Ids are dot-joined paths of short hash segments, unique among siblings (so unique per document):
+ * `a1B2` for a section (hash of its heading text) and `<prefixHash>|<contentHash>` for an anonymous
+ * group, e.g. `a1B2.c3D4|e5F6`. Rebuilt on every call from the live tree.
  */
 export function locateAll(root: Root, engine: MarkdownAstEngine): AddressableNode[] {
   const out: AddressableNode[] = [];
   walk(root, 0, root.children.length, 'Root', '', engine, out);
-  return shortenIds(out);
+  return out;
 }
 
-function shortenIds(nodes: AddressableNode[]): AddressableNode[] {
-  const hashes = nodes.map((n) => base62Hash(n.id, FULL_HASH_LENGTH));
-  const order = hashes.map((_, i) => i).sort((a, b) => (hashes[a]! < hashes[b]! ? -1 : hashes[a]! > hashes[b]! ? 1 : 0));
-  const lengths = new Array<number>(nodes.length).fill(MIN_ID_LENGTH);
-  for (let k = 1; k < order.length; k++) {
-    const a = order[k - 1]!;
-    const b = order[k]!;
-    const needed = commonPrefix(hashes[a]!, hashes[b]!) + 1;
-    lengths[a] = Math.max(lengths[a]!, needed);
-    lengths[b] = Math.max(lengths[b]!, needed);
-  }
-  return nodes.map((n, i) => ({ ...n, id: hashes[i]!.slice(0, lengths[i]) }));
-}
 
-function commonPrefix(a: string, b: string): number {
-  let n = 0;
-  while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n))
-    n++;
-  return n;
-}
+
+
 
 function walk(root: Root, from: number, to: number, parentType: string, parentId: string, engine: MarkdownAstEngine, out: AddressableNode[]): void {
   const children = root.children;
@@ -60,7 +45,7 @@ function walk(root: Root, from: number, to: number, parentType: string, parentId
     if (node.type === 'heading') {
       const end = sectionEnd(children, i, to);
       const name = headingText(node);
-      const id = join(parentId, segment(name, KIND_SECTION, used));
+      const id = join(parentId, segment(name, used));
       out.push({
         id,
         range: { kind: KIND_SECTION, start: i, end },
@@ -128,14 +113,13 @@ function join(parentId: string, seg: string): string {
   return parentId === '' ? seg : `${parentId}.${seg}`;
 }
 
-function segment(name: string, type: string, used: Map<string, number>): string {
-  const base = name.replace(UNSAFE, '_').replace(/^_+|_+$/g, '') || type;
-  return unique(base, used);
+function segment(name: string, used: Map<string, number>): string {
+  return unique(base62Hash(name, HASH_LENGTH), used);
 }
 
-/** Unique-within-siblings id segment for an anonymous group: `<shapeHash>|<contentHash>`, both 6-char base62. */
+/** Unique-within-siblings id segment for an anonymous group: `<prefixHash>|<contentHash>`, both base62. */
 function anonymousSegment(content: string, used: Map<string, number>): string {
-  return unique(`${contentPrefixHash(content)}|${base62Hash(content, 6)}`, used);
+  return unique(`${contentPrefixHash(content)}|${base62Hash(content, HASH_LENGTH)}`, used);
 }
 
 function unique(base: string, used: Map<string, number>): string {
@@ -147,7 +131,7 @@ function unique(base: string, used: Map<string, number>): string {
 /** Hash of the whitespace-stripped first/last 20 chars: stays put even when unrelated edits shift the group's interior. */
 function contentPrefixHash(content: string): string {
   const stripped = content.replace(/\s+/g, '');
-  return base62Hash(stripped.slice(0, 20) + stripped.slice(Math.max(0, stripped.length - 20)), 6);
+  return base62Hash(stripped.slice(0, 20) + stripped.slice(Math.max(0, stripped.length - 20)), HASH_LENGTH);
 }
 
 function base62Hash(text: string, length: number): string {
