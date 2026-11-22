@@ -14,7 +14,8 @@ Regeln:
 - Alle Modul-, Datei-, Typ-, Struktur-, Muster- und Funktionsnamen sind englisch und von dir gewählt.
 - Kommentare minimal halten; keine Referenzen auf Planelemente und Plannummern in Kommentaren.
 - Prüfe die tatsächliche Umsetzung referenzierter Elemente
-- Prüfe die Verwendung bestehender Elemente statt eigener neuer Implementierung, wenn die Spec das impliziert 
+- Prüfe die Verwendung bestehender Elemente statt eigener neuer Implementierung, wenn die Spec das impliziert
+- Es ist auch gestattet andere Module zu verändern, wenn dies sinnvoll erscheint. 
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]

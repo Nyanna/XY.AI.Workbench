@@ -428,3 +428,10 @@ fn built_encoder_shares_model_and_projection_with_encoder() {
     assert!(Arc::strong_count(built.model()) >= 2);
     assert!(Arc::strong_count(built.projection().unwrap()) >= 2);
 }
+#[test]
+fn into_encoder_keeps_the_assembled_encoder() {
+    let fx = plain();
+    let encoder = build_encoder(&fx.desc, DeviceClass::Cpu).unwrap().into_encoder();
+    assert_eq!(encoder.output_dim(), fx.desc.dimension);
+    assert_eq!(encoder.storage_dtype(), DType::F32);
+}
