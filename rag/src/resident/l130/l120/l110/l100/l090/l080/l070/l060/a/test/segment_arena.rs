@@ -117,6 +117,58 @@ fn headroom_is_planned_for_the_new_segment() {
     assert_eq!(arena.stats().live_segments, 1);
 }
 #[test]
+fn stats_and_budget_ignore_regions_freed_at_the_allocator() {
+    let (seg_alloc, _) = allocators(8192);
+    let arena = SegmentArena::new(Arc::clone(&seg_alloc), SegmentArenaConfig::default())
+        .unwrap();
+    let a = arena.allocate(3072).unwrap();
+    let b = arena.allocate(256).unwrap();
+    assert_eq!(arena.budget().headroom, a.region.len);
+    seg_alloc.free(&a.region).unwrap();
+    let st = arena.stats();
+    assert_eq!(st.live_segments, 1);
+    assert_eq!(st.largest_segment, b.region.len);
+    assert_eq!(st.live_bytes, b.region.len);
+    let bud = arena.budget();
+    assert_eq!(bud.live, b.region.len);
+    assert_eq!(bud.headroom, b.region.len);
+    assert_eq!(arena.stats(), st);
+}
+#[test]
+fn allocate_prunes_freed_regions_before_planning_headroom() {
+    let (seg_alloc, _) = allocators(8192);
+    let arena = SegmentArena::new(Arc::clone(&seg_alloc), SegmentArenaConfig::default())
+        .unwrap();
+    let a = arena.allocate(3072).unwrap();
+    arena.allocate(256).unwrap();
+    seg_alloc.free(&a.region).unwrap();
+    seg_alloc.allocate(4000).unwrap();
+    arena.allocate(256).unwrap();
+    assert_eq!(arena.stats().live_segments, 2);
+}
+#[test]
+fn release_of_pruned_segment_is_stale() {
+    let (seg_alloc, _) = allocators(8192);
+    let arena = SegmentArena::new(Arc::clone(&seg_alloc), SegmentArenaConfig::default())
+        .unwrap();
+    let a = arena.allocate(256).unwrap();
+    seg_alloc.free(&a.region).unwrap();
+    assert_eq!(arena.stats().live_segments, 0);
+    assert_eq!(arena.release(& a, Readers::None), Err(SegmentArenaError::StaleRegion));
+}
+#[test]
+fn running_replacement_is_not_pruned() {
+    let (seg_alloc, _) = allocators(8192);
+    let arena = SegmentArena::new(Arc::clone(&seg_alloc), SegmentArenaConfig::default())
+        .unwrap();
+    let a = arena.allocate(256).unwrap();
+    let new = arena.begin_replace(&a).unwrap();
+    seg_alloc.free(&a.region).unwrap();
+    seg_alloc.free(&new.region).unwrap();
+    assert_eq!(arena.stats().live_segments, 2);
+    assert!(arena.replacement().is_some());
+}
+#[test]
 fn budget_and_stats_follow_bookkeeping() {
     let arena = arena(8192, SegmentArenaConfig::default());
     assert_eq!(arena.stats().largest_segment, 0);

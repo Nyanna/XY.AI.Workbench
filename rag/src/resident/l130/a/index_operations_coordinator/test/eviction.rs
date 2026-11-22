@@ -817,6 +817,43 @@ fn eviction_removes_segment_from_table_and_map_and_defers_region() {
     assert_eq!(fx.reclaim_all(), 0);
 }
 #[test]
+fn segment_arena_on_shared_allocator_is_not_exhausted_after_eviction() {
+    use base::a::segment_arena::{SegmentArena, SegmentArenaConfig};
+    let fx = Fx::new();
+    let arena = SegmentArena::new(
+            fx.allocators.shared(ArenaKind::IndexSegments).unwrap(),
+            SegmentArenaConfig::default(),
+        )
+        .unwrap();
+    let seg = arena.allocate(30 * MIB).unwrap();
+    let mut table = fx.swap.next_table();
+    table.add(seg.region);
+    fx.swap.publish(table).unwrap();
+    let mut map = fx.store.next().unwrap();
+    map.add(entry_at(1)).unwrap();
+    fx.store.publish(map).unwrap();
+    let spec = TrackSpec {
+        tier: Tier::Ram,
+        segment: SegmentId(1),
+        region: seg.region,
+        size: 100,
+        reload_cost: 10.0,
+        summary: false,
+    };
+    fx.ev.track(EvictKey(1), spec, fx.at(0));
+    let out = fx.ev.make_room(Tier::Ram, 950).unwrap();
+    assert_eq!(victims(& out), vec![1]);
+    assert_eq!(fx.reclaim_all(), 1);
+    assert!(! fx.is_live(& seg.region));
+    fx.allocators
+        .allocator(ArenaKind::IndexSegments)
+        .unwrap()
+        .allocate(20 * MIB)
+        .unwrap();
+    arena.allocate(15 * MIB).unwrap();
+    assert_eq!(arena.stats().live_segments, 1);
+}
+#[test]
 fn decision_reports_size_floor_of_one_and_tracked_bytes() {
     let fx = Fx::new();
     fx.add(1, Tier::Ram, 0, 3.0, 0);

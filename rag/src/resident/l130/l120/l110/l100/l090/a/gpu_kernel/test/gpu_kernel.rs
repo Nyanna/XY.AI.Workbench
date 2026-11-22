@@ -199,6 +199,56 @@ fn serialized_bytes_follow_offsets() {
     assert_eq!(u32::from_ne_bytes(b[64..68].try_into().unwrap()), 3);
     assert_eq!(u32::from_ne_bytes(b[68..72].try_into().unwrap()), 0);
 }
+fn entry_from_bytes(b: &[u8]) -> SegmentEntry {
+    let u64_at = |at: usize| u64::from_ne_bytes(b[at..at + 8].try_into().unwrap());
+    let u32_at = |at: usize| u32::from_ne_bytes(b[at..at + 4].try_into().unwrap());
+    SegmentEntry {
+        base: u64_at(offset_of!(SegmentEntry, base)),
+        lens_addr: u64_at(offset_of!(SegmentEntry, lens_addr)),
+        stride_bytes: u64_at(offset_of!(SegmentEntry, stride_bytes)),
+        first_slot: u32_at(offset_of!(SegmentEntry, first_slot)),
+        slot_count: u32_at(offset_of!(SegmentEntry, slot_count)),
+        pad_len: u32_at(offset_of!(SegmentEntry, pad_len)),
+        _reserved: u32_at(offset_of!(SegmentEntry, _reserved)),
+    }
+}
+fn sample_entry(i: u32) -> SegmentEntry {
+    SegmentEntry {
+        base: 0x1000 * u64::from(i + 1),
+        lens_addr: 0x2000_0000 + u64::from(i),
+        stride_bytes: 512 + u64::from(i),
+        first_slot: 7 + i,
+        slot_count: 9 + i,
+        pad_len: 3 + i,
+        _reserved: 0xA5A5_0000 + i,
+    }
+}
+#[test]
+fn segment_entry_bytes_follow_offsets() {
+    assert_eq!(SegmentEntry::BYTES, size_of::< SegmentEntry > ());
+    let e = sample_entry(0);
+    let b = e.to_bytes();
+    assert_eq!(b.len(), 40);
+    assert_eq!(u64::from_ne_bytes(b[0..8].try_into().unwrap()), e.base);
+    assert_eq!(u64::from_ne_bytes(b[8..16].try_into().unwrap()), e.lens_addr);
+    assert_eq!(u64::from_ne_bytes(b[16..24].try_into().unwrap()), e.stride_bytes);
+    assert_eq!(u32::from_ne_bytes(b[24..28].try_into().unwrap()), e.first_slot);
+    assert_eq!(u32::from_ne_bytes(b[28..32].try_into().unwrap()), e.slot_count);
+    assert_eq!(u32::from_ne_bytes(b[32..36].try_into().unwrap()), e.pad_len);
+    assert_eq!(u32::from_ne_bytes(b[36..40].try_into().unwrap()), e._reserved);
+    assert_eq!(entry_from_bytes(& b), e);
+}
+#[test]
+fn segment_table_encoding_is_contiguous() {
+    assert!(encode_segment_table(& []).is_empty());
+    let entries = [sample_entry(0), sample_entry(1), sample_entry(2)];
+    let bytes = encode_segment_table(&entries);
+    assert_eq!(bytes.len(), 120);
+    for (i, e) in entries.iter().enumerate() {
+        assert_eq!(& bytes[40 * i..40 * i + 40], & e.to_bytes() [..]);
+        assert_eq!(entry_from_bytes(& bytes[40 * i..40 * i + 40]), * e);
+    }
+}
 #[test]
 fn constants() {
     assert_eq!(BLOCK_THREADS, 128);
