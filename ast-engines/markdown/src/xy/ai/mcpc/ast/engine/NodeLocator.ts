@@ -8,19 +8,47 @@ const SEGMENT_MAX_CHARS = 1000;
 const UNSAFE = /[^\p{L}\p{N}_]+/gu;
 const HASH_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
+/** Shortest public id length; grows per node only while a shorter prefix would collide within the document. */
+const MIN_ID_LENGTH = 5;
+
+const FULL_HASH_LENGTH = 12;
+
 /**
  * Flattens a markdown tree into every addressable node, in document order. Headings open nested
  * "Section" definitions (heading up to the next heading of the same or a higher level); the YAML
  * frontmatter and consecutive runs of other blocks (paragraphs, lists, code, ...) are collapsed into
  * anonymous groups capped at {@link SEGMENT_MAX_CHARS}.
  *
- * Ids are name-based structural paths (e.g. `Guide.Install_2`) for sections and content-hash
- * paths (e.g. `a1B2c3|d4E5f6`) for anonymous groups, rebuilt on every call from the live tree.
+ * Each node has an internal structural key (heading-name path for sections, content-hash path for
+ * anonymous groups). The public id is the shortest prefix (at least {@link MIN_ID_LENGTH} chars) of
+ * the base62 hash of that key which is unique within the document, e.g. `a1B2c`. Ids are rebuilt on
+ * every call from the live tree.
  */
 export function locateAll(root: Root, engine: MarkdownAstEngine): AddressableNode[] {
   const out: AddressableNode[] = [];
   walk(root, 0, root.children.length, 'Root', '', engine, out);
-  return out;
+  return shortenIds(out);
+}
+
+function shortenIds(nodes: AddressableNode[]): AddressableNode[] {
+  const hashes = nodes.map((n) => base62Hash(n.id, FULL_HASH_LENGTH));
+  const order = hashes.map((_, i) => i).sort((a, b) => (hashes[a]! < hashes[b]! ? -1 : hashes[a]! > hashes[b]! ? 1 : 0));
+  const lengths = new Array<number>(nodes.length).fill(MIN_ID_LENGTH);
+  for (let k = 1; k < order.length; k++) {
+    const a = order[k - 1]!;
+    const b = order[k]!;
+    const needed = commonPrefix(hashes[a]!, hashes[b]!) + 1;
+    lengths[a] = Math.max(lengths[a]!, needed);
+    lengths[b] = Math.max(lengths[b]!, needed);
+  }
+  return nodes.map((n, i) => ({ ...n, id: hashes[i]!.slice(0, lengths[i]) }));
+}
+
+function commonPrefix(a: string, b: string): number {
+  let n = 0;
+  while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n))
+    n++;
+  return n;
 }
 
 function walk(root: Root, from: number, to: number, parentType: string, parentId: string, engine: MarkdownAstEngine, out: AddressableNode[]): void {

@@ -52,20 +52,41 @@ let x = 1;
 describe('NodeLocator', () => {
   const engine = new MarkdownAstEngine();
   const nodes = locateAll(engine.parseDocument(DOC), engine);
-  const byId = (id: string) => nodes.find((n) => n.id === id);
+  const section = (name: string) => nodes.find((n) => n.isDefinition && n.name === name)!;
 
-  it('addresses sections by nested heading path with unique siblings', () => {
-    const ids = nodes.filter((n) => n.isDefinition).map((n) => n.id);
-    assert.deepEqual(ids, ['Guide', 'Guide.Install', 'Guide.Über_uns', 'Guide.Install_2', 'Reference']);
+  it('assigns short, unique, alphanumeric hash ids', () => {
+    const ids = nodes.map((n) => n.id);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.ok(ids.every((id) => /^[0-9a-zA-Z]{5}$/.test(id)));
+  });
+
+  it('keeps sibling sections with equal names apart', () => {
+    const installs = nodes.filter((n) => n.name === 'Install');
+    assert.equal(installs.length, 2);
+    assert.notEqual(installs[0]!.id, installs[1]!.id);
+  });
+
+  it('keeps section ids stable across edits elsewhere and across repeated runs', () => {
+    const changed = locateAll(engine.parseDocument(DOC.replace('let x = 1;', 'let y = 2;')), engine);
+    assert.deepEqual(changed.filter((n) => n.isDefinition).map((n) => n.id), nodes.filter((n) => n.isDefinition).map((n) => n.id));
+    assert.deepEqual(locateAll(engine.parseDocument(DOC), engine).map((n) => n.id), nodes.map((n) => n.id));
+  });
+
+  it('lengthens ids only as far as needed for uniqueness in large documents', () => {
+    const doc = Array.from({ length: 5000 }, (_, i) => `# Heading ${i}`).join('\n\n');
+    const ids = locateAll(engine.parseDocument(doc), engine).map((n) => n.id);
+    assert.equal(new Set(ids).size, 5000);
+    assert.ok(ids.every((id) => id.length >= 5 && id.length <= 8));
+    assert.ok(ids.filter((id) => id.length === 5).length > 4500);
   });
 
   it('reports section metadata', () => {
-    const guide = byId('Guide')!;
+    const guide = section('Guide');
     assert.equal(guide.type, 'Section');
     assert.equal(guide.parentType, 'Root');
     assert.equal(guide.expandable, true);
-    assert.equal(byId('Guide.Install')!.parentType, 'Section');
-    assert.equal(byId('Guide.Install')!.expandable, false);
+    assert.equal(section('Install').parentType, 'Section');
+    assert.equal(section('Install').expandable, false);
     assert.equal(guide.lineno, 7);
   });
 
@@ -73,8 +94,7 @@ describe('NodeLocator', () => {
     const groups = nodes.filter((n) => !n.isDefinition);
     assert.equal(groups[0]!.type, 'Frontmatter');
     assert.equal(groups[1]!.type, 'BlockGroup');
-    assert.match(groups[1]!.id, /^[0-9a-zA-Z]{6}\|[0-9a-zA-Z]{6}$/);
-    assert.match(groups[2]!.id, /^Guide\.[0-9a-zA-Z]{6}\|[0-9a-zA-Z]{6}$/);
+    assert.equal(groups[2]!.parentType, 'Section');
   });
 
   it('splits groups at the character cap', () => {
@@ -83,28 +103,29 @@ describe('NodeLocator', () => {
     assert.ok(groups.length > 1);
     assert.ok(groups.every((g) => g.type === 'BlockGroup'));
   });
-});
+})
 
 describe('MarkdownAstEngine mutations', () => {
   const engine = new MarkdownAstEngine();
-  const target = (root: ReturnType<typeof engine.parseDocument>, id: string) => locateAll(root, engine).find((n) => n.id === id)!;
+  const target = (root: ReturnType<typeof engine.parseDocument>, name: string) => locateAll(root, engine).find((n) => n.isDefinition && n.name === name)!;
+  const sectionNames = (root: ReturnType<typeof engine.parseDocument>) => locateAll(root, engine).filter((n) => n.isDefinition).map((n) => n.name);
 
   it('replaces a section including nested sections', () => {
     const root = engine.parseDocument(DOC);
     engine.replace(root, target(root, 'Guide'), '# Guide\n\nNew.');
-    assert.deepEqual(locateAll(root, engine).filter((n) => n.isDefinition).map((n) => n.id), ['Guide', 'Reference']);
+    assert.deepEqual(sectionNames(root), ['Guide', 'Reference']);
   });
 
   it('inserts before and after a section', () => {
     const root = engine.parseDocument(DOC);
     assert.equal(engine.insert(root, target(root, 'Reference'), '# Appendix', 'before'), 1);
     assert.equal(engine.insert(root, target(root, 'Reference'), '# Last', 'after'), 1);
-    assert.deepEqual(locateAll(root, engine).filter((n) => n.isDefinition).map((n) => n.id).slice(-3), ['Appendix', 'Reference', 'Last']);
+    assert.deepEqual(sectionNames(root).slice(-3), ['Appendix', 'Reference', 'Last']);
   });
 
   it('deletes a section', () => {
     const root = engine.parseDocument(DOC);
-    engine.delete(root, target(root, 'Guide.Install'));
+    engine.delete(root, target(root, 'Install'));
     assert.ok(!engine.print(root).includes('- one'));
   });
 
@@ -136,7 +157,7 @@ describe('MarkdownAstEngine mutations', () => {
     const guide = target(root, 'Guide');
     assert.equal(engine.signature(root, guide.range, 80), '# Guide');
     assert.equal(engine.docstring(root, guide.range, 80), 'Guide intro.');
-    assert.equal(engine.docstring(root, target(root, 'Guide.Install').range, 80), null);
+    assert.equal(engine.docstring(root, target(root, 'Install').range, 80), null);
   });
 });
 
@@ -162,6 +183,11 @@ describe('MarkdownAstServer', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  async function idOf(codePrefix: string, body: unknown = { source: DOC }): Promise<string> {
+    const listed = await call('POST', '/nodes', { ...(body as object), includeCode: true });
+    return (listed.json as LocateBody).nodes.find((n) => n.code?.startsWith(codePrefix))!.id;
+  }
+
   async function call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
     const res = await fetch(base + path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await res.text();
@@ -183,23 +209,25 @@ describe('MarkdownAstServer', () => {
   });
 
   it('gets a node by url-encoded id', async () => {
-    const res = await call('POST', `/nodes/${encodeURIComponent('Guide.Über_uns')}`, { source: DOC });
+    const id = await idOf('## Über uns');
+    const res = await call('POST', `/nodes/${encodeURIComponent(id)}`, { source: DOC });
     assert.equal(res.status, 200);
     assert.equal(res.json.code, '## Über uns\n\nText.');
   });
 
   it('answers 404 with candidates and 422 without input', async () => {
-    const missing = await call('POST', '/nodes/Guide.Instal', { source: DOC });
+    const guideId = await idOf('# Guide');
+    const missing = await call('POST', `/nodes/${guideId}x`, { source: DOC });
     assert.equal(missing.status, 404);
-    assert.ok(missing.json.candidates.includes('Guide'));
+    assert.ok(missing.json.candidates.includes(guideId));
     assert.equal((await call('POST', '/nodes', {})).status, 422);
     assert.equal((await call('POST', '/nodes', 'x')).status, 422);
-    assert.equal((await call('POST', '/nodes/Guide/insert', { source: DOC, code: 'x', position: 'middle' })).status, 422);
+    assert.equal((await call('POST', `/nodes/${guideId}/insert`, { source: DOC, code: 'x', position: 'middle' })).status, 422);
     assert.equal((await call('GET', '/nope')).status, 404);
   });
 
   it('mutates statelessly without touching disk', async () => {
-    const res = await call('POST', '/nodes/Reference/insert', { source: DOC, code: '# Appendix', position: 'before' });
+    const res = await call('POST', `/nodes/${await idOf('# Reference')}/insert`, { source: DOC, code: '# Appendix', position: 'before' });
     assert.equal(res.status, 200);
     assert.equal(res.json.unitsInserted, 1);
     assert.ok(res.json.source.includes('# Appendix\n\n# Reference'));
@@ -208,17 +236,19 @@ describe('MarkdownAstServer', () => {
   it('persists path-based mutations, detects stale sources and creates new files', async () => {
     const file = join(dir, 'doc.md');
     await writeFile(file, DOC);
-    const del = await call('POST', '/nodes/Guide.Install/delete', { path: file });
+    const installId = await idOf('## Install\n\n- one', { path: file });
+    const guideId = await idOf('# Guide', { path: file });
+    const del = await call('POST', `/nodes/${installId}/delete`, { path: file });
     assert.equal(del.status, 200);
     assert.equal(await readFile(file, 'utf8'), del.json.source);
     assert.ok(!del.json.source.includes('- one'));
 
-    const stale = await call('POST', '/nodes/Guide/replace', { path: file, source: DOC, code: '# Guide' });
+    const stale = await call('POST', `/nodes/${guideId}/replace`, { path: file, source: DOC, code: '# Guide' });
     assert.equal(stale.status, 409);
 
     await writeFile(file, '# External\n');
     const listed = await call('POST', '/nodes', { path: file });
-    assert.deepEqual(listed.json.nodes.map((n: NodeDto) => n.id), ['External']);
+    assert.equal(listed.json.nodes.length, 1);
 
     const created = join(dir, 'new.md');
     const appended = await call('POST', '/append', { path: created, code: '# Fresh\n\ntext' });
@@ -266,7 +296,7 @@ describe('task executors', () => {
         return file;
       }));
       const results = await Promise.all(files.map((path) => pool.submit({ op: 'list', path, source: null, includeCode: true })));
-      results.forEach((r, i) => assert.equal(r.nodes[0]!['id'], `Doc_${i}`));
+      results.forEach((r, i) => assert.ok(String(r.nodes[0]!['code']).startsWith(`# Doc ${i}\n`)));
       assert.equal(pool.size, 4);
     } finally {
       await pool.close();
@@ -287,10 +317,12 @@ describe('task executors', () => {
   it('rebuilds engine errors, including candidates, on the calling thread', async () => {
     const pool = new WorkerPool(2);
     try {
-      await assert.rejects(pool.submit({ op: 'get', path: null, source: DOC, nodeId: 'Guide.Instal' }), (e: unknown) => {
+      const engine = new MarkdownAstEngine();
+      const guideId = locateAll(engine.parseDocument(DOC), engine).find((n) => n.name === 'Guide')!.id;
+      await assert.rejects(pool.submit({ op: 'get', path: null, source: DOC, nodeId: `${guideId}x` }), (e: unknown) => {
         assert.ok(e instanceof AstEngineException);
         assert.equal(e.kind, 'NOT_FOUND');
-        assert.ok(e.candidates.includes('Guide'));
+        assert.ok(e.candidates.includes(guideId));
         return true;
       });
     } finally {
