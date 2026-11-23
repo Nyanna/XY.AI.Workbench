@@ -51,9 +51,9 @@ pub type TaskQueue<D, T, E> = Queue<TaskMeta, Task<D, T, E>, (), ()>;
 pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
 struct Queues<D, T, E, O, V, R, OE> {
     task: TaskQueue<D, T, E>,
-    cpu: OpsQueue<O, V, R, OE>,
-    gpu: OpsQueue<O, V, R, OE>,
-    shared: OpsQueue<O, V, R, OE>,
+    cpu: Arc<OpsQueue<O, V, R, OE>>,
+    gpu: Arc<OpsQueue<O, V, R, OE>>,
+    shared: Arc<OpsQueue<O, V, R, OE>>,
 }
 pub struct Processor<D, T, E, O, V, R, OE, PL> {
     planner: PL,
@@ -75,9 +75,9 @@ where
             planner,
             queues: Queues {
                 task: Queue::new(),
-                cpu: Queue::new(),
-                gpu: Queue::new(),
-                shared: Queue::new(),
+                cpu: Arc::new(Queue::new()),
+                gpu: Arc::new(Queue::new()),
+                shared: Arc::new(Queue::new()),
             },
         })
     }
@@ -107,6 +107,10 @@ where
         &self.queues.task
     }
     pub fn ops_queue(&self, kind: QueueKind) -> &OpsQueue<O, V, R, OE> {
+        self.ops_queue_arc(kind)
+    }
+    /// Shareable handle to the same queue `ops_queue` returns.
+    pub fn ops_queue_arc(&self, kind: QueueKind) -> &Arc<OpsQueue<O, V, R, OE>> {
         match kind {
             QueueKind::Cpu => &self.queues.cpu,
             QueueKind::Gpu => &self.queues.gpu,
