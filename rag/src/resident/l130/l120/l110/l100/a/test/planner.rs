@@ -202,14 +202,23 @@ impl Expander for RequireExpander {
         Ok(
             chain
                 .into_iter()
-                .map(|mut op| {
-                    if op.resource.kind() == ResourceKind::Encoder {
-                        op.resource = op
-                            .resource
-                            .clone()
-                            .with_capability("operands", "fp16");
+                .map(|op| {
+                    if op.resource().kind() != ResourceKind::Encoder {
+                        return op;
                     }
-                    op
+                    let resource = op
+                        .resource()
+                        .clone()
+                        .with_capability("operands", "fp16");
+                    let params = op
+                        .descriptor()
+                        .params()
+                        .clone()
+                        .with_requirements(resource);
+                    PlannedOperation::new(
+                        OperationDescriptor::new(op.kind(), params),
+                        op.config().clone(),
+                    )
                 })
                 .collect(),
         )
@@ -530,7 +539,7 @@ fn first_resource_kind_matches_the_first_planned_operation() {
         if expected.is_some() {
             let spec = with_model(spec, E5_SMALL_MODEL_ID);
             let chain = expander::expand(&spec, &pipelines, &caps, None).unwrap();
-            assert_eq!(Some(chain[0].resource.kind()), expected);
+            assert_eq!(Some(chain[0].resource().kind()), expected);
         }
     }
 }
@@ -541,7 +550,7 @@ fn embedding_prefers_the_shared_queue() {
     let planner = started(&trio(&log), &values);
     let op = one(planner.expand(&new_task(embedding_spec("m", Some("idx")))));
     assert_eq!(op.kind, QueueKind::Cpu);
-    assert_eq!(op.meta.kind, OperationKind::Tokenization);
+    assert_eq!(op.meta.kind(), OperationKind::Tokenization);
     use QueueKind::*;
     assert_eq!(queues(& op), [Cpu, Shared, Shared, Shared, Shared]);
     assert_eq!(flags(& op), [true; 5]);
@@ -690,7 +699,7 @@ fn model_is_always_the_default_model() {
         .build();
     planner.start().unwrap();
     let op = one(planner.expand(&new_task(embedding_spec("ghost", None))));
-    assert_eq!(op.meta.resource.model().map(ModelId::as_str), Some(E5_SMALL_MODEL_ID));
+    assert_eq!(op.meta.resource().model().map(ModelId::as_str), Some(E5_SMALL_MODEL_ID));
     one(planner.expand(&new_task(vector_spec())));
     let seen = recorder.seen_models.lock().unwrap().clone();
     assert_eq!(seen, [E5_SMALL_MODEL_ID, E5_SMALL_MODEL_ID]);
@@ -770,7 +779,7 @@ fn cross_encoder_chain_is_planned_when_capable() {
     let op = one(planner.expand(&new_task(spec)));
     use QueueKind::*;
     assert_eq!(queues(& op), [Cpu, Gpu, Gpu]);
-    let kinds: Vec<_> = chain_metas(&op).iter().map(|m| m.kind).collect();
+    let kinds: Vec<_> = chain_metas(&op).iter().map(|m| m.kind()).collect();
     assert_eq!(
         kinds, [OperationKind::Tokenization, OperationKind::Inference,
         OperationKind::Similarity]
@@ -850,10 +859,10 @@ fn meta_carries_the_planned_values() {
     for (meta, planned) in metas.iter().zip(&expected) {
         assert_eq!(meta.task_id, TaskId(7));
         assert_eq!(meta.priority, 3);
-        assert_eq!(meta.kind, planned.kind);
-        assert_eq!(meta.descriptor, planned.descriptor);
-        assert_eq!(meta.resource, planned.resource);
-        assert_eq!(& meta.required, planned.resource.capabilities());
+        assert_eq!(meta.kind(), planned.kind());
+        assert_eq!(& meta.descriptor, planned.descriptor());
+        assert_eq!(meta.resource(), planned.resource());
+        assert_eq!(meta.required(), planned.resource().capabilities());
     }
     assert_eq!(op.meta.batch, Some(batch.clone()));
     assert!(metas[1..].iter().all(| m | m.batch.is_none()));
@@ -881,7 +890,7 @@ fn payload_follows_the_chain_wiring() {
     assert!(rest.iter().all(| s | s.node.ends_chain()));
     for step in rest {
         assert_eq!(step.node.materialize(), step.placement.materialize);
-        assert_eq!(step.node.operation().kind, step.placement.kind);
+        assert_eq!(step.node.operation().kind(), step.placement.kind());
         assert!(matches!(step.node.input(), ChainInput::Upstream(_)));
     }
     assert_eq!(payload.node().materialize(), op.meta.materialize);

@@ -6,7 +6,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     ExecutionEnvironment, ResourceKind,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
-    OperationDescriptor, OperationParams, ResourceRequirements as DescriptorRequirements,
+    OperationDescriptor, OperationParams,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
     TaskParams, TaskState,
@@ -388,17 +388,13 @@ fn planned_operation() -> PlannedOperation {
         ResourceKind::Scorer,
         ExecutionEnvironment::Any,
     );
-    let params = OperationParams::new(DescriptorRequirements {
-        resource: None,
-        model: None,
-        mode: None,
-    });
-    PlannedOperation {
-        kind: OperationKind::Similarity,
-        descriptor: OperationDescriptor::new(OperationKind::Similarity, params),
-        resource,
-        config: OperationConfig::default(),
-    }
+    PlannedOperation::new(
+        OperationDescriptor::new(
+            OperationKind::Similarity,
+            OperationParams::new(resource),
+        ),
+        OperationConfig::default(),
+    )
 }
 #[test]
 fn planned_operation_provides_both_traits() {

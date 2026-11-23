@@ -46,7 +46,7 @@ fn cross_encoder_caps() -> CapabilitySet {
     CapabilitySet::new().with(CROSS_ENCODER_AXIS, "minilm")
 }
 fn kinds(ops: &[PlannedOperation]) -> Vec<OperationKind> {
-    ops.iter().map(|o| o.kind).collect()
+    ops.iter().map(PlannedOperation::kind).collect()
 }
 fn idle(devices: &[DeviceKind]) -> IdleNotification {
     IdleNotification {
@@ -86,61 +86,65 @@ fn embedding_full_chain_order_and_configs() {
         OperationKind::Pooling, OperationKind::L2Normalization,
         OperationKind::IndexWrite,]
     );
-    let model = ModelId::new(MODEL);
     let tok = &ops[0];
-    assert_eq!(tok.resource.kind(), ResourceKind::Tokenizer);
-    assert_eq!(tok.resource.environment(), ExecutionEnvironment::CpuOnly);
-    assert_eq!(tok.config.tokenizer, Some(model.clone()));
-    assert_eq!(tok.config.prefix.as_deref(), Some("query: "));
-    assert_eq!(tok.config.max_seq_len, Some(512));
+    assert_eq!(tok.resource().kind(), ResourceKind::Tokenizer);
+    assert_eq!(tok.resource().environment(), ExecutionEnvironment::CpuOnly);
+    assert_eq!(tok.config().prefix.as_deref(), Some("query: "));
+    assert_eq!(tok.config().max_seq_len, Some(512));
     let emb = &ops[1];
-    assert_eq!(emb.resource.kind(), ResourceKind::Encoder);
-    assert_eq!(emb.config.model, Some(model.clone()));
-    assert_eq!(emb.config.dtype, Some(DType::F16));
-    assert_eq!(emb.config.target_dimension, Some(384));
-    assert_eq!(emb.descriptor.params().dimension(), Some(384));
-    assert_eq!(ops[2].config.pooling, Some(PoolingMethod::Mean));
-    assert_eq!(ops[3].config.model, Some(model.clone()));
+    assert_eq!(emb.resource().kind(), ResourceKind::Encoder);
+    assert_eq!(emb.config().dtype, Some(DType::F16));
+    assert_eq!(emb.descriptor().params().dimension(), Some(384));
+    assert_eq!(ops[2].config().pooling, Some(PoolingMethod::Mean));
+    assert_eq!(ops[3].resource().kind(), ResourceKind::Encoder);
     let write = &ops[4];
-    assert_eq!(write.resource.kind(), ResourceKind::Index);
-    assert_eq!(write.resource.environment(), ExecutionEnvironment::Any);
-    assert_eq!(write.config.index, Some(IndexId::new("idx")));
-    assert_eq!(write.resource.index(), Some(& IndexId::new("idx")));
+    assert_eq!(write.resource().kind(), ResourceKind::Index);
+    assert_eq!(write.resource().environment(), ExecutionEnvironment::Any);
+    assert_eq!(write.resource().index(), Some(& IndexId::new("idx")));
 }
 #[test]
 fn embedding_resource_has_model_but_no_affinity_or_capabilities() {
     let ops = run_embedding(&embedding(EmbeddingMode::Query, None), None);
     for op in &ops {
-        assert_eq!(op.resource.model(), Some(& ModelId::new(MODEL)));
-        assert!(op.resource.affinity().is_none());
-        assert!(op.resource.capabilities().is_empty());
-        assert!(op.resource.index().is_none());
+        assert_eq!(op.resource().model(), Some(& ModelId::new(MODEL)));
+        assert!(op.resource().affinity().is_none());
+        assert!(op.resource().capabilities().is_empty());
+        assert!(op.resource().index().is_none());
     }
 }
 #[test]
-fn embedding_descriptor_resource_names_and_mode() {
+fn embedding_descriptor_carries_resource_and_mode() {
     let ops = run_embedding(&embedding(EmbeddingMode::Passage, Some("idx")), None);
-    let names: Vec<_> = ops
-        .iter()
-        .map(|o| o.descriptor.requirements().resource.clone().unwrap())
-        .collect();
-    assert_eq!(names, ["tokenizer", "encoder", "encoder", "encoder", "index"]);
+    let kinds: Vec<_> = ops.iter().map(|o| o.resource().kind()).collect();
+    assert_eq!(
+        kinds, [ResourceKind::Tokenizer, ResourceKind::Encoder, ResourceKind::Encoder,
+        ResourceKind::Encoder, ResourceKind::Index,]
+    );
     for op in &ops {
-        let req = op.descriptor.requirements();
-        assert_eq!(req.model.as_deref(), Some(MODEL));
-        assert_eq!(req.mode.as_deref(), Some("passage"));
-        assert_eq!(op.descriptor.kind(), op.kind);
-        assert_eq!(op.descriptor.params().top_k(), None);
+        let params = op.descriptor().params();
+        assert_eq!(op.resource(), params.requirements());
+        assert_eq!(op.resource().model().map(ModelId::as_str), Some(MODEL));
+        assert_eq!(params.mode(), Some(EmbeddingMode::Passage));
+        assert_eq!(params.top_k(), None);
     }
-    assert_eq!(ops[0].config.prefix.as_deref(), Some("passage: "));
+    assert_eq!(ops[0].config().prefix.as_deref(), Some("passage: "));
 }
 #[test]
 fn embedding_mode_query_in_descriptor() {
     let ops = run_embedding(&embedding(EmbeddingMode::Query, None), None);
     assert!(
-        ops.iter().all(| o | o.descriptor.requirements().mode.as_deref() ==
-        Some("query"))
+        ops.iter().all(| o | o.descriptor().params().mode() ==
+        Some(EmbeddingMode::Query))
     );
+}
+#[test]
+fn embedding_modes_yield_distinct_descriptors() {
+    let query = run_embedding(&embedding(EmbeddingMode::Query, Some("idx")), None);
+    let passage = run_embedding(&embedding(EmbeddingMode::Passage, Some("idx")), None);
+    assert_eq!(kinds(& query), kinds(& passage));
+    for (q, p) in query.iter().zip(&passage) {
+        assert_ne!(q.descriptor(), p.descriptor());
+    }
 }
 #[test]
 fn embedding_without_pooling_keeps_token_vectors() {
@@ -211,7 +215,7 @@ fn embedding_unknown_model_id_conversion_is_verbatim() {
     };
     let ops = expand(&spec, &map, &CapabilitySet::new(), None).unwrap();
     assert!(
-        ops.iter().all(| o | o.resource.model().map(ModelId::as_str) ==
+        ops.iter().all(| o | o.resource().model().map(ModelId::as_str) ==
         Some("org/Model-1"))
     );
 }
@@ -228,8 +232,8 @@ fn encoder_environment_follows_idle_devices() {
     for (notification, expected) in cases {
         let ops = run_embedding(&spec, notification.as_ref());
         for op in &ops {
-            let env = op.resource.environment();
-            match op.kind {
+            let env = op.resource().environment();
+            match op.kind() {
                 OperationKind::Embedding
                 | OperationKind::Pooling
                 | OperationKind::L2Normalization => assert_eq!(env, expected),
@@ -250,30 +254,23 @@ fn vector_similarity_chain() {
     let index = IndexId::new("42");
     let model = ModelId::new(MODEL);
     let sim = &ops[0];
-    assert_eq!(sim.resource.kind(), ResourceKind::Scorer);
-    assert_eq!(sim.resource.environment(), ExecutionEnvironment::Any);
-    assert_eq!(sim.resource.model(), Some(& model));
-    assert_eq!(sim.resource.index(), Some(& index));
-    assert_eq!(sim.config.model, Some(model.clone()));
-    assert_eq!(sim.config.scorer.as_deref(), Some("DotProduct"));
-    assert_eq!(sim.config.index, Some(index.clone()));
-    assert_eq!(sim.config.scope, Some(Scope::Subtree { root : 7 }));
-    assert_eq!(sim.config.target_dimension, Some(384));
-    assert_eq!(sim.config.dtype, Some(DType::F16));
-    assert_eq!(sim.descriptor.params().dimension(), Some(384));
-    assert_eq!(sim.descriptor.params().top_k(), None);
+    assert_eq!(sim.resource().kind(), ResourceKind::Scorer);
+    assert_eq!(sim.resource().environment(), ExecutionEnvironment::Any);
+    assert_eq!(sim.resource().model(), Some(& model));
+    assert_eq!(sim.resource().index(), Some(& index));
+    assert_eq!(sim.config().scorer.as_deref(), Some("DotProduct"));
+    assert_eq!(sim.config().scope, Some(Scope::Subtree { root : 7 }));
+    assert_eq!(sim.config().dtype, Some(DType::F16));
+    assert_eq!(sim.descriptor().params().dimension(), Some(384));
+    assert_eq!(sim.descriptor().params().top_k(), None);
     let top = &ops[1];
-    assert_eq!(top.resource.kind(), ResourceKind::Scorer);
-    assert_eq!(top.resource.index(), Some(& index));
-    assert_eq!(top.config.top_k, Some(5));
-    assert_eq!(top.config.index, Some(index));
-    assert_eq!(top.descriptor.params().top_k(), Some(5));
-    assert_eq!(top.descriptor.params().dimension(), None);
+    assert_eq!(top.resource().kind(), ResourceKind::Scorer);
+    assert_eq!(top.resource().index(), Some(& index));
+    assert_eq!(top.descriptor().params().top_k(), Some(5));
+    assert_eq!(top.descriptor().params().dimension(), None);
     for op in &ops {
-        let req = op.descriptor.requirements();
-        assert_eq!(req.resource.as_deref(), Some("scorer"));
-        assert_eq!(req.model.as_deref(), Some(MODEL));
-        assert_eq!(req.mode, None);
+        assert_eq!(op.resource().model(), Some(& model));
+        assert_eq!(op.descriptor().params().mode(), None);
     }
 }
 #[test]
@@ -290,22 +287,23 @@ fn vector_similarity_scorer_name_is_debug_name() {
                 None,
             )
             .unwrap();
-        assert_eq!(ops[0].config.scorer.as_deref(), Some(name));
+        assert_eq!(ops[0].config().scorer.as_deref(), Some(name));
     }
 }
 #[test]
 fn top_k_is_clamped_to_u32() {
     let spec = similarity(ScorerChoice::Vector(Scoring::Cosine), usize::MAX);
     let ops = expand(&spec, &pipelines(), &CapabilitySet::new(), None).unwrap();
-    assert_eq!(ops[1].config.top_k, Some(u32::MAX));
-    assert_eq!(ops[1].descriptor.params().top_k(), Some(u32::MAX as usize));
+    assert_eq!(ops[1].descriptor().params().top_k(), Some(u32::MAX as usize));
 }
 #[test]
 fn similarity_ignores_idle_notification() {
     let spec = similarity(ScorerChoice::Vector(Scoring::Cosine), 3);
     let gpu = idle(&[DeviceKind::Gpu]);
     let ops = expand(&spec, &pipelines(), &CapabilitySet::new(), Some(&gpu)).unwrap();
-    assert!(ops.iter().all(| o | o.resource.environment() == ExecutionEnvironment::Any));
+    assert!(
+        ops.iter().all(| o | o.resource().environment() == ExecutionEnvironment::Any)
+    );
 }
 #[test]
 fn cross_encoder_chain() {
@@ -316,36 +314,30 @@ fn cross_encoder_chain() {
         OperationKind::Similarity,]
     );
     let index = IndexId::new("42");
-    let model = ModelId::new(MODEL);
     let tok = &ops[0];
-    assert_eq!(tok.resource.kind(), ResourceKind::Tokenizer);
-    assert_eq!(tok.resource.environment(), ExecutionEnvironment::CpuOnly);
-    assert_eq!(tok.resource.index(), Some(& index));
-    assert_eq!(tok.config.tokenizer, Some(model.clone()));
-    assert_eq!(tok.config.max_seq_len, Some(512));
-    assert_eq!(tok.config.scope, Some(Scope::Subtree { root : 7 }));
-    assert_eq!(tok.config.index, Some(index.clone()));
+    assert_eq!(tok.resource().kind(), ResourceKind::Tokenizer);
+    assert_eq!(tok.resource().environment(), ExecutionEnvironment::CpuOnly);
+    assert_eq!(tok.resource().index(), Some(& index));
+    assert_eq!(tok.config().max_seq_len, Some(512));
+    assert_eq!(tok.config().scope, Some(Scope::Subtree { root : 7 }));
     let inf = &ops[1];
-    assert_eq!(inf.resource.kind(), ResourceKind::CrossEncoder);
-    assert_eq!(inf.resource.environment(), ExecutionEnvironment::Any);
-    assert!(inf.resource.index().is_none());
-    assert_eq!(inf.config.model, Some(model.clone()));
-    assert_eq!(inf.config.scorer.as_deref(), Some("minilm"));
-    assert_eq!(inf.config.dtype, Some(DType::F16));
+    assert_eq!(inf.resource().kind(), ResourceKind::CrossEncoder);
+    assert_eq!(inf.resource().environment(), ExecutionEnvironment::Any);
+    assert!(inf.resource().index().is_none());
+    assert_eq!(inf.config().scorer.as_deref(), Some("minilm"));
+    assert_eq!(inf.config().dtype, Some(DType::F16));
     let sim = &ops[2];
-    assert_eq!(sim.resource.kind(), ResourceKind::CrossEncoder);
-    assert_eq!(sim.resource.index(), Some(& index));
-    assert_eq!(sim.config.scorer.as_deref(), Some("minilm"));
-    assert_eq!(sim.config.index, Some(index));
-    assert_eq!(sim.config.scope, Some(Scope::Subtree { root : 7 }));
-    assert_eq!(sim.config.top_k, Some(4));
-    assert_eq!(sim.descriptor.params().top_k(), Some(4));
-    let names: Vec<_> = ops
-        .iter()
-        .map(|o| o.descriptor.requirements().resource.clone().unwrap())
-        .collect();
-    assert_eq!(names, ["tokenizer", "cross_encoder", "cross_encoder"]);
-    assert!(ops.iter().all(| o | o.descriptor.requirements().mode.is_none()));
+    assert_eq!(sim.resource().kind(), ResourceKind::CrossEncoder);
+    assert_eq!(sim.resource().index(), Some(& index));
+    assert_eq!(sim.config().scorer.as_deref(), Some("minilm"));
+    assert_eq!(sim.config().scope, Some(Scope::Subtree { root : 7 }));
+    assert_eq!(sim.descriptor().params().top_k(), Some(4));
+    let kinds: Vec<_> = ops.iter().map(|o| o.resource().kind()).collect();
+    assert_eq!(
+        kinds, [ResourceKind::Tokenizer, ResourceKind::CrossEncoder,
+        ResourceKind::CrossEncoder]
+    );
+    assert!(ops.iter().all(| o | o.descriptor().params().mode().is_none()));
 }
 #[test]
 fn cross_encoder_unavailable() {
@@ -446,7 +438,7 @@ fn expand_is_pure() {
 fn descriptors_are_usable_as_keys() {
     use std::collections::HashSet;
     let ops = run_embedding(&embedding(EmbeddingMode::Query, Some("idx")), None);
-    let set: HashSet<_> = ops.iter().map(|o| o.descriptor.clone()).collect();
+    let set: HashSet<_> = ops.iter().map(|o| o.descriptor().clone()).collect();
     assert_eq!(set.len(), ops.len());
 }
 #[test]

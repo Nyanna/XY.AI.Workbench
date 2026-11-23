@@ -165,24 +165,10 @@ fn text_query_with(rerank: Option<Arc<RerankPolicy>>) -> TextQuery {
 fn assert_send<T: Send>(_: &T) {}
 #[test]
 fn derive_params_leaves_base_unchanged() {
-    let base = TaskParams {
-        priority: 1,
-        resource: Some("r".to_string()),
-        model: None,
-        mode: None,
-    };
-    let derived = derive_params(
-        &base,
-        |p| {
-            p.priority = 5;
-            p.mode = Some("m".to_string());
-        },
-    );
+    let base = TaskParams { priority: 1 };
+    let derived = derive_params(&base, |p| p.priority = 5);
     assert_eq!(base.priority, 1);
-    assert_eq!(base.mode, None);
     assert_eq!(derived.priority, 5);
-    assert_eq!(derived.mode.as_deref(), Some("m"));
-    assert_eq!(derived.resource.as_deref(), Some("r"));
 }
 #[test]
 fn derive_extensions_shares_values_and_isolates_changes() {

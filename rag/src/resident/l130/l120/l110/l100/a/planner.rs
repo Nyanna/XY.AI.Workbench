@@ -108,22 +108,30 @@ pub struct OpMeta {
     pub task_id: TaskId,
     pub priority: i32,
     pub queue: QueueKind,
-    pub kind: OperationKind,
     pub descriptor: OperationDescriptor,
-    pub resource: ResourceRequirements,
-    pub required: Requirements,
     pub materialize: bool,
     /// `None` when planned; set from the payload before the push.
     pub batch: Option<BatchInfo>,
 }
+impl OpMeta {
+    pub fn kind(&self) -> OperationKind {
+        self.descriptor.kind()
+    }
+    pub fn resource(&self) -> &ResourceRequirements {
+        self.descriptor.requirements()
+    }
+    pub fn required(&self) -> &Requirements {
+        self.resource().capabilities()
+    }
+}
 impl HasResourceRequirements for OpMeta {
     fn resource_requirements(&self) -> &ResourceRequirements {
-        &self.resource
+        self.resource()
     }
 }
 impl HasOperationKind for OpMeta {
     fn operation_kind(&self) -> OperationKind {
-        self.kind
+        self.kind()
     }
 }
 impl BatchMeta for OpMeta {
@@ -237,9 +245,9 @@ fn materialize_flag(op: &PlannedOperation, next: Option<&PlannedOperation>) -> b
     let Some(next) = next else {
         return true;
     };
-    let both_gpu = op.resource.environment() == ExecutionEnvironment::GpuOnly
-        && next.resource.environment() == ExecutionEnvironment::GpuOnly;
-    !(both_gpu && next.kind != OperationKind::IndexWrite)
+    let both_gpu = op.resource().environment() == ExecutionEnvironment::GpuOnly
+        && next.resource().environment() == ExecutionEnvironment::GpuOnly;
+    !(both_gpu && next.kind() != OperationKind::IndexWrite)
 }
 fn make_meta(
     task_id: TaskId,
@@ -252,10 +260,7 @@ fn make_meta(
         task_id,
         priority,
         queue,
-        kind: op.kind,
-        descriptor: op.descriptor.clone(),
-        resource: op.resource.clone(),
-        required: op.resource.capabilities().clone(),
+        descriptor: op.descriptor().clone(),
         materialize,
         batch: None,
     }
@@ -583,7 +588,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         }
         let queue = Self::queue_for(&view, op)?;
         let meta = make_meta(task_id, priority, queue, op, materialize_flag(op, next));
-        view.announce(std::iter::once((queue, &meta.resource)));
+        view.announce(std::iter::once((queue, meta.resource())));
         Ok(meta)
     }
     fn engine_index(&self, name: &str) -> Option<usize> {
@@ -616,10 +621,10 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         }
     }
     fn queue_for(view: &View, op: &PlannedOperation) -> Result<QueueKind, PlanError> {
-        view.assign(&op.resource)
+        view.assign(op.resource())
             .ok_or(PlanError::MissingPlanningCapability {
-                kind: op.kind,
-                resource: op.resource.kind(),
+                kind: op.kind(),
+                resource: op.resource().kind(),
             })
     }
     fn plan_steps(
@@ -699,7 +704,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         let priority = task.params().priority;
         let steps = Self::plan_steps(&view, chain, task_id, priority)?;
         let targets = view
-            .announce(steps.iter().map(|s| (s.meta.queue, &s.meta.resource)));
+            .announce(steps.iter().map(|s| (s.meta.queue, s.meta.resource())));
         for (name, engine) in &targets {
             engine
                 .activate()

@@ -43,9 +43,6 @@ pub enum CompleteError {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TaskParams {
     pub priority: i32,
-    pub resource: Option<String>,
-    pub model: Option<String>,
-    pub mode: Option<String>,
 }
 /// Error side of a task result.
 #[derive(Debug, Clone, PartialEq, Eq)]

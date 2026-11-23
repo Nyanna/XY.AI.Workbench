@@ -16,12 +16,12 @@ pub trait HasOperationKind {
 }
 impl HasResourceRequirements for PlannedOperation {
     fn resource_requirements(&self) -> &ResourceRequirements {
-        &self.resource
+        self.resource()
     }
 }
 impl HasOperationKind for PlannedOperation {
     fn operation_kind(&self) -> OperationKind {
-        self.kind
+        self.kind()
     }
 }
 /// Creates zero or more follow-up nodes from the output and the task context.

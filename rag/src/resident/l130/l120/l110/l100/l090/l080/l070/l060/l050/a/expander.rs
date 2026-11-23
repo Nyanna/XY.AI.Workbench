@@ -12,7 +12,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
     OperationDescriptor, OperationKind, OperationParams,
-    ResourceRequirements as DescriptorRequirements,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
     ModelDescriptor, Normalization, Pooling,
@@ -83,21 +82,31 @@ pub struct IdleNotification {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlannedOperation {
-    pub kind: OperationKind,
-    pub descriptor: OperationDescriptor,
-    pub resource: ResourceRequirements,
-    pub config: OperationConfig,
+    descriptor: OperationDescriptor,
+    config: OperationConfig,
+}
+impl PlannedOperation {
+    pub fn new(descriptor: OperationDescriptor, config: OperationConfig) -> Self {
+        Self { descriptor, config }
+    }
+    pub fn descriptor(&self) -> &OperationDescriptor {
+        &self.descriptor
+    }
+    pub fn config(&self) -> &OperationConfig {
+        &self.config
+    }
+    pub fn kind(&self) -> OperationKind {
+        self.descriptor.kind()
+    }
+    pub fn resource(&self) -> &ResourceRequirements {
+        self.descriptor.requirements()
+    }
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct OperationConfig {
-    pub index: Option<IndexId>,
-    pub tokenizer: Option<ModelId>,
-    pub model: Option<ModelId>,
     pub scorer: Option<String>,
     pub pooling: Option<PoolingMethod>,
     pub prefix: Option<String>,
-    pub target_dimension: Option<usize>,
-    pub top_k: Option<u32>,
     pub max_seq_len: Option<usize>,
     pub dtype: Option<DType>,
     pub scope: Option<Scope>,
@@ -198,46 +207,25 @@ fn encoder_environment(idle: Option<&IdleNotification>) -> ExecutionEnvironment 
         _ => ExecutionEnvironment::Any,
     }
 }
-fn resource_name(kind: ResourceKind) -> &'static str {
-    match kind {
-        ResourceKind::Tokenizer => "tokenizer",
-        ResourceKind::Normalizer => "normalizer",
-        ResourceKind::Encoder => "encoder",
-        ResourceKind::Scorer => "scorer",
-        ResourceKind::Index => "index",
-        ResourceKind::CrossEncoder => "cross_encoder",
+fn requirements(
+    resource_kind: ResourceKind,
+    environment: ExecutionEnvironment,
+    model: &ModelId,
+    index: Option<&IndexId>,
+) -> ResourceRequirements {
+    let resource = ResourceRequirements::new(resource_kind, environment)
+        .with_model(model.clone());
+    match index {
+        Some(index) => resource.with_index(index.clone()),
+        None => resource,
     }
 }
 fn plan(
     kind: OperationKind,
-    resource_kind: ResourceKind,
-    environment: ExecutionEnvironment,
-    model: &ModelId,
-    mode: Option<&str>,
+    params: OperationParams,
     config: OperationConfig,
 ) -> PlannedOperation {
-    let mut resource = ResourceRequirements::new(resource_kind, environment)
-        .with_model(model.clone());
-    if let Some(index) = &config.index {
-        resource = resource.with_index(index.clone());
-    }
-    let mut params = OperationParams::new(DescriptorRequirements {
-        resource: Some(resource_name(resource_kind).to_string()),
-        model: Some(model.as_str().to_string()),
-        mode: mode.map(str::to_string),
-    });
-    if let Some(dimension) = config.target_dimension {
-        params = params.with_dimension(dimension);
-    }
-    if let Some(k) = config.top_k {
-        params = params.with_top_k(k as usize);
-    }
-    PlannedOperation {
-        kind,
-        descriptor: OperationDescriptor::new(kind, params),
-        resource,
-        config,
-    }
+    PlannedOperation::new(OperationDescriptor::new(kind, params), config)
 }
 fn expand_embedding(
     task: &EmbeddingTask,
@@ -246,24 +234,28 @@ fn expand_embedding(
     idle: Option<&IdleNotification>,
 ) -> Result<Vec<PlannedOperation>, ExpandError> {
     let pipeline = lookup_pipeline(pipelines, task.model.as_str())?;
-    let model = task.model.clone();
-    let (prefix, mode) = match task.mode {
-        EmbeddingMode::Query => (&pipeline.query_prefix, "query"),
-        EmbeddingMode::Passage => (&pipeline.passage_prefix, "passage"),
+    let model = &task.model;
+    let mode = task.mode;
+    let prefix = match mode {
+        EmbeddingMode::Query => &pipeline.query_prefix,
+        EmbeddingMode::Passage => &pipeline.passage_prefix,
     };
-    let mode = Some(mode);
     let encoder_env = encoder_environment(idle);
+    let params = |
+        resource_kind: ResourceKind,
+        environment: ExecutionEnvironment,
+        index: Option<&IndexId>|
+    {
+        OperationParams::new(requirements(resource_kind, environment, model, index))
+            .with_mode(mode)
+    };
     let mut chain = Vec::with_capacity(5);
     chain
         .push(
             plan(
                 OperationKind::Tokenization,
-                ResourceKind::Tokenizer,
-                ExecutionEnvironment::CpuOnly,
-                &model,
-                mode,
+                params(ResourceKind::Tokenizer, ExecutionEnvironment::CpuOnly, None),
                 OperationConfig {
-                    tokenizer: Some(model.clone()),
                     prefix: Some(prefix.clone()),
                     max_seq_len: Some(pipeline.max_seq_len),
                     ..OperationConfig::default()
@@ -274,14 +266,10 @@ fn expand_embedding(
         .push(
             plan(
                 OperationKind::Embedding,
-                ResourceKind::Encoder,
-                encoder_env,
-                &model,
-                mode,
+                params(ResourceKind::Encoder, encoder_env, None)
+                    .with_dimension(pipeline.dimension),
                 OperationConfig {
-                    model: Some(model.clone()),
                     dtype: Some(pipeline.dtype),
-                    target_dimension: Some(pipeline.dimension),
                     ..OperationConfig::default()
                 },
             ),
@@ -291,10 +279,7 @@ fn expand_embedding(
             .push(
                 plan(
                     OperationKind::Pooling,
-                    ResourceKind::Encoder,
-                    encoder_env,
-                    &model,
-                    mode,
+                    params(ResourceKind::Encoder, encoder_env, None),
                     OperationConfig {
                         pooling: Some(pipeline.pooling),
                         ..OperationConfig::default()
@@ -307,14 +292,8 @@ fn expand_embedding(
             .push(
                 plan(
                     OperationKind::L2Normalization,
-                    ResourceKind::Encoder,
-                    encoder_env,
-                    &model,
-                    mode,
-                    OperationConfig {
-                        model: Some(model.clone()),
-                        ..OperationConfig::default()
-                    },
+                    params(ResourceKind::Encoder, encoder_env, None),
+                    OperationConfig::default(),
                 ),
             );
     }
@@ -323,14 +302,8 @@ fn expand_embedding(
             .push(
                 plan(
                     OperationKind::IndexWrite,
-                    ResourceKind::Index,
-                    ExecutionEnvironment::Any,
-                    &model,
-                    mode,
-                    OperationConfig {
-                        index: Some(index.clone()),
-                        ..OperationConfig::default()
-                    },
+                    params(ResourceKind::Index, ExecutionEnvironment::Any, Some(index)),
+                    OperationConfig::default(),
                 ),
             );
     }
@@ -354,38 +327,39 @@ fn expand_similarity(
     }
     let model = &spec.model;
     let index = IndexId::new(spec.params.index.0.to_string());
-    let top_k = spec.params.top_k.min(u32::MAX as usize) as u32;
+    let top_k = spec.params.top_k.min(u32::MAX as usize);
     let scope = spec.params.scope.clone();
+    let params = |
+        resource_kind: ResourceKind,
+        environment: ExecutionEnvironment,
+        index: Option<&IndexId>|
+    { OperationParams::new(requirements(resource_kind, environment, model, index)) };
     match &spec.scorer {
         ScorerChoice::Vector(scoring) => {
             let chain = vec![
-                plan(OperationKind::Similarity, ResourceKind::Scorer,
-                ExecutionEnvironment::Any, model, None, OperationConfig { model :
-                Some(model.clone()), scorer : Some(format!("{scoring:?}")), index :
-                Some(index.clone()), scope : Some(scope), target_dimension :
-                Some(pipeline.dimension), dtype : Some(pipeline.dtype),
+                plan(OperationKind::Similarity, params(ResourceKind::Scorer,
+                ExecutionEnvironment::Any, Some(& index)).with_dimension(pipeline
+                .dimension), OperationConfig { scorer : Some(format!("{scoring:?}")),
+                scope : Some(scope), dtype : Some(pipeline.dtype),
                 ..OperationConfig::default() },), plan(OperationKind::TopK,
-                ResourceKind::Scorer, ExecutionEnvironment::Any, model, None,
-                OperationConfig { model : Some(model.clone()), index : Some(index), top_k
-                : Some(top_k), ..OperationConfig::default() },),
+                params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
+                .with_top_k(top_k), OperationConfig::default(),),
             ];
             Ok(("similarity", chain))
         }
         ScorerChoice::CrossEncoder(name) => {
             let chain = vec![
-                plan(OperationKind::Tokenization, ResourceKind::Tokenizer,
-                ExecutionEnvironment::CpuOnly, model, None, OperationConfig { tokenizer :
-                Some(model.clone()), max_seq_len : Some(pipeline.max_seq_len), scope :
-                Some(scope.clone()), index : Some(index.clone()),
+                plan(OperationKind::Tokenization, params(ResourceKind::Tokenizer,
+                ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
+                max_seq_len : Some(pipeline.max_seq_len), scope : Some(scope.clone()),
                 ..OperationConfig::default() },), plan(OperationKind::Inference,
-                ResourceKind::CrossEncoder, ExecutionEnvironment::Any, model, None,
-                OperationConfig { model : Some(model.clone()), scorer : Some(name
-                .clone()), dtype : Some(pipeline.dtype), ..OperationConfig::default()
-                },), plan(OperationKind::Similarity, ResourceKind::CrossEncoder,
-                ExecutionEnvironment::Any, model, None, OperationConfig { model :
-                Some(model.clone()), scorer : Some(name.clone()), index : Some(index),
-                scope : Some(scope), top_k : Some(top_k), ..OperationConfig::default()
-                },),
+                params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
+                OperationConfig { scorer : Some(name.clone()), dtype : Some(pipeline
+                .dtype), ..OperationConfig::default() },),
+                plan(OperationKind::Similarity, params(ResourceKind::CrossEncoder,
+                ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
+                OperationConfig { scorer : Some(name.clone()), scope : Some(scope),
+                ..OperationConfig::default() },),
             ];
             Ok(("similarity/cross-encoder", chain))
         }
