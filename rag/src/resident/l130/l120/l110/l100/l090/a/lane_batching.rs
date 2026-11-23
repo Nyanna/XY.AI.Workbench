@@ -261,13 +261,12 @@ where
             }),
         )
     }
-    /// Called for a finished lane whose tag belongs to this resource. `false`: unknown tag.
-    pub fn on_finished(&self, finished: FinishedLane) -> bool {
-        let FinishedLane { lane, tag, result, .. } = finished;
-        let record = lock(&self.in_flight).remove(&tag);
-        let Some(record) = record else {
-            return false;
+    /// Called for a finished lane whose tag belongs to this resource. `Err`: unknown tag, lane returned unchanged.
+    pub fn on_finished(&self, finished: FinishedLane) -> Result<(), FinishedLane> {
+        let Some(record) = lock(&self.in_flight).remove(&finished.tag) else {
+            return Err(finished);
         };
+        let FinishedLane { lane, result, .. } = finished;
         self.collect_and_conclude(
             record.slot,
             lane,
@@ -278,7 +277,7 @@ where
             record.start,
             result,
         );
-        true
+        Ok(())
     }
     /// True iff `tag` belongs to a batch in flight of this resource.
     pub fn owns_tag(&self, tag: u64) -> bool {

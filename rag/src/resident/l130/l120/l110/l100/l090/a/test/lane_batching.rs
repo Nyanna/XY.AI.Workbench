@@ -577,7 +577,7 @@ fn gpu_batch_is_finished_by_on_finished() {
     done.store(true, Ordering::SeqCst);
     let mut finished = completion.poll();
     assert_eq!(finished.len(), 1);
-    assert!(fx.res.on_finished(finished.remove(0)));
+    assert!(fx.res.on_finished(finished.remove(0)).is_ok());
     let collects = fx.runner.collects.lock().unwrap().clone();
     assert_eq!(collects.len(), 1);
     assert_eq!(collects[0].0, vec![1, 2]);
@@ -596,7 +596,7 @@ fn failed_event_reaches_collect() {
     fail.store(true, Ordering::SeqCst);
     let mut finished = fx.completion.clone().unwrap().poll();
     assert_eq!(finished.len(), 1);
-    assert!(fx.res.on_finished(finished.remove(0)));
+    assert!(fx.res.on_finished(finished.remove(0)).is_ok());
     assert!(fx.runner.collects.lock().unwrap() [0].1.is_err());
     assert_eq!(fx.res.idle_lanes(), 1);
 }
@@ -610,7 +610,7 @@ fn unknown_tag_is_rejected() {
         result: Ok(()),
         via: TakenVia::Callback,
     };
-    assert!(! fx.res.on_finished(finished));
+    assert!(fx.res.on_finished(finished).is_err());
     assert!(fx.runner.collects.lock().unwrap().is_empty());
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 0);
 }
@@ -668,7 +668,7 @@ fn collect_panic_abandons_claims_and_frees_lane() {
     fx.exec_own();
     done.store(true, Ordering::SeqCst);
     let mut finished = fx.completion.clone().unwrap().poll();
-    assert!(fx.res.on_finished(finished.remove(0)));
+    assert!(fx.res.on_finished(finished.remove(0)).is_ok());
     assert_eq!(t.state(), State::Abandoned);
     assert_eq!(fx.res.idle_lanes(), 1);
 }
@@ -729,7 +729,7 @@ fn owns_tag_follows_the_batch_in_flight() {
     let tag = finished[0].tag;
     assert!(fx.res.owns_tag(tag));
     assert!(! fx.res.owns_tag(tag + 1_000_000));
-    assert!(fx.res.on_finished(finished.remove(0)));
+    assert!(fx.res.on_finished(finished.remove(0)).is_ok());
     assert!(! fx.res.owns_tag(tag));
 }
 #[test]
@@ -747,6 +747,6 @@ fn abort_in_flight_abandons_claims_and_releases_leases() {
     assert_eq!(fx.res.abort_in_flight(), 0);
     done.store(true, Ordering::SeqCst);
     let mut finished = fx.completion.clone().unwrap().poll();
-    assert!(! fx.res.on_finished(finished.remove(0)));
+    assert!(fx.res.on_finished(finished.remove(0)).is_err());
     assert!(fx.runner.collects.lock().unwrap().is_empty());
 }
