@@ -8,12 +8,16 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -23,13 +27,22 @@ import org.eclipse.swt.widgets.Shell;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import xy.ai.conscious.core.AgentProfile;
 import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
 import xy.ai.conscious.core.OutputMode;
 
 public class PresetHandler {
   public static final String PROMPT_TXT = ".prompt.txt";
   private static final Pattern FRONT_MATTER = Pattern.compile("\\A---\\s*\\n(.*?\\n)?---\\s*\\n?", Pattern.DOTALL);
   private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER));
+  /**
+   * Top-level front matter key line, optionally commented out ("key:" or "# key:").
+   */
+  private static final Pattern FIELD_LINE = Pattern.compile("^(#[ ]?)?(title|tools|outputMode|inputs|rules|model|reasoning|cache|profile):");
+  private static final java.util.Set<String> SETTING_KEYS = java.util.Set.of("model", "reasoning", "cache", "profile");
 
   public static class FrontMatter {
     public String title;
@@ -37,6 +50,29 @@ public class PresetHandler {
     public String outputMode;
     public List<String> inputs;
     public Map<String, Map<String, Object>> rules;
+    public String model;
+    public String reasoning;
+    public String cache;
+    public String profile;
+  }
+
+  /**
+   * Session settings stored (initially commented out) in the front matter.
+   */
+  public static class Settings {
+    public String model;
+    public String reasoning;
+    public String cache;
+    public String profile;
+
+    public static Settings of(Model model, Reasoning reasoning, CacheMode cache, AgentProfile profile) {
+      Settings s = new Settings();
+      s.model = model != null ? model.toString() : null;
+      s.reasoning = reasoning != null ? reasoning.name() : null;
+      s.cache = cache != null ? cache.name() : null;
+      s.profile = profile != null ? profile.name() : null;
+      return s;
+    }
   }
 
   public static class Preset {
@@ -46,6 +82,10 @@ public class PresetHandler {
     public OutputMode outputMode;
     public String[] inputs;
     public Map<String, Map<String, Object>> rules;
+    public String model;
+    public String reasoning;
+    public String cache;
+    public String profile;
   }
 
   public static IFile[] listPresetFiles() {
@@ -99,6 +139,10 @@ public class PresetHandler {
             preset.inputs = fm.inputs.toArray(new String[0]);
           if (fm.rules != null)
             preset.rules = fm.rules;
+          preset.model = fm.model;
+          preset.reasoning = fm.reasoning;
+          preset.cache = fm.cache;
+          preset.profile = fm.profile;
         } catch (Exception e) {
           LOG.error(e.getMessage(), e);
         }
@@ -109,19 +153,53 @@ public class PresetHandler {
     return preset;
   }
 
-  public static void writePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, Shell shell) {
+  /**
+   * Asks for a target file and writes the preset.
+   *
+   * @return true if a file was written
+   */
+  public static boolean writePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, Settings settings, Shell shell) {
     FileDialog dialog = new FileDialog(shell, SWT.SAVE);
     dialog.setFilterPath(resolveDefaultSaveDir());
     dialog.setFilterExtensions(new String[] { "*.prompt.txt" });
     dialog.setFilterNames(new String[] { "Prompt Files (*prompt.txt)" });
     String filePath = dialog.open();
     if (filePath == null)
-      return;
-    String content = serializePreset(body, tools, outputMode, inputs, rules, "");
+      return false;
+    String existing = null;
+    java.nio.file.Path target = java.nio.file.Paths.get(filePath);
+    if (Files.isRegularFile(target))
+      try {
+        existing = new String(Files.readAllBytes(target), StandardCharsets.UTF_8);
+      } catch (IOException e) {
+        LOG.error(e.getMessage(), e);
+      }
+    String content = serializePreset(body, tools, outputMode, inputs, rules, "", settings, existing);
     try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, StandardCharsets.UTF_8))) {
       writer.print(content);
     } catch (IOException e) {
       throw new IllegalStateException(e);
+    }
+    refreshWorkspace(filePath);
+    return true;
+  }
+
+  /**
+   * Makes the workspace aware of a file written outside of the resource API.
+   */
+  private static void refreshWorkspace(String filePath) {
+    IFile[] files = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(new java.io.File(filePath).toURI());
+    for (IFile file : files) {
+      try {
+        IContainer parent = file.getParent();
+        IContainer known = parent;
+        while (known != null && !known.exists()) known = known.getParent();
+        if (known == null)
+          continue;
+        known.refreshLocal(known == parent ? IResource.DEPTH_ONE : IResource.DEPTH_INFINITE, null);
+      } catch (CoreException e) {
+        LOG.error(e.getMessage(), e);
+      }
     }
   }
 
@@ -137,27 +215,127 @@ public class PresetHandler {
     return projects.length > 0 ? projects[0].getLocation().toOSString() : "";
   }
 
-  public static String serializePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, String title) {
-    FrontMatter fm = new FrontMatter();
-    fm.title = title != null ? title : "";
+  /**
+   * Serializes a preset. If <code>existing</code> (content of the file being
+   * overwritten) is given, its title and the comment state of its front matter
+   * fields are kept. The settings fields (model, reasoning, cache, profile) are
+   * commented out unless the existing file has them active.
+   */
+  public static String serializePreset(String[] body, String[] tools, OutputMode outputMode, String[] inputs, Map<String, Map<String, Object>> rules, String title, Settings settings, String existing) {
+    Map<String, Boolean> commented = new HashMap<>();
+    String effectiveTitle = title != null ? title : "";
+    if (existing != null) {
+      String existingYaml = frontMatterYaml(existing);
+      if (existingYaml != null) {
+        commented = readCommentState(existingYaml);
+        String existingTitle = readExistingTitle(existingYaml);
+        if (existingTitle != null)
+          effectiveTitle = existingTitle;
+      }
+    }
+    Map<String, Object> fm = new LinkedHashMap<>();
+    fm.put("title", effectiveTitle);
     if (tools != null && tools.length > 0)
-      fm.tools = Arrays.asList(tools);
+      fm.put("tools", Arrays.asList(tools));
     if (outputMode != null)
-      fm.outputMode = outputMode.name();
+      fm.put("outputMode", outputMode.name());
     if (inputs != null && inputs.length > 0)
-      fm.inputs = Arrays.asList(inputs);
+      fm.put("inputs", Arrays.asList(inputs));
     if (rules != null && !rules.isEmpty())
-      fm.rules = rules;
+      fm.put("rules", rules);
+    if (settings != null) {
+      if (settings.model != null)
+        fm.put("model", settings.model);
+      if (settings.reasoning != null)
+        fm.put("reasoning", settings.reasoning);
+      if (settings.cache != null)
+        fm.put("cache", settings.cache);
+      if (settings.profile != null)
+        fm.put("profile", settings.profile);
+    }
     StringBuilder sb = new StringBuilder();
     try {
-      String yaml = YAML.writeValueAsString(fm);
+      String yaml = applyComments(YAML.writeValueAsString(fm), commented);
       sb.append("---\n");
       sb.append(yaml);
+      if (!yaml.endsWith("\n"))
+        sb.append("\n");
       sb.append("---\n");
     } catch (Exception e) {
       LOG.error(e.getMessage(), e);
     }
     sb.append(String.join("\n", body));
     return sb.toString();
+  }
+
+  private static String frontMatterYaml(String content) {
+    Matcher matcher = FRONT_MATTER.matcher(content);
+    if (matcher.find() && matcher.start() == 0)
+      return matcher.group(1);
+    return null;
+  }
+
+  /**
+   * Comment state per top-level front matter key of an existing file (true =
+   * commented out). A key counts as commented only if all its occurrences are.
+   */
+  private static Map<String, Boolean> readCommentState(String yaml) {
+    Map<String, Boolean> state = new HashMap<>();
+    for (String line : yaml.split("\n")) {
+      Matcher m = FIELD_LINE.matcher(line);
+      if (m.find())
+        state.merge(m.group(2), m.group(1) != null, (a, b) -> a && b);
+    }
+    return state;
+  }
+
+  /**
+   * Title of an existing file; an active title wins over a commented one.
+   */
+  private static String readExistingTitle(String yaml) {
+    String commentedTitle = null;
+    for (String line : yaml.split("\n")) {
+      Matcher m = FIELD_LINE.matcher(line);
+      if (!m.find() || !"title".equals(m.group(2)))
+        continue;
+      String value = parseTitle(line.substring(m.end() - "title:".length()));
+      if (value == null)
+        continue;
+      if (m.group(1) == null)
+        return value;
+      if (commentedTitle == null)
+        commentedTitle = value;
+    }
+    return commentedTitle;
+  }
+
+  private static String parseTitle(String titleLine) {
+    try {
+      Object value = YAML.readValue(titleLine, Map.class).get("title");
+      if (value == null)
+        return null;
+      String text = value.toString().trim();
+      return text.isEmpty() ? null : text;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /**
+   * Comments out whole field blocks line by line. Fields without a known state
+   * are commented out if they are settings fields, active otherwise.
+   */
+  private static String applyComments(String yaml, Map<String, Boolean> commented) {
+    StringBuilder out = new StringBuilder();
+    boolean comment = false;
+    for (String line : yaml.split("\n")) {
+      Matcher m = FIELD_LINE.matcher(line);
+      if (m.find()) {
+        String key = m.group(2);
+        comment = commented.containsKey(key) ? commented.get(key) : SETTING_KEYS.contains(key);
+      }
+      out.append(comment ? "# " + line : line).append('\n');
+    }
+    return out.toString();
   }
 }

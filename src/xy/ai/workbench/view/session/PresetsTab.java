@@ -15,8 +15,12 @@ import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
+import xy.ai.conscious.core.AgentProfile;
 import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.OutputMode;
+import xy.ai.conscious.model.CacheMode;
+import xy.ai.conscious.model.Model;
+import xy.ai.conscious.model.Reasoning;
 import xy.ai.workbench.view.PresetHandler;
 
 /**
@@ -44,8 +48,9 @@ public class PresetsTab {
 
       @Override
       public void widgetSelected(SelectionEvent e) {
-        PresetHandler.writePreset(cfg.getSystemPrompt(), tools.getSelection(), cfg.getOuputMode(), inputs.getSelection(), rules.getSelection(), shell);
-        refreshPresetList();
+        PresetHandler.Settings settings = PresetHandler.Settings.of(cfg.getModel(), cfg.getReasoning(), cfg.getCacheMode(), cfg.getProfile());
+        if (PresetHandler.writePreset(cfg.getSystemPrompt(), tools.getSelection(), cfg.getOuputMode(), inputs.getSelection(), rules.getSelection(), settings, shell))
+          refreshPresetList();
       }
     });
     Button clearToolsButton = new Button(buttons, SWT.PUSH);
@@ -100,6 +105,7 @@ public class PresetsTab {
         inputs.setSelection(preset.inputs);
       if (preset.rules != null)
         rules.setSelection(preset.rules);
+      applySettings(cfg, preset);
     }));
     refreshPresetList();
   }
@@ -113,5 +119,41 @@ public class PresetsTab {
       labels[i] = entries.get(i).label;
     }
     presetList.setItems(labels);
+  }
+
+  /**
+   * Forces the settings a preset has active (uncommented) in its front matter.
+   * The model is set first because changing it resets reasoning, cache and
+   * profile to the model's defaults. Unknown or unsupported values are ignored.
+   */
+  private void applySettings(ConfigManager cfg, PresetHandler.Preset preset) {
+    if (preset.model != null && !preset.model.isBlank())
+      for (Model m : cfg.getEnabledModels()) {
+        if (m.toString().equalsIgnoreCase(preset.model.trim())) {
+          cfg.setModel(m);
+          break;
+        }
+      }
+    if (preset.reasoning != null && !preset.reasoning.isBlank())
+      for (Reasoning r : cfg.getCapabilities().getReasonings()) {
+        if (r.name().equalsIgnoreCase(preset.reasoning.trim())) {
+          cfg.setReasoning(r);
+          break;
+        }
+      }
+    if (preset.cache != null && !preset.cache.isBlank())
+      for (CacheMode c : cfg.getCapabilities().getCacheMode()) {
+        if (c.name().equalsIgnoreCase(preset.cache.trim())) {
+          cfg.setCacheMode(c);
+          break;
+        }
+      }
+    if (preset.profile != null && !preset.profile.isBlank())
+      for (AgentProfile p : cfg.getCapabilities().getAgentProfiles()) {
+        if (p.name().equalsIgnoreCase(preset.profile.trim())) {
+          cfg.setProfile(p);
+          break;
+        }
+      }
   }
 }
