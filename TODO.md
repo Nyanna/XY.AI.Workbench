@@ -1,4 +1,9 @@
 # TODO
+-üreset speichern soll presets neu laden
+	- bei speichern auf existierender Datei wird der name Title übernommen
+	- wenn modell dann mitspeichern
+		- modell, reasoning, cache, profile
+	-  sonst auskommentiert mitspeichern
 !verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
 	- sortierung vielleicht in filter und customizations
 !Der AI explorer zeigt /done/ folder nicht mehr richtig an 
