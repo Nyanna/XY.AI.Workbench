@@ -7,7 +7,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use log::{debug, warn};
 use super::super::l050::a::table_swap::{Epoch, TableSwap, TableSwapError};
 use super::super::l050::l040::a::allocator::{Allocator, AllocatorError};
-use super::super::l050::l040::l030::a::bookkeeping::Region;
+use super::super::l050::l040::l030::a::region_handle::RegionHandle;
 use super::super::l050::l040::l030::l020::l010::device_lane_event::Event;
 pub const MIN_ALIGNMENT: u64 = 256;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,8 +72,8 @@ impl std::error::Error for SegmentArenaError {}
 /// Aligned segment inside an allocator region (which includes the slack).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Segment {
-    pub region: Region,
-    /// Absolute, aligned arena offset (>= `region.offset`).
+    pub region: RegionHandle,
+    /// Absolute, aligned arena offset (>= `region.offset()`).
     pub offset: u64,
     /// Usable length: requested length rounded up to the alignment.
     pub len: u64,
@@ -139,12 +139,12 @@ pub struct ReplacementInfo {
     pub new: Segment,
 }
 struct Deferred {
-    region: Region,
+    region: RegionHandle,
     epoch: Epoch,
 }
 #[derive(Default)]
 struct State {
-    live: HashMap<Region, Segment>,
+    live: HashMap<RegionHandle, Segment>,
     deferred: Vec<Deferred>,
     replacement: Option<ReplacementInfo>,
 }
@@ -152,16 +152,16 @@ impl State {
     fn largest(&self) -> u64 {
         self.live
             .keys()
-            .map(|r| r.len)
-            .chain(self.deferred.iter().map(|d| d.region.len))
+            .map(|r| r.len())
+            .chain(self.deferred.iter().map(|d| d.region.len()))
             .max()
             .unwrap_or(0)
     }
     fn live_bytes(&self) -> u64 {
-        self.live.keys().fold(0u64, |s, r| s.saturating_add(r.len))
+        self.live.keys().fold(0u64, |s, r| s.saturating_add(r.len()))
     }
     fn deferred_bytes(&self) -> u64 {
-        self.deferred.iter().fold(0u64, |s, d| s.saturating_add(d.region.len))
+        self.deferred.iter().fold(0u64, |s, d| s.saturating_add(d.region.len()))
     }
 }
 fn align_up(value: u64, align: u64) -> Option<u64> {
@@ -258,17 +258,17 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
             .alloc()
             .allocate(region_len)
             .map_err(|e| map_allocator_error(e, region_len))?;
-        let aligned = align_up(region.offset, self.config.alignment)
+        let aligned = align_up(region.offset(), self.config.alignment)
             .and_then(|offset| {
                 let end = offset.checked_add(len)?;
-                let region_end = region.offset.checked_add(region.len)?;
+                let region_end = region.offset().checked_add(region.len())?;
                 (end <= region_end).then_some(offset)
             });
         match aligned {
             Some(offset) => Ok(Segment { region, offset, len }),
             None => {
                 if let Err(e) = self.alloc().free(&region) {
-                    warn!("misfit region at offset {} not freed: {e}", region.offset);
+                    warn!("misfit region at offset {} not freed: {e}", region.offset());
                 }
                 Err(SegmentArenaError::Allocator(AllocatorError::AllocationFailed))
             }
@@ -338,7 +338,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
             Readers::None => self.alloc().free(&region),
             Readers::After(ev) => self.alloc().free_deferred(&region, ev),
         };
-        result.map_err(|e| map_allocator_error(e, region.len))?;
+        result.map_err(|e| map_allocator_error(e, region.len()))?;
         st.live.remove(&region);
         debug!("segment released: {}", self.budget_locked(& st));
         Ok(())
@@ -353,7 +353,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
             Some(s) if self.alloc().is_live(&old.region) => *s,
             _ => return Err(SegmentArenaError::StaleRegion),
         };
-        let size = tracked.region.len;
+        let size = tracked.region.len();
         let occupied = self.occupied();
         let need = ReplacementBudget {
             live_bytes: occupied,
@@ -406,7 +406,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
         st.live.remove(&info.new.region);
         self.alloc()
             .free(&info.new.region)
-            .map_err(|e| map_allocator_error(e, info.new.region.len))
+            .map_err(|e| map_allocator_error(e, info.new.region.len()))
     }
     pub fn replacement(&self) -> Option<ReplacementInfo> {
         self.lock().replacement
@@ -423,7 +423,8 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
                 Ok(()) => freed += 1,
                 Err(e) => {
                     warn!(
-                        "deferred region at offset {} already gone: {e}", d.region.offset
+                        "deferred region at offset {} already gone: {e}", d.region
+                        .offset()
                     )
                 }
             }

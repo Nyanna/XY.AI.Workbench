@@ -32,7 +32,7 @@ fn first_fit_and_errors() {
     );
     let a = b.allocate(W, 40).unwrap();
     let c = b.allocate(W, 40).unwrap();
-    assert_eq!((a.offset, c.offset), (0, 40));
+    assert_eq!((a.offset(), c.offset()), (0, 40));
     assert_eq!(
         b.allocate(W, 30),
         Err(AllocError::OutOfSpace {
@@ -43,7 +43,7 @@ fn first_fit_and_errors() {
     );
     b.free(W, &a).unwrap();
     let d = b.allocate(W, 10).unwrap();
-    assert_eq!(d.offset, 0);
+    assert_eq!(d.offset(), 0);
     assert_eq!(b.live_bytes(W), 50);
 }
 
@@ -69,17 +69,17 @@ fn fragmentation_reports_total_free() {
 fn generations_and_liveness() {
     let b = setup(100);
     let r0 = b.allocate(W, 10).unwrap();
-    assert_eq!(r0.generation, 0);
+    assert_eq!(r0.generation(), Generation(0));
     assert!(b.is_live(&r0));
     b.free(W, &r0).unwrap();
     assert!(!b.is_live(&r0));
     assert_eq!(b.free(W, &r0), Err(FreeError::AlreadyFreed));
     let r1 = b.allocate(W, 10).unwrap();
-    assert_eq!(r1.generation, 1);
+    assert_eq!(r1.generation(), Generation(1));
     assert!(b.is_live(&r1) && !b.is_live(&r0));
     assert_eq!(b.free(W, &r0), Err(FreeError::Mismatch));
     let s = b.allocate(ArenaKind::Staging, 10).unwrap();
-    assert_eq!(s.generation, 0);
+    assert_eq!(s.generation(), Generation(0));
 }
 
 #[test]
@@ -93,9 +93,9 @@ fn strict_free_errors() {
             found: W
         })
     );
-    let other_len = Region { len: 5, ..r };
+    let other_len = RegionHandle::new(W, r.offset(), 5, r.generation()).unwrap();
     assert_eq!(b.free(W, &other_len), Err(FreeError::Mismatch));
-    let unknown = Region { offset: 50, ..r };
+    let unknown = RegionHandle::new(W, 50, r.len(), r.generation()).unwrap();
     assert_eq!(b.free(W, &unknown), Err(FreeError::UnknownRegion));
     assert!(b.is_live(&r));
 }
@@ -127,7 +127,7 @@ fn fault_injection() {
     );
     assert!(b.allocate(W, 5).is_err());
     let r = b.allocate(W, 5).unwrap();
-    assert_eq!((r.offset, r.generation), (0, 0));
+    assert_eq!((r.offset(), r.generation()), (0, Generation(0)));
     b.inject_alloc_failure(W, 5);
     b.clear_alloc_failure(W);
     assert!(b.allocate(W, 5).is_ok());
@@ -157,13 +157,13 @@ fn concurrent_no_overlap_and_single_free() {
             })
         })
         .collect();
-    let mut all: Vec<Region> = handles
+    let mut all: Vec<RegionHandle> = handles
         .into_iter()
         .flat_map(|h| h.join().unwrap())
         .collect();
-    all.sort_by_key(|r| r.offset);
+    all.sort_by_key(|r| r.offset());
     for w in all.windows(2) {
-        assert!(w[0].offset + w[0].len <= w[1].offset);
+        assert!(w[0].offset() + w[0].len() <= w[1].offset());
     }
     assert!(b.live_bytes(W) <= 1000);
 

@@ -7,8 +7,9 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     HasResourceRequirements, ResourceRequirements,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::OperationKind;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::Task;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::CompleteError;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
+    CompleteError, Task,
+};
 /// Implemented by operations; provides the operation kind.
 pub trait HasOperationKind {
     fn operation_kind(&self) -> OperationKind;

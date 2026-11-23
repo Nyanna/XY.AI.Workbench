@@ -1,11 +1,7 @@
 //! Normalizes pooled vectors once, converts them to the output dtype and writes them gap-free.
-
 pub mod segment_writer;
-
 use std::fmt;
-
 use log::warn;
-
 use self::segment_writer::Reservation;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::kernel_register::{
     GpuKernel, Kernel, KernelError, KernelRegister, KernelSource, Variant,
@@ -16,19 +12,16 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     PoolNorm, PoolNormError,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::memory_access::{
-    AccessError, Region,
+    AccessError, AccessRegion,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::Normalization;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::{
     device_lane_event::{Event, EventError, Lane, LaneError},
     layout::DType,
 };
-
 pub const WRITE_KERNEL_NAME: &str = "embedding_write";
-
 const WRITE_KERNEL_ENTRY: &str = "embedding_write";
 const WRITE_KERNEL_DTYPES: &[DType] = &[DType::F32];
-
 const WRITE_KERNEL_BODY: &str = r#"
 __device__ __forceinline__ unsigned int eo_f16_bits(float f) {
     unsigned int x = __float_as_uint(f);
@@ -93,7 +86,6 @@ extern "C" __global__ void embedding_write(
     }
 }
 "#;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputError {
     Incompatible(DType),
@@ -104,26 +96,25 @@ pub enum OutputError {
     Kernel(KernelError),
     Lane(LaneError),
 }
-
 impl fmt::Display for OutputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OutputError::Incompatible(d) => write!(f, "inkompatibel: Output-Datentyp {d:?}"),
+            OutputError::Incompatible(d) => {
+                write!(f, "inkompatibel: Output-Datentyp {d:?}")
+            }
             OutputError::Memory(e) => write!(f, "output write failed: {e}"),
             OutputError::PoolNorm(e) => write!(f, "normalization failed: {e}"),
             OutputError::InvalidResult(t) => write!(f, "invalid result tensor: {t}"),
-            OutputError::SlotTooSmall {
-                required,
-                available,
-            } => {
-                write!(f, "slot too small: {required} bytes required, {available} available")
+            OutputError::SlotTooSmall { required, available } => {
+                write!(
+                    f, "slot too small: {required} bytes required, {available} available"
+                )
             }
             OutputError::Kernel(e) => write!(f, "write kernel unavailable: {e}"),
             OutputError::Lane(e) => write!(f, "lane error: {e}"),
         }
     }
 }
-
 impl std::error::Error for OutputError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -135,30 +126,25 @@ impl std::error::Error for OutputError {
         }
     }
 }
-
 impl From<AccessError> for OutputError {
     fn from(e: AccessError) -> Self {
         OutputError::Memory(e)
     }
 }
-
 impl From<PoolNormError> for OutputError {
     fn from(e: PoolNormError) -> Self {
         OutputError::PoolNorm(e)
     }
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WriteReport {
     pub num_vectors: usize,
     pub bytes_written: usize,
     pub degenerate_count: usize,
 }
-
 pub fn is_supported_output(dtype: DType) -> bool {
     matches!(dtype, DType::F32 | DType::F16 | DType::BF16)
 }
-
 /// Round-to-nearest-even conversion to IEEE-754 binary16 bits.
 pub fn f32_to_f16_bits(x: f32) -> u16 {
     let bits = x.to_bits();
@@ -188,7 +174,6 @@ pub fn f32_to_f16_bits(x: f32) -> u16 {
     }
     sign | q as u16
 }
-
 /// Round-to-nearest-even conversion to bfloat16 bits.
 pub fn f32_to_bf16_bits(x: f32) -> u16 {
     let bits = x.to_bits();
@@ -197,7 +182,6 @@ pub fn f32_to_bf16_bits(x: f32) -> u16 {
     }
     (bits.wrapping_add(0x7FFF + ((bits >> 16) & 1)) >> 16) as u16
 }
-
 /// Little-endian bytes of `vectors` in `dtype`.
 pub fn encode_f32_slice(vectors: &[f32], dtype: DType) -> Result<Vec<u8>, OutputError> {
     if !is_supported_output(dtype) {
@@ -223,10 +207,9 @@ pub fn encode_f32_slice(vectors: &[f32], dtype: DType) -> Result<Vec<u8>, Output
     }
     Ok(out)
 }
-
-/// Host path: normalizes `vectors` in place, converts and writes them with one `Region::write`.
+/// Host path: normalizes `vectors` in place, converts and writes them with one `AccessRegion::write`.
 pub fn write_embeddings(
-    region: &Region,
+    region: &AccessRegion,
     offset_bytes: usize,
     vectors: &mut [f32],
     norm: &PoolNorm,
@@ -249,7 +232,6 @@ pub fn write_embeddings(
         degenerate_count,
     })
 }
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WriteKernelArgs {
     pub num_vectors: u64,
@@ -258,7 +240,6 @@ pub struct WriteKernelArgs {
     pub out_dtype: DType,
     pub dst: Addr,
 }
-
 impl WriteKernelArgs {
     /// Kernel encoding of `out_dtype`: 0 = F32, 1 = F16, 2 = BF16.
     pub fn out_dtype_code(&self) -> u32 {
@@ -269,7 +250,6 @@ impl WriteKernelArgs {
         }
     }
 }
-
 /// Implemented by the GPU binding.
 pub trait WriteKernelLauncher: Send + Sync {
     /// Reads the device pointer of `result` and enqueues `kernel` on the stream of `lane` with
@@ -282,7 +262,6 @@ pub trait WriteKernelLauncher: Send + Sync {
         result: &LibTensor,
     ) -> Result<(), String>;
 }
-
 pub fn write_kernel_source() -> KernelSource {
     KernelSource {
         name: WRITE_KERNEL_NAME,
@@ -292,11 +271,9 @@ pub fn write_kernel_source() -> KernelSource {
         precompiled: None,
     }
 }
-
 pub fn register_write_kernel(reg: &KernelRegister) -> Result<(), KernelError> {
     reg.register_source(write_kernel_source())
 }
-
 /// Keeps the result tensor alive until the write event completed.
 #[derive(Debug)]
 pub struct GpuWriteTicket {
@@ -304,23 +281,18 @@ pub struct GpuWriteTicket {
     result: LibTensor,
     event: Event,
 }
-
-static_assertions::assert_impl_all!(GpuWriteTicket: Send, Sync);
-
+static_assertions::assert_impl_all!(GpuWriteTicket : Send, Sync);
 impl GpuWriteTicket {
     pub fn event(&self) -> &Event {
         &self.event
     }
-
     pub fn is_complete(&self) -> Result<bool, EventError> {
         self.event.is_complete()
     }
-
     pub fn wait(&self) -> Result<(), EventError> {
         self.event.wait()
     }
 }
-
 impl Drop for GpuWriteTicket {
     fn drop(&mut self) {
         if !matches!(self.event.is_complete(), Ok(true)) {
@@ -328,7 +300,6 @@ impl Drop for GpuWriteTicket {
         }
     }
 }
-
 /// GPU path: enqueues the write kernel for `result` into `slot` and returns the ticket carrying
 /// the event; no bytes are written on the host and nothing blocks on the GPU.
 pub fn write_embeddings_gpu(
@@ -349,7 +320,9 @@ pub fn write_embeddings_gpu(
     match result.dtype() {
         Ok(DType::F32) => {}
         Ok(other) => {
-            return Err(OutputError::InvalidResult(format!("result dtype {other:?} is not F32")));
+            return Err(
+                OutputError::InvalidResult(format!("result dtype {other:?} is not F32")),
+            );
         }
         Err(e) => return Err(OutputError::InvalidResult(e.to_string())),
     }
@@ -368,7 +341,12 @@ pub fn write_embeddings_gpu(
         .and_then(|e| e.checked_mul(out_dtype.size_in_bytes() as u64));
     match required {
         Some(required) if required <= available => {}
-        Some(required) => return Err(OutputError::SlotTooSmall { required, available }),
+        Some(required) => {
+            return Err(OutputError::SlotTooSmall {
+                required,
+                available,
+            });
+        }
         None => {
             return Err(OutputError::SlotTooSmall {
                 required: u64::MAX,
@@ -377,7 +355,9 @@ pub fn write_embeddings_gpu(
         }
     }
     let dim = u32::try_from(norm.dim)
-        .map_err(|_| OutputError::InvalidResult(format!("dim {} exceeds u32", norm.dim)))?;
+        .map_err(|_| OutputError::InvalidResult(
+            format!("dim {} exceeds u32", norm.dim),
+        ))?;
     let kernel = register
         .request(
             WRITE_KERNEL_NAME,
@@ -392,7 +372,9 @@ pub fn write_embeddings_gpu(
         Kernel::Gpu(k) => k,
         Kernel::Library(_) => {
             return Err(
-                OutputError::Kernel(KernelError::UnknownKernel(WRITE_KERNEL_NAME.to_string())),
+                OutputError::Kernel(
+                    KernelError::UnknownKernel(WRITE_KERNEL_NAME.to_string()),
+                ),
             );
         }
     };
@@ -414,7 +396,6 @@ pub fn write_embeddings_gpu(
         event,
     })
 }
-
 #[cfg(test)]
 #[path = "test/embedding_output.rs"]
 mod tests;

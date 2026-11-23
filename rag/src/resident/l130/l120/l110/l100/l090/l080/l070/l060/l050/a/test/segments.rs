@@ -27,15 +27,15 @@ impl RegionBackend for MemBackend {
         Ok(())
     }
 }
-fn mem_with(len: usize, fail: &Arc<AtomicBool>) -> MemRegion {
-    MemRegion::new(
+fn mem_with(len: usize, fail: &Arc<AtomicBool>) -> AccessRegion {
+    AccessRegion::new(
         Arc::new(MemBackend {
             bytes: Mutex::new(vec![0xEE; len]),
             fail_writes: fail.clone(),
         }),
     )
 }
-fn mem(len: usize) -> MemRegion {
+fn mem(len: usize) -> AccessRegion {
     mem_with(len, &Arc::new(AtomicBool::new(false)))
 }
 fn handle_at(arena: ArenaKind, offset: u64, len: u64) -> RegionHandle {

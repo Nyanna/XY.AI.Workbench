@@ -6,12 +6,10 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::thread;
-
 #[derive(Debug)]
 struct MockBackend {
     data: Mutex<Vec<u8>>,
 }
-
 impl RegionBackend for MockBackend {
     fn len(&self) -> usize {
         self.data.lock().unwrap().len()
@@ -27,13 +25,13 @@ impl RegionBackend for MockBackend {
         Ok(())
     }
 }
-
-fn mock_region(len: usize) -> Region {
-    Region::new(Arc::new(MockBackend {
-        data: Mutex::new(vec![0; len]),
-    }))
+fn mock_region(len: usize) -> AccessRegion {
+    AccessRegion::new(
+        Arc::new(MockBackend {
+            data: Mutex::new(vec![0; len]),
+        }),
+    )
 }
-
 fn doorbell_with_gap(completed: u64, acked: u64) -> Doorbell {
     let c = DoorbellCell::new_local();
     let a = DoorbellCell::new_local();
@@ -41,7 +39,6 @@ fn doorbell_with_gap(completed: u64, acked: u64) -> Doorbell {
     a.test_store(acked, Ordering::Release);
     Doorbell::new(c, a)
 }
-
 #[test]
 fn swap_returns_old_and_load_returns_new() {
     let mut db = doorbell_with_gap(3, 0);
@@ -49,30 +46,27 @@ fn swap_returns_old_and_load_returns_new() {
     let guard = GapGuard::enter(&gap, KernelMode::Batch);
     let cell = PtrCell::new_local(Level::Root, 0x1000);
     assert_eq!(cell.level(), Level::Root);
-    assert_eq!(guard.swap_ptr(&cell, 0x2000), Ok(0x1000));
+    assert_eq!(guard.swap_ptr(& cell, 0x2000), Ok(0x1000));
     assert_eq!(cell.load(), 0x2000);
-    assert_eq!(guard.swap_ptr(&cell, 0x3000), Ok(0x2000));
+    assert_eq!(guard.swap_ptr(& cell, 0x3000), Ok(0x2000));
     assert_eq!(guard.gap_range(), (1, 3));
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn invalid_values_leave_cell_unchanged() {
     let mut db = doorbell_with_gap(1, 0);
     let gap = db.poll().unwrap().unwrap();
     let guard = GapGuard::enter(&gap, KernelMode::Persistent);
     let cell = PtrCell::new_local(Level::Segment, 0x1000);
-    assert_eq!(guard.swap_ptr(&cell, 0), Err(MutationError::NullPointer));
+    assert_eq!(guard.swap_ptr(& cell, 0), Err(MutationError::NullPointer));
     assert_eq!(
-        guard.swap_ptr(&cell, 0x1004),
-        Err(MutationError::Misaligned { value: 0x1004 })
+        guard.swap_ptr(& cell, 0x1004), Err(MutationError::Misaligned { value : 0x1004 })
     );
     assert_eq!(cell.load(), 0x1000);
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn guard_does_not_close_gap() {
     let mut db = doorbell_with_gap(2, 0);
@@ -86,7 +80,6 @@ fn guard_does_not_close_gap() {
     gap.close();
     assert_eq!(db.acked(), 2);
 }
-
 #[test]
 fn guard_leaves_acked_unchanged_before_close() {
     let acked = DoorbellCell::new_local();
@@ -103,7 +96,6 @@ fn guard_leaves_acked_unchanged_before_close() {
     gap.close();
     assert_eq!(probe.test_load(Ordering::Acquire), 5);
 }
-
 #[test]
 fn reader_sees_only_old_or_new() {
     const OLD: u64 = 0x1000;
@@ -126,28 +118,31 @@ fn reader_sees_only_old_or_new() {
     let guard = GapGuard::enter(&gap, KernelMode::Persistent);
     for i in 0..100_000 {
         let (next, prev) = if i % 2 == 0 { (NEW, OLD) } else { (OLD, NEW) };
-        assert_eq!(guard.swap_ptr(&cell, next), Ok(prev));
+        assert_eq!(guard.swap_ptr(& cell, next), Ok(prev));
     }
     stop.store(true, Ordering::Relaxed);
     assert!(reader.join().unwrap() > 0);
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn release_acquire_publishes_structure() {
-    let data: Arc<Vec<AtomicU64>> = Arc::new((0..16).map(|_| AtomicU64::new(0)).collect());
+    let data: Arc<Vec<AtomicU64>> = Arc::new(
+        (0..16).map(|_| AtomicU64::new(0)).collect(),
+    );
     let cell = PtrCell::new_local(Level::Segment, 8);
     let reader_cell = cell.share();
     let reader_data = Arc::clone(&data);
-    let reader = thread::spawn(move || loop {
-        if reader_cell.load() == 0x4000 {
-            for slot in reader_data.iter() {
-                assert_eq!(slot.load(Ordering::Relaxed), 0xABCD);
+    let reader = thread::spawn(move || {
+        loop {
+            if reader_cell.load() == 0x4000 {
+                for slot in reader_data.iter() {
+                    assert_eq!(slot.load(Ordering::Relaxed), 0xABCD);
+                }
+                break;
             }
-            break;
+            std::hint::spin_loop();
         }
-        std::hint::spin_loop();
     });
     for slot in data.iter() {
         slot.store(0xABCD, Ordering::Relaxed);
@@ -160,26 +155,28 @@ fn release_acquire_publishes_structure() {
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn concurrent_swaps_each_get_replaced_value() {
     let cell = PtrCell::new_local(Level::Root, 8);
     let mut handles = Vec::new();
     for t in 1..=4u64 {
         let c = cell.share();
-        handles.push(thread::spawn(move || {
-            let mut db = doorbell_with_gap(1, 0);
-            let gap = db.poll().unwrap().unwrap();
-            let guard = GapGuard::enter(&gap, KernelMode::Batch);
-            let mut olds = Vec::new();
-            for i in 0..1000u64 {
-                let new = (t * 100_000 + i + 1) * 8;
-                olds.push((guard.swap_ptr(&c, new).unwrap(), new));
-            }
-            drop(guard);
-            gap.close();
-            olds
-        }));
+        handles
+            .push(
+                thread::spawn(move || {
+                    let mut db = doorbell_with_gap(1, 0);
+                    let gap = db.poll().unwrap().unwrap();
+                    let guard = GapGuard::enter(&gap, KernelMode::Batch);
+                    let mut olds = Vec::new();
+                    for i in 0..1000u64 {
+                        let new = (t * 100_000 + i + 1) * 8;
+                        olds.push((guard.swap_ptr(&c, new).unwrap(), new));
+                    }
+                    drop(guard);
+                    gap.close();
+                    olds
+                }),
+            );
     }
     let mut replaced = Vec::new();
     let mut installed = vec![8u64];
@@ -195,7 +192,6 @@ fn concurrent_swaps_each_get_replaced_value() {
     replaced.sort_unstable();
     assert_eq!(installed, replaced);
 }
-
 #[test]
 fn write_in_place_effects_and_errors() {
     let mut db = doorbell_with_gap(1, 0);
@@ -206,15 +202,14 @@ fn write_in_place_effects_and_errors() {
     let mut buf = [0u8; 3];
     region.read(4, &mut buf).unwrap();
     assert_eq!(buf, [1, 2, 3]);
-    assert!(matches!(
-        guard.write_in_place(&region, 15, &[1, 2]),
-        Err(MutationError::Access(AccessError::OutOfBounds { .. }))
-    ));
-    assert_eq!(guard.write_in_place(&region, 1000, &[]), Ok(()));
+    assert!(
+        matches!(guard.write_in_place(& region, 15, & [1, 2]),
+        Err(MutationError::Access(AccessError::OutOfBounds { .. })))
+    );
+    assert_eq!(guard.write_in_place(& region, 1000, & []), Ok(()));
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn persistent_torn_read_yields_only_old_or_new_elements() {
     const N: usize = 64;
@@ -231,7 +226,7 @@ fn persistent_torn_read_yields_only_old_or_new_elements() {
                 reader_region.read(i, &mut b).unwrap();
                 buf[i] = b[0];
             }
-            assert!(buf.iter().all(|&v| v == 1 || v == 2));
+            assert!(buf.iter().all(|& v | v == 1 || v == 2));
         }
     });
     let mut db = doorbell_with_gap(1, 0);
@@ -246,11 +241,12 @@ fn persistent_torn_read_yields_only_old_or_new_elements() {
     drop(guard);
     gap.close();
 }
-
 #[test]
 fn error_display_and_source() {
-    let e = MutationError::Misaligned { value: 5 };
+    let e = MutationError::Misaligned {
+        value: 5,
+    };
     assert!(e.to_string().contains("0x5"));
     let a = MutationError::Access(AccessError::Backend("x".into()));
-    assert!(std::error::Error::source(&a).is_some());
+    assert!(std::error::Error::source(& a).is_some());
 }

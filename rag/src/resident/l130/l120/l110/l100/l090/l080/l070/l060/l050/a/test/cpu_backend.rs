@@ -1,4 +1,5 @@
 use super::super::memory_backend::MAX_ALIGN;
+use super::super::super::l040::l030::a::region_handle::Generation;
 use super::*;
 const KIB: u64 = 1024;
 const G: u64 = ALLOC_GRANULE;
@@ -43,9 +44,7 @@ fn invalid_allocation_arguments() {
     assert_eq!(b.allocate(w, 0, 1), Err(BackendError::AllocationFailed));
     assert_eq!(b.allocate(w, 8, 0), Err(BackendError::AllocationFailed));
     assert_eq!(b.allocate(w, 8, 3), Err(BackendError::AllocationFailed));
-    assert_eq!(
-        b.allocate(w, 8, MAX_ALIGN * 2), Err(BackendError::AllocationFailed)
-    );
+    assert_eq!(b.allocate(w, 8, MAX_ALIGN * 2), Err(BackendError::AllocationFailed));
     assert_eq!(b.allocate(w, u64::MAX, 1), Err(BackendError::AllocationFailed));
     assert_eq!(
         b.allocate(ArenaKind::Staging, 8, 1), Err(BackendError::AllocationFailed)
@@ -329,8 +328,8 @@ fn access_region_addresses_its_own_bytes() {
     assert!(out.iter().all(|& x | x == 0));
     assert_eq!(
         b.access(& first).unwrap().write(G as usize - 4, & [1; 8]),
-        Err(AccessError::OutOfBounds { offset : G as usize - 4, len : 8, region_len :
-        G as usize })
+        Err(AccessError::OutOfBounds { offset : G as usize - 4, len : 8, region_len : G
+        as usize })
     );
 }
 #[test]
@@ -349,38 +348,15 @@ fn access_reports_stale_after_free() {
     assert_eq!(b.access(& r).unwrap_err(), BackendError::StaleRegion);
 }
 #[test]
-fn handle_roundtrip() {
-    let b = backend();
-    let h = b.allocate(ArenaKind::IndexSegments, 300, 1).unwrap();
-    let r = b.region_of(&h).unwrap();
-    assert_eq!(h.arena(), r.arena);
-    assert_eq!(h.offset(), r.offset);
-    assert_eq!(h.len(), r.len);
-    assert_eq!(h.generation(), Generation(u64::from(r.generation)));
-    assert_eq!(b.handle_of(& r).unwrap(), h);
-    b.free(&h).unwrap();
-    assert_eq!(b.handle_of(& r).unwrap_err(), BackendError::StaleRegion);
-    assert_eq!(b.region_of(& h).unwrap_err(), BackendError::StaleRegion);
-}
-#[test]
-fn handle_of_rejects_foreign_regions() {
-    let b = backend();
-    let foreign = BRegion {
-        arena: ArenaKind::Staging,
-        offset: 0,
-        len: G,
-        generation: 0,
-    };
-    assert_eq!(b.handle_of(& foreign).unwrap_err(), BackendError::StaleRegion);
-}
-#[test]
-fn region_of_rejects_oversized_generation_and_foreign_handles() {
+fn stale_generations_are_rejected() {
     let b = backend();
     let h = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     let big = h.with_generation(Generation(u64::from(u32::MAX) + 1));
-    assert_eq!(b.region_of(& big).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.free(& big), Err(BackendError::StaleRegion));
     let wrong = h.with_generation(Generation(h.generation().0 + 1));
-    assert_eq!(b.region_of(& wrong).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.access(& wrong).unwrap_err(), BackendError::StaleRegion);
+    b.free(&h).unwrap();
+    assert_eq!(b.access(& h).unwrap_err(), BackendError::StaleRegion);
 }
 #[test]
 fn usable_as_trait_object() {

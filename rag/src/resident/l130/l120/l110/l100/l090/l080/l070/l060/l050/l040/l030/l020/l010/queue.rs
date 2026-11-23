@@ -133,8 +133,8 @@ struct Node<M, P, R, E> {
     next: Atomic<Node<M, P, R, E>>,
 }
 /// Take-based work queue: `push` returns a `Ticket`, consumers `take`/`take_where` a `Claim`.
-/// Not the sentinel-list queue_list in `l020::b::queue` (`enqueue`/`head`/`iter_active`), which is a
-/// different design for a different consumer set.
+/// This is the only queue of the engine; it carries tasks and operations alike. The user-facing
+/// task lifecycle lives in `Task`, not here.
 pub struct Queue<M, P, R, E> {
     head: Atomic<Node<M, P, R, E>>,
     tail: Atomic<Node<M, P, R, E>>,

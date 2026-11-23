@@ -16,10 +16,9 @@ use l060::l050::l040::b::similarity_task::{
 use l060::l050::l040::l030::b::operation::RamData;
 use l060::l050::l040::l030::b::task_context::TaskContext;
 use l060::l050::l040::l030::l020::a::model_descriptor::E5_SMALL_MODEL_ID;
-use l060::l050::l040::l030::l020::b::task_model::TaskParams;
+use l060::l050::l040::l030::l020::b::task_model::{TaskParams, TaskState};
 use l060::l050::l040::l030::l020::l010::device_lane_event::DeviceKind;
 use l060::l050::l040::l030::l020::l010::layout::DType;
-use l060::l050::l040::l030::l020::l010::queue_state::QueueState;
 use l060::l050::l040::l030::l020::l010::scopes_and_entry_sets::Scope;
 type Payload = StepPayload<
     OpMeta,
@@ -630,7 +629,7 @@ fn missing_queue_for_a_gpu_only_step_fails_without_side_effects() {
         plan_err(planner.expand(& task)), PlanError::MissingPlanningCapability { kind :
         OperationKind::Embedding, resource : ResourceKind::Encoder, }
     );
-    assert_eq!(task.state(), QueueState::Claimed);
+    assert_eq!(task.state(), TaskState::Claimed);
     assert_eq!(count(& log, "announce"), 0);
     assert_eq!(count(& log, "activate"), 0);
     assert_eq!(values.built(), 0);
@@ -642,7 +641,7 @@ fn expand_before_start_claims_nothing() {
     let planner = builder(&trio(&log), &values).build();
     let task = new_task(vector_spec());
     assert_eq!(plan_err(planner.expand(& task)), PlanError::NotStarted);
-    assert_eq!(task.state(), QueueState::Enqueued);
+    assert_eq!(task.state(), TaskState::Enqueued);
     assert_eq!(count(& log, "activate"), 0);
 }
 #[test]
@@ -654,7 +653,7 @@ fn claimed_and_cancelled_tasks_are_rejected() {
     one(planner.expand(&task));
     assert_eq!(
         plan_err(planner.expand(& task)),
-        PlanError::TaskNotClaimable(ClaimError::NotEnqueued(QueueState::Claimed))
+        PlanError::TaskNotClaimable(ClaimError::NotEnqueued(TaskState::Claimed))
     );
     let cancelled = new_task(vector_spec());
     assert!(cancelled.cancel());
@@ -675,7 +674,7 @@ fn foreign_task_kind_is_an_expand_error_and_leaves_the_task_claimed() {
         plan_err(planner.expand(& task)), PlanError::Expand(ExpandError::ForeignTaskKind
         { expected : "Embedding/Similarity".to_string(), got : "ocr".to_string(), })
     );
-    assert_eq!(task.state(), QueueState::Claimed);
+    assert_eq!(task.state(), TaskState::Claimed);
     assert_eq!(count(& log, "activate"), 0);
 }
 #[test]
@@ -816,7 +815,7 @@ fn activation_failure_stops_at_the_first_failing_engine() {
         plan_err(planner.expand(& task)), PlanError::Activation { subengine : "gpu"
         .to_string(), reason : "boom".to_string() }
     );
-    assert_eq!(task.state(), QueueState::Claimed);
+    assert_eq!(task.state(), TaskState::Claimed);
     assert_eq!(cpu.activations(), 1);
     assert_eq!(shared.activations(), 0);
     assert_eq!(values.built(), 0);

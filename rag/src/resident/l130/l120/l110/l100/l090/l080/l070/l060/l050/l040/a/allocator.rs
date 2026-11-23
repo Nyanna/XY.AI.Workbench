@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 use log::warn;
-use super::super::l030::a::bookkeeping::{AllocError, Bookkeeping, Region};
+use super::super::l030::a::bookkeeping::{AllocError, Bookkeeping};
+use super::super::l030::a::region_handle::RegionHandle;
 use super::super::l030::l020::a::arenas::{Arena, ArenaKind};
 use super::super::l030::l020::l010::device_lane_event::{DeviceKind, Event};
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,7 +32,7 @@ impl fmt::Display for AllocatorError {
 }
 impl std::error::Error for AllocatorError {}
 struct Pending {
-    region: Region,
+    region: RegionHandle,
     event: Event,
 }
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -69,7 +70,7 @@ impl Allocator {
         self.device
     }
     /// Reaps completed deferred frees first, then allocates.
-    pub fn allocate(&self, len: u64) -> Result<Region, AllocatorError> {
+    pub fn allocate(&self, len: u64) -> Result<RegionHandle, AllocatorError> {
         self.reap();
         self.bookkeeping
             .allocate(self.arena, len)
@@ -87,9 +88,9 @@ impl Allocator {
             })
     }
     /// Immediate free; only for live, non-pending regions of this arena.
-    pub fn free(&self, region: &Region) -> Result<(), AllocatorError> {
+    pub fn free(&self, region: &RegionHandle) -> Result<(), AllocatorError> {
         let pending = lock(&self.pending);
-        if region.arena != self.arena || pending.iter().any(|p| p.region == *region) {
+        if region.arena() != self.arena || pending.iter().any(|p| p.region == *region) {
             return Err(AllocatorError::StaleRegion);
         }
         self.bookkeeping
@@ -99,11 +100,11 @@ impl Allocator {
     /// Marks `region` for release once `event` has completed, then reaps immediately.
     pub fn free_deferred(
         &self,
-        region: &Region,
+        region: &RegionHandle,
         event: Event,
     ) -> Result<(), AllocatorError> {
         let mut pending = lock(&self.pending);
-        if region.arena != self.arena || !self.bookkeeping.is_live(region)
+        if region.arena() != self.arena || !self.bookkeeping.is_live(region)
             || pending.iter().any(|p| p.region == *region)
         {
             return Err(AllocatorError::StaleRegion);
@@ -130,8 +131,8 @@ impl Allocator {
                         Err(e) => {
                             warn!(
                                 "deferred free of invalid region arena={:?} offset={} len={} generation={}: {e}",
-                                p.region.arena, p.region.offset, p.region.len, p.region
-                                .generation
+                                p.region.arena(), p.region.offset(), p.region.len(), p
+                                .region.generation().0
                             )
                         }
                     }
@@ -141,8 +142,8 @@ impl Allocator {
                 Err(e) => {
                     warn!(
                         "event query failed for pending region arena={:?} offset={} len={} generation={}: {e}",
-                        p.region.arena, p.region.offset, p.region.len, p.region
-                        .generation
+                        p.region.arena(), p.region.offset(), p.region.len(), p.region
+                        .generation().0
                     );
                     true
                 }
@@ -156,7 +157,7 @@ impl Allocator {
     pub fn pending_count(&self) -> usize {
         lock(&self.pending).len()
     }
-    pub fn is_live(&self, region: &Region) -> bool {
+    pub fn is_live(&self, region: &RegionHandle) -> bool {
         self.bookkeeping.is_live(region)
     }
 }
@@ -204,8 +205,11 @@ impl AllocatorSet {
         self.allocators.get(&arena).map(Arc::clone)
     }
     /// Allocator of `region.arena`; liveness of the region is not checked.
-    pub fn allocator_for(&self, region: &Region) -> Result<&Allocator, AllocatorError> {
-        self.allocator(region.arena).ok_or(AllocatorError::StaleRegion)
+    pub fn allocator_for(
+        &self,
+        region: &RegionHandle,
+    ) -> Result<&Allocator, AllocatorError> {
+        self.allocator(region.arena()).ok_or(AllocatorError::StaleRegion)
     }
     pub fn size_hint(&self, arena: ArenaKind) -> Option<u64> {
         self.allocator(arena).map(Allocator::capacity)

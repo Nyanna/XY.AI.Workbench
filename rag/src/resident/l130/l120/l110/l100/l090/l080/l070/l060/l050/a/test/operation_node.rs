@@ -8,8 +8,9 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
     OperationDescriptor, OperationParams, ResourceRequirements as DescriptorRequirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::TaskParams;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::QueueState;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
+    TaskParams, TaskState,
+};
 struct TestOp {
     kind: OperationKind,
     requirements: ResourceRequirements,
@@ -71,7 +72,7 @@ fn new_node_has_given_parts_and_empty_output() {
     assert!(node.output().is_none());
     assert!(! node.has_continuation());
     assert!(node.ends_chain());
-    assert_eq!(node.task().state(), QueueState::Enqueued);
+    assert_eq!(node.task().state(), TaskState::Enqueued);
 }
 #[test]
 fn set_output_is_write_once() {
@@ -119,7 +120,7 @@ fn advance_without_output_fails_without_side_effects() {
         );
     assert_eq!(node.advance().err(), Some(AdvanceError::OutputNotSet));
     assert_eq!(calls.load(Ordering::SeqCst), 0);
-    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert_eq!(node.task().state(), TaskState::Claimed);
 }
 #[test]
 fn advance_without_handler_completes_task() {
@@ -155,7 +156,7 @@ fn advance_with_follow_up_nodes_does_not_complete_task() {
     assert!(! next[0].materialize());
     assert_eq!(* next[1].input(), 2);
     assert!(next[1].output().is_none());
-    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert_eq!(node.task().state(), TaskState::Claimed);
     assert!(node.task().result().is_none());
 }
 #[test]
@@ -164,7 +165,7 @@ fn advance_chain_end_on_unclaimed_task_reports_error() {
     node.set_output("out".to_string()).unwrap();
     assert_eq!(
         node.advance().err(),
-        Some(AdvanceError::Complete(CompleteError::NotClaimed(QueueState::Enqueued)))
+        Some(AdvanceError::Complete(CompleteError::NotClaimed(TaskState::Enqueued)))
     );
 }
 #[cfg(debug_assertions)]
@@ -184,7 +185,7 @@ fn repeated_chain_end_reports_already_completed() {
     node.advance().unwrap();
     assert_eq!(
         node.advance().err(),
-        Some(AdvanceError::Complete(CompleteError::NotClaimed(QueueState::Completed)))
+        Some(AdvanceError::Complete(CompleteError::NotClaimed(TaskState::Completed)))
     );
 }
 #[test]
@@ -275,7 +276,7 @@ fn chain_middle_without_handler_leaves_task_untouched() {
     node.set_output("out".to_string()).unwrap();
     assert!(node.advance().unwrap().is_empty());
     assert!(node.advance().unwrap().is_empty());
-    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert_eq!(node.task().state(), TaskState::Claimed);
     assert!(node.task().result().is_none());
 }
 #[test]
@@ -294,7 +295,7 @@ fn chain_middle_with_empty_handler_result_leaves_task_untouched() {
     assert!(node.advance().unwrap().is_empty());
     assert!(node.advance().unwrap().is_empty());
     assert_eq!(calls.load(Ordering::SeqCst), 2);
-    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert_eq!(node.task().state(), TaskState::Claimed);
 }
 #[test]
 fn chain_middle_with_follow_up_nodes_returns_them_without_completing() {
@@ -310,7 +311,7 @@ fn chain_middle_with_follow_up_nodes_returns_them_without_completing() {
         );
     node.set_output("out".to_string()).unwrap();
     assert_eq!(node.advance().unwrap().len(), 1);
-    assert_eq!(node.task().state(), QueueState::Claimed);
+    assert_eq!(node.task().state(), TaskState::Claimed);
 }
 #[test]
 fn only_the_last_of_three_nodes_completes_the_task() {

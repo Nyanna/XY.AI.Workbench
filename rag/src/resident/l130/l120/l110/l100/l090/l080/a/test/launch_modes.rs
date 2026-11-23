@@ -4,7 +4,7 @@ use std::thread;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050 as l050;
 use l050::a::table_swap::{HostRootSlot, RootSlot, TableSink};
 use l050::l040::a::allocator::Allocator;
-use l050::l040::l030::a::bookkeeping::{Bookkeeping, Region};
+use l050::l040::l030::a::bookkeeping::Bookkeeping;
 use l050::l040::l030::a::region_handle::Generation;
 use l050::l040::l030::l020::a::arenas::{ArenaCapacities, ArenaKind, ArenaSet, Budget};
 use l050::l040::l030::l020::l010::device_lane_event::{DeviceKind, Event};
@@ -13,7 +13,11 @@ use std::sync::mpsc;
 use std::time::Duration;
 struct NullSink;
 impl TableSink for NullSink {
-    fn write_visible(&self, _region: &Region, _bytes: &[u8]) -> Result<(), String> {
+    fn write_visible(
+        &self,
+        _region: &RegionHandle,
+        _bytes: &[u8],
+    ) -> Result<(), String> {
         Ok(())
     }
 }
@@ -39,13 +43,7 @@ fn make_swap() -> Arc<TableSwap> {
 }
 fn publish(swap: &TableSwap) -> Epoch {
     let mut table = swap.next_table();
-    table
-        .add(Region {
-            arena: ArenaKind::IndexSegments,
-            offset: 0,
-            len: 64,
-            generation: 1,
-        });
+    table.add(handle(0, 1));
     swap.publish(table).unwrap()
 }
 struct Setup {

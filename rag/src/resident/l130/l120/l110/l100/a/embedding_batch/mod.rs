@@ -1,22 +1,19 @@
 pub mod write_pointer_region;
-
 use std::borrow::Borrow;
 use std::fmt;
-
 use log::warn;
-
 use self::write_pointer_region::WriteResult;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::a::segment_arena::{
     Readers, Segment, SegmentArena, SegmentArenaError,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::allocator::Allocator;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::kernel_batch::{
-    BatchError, BatchExecutor, BatchId, BatchInputs, BatchInterface, LaunchOutcome, UsedRange,
+    BatchError, BatchExecutor, BatchId, BatchInputs, BatchInterface, LaunchOutcome,
+    UsedRange,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::region_handle::{
-    Generation, RegionError, RegionHandle,
+    RegionError, RegionHandle,
 };
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExecConfig {
     /// Length of each step range in bytes (> 0).
@@ -24,17 +21,14 @@ pub struct ExecConfig {
     /// Maximum number of ranges reserved per execution (> 0).
     pub max_ranges: usize,
 }
-
 /// Implemented by the backend: write-pointer result of the range a step filled.
 pub trait StepProgress: Send + Sync {
     fn write_result(&self, range: RegionHandle) -> Result<WriteResult, String>;
 }
-
 #[derive(Clone, Copy, Debug)]
 pub struct BatchInput {
     pub region: RegionHandle,
 }
-
 #[derive(Debug)]
 pub struct BatchSuccess {
     /// From `end`, in assignment order (one entry per step).
@@ -46,7 +40,6 @@ pub struct BatchSuccess {
     /// `hits` of the final `Hits` answer.
     pub hits: u64,
 }
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExecError {
     /// `max_ranges` was already reached before a step.
@@ -58,7 +51,6 @@ pub enum ExecError {
     Progress(String),
     ProgressOutOfRange { processed: u64, input_len: u64 },
 }
-
 impl fmt::Display for ExecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -68,25 +60,20 @@ impl fmt::Display for ExecError {
             ExecError::Region(e) => write!(f, "region handle: {e}"),
             ExecError::Batch(e) => write!(f, "batch: {e}"),
             ExecError::Progress(e) => write!(f, "step progress: {e}"),
-            ExecError::ProgressOutOfRange { processed, input_len } => write!(
-                f,
-                "processed {processed} bytes exceed input length {input_len}"
-            ),
+            ExecError::ProgressOutOfRange { processed, input_len } => {
+                write!(f, "processed {processed} bytes exceed input length {input_len}")
+            }
         }
     }
 }
-
 impl std::error::Error for ExecError {}
-
 const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
-
 const _: () = {
     assert_send_sync_static::<ExecConfig>();
     assert_send_sync_static::<BatchInput>();
     assert_send_sync_static::<BatchSuccess>();
     assert_send_sync_static::<ExecError>();
 };
-
 /// Runs an already begun batch to its hits. Always ends the batch; on error all
 /// reserved segments are released, on success they belong to the caller.
 pub fn execute_embedding_batch<E, A>(
@@ -106,7 +93,12 @@ where
     let ended = batch.end(id);
     match (steps, ended) {
         (Ok((partials, hits)), Ok(ranges)) => {
-            Ok(BatchSuccess { ranges, regions: segments, partials, hits })
+            Ok(BatchSuccess {
+                ranges,
+                regions: segments,
+                partials,
+                hits,
+            })
         }
         (Ok(_), Err(e)) => {
             release_all(arena, &segments);
@@ -118,7 +110,6 @@ where
         }
     }
 }
-
 fn run_steps<E, A>(
     batch: &BatchInterface<E>,
     arena: &SegmentArena<A>,
@@ -139,19 +130,23 @@ where
     let mut current = input.region;
     loop {
         if segments.len() >= config.max_ranges {
-            return Err(ExecError::ArenaExhausted { max_ranges: config.max_ranges });
+            return Err(ExecError::ArenaExhausted {
+                max_ranges: config.max_ranges,
+            });
         }
         let seg = arena.allocate(config.range_len).map_err(ExecError::Arena)?;
         segments.push(seg);
         let handle = RegionHandle::new(
-            seg.region.arena,
-            seg.offset,
-            seg.len,
-            Generation(u64::from(seg.region.generation)),
-        )
-        .map_err(ExecError::Region)?;
+                seg.region.arena(),
+                seg.offset,
+                seg.len,
+                seg.region.generation(),
+            )
+            .map_err(ExecError::Region)?;
         batch.assign_ranges(id, &[handle]).map_err(ExecError::Batch)?;
-        let inputs = BatchInputs { regions: vec![current] };
+        let inputs = BatchInputs {
+            regions: vec![current],
+        };
         match batch.run(id, &inputs).map_err(ExecError::Batch)? {
             LaunchOutcome::Hits { hits } => return Ok((partials, hits)),
             LaunchOutcome::Partial { .. } => {
@@ -171,17 +166,16 @@ where
                     .checked_add(processed)
                     .ok_or(ExecError::Region(RegionError::Overflow))?;
                 current = RegionHandle::new(
-                    current.arena(),
-                    offset,
-                    current.len() - processed,
-                    current.generation(),
-                )
-                .map_err(ExecError::Region)?;
+                        current.arena(),
+                        offset,
+                        current.len() - processed,
+                        current.generation(),
+                    )
+                    .map_err(ExecError::Region)?;
             }
         }
     }
 }
-
 fn release_all<A: Borrow<Allocator>>(arena: &SegmentArena<A>, segments: &[Segment]) {
     for seg in segments {
         if let Err(e) = arena.release(seg, Readers::None) {
@@ -189,7 +183,6 @@ fn release_all<A: Borrow<Allocator>>(arena: &SegmentArena<A>, segments: &[Segmen
         }
     }
 }
-
 #[cfg(test)]
 #[path = "test/embedding_batch.rs"]
 mod tests;

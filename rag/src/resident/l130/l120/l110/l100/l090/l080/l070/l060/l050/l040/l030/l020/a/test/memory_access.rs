@@ -1,13 +1,13 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
-static_assertions::assert_impl_all!(Region : Send, Sync);
+static_assertions::assert_impl_all!(AccessRegion : Send, Sync);
 static_assertions::assert_impl_all!(TensorRef : Send, Sync);
 static_assertions::assert_impl_all!(AccessError : Send, Sync);
 static_assertions::assert_impl_all!(TensorRefError : Send, Sync);
 const _: fn() = || {
     fn is_static<T: 'static>() {}
-    is_static::<Region>();
+    is_static::<AccessRegion>();
     is_static::<TensorRef>();
     is_static::<AccessError>();
 };
@@ -59,9 +59,9 @@ impl RegionBackend for MemBackend {
         Ok(())
     }
 }
-fn region(len: usize) -> (Region, Arc<MemBackend>) {
+fn region(len: usize) -> (AccessRegion, Arc<MemBackend>) {
     let b = MemBackend::new(len);
-    (Region::new(b.clone()), b)
+    (AccessRegion::new(b.clone()), b)
 }
 fn layout(shape: &[usize], strides: &[usize], dtype: DType) -> Layout {
     Layout::new(shape.to_vec(), strides.to_vec(), dtype).unwrap()
@@ -154,7 +154,7 @@ fn zero_length_access_past_end_fails() {
 #[test]
 fn backend_errors_pass_through_unchanged() {
     let b = MemBackend::failing(8, "transfer failed");
-    let r = Region::new(b.clone());
+    let r = AccessRegion::new(b.clone());
     let mut out = [0u8; 2];
     assert_eq!(
         r.read(0, & mut out).unwrap_err(), AccessError::Backend("transfer failed".into())

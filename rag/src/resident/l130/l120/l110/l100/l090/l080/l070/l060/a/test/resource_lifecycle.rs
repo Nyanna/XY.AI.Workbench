@@ -2,9 +2,8 @@ use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
-    TaskError, TaskParams,
+    TaskError, TaskParams, TaskState,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::QueueState;
 const RAM_TTL: Duration = Duration::from_secs(10);
 const VRAM_TTL: Duration = Duration::from_secs(60);
 const BACKOFF: Duration = Duration::from_secs(5);
@@ -407,7 +406,7 @@ fn fail_batch_completes_every_task_with_error() {
     let rejected = fail_batch(&batch, "model missing", |reason| format!("E:{reason}"));
     assert!(rejected.is_empty());
     for (_, task) in &batch {
-        assert_eq!(task.state(), QueueState::Completed);
+        assert_eq!(task.state(), TaskState::Completed);
         assert_eq!(
             task.result(), Some(Err(TaskError::Failed(& "E:model missing".to_string())))
         );
@@ -418,17 +417,17 @@ fn fail_batch_reports_rejected_tasks_and_continues() {
     let unclaimed = TestTask::new(0, TaskParams::default());
     let batch = vec![(1, claimed_task()), (2, unclaimed.clone()), (3, claimed_task())];
     let rejected = fail_batch(&batch, "x", |reason| reason.to_string());
-    assert_eq!(rejected, vec![(2, CompleteError::NotClaimed(QueueState::Enqueued))]);
-    assert_eq!(batch[0].1.state(), QueueState::Completed);
-    assert_eq!(batch[2].1.state(), QueueState::Completed);
-    assert_eq!(unclaimed.state(), QueueState::Enqueued);
+    assert_eq!(rejected, vec![(2, CompleteError::NotClaimed(TaskState::Enqueued))]);
+    assert_eq!(batch[0].1.state(), TaskState::Completed);
+    assert_eq!(batch[2].1.state(), TaskState::Completed);
+    assert_eq!(unclaimed.state(), TaskState::Enqueued);
 }
 #[test]
 fn fail_batch_reports_cancelled_task() {
     let task = TestTask::new(0, TaskParams::default());
     assert!(task.cancel());
     let rejected = fail_batch(&[(5, task)], "x", |reason| reason.to_string());
-    assert_eq!(rejected, vec![(5, CompleteError::NotClaimed(QueueState::Cancelled))]);
+    assert_eq!(rejected, vec![(5, CompleteError::NotClaimed(TaskState::Cancelled))]);
 }
 #[test]
 fn fail_batch_empty_returns_empty() {

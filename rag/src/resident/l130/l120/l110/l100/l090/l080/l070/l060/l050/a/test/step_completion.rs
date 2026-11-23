@@ -9,10 +9,9 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::OperationKind;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
-    Task, TaskParams,
+    CompleteError, Task, TaskParams, TaskState,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue::State;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::CompleteError;
 struct TestOp {
     requirements: ResourceRequirements,
 }
@@ -242,7 +241,7 @@ fn finish_with_failing_advance_changes_no_counter() {
     let sink = RecordingSink::new(&context);
     assert_eq!(
         payload.finish("out".to_string(), & sink).err(),
-        Some(StepError::Advance(AdvanceError::Complete(CompleteError::NotClaimed(QueueState::Enqueued))))
+        Some(StepError::Advance(AdvanceError::Complete(CompleteError::NotClaimed(TaskState::Enqueued))))
     );
     assert_eq!(context.open_operations(), 1);
     assert!(sink.items.lock().unwrap().is_empty());
@@ -268,7 +267,7 @@ fn first_fail_completes_the_task_and_drops_the_rest() {
     assert!(! report.task_finished);
     assert!(first.rest().is_empty());
     assert_eq!(calls.load(Ordering::SeqCst), 1);
-    assert_eq!(fx.task.state(), QueueState::Completed);
+    assert_eq!(fx.task.state(), TaskState::Completed);
     assert!(fx.task.result().unwrap().is_err());
     assert_eq!(fx.context.open_operations(), 1);
     let report = second.fail("later".to_string(), || 0);
@@ -290,7 +289,7 @@ fn fail_on_completed_task_does_not_panic() {
     fx.task.complete(Ok("done".to_string())).unwrap();
     let mut payload = chain(&fx, 1);
     payload.fail("err".to_string(), || 0);
-    assert_eq!(fx.task.state(), QueueState::Completed);
+    assert_eq!(fx.task.state(), TaskState::Completed);
     assert_eq!(fx.context.open_operations(), 0);
 }
 fn filled_queue() -> (

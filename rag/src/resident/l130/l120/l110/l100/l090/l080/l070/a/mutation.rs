@@ -3,12 +3,10 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::b::doorbell::Gap;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::memory_access::{
-    AccessError, Region,
+    AccessError, AccessRegion,
 };
-
 /// Kernel run state, supplied by the caller.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KernelMode {
@@ -17,7 +15,6 @@ pub enum KernelMode {
     /// The kernel may read during the gap; torn reads are possible.
     Persistent,
 }
-
 /// Hierarchy level, used for error attribution and diagnostics only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Level {
@@ -27,19 +24,14 @@ pub enum Level {
     OffsetTable,
     LookupTable,
 }
-
 /// A naturally aligned 8-byte pointer slot in shared memory.
 pub struct PtrCell {
     ptr: NonNull<AtomicU64>,
     _keepalive: Arc<dyn Any + Send + Sync>,
     level: Level,
 }
-
-// SAFETY: the cell is only accessed atomically and the keepalive is Send + Sync.
 unsafe impl Send for PtrCell {}
-// SAFETY: see above; all access goes through `AtomicU64`.
 unsafe impl Sync for PtrCell {}
-
 impl PtrCell {
     /// Host-only heap cell with the given initial value.
     pub fn new_local(level: Level, initial: u64) -> PtrCell {
@@ -51,7 +43,6 @@ impl PtrCell {
             level,
         }
     }
-
     /// # Safety
     /// `ptr` must be 8-aligned, valid for reads and writes of 8 bytes, accessed only
     /// atomically, and must stay valid as long as `keepalive` lives.
@@ -66,21 +57,16 @@ impl PtrCell {
             level,
         }
     }
-
     pub fn level(&self) -> Level {
         self.level
     }
-
     /// Acquire load; allowed at any time.
     pub fn load(&self) -> u64 {
         self.atomic().load(Ordering::Acquire)
     }
-
     fn atomic(&self) -> &AtomicU64 {
-        // SAFETY: validity is guaranteed by the `from_raw` contract and the keepalive.
         unsafe { self.ptr.as_ref() }
     }
-
     #[cfg(test)]
     pub(crate) fn share(&self) -> PtrCell {
         PtrCell {
@@ -90,7 +76,6 @@ impl PtrCell {
         }
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MutationError {
     /// Reserved; never produced.
@@ -103,7 +88,6 @@ pub enum MutationError {
     ModeViolation { mode: KernelMode },
     Access(AccessError),
 }
-
 impl fmt::Display for MutationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -119,7 +103,6 @@ impl fmt::Display for MutationError {
         }
     }
 }
-
 impl std::error::Error for MutationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -128,33 +111,27 @@ impl std::error::Error for MutationError {
         }
     }
 }
-
 impl From<AccessError> for MutationError {
     fn from(e: AccessError) -> Self {
         MutationError::Access(e)
     }
 }
-
 /// Proof that a gap is open. Borrows the gap read-only and never closes it.
 pub struct GapGuard<'g> {
     gap: &'g Gap<'g>,
     mode: KernelMode,
 }
-
 impl<'g> GapGuard<'g> {
     pub fn enter(gap: &'g Gap<'_>, mode: KernelMode) -> GapGuard<'g> {
         GapGuard { gap, mode }
     }
-
     pub fn mode(&self) -> KernelMode {
         self.mode
     }
-
     /// `(first, last)` of the gap.
     pub fn gap_range(&self) -> (u64, u64) {
         (self.gap.first(), self.gap.last())
     }
-
     /// Copy-on-write publish: atomically swaps the pointer to `new` (Release) and
     /// returns the previous value. The caller frees the old structure only after
     /// the subengine no longer reads it.
@@ -163,16 +140,17 @@ impl<'g> GapGuard<'g> {
             return Err(MutationError::NullPointer);
         }
         if new % 8 != 0 {
-            return Err(MutationError::Misaligned { value: new });
+            return Err(MutationError::Misaligned {
+                value: new,
+            });
         }
         Ok(cell.atomic().swap(new, Ordering::Release))
     }
-
     /// In-place update of small data. In persistent mode the kernel may observe a
     /// partially updated range (torn read of valid values); this is accepted.
     pub fn write_in_place(
         &self,
-        region: &Region,
+        region: &AccessRegion,
         offset: usize,
         src: &[u8],
     ) -> Result<(), MutationError> {
@@ -182,7 +160,6 @@ impl<'g> GapGuard<'g> {
         region.write(offset, src).map_err(MutationError::Access)
     }
 }
-
 const _: () = {
     fn _a<T: Send + Sync + 'static>() {}
     fn _b() {
@@ -190,7 +167,6 @@ const _: () = {
         _a::<MutationError>();
     }
 };
-
 #[cfg(test)]
 #[path = "test/mutation.rs"]
 mod tests;

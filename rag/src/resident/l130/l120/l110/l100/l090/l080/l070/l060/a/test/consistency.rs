@@ -5,7 +5,8 @@ use std::thread;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050 as l050;
 use l050::a::table_swap::{HostRootSlot, ReaderId, RootSlot, TableSink};
 use l050::l040::a::allocator::Allocator;
-use l050::l040::l030::a::bookkeeping::{Bookkeeping, Region};
+use l050::l040::l030::a::bookkeeping::Bookkeeping;
+use l050::l040::l030::a::region_handle::{Generation, RegionHandle};
 use l050::l040::l030::l020::a::arenas::{ArenaCapacities, ArenaKind, ArenaSet, Budget};
 use l050::l040::l030::l020::a::index_contract::{
     Payload, StampObserver, StampSignal, AccessMethod,
@@ -82,7 +83,11 @@ struct FlagSink {
     fail: AtomicBool,
 }
 impl TableSink for FlagSink {
-    fn write_visible(&self, _region: &Region, _bytes: &[u8]) -> Result<(), String> {
+    fn write_visible(
+        &self,
+        _region: &RegionHandle,
+        _bytes: &[u8],
+    ) -> Result<(), String> {
         if self.fail.load(Ordering::SeqCst) { Err("boom".to_string()) } else { Ok(()) }
     }
 }
@@ -99,13 +104,8 @@ fn make_allocator(capacity: u64) -> Arc<Allocator> {
     let bookkeeping = Arc::new(Bookkeeping::new(set));
     Arc::new(Allocator::new(arena, DeviceKind::Gpu, bookkeeping))
 }
-fn seg(offset: u64) -> Region {
-    Region {
-        arena: ArenaKind::IndexSegments,
-        offset,
-        len: 64,
-        generation: 1,
-    }
+fn seg(offset: u64) -> RegionHandle {
+    RegionHandle::new(ArenaKind::IndexSegments, offset, 64, Generation(1)).unwrap()
 }
 fn publisher() -> (TablePublisher, Arc<TableSwap>, Arc<FlagSink>) {
     let sink = Arc::new(FlagSink {

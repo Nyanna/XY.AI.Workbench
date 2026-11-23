@@ -2,6 +2,7 @@ use super::*;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::arenas::{
     ArenaCapacities, ArenaSet, Budget,
 };
+use super::super::super::l030::a::region_handle::Generation;
 use std::sync::atomic::{AtomicUsize, Ordering};
 const CAP: u64 = 1024;
 fn setup() -> (Arc<Bookkeeping>, Allocator, Allocator) {
@@ -50,8 +51,8 @@ fn display_texts() {
 fn allocate_and_available() {
     let (_bk, a, _b) = setup();
     let r = a.allocate(100).unwrap();
-    assert_eq!(r.arena, ArenaKind::Weights);
-    assert_eq!(r.len, 100);
+    assert_eq!(r.arena(), ArenaKind::Weights);
+    assert_eq!(r.len(), 100);
     assert_eq!(a.available(), CAP - 100);
     assert!(a.is_live(& r));
 }
@@ -169,7 +170,7 @@ fn pending_space_is_not_reused() {
     );
     ctl.complete();
     let again = a.allocate(10).unwrap();
-    assert_eq!(again.offset, 0);
+    assert_eq!(again.offset(), 0);
     assert_eq!(a.pending_count(), 0);
 }
 #[test]
@@ -394,12 +395,8 @@ fn set_rejects_duplicates_and_unknown_arena() {
     );
     assert_eq!(dup.err(), Some(AllocatorSetError::DuplicateArena(ArenaKind::Weights)));
     let set = AllocatorSet::new(Arc::clone(&bk), &[(arena, DeviceKind::Gpu)]).unwrap();
-    let foreign = Region {
-        arena: ArenaKind::Staging,
-        offset: 0,
-        len: 8,
-        generation: 0,
-    };
+    let foreign = RegionHandle::new(ArenaKind::Staging, 0, 8, Generation::INITIAL)
+        .unwrap();
     assert_eq!(set.allocator_for(& foreign).err(), Some(AllocatorError::StaleRegion));
 }
 #[test]

@@ -285,15 +285,15 @@ impl RegionBackend for MemBackend {
         Ok(())
     }
 }
-fn mem_with(len: usize, fail: Option<&str>) -> (Region, Arc<MemBackend>) {
+fn mem_with(len: usize, fail: Option<&str>) -> (AccessRegion, Arc<MemBackend>) {
     let b = Arc::new(MemBackend {
         data: Mutex::new(vec![0xAA; len]),
         writes: AtomicUsize::new(0),
         fail: fail.map(str::to_string),
     });
-    (Region::new(b.clone()), b)
+    (AccessRegion::new(b.clone()), b)
 }
-fn mem(len: usize) -> (Region, Arc<MemBackend>) {
+fn mem(len: usize) -> (AccessRegion, Arc<MemBackend>) {
     mem_with(len, None)
 }
 fn pn(norm: Normalization, dim: usize) -> PoolNorm {

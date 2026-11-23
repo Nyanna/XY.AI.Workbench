@@ -6,7 +6,7 @@ use super::super::l040::l030::a::kernel_layout::Slot;
 use super::super::l040::l030::a::region_handle::RegionHandle;
 use super::super::l040::l030::l020::a::arenas::ArenaKind;
 use super::super::l040::l030::l020::a::index_contract::EntryId;
-use super::super::l040::l030::l020::a::memory_access::{AccessError, Region as MemRegion};
+use super::super::l040::l030::l020::a::memory_access::{AccessError, AccessRegion};
 /// Assigned in ascending order, never reused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SegmentId(pub u64);
@@ -92,7 +92,7 @@ pub struct SegmentStats {
 }
 struct Segment {
     handle: RegionHandle,
-    mem: MemRegion,
+    mem: AccessRegion,
     slot_count: u64,
     /// Slots below this index have been handed out at least once.
     fresh_from: u64,
@@ -210,7 +210,7 @@ impl SegmentStore {
     pub fn add_segment(
         &self,
         handle: RegionHandle,
-        mem: MemRegion,
+        mem: AccessRegion,
     ) -> Result<SegmentId, SlotError> {
         if handle.arena() != ArenaKind::IndexSegments {
             return Err(SlotError::WrongArena(handle.arena()));

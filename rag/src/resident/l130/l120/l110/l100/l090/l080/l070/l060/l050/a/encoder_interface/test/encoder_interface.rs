@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::TryRecvError;
 use serde_json::json;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::memory_access::{
-    AccessError, Region, RegionBackend,
+    AccessError, AccessRegion, RegionBackend,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
     DeviceClass, ModelDescriptor, ProjectionLayer,
@@ -167,8 +167,8 @@ impl RegionBackend for MemBackend {
         Ok(())
     }
 }
-fn region(len: usize) -> Region {
-    Region::new(Arc::new(MemBackend(Mutex::new(vec![0; len]))))
+fn region(len: usize) -> AccessRegion {
+    AccessRegion::new(Arc::new(MemBackend(Mutex::new(vec![0; len]))))
 }
 fn lane() -> Lane {
     Lane::new(LaneConfig::preset(LaneKind::Query, DeviceHandle::Cpu), None)

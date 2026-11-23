@@ -29,7 +29,11 @@ impl CountingSink {
     }
 }
 impl TableSink for CountingSink {
-    fn write_visible(&self, _region: &Region, _bytes: &[u8]) -> Result<(), String> {
+    fn write_visible(
+        &self,
+        _region: &RegionHandle,
+        _bytes: &[u8],
+    ) -> Result<(), String> {
         if self.remaining.fetch_sub(1, Ordering::SeqCst) <= 0 {
             return Err(SINK_ERROR.to_string());
         }
@@ -146,13 +150,13 @@ impl Fx {
         self.ev.track(EvictKey(id), spec, self.at(secs));
         spec
     }
-    fn in_table(&self, region: &Region) -> bool {
+    fn in_table(&self, region: &RegionHandle) -> bool {
         self.swap.current_table().is_some_and(|t| t.segments().contains(region))
     }
     fn in_map(&self, id: u64) -> bool {
         self.store.current().get(SegmentId(id)).is_some()
     }
-    fn is_live(&self, region: &Region) -> bool {
+    fn is_live(&self, region: &RegionHandle) -> bool {
         self.allocators.allocator(ArenaKind::IndexSegments).unwrap().is_live(region)
     }
     fn reclaim_all(&self) -> usize {
@@ -901,12 +905,8 @@ fn unknown_region_is_skipped_and_untracked() {
     let ghost = TrackSpec {
         tier: Tier::Ram,
         segment: SegmentId(77),
-        region: Region {
-            arena: ArenaKind::IndexSegments,
-            offset: 1 << 40,
-            len: 64,
-            generation: 1,
-        },
+        region: RegionHandle::new(ArenaKind::IndexSegments, 1 << 40, 64, Generation(1))
+            .unwrap(),
         size: 50,
         reload_cost: 1.0,
         summary: false,
@@ -931,12 +931,8 @@ fn unknown_region_alone_publishes_nothing() {
     let ghost = TrackSpec {
         tier: Tier::Ram,
         segment: SegmentId(77),
-        region: Region {
-            arena: ArenaKind::IndexSegments,
-            offset: 1 << 40,
-            len: 64,
-            generation: 1,
-        },
+        region: RegionHandle::new(ArenaKind::IndexSegments, 1 << 40, 64, Generation(1))
+            .unwrap(),
         size: 50,
         reload_cost: 1.0,
         summary: false,
@@ -1003,10 +999,13 @@ fn reclaim_drops_entries_of_unknown_arena() {
     let fx = Fx::new();
     let mut spec = fx.spec(1, Tier::Ram, 10, 1.0);
     let real = spec.region;
-    spec.region = Region {
-        arena: ArenaKind::Weights,
-        ..real
-    };
+    spec.region = RegionHandle::new(
+            ArenaKind::Weights,
+            real.offset(),
+            real.len(),
+            real.generation(),
+        )
+        .unwrap();
     fx.ev.track(EvictKey(1), spec, fx.at(0));
     let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1]);

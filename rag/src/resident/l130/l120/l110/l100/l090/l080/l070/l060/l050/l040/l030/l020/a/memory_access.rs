@@ -34,12 +34,12 @@ pub trait RegionBackend: Send + Sync + fmt::Debug {
 }
 /// Cheaply clonable handle to a region. Clones refer to the same bytes.
 #[derive(Debug, Clone)]
-pub struct Region {
+pub struct AccessRegion {
     backend: Arc<dyn RegionBackend>,
 }
-impl Region {
-    pub fn new(backend: Arc<dyn RegionBackend>) -> Region {
-        Region { backend }
+impl AccessRegion {
+    pub fn new(backend: Arc<dyn RegionBackend>) -> AccessRegion {
+        AccessRegion { backend }
     }
     pub fn len(&self) -> usize {
         self.backend.len()
@@ -64,7 +64,7 @@ impl Region {
         }
     }
     /// True if both handles reference the same backend.
-    pub fn same_region(&self, other: &Region) -> bool {
+    pub fn same_region(&self, other: &AccessRegion) -> bool {
         Arc::ptr_eq(&self.backend, &other.backend)
     }
     /// `Ok(true)` if the backend must be called, `Ok(false)` for an empty in-bounds access.
@@ -117,7 +117,7 @@ impl From<LayoutError> for TensorRefError {
 /// Tensor reference: region, layout and the byte offset of the origin inside the region.
 #[derive(Debug, Clone)]
 pub struct TensorRef {
-    region: Region,
+    region: AccessRegion,
     layout: Layout,
     offset_bytes: usize,
     end_bytes: usize,
@@ -134,11 +134,14 @@ fn span_bytes(layout: &Layout) -> Option<usize> {
     Some(span)
 }
 impl TensorRef {
-    pub fn new(region: Region, layout: Layout) -> Result<TensorRef, TensorRefError> {
+    pub fn new(
+        region: AccessRegion,
+        layout: Layout,
+    ) -> Result<TensorRef, TensorRefError> {
         TensorRef::with_offset(region, layout, 0)
     }
     pub fn with_offset(
-        region: Region,
+        region: AccessRegion,
         layout: Layout,
         offset_bytes: usize,
     ) -> Result<TensorRef, TensorRefError> {
@@ -162,7 +165,7 @@ impl TensorRef {
             end_bytes,
         })
     }
-    pub fn region(&self) -> &Region {
+    pub fn region(&self) -> &AccessRegion {
         &self.region
     }
     pub fn layout(&self) -> &Layout {

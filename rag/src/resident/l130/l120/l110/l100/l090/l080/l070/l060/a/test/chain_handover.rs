@@ -11,7 +11,7 @@ use super::super::super::l050::l040::l030::b::operation::{
 };
 use super::super::super::l050::l040::l030::l020::a::arenas::ArenaKind;
 use super::super::super::l050::l040::l030::l020::a::memory_access::{
-    AccessError, Region, RegionBackend, TensorRef,
+    AccessError, AccessRegion, RegionBackend, TensorRef,
 };
 use super::super::super::l050::l040::l030::l020::b::task_model::TaskParams;
 use super::super::super::l050::l040::l030::l020::l010::layout::{DType, Layout};
@@ -156,7 +156,7 @@ impl RegionBackend for Bytes {
     }
 }
 fn device_output() -> StepOutput {
-    let region = Region::new(Arc::new(Bytes(Mutex::new(vec![0; 16]))));
+    let region = AccessRegion::new(Arc::new(Bytes(Mutex::new(vec![0; 16]))));
     let handle = RegionHandle::new(ArenaKind::Workspace, 0, 16, Generation(1)).unwrap();
     let tensor = TensorRef::new(region, Layout::contiguous(&[4], DType::F32)).unwrap();
     StepOutput::Device(DeviceResult::new(handle, tensor))

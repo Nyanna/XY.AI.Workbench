@@ -8,7 +8,11 @@ use l050::l040::l030::l020::a::arenas::{ArenaCapacities, ArenaKind, ArenaSet, Bu
 use l050::l040::l030::l020::l010::device_lane_event::DeviceKind;
 struct NullSink;
 impl TableSink for NullSink {
-    fn write_visible(&self, _region: &Region, _bytes: &[u8]) -> Result<(), String> {
+    fn write_visible(
+        &self,
+        _region: &RegionHandle,
+        _bytes: &[u8],
+    ) -> Result<(), String> {
         Ok(())
     }
 }
@@ -82,9 +86,9 @@ fn allocate_is_aligned_and_rounded() {
     let s = arena.allocate(1).unwrap();
     assert_eq!(s.len, 256);
     assert_eq!(s.offset % 256, 0);
-    assert!(s.offset >= s.region.offset);
-    assert!(s.offset + s.len <= s.region.offset + s.region.len);
-    assert_eq!(s.region.len, 256 + 255);
+    assert!(s.offset >= s.region.offset());
+    assert!(s.offset + s.len <= s.region.offset() + s.region.len());
+    assert_eq!(s.region.len(), 256 + 255);
     assert_eq!(arena.allocate(0), Err(SegmentArenaError::ZeroLength));
 }
 #[test]
@@ -123,15 +127,15 @@ fn stats_and_budget_ignore_regions_freed_at_the_allocator() {
         .unwrap();
     let a = arena.allocate(3072).unwrap();
     let b = arena.allocate(256).unwrap();
-    assert_eq!(arena.budget().headroom, a.region.len);
+    assert_eq!(arena.budget().headroom, a.region.len());
     seg_alloc.free(&a.region).unwrap();
     let st = arena.stats();
     assert_eq!(st.live_segments, 1);
-    assert_eq!(st.largest_segment, b.region.len);
-    assert_eq!(st.live_bytes, b.region.len);
+    assert_eq!(st.largest_segment, b.region.len());
+    assert_eq!(st.live_bytes, b.region.len());
     let bud = arena.budget();
-    assert_eq!(bud.live, b.region.len);
-    assert_eq!(bud.headroom, b.region.len);
+    assert_eq!(bud.live, b.region.len());
+    assert_eq!(bud.headroom, b.region.len());
     assert_eq!(arena.stats(), st);
 }
 #[test]

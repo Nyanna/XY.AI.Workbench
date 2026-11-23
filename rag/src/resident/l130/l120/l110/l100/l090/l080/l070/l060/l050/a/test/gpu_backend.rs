@@ -55,23 +55,6 @@ fn error_display_texts() {
     );
 }
 #[test]
-fn generation_beyond_u32_is_stale() {
-    let handle = RegionHandle::new(
-            ArenaKind::Weights,
-            0,
-            256,
-            Generation(u64::from(u32::MAX) + 1),
-        )
-        .unwrap();
-    assert_eq!(to_region(& handle), Err(BackendError::StaleRegion));
-    let ok = handle.with_generation(Generation(7));
-    let region = to_region(&ok).unwrap();
-    assert_eq!(
-        (region.arena, region.offset, region.len, region.generation),
-        (ArenaKind::Weights, 0, 256, 7)
-    );
-}
-#[test]
 fn empty_ring_has_no_index() {
     let ring = StagingRing::from_buffers(Vec::new());
     assert_eq!(ring.len(), 0);

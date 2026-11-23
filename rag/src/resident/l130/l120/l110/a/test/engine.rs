@@ -593,12 +593,12 @@ fn enqueue_returns_enqueued_tasks_and_records_first_kind() {
     let (engine, cpu, _release) = blocked_fixture();
     let first = engine.enqueue_embedding(embedding_spec(), params(1)).unwrap();
     wait_until(|| cpu.activations() >= 1);
-    assert_eq!(first.state(), QueueState::Claimed);
+    assert_eq!(first.state(), TaskState::Claimed);
     let generic = engine.enqueue(foreign_spec(), params(2)).unwrap();
     let embedding = engine.enqueue_embedding(embedding_spec(), params(3)).unwrap();
     let similarity = engine.enqueue_similarity(similarity_spec(), params(4)).unwrap();
     for (task, priority) in [(&generic, 2), (&embedding, 3), (&similarity, 4)] {
-        assert_eq!(task.state(), QueueState::Enqueued);
+        assert_eq!(task.state(), TaskState::Enqueued);
         assert_eq!(task.params().priority, params(priority).priority);
     }
     assert_eq!(
@@ -611,7 +611,7 @@ fn enqueued_task_is_expanded_by_a_worker() {
     let probes = trio(&log);
     let engine = start_with(&probes);
     let task = engine.enqueue_embedding(embedding_spec(), params(1)).unwrap();
-    wait_until(|| task.state() == QueueState::Claimed);
+    wait_until(|| task.state() == TaskState::Claimed);
     assert_eq!(engine.wiring().ops_queue(QueueKind::Cpu).len(), 1);
     let log = entries(&log);
     let activations: Vec<_> = log.iter().filter(|e| e.ends_with(":activate")).collect();
@@ -623,7 +623,7 @@ fn expansion_error_completes_a_claimed_task() {
     let log = new_log();
     let engine = start_with(&trio(&log));
     let task = engine.enqueue(foreign_spec(), params(1)).unwrap();
-    wait_until(|| task.state() == QueueState::Completed);
+    wait_until(|| task.state() == TaskState::Completed);
     match task.result() {
         Some(Err(TaskError::Failed(message))) => assert!(message.starts_with("plan:")),
         _ => panic!("expected a plan error"),
@@ -639,8 +639,8 @@ fn cancelled_task_is_not_expanded() {
     assert!(second.cancel());
     release.0.release();
     wait_until(|| engine.processor.task_queue().is_empty());
-    assert_eq!(second.state(), QueueState::Cancelled);
-    assert_eq!(first.state(), QueueState::Claimed);
+    assert_eq!(second.state(), TaskState::Cancelled);
+    assert_eq!(first.state(), TaskState::Claimed);
     assert_eq!(cpu.activations(), 1);
 }
 #[test]
@@ -660,9 +660,9 @@ fn shutdown_cancels_tasks_no_worker_took() {
     });
     assert_eq!(report, Ok(ShutdownReport { cancelled_tasks : 2 }));
     assert!(! engine.is_running());
-    assert_eq!(first.state(), QueueState::Claimed);
+    assert_eq!(first.state(), TaskState::Claimed);
     for task in [&second, &third] {
-        assert_eq!(task.state(), QueueState::Cancelled);
+        assert_eq!(task.state(), TaskState::Cancelled);
         assert!(matches!(task.result(), Some(Err(TaskError::Cancelled))));
     }
     assert!(engine.processor.task_queue().is_empty());
@@ -712,7 +712,7 @@ fn drop_cancels_pending_tasks() {
         });
         drop(engine);
     });
-    assert_eq!(pending.state(), QueueState::Cancelled);
+    assert_eq!(pending.state(), TaskState::Cancelled);
 }
 #[test]
 fn no_accepted_task_is_lost_during_shutdown() {
@@ -747,7 +747,7 @@ fn no_accepted_task_is_lost_during_shutdown() {
         handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
     });
     assert!(! tasks.is_empty());
-    assert!(tasks.iter().all(| t | t.state() != QueueState::Enqueued));
+    assert!(tasks.iter().all(| t | t.state() != TaskState::Enqueued));
 }
 fn expansion_parts(
     probes: &[Arc<Probe>],
@@ -798,11 +798,11 @@ fn expansion_takes_tasks_in_order_and_stops_when_closed_or_empty() {
     let first = processor.submit(embedding_spec(), params(1), None);
     let second = processor.submit(embedding_spec(), params(1), None);
     assert!(expansion.expand_next());
-    assert_eq!(first.state(), QueueState::Claimed);
-    assert_eq!(second.state(), QueueState::Enqueued);
+    assert_eq!(first.state(), TaskState::Claimed);
+    assert_eq!(second.state(), TaskState::Enqueued);
     gate.close();
     assert!(! expansion.expand_next());
-    assert_eq!(second.state(), QueueState::Enqueued);
+    assert_eq!(second.state(), TaskState::Enqueued);
     assert_eq!(processor.task_queue().len(), 1);
 }
 #[test]
@@ -830,10 +830,10 @@ fn expansion_prefers_tasks_of_underserved_resources() {
         );
     assert_eq!(control.underserved(), [ResourceKind::Tokenizer]);
     assert!(expansion.expand_next());
-    assert_eq!(wanted.state(), QueueState::Claimed);
-    assert_eq!(plain.state(), QueueState::Enqueued);
+    assert_eq!(wanted.state(), TaskState::Claimed);
+    assert_eq!(plain.state(), TaskState::Enqueued);
     assert!(expansion.expand_next());
-    assert_eq!(plain.state(), QueueState::Claimed);
+    assert_eq!(plain.state(), TaskState::Claimed);
 }
 #[test]
 fn expansion_without_matching_task_falls_back_to_the_oldest() {
@@ -858,8 +858,8 @@ fn expansion_without_matching_task_falls_back_to_the_oldest() {
             },
         );
     assert!(expansion.expand_next());
-    assert_eq!(oldest.state(), QueueState::Claimed);
-    assert_eq!(newer.state(), QueueState::Enqueued);
+    assert_eq!(oldest.state(), TaskState::Claimed);
+    assert_eq!(newer.state(), TaskState::Enqueued);
 }
 #[test]
 fn expansion_skips_finished_tasks_and_cancels_unclaimed_failures() {
@@ -868,11 +868,11 @@ fn expansion_skips_finished_tasks_and_cancels_unclaimed_failures() {
     let cancelled = processor.submit(embedding_spec(), params(1), None);
     assert!(cancelled.cancel());
     assert!(expansion.expand_next());
-    assert_eq!(cancelled.state(), QueueState::Cancelled);
+    assert_eq!(cancelled.state(), TaskState::Cancelled);
     assert!(entries(& log).iter().all(| e | ! e.ends_with(":activate")));
     assert!(processor.task_queue().is_empty());
     let (mut idle_expansion, idle_processor, _c, _g) = expansion_parts(&[], false);
     let unplanned = idle_processor.submit(embedding_spec(), params(1), None);
     assert!(idle_expansion.expand_next());
-    assert_eq!(unplanned.state(), QueueState::Cancelled);
+    assert_eq!(unplanned.state(), TaskState::Cancelled);
 }

@@ -23,11 +23,12 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     OperationDescriptor, OperationKind, TaskId,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::ModelDescriptor;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::Task;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
+    ClaimError, Task,
+};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
     CapabilitySet, Requirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::ClaimError;
 const EXPECTED_TASK_KINDS: &str = "Embedding/Similarity";
 /// Which expander applies to (model, task kind).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

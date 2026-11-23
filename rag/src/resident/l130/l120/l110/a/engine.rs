@@ -1,12 +1,10 @@
 //! Outward facade of the engine: collects the configuration, wires Processor, Planner, sub-engines
 //! and worker pool, accepts tasks and shuts everything down in order. It only wires and delegates.
-
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, Weak};
 use std::time::Instant;
-
 use crate::resident::l130::l120::l110::a::backpressure::ExpansionControl;
 use crate::resident::l130::l120::l110::a::gpu_completion::GpuCompletion;
 use crate::resident::l130::l120::l110::a::processor::{
@@ -41,13 +39,11 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::Index;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::ModelDescriptor;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
-    Task, TaskParams,
+    Task, TaskParams, TaskState,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::CapabilitySet;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::DeviceKind;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue::Queue;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::queue_state::QueueState;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EngineError {
     Config { field: &'static str },
@@ -58,14 +54,15 @@ pub enum EngineError {
     ShutDown,
     ShutdownFailed(String),
 }
-
 impl fmt::Display for EngineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             EngineError::Config { field } => {
                 write!(f, "Konfigurationsfehler: Pflichtfeld '{field}' fehlt")
             }
-            EngineError::DuplicateIndex(id) => write!(f, "Index-ID bereits registriert: {id}"),
+            EngineError::DuplicateIndex(id) => {
+                write!(f, "Index-ID bereits registriert: {id}")
+            }
             EngineError::Planner(e) => write!(f, "{e}"),
             EngineError::Subengine { name, reason } => {
                 write!(f, "Subengine '{name}' konnte nicht erzeugt werden: {reason}")
@@ -74,11 +71,12 @@ impl fmt::Display for EngineError {
                 write!(f, "Worker-Pool konnte nicht gestartet werden: {text}")
             }
             EngineError::ShutDown => write!(f, "Engine ist heruntergefahren"),
-            EngineError::ShutdownFailed(text) => write!(f, "Shutdown fehlgeschlagen: {text}"),
+            EngineError::ShutdownFailed(text) => {
+                write!(f, "Shutdown fehlgeschlagen: {text}")
+            }
         }
     }
 }
-
 impl std::error::Error for EngineError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -87,51 +85,58 @@ impl std::error::Error for EngineError {
         }
     }
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShutdownReport {
     pub cancelled_tasks: usize,
 }
-
 /// Payload of an operations-queue step: the chain step of the reference path.
-pub type EnginePayload<D, E> =
-    StepPayload<OpMeta, PlannedOperation, ChainInput, StepOutput, D, E>;
-
+pub type EnginePayload<D, E> = StepPayload<
+    OpMeta,
+    PlannedOperation,
+    ChainInput,
+    StepOutput,
+    D,
+    E,
+>;
 pub type StepSink<D, E> = dyn FollowUpSink<OpMeta, EnginePayload<D, E>>;
-
 /// Queue value of the reference path: the step together with the sink that continues its chain.
 pub struct EngineStep<D, E> {
     pub step: EnginePayload<D, E>,
     pub sink: Arc<StepSink<D, E>>,
 }
-
 pub type PlanErrorFn<E> = Arc<dyn Fn(&PlanError) -> E + Send + Sync>;
-
 /// Derives the batch information of a follow-up step from its payload.
-pub type BatchProbe<D, E> = Arc<dyn Fn(&EnginePayload<D, E>) -> Option<BatchInfo> + Send + Sync>;
-
-type Proc<D, T, E, V, R, OE> = Processor<D, T, E, OpMeta, V, R, OE, PlannerHandle<D, T, E, V>>;
-
+pub type BatchProbe<D, E> = Arc<
+    dyn Fn(&EnginePayload<D, E>) -> Option<BatchInfo> + Send + Sync,
+>;
+type Proc<D, T, E, V, R, OE> = Processor<
+    D,
+    T,
+    E,
+    OpMeta,
+    V,
+    R,
+    OE,
+    PlannerHandle<D, T, E, V>,
+>;
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
 }
-
 struct PlannerHandle<D, T, E, V>(Arc<Planner<D, T, E, V>>);
-
 impl<D, T, E, V> TaskPlanner<D, T, E, OpMeta, V> for PlannerHandle<D, T, E, V> {
     type Error = PlanError;
-
-    fn expand(&self, task: &Task<D, T, E>) -> Result<Vec<PlannedOp<OpMeta, V>>, PlanError> {
+    fn expand(
+        &self,
+        task: &Task<D, T, E>,
+    ) -> Result<Vec<PlannedOp<OpMeta, V>>, PlanError> {
         self.0.expand(task)
     }
 }
-
 /// A sub-engine created after the Processor exists; forwards to the bound instance.
 struct DeferredSubengine {
     name: String,
     inner: RwLock<Option<Arc<dyn Subengine>>>,
 }
-
 impl DeferredSubengine {
     fn new(name: String) -> Arc<Self> {
         Arc::new(Self {
@@ -139,53 +144,42 @@ impl DeferredSubengine {
             inner: RwLock::new(None),
         })
     }
-
     fn bind(&self, s: Arc<dyn Subengine>) {
         *self.inner.write().unwrap_or_else(PoisonError::into_inner) = Some(s);
     }
-
     fn unbind(&self) {
         let old = self.inner.write().unwrap_or_else(PoisonError::into_inner).take();
         drop(old);
     }
-
     fn bound(&self) -> Option<Arc<dyn Subengine>> {
         self.inner.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 }
-
 impl Subengine for DeferredSubengine {
     fn name(&self) -> String {
         self.name.clone()
     }
-
     fn start(&self) -> Result<(), String> {
         self.bound().map_or_else(|| Err("nicht gebunden".to_string()), |s| s.start())
     }
-
     fn capabilities(&self) -> Vec<(QueueKind, CapabilitySet)> {
         self.bound().map_or_else(Vec::new, |s| s.capabilities())
     }
-
     fn offers(&self) -> Vec<ResourceKind> {
         self.bound().map_or_else(Vec::new, |s| s.offers())
     }
-
     fn announce(&self, req: &ResourceRequirements) {
         if let Some(s) = self.bound() {
             s.announce(req);
         }
     }
-
     fn activate(&self) -> Result<(), String> {
         self.bound().map_or_else(|| Err("nicht gebunden".to_string()), |s| s.activate())
     }
-
     fn is_loaded(&self, kind: ResourceKind, model: Option<&ModelId>) -> bool {
         self.bound().is_some_and(|s| s.is_loaded(kind, model))
     }
 }
-
 /// Sink of the reference path. Pushes follow-up steps into the operations queues of the Engine.
 pub struct EngineSink<D, T, E, V, R, OE> {
     me: Weak<Self>,
@@ -195,7 +189,6 @@ pub struct EngineSink<D, T, E, V, R, OE> {
     plan_error: PlanErrorFn<E>,
     batch_probe: Option<BatchProbe<D, E>>,
 }
-
 fn queue_slot(kind: QueueKind) -> usize {
     match kind {
         QueueKind::Cpu => 0,
@@ -203,7 +196,6 @@ fn queue_slot(kind: QueueKind) -> usize {
         QueueKind::Shared => 2,
     }
 }
-
 impl<D, T, E, V, R, OE> EngineSink<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -234,7 +226,6 @@ where
             batch_probe: batch_probe.clone(),
         })
     }
-
     fn withdraw(&self, task_id: u64) -> usize {
         self.queues
             .iter()
@@ -243,9 +234,8 @@ where
             .sum()
     }
 }
-
 impl<D, T, E, V, R, OE> FollowUpSink<OpMeta, EnginePayload<D, E>>
-    for EngineSink<D, T, E, V, R, OE>
+for EngineSink<D, T, E, V, R, OE>
 where
     D: Send + 'static,
     T: Send + Sync + 'static,
@@ -266,11 +256,14 @@ where
                 let raw_id = node.task_id();
                 let priority = node.task().params().priority;
                 let next = payload.rest().first().map(|s| s.node.operation());
-                let placed = planner.place_step(TaskId(raw_id), priority, node.operation(), next);
+                let placed = planner
+                    .place_step(TaskId(raw_id), priority, node.operation(), next);
                 match placed {
                     Ok(meta) => meta,
                     Err(e) => {
-                        log::warn!("engine sink: step of task {raw_id} not placeable: {e}");
+                        log::warn!(
+                            "engine sink: step of task {raw_id} not placeable: {e}"
+                        );
                         let error = (self.plan_error)(&e);
                         payload.fail(error, || self.withdraw(raw_id));
                         return;
@@ -290,12 +283,10 @@ where
         self.topology.notify_push();
     }
 }
-
 /// Sink that can be handed out before the Engine exists and bound afterwards.
 pub struct LateSink<D, E> {
     inner: Arc<OnceLock<Arc<StepSink<D, E>>>>,
 }
-
 impl<D, E> Clone for LateSink<D, E> {
     fn clone(&self) -> Self {
         Self {
@@ -303,30 +294,25 @@ impl<D, E> Clone for LateSink<D, E> {
         }
     }
 }
-
 impl<D, E> Default for LateSink<D, E> {
     fn default() -> Self {
         Self::new()
     }
 }
-
 impl<D, E> LateSink<D, E> {
     pub fn new() -> Self {
         Self {
             inner: Arc::new(OnceLock::new()),
         }
     }
-
     /// `false`: already bound; the first binding stays.
     pub fn bind(&self, sink: Arc<StepSink<D, E>>) -> bool {
         self.inner.set(sink).is_ok()
     }
-
     pub fn is_bound(&self) -> bool {
         self.inner.get().is_some()
     }
 }
-
 impl<D, E> FollowUpSink<OpMeta, EnginePayload<D, E>> for LateSink<D, E> {
     fn submit(&self, placement: Option<OpMeta>, payload: EnginePayload<D, E>) {
         match self.inner.get() {
@@ -335,7 +321,6 @@ impl<D, E> FollowUpSink<OpMeta, EnginePayload<D, E>> for LateSink<D, E> {
         }
     }
 }
-
 /// Handle the factories use to reach the (Engine-owned) ops queues and shared engine parts.
 pub struct EngineWiring<D, T, E, V, R, OE> {
     processor: Arc<Proc<D, T, E, V, R, OE>>,
@@ -347,7 +332,6 @@ pub struct EngineWiring<D, T, E, V, R, OE> {
     plan_error: PlanErrorFn<E>,
     batch_probe: Option<BatchProbe<D, E>>,
 }
-
 impl<D, T, E, V, R, OE> EngineWiring<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -361,29 +345,24 @@ where
     pub fn ops_queue(&self, kind: QueueKind) -> Arc<Queue<OpMeta, V, R, OE>> {
         Arc::clone(self.processor.ops_queue_arc(kind))
     }
-
     /// Tracker of in-flight GPU lanes, polled by the workers.
     pub fn completion(&self) -> Arc<GpuCompletion> {
         Arc::clone(&self.completion)
     }
-
     /// Expansion control the feed steps report their iterations to.
     pub fn expansion_control(&self) -> Arc<ExpansionControl> {
         Arc::clone(&self.control)
     }
-
     /// Notifier of the configured sub-engine `name`.
     pub fn notifier(&self, name: &str) -> Option<SubengineNotifier> {
         let index = self.names.iter().position(|n| n == name)?;
         self.topology.notifier(index)
     }
-
     /// Wake-up for producers that push into an operations queue directly.
     pub fn notify_push(&self) {
         self.topology.notify_push();
     }
 }
-
 impl<D, T, E, V, R, OE> EngineWiring<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -404,27 +383,27 @@ where
         )
     }
 }
-
 pub type SubengineFactory<D, T, E, V, R, OE> = Box<
-    dyn FnOnce(&EngineWiring<D, T, E, V, R, OE>) -> Result<Arc<dyn Subengine>, String> + Send,
+    dyn FnOnce(
+        &EngineWiring<D, T, E, V, R, OE>,
+    ) -> Result<Arc<dyn Subengine>, String> + Send,
 >;
-
 /// Like `SubengineFactory`, but also yields the feed steps and lane routing of the sub-engine.
-pub type HandleFactory<D, T, E, V, R, OE> =
-    Box<dyn FnOnce(&EngineWiring<D, T, E, V, R, OE>) -> Result<SubengineHandle, String> + Send>;
-
+pub type HandleFactory<D, T, E, V, R, OE> = Box<
+    dyn FnOnce(
+        &EngineWiring<D, T, E, V, R, OE>,
+    ) -> Result<SubengineHandle, String> + Send,
+>;
 enum SubengineSpec<D, T, E, V, R, OE> {
     Ready(Arc<dyn Subengine>),
     ReadyHandle(SubengineHandle),
     Factory(String, SubengineFactory<D, T, E, V, R, OE>),
     HandleFactory(String, HandleFactory<D, T, E, V, R, OE>),
 }
-
 enum Job<D, T, E, V, R, OE> {
     Plain(SubengineFactory<D, T, E, V, R, OE>),
     Handle(HandleFactory<D, T, E, V, R, OE>),
 }
-
 pub struct EngineBuilder<D, T, E, V, R, OE> {
     registry: Option<Arc<ModelRegistry>>,
     models: Vec<ModelDescriptor>,
@@ -437,7 +416,6 @@ pub struct EngineBuilder<D, T, E, V, R, OE> {
     indexes: Vec<(IndexId, Arc<dyn Index>)>,
     workers: Option<PoolConfig>,
 }
-
 impl<D, T, E, V, R, OE> Default for EngineBuilder<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -451,7 +429,6 @@ where
         Self::new()
     }
 }
-
 impl<D, T, E, V, R, OE> EngineBuilder<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -475,54 +452,45 @@ where
             workers: None,
         }
     }
-
     /// Optional. Default: `ModelRegistry::with_builtin()`.
     pub fn registry(mut self, r: Arc<ModelRegistry>) -> Self {
         self.registry = Some(r);
         self
     }
-
     /// Required (at least one call). Validation happens in `start`.
     pub fn model(mut self, d: ModelDescriptor) -> Self {
         self.models.push(d);
         self
     }
-
     /// Optional. Default model = the first `model()` call.
     pub fn default_model(mut self, model_id: impl Into<String>) -> Self {
         self.default_model = Some(model_id.into());
         self
     }
-
     pub fn task_resolver(mut self, r: Arc<dyn TaskResolver<D, T, E>>) -> Self {
         self.resolver = Some(r);
         self
     }
-
     pub fn value_builder(mut self, v: Arc<dyn ValueBuilder<D, T, E, V>>) -> Self {
         self.values = Some(v);
         self
     }
-
     /// Maps an expansion error to the task error for tasks the Planner already claimed.
     pub fn plan_error(mut self, f: Arc<dyn Fn(&PlanError) -> E + Send + Sync>) -> Self {
         self.plan_error = Some(f);
         self
     }
-
     /// Optional. Sets `OpMeta::batch` of follow-up steps from their payload; without it the
     /// planned metadata is pushed unchanged.
     pub fn batch_probe(mut self, f: BatchProbe<D, E>) -> Self {
         self.batch_probe = Some(f);
         self
     }
-
     /// Prebuilt sub-engine (the caller wired its queues). It contributes no feed steps.
     pub fn subengine(mut self, s: Arc<dyn Subengine>) -> Self {
         self.subengines.push(SubengineSpec::Ready(s));
         self
     }
-
     /// Sub-engine created at `start` from the Engine's queues. `name` must equal `Subengine::name()`.
     pub fn subengine_with(
         mut self,
@@ -532,13 +500,11 @@ where
         self.subengines.push(SubengineSpec::Factory(name.into(), f));
         self
     }
-
     /// Prebuilt sub-engine together with its feed steps and lane routing.
     pub fn subengine_handle(mut self, h: SubengineHandle) -> Self {
         self.subengines.push(SubengineSpec::ReadyHandle(h));
         self
     }
-
     /// Sub-engine handle created at `start` from the Engine's queues. `name` must equal the
     /// name of the handle's sub-engine.
     pub fn handle_with(
@@ -549,34 +515,46 @@ where
         self.subengines.push(SubengineSpec::HandleFactory(name.into(), f));
         self
     }
-
     /// Registers a searchable index under a unique ID. Neither loads nor uses it.
     pub fn index(mut self, id: IndexId, index: Arc<dyn Index>) -> Self {
         self.indexes.push((id, index));
         self
     }
-
     /// Optional. Default: `PoolConfig { min_workers: 1, max_workers: None }`.
     pub fn workers(mut self, cfg: PoolConfig) -> Self {
         self.workers = Some(cfg);
         self
     }
-
     /// The explicit start call: validates, wires, initializes. Consumes the builder.
     pub fn start(self) -> Result<Engine<D, T, E, V, R, OE>, EngineError> {
         if self.models.is_empty() {
-            return Err(EngineError::Config { field: "model" });
+            return Err(EngineError::Config {
+                field: "model",
+            });
         }
-        let resolver = self.resolver.ok_or(EngineError::Config { field: "task_resolver" })?;
-        let values = self.values.ok_or(EngineError::Config { field: "value_builder" })?;
-        let plan_error = self.plan_error.ok_or(EngineError::Config { field: "plan_error" })?;
+        let resolver = self
+            .resolver
+            .ok_or(EngineError::Config {
+                field: "task_resolver",
+            })?;
+        let values = self
+            .values
+            .ok_or(EngineError::Config {
+                field: "value_builder",
+            })?;
+        let plan_error = self
+            .plan_error
+            .ok_or(EngineError::Config {
+                field: "plan_error",
+            })?;
         for (i, (id, _)) in self.indexes.iter().enumerate() {
             if self.indexes[..i].iter().any(|(other, _)| other == id) {
                 return Err(EngineError::DuplicateIndex(id.as_str().to_string()));
             }
         }
-
-        let registry = self.registry.unwrap_or_else(|| Arc::new(ModelRegistry::with_builtin()));
+        let registry = self
+            .registry
+            .unwrap_or_else(|| Arc::new(ModelRegistry::with_builtin()));
         let default_model = self
             .default_model
             .unwrap_or_else(|| self.models[0].model_id.clone());
@@ -588,12 +566,16 @@ where
         for (id, _) in &self.indexes {
             builder = builder.index(id.clone());
         }
-
-        let mut subengines: Vec<Arc<dyn Subengine>> = Vec::with_capacity(self.subengines.len());
-        let mut handles: Vec<Option<SubengineHandle>> = Vec::with_capacity(self.subengines.len());
+        let mut subengines: Vec<Arc<dyn Subengine>> = Vec::with_capacity(
+            self.subengines.len(),
+        );
+        let mut handles: Vec<Option<SubengineHandle>> = Vec::with_capacity(
+            self.subengines.len(),
+        );
         let mut deferred: Vec<Arc<DeferredSubengine>> = Vec::new();
-        let mut jobs: Vec<(usize, String, Arc<DeferredSubengine>, Job<D, T, E, V, R, OE>)> =
-            Vec::new();
+        let mut jobs: Vec<
+            (usize, String, Arc<DeferredSubengine>, Job<D, T, E, V, R, OE>),
+        > = Vec::new();
         for spec in self.subengines {
             let index = subengines.len();
             match spec {
@@ -624,11 +606,10 @@ where
         for s in &subengines {
             builder = builder.subengine(Arc::clone(s)).map_err(EngineError::Planner)?;
         }
-
         let planner = Arc::new(builder.build());
-        let processor: Arc<Proc<D, T, E, V, R, OE>> =
-            Processor::new(PlannerHandle(Arc::clone(&planner)));
-
+        let processor: Arc<Proc<D, T, E, V, R, OE>> = Processor::new(
+            PlannerHandle(Arc::clone(&planner)),
+        );
         let wake_target: Arc<OnceLock<Notifier>> = Arc::new(OnceLock::new());
         let wake: Wake = {
             let target = Arc::clone(&wake_target);
@@ -642,7 +623,9 @@ where
         let topology = Arc::new(NotificationTopology::new(names.len() + 1, wake));
         let completion_notifier = topology
             .notifier(names.len())
-            .ok_or_else(|| EngineError::Pool("notification topology too small".to_string()))?;
+            .ok_or_else(|| EngineError::Pool(
+                "notification topology too small".to_string(),
+            ))?;
         let completion = Arc::new(GpuCompletion::new(completion_notifier));
         let control = Arc::new(ExpansionControl::new());
         let wiring = EngineWiring {
@@ -655,11 +638,12 @@ where
             plan_error: Arc::clone(&plan_error),
             batch_probe: self.batch_probe,
         };
-
         for (index, name, wrapper, job) in jobs {
             let created = match job {
                 Job::Plain(f) => f(&wiring).map(|s| (s, None)),
-                Job::Handle(f) => f(&wiring).map(|h| (Arc::clone(h.subengine()), Some(h))),
+                Job::Handle(f) => {
+                    f(&wiring).map(|h| (Arc::clone(h.subengine()), Some(h)))
+                }
             };
             let fail = |reason: String| EngineError::Subengine {
                 name: name.clone(),
@@ -667,43 +651,50 @@ where
             };
             let (instance, handle) = created.map_err(fail)?;
             if instance.name() != name {
-                return Err(fail(format!(
-                    "configured name differs from the sub-engine name '{}'",
-                    instance.name()
-                )));
+                return Err(
+                    fail(
+                        format!(
+                            "configured name differs from the sub-engine name '{}'",
+                            instance.name()
+                        ),
+                    ),
+                );
             }
             wrapper.bind(instance);
             handles[index] = handle;
         }
-
         planner.start().map_err(EngineError::Planner)?;
-
-        let cfg = self.workers.unwrap_or(PoolConfig {
-            min_workers: 1,
-            max_workers: None,
-        });
+        let cfg = self
+            .workers
+            .unwrap_or(PoolConfig {
+                min_workers: 1,
+                max_workers: None,
+            });
         let gate = Arc::new(ClosedGate::new());
-        let routes: Arc<Vec<SubengineHandle>> = Arc::new(handles.into_iter().flatten().collect());
+        let routes: Arc<Vec<SubengineHandle>> = Arc::new(
+            handles.into_iter().flatten().collect(),
+        );
         let loops = (0..cfg.effective_workers())
             .map(|_| {
-                Mutex::new(build_worker_loop(
-                    &routes,
-                    &completion,
-                    Expansion {
-                        processor: Arc::clone(&processor),
-                        topology: Arc::clone(&topology),
-                        control: Arc::clone(&control),
-                        gate: Arc::clone(&gate),
-                        plan_error: Arc::clone(&plan_error),
-                    },
-                ))
+                Mutex::new(
+                    build_worker_loop(
+                        &routes,
+                        &completion,
+                        Expansion {
+                            processor: Arc::clone(&processor),
+                            topology: Arc::clone(&topology),
+                            control: Arc::clone(&control),
+                            gate: Arc::clone(&gate),
+                            plan_error: Arc::clone(&plan_error),
+                        },
+                    ),
+                )
             })
             .collect();
         let pool = WorkerPool::start(cfg, Arc::new(EngineWork { loops }))
             .map_err(|e| EngineError::Pool(e.to_string()))?;
         let notifier = pool.notifier();
         let _ = wake_target.set(notifier.clone());
-
         Ok(Engine {
             processor,
             planner,
@@ -718,12 +709,10 @@ where
         })
     }
 }
-
 struct ClosedGate {
     gate: RwLock<()>,
     closed: AtomicBool,
 }
-
 impl ClosedGate {
     fn new() -> Self {
         Self {
@@ -731,17 +720,14 @@ impl ClosedGate {
             closed: AtomicBool::new(false),
         }
     }
-
     fn is_closed(&self) -> bool {
         self.closed.load(Ordering::SeqCst)
     }
-
     fn close(&self) {
         let _exclusive = self.gate.write().unwrap_or_else(PoisonError::into_inner);
         self.closed.store(true, Ordering::SeqCst);
     }
 }
-
 struct Expansion<D, T, E, V, R, OE> {
     processor: Arc<Proc<D, T, E, V, R, OE>>,
     topology: Arc<NotificationTopology>,
@@ -749,7 +735,6 @@ struct Expansion<D, T, E, V, R, OE> {
     gate: Arc<ClosedGate>,
     plan_error: PlanErrorFn<E>,
 }
-
 impl<D, T, E, V, R, OE> ExpandStep for Expansion<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -780,7 +765,6 @@ where
         true
     }
 }
-
 impl<D, T, E, V, R, OE> Expansion<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -791,7 +775,7 @@ where
     OE: Send + 'static,
 {
     fn expand_task(&self, task: &Task<D, T, E>) {
-        if matches!(task.state(), QueueState::Completed | QueueState::Cancelled) {
+        if matches!(task.state(), TaskState::Completed | TaskState::Cancelled) {
             return;
         }
         match self.processor.expand(task) {
@@ -801,7 +785,7 @@ where
             }
             Err(ExpandError::Planner(e)) => {
                 log::warn!("task expansion failed: {e}");
-                if task.state() == QueueState::Claimed {
+                if task.state() == TaskState::Claimed {
                     let _ = task.complete(Err((self.plan_error)(&e)));
                 } else {
                     task.cancel();
@@ -810,7 +794,6 @@ where
         }
     }
 }
-
 fn build_worker_loop<X: ExpandStep + 'static>(
     routes: &Arc<Vec<SubengineHandle>>,
     completion: &Arc<GpuCompletion>,
@@ -844,11 +827,9 @@ fn build_worker_loop<X: ExpandStep + 'static>(
         Box::new(expand),
     )
 }
-
 struct EngineWork {
     loops: Vec<Mutex<WorkerLoop>>,
 }
-
 impl WorkSource for EngineWork {
     fn run_once(&self, worker: usize) -> Step {
         let Some(slot) = self.loops.get(worker) else {
@@ -860,7 +841,6 @@ impl WorkSource for EngineWork {
         }
     }
 }
-
 pub struct Engine<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -881,7 +861,6 @@ where
     pool: Mutex<Option<WorkerPool>>,
     shutdown_done: Mutex<bool>,
 }
-
 impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -894,12 +873,14 @@ where
     pub fn builder() -> EngineBuilder<D, T, E, V, R, OE> {
         EngineBuilder::new()
     }
-
     /// Generic entry. Pushes the task into the task queue and wakes the dispatcher workers.
-    pub fn enqueue(&self, data: D, params: TaskParams) -> Result<Task<D, T, E>, EngineError> {
+    pub fn enqueue(
+        &self,
+        data: D,
+        params: TaskParams,
+    ) -> Result<Task<D, T, E>, EngineError> {
         self.submit(data, params, None)
     }
-
     /// Embedding task. `data` must resolve (via the TaskResolver) to an Embedding task.
     pub fn enqueue_embedding(
         &self,
@@ -908,7 +889,6 @@ where
     ) -> Result<Task<D, T, E>, EngineError> {
         self.submit(data, params, Some(ResourceKind::Tokenizer))
     }
-
     /// Similarity task. `data` must resolve to a Similarity task.
     pub fn enqueue_similarity(
         &self,
@@ -917,7 +897,6 @@ where
     ) -> Result<Task<D, T, E>, EngineError> {
         self.submit(data, params, None)
     }
-
     fn submit(
         &self,
         data: D,
@@ -932,53 +911,46 @@ where
         self.notifier.notify();
         Ok(task)
     }
-
     pub fn index(&self, id: &IndexId) -> Option<Arc<dyn Index>> {
         self.indexes
             .iter()
             .find(|(known, _)| known == id)
             .map(|(_, index)| Arc::clone(index))
     }
-
     /// Registered IDs in registration order.
     pub fn index_ids(&self) -> Vec<IndexId> {
         self.indexes.iter().map(|(id, _)| id.clone()).collect()
     }
-
     /// `None` if unknown. Otherwise whether any sub-engine reports an index as loaded.
     pub fn is_index_loaded(&self, id: &IndexId) -> Option<bool> {
         self.index(id)?;
         let engines = lock(&self.subengines).clone();
         Some(engines.iter().any(|s| s.is_loaded(ResourceKind::Index, None)))
     }
-
     pub fn planner(&self) -> &Planner<D, T, E, V> {
         &self.planner
     }
-
     /// Wiring the factories received; gives access to queues, completion and expansion control.
     pub fn wiring(&self) -> &EngineWiring<D, T, E, V, R, OE> {
         &self.wiring
     }
-
     pub fn is_running(&self) -> bool {
         !self.gate.is_closed()
     }
-
     /// Ordered shutdown, idempotent, blocking. Ok = positive feedback.
     pub fn shutdown(&self) -> Result<ShutdownReport, EngineError> {
         let mut done = lock(&self.shutdown_done);
         if *done {
-            return Ok(ShutdownReport { cancelled_tasks: 0 });
+            return Ok(ShutdownReport {
+                cancelled_tasks: 0,
+            });
         }
         self.gate.close();
-
         let pool = lock(&self.pool).take();
         if let Some(pool) = &pool {
             pool.stop();
         }
         drop(pool);
-
         let mut cancelled = 0;
         let mut failures: Vec<String> = Vec::new();
         while let Some(mut claim) = self.processor.task_queue().take() {
@@ -991,7 +963,6 @@ where
             claim.complete(Ok(()));
             cancelled += 1;
         }
-
         lock(&self.subengines).clear();
         for wrapper in &self.deferred {
             wrapper.unbind();
@@ -1006,7 +977,6 @@ where
         }
     }
 }
-
 impl<D, T, E, V, R, OE> Engine<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -1021,7 +991,6 @@ where
         self.wiring.sink()
     }
 }
-
 impl<D, T, E, V, R, OE> Drop for Engine<D, T, E, V, R, OE>
 where
     D: Send + 'static,
@@ -1037,7 +1006,6 @@ where
         }
     }
 }
-
 #[cfg(test)]
 #[path = "test/engine.rs"]
 mod tests;
