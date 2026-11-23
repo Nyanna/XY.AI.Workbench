@@ -1,2 +1,2 @@
-pub mod bench_workload;
+pub mod measurement;
 pub mod planner;
