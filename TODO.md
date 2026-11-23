@@ -1,4 +1,5 @@
 # TODO
+- verbessern der CC session anzeige, zeit in in ms oder sekunden, nur chars  kein total, dann typ der nachricht
 !verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
 	- sortierung vielleicht in filter und customizations
 !Der AI explorer zeigt /done/ folder nicht mehr richtig an 
