@@ -6,9 +6,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, Weak};
 use std::time::Instant;
 use crate::resident::l130::l120::l110::a::backpressure::ExpansionControl;
-use crate::resident::l130::l120::l110::a::gpu_completion::GpuCompletion;
-use crate::resident::l130::l120::l110::a::processor::{
-    ExpandError, PlannedOp, Processor, QueueKind, TaskPlanner,
+use crate::resident::l130::l120::l110::l100::l090::a::gpu_completion::GpuCompletion;
+use crate::resident::l130::l120::l110::a::processor::{ExpandError, Processor};
+use crate::resident::l130::l120::l110::l100::a::plan_contract::{
+    PlannedOp, QueueKind, TaskPlanner,
 };
 use crate::resident::l130::l120::l110::a::subengine::SubengineHandle;
 use crate::resident::l130::l120::l110::a::worker_loop::{
@@ -35,7 +36,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::st
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     IndexId, ModelId, ResourceKind, ResourceRequirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::TaskId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::Index;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::ModelDescriptor;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
@@ -226,11 +227,11 @@ where
             batch_probe: batch_probe.clone(),
         })
     }
-    fn withdraw(&self, task_id: u64) -> usize {
+    fn withdraw(&self, task_id: TaskId) -> usize {
         self.queues
             .iter()
             .filter_map(Weak::upgrade)
-            .map(|q| withdraw_pending(&q, |m: &OpMeta| m.task_id.0 == task_id))
+            .map(|q| withdraw_pending(&q, |m: &OpMeta| m.task_id == task_id))
             .sum()
     }
 }
@@ -253,19 +254,19 @@ where
             Some(meta) => meta,
             None => {
                 let node = payload.node();
-                let raw_id = node.task_id();
+                let task_id = node.task_id();
                 let priority = node.task().params().priority;
                 let next = payload.rest().first().map(|s| s.node.operation());
                 let placed = planner
-                    .place_step(TaskId(raw_id), priority, node.operation(), next);
+                    .place_step(task_id, priority, node.operation(), next);
                 match placed {
                     Ok(meta) => meta,
                     Err(e) => {
                         log::warn!(
-                            "engine sink: step of task {raw_id} not placeable: {e}"
+                            "engine sink: step of task {task_id} not placeable: {e}"
                         );
                         let error = (self.plan_error)(&e);
-                        payload.fail(error, || self.withdraw(raw_id));
+                        payload.fail(error, || self.withdraw(task_id));
                         return;
                     }
                 }

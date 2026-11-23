@@ -4,9 +4,9 @@ use super::super::super::l050::l040::a::resource_requirements::{
     ExecutionEnvironment, ModelId, ResourceKind, ResourceRequirements,
 };
 use super::super::super::l050::l040::b::embedding_task::{EmbeddingMode, Precision};
-use super::super::super::l050::l040::b::similarity_task::IndexId;
+use super::super::super::l050::l040::a::resource_requirements::IndexId;
 use super::super::super::l050::l040::l030::a::region_handle::{Generation, RegionHandle};
-use super::super::super::l050::l040::l030::b::operation::{
+use super::super::super::l050::l040::b::operation::{
     OperationKind, ScoredHit, ScoredHitResult,
 };
 use super::super::super::l050::l040::l030::l020::a::arenas::ArenaKind;
@@ -54,7 +54,7 @@ fn claimed_task() -> TestTask {
     task
 }
 fn context(id: u64) -> Arc<TaskContext<String>> {
-    TaskContext::new(id, 3, 1)
+    TaskContext::new(TaskId(id), 3, 1)
 }
 fn steps(
     count: usize,
@@ -88,7 +88,7 @@ fn embedding_kind(texts: &[&str]) -> ChainKind {
 fn similarity_kind(queries: Vec<Vec<f32>>, top_k: usize) -> ChainKind {
     ChainKind::Similarity {
         queries,
-        params: SimilarityParams::new(IndexId(1)).with_top_k(top_k),
+        params: SimilarityParams::new(IndexId::new("1")).with_top_k(top_k),
         report: ReportConfig {
             options: ReportOptions { temperature: 1.0 },
             source_link: Arc::new(|id| Some(format!("src/{}", id.0))),
@@ -177,7 +177,7 @@ fn only_the_first_node_is_built_at_start() {
     let first = chain.first.unwrap();
     assert_eq!(built.load(Ordering::SeqCst), 1);
     assert_eq!(first.operation().index, 0);
-    assert_eq!(first.task_id(), 42);
+    assert_eq!(first.task_id(), TaskId(42));
     assert!(! first.materialize());
     assert!(first.ends_chain());
     assert!(first.has_continuation());
@@ -232,7 +232,7 @@ fn follow_up_is_built_from_the_actual_output() {
     assert_eq!(built.load(Ordering::SeqCst), 2);
     let second = &next[0];
     assert_eq!(second.operation().index, 1);
-    assert_eq!(second.task_id(), 42);
+    assert_eq!(second.task_id(), TaskId(42));
     assert!(! second.materialize());
     assert!(second.has_continuation() && second.ends_chain());
     assert!(same_ram(data_of(second.input()), & RamData::Floats(vec![7.0, 8.0])));
@@ -253,7 +253,7 @@ fn last_node_is_materialized_and_stores_the_result() {
     assert_eq!(built.load(Ordering::SeqCst), 3);
     let flags: Vec<bool> = nodes.iter().map(|n| n.materialize()).collect();
     assert_eq!(flags, [false, false, true]);
-    assert!(nodes.iter().all(| n | n.task_id() == 42));
+    assert!(nodes.iter().all(| n | n.task_id() == TaskId(42)));
     match task.result() {
         Some(Ok(StepOutput::Ram(RamData::Floats(v)))) => assert_eq!(v, & vec![3.0, 4.0]),
         _ => panic!("task not completed with the last output"),
@@ -413,12 +413,9 @@ fn embedding_rejects_other_shapes() {
 #[test]
 fn similarity_hit_list_becomes_hits() {
     let (chain, _, _, _) = start(similarity_kind(vec![vec![1.0]], 5), 1);
-    store(&chain, ram(RamData::HitList(vec![(OpEntryId(7), 0.9), (OpEntryId(3), 0.1)])));
+    store(&chain, ram(RamData::HitList(vec![(EntryId(7), 0.9), (EntryId(3), 0.1)])));
     let expected = TaskResult::Hits(
-        vec![
-            Hit { id : IndexEntryId(7), score : 0.9 }, Hit { id : IndexEntryId(3), score
-            : 0.1 },
-        ],
+        vec![Hit { id : EntryId(7), score : 0.9 }, Hit { id : EntryId(3), score : 0.1 },],
     );
     assert_eq!(chain.collector.collect(), Ok(CollectedResult::Task(expected)));
 }
@@ -426,7 +423,7 @@ fn similarity_hit_list_becomes_hits() {
 fn similarity_scored_hits_become_a_ranked_report() {
     let (chain, _, _, _) = start(similarity_kind(vec![vec![1.0]], 2), 1);
     let hit = |id, score| ScoredHit {
-        entry_id: OpEntryId(id),
+        entry_id: EntryId(id),
         score,
         stale: false,
         source_link: None,
@@ -439,7 +436,7 @@ fn similarity_scored_hits_become_a_ranked_report() {
     store(&chain, ram(RamData::ScoredHitResult(result)));
     match chain.collector.collect() {
         Ok(CollectedResult::Report(report)) => {
-            assert_eq!(report.task_id, OpTaskId(42));
+            assert_eq!(report.task_id, TaskId(42));
             assert_eq!(report.candidate_count, 3);
             let ids: Vec<u64> = report.hits.iter().map(|h| h.entry_id.0).collect();
             assert_eq!(ids, [2, 3]);

@@ -5,23 +5,24 @@ use std::fmt;
 use std::sync::{
     Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
-use crate::resident::l130::l120::l110::a::processor::{PlannedOp, QueueKind, TaskPlanner};
+use super::plan_contract::{PlannedOp, QueueKind, TaskPlanner};
 use crate::resident::l130::l120::l110::l100::l090::a::lane_batching::{
     BatchKey, BatchMeta,
 };
 use crate::resident::l130::l120::l110::l100::l090::a::model_registry::ModelRegistry;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::expander::{
-    self, ExpandError, IdleNotification, PipelineConfig, PipelineConfigs,
-    PlannedOperation, ScorerChoice, TaskSpec,
+    self, ExpandError, IdleNotification, ModelDescriptors, PlannedOperation,
+    ScorerChoice, TaskSpec,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::operation_node::HasOperationKind;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     ExecutionEnvironment, HasResourceRequirements, IndexId, ModelId, ResourceKind,
     ResourceRequirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
-    OperationDescriptor, OperationKind, TaskId,
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::{
+    OperationDescriptor, OperationKind,
 };
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::ModelDescriptor;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
     ClaimError, Task,
@@ -56,7 +57,7 @@ pub trait Subengine: Send + Sync {
 /// Everything kept together for one expansion.
 pub struct ExpansionContext<'a> {
     pub model: &'a ModelDescriptor,
-    pub pipelines: &'a PipelineConfigs,
+    pub models: &'a ModelDescriptors,
     pub capabilities: &'a CapabilitySet,
     pub offers: &'a [(String, Vec<ResourceKind>)],
     pub idle: &'a IdleNotification,
@@ -77,7 +78,7 @@ impl Expander for StandardExpander {
         spec: &TaskSpec,
         ctx: &ExpansionContext<'_>,
     ) -> Result<Vec<PlannedOperation>, ExpandError> {
-        expander::expand(spec, ctx.pipelines, ctx.capabilities, Some(ctx.idle))
+        expander::expand(spec, ctx.models, ctx.capabilities, Some(ctx.idle))
     }
 }
 /// Reads task kind and parameters from the claimed task data.
@@ -360,7 +361,6 @@ pub struct PlannerBuilder<D, T, E, V> {
     values: Arc<dyn ValueBuilder<D, T, E, V>>,
     engines: Vec<(String, Arc<dyn Subengine>)>,
     models: HashMap<String, ModelDescriptor>,
-    pipelines: PipelineConfigs,
     expanders: HashMap<(String, TaskKindTag), Arc<dyn Expander>>,
     indexes: Vec<IndexId>,
     default_model: Option<String>,
@@ -377,7 +377,6 @@ impl<D, T, E, V> PlannerBuilder<D, T, E, V> {
             values,
             engines: Vec::new(),
             models: HashMap::new(),
-            pipelines: PipelineConfigs::new(),
             expanders: HashMap::new(),
             indexes: Vec::new(),
             default_model: None,
@@ -394,14 +393,13 @@ impl<D, T, E, V> PlannerBuilder<D, T, E, V> {
         self.engines.push((name, s));
         Ok(self)
     }
-    /// Registers a model together with its pipeline configuration and the standard expanders.
+    /// Registers a model together with the standard expanders.
     pub fn model(mut self, d: ModelDescriptor) -> Result<Self, PlannerConfigError> {
         if d.validate().is_err() || !self.registry.supports_architecture(&d.architecture)
         {
             return Err(PlannerConfigError::InvalidModel(d.model_id));
         }
         let id = d.model_id.clone();
-        self.pipelines.insert(id.clone(), PipelineConfig::from_descriptor(&d));
         for tag in [TaskKindTag::Embedding, TaskKindTag::Similarity] {
             self.expanders.insert((id.clone(), tag), Arc::new(StandardExpander));
         }
@@ -443,7 +441,6 @@ impl<D, T, E, V> PlannerBuilder<D, T, E, V> {
             values: self.values,
             engines: self.engines,
             models: self.models,
-            pipelines: self.pipelines,
             expanders: self.expanders,
             indexes: self.indexes,
             default_model: self.default_model,
@@ -458,7 +455,6 @@ pub struct Planner<D, T, E, V> {
     values: Arc<dyn ValueBuilder<D, T, E, V>>,
     engines: Vec<(String, Arc<dyn Subengine>)>,
     models: HashMap<String, ModelDescriptor>,
-    pipelines: PipelineConfigs,
     expanders: HashMap<(String, TaskKindTag), Arc<dyn Expander>>,
     indexes: Vec<IndexId>,
     default_model: Option<String>,
@@ -692,7 +688,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
             .collect();
         let ctx = ExpansionContext {
             model: descriptor,
-            pipelines: &self.pipelines,
+            models: &self.models,
             capabilities: &view.capabilities,
             offers: &offers,
             idle: &idle,

@@ -3,11 +3,11 @@ pub mod transformer_model;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard};
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::pooling_norm::{
-    PoolNorm, PoolingKind,
-};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::pooling_norm::PoolNorm;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::memory_access::TensorRef;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::Normalization;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
+    Normalization, Pooling,
+};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::{
     Event, EventSignal, Lane,
 };
@@ -69,7 +69,7 @@ impl CompletionEvent {
 pub struct Encoder {
     model: Arc<TransformerModel>,
     projection: Option<Arc<Projection>>,
-    pooling: PoolingKind,
+    pooling: Pooling,
     pool_norm: PoolNorm,
     storage_dtype: DType,
 }
@@ -88,7 +88,7 @@ impl Encoder {
     pub fn new(
         model: Arc<TransformerModel>,
         projection: Option<Arc<Projection>>,
-        pooling: PoolingKind,
+        pooling: Pooling,
         normalization: Normalization,
         storage_dtype: DType,
     ) -> Result<Encoder, EncoderError> {
@@ -145,8 +145,8 @@ impl Encoder {
         let _ = lane;
         check_tensor("input", input, &[2, rows, seq_len], DType::U32)?;
         let out_shape: Vec<usize> = match self.pooling {
-            PoolingKind::Mean => vec![rows, self.output_dim()],
-            PoolingKind::None => vec![rows, seq_len, self.output_dim()],
+            Pooling::Mean | Pooling::Cls => vec![rows, self.output_dim()],
+            Pooling::PerToken => vec![rows, seq_len, self.output_dim()],
         };
         check_tensor("output", output, &out_shape, self.storage_dtype)?;
         let (event, signal) = Event::cpu();

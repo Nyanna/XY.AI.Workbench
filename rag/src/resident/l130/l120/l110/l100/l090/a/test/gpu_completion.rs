@@ -5,6 +5,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 };
 use std::sync::atomic::AtomicUsize;
 use std::thread;
+
 fn tracker() -> (GpuCompletion, Arc<AtomicUsize>) {
     let count = Arc::new(AtomicUsize::new(0));
     let c = Arc::clone(&count);
@@ -16,15 +17,20 @@ fn tracker() -> (GpuCompletion, Arc<AtomicUsize>) {
     );
     (GpuCompletion::new(topo.notifier(0).unwrap()), count)
 }
+
 fn lane() -> Lane {
     Lane::new(LaneConfig::preset(LaneKind::Query, DeviceHandle::Cpu), None)
 }
+
 fn submit(gc: &GpuCompletion, tag: u64) -> (CompletionCallback, MockEventControl) {
     let (event, ctl) = Event::mock();
     (gc.submit(lane(), event, tag), ctl)
 }
+
 fn assert_send<T: Send>() {}
+
 fn assert_sync<T: Sync>() {}
+
 #[test]
 fn types_are_send_and_sync() {
     assert_send::<GpuCompletion>();
@@ -32,12 +38,14 @@ fn types_are_send_and_sync() {
     assert_send::<CompletionCallback>();
     assert_send::<FinishedLane>();
 }
+
 #[test]
 fn empty_poll_returns_nothing() {
     let (gc, _) = tracker();
     assert!(gc.poll().is_empty());
     assert_eq!(gc.in_flight(), 0);
 }
+
 #[test]
 fn pending_lane_stays_tracked() {
     let (gc, count) = tracker();
@@ -46,6 +54,7 @@ fn pending_lane_stays_tracked() {
     assert_eq!(gc.in_flight(), 1);
     assert_eq!(count.load(Ordering::SeqCst), 0);
 }
+
 #[test]
 fn callback_hands_over_lane() {
     let (gc, count) = tracker();
@@ -60,6 +69,7 @@ fn callback_hands_over_lane() {
     assert_eq!(gc.in_flight(), 0);
     assert!(gc.poll().is_empty());
 }
+
 #[test]
 fn missed_callback_is_found_by_event_query() {
     let (gc, count) = tracker();
@@ -71,6 +81,7 @@ fn missed_callback_is_found_by_event_query() {
     assert!(done[0].result.is_ok());
     assert_eq!(count.load(Ordering::SeqCst), 0);
 }
+
 #[test]
 fn failed_event_still_hands_over_lane() {
     let (gc, _) = tracker();
@@ -82,6 +93,7 @@ fn failed_event_still_hands_over_lane() {
     assert_eq!(done[0].result.as_ref().unwrap_err().cause, "boom");
     assert_eq!(gc.in_flight(), 0);
 }
+
 #[test]
 fn done_slot_makes_no_event_query() {
     let (gc, _) = tracker();
@@ -92,6 +104,7 @@ fn done_slot_makes_no_event_query() {
     assert_eq!(done[0].via, TakenVia::Callback);
     assert!(done[0].result.is_ok());
 }
+
 #[test]
 fn late_callback_after_take_is_harmless_but_notifies() {
     let (gc, count) = tracker();
@@ -103,6 +116,7 @@ fn late_callback_after_take_is_harmless_but_notifies() {
     assert!(gc.poll().is_empty());
     assert_eq!(gc.in_flight(), 0);
 }
+
 #[test]
 fn dropped_callback_does_nothing() {
     let (gc, count) = tracker();
@@ -112,6 +126,7 @@ fn dropped_callback_does_nothing() {
     assert!(gc.poll().is_empty());
     assert_eq!(gc.in_flight(), 1);
 }
+
 #[test]
 fn finished_lanes_are_returned_in_submit_order() {
     let (gc, _) = tracker();
@@ -126,6 +141,7 @@ fn finished_lanes_are_returned_in_submit_order() {
     assert_eq!(tags, vec![0, 1, 3]);
     assert_eq!(gc.in_flight(), 1);
 }
+
 #[test]
 fn callback_and_poll_race_hands_over_exactly_once() {
     let (gc, _) = tracker();
@@ -169,6 +185,7 @@ fn callback_and_poll_race_hands_over_exactly_once() {
     assert_eq!(all, (0..n).collect::< Vec < _ >> ());
     assert_eq!(gc.in_flight(), 0);
 }
+
 #[test]
 fn fire_works_on_another_thread() {
     let (gc, count) = tracker();
@@ -177,29 +194,36 @@ fn fire_works_on_another_thread() {
     assert_eq!(count.load(Ordering::SeqCst), 1);
     assert_eq!(gc.poll().len(), 1);
 }
+
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::{
     GpuEventBackend, StreamBackend,
 };
+
 type Notify = Box<dyn FnOnce() + Send>;
+
 #[derive(Clone, Copy)]
 enum NotifyMode {
     Store,
     Immediate,
     Fail,
 }
+
 struct NotifyStream {
     mode: NotifyMode,
     stored: Arc<Mutex<Option<Notify>>>,
 }
+
 impl std::fmt::Debug for NotifyStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("NotifyStream")
     }
 }
+
 impl StreamBackend for NotifyStream {
     fn record_event(&self) -> Result<Box<dyn GpuEventBackend>, String> {
         Err("unused".to_string())
     }
+
     fn notify_on_complete(&self, f: Notify) -> Result<bool, String> {
         match self.mode {
             NotifyMode::Store => {
@@ -214,19 +238,23 @@ impl StreamBackend for NotifyStream {
         }
     }
 }
+
 #[derive(Debug)]
 struct PlainStream;
+
 impl StreamBackend for PlainStream {
     fn record_event(&self) -> Result<Box<dyn GpuEventBackend>, String> {
         Err("unused".to_string())
     }
 }
+
 fn lane_with(stream: impl StreamBackend + 'static) -> Lane {
     Lane::new(
         LaneConfig::preset(LaneKind::Query, DeviceHandle::Cpu),
         Some(Box::new(stream)),
     )
 }
+
 fn notify_stream(mode: NotifyMode) -> (NotifyStream, Arc<Mutex<Option<Notify>>>) {
     let stored = Arc::new(Mutex::new(None));
     (
@@ -237,6 +265,7 @@ fn notify_stream(mode: NotifyMode) -> (NotifyStream, Arc<Mutex<Option<Notify>>>)
         stored,
     )
 }
+
 #[test]
 fn stream_notification_wakes_and_hands_over_lane() {
     let (gc, count) = tracker();
@@ -254,6 +283,7 @@ fn stream_notification_wakes_and_hands_over_lane() {
     assert_eq!(done[0].via, TakenVia::Callback);
     assert!(done[0].result.is_ok());
 }
+
 #[test]
 fn immediate_stream_notification_is_not_lost() {
     let (gc, count) = tracker();
@@ -266,6 +296,7 @@ fn immediate_stream_notification_is_not_lost() {
     assert_eq!(done[0].tag, 2);
     assert_eq!(done[0].via, TakenVia::Callback);
 }
+
 #[test]
 fn failed_stream_registration_keeps_event_query_path() {
     let (gc, count) = tracker();
@@ -278,6 +309,7 @@ fn failed_stream_registration_keeps_event_query_path() {
     assert_eq!(done[0].via, TakenVia::EventQuery);
     assert_eq!(count.load(Ordering::SeqCst), 0);
 }
+
 #[test]
 fn stream_without_notification_support_registers_nothing() {
     let (gc, count) = tracker();

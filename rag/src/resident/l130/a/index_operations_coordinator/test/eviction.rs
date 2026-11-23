@@ -796,7 +796,7 @@ fn eviction_removes_segment_from_table_and_map_and_defers_region() {
     let map_before = fx.store.epoch();
     let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
     assert_eq!(
-        out.decisions, vec![EvictionDecision { index : "idx".to_string(), victim :
+        out.decisions, vec![EvictionDecision { index : IndexId::new("idx"), victim :
         EvictKey(1), segment : SegmentId(1), size : 100, bytes : 100, hits : 3, reason :
         EvictReason::Idle, }]
     );

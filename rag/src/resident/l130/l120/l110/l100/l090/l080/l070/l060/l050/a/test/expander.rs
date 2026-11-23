@@ -1,26 +1,18 @@
 use super::*;
 use std::path::Path;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::embedding_task::Precision as EmbeddingPrecision;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::IndexId as SimilarityIndexId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::IndexId;
 const MODEL: &str = "e5";
-fn pipeline() -> PipelineConfig {
-    PipelineConfig {
-        query_prefix: "query: ".to_string(),
-        passage_prefix: "passage: ".to_string(),
-        pooling: PoolingMethod::Mean,
-        normalize: true,
-        max_seq_len: 512,
-        dtype: DType::F16,
-        dimension: 384,
-    }
+fn descriptor() -> ModelDescriptor {
+    ModelDescriptor::e5_small_default(Path::new("/tmp/model"), DType::F16)
 }
-fn pipelines_with(config: PipelineConfig) -> PipelineConfigs {
-    let mut map = PipelineConfigs::new();
-    map.insert(MODEL.to_string(), config);
+fn models_with(descriptor: ModelDescriptor) -> ModelDescriptors {
+    let mut map = ModelDescriptors::new();
+    map.insert(MODEL.to_string(), descriptor);
     map
 }
-fn pipelines() -> PipelineConfigs {
-    pipelines_with(pipeline())
+fn models() -> ModelDescriptors {
+    models_with(descriptor())
 }
 fn embedding(mode: EmbeddingMode, target: Option<&str>) -> TaskSpec {
     TaskSpec::Embedding {
@@ -35,7 +27,7 @@ fn embedding(mode: EmbeddingMode, target: Option<&str>) -> TaskSpec {
 }
 fn similarity(scorer: ScorerChoice, top_k: usize) -> TaskSpec {
     TaskSpec::Similarity(SimilaritySpec {
-        params: SimilarityParams::new(SimilarityIndexId(42))
+        params: SimilarityParams::new(IndexId::new("42"))
             .with_top_k(top_k)
             .with_scope(Scope::Subtree { root: 7 }),
         model: ModelId::new(MODEL),
@@ -57,26 +49,28 @@ fn run_embedding(
     spec: &TaskSpec,
     idle: Option<&IdleNotification>,
 ) -> Vec<PlannedOperation> {
-    expand(spec, &pipelines(), &CapabilitySet::new(), idle).unwrap()
+    expand(spec, &models(), &CapabilitySet::new(), idle).unwrap()
 }
 #[test]
-fn from_descriptor_maps_fields() {
-    let mut d = ModelDescriptor::e5_small_default(Path::new("/tmp/model"), DType::F16);
-    let cfg = PipelineConfig::from_descriptor(&d);
-    assert_eq!(cfg.query_prefix, "query: ");
-    assert_eq!(cfg.passage_prefix, "passage: ");
-    assert_eq!(cfg.pooling, PoolingMethod::Mean);
-    assert!(cfg.normalize);
-    assert_eq!(cfg.max_seq_len, 512);
-    assert_eq!(cfg.dtype, DType::F16);
-    assert_eq!(cfg.dimension, 384);
+fn descriptor_values_reach_operation_configs() {
+    let mut d = descriptor();
     d.pooling = Pooling::Cls;
     d.normalization = Normalization::None;
     d.storage_dtype = DType::F32;
-    let cfg = PipelineConfig::from_descriptor(&d);
-    assert_eq!(cfg.pooling, PoolingMethod::Cls);
-    assert!(! cfg.normalize);
-    assert_eq!(cfg.dtype, DType::F32);
+    let ops = expand(
+            &embedding(EmbeddingMode::Passage, None),
+            &models_with(d),
+            &CapabilitySet::new(),
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        kinds(& ops), vec![OperationKind::Tokenization, OperationKind::Embedding,
+        OperationKind::Pooling,]
+    );
+    assert_eq!(ops[0].config().prefix.as_deref(), Some("passage: "));
+    assert_eq!(ops[1].config().dtype, Some(DType::F32));
+    assert_eq!(ops[2].config().pooling, Some(Pooling::Cls));
 }
 #[test]
 fn embedding_full_chain_order_and_configs() {
@@ -95,7 +89,7 @@ fn embedding_full_chain_order_and_configs() {
     assert_eq!(emb.resource().kind(), ResourceKind::Encoder);
     assert_eq!(emb.config().dtype, Some(DType::F16));
     assert_eq!(emb.descriptor().params().dimension(), Some(384));
-    assert_eq!(ops[2].config().pooling, Some(PoolingMethod::Mean));
+    assert_eq!(ops[2].config().pooling, Some(Pooling::Mean));
     assert_eq!(ops[3].resource().kind(), ResourceKind::Encoder);
     let write = &ops[4];
     assert_eq!(write.resource().kind(), ResourceKind::Index);
@@ -148,11 +142,11 @@ fn embedding_modes_yield_distinct_descriptors() {
 }
 #[test]
 fn embedding_without_pooling_keeps_token_vectors() {
-    let mut cfg = pipeline();
-    cfg.pooling = PoolingMethod::None;
+    let mut cfg = descriptor();
+    cfg.pooling = Pooling::PerToken;
     let ops = expand(
             &embedding(EmbeddingMode::Query, Some("idx")),
-            &pipelines_with(cfg),
+            &models_with(cfg),
             &CapabilitySet::new(),
             None,
         )
@@ -164,11 +158,11 @@ fn embedding_without_pooling_keeps_token_vectors() {
 }
 #[test]
 fn embedding_without_normalization_skips_l2() {
-    let mut cfg = pipeline();
-    cfg.normalize = false;
+    let mut cfg = descriptor();
+    cfg.normalization = Normalization::None;
     let ops = expand(
             &embedding(EmbeddingMode::Query, Some("idx")),
-            &pipelines_with(cfg),
+            &models_with(cfg),
             &CapabilitySet::new(),
             None,
         )
@@ -180,12 +174,12 @@ fn embedding_without_normalization_skips_l2() {
 }
 #[test]
 fn embedding_minimal_chain_has_two_operations() {
-    let mut cfg = pipeline();
-    cfg.pooling = PoolingMethod::None;
-    cfg.normalize = false;
+    let mut cfg = descriptor();
+    cfg.pooling = Pooling::PerToken;
+    cfg.normalization = Normalization::None;
     let ops = expand(
             &embedding(EmbeddingMode::Query, None),
-            &pipelines_with(cfg),
+            &models_with(cfg),
             &CapabilitySet::new(),
             None,
         )
@@ -202,8 +196,8 @@ fn embedding_without_target_index_has_no_write() {
 }
 #[test]
 fn embedding_unknown_model_id_conversion_is_verbatim() {
-    let mut map = PipelineConfigs::new();
-    map.insert("org/Model-1".to_string(), pipeline());
+    let mut map = ModelDescriptors::new();
+    map.insert("org/Model-1".to_string(), descriptor());
     let spec = TaskSpec::Embedding {
         task: EmbeddingTask::new(
             "hello".to_string(),
@@ -249,7 +243,7 @@ fn encoder_environment_follows_idle_devices() {
 #[test]
 fn vector_similarity_chain() {
     let spec = similarity(ScorerChoice::Vector(Scoring::DotProduct), 5);
-    let ops = expand(&spec, &pipelines(), &CapabilitySet::new(), None).unwrap();
+    let ops = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap();
     assert_eq!(kinds(& ops), vec![OperationKind::Similarity, OperationKind::TopK]);
     let index = IndexId::new("42");
     let model = ModelId::new(MODEL);
@@ -282,7 +276,7 @@ fn vector_similarity_scorer_name_is_debug_name() {
     ] {
         let ops = expand(
                 &similarity(ScorerChoice::Vector(scoring), 3),
-                &pipelines(),
+                &models(),
                 &CapabilitySet::new(),
                 None,
             )
@@ -293,14 +287,14 @@ fn vector_similarity_scorer_name_is_debug_name() {
 #[test]
 fn top_k_is_clamped_to_u32() {
     let spec = similarity(ScorerChoice::Vector(Scoring::Cosine), usize::MAX);
-    let ops = expand(&spec, &pipelines(), &CapabilitySet::new(), None).unwrap();
+    let ops = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap();
     assert_eq!(ops[1].descriptor().params().top_k(), Some(u32::MAX as usize));
 }
 #[test]
 fn similarity_ignores_idle_notification() {
     let spec = similarity(ScorerChoice::Vector(Scoring::Cosine), 3);
     let gpu = idle(&[DeviceKind::Gpu]);
-    let ops = expand(&spec, &pipelines(), &CapabilitySet::new(), Some(&gpu)).unwrap();
+    let ops = expand(&spec, &models(), &CapabilitySet::new(), Some(&gpu)).unwrap();
     assert!(
         ops.iter().all(| o | o.resource().environment() == ExecutionEnvironment::Any)
     );
@@ -308,7 +302,7 @@ fn similarity_ignores_idle_notification() {
 #[test]
 fn cross_encoder_chain() {
     let spec = similarity(ScorerChoice::CrossEncoder("minilm".to_string()), 4);
-    let ops = expand(&spec, &pipelines(), &cross_encoder_caps(), None).unwrap();
+    let ops = expand(&spec, &models(), &cross_encoder_caps(), None).unwrap();
     assert_eq!(
         kinds(& ops), vec![OperationKind::Tokenization, OperationKind::Inference,
         OperationKind::Similarity,]
@@ -342,24 +336,24 @@ fn cross_encoder_chain() {
 #[test]
 fn cross_encoder_unavailable() {
     let spec = similarity(ScorerChoice::CrossEncoder("other".to_string()), 4);
-    let err = expand(&spec, &pipelines(), &cross_encoder_caps(), None).unwrap_err();
+    let err = expand(&spec, &models(), &cross_encoder_caps(), None).unwrap_err();
     assert_eq!(err, ExpandError::ScoringUnavailable { scorer : "other".to_string() });
     assert_eq!(err.to_string(), "Scoring-Verfahren nicht verfügbar: other");
-    let err = expand(&spec, &pipelines(), &CapabilitySet::new(), None).unwrap_err();
+    let err = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap_err();
     assert!(matches!(err, ExpandError::ScoringUnavailable { .. }));
 }
 #[test]
 fn cross_encoder_requires_the_dedicated_axis() {
     let caps = CapabilitySet::new().with("scoring", "minilm");
     let spec = similarity(ScorerChoice::CrossEncoder("minilm".to_string()), 4);
-    assert!(expand(& spec, & pipelines(), & caps, None).is_err());
+    assert!(expand(& spec, & models(), & caps, None).is_err());
 }
 #[test]
 fn zero_top_k_is_rejected_for_both_scorers() {
     let vector = similarity(ScorerChoice::Vector(Scoring::Cosine), 0);
     let cross = similarity(ScorerChoice::CrossEncoder("minilm".to_string()), 0);
     for spec in [vector, cross] {
-        let err = expand(&spec, &pipelines(), &cross_encoder_caps(), None).unwrap_err();
+        let err = expand(&spec, &models(), &cross_encoder_caps(), None).unwrap_err();
         assert_eq!(err, ExpandError::Config(ConfigError::ZeroTopK));
         assert_eq!(
             err.to_string(), "Konfigurationsfehler: top_k muss größer als 0 sein"
@@ -367,8 +361,8 @@ fn zero_top_k_is_rejected_for_both_scorers() {
     }
 }
 #[test]
-fn missing_pipeline_config_for_embedding_and_similarity() {
-    let empty = PipelineConfigs::new();
+fn unknown_model_for_embedding_and_similarity() {
+    let empty = ModelDescriptors::new();
     let err = expand(
             &embedding(EmbeddingMode::Query, None),
             &empty,
@@ -376,8 +370,8 @@ fn missing_pipeline_config_for_embedding_and_similarity() {
             None,
         )
         .unwrap_err();
-    assert_eq!(err, ExpandError::MissingPipelineConfig { model : MODEL.to_string() });
-    assert_eq!(err.to_string(), "keine Pipeline-Konfiguration für Modell e5");
+    assert_eq!(err, ExpandError::UnknownModel { model : MODEL.to_string() });
+    assert_eq!(err.to_string(), "unbekanntes Modell: e5");
     let err = expand(
             &similarity(ScorerChoice::Vector(Scoring::Cosine), 3),
             &empty,
@@ -385,14 +379,14 @@ fn missing_pipeline_config_for_embedding_and_similarity() {
             None,
         )
         .unwrap_err();
-    assert!(matches!(err, ExpandError::MissingPipelineConfig { .. }));
+    assert!(matches!(err, ExpandError::UnknownModel { .. }));
 }
 #[test]
 fn foreign_task_kind() {
     let spec = TaskSpec::Other {
         kind: "Rerank".to_string(),
     };
-    let err = expand(&spec, &pipelines(), &CapabilitySet::new(), None).unwrap_err();
+    let err = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap_err();
     assert_eq!(
         err, ExpandError::ForeignTaskKind { expected : "Embedding/Similarity"
         .to_string(), got : "Rerank".to_string() }
@@ -403,8 +397,8 @@ fn foreign_task_kind() {
     );
 }
 #[test]
-fn check_order_kind_then_pipeline_then_top_k_then_scorer() {
-    let empty = PipelineConfigs::new();
+fn check_order_kind_then_model_then_top_k_then_scorer() {
+    let empty = ModelDescriptors::new();
     let foreign = TaskSpec::Other {
         kind: "x".to_string(),
     };
@@ -415,10 +409,10 @@ fn check_order_kind_then_pipeline_then_top_k_then_scorer() {
     let bad = similarity(ScorerChoice::CrossEncoder("nope".to_string()), 0);
     assert!(
         matches!(expand(& bad, & empty, & CapabilitySet::new(), None),
-        Err(ExpandError::MissingPipelineConfig { .. }))
+        Err(ExpandError::UnknownModel { .. }))
     );
     assert_eq!(
-        expand(& bad, & pipelines(), & CapabilitySet::new(), None).unwrap_err(),
+        expand(& bad, & models(), & CapabilitySet::new(), None).unwrap_err(),
         ExpandError::Config(ConfigError::ZeroTopK)
     );
 }
@@ -430,8 +424,8 @@ fn expand_is_pure() {
     let b = run_embedding(&spec, Some(&gpu));
     assert_eq!(a, b);
     let sim = similarity(ScorerChoice::CrossEncoder("minilm".to_string()), 9);
-    let a = expand(&sim, &pipelines(), &cross_encoder_caps(), None).unwrap();
-    let b = expand(&sim, &pipelines(), &cross_encoder_caps(), None).unwrap();
+    let a = expand(&sim, &models(), &cross_encoder_caps(), None).unwrap();
+    let b = expand(&sim, &models(), &cross_encoder_caps(), None).unwrap();
     assert_eq!(a, b);
 }
 #[test]
@@ -444,17 +438,13 @@ fn descriptors_are_usable_as_keys() {
 #[test]
 fn concurrent_calls_agree() {
     let spec = std::sync::Arc::new(embedding(EmbeddingMode::Passage, Some("idx")));
-    let pipelines = std::sync::Arc::new(pipelines());
+    let models = std::sync::Arc::new(models());
     let caps = std::sync::Arc::new(CapabilitySet::new());
-    let expected = expand(&spec, &pipelines, &caps, None).unwrap();
+    let expected = expand(&spec, &models, &caps, None).unwrap();
     let handles: Vec<_> = (0..4)
         .map(|_| {
-            let (spec, pipelines, caps) = (
-                spec.clone(),
-                pipelines.clone(),
-                caps.clone(),
-            );
-            std::thread::spawn(move || expand(&spec, &pipelines, &caps, None).unwrap())
+            let (spec, models, caps) = (spec.clone(), models.clone(), caps.clone());
+            std::thread::spawn(move || expand(&spec, &models, &caps, None).unwrap())
         })
         .collect();
     for h in handles {

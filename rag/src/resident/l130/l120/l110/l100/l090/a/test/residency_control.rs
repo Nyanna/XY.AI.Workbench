@@ -1,6 +1,5 @@
 use super::*;
-use crate::resident::l130::a::index_operations_coordinator::manager_lifecycle::IndexId as ManagerIndexId;
-use l040::l030::l020::l010::scopes_and_entry_sets::EntryId as RawEntryId;
+use l040::l030::l020::l010::scopes_and_entry_sets::RawEntryId;
 use std::collections::HashSet;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -19,7 +18,7 @@ fn spec() -> IndexSpec {
     }
 }
 fn manager(name: &str) -> Arc<IndexManager> {
-    Arc::new(IndexManager::new(ManagerIndexId(Arc::from(name))))
+    Arc::new(IndexManager::new(IndexId::new(name)))
 }
 #[derive(Default)]
 struct MockBackend {

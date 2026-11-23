@@ -2,7 +2,7 @@
 //! resource ownership, lane activation, queue registrations and compute-path selection.
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use log::debug;
-use super::processor::QueueKind;
+use crate::resident::l130::l120::l110::l100::a::plan_contract::QueueKind;
 use crate::resident::l130::l120::l110::l100::a::planner::Subengine;
 use crate::resident::l130::l120::l110::l100::l090::a::model_registry::{
     LoadedEncoder, ModelRegistry,

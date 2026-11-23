@@ -268,13 +268,7 @@ fn bf16_rounding() {
 fn new_validates_arguments() {
     let (_d, model) = load_model();
     for dt in [DType::U8, DType::U32, DType::I64] {
-        let r = Encoder::new(
-            model.clone(),
-            None,
-            PoolingKind::Mean,
-            Normalization::L2,
-            dt,
-        );
+        let r = Encoder::new(model.clone(), None, Pooling::Mean, Normalization::L2, dt);
         assert!(matches!(r, Err(EncoderError::Incompatible { .. })));
     }
     let bad = Arc::new(
@@ -291,7 +285,7 @@ fn new_validates_arguments() {
     let r = Encoder::new(
         model.clone(),
         Some(bad),
-        PoolingKind::Mean,
+        Pooling::Mean,
         Normalization::L2,
         DType::F32,
     );
@@ -299,7 +293,7 @@ fn new_validates_arguments() {
     let e = Encoder::new(
             model.clone(),
             None,
-            PoolingKind::Mean,
+            Pooling::Mean,
             Normalization::L2,
             DType::F16,
         )
@@ -309,7 +303,7 @@ fn new_validates_arguments() {
     let p = Encoder::new(
             model,
             Some(projection()),
-            PoolingKind::None,
+            Pooling::PerToken,
             Normalization::None,
             DType::BF16,
         )
@@ -319,7 +313,7 @@ fn new_validates_arguments() {
 #[test]
 fn precheck_order_and_no_side_effects() {
     let (_d, model) = load_model();
-    let enc = Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
+    let enc = Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32)
         .unwrap();
     let lane = lane();
     let good_in = batch(&[1; 4], &[1; 4], 2, 2);
@@ -359,7 +353,7 @@ fn mean_pooling_matches_reference() {
     let enc = Encoder::new(
             model.clone(),
             None,
-            PoolingKind::Mean,
+            Pooling::Mean,
             Normalization::L2,
             DType::F32,
         )
@@ -380,7 +374,7 @@ fn mean_pooling_matches_reference() {
     assert_eq!(done.wait(), Ok(()));
     let hidden = model.encode(&ids, &mask, rows, seq).unwrap();
     let mask8: Vec<u8> = mask.iter().map(|&m| m as u8).collect();
-    let reference = PoolNorm::new(PoolingKind::Mean, Normalization::L2, HIDDEN)
+    let reference = PoolNorm::new(Pooling::Mean, Normalization::L2, HIDDEN)
         .unwrap()
         .apply(&hidden, &mask8, rows, seq)
         .unwrap();
@@ -394,7 +388,7 @@ fn projection_without_pooling_in_f16_and_offset() {
     let enc = Encoder::new(
             model.clone(),
             Some(proj.clone()),
-            PoolingKind::None,
+            Pooling::PerToken,
             Normalization::None,
             DType::F16,
         )
@@ -421,7 +415,7 @@ fn projection_without_pooling_in_f16_and_offset() {
         .flatten()
         .collect();
     let mask8: Vec<u8> = mask.iter().map(|&m| m as u8).collect();
-    let pooled = PoolNorm::new(PoolingKind::None, Normalization::None, OUT)
+    let pooled = PoolNorm::new(Pooling::PerToken, Normalization::None, OUT)
         .unwrap()
         .apply(&projected, &mask8, rows, seq)
         .unwrap();
@@ -434,7 +428,7 @@ fn projection_without_pooling_in_f16_and_offset() {
 #[test]
 fn processing_error_is_distributed_once() {
     let (_d, model) = load_model();
-    let enc = Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
+    let enc = Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32)
         .unwrap();
     let input = batch(&[VOCAB as u32 + 3, 1], &[1, 1], 1, 2);
     let output = tensor(&[1, HIDDEN], DType::F32);
@@ -457,7 +451,7 @@ fn processing_error_is_distributed_once() {
 #[test]
 fn is_complete_does_not_consume_error() {
     let (_d, model) = load_model();
-    let enc = Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
+    let enc = Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32)
         .unwrap();
     let input = batch(&[VOCAB as u32, 1], &[1, 1], 1, 2);
     let output = tensor(&[1, HIDDEN], DType::F32);
@@ -470,7 +464,7 @@ fn is_complete_does_not_consume_error() {
 #[test]
 fn runs_on_calling_thread_and_is_complete_on_return() {
     let (_d, model) = load_model();
-    let enc = Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
+    let enc = Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32)
         .unwrap();
     let (ids, mask) = sample(2, 3);
     let input = batch(&ids, &mask, 2, 3);
@@ -484,7 +478,7 @@ fn runs_on_calling_thread_and_is_complete_on_return() {
 #[test]
 fn empty_batches_are_accepted() {
     let (_d, model) = load_model();
-    let enc = Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
+    let enc = Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32)
         .unwrap();
     for (rows, seq) in [(0usize, 3usize), (2, 0), (0, 0)] {
         let input = batch(&[], &[], rows, seq);
@@ -507,8 +501,7 @@ fn empty_batches_are_accepted() {
 fn concurrent_calls_share_encoder_and_lane() {
     let (_d, model) = load_model();
     let enc = Arc::new(
-        Encoder::new(model, None, PoolingKind::Mean, Normalization::L2, DType::F32)
-            .unwrap(),
+        Encoder::new(model, None, Pooling::Mean, Normalization::L2, DType::F32).unwrap(),
     );
     let lane = Arc::new(lane());
     let handles: Vec<_> = (0..4)

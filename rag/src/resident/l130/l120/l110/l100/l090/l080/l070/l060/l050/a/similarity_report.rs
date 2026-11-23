@@ -1,9 +1,11 @@
 use std::cmp::Ordering;
 use std::fmt;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::SimilarityParams;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
-    EntryId, ScoredHit, ScoredHitResult, TaskId,
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::{
+    ScoredHit, ScoredHitResult,
 };
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 const MIN_STD_DEV: f64 = 1e-9;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReportOptions {

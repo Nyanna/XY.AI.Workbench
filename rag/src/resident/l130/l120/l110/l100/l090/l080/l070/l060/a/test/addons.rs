@@ -2,12 +2,11 @@ use super::*;
 use std::sync::Mutex;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::similarity_report::ReportHit;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::{
-    IndexId, SimilarityHit, SimilarityOutput,
+    SimilarityHit, SimilarityOutput,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
-    EntryId as OpEntryId, TaskId,
-};
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId as IndexEntryId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::IndexId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId;
 #[derive(Debug, Clone)]
 enum Data {
     Embed(EmbeddingTask),
@@ -125,14 +124,14 @@ fn params_with_priority(priority: i32) -> TaskParams {
 fn report_of(ids: &[u64]) -> SimilarityReport {
     SimilarityReport {
         task_id: TaskId(1),
-        params: SimilarityParams::new(IndexId(7)).with_top_k(3),
+        params: SimilarityParams::new(IndexId::new("7")).with_top_k(3),
         candidate_count: ids.len(),
         dropped_count: 0,
         stale_count: 0,
         hits: ids
             .iter()
             .map(|&id| ReportHit {
-                entry_id: OpEntryId(id),
+                entry_id: EntryId(id),
                 score: 1.0,
                 stale: false,
                 source_link: None,
@@ -155,7 +154,7 @@ fn text_query_with(rerank: Option<Arc<RerankPolicy>>) -> TextQuery {
         model: ModelId::new("m"),
         precision: EmbPrecision::F32,
         embed_extensions: Extensions::new(),
-        search: SimilarityParams::new(IndexId(7)).with_top_k(3),
+        search: SimilarityParams::new(IndexId::new("7")).with_top_k(3),
         embed_task_params: params_with_priority(1),
         search_task_params: params_with_priority(2),
         rerank_task_params: params_with_priority(3),
@@ -440,8 +439,8 @@ fn rerank_job_matches_params_rerank() {
     assert_eq!(job.queries, vec![vec![0.5, 0.5]]);
     let output = SimilarityOutput {
         per_query: vec![
-            report.hits.iter().map(| h | SimilarityHit { entry : IndexEntryId(h.entry_id
-            .0), score : h.score, stale : h.stale, }).collect()
+            report.hits.iter().map(| h | SimilarityHit { entry : h.entry_id, score : h
+            .score, stale : h.stale, }).collect()
         ],
     };
     assert_eq!(job.params, report.params.rerank(& output, Scoring::NegEuclidean));

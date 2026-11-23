@@ -8,7 +8,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::slot_layout::{
     EntryRef, SegmentView, SlotClass,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::pooling_norm::PoolingKind;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::Pooling;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::region_handle::{
     Generation, RegionHandle,
 };
@@ -297,7 +297,7 @@ fn mem(len: usize) -> (AccessRegion, Arc<MemBackend>) {
     mem_with(len, None)
 }
 fn pn(norm: Normalization, dim: usize) -> PoolNorm {
-    PoolNorm::new(PoolingKind::Mean, norm, dim).unwrap()
+    PoolNorm::new(Pooling::Mean, norm, dim).unwrap()
 }
 fn bytes(b: &MemBackend) -> Vec<u8> {
     b.data.lock().unwrap().clone()
@@ -405,7 +405,7 @@ fn host_shape_mismatch_is_a_pool_norm_error() {
 fn host_zero_dim_is_a_pool_norm_error() {
     let (r, b) = mem(16);
     let norm = PoolNorm {
-        pooling: PoolingKind::Mean,
+        pooling: Pooling::Mean,
         normalization: Normalization::None,
         dim: 0,
     };
@@ -832,7 +832,7 @@ fn gpu_result_must_be_f32_n_by_dim() {
 fn gpu_zero_dim_is_a_pool_norm_error() {
     let e = env();
     let norm = PoolNorm {
-        pooling: PoolingKind::Mean,
+        pooling: Pooling::Mean,
         normalization: Normalization::None,
         dim: 0,
     };

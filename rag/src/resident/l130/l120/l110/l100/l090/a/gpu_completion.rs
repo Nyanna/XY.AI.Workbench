@@ -5,9 +5,11 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::notification_t
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::{
     Event, EventError, Lane,
 };
+
 const PENDING: u8 = 0;
 const DONE: u8 = 1;
 const TAKEN: u8 = 2;
+
 /// A lane that finished.
 pub struct FinishedLane {
     pub lane: Lane,
@@ -19,28 +21,33 @@ pub struct FinishedLane {
     /// Which path handed the lane over.
     pub via: TakenVia,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TakenVia {
     Callback,
     EventQuery,
 }
+
 /// Per-submission state shared between the tracker and the callback.
 /// It holds only the atomic state so the callback never owns GPU resources.
 struct Slot {
     state: AtomicU8,
 }
+
 struct Entry {
     slot: Arc<Slot>,
     lane: Lane,
     event: Event,
     tag: u64,
 }
+
 /// Callback to be run at the end of the stream. Single use. `submit` already registers one with
 /// the lane's stream if the stream supports it; firing this one as well is harmless.
 pub struct CompletionCallback {
     slot: Arc<Slot>,
     notifier: SubengineNotifier,
 }
+
 impl CompletionCallback {
     /// Records the completion entry and raises `notify_result()`.
     /// Calls no GPU API, takes no lock and does not allocate.
@@ -52,14 +59,17 @@ impl CompletionCallback {
         let _ = catch_unwind(AssertUnwindSafe(|| self.notifier.notify_result()));
     }
 }
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|p| p.into_inner())
 }
+
 /// Tracker of in-flight lanes.
 pub struct GpuCompletion {
     entries: Mutex<Vec<Entry>>,
     notifier: SubengineNotifier,
 }
+
 impl GpuCompletion {
     pub fn new(notifier: SubengineNotifier) -> Self {
         Self {
@@ -67,6 +77,7 @@ impl GpuCompletion {
             notifier,
         }
     }
+
     /// Puts an in-flight lane under tracking. `event` is the event recorded on
     /// `lane` after the submitted work.
     pub fn submit(&self, lane: Lane, event: Event, tag: u64) -> CompletionCallback {
@@ -100,6 +111,7 @@ impl GpuCompletion {
             notifier: self.notifier.clone(),
         }
     }
+
     /// Takes all lanes that are finished by callback entry or by event query.
     /// Non-blocking.
     pub fn poll(&self) -> Vec<FinishedLane> {
@@ -158,11 +170,13 @@ impl GpuCompletion {
         }
         finished
     }
+
     /// Number of tracked lanes not yet taken.
     pub fn in_flight(&self) -> usize {
         lock(&self.entries).len()
     }
 }
+
 #[cfg(test)]
 #[path = "test/gpu_completion.rs"]
 mod tests;

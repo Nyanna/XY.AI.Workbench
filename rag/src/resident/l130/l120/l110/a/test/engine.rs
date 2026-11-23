@@ -13,10 +13,8 @@ use l060::l050::l040::a::resource_requirements::ExecutionEnvironment;
 use l060::l050::l040::b::embedding_task::{
     EmbeddingMode, EmbeddingTask, Precision as EmbeddingPrecision,
 };
-use l060::l050::l040::b::similarity_task::{
-    IndexId as SimilarityIndexId, Scoring, SimilarityParams,
-};
-use l060::l050::l040::l030::b::operation::RamData;
+use l060::l050::l040::b::similarity_task::{Scoring, SimilarityParams};
+use l060::l050::l040::b::operation::RamData;
 use l060::l050::l040::l030::b::task_context::TaskContext;
 use l060::l050::l040::l030::l020::a::index_contract::{
     AccessMethod, EntryId, IndexError, Payload, PayloadRef, Stamp, StampObserver,
@@ -198,7 +196,7 @@ impl ValueBuilder<TaskSpec, StepOutput, String, Step> for EngineValues {
         _spec: &TaskSpec,
         steps: &[PlanStep],
     ) -> (Step, Option<BatchInfo>) {
-        let id = steps[0].meta.task_id.0;
+        let id = steps[0].meta.task_id;
         let context = TaskContext::new(id, steps[0].meta.priority, 1);
         let mut next_input = Some(
             ChainInput::Data(
@@ -260,7 +258,7 @@ fn embedding_spec() -> TaskSpec {
 }
 fn similarity_spec() -> TaskSpec {
     TaskSpec::Similarity(SimilaritySpec {
-        params: SimilarityParams::new(SimilarityIndexId(42))
+        params: SimilarityParams::new(IndexId::new("42"))
             .with_top_k(5)
             .with_scope(Scope::Subtree { root: 7 }),
         model: ModelId::new("ghost"),

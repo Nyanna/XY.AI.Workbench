@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use super::*;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::IndexId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::IndexId;
 fn eid(n: u64) -> EntryId {
     EntryId(n)
 }
@@ -20,7 +20,7 @@ fn input(hits: Vec<ScoredHit>) -> ScoredHitResult {
     }
 }
 fn params(top_k: usize) -> SimilarityParams {
-    SimilarityParams::new(IndexId(7)).with_top_k(top_k)
+    SimilarityParams::new(IndexId::new("7")).with_top_k(top_k)
 }
 fn opts() -> ReportOptions {
     ReportOptions { temperature: 1.0 }

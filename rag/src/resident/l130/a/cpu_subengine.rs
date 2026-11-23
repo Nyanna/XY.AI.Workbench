@@ -11,7 +11,7 @@ use half::f16;
 use log::warn;
 use crate::resident::l130::l120::l110;
 use crate::resident::l130::l120::manager::LazyIndex;
-use l110::a::processor::QueueKind;
+use l110::l100::a::plan_contract::QueueKind;
 use l110::a::subengine_core::{
     ComputePath, LaneFactory, PathPolicy, QueueRegistrations, SubengineConfig,
     SubengineCore, SubengineError,

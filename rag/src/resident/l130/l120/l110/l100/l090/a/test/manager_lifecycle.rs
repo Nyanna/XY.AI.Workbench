@@ -8,10 +8,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+
 struct FakeIndex {
     entries: usize,
     signal: Arc<StampSignal>,
 }
+
 impl FakeIndex {
     fn arc(entries: usize) -> Arc<dyn Index> {
         Arc::new(FakeIndex {
@@ -20,22 +22,28 @@ impl FakeIndex {
         })
     }
 }
+
 impl Index for FakeIndex {
     fn dtype(&self) -> DType {
         DType::F32
     }
+
     fn access_methods(&self) -> &[AccessMethod] {
         &[]
     }
+
     fn stamp(&self, id: EntryId) -> Option<Stamp> {
         (id.0 < self.entries as u64).then_some(Stamp(id.0 + 1))
     }
+
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         (0..self.entries as u64).map(|i| (EntryId(i), Stamp(i + 1))).collect()
     }
+
     fn read(&self, _id: EntryId) -> Payload {
         Payload::default()
     }
+
     fn write(
         &self,
         _id: EntryId,
@@ -43,23 +51,30 @@ impl Index for FakeIndex {
     ) -> Result<Stamp, IndexError> {
         Ok(Stamp(0))
     }
+
     fn delete(&self, _id: EntryId) -> Result<Option<Stamp>, IndexError> {
         Ok(None)
     }
+
     fn subscribe(&self) -> StampObserver {
         self.signal.observer()
     }
 }
+
 fn manager() -> IndexManager {
-    IndexManager::with_observer(IndexId(Arc::from("idx")), Arc::new(NoCycleObserver))
+    IndexManager::with_observer(IndexId::new("idx"), Arc::new(NoCycleObserver))
 }
+
 struct RecordingObserver(Arc<Mutex<Vec<String>>>);
+
 struct RecordingGuard(Arc<Mutex<Vec<String>>>, String);
+
 impl Drop for RecordingGuard {
     fn drop(&mut self) {
         self.0.lock().unwrap().push(format!("exit {}", self.1));
     }
 }
+
 impl CycleObserver for RecordingObserver {
     fn enter(&self, index_id: &IndexId, cycle: &str) -> Box<dyn CycleGuard> {
         let label = format!("{index_id} {cycle}");
@@ -67,6 +82,7 @@ impl CycleObserver for RecordingObserver {
         Box::new(RecordingGuard(Arc::clone(&self.0), label))
     }
 }
+
 #[test]
 fn initial_state() {
     let m = manager();
@@ -75,6 +91,7 @@ fn initial_state() {
     assert_eq!(s.resident_entries, 0);
     assert_eq!(s.index_id.to_string(), "idx");
 }
+
 #[test]
 fn attach_once() {
     let m = manager();
@@ -85,6 +102,7 @@ fn attach_once() {
     assert_eq!(m.status().resident_entries, 3);
     assert!(Arc::ptr_eq(& m.index().unwrap(), & first));
 }
+
 #[test]
 fn concurrent_attach_single_winner() {
     let m = Arc::new(manager());
@@ -104,6 +122,7 @@ fn concurrent_attach_single_winner() {
     }
     assert_eq!(wins.load(Ordering::SeqCst), 1);
 }
+
 #[test]
 fn unavailable_without_index() {
     let m = manager();
@@ -116,6 +135,7 @@ fn unavailable_without_index() {
     assert_eq!(m.run_cycle("c", | _ | { called = true; }), Err(err));
     assert!(! called);
 }
+
 #[test]
 fn activate_once() {
     let m = manager();
@@ -131,6 +151,7 @@ fn activate_once() {
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert!(m.status().active);
 }
+
 #[test]
 fn failure_then_retry() {
     let m = manager();
@@ -150,6 +171,7 @@ fn failure_then_retry() {
     m.activate(|_| Ok(())).unwrap();
     assert!(m.status().active);
 }
+
 #[test]
 fn waiters_share_result_and_status_does_not_block() {
     let m = Arc::new(manager());
@@ -181,6 +203,7 @@ fn waiters_share_result_and_status_does_not_block() {
     assert_eq!(a, b);
     assert!(matches!(a, Err(ManagerError::InitFailed { .. })));
 }
+
 #[test]
 fn run_cycle_returns_value_without_activation() {
     let m = manager();
@@ -188,16 +211,18 @@ fn run_cycle_returns_value_without_activation() {
     let n = m.run_cycle("sweep", |i| i.stamps().len()).unwrap();
     assert_eq!(n, 2);
 }
+
 #[test]
 fn manager_is_send_sync() {
     fn check<T: Send + Sync>() {}
     check::<IndexManager>();
 }
+
 #[test]
 fn cycle_body_runs_between_observer_enter_and_exit() {
     let events = Arc::new(Mutex::new(Vec::new()));
     let m = IndexManager::with_observer(
-        IndexId(Arc::from("idx")),
+        IndexId::new("idx"),
         Arc::new(RecordingObserver(Arc::clone(&events))),
     );
     m.attach(FakeIndex::arc(1));
@@ -208,11 +233,12 @@ fn cycle_body_runs_between_observer_enter_and_exit() {
         "after"]
     );
 }
+
 #[test]
 fn cycle_span_closes_when_closure_panics() {
     let events = Arc::new(Mutex::new(Vec::new()));
     let m = IndexManager::with_observer(
-        IndexId(Arc::from("idx")),
+        IndexId::new("idx"),
         Arc::new(RecordingObserver(Arc::clone(&events))),
     );
     m.attach(FakeIndex::arc(1));
@@ -224,6 +250,7 @@ fn cycle_span_closes_when_closure_panics() {
     assert!(result.is_err());
     assert_eq!(* events.lock().unwrap(), vec!["enter idx boom", "exit idx boom"]);
 }
+
 #[test]
 fn attach_after_activation_is_rejected_and_keeps_index() {
     let m = manager();

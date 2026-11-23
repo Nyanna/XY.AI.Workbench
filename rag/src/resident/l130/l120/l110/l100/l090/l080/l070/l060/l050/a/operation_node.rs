@@ -6,7 +6,8 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::ex
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     HasResourceRequirements, ResourceRequirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::OperationKind;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::OperationKind;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
     CompleteError, Task,
 };
@@ -61,7 +62,7 @@ impl<T> OutputHandle<T> {
 }
 /// O = operation, I = input, T = output (= task result type), D = task data, E = task error.
 pub struct OperationNode<O, I, T, D, E> {
-    task_id: u64,
+    task_id: TaskId,
     operation: O,
     input: I,
     output: Arc<OnceLock<T>>,
@@ -76,7 +77,7 @@ where
 {
     /// Logs one debug record with task ID, operation kind, resource kind and materialization flag.
     pub fn new(
-        task_id: u64,
+        task_id: TaskId,
         operation: O,
         input: I,
         materialize: bool,
@@ -100,7 +101,7 @@ where
     }
 }
 impl<O, I, T, D, E> OperationNode<O, I, T, D, E> {
-    pub fn task_id(&self) -> u64 {
+    pub fn task_id(&self) -> TaskId {
         self.task_id
     }
     pub fn operation(&self) -> &O {

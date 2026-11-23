@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::IndexId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::result_kinds::{
     Hit, TaskResult,
 };
@@ -9,8 +10,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::scopes_and_entry_sets::{
     EntrySet, Scope,
 };
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IndexId(pub u64);
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Scoring {
@@ -69,7 +68,7 @@ impl SimilarityParams {
     }
     pub fn rerank(&self, prev: &SimilarityOutput, scoring: Scoring) -> SimilarityParams {
         SimilarityParams {
-            index: self.index,
+            index: self.index.clone(),
             top_k: self.top_k,
             scope: prev.narrowed_scope(),
             scoring,
@@ -87,7 +86,7 @@ pub struct Candidate {
 pub trait CandidateSource: Send + Sync {
     fn candidates(
         &self,
-        index: IndexId,
+        index: &IndexId,
         scope: &Scope,
         precision: Precision,
         extensions: &Extensions,
@@ -195,7 +194,7 @@ pub fn run_similarity(
         });
     }
     let candidates = source
-        .candidates(params.index, &params.scope, params.precision, &params.extensions)
+        .candidates(&params.index, &params.scope, params.precision, &params.extensions)
         .map_err(SimilarityError::Source)?;
     let mut seen = HashSet::with_capacity(candidates.len());
     let unique: Vec<&Candidate> = candidates

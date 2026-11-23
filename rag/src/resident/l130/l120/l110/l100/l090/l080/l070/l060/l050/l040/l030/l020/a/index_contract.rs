@@ -5,14 +5,8 @@ use std::time::{Duration, Instant};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::layout::DType;
 /// Identifier of an entry in the index contract.
 ///
-/// Several types named `EntryId` exist and none of them is interchangeable:
-/// - this struct, used by `Index` methods and by task results;
-/// - `operation::EntryId`, the operation-level struct used in scored hit results and reports;
-/// - `scopes_and_entry_sets::EntryId`, a plain `u64` alias used for entry sets and load plans.
-///
-/// All carry the same numeric value but are distinct types. Conversion is explicit at the module
-/// boundary: `.0` to get the raw `u64`, and `EntryId(x)` to wrap one. Any further type with this
-/// name must be told apart the same way.
+/// Entry sets and load plans use the raw `u64` alias `scopes_and_entry_sets::RawEntryId`.
+/// Convert at that boundary with `.0` and `EntryId(x)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EntryId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

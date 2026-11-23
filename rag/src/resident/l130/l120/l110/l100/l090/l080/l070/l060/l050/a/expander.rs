@@ -10,7 +10,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::{
     Scoring, SimilarityParams,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::{
     OperationDescriptor, OperationKind, OperationParams,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
@@ -43,39 +43,7 @@ pub enum ScorerChoice {
     Vector(Scoring),
     CrossEncoder(String),
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PoolingMethod {
-    Mean,
-    Cls,
-    None,
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PipelineConfig {
-    pub query_prefix: String,
-    pub passage_prefix: String,
-    pub pooling: PoolingMethod,
-    pub normalize: bool,
-    pub max_seq_len: usize,
-    pub dtype: DType,
-    pub dimension: usize,
-}
-impl PipelineConfig {
-    pub fn from_descriptor(d: &ModelDescriptor) -> Self {
-        Self {
-            query_prefix: d.query_prefix.clone(),
-            passage_prefix: d.passage_prefix.clone(),
-            pooling: match d.pooling {
-                Pooling::Mean => PoolingMethod::Mean,
-                Pooling::Cls => PoolingMethod::Cls,
-            },
-            normalize: d.normalization == Normalization::L2,
-            max_seq_len: d.max_seq_len,
-            dtype: d.storage_dtype,
-            dimension: d.dimension,
-        }
-    }
-}
-pub type PipelineConfigs = HashMap<String, PipelineConfig>;
+pub type ModelDescriptors = HashMap<String, ModelDescriptor>;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct IdleNotification {
     pub idle_devices: Vec<DeviceKind>,
@@ -105,7 +73,7 @@ impl PlannedOperation {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct OperationConfig {
     pub scorer: Option<String>,
-    pub pooling: Option<PoolingMethod>,
+    pub pooling: Option<Pooling>,
     pub prefix: Option<String>,
     pub max_seq_len: Option<usize>,
     pub dtype: Option<DType>,
@@ -126,7 +94,7 @@ impl std::error::Error for ConfigError {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpandError {
     ForeignTaskKind { expected: String, got: String },
-    MissingPipelineConfig { model: String },
+    UnknownModel { model: String },
     Config(ConfigError),
     ScoringUnavailable { scorer: String },
 }
@@ -136,8 +104,8 @@ impl fmt::Display for ExpandError {
             ExpandError::ForeignTaskKind { expected, got } => {
                 write!(f, "fremde Task-Art: erwartet {expected}, erhalten {got}")
             }
-            ExpandError::MissingPipelineConfig { model } => {
-                write!(f, "keine Pipeline-Konfiguration für Modell {model}")
+            ExpandError::UnknownModel { model } => {
+                write!(f, "unbekanntes Modell: {model}")
             }
             ExpandError::Config(e) => write!(f, "Konfigurationsfehler: {e}"),
             ExpandError::ScoringUnavailable { scorer } => {
@@ -152,9 +120,8 @@ const _: () = {
     assert_shareable::<TaskSpec>();
     assert_shareable::<SimilaritySpec>();
     assert_shareable::<ScorerChoice>();
-    assert_shareable::<PoolingMethod>();
-    assert_shareable::<PipelineConfig>();
-    assert_shareable::<PipelineConfigs>();
+    assert_shareable::<Pooling>();
+    assert_shareable::<ModelDescriptors>();
     assert_shareable::<IdleNotification>();
     assert_shareable::<PlannedOperation>();
     assert_shareable::<OperationConfig>();
@@ -163,18 +130,15 @@ const _: () = {
 };
 pub fn expand(
     task: &TaskSpec,
-    pipelines: &PipelineConfigs,
+    models: &ModelDescriptors,
     capabilities: &CapabilitySet,
     idle: Option<&IdleNotification>,
 ) -> Result<Vec<PlannedOperation>, ExpandError> {
     let (label, chain) = match task {
         TaskSpec::Embedding { task, target_index } => {
-            (
-                "embedding",
-                expand_embedding(task, target_index.as_ref(), pipelines, idle)?,
-            )
+            ("embedding", expand_embedding(task, target_index.as_ref(), models, idle)?)
         }
-        TaskSpec::Similarity(spec) => expand_similarity(spec, pipelines, capabilities)?,
+        TaskSpec::Similarity(spec) => expand_similarity(spec, models, capabilities)?,
         TaskSpec::Other { kind } => {
             return Err(ExpandError::ForeignTaskKind {
                 expected: EXPECTED_TASK_KINDS.to_string(),
@@ -185,13 +149,13 @@ pub fn expand(
     log::debug!("expand: task kind {label}, {} operations", chain.len());
     Ok(chain)
 }
-fn lookup_pipeline<'a>(
-    pipelines: &'a PipelineConfigs,
+fn lookup_model<'a>(
+    models: &'a ModelDescriptors,
     model: &str,
-) -> Result<&'a PipelineConfig, ExpandError> {
-    pipelines
+) -> Result<&'a ModelDescriptor, ExpandError> {
+    models
         .get(model)
-        .ok_or_else(|| ExpandError::MissingPipelineConfig {
+        .ok_or_else(|| ExpandError::UnknownModel {
             model: model.to_string(),
         })
 }
@@ -230,15 +194,15 @@ fn plan(
 fn expand_embedding(
     task: &EmbeddingTask,
     target_index: Option<&IndexId>,
-    pipelines: &PipelineConfigs,
+    models: &ModelDescriptors,
     idle: Option<&IdleNotification>,
 ) -> Result<Vec<PlannedOperation>, ExpandError> {
-    let pipeline = lookup_pipeline(pipelines, task.model.as_str())?;
+    let descriptor = lookup_model(models, task.model.as_str())?;
     let model = &task.model;
     let mode = task.mode;
     let prefix = match mode {
-        EmbeddingMode::Query => &pipeline.query_prefix,
-        EmbeddingMode::Passage => &pipeline.passage_prefix,
+        EmbeddingMode::Query => &descriptor.query_prefix,
+        EmbeddingMode::Passage => &descriptor.passage_prefix,
     };
     let encoder_env = encoder_environment(idle);
     let params = |
@@ -257,7 +221,7 @@ fn expand_embedding(
                 params(ResourceKind::Tokenizer, ExecutionEnvironment::CpuOnly, None),
                 OperationConfig {
                     prefix: Some(prefix.clone()),
-                    max_seq_len: Some(pipeline.max_seq_len),
+                    max_seq_len: Some(descriptor.max_seq_len),
                     ..OperationConfig::default()
                 },
             ),
@@ -267,27 +231,27 @@ fn expand_embedding(
             plan(
                 OperationKind::Embedding,
                 params(ResourceKind::Encoder, encoder_env, None)
-                    .with_dimension(pipeline.dimension),
+                    .with_dimension(descriptor.dimension),
                 OperationConfig {
-                    dtype: Some(pipeline.dtype),
+                    dtype: Some(descriptor.storage_dtype),
                     ..OperationConfig::default()
                 },
             ),
         );
-    if pipeline.pooling != PoolingMethod::None {
+    if descriptor.pooling != Pooling::PerToken {
         chain
             .push(
                 plan(
                     OperationKind::Pooling,
                     params(ResourceKind::Encoder, encoder_env, None),
                     OperationConfig {
-                        pooling: Some(pipeline.pooling),
+                        pooling: Some(descriptor.pooling),
                         ..OperationConfig::default()
                     },
                 ),
             );
     }
-    if pipeline.normalize {
+    if descriptor.normalization == Normalization::L2 {
         chain
             .push(
                 plan(
@@ -311,10 +275,10 @@ fn expand_embedding(
 }
 fn expand_similarity(
     spec: &SimilaritySpec,
-    pipelines: &PipelineConfigs,
+    models: &ModelDescriptors,
     capabilities: &CapabilitySet,
 ) -> Result<(&'static str, Vec<PlannedOperation>), ExpandError> {
-    let pipeline = lookup_pipeline(pipelines, spec.model.as_str())?;
+    let descriptor = lookup_model(models, spec.model.as_str())?;
     if spec.params.top_k == 0 {
         return Err(ExpandError::Config(ConfigError::ZeroTopK));
     }
@@ -326,7 +290,7 @@ fn expand_similarity(
         }
     }
     let model = &spec.model;
-    let index = IndexId::new(spec.params.index.0.to_string());
+    let index = spec.params.index.clone();
     let top_k = spec.params.top_k.min(u32::MAX as usize);
     let scope = spec.params.scope.clone();
     let params = |
@@ -338,9 +302,9 @@ fn expand_similarity(
         ScorerChoice::Vector(scoring) => {
             let chain = vec![
                 plan(OperationKind::Similarity, params(ResourceKind::Scorer,
-                ExecutionEnvironment::Any, Some(& index)).with_dimension(pipeline
+                ExecutionEnvironment::Any, Some(& index)).with_dimension(descriptor
                 .dimension), OperationConfig { scorer : Some(format!("{scoring:?}")),
-                scope : Some(scope), dtype : Some(pipeline.dtype),
+                scope : Some(scope), dtype : Some(descriptor.storage_dtype),
                 ..OperationConfig::default() },), plan(OperationKind::TopK,
                 params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
                 .with_top_k(top_k), OperationConfig::default(),),
@@ -351,11 +315,11 @@ fn expand_similarity(
             let chain = vec![
                 plan(OperationKind::Tokenization, params(ResourceKind::Tokenizer,
                 ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
-                max_seq_len : Some(pipeline.max_seq_len), scope : Some(scope.clone()),
+                max_seq_len : Some(descriptor.max_seq_len), scope : Some(scope.clone()),
                 ..OperationConfig::default() },), plan(OperationKind::Inference,
                 params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
-                OperationConfig { scorer : Some(name.clone()), dtype : Some(pipeline
-                .dtype), ..OperationConfig::default() },),
+                OperationConfig { scorer : Some(name.clone()), dtype : Some(descriptor
+                .storage_dtype), ..OperationConfig::default() },),
                 plan(OperationKind::Similarity, params(ResourceKind::CrossEncoder,
                 ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
                 OperationConfig { scorer : Some(name.clone()), scope : Some(scope),

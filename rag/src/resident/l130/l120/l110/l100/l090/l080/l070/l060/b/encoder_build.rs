@@ -9,7 +9,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::en
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::encoder_interface::{
     Encoder, EncoderError,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::pooling_norm::PoolingKind;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::weight_source::WeightFile;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
     DeviceClass, ModelConfigError, ModelDescriptor, Normalization, Pooling,
@@ -197,10 +196,10 @@ pub fn build_encoder(
         })?;
     let multi_vector = desc.multi_vector.is_some();
     let pooling = if multi_vector {
-        PoolingKind::None
+        Pooling::PerToken
     } else {
         match desc.pooling {
-            Pooling::Mean => PoolingKind::Mean,
+            Pooling::Mean | Pooling::PerToken => desc.pooling,
             Pooling::Cls => {
                 return Err(incompatible("Pooling Cls wird nicht unterstützt"));
             }

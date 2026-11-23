@@ -1,36 +1,29 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
-
 use super::super::l010::layout::DType;
-
 pub const E5_SMALL_MODEL_ID: &str = "intfloat/multilingual-e5-small";
-pub const E5_SMALL_REPO_DIR: &str =
-    "/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small";
-
+pub const E5_SMALL_REPO_DIR: &str = "/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeviceClass {
     Cpu,
     Gpu,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Pooling {
     Mean,
     Cls,
+    PerToken,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Normalization {
     L2,
     None,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComputeDTypes {
     pub cpu: DType,
     pub gpu: DType,
 }
-
 impl ComputeDTypes {
     pub const fn for_device(&self, class: DeviceClass) -> DType {
         match class {
@@ -39,12 +32,10 @@ impl ComputeDTypes {
         }
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectionLayer {
     pub tensor_name: String,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiVectorConfig {
     pub max_query_len: usize,
@@ -54,7 +45,6 @@ pub struct MultiVectorConfig {
     pub dimension: usize,
     pub skiplist: Vec<String>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelDescriptor {
     pub model_id: String,
@@ -72,26 +62,26 @@ pub struct ModelDescriptor {
     pub weight_paths: Vec<PathBuf>,
     pub multi_vector: Option<MultiVectorConfig>,
 }
-
 fn incompatible(reason: String) -> ModelConfigError {
-    ModelConfigError::Incompatible { reason }
+    ModelConfigError::Incompatible {
+        reason,
+    }
 }
-
 fn check_prefix(field: &str, value: &str) -> Result<(), ModelConfigError> {
     if value.is_empty() || value.ends_with(' ') {
         Ok(())
     } else {
-        Err(incompatible(format!(
-            "{field} muss mit einem Leerzeichen enden (war: {value:?})"
-        )))
+        Err(
+            incompatible(
+                format!("{field} muss mit einem Leerzeichen enden (war: {value:?})"),
+            ),
+        )
     }
 }
-
 impl ModelDescriptor {
     pub fn compute_dtype(&self, class: DeviceClass) -> DType {
         self.compute_dtypes.for_device(class)
     }
-
     pub fn validate(&self) -> Result<(), ModelConfigError> {
         if self.dimension == 0 {
             return Err(incompatible("dimension muss größer als 0 sein".to_string()));
@@ -103,7 +93,6 @@ impl ModelDescriptor {
         check_prefix("passage_prefix", &self.passage_prefix)?;
         Ok(())
     }
-
     pub fn e5_small_default(dir: &Path, storage_dtype: DType) -> ModelDescriptor {
         ModelDescriptor {
             model_id: E5_SMALL_MODEL_ID.to_string(),
@@ -125,17 +114,14 @@ impl ModelDescriptor {
             multi_vector: None,
         }
     }
-
     pub fn e5_small_repo_default(storage_dtype: DType) -> ModelDescriptor {
         Self::e5_small_default(Path::new(E5_SMALL_REPO_DIR), storage_dtype)
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelConfigError {
     Incompatible { reason: String },
 }
-
 impl fmt::Display for ModelConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -145,9 +131,7 @@ impl fmt::Display for ModelConfigError {
         }
     }
 }
-
 impl std::error::Error for ModelConfigError {}
-
 #[cfg(test)]
 #[path = "test/model_descriptor.rs"]
 mod tests;

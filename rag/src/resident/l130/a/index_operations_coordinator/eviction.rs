@@ -8,6 +8,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060 as l060;
 use l060::a::address_map::{AddressMap, MapError, MappingStore, SegmentId};
 use l060::l050::a::table_swap::{Epoch, TableSwap, TableSwapError};
 use l060::l050::l040::a::allocator::AllocatorSet;
+use l060::l050::l040::a::resource_requirements::IndexId;
 use l060::l050::l040::l030::a::region_handle::RegionHandle;
 use l060::l050::l040::l030::l020::a::arenas::{ArenaCapacities, ArenaKind};
 use l060::l050::l040::l030::l020::l010::region_pinning::{Pin, PinCount};
@@ -123,7 +124,7 @@ pub struct TrackSpec {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvictionDecision {
-    pub index: String,
+    pub index: IndexId,
     pub victim: EvictKey,
     pub segment: SegmentId,
     /// Size as used in the priority: `max(size, 1)`.
@@ -245,7 +246,7 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 /// Tracks mirrors and evicts them by idle time, pressure and space need.
 pub struct Eviction {
-    index: String,
+    index: IndexId,
     swap: Arc<TableSwap>,
     store: Arc<MappingStore>,
     allocators: Arc<AllocatorSet>,
@@ -255,7 +256,7 @@ pub struct Eviction {
 static_assertions::assert_impl_all!(Eviction : Send, Sync);
 impl Eviction {
     pub fn new(
-        index: impl Into<String>,
+        index: impl Into<IndexId>,
         swap: Arc<TableSwap>,
         store: Arc<MappingStore>,
         allocators: Arc<AllocatorSet>,

@@ -1,4 +1,5 @@
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::ResourceRequirements;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::embedding_task::EmbeddingMode;
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -13,29 +14,6 @@ pub enum OperationKind {
     Inference,
     DeviceToRam,
 }
-/// Opaque back-reference from an operation to its owning task.
-///
-/// Two types named `TaskId` exist and they are not interchangeable:
-/// - this struct, the typed ID used in reports;
-/// - `task_context::TaskId`, a plain `u64` alias used by `TaskContext`.
-///
-/// Both carry the same numeric value. Conversion is explicit: `.0` to get the raw `u64`, and
-/// `TaskId(x)` to wrap one. Any further type with this name must be told apart the same way.
-/// The value is assigned by the creator of the task and is never interpreted here.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct TaskId(pub u64);
-/// Identifier of an index entry as seen by operation results (`ScoredHit`, `RamData::HitList`).
-///
-/// Several types named `EntryId` exist and none of them is interchangeable:
-/// - this struct, the operation-level ID used in scored results and reports;
-/// - `index_contract::EntryId`, the struct used by the index contract and by task results;
-/// - `scopes_and_entry_sets::EntryId`, a plain `u64` alias used for entry sets and load plans.
-///
-/// All three carry the same numeric value but are distinct types. Conversion is explicit at the
-/// module boundary that needs it: `.0` to get the raw `u64`, and `EntryId(x)` to wrap one.
-/// Any further type with this name must be told apart the same way and never re-exported from here.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct EntryId(pub u64);
 /// Immutable after construction; usable as a key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OperationParams {

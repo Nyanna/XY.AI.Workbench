@@ -10,10 +10,8 @@ use l060::l050::a::step_completion::{PlannedStep, StepPayload};
 use l060::l050::l040::b::embedding_task::{
     EmbeddingMode, EmbeddingTask, Precision as EmbeddingPrecision,
 };
-use l060::l050::l040::b::similarity_task::{
-    IndexId as SimilarityIndexId, Scoring, SimilarityParams,
-};
-use l060::l050::l040::l030::b::operation::RamData;
+use l060::l050::l040::b::similarity_task::{Scoring, SimilarityParams};
+use l060::l050::l040::b::operation::RamData;
 use l060::l050::l040::l030::b::task_context::TaskContext;
 use l060::l050::l040::l030::l020::a::model_descriptor::E5_SMALL_MODEL_ID;
 use l060::l050::l040::l030::l020::b::task_model::{TaskParams, TaskState};
@@ -146,7 +144,7 @@ impl ValueBuilder<TaskSpec, StepOutput, String, Payload> for ChainBuilder {
         steps: &[PlanStep],
     ) -> (Payload, Option<BatchInfo>) {
         self.seen.lock().unwrap().push(spec.clone());
-        let id = steps[0].meta.task_id.0;
+        let id = steps[0].meta.task_id;
         let context = TaskContext::new(id, steps[0].meta.priority, 1);
         let mut next_input = Some(
             ChainInput::Data(
@@ -302,7 +300,7 @@ fn embedding_spec(model: &str, target: Option<&str>) -> TaskSpec {
 }
 fn similarity_spec(scorer: ScorerChoice, top_k: usize) -> TaskSpec {
     TaskSpec::Similarity(SimilaritySpec {
-        params: SimilarityParams::new(SimilarityIndexId(42))
+        params: SimilarityParams::new(IndexId::new("42"))
             .with_top_k(top_k)
             .with_scope(Scope::Subtree { root: 7 }),
         model: ModelId::new("ghost"),
@@ -528,17 +526,13 @@ fn first_resource_kind_matches_the_first_planned_operation() {
         ),
     ];
     let caps = CapabilitySet::new().with("cross_encoder", "minilm");
-    let mut pipelines = PipelineConfigs::new();
-    pipelines
-        .insert(
-            E5_SMALL_MODEL_ID.to_string(),
-            PipelineConfig::from_descriptor(&descriptor()),
-        );
+    let mut models = ModelDescriptors::new();
+    models.insert(E5_SMALL_MODEL_ID.to_string(), descriptor());
     for (spec, expected) in specs {
         assert_eq!(planner.first_resource_kind(& spec), expected);
         if expected.is_some() {
             let spec = with_model(spec, E5_SMALL_MODEL_ID);
-            let chain = expander::expand(&spec, &pipelines, &caps, None).unwrap();
+            let chain = expander::expand(&spec, &models, &caps, None).unwrap();
             assert_eq!(Some(chain[0].resource().kind()), expected);
         }
     }
@@ -839,17 +833,14 @@ fn meta_carries_the_planned_values() {
     let values = ChainBuilder::new(Some(batch.clone()));
     let planner = started(&trio(&log), &values);
     let op = one(planner.expand(&new_task(embedding_spec("m", Some("idx")))));
-    let pipelines = {
-        let mut p = PipelineConfigs::new();
-        p.insert(
-            E5_SMALL_MODEL_ID.to_string(),
-            PipelineConfig::from_descriptor(&descriptor()),
-        );
-        p
+    let models = {
+        let mut m = ModelDescriptors::new();
+        m.insert(E5_SMALL_MODEL_ID.to_string(), descriptor());
+        m
     };
     let expected = expander::expand(
             &with_model(embedding_spec("m", Some("idx")), E5_SMALL_MODEL_ID),
-            &pipelines,
+            &models,
             &CapabilitySet::new(),
             Some(&IdleNotification::default()),
         )
@@ -883,7 +874,7 @@ fn payload_follows_the_chain_wiring() {
     let payload = &op.values;
     assert_eq!(payload.rest().len(), 4);
     assert!(! payload.node().ends_chain());
-    assert_eq!(payload.node().task_id(), 7);
+    assert_eq!(payload.node().task_id(), TaskId(7));
     assert_eq!(payload.context().priority(), 3);
     assert_eq!(payload.context().open_operations(), 1);
     let rest = payload.rest();
@@ -924,17 +915,14 @@ fn place_step_places_and_announces_without_activating() {
     let values = ChainBuilder::new(None);
     let engines = trio(&log);
     let planner = builder(&engines, &values).build();
-    let pipelines = {
-        let mut p = PipelineConfigs::new();
-        p.insert(
-            E5_SMALL_MODEL_ID.to_string(),
-            PipelineConfig::from_descriptor(&descriptor()),
-        );
-        p
+    let models = {
+        let mut m = ModelDescriptors::new();
+        m.insert(E5_SMALL_MODEL_ID.to_string(), descriptor());
+        m
     };
     let chain = expander::expand(
             &with_model(embedding_spec("m", Some("idx")), E5_SMALL_MODEL_ID),
-            &pipelines,
+            &models,
             &CapabilitySet::new(),
             Some(&gpu_idle()),
         )
@@ -1009,7 +997,7 @@ fn error_messages() {
         PlanError::TaskNotClaimable(ClaimError::Cancelled).to_string(),
         "Task nicht beanspruchbar: Cancelled"
     );
-    let inner = ExpandError::MissingPipelineConfig {
+    let inner = ExpandError::UnknownModel {
         model: "m".to_string(),
     };
     assert_eq!(PlanError::Expand(inner.clone()).to_string(), inner.to_string());

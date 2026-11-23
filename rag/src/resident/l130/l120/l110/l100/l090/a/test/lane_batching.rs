@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Condvar;
 use std::thread;
 use std::time::Duration;
-use crate::resident::l130::l120::l110::a::gpu_completion::TakenVia;
+use crate::resident::l130::l120::l110::l100::l090::a::gpu_completion::TakenVia;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::notification_topology::NotificationTopology;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::a::resource_lifecycle::{
     InitRequest, LifecycleConfig, MemoryClass, ResourceLoader, ResourceRegistry,

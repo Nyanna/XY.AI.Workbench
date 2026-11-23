@@ -4,14 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Range, RangeInclusive};
 /// Raw entry identifier used in entry sets and load plans.
 ///
-/// This is a plain `u64` alias, not a distinct type, so the compiler does not separate it from
-/// other integers. Do not confuse it with the structs of the same name:
-/// - `index_contract::EntryId`, the struct used by the index contract and by task results;
-/// - `operation::EntryId`, the operation-level struct used in scored hit results and reports.
-///
-/// Convert explicitly at the boundary: `.0` from a struct gives the `u64` stored here, and
-/// `EntryId(x)` of a struct wraps it. Any further type with this name must be told apart the same way.
-pub type EntryId = u64;
+/// A plain `u64` alias, so the compiler does not separate it from other integers. The typed
+/// identifier is `index_contract::EntryId`; convert at the boundary with `.0` and `EntryId(x)`.
+pub type RawEntryId = u64;
 const CHUNK_BITS: u32 = 16;
 const WORDS_PER_CHUNK: usize = 1024;
 const CHUNK_BYTES: u128 = (WORDS_PER_CHUNK * 8) as u128;
@@ -43,7 +38,7 @@ impl ScopeKind {
 pub enum Scope {
     All,
     /// Half-open ID range `[start, end)`; empty or reversed matches nothing.
-    Range { start: EntryId, end: EntryId },
+    Range { start: RawEntryId, end: RawEntryId },
     Set(EntrySet),
     Subtree { root: u64 },
     Prefix { bytes: Vec<u8> },
@@ -173,8 +168,8 @@ struct BitIter<'a> {
     bits: u64,
 }
 impl Iterator for BitIter<'_> {
-    type Item = EntryId;
-    fn next(&mut self) -> Option<EntryId> {
+    type Item = RawEntryId;
+    fn next(&mut self) -> Option<RawEntryId> {
         loop {
             if self.bits != 0 {
                 let tz = self.bits.trailing_zeros() as u64;
@@ -201,8 +196,8 @@ enum IterInner<'a> {
     Bitmap(BitIter<'a>),
 }
 impl Iterator for IterInner<'_> {
-    type Item = EntryId;
-    fn next(&mut self) -> Option<EntryId> {
+    type Item = RawEntryId;
+    fn next(&mut self) -> Option<RawEntryId> {
         match self {
             IterInner::Runs { runs, cur } => {
                 loop {
@@ -224,7 +219,7 @@ impl EntrySet {
             len: 0,
         }
     }
-    pub fn from_ranges<I: IntoIterator<Item = Range<EntryId>>>(ranges: I) -> Self {
+    pub fn from_ranges<I: IntoIterator<Item = Range<RawEntryId>>>(ranges: I) -> Self {
         let mut v: Vec<Run> = ranges
             .into_iter()
             .filter(|r| r.start < r.end)
@@ -233,8 +228,8 @@ impl EntrySet {
         v.sort_unstable();
         Self::from_normalized(coalesce(v))
     }
-    pub fn from_ids<I: IntoIterator<Item = EntryId>>(ids: I) -> Self {
-        let mut v: Vec<EntryId> = ids.into_iter().collect();
+    pub fn from_ids<I: IntoIterator<Item = RawEntryId>>(ids: I) -> Self {
+        let mut v: Vec<RawEntryId> = ids.into_iter().collect();
         v.sort_unstable();
         v.dedup();
         let runs: Vec<Run> = v.into_iter().map(|i| (i, i)).collect();
@@ -263,7 +258,7 @@ impl EntrySet {
     pub fn len(&self) -> u128 {
         self.len
     }
-    pub fn contains(&self, id: EntryId) -> bool {
+    pub fn contains(&self, id: RawEntryId) -> bool {
         match &self.repr {
             Repr::Runs(v) => {
                 let idx = v.partition_point(|&(s, _)| s <= id);
@@ -281,7 +276,7 @@ impl EntrySet {
             }
         }
     }
-    pub fn iter(&self) -> impl Iterator<Item = EntryId> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = RawEntryId> + '_ {
         match &self.repr {
             Repr::Runs(v) => {
                 IterInner::Runs {
@@ -344,7 +339,7 @@ impl EntrySet {
         }
         Self::from_normalized(out)
     }
-    pub fn runs(&self) -> Vec<RangeInclusive<EntryId>> {
+    pub fn runs(&self) -> Vec<RangeInclusive<RawEntryId>> {
         self.run_slice().iter().map(|&(s, e)| s..=e).collect()
     }
 }

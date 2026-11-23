@@ -73,7 +73,7 @@ fn types_are_send_sync() {
     check::<TokenizerFingerprint>();
     check::<FormatError>();
     check::<Mismatch>();
-    check::<HeaderPooling>();
+    check::<Pooling>();
     check::<HashAlgorithm>();
 }
 #[test]
@@ -252,7 +252,7 @@ fn from_descriptor_derives_fields() {
     assert_eq!(h.model_id, d.model_id);
     assert_eq!(h.model_revision, "rev-1");
     assert_eq!(h.dimension, d.dimension);
-    assert_eq!(h.pooling, HeaderPooling::MaskedMean);
+    assert_eq!(h.pooling, Pooling::Mean);
     assert_eq!(h.normalization, d.normalization);
     assert_eq!(h.query_prefix, "query: ");
     assert_eq!(h.passage_prefix, "passage: ");
@@ -340,7 +340,7 @@ fn kv_roundtrip_is_lossless() {
     odd.preprocessing_id = String::new();
     odd.compute_dtype = "anything, goes=1".to_string();
     odd.hash_algorithm = HashAlgorithm::Cryptographic;
-    odd.pooling = HeaderPooling::PerToken;
+    odd.pooling = Pooling::PerToken;
     odd.normalization = Normalization::None;
     odd.storage_dtype = DType::BF16;
     odd.schema_version = 9;
@@ -483,7 +483,7 @@ fn binding_reports_each_deviating_key_in_order() {
     file.model_id = "other".to_string();
     file.model_revision = "rev-2".to_string();
     file.dimension = 768;
-    file.pooling = HeaderPooling::PerToken;
+    file.pooling = Pooling::PerToken;
     file.normalization = Normalization::None;
     file.query_prefix = "q".to_string();
     file.passage_prefix = "p".to_string();

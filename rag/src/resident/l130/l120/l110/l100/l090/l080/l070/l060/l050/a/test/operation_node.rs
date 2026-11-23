@@ -5,7 +5,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::ex
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     ExecutionEnvironment, ResourceKind,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::{
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::{
     OperationDescriptor, OperationParams,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
@@ -47,7 +47,7 @@ fn claimed_task() -> TestTask {
     task
 }
 fn node_with(task: TestTask) -> Node {
-    OperationNode::new(7, TestOp::new(ResourceKind::Encoder), 42, true, task)
+    OperationNode::new(TaskId(7), TestOp::new(ResourceKind::Encoder), 42, true, task)
 }
 fn handler<F>(f: F) -> ContinuationHandler<TestOp, u32, String, String, String>
 where
@@ -67,7 +67,7 @@ fn new_node_has_given_parts_and_empty_output() {
     let node = node_with(new_task());
     assert_eq!(* node.input(), 42);
     assert!(node.materialize());
-    assert_eq!(node.task_id(), 7);
+    assert_eq!(node.task_id(), TaskId(7));
     assert_eq!(node.operation().operation_kind(), OperationKind::Embedding);
     assert!(node.output().is_none());
     assert!(! node.has_continuation());
@@ -143,8 +143,8 @@ fn advance_with_follow_up_nodes_does_not_complete_task() {
             handler(|out, task| {
                 assert_eq!(out, "out");
                 vec![
-                    OperationNode::new(8, TestOp::new(ResourceKind::Scorer), 1, false,
-                    task.clone()), OperationNode::new(9,
+                    OperationNode::new(TaskId(8), TestOp::new(ResourceKind::Scorer), 1,
+                    false, task.clone()), OperationNode::new(TaskId(9),
                     TestOp::new(ResourceKind::Index), 2, true, task.clone()),
                 ]
             }),
@@ -197,8 +197,8 @@ fn advance_invokes_handler_on_every_call() {
             handler(move |_, task| {
                 counter.fetch_add(1, Ordering::SeqCst);
                 vec![
-                    OperationNode::new(1, TestOp::new(ResourceKind::Tokenizer), 0, false,
-                    task.clone(),)
+                    OperationNode::new(TaskId(1), TestOp::new(ResourceKind::Tokenizer),
+                    0, false, task.clone(),)
                 ]
             }),
         );
@@ -213,8 +213,8 @@ fn latest_handler_wins() {
     node.set_continuation(
         handler(|_, task| {
             vec![
-                OperationNode::new(1, TestOp::new(ResourceKind::Tokenizer), 1, false,
-                task.clone(),)
+                OperationNode::new(TaskId(1), TestOp::new(ResourceKind::Tokenizer), 1,
+                false, task.clone(),)
             ]
         }),
     );
@@ -222,8 +222,8 @@ fn latest_handler_wins() {
     node.set_continuation(
         handler(|_, task| {
             vec![
-                OperationNode::new(2, TestOp::new(ResourceKind::Tokenizer), 2, false,
-                task.clone(),)
+                OperationNode::new(TaskId(2), TestOp::new(ResourceKind::Tokenizer), 2,
+                false, task.clone(),)
             ]
         }),
     );
@@ -235,8 +235,8 @@ fn latest_handler_wins() {
 fn shared_handler_can_serve_several_nodes_concurrently() {
     let shared = handler(|out, task| {
         vec![
-            OperationNode::new(1, TestOp::new(ResourceKind::Scorer), out.len() as u32,
-            false, task.clone(),)
+            OperationNode::new(TaskId(1), TestOp::new(ResourceKind::Scorer), out.len() as
+            u32, false, task.clone(),)
         ]
     });
     let threads: Vec<_> = (0..4)
@@ -304,8 +304,8 @@ fn chain_middle_with_follow_up_nodes_returns_them_without_completing() {
         .with_continuation(
             handler(|_, task| {
                 vec![
-                    OperationNode::new(8, TestOp::new(ResourceKind::Scorer), 1, false,
-                    task.clone(),)
+                    OperationNode::new(TaskId(8), TestOp::new(ResourceKind::Scorer), 1,
+                    false, task.clone(),)
                 ]
             }),
         );
@@ -317,7 +317,13 @@ fn chain_middle_with_follow_up_nodes_returns_them_without_completing() {
 fn only_the_last_of_three_nodes_completes_the_task() {
     let task = claimed_task();
     let make = |ends: bool| {
-        OperationNode::new(7, TestOp::new(ResourceKind::Encoder), 0, false, task.clone())
+        OperationNode::new(
+                TaskId(7),
+                TestOp::new(ResourceKind::Encoder),
+                0,
+                false,
+                task.clone(),
+            )
             .with_ends_chain(ends)
     };
     let nodes = [make(false), make(false), make(true)];
@@ -356,7 +362,7 @@ fn output_handle_outlives_the_node() {
 fn output_handle_debug_does_not_need_debug_on_output() {
     struct Opaque;
     let cell: OperationNode<TestOp, u32, Opaque, (), ()> = OperationNode::new(
-        1,
+        TaskId(1),
         TestOp::new(ResourceKind::Encoder),
         0,
         false,
@@ -373,7 +379,7 @@ fn successor_reads_predecessor_output_through_its_input() {
     let task = claimed_task();
     let first = node_with(task.clone()).with_ends_chain(false);
     let second: Chained = OperationNode::new(
-        7,
+        TaskId(7),
         TestOp::new(ResourceKind::Scorer),
         first.output_handle(),
         true,
@@ -402,13 +408,13 @@ fn planned_operation_provides_both_traits() {
     assert_eq!(operation.operation_kind(), OperationKind::Similarity);
     assert_eq!(operation.resource_requirements().kind(), ResourceKind::Scorer);
     let node: PlannedNode<u32, String, String, String> = OperationNode::new(
-        3,
+        TaskId(3),
         operation,
         5,
         true,
         new_task(),
     );
-    assert_eq!(node.task_id(), 3);
+    assert_eq!(node.task_id(), TaskId(3));
     assert_eq!(node.operation().operation_kind(), OperationKind::Similarity);
 }
 struct CaptureLogger {
@@ -433,7 +439,7 @@ fn new_logs_one_debug_record() {
     }
     log::set_max_level(log::LevelFilter::Debug);
     let _node: Node = OperationNode::new(
-        987_654_321,
+        TaskId(987_654_321),
         TestOp::with_kinds(OperationKind::Pooling, ResourceKind::Scorer),
         0,
         true,

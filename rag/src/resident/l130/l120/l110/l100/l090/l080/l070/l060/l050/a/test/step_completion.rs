@@ -7,7 +7,8 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::op
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     ExecutionEnvironment, HasResourceRequirements, ResourceKind, ResourceRequirements,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::operation::OperationKind;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::OperationKind;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::b::task_model::{
     CompleteError, Task, TaskParams, TaskState,
 };
@@ -48,11 +49,11 @@ fn fixture(open: usize) -> Fixture {
     task.claim().unwrap();
     Fixture {
         task,
-        context: TaskContext::new(1, 0, open),
+        context: TaskContext::new(TaskId(1), 0, open),
     }
 }
 fn node(task: &TestTask, input: u32) -> Node {
-    OperationNode::new(1, TestOp::new(), input, false, task.clone())
+    OperationNode::new(TaskId(1), TestOp::new(), input, false, task.clone())
 }
 fn handler<F>(f: F) -> ContinuationHandler<TestOp, u32, String, String, String>
 where
@@ -162,8 +163,9 @@ fn finish_submits_run_time_nodes_after_registering_them() {
         .with_continuation(
             handler(|_, task| {
                 vec![
-                    OperationNode::new(1, TestOp::new(), 10, false, task.clone()),
-                    OperationNode::new(1, TestOp::new(), 11, false, task.clone()),
+                    OperationNode::new(TaskId(1), TestOp::new(), 10, false, task
+                    .clone()), OperationNode::new(TaskId(1), TestOp::new(), 11, false,
+                    task.clone()),
                 ]
             }),
         );
@@ -188,7 +190,9 @@ fn finish_submits_planned_next_before_run_time_nodes() {
     let n = node(&fx.task, 0)
         .with_continuation(
             handler(|_, task| {
-                vec![OperationNode::new(1, TestOp::new(), 10, false, task.clone())]
+                vec![
+                    OperationNode::new(TaskId(1), TestOp::new(), 10, false, task.clone())
+                ]
             }),
         );
     let mut payload = StepPayload::new(n, Arc::clone(&fx.context), steps(&fx, 1..3));
@@ -236,7 +240,7 @@ fn finish_with_output_already_set_changes_nothing() {
 #[test]
 fn finish_with_failing_advance_changes_no_counter() {
     let task: TestTask = Task::new("data".to_string(), TaskParams::default());
-    let context = TaskContext::new(1, 0, 1);
+    let context = TaskContext::new(TaskId(1), 0, 1);
     let mut payload = StepPayload::new(node(&task, 0), Arc::clone(&context), Vec::new());
     let sink = RecordingSink::new(&context);
     assert_eq!(
@@ -330,7 +334,7 @@ fn withdraw_pending_removes_only_matching_pending_items() {
 #[test]
 fn withdraw_planned_reduces_open_operations() {
     let (queue, _tickets) = filled_queue();
-    let context: Arc<Context> = TaskContext::new(1, 0, 4);
+    let context: Arc<Context> = TaskContext::new(TaskId(1), 0, 4);
     assert_eq!(withdraw_planned(& queue, | m | * m == 1, & context), 3);
     assert_eq!(context.open_operations(), 1);
     assert_eq!(queue.len(), 2);

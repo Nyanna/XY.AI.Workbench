@@ -47,26 +47,6 @@ pub const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 const FINGERPRINT_HEX_DIGITS: usize = 16;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum HeaderPooling {
-    MaskedMean,
-    PerToken,
-}
-impl HeaderPooling {
-    fn as_text(self) -> &'static str {
-        match self {
-            HeaderPooling::MaskedMean => "masked_mean",
-            HeaderPooling::PerToken => "per_token",
-        }
-    }
-    fn from_text(s: &str) -> Option<HeaderPooling> {
-        match s {
-            "masked_mean" => Some(HeaderPooling::MaskedMean),
-            "per_token" => Some(HeaderPooling::PerToken),
-            _ => None,
-        }
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HashAlgorithm {
     Fast64,
     Fast128,
@@ -192,6 +172,20 @@ impl fmt::Display for FormatError {
     }
 }
 impl std::error::Error for FormatError {}
+fn pooling_text(p: Pooling) -> &'static str {
+    match p {
+        Pooling::Mean => "masked_mean",
+        Pooling::PerToken => "per_token",
+        Pooling::Cls => "cls",
+    }
+}
+fn pooling_from_text(s: &str) -> Option<Pooling> {
+    match s {
+        "masked_mean" => Some(Pooling::Mean),
+        "per_token" => Some(Pooling::PerToken),
+        _ => None,
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexHeader {
     pub schema_version: u64,
@@ -201,7 +195,7 @@ pub struct IndexHeader {
     pub model_id: String,
     pub model_revision: String,
     pub dimension: usize,
-    pub pooling: HeaderPooling,
+    pub pooling: Pooling,
     pub normalization: Normalization,
     pub query_prefix: String,
     pub passage_prefix: String,
@@ -223,7 +217,7 @@ impl IndexHeader {
             mismatches.push(Mismatch::new(KEY_DIMENSION, EXPECTED_POSITIVE, "0"));
         }
         let pooling = match d.pooling {
-            Pooling::Mean => Some(HeaderPooling::MaskedMean),
+            Pooling::Mean | Pooling::PerToken => Some(d.pooling),
             Pooling::Cls => {
                 mismatches.push(Mismatch::new(KEY_POOLING, EXPECTED_POOLING, "cls"));
                 None
@@ -291,7 +285,7 @@ impl IndexHeader {
             self.hash_algorithm.as_text().to_owned()), pair(KEY_HASH_VERSION, self
             .hash_version.to_string()), pair(KEY_MODEL_ID, self.model_id.clone()),
             pair(KEY_MODEL_REVISION, self.model_revision.clone()), pair(KEY_DIMENSION,
-            self.dimension.to_string()), pair(KEY_POOLING, self.pooling.as_text()
+            self.dimension.to_string()), pair(KEY_POOLING, pooling_text(self.pooling)
             .to_owned()), pair(KEY_NORMALIZATION, normalization_text(self.normalization)
             .to_owned()), pair(KEY_QUERY_PREFIX, self.query_prefix.clone()),
             pair(KEY_PASSAGE_PREFIX, self.passage_prefix.clone()),
@@ -319,7 +313,7 @@ impl IndexHeader {
         let model_id = r.text(KEY_MODEL_ID);
         let model_revision = r.text(KEY_MODEL_REVISION);
         let dimension = r.dimension(KEY_DIMENSION);
-        let pooling = r.choice(KEY_POOLING, EXPECTED_POOLING, HeaderPooling::from_text);
+        let pooling = r.choice(KEY_POOLING, EXPECTED_POOLING, pooling_from_text);
         let normalization = r
             .choice(KEY_NORMALIZATION, EXPECTED_NORMALIZATION, normalization_from_text);
         let query_prefix = r.text(KEY_QUERY_PREFIX);
