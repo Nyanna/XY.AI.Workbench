@@ -3,18 +3,20 @@
 ## 1. Task, restrictions and boundaries
 
 **Task:** Implement in Rust the `Processor`. It owns and wires together:
+
 - one task queue,
 - three separate operations queues (CPU, GPU, shared).
 
 It calls the Planner to expand tasks into operations.
 
 **Restrictions**
+
 - The Processor does not execute work, so it contains no worker loop. Workers (other modules) use the Processor's queues.
 - It does not interpret task params or operation metadata. Compatibility is decided by the predicate the worker passes to `take_where`.
 - The queue is used as-is and is not reimplemented. It is instantiated four times, and each instance has its own channels and shares no state with the others (no globals).
 - The queues are unbounded, so `submit`, `expand` and `push` never block or fail for lack of capacity. No capacity limit is added.
-- The Planner's internals are out of scope. The Processor knows only the `Planner` trait in §3.
-- No `unsafe`. Dependencies: `Queue`, `Task-Modell`, and a `Planner` implementation injected at construction.
+- The Planner's internals are out of scope. The Processor knows only the `TaskPlanner` trait in §3.
+- No `unsafe`. Dependencies: `Queue`, `Task-Modell`, and a `TaskPlanner` implementation injected at construction.
 
 ## 2. Context
 
@@ -23,7 +25,7 @@ It calls the Planner to expand tasks into operations.
 - Producers call `Processor::submit`. A task is pushed into the task queue as `Queue<TaskMeta, Task<D,T,E>, (), ()>`, with the task handle as payload. `TaskMeta` holds the task params and the resource kind of the task's first operation, if the caller knows it.
 - The Planner turns a task into operations. The Processor pushes these into the operations queue of the matching kind: `Queue<O, V, R, OE>`. `O` is the operation metadata, and `V` is the values payload.
 - Workers take from the queues, and waking is done by `worker_pool::Notifier`, which the caller of `submit` triggers.
-- The Planner module's spec was pending when this spec was written. The `Planner` trait in §3 is the only contract the Processor assumes of it.
+- The Planner module's spec was pending when this spec was written. The `TaskPlanner` trait in §3 is the only contract the Processor assumes of it.
 
 ## 3. Interface
 
@@ -40,7 +42,7 @@ pub enum QueueKind { Cpu, Gpu, Shared }
 pub struct PlannedOp<O, V> { pub kind: QueueKind, pub meta: O, pub values: V }
 
 /// Contract the Processor expects from the Planner.
-pub trait Planner<D, T, E, O, V>: Send + Sync {
+pub trait TaskPlanner<D, T, E, O, V>: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
     /// Expand a task into operations. Must not block on the Processor's queues.
     fn expand(&self, task: &Task<D, T, E>) -> Result<Vec<PlannedOp<O, V>>, Self::Error>;
@@ -58,10 +60,10 @@ pub type TaskQueue<D, T, E> = Queue<TaskMeta, Task<D, T, E>, (), ()>;
 pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
 
 pub struct Processor<D, T, E, O, V, R, OE, PL> { /* private */ }
-// Send + Sync when D: Send, T,E: Send+Sync, O: Send+Sync, V,R,OE: Send, PL: Planner (Send+Sync).
+// Send + Sync when D: Send, T,E: Send+Sync, O: Send+Sync, V,R,OE: Send, PL: TaskPlanner (Send+Sync).
 
 impl<D, T, E, O, V, R, OE, PL> Processor<D, T, E, O, V, R, OE, PL>
-where PL: Planner<D, T, E, O, V> {
+where PL: TaskPlanner<D, T, E, O, V> {
     pub fn new(planner: PL) -> Arc<Self>;
 
     /// Create a Task, push (TaskMeta { params: params.clone(), first_kind }, task.clone()) into the task queue,
@@ -82,15 +84,18 @@ where PL: Planner<D, T, E, O, V> {
 ## 4. Behavior and invariants
 
 **Ownership and structure**
+
 - The Processor has exactly 4 independent `Queue` instances: task, CPU, GPU, shared. Pushing into one never changes the epochs of another.
 - `task_queue()` and `ops_queue(k)` return the same instance on every call. `ops_queue(Cpu)`, `ops_queue(Gpu)` and `ops_queue(Shared)` are three distinct instances.
 
 **submit**
+
 - The new task is `Enqueued` and has the given params. The task queue gets exactly one item whose meta equals `TaskMeta { params, first_kind }` and whose payload is a clone of the returned handle (same task).
 - The Processor does not interpret `first_kind`. It only stores it for the caller that later takes tasks with `take_where`.
 - `Channel::Available` of the task queue is bumped by the push. Nothing else is notified.
 
 **expand**
+
 - It calls `planner.expand(task)` exactly once per call. The Processor neither retries nor caches.
 - Every `PlannedOp` goes to the queue of its `kind` via `push(meta, values)`, in Planner order. Each push bumps `Channel::Available` of that queue. Nothing else is notified.
 - An empty Vec is `Ok(vec![])`.
@@ -99,6 +104,7 @@ where PL: Planner<D, T, E, O, V> {
 - Concurrent `submit` and `expand` calls from any thread are safe. Calls are not serialized against each other.
 
 **Concurrency and errors**
+
 - All methods are callable from any thread concurrently. `submit`, `expand` (outside the Planner) and the accessors are non-blocking.
 - The only error is `ExpandError::Planner`. A panic inside the Planner propagates to the caller of `expand` and leaves the queues consistent, because nothing has been pushed yet.
 - Dropping the `Processor` drops its queues. Handles, tickets and claims obtained earlier stay valid (Queue guarantee).
@@ -106,6 +112,7 @@ where PL: Planner<D, T, E, O, V> {
 ## 5. Relied-on elements
 
 From `Queue`:
+
 - `Queue<M,P,R,E>` with `new()`, `push(&self, M, P) -> Ticket`, `take()`, `take_where(FnMut(&M)->bool)`, `len()`, `epoch(Channel)`, `wait_change(Channel, u64, Option<Duration>) -> u64`.
 - `Channel::{Available, Completed}`.
 - Bounds: `M: Send+Sync, P: Send, R: Send, E: Send`.
@@ -113,10 +120,12 @@ From `Queue`:
 - `Queue` is not `Clone`, so it is shared via the Processor.
 
 From `Task-Modell`:
+
 - `Task<D,T,E>` is `Clone` (same task) and `Send + Sync` when `D: Send, T: Send+Sync, E: Send+Sync`.
 - `Task::new(data, TaskParams) -> Task`, `params() -> &TaskParams`.
 - `TaskParams { priority: i32, resource: Option<String>, model: Option<String>, mode: Option<String> }` is `Clone + Default`.
 - `claim`, `complete`, `cancel` and `wait` exist. The Processor does not call them.
 
 From `resource_requirements`:
+
 - `ResourceKind` is `Copy + Eq + Hash`. The Processor only stores it in `TaskMeta`.

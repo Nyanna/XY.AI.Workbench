@@ -10,6 +10,7 @@ Implement the synchronous scheduling core of a worker. After every operation it 
 4. Expand new tasks through the Planner.
 
 Restrictions:
+
 - Use only `std`, `log`, and the project modules `gpu_completion`, `subengine_loop`, and `planner`/`processor` (only through the `ExpandStep` implementation, see §3).
 - No `unsafe`, no spawning, no blocking of its own, no globals.
 - Not in this module:
@@ -94,11 +95,13 @@ impl WorkerLoop {
 ## 4. Behavior and invariants
 
 **Priority and re-check**
+
 - `run_once` checks the stages in the order `GpuResults`, `GpuFeed`, `CpuFeed`, `Expand`. It stops at the first stage that made progress. The stages below it are not run in that call.
 - After every operation the next check starts again at `GpuResults`. A lower stage never runs while a higher stage still has progress.
 - `run_until_idle` ends only when a full pass finds no progress in any of the four stages.
 
 **Stage semantics**
+
 - `GpuResults`:
   - Calls `completion.poll()` once.
   - If the result is non-empty, it passes every `FinishedLane` to `on_finished` in the returned order.
@@ -113,16 +116,19 @@ impl WorkerLoop {
 - `Expand`: calls `expand.expand_next()` once. Progress = it returns true. A task whose expansion failed counts as progress because it was consumed. This guarantees that the loop terminates.
 
 **Counters**
+
 - `operations` counts `run_once` calls that returned `Some`.
 - `claimed` sums `IterationOutcome::claimed` over all feed calls made.
 - `gpu_results` counts `FinishedLane`s handled.
 - `expanded` counts `expand_next` calls that returned true.
 
 **Idle**
+
 - `run_once` returns `None` only if all four stages were checked without progress.
 - Idle checking has the side effects of the checked calls (`poll`, `run_iteration` with its eviction and idle notices, and `expand_next`). The loop adds no other side effects.
 
 **Concurrency and errors**
+
 - `WorkerLoop` is owned by one worker thread. `&mut self` guarantees there is no concurrent `run_once`.
 - Several `WorkerLoop`s may share the same `GpuCompletion` and queues. `GpuCompletion` hands over each lane exactly once. Exactly one claimer wins per queue node (see the `SubengineLoop` rules).
 - The loop holds no lock and does not block, except in `expand_next` as described in §3.
@@ -141,7 +147,7 @@ impl WorkerLoop {
   - `progress()` is `claimed > 0`.
   - `SubengineLoop` is `Send + Sync`.
   - It makes no wake-up calls. The caller notifies via `notify_iteration(outcome.progress())`.
-- `planner`: `processor::Planner::expand(&self, &Task) -> Result<Vec<PlannedOp<OpMeta, V>>, PlanError>`.
+- `planner`: `processor::TaskPlanner::expand(&self, &Task) -> Result<Vec<PlannedOp<OpMeta, V>>, PlanError>`.
   - It never pushes into queues. The Processor pushes in the returned order, and an `Err` pushes nothing.
   - It may block only in `Subengine::activate`.
   - The `ExpandStep` implementation calls it. This module does not call the Planner directly.

@@ -3,11 +3,13 @@
 ## 1. Task, restrictions and boundaries
 
 **Task.** Implement the Rust module `backpressure`. It does three things:
+
 - It holds the Idle-Notifications as a **set per sub-engine kind** (`ResourceKind`), not as a queue.
 - It lets a notification expire on a hit or when the resource is busy.
 - It decides which waiting task is expanded first: a task whose first operation needs an underserved resource is preferred. It never withholds, delays or refuses an expansion.
 
 **Restrictions.**
+
 - The module does not expand tasks, call the Planner, or touch queues. It does not claim or enqueue anything.
 - It does not run sub-engine loops. It does not read clocks and has no timers.
 - It has no I/O, no globals and no `unsafe`. It uses only `std` and the types of the dependencies.
@@ -17,7 +19,7 @@
 
 - **Subengine-Loop** produces `IterationOutcome{claimed, inits_started, idle: Vec<IdleNotice>, evicted}` per iteration. `idle` is non-empty only if `claimed == 0`. Each `IdleNotice` is a free resource with its kind and requirements, i.e. the resource kind and parameters.
 - **Auslastungsmeldung** provides `LoadReport{kind, device, capacity, throughput}`. `capacity == 0` means the sub-engine accepts nothing, i.e. the resource is busy.
-- **Planner** reports the resource kind of the first operation of a task kind in advance (`first_resource_kind(&TaskSpec) -> Option<ResourceKind>`, `first_resource_kind_of_task`). The caller passes this value in. This module never calls the Planner.
+- **Planner** reports the resource kind of the first operation of a task kind in advance (`first_resource_kind(&TaskSpec) -> Option<ResourceKind>`). The caller passes this value in. This module never calls the Planner.
 - **Resource-Requirements** provides `ResourceKind`, the sub-engine kind and the key of the "Art".
 - Idle notifications are a prioritisation hint for the expansion. Nothing is withheld, delayed or refused: there are three operations queues, so no single "queue empty" condition exists.
 - **Queues** are not used.
@@ -34,7 +36,7 @@ use auslastungsmeldung::LoadReport;
 #[derive(Debug, Clone)]
 pub struct Candidate<T> {
     pub item: T,
-    /// Result of Planner::first_resource_kind(_of_task). None = unknown / not reported.
+    /// Result of Planner::first_resource_kind, or a kind the caller knows. None = unknown / not reported.
     pub first_kind: Option<ResourceKind>,
 }
 
@@ -74,33 +76,39 @@ impl ExpansionControl {
 ## 4. Behavior and invariants
 
 **Set semantics**
+
 - Notifications are stored as a set per `ResourceKind`, not as a queue. There is no ordering and no count.
 - Within one kind, a notice is identified by its `key`. Inserting a notice with an existing key **replaces** the old one, so no key occurs twice.
 - A notification is never created from anything except `report_iteration`.
 
 **`report_iteration(kind, outcome)`**
+
 - `outcome.claimed > 0` is a **hit**: it removes **all** notifications of `kind`. Nothing from `outcome.idle` is inserted.
 - `outcome.claimed == 0`: every notice in `outcome.idle` is inserted under `kind`. The `kind` parameter decides the set, not `notice.kind`. Existing notifications of that kind that are not in `idle` stay.
 - `claimed == 0` with an empty `idle` (no node visited) changes nothing.
 - `inits_started` and `evicted` are ignored.
 
 **Expiry on busy**
+
 - `mark_busy(kind, key)` removes the notification of that kind with that key. An unknown key is a no-op.
 - `observe_load(r)` with `r.capacity == 0` removes **all** notifications of `r.kind`. The report does not identify the resource key. Reports with `capacity > 0` change nothing and create no notification.
 - Notifications otherwise never expire: no time decay, and expansion does not consume them.
 
 **Selection**
+
 - `select` returns `None` only if `candidates` is empty.
 - Otherwise it returns the index of the first candidate whose `first_kind` is `Some(k)` with `k` in `underserved()`. If there is none, it returns index `0`, the oldest candidate; this also applies to candidates with `first_kind == None`.
 - Candidate order is the caller's fairness order, and `select` keeps it among equals.
 - `select` is pure and repeatable for an unchanged state.
 
 **Concurrency**
+
 - All methods take `&self` and can run from any thread concurrently. State sits behind one short-lived `Mutex`, and no lock is held across callbacks (there are none).
 - A poisoned lock is recovered by taking the inner state, and nothing panics because of poisoning.
 - Each method sees a consistent state. `select` and `may_expand` read one snapshot. A decision may be outdated right after it returns, which is accepted.
 
 **Errors**
+
 - There are no error values and no panics for any input.
 
 ## 5. Relied-on elements

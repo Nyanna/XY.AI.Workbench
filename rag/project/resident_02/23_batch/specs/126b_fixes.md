@@ -7,9 +7,12 @@ Meine Umsetzung stützt sich auf keine bestehende Konvention, und die Funktion k
 - **Brauchbarer Weg:** `first_resource_kind(&TaskSpec)` ist rein und stimmt laut Test mit der ersten Operation des Expanders überein. Die Engine kann sie vor `submit` aufrufen, sofern sie den Spec schon kennt.
 
 Optionen:
+
 - **A:** `first_resource_kind_of_task` entfällt, und die Engine nutzt `first_resource_kind(&spec)` vor `submit`. Das ist mein Vorschlag, weicht aber von der Spec-Schnittstelle ab.
 - **B:** Die Funktion bleibt als Spec-Element, liefert aber immer `None`, mit einem Hinweis in der Doku. Das erfindet nichts, ist aber wertlos.
 - **C:** Mein jetziger Stand bleibt, mit der festgehaltenen Annahme zum Feld.
+
+**Resolution (option A):** Done. `first_resource_kind_of_task` is removed from code, tests and specs 126, 130 and 135. `Planner::first_resource_kind(&TaskSpec)` stays. The engine facade passes `Some(ResourceKind::Tokenizer)` from `enqueue_embedding` and `None` from `enqueue_similarity`.
 
 ## Punkt 3: Doppelte `ModelId` und `TaskId`
 
@@ -18,9 +21,13 @@ Optionen:
 
 Hier ist nichts zu ändern.
 
+**Resolution (ModelId):** Superseded. `ModelId` is consolidated into `resource_requirements::ModelId`. `embedding_task::ModelId` is removed, and `EmbeddingTask.model`, `EmbeddingBackend::embed`, `EntryMetadata`, `TextQuery` and the planner use the shared type. The expander and planner no longer convert through the string. `TaskId` is unchanged.
+
 ## Punkt 4: Umbenennung des Traits
 
 - **Aufwand:** Nur `processor.rs` (Trait und die Bedingung `PL: Planner`) und `test/processor.rs` (ein `impl`) nutzen den Trait-Namen. `ExpandError::Planner` ist ein Variantenname und bleibt. In meinem Modul entfiele der Alias `Planner as TaskPlanner`.
 - **Risiko:** Die Spec nennt den Trait `processor::Planner`. Die noch offenen Specs, etwa die der Engine, werden ihn vermutlich auch so nennen.
 
 Ich würde nur umbenennen, wenn Sie die offenen Specs anpassen oder dafür sorgen, dass sie den neuen Namen verwenden. Sonst ist der Alias die risikoärmere Lösung.
+
+**Resolution (trait name):** Done. `processor::Planner` is renamed to `processor::TaskPlanner`. `planner::Planner` implements it, and the alias is removed. Specs 037, 056a, 126, 131 and 135 use the new name. `ExpandError::Planner` keeps its name.

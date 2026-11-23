@@ -3,7 +3,8 @@
 ## 1. Task, restrictions and boundaries
 
 **Task.** Implement the Rust module `planner`. It has these jobs:
-- It is the `Planner` implementation that the Processor calls once per task. It resolves the task, has the Expander decompose it, and assigns each planned operation to the CPU, GPU or shared queue.
+
+- It is the `processor::TaskPlanner` implementation that the Processor calls once per task. It resolves the task, has the Expander decompose it, and assigns each planned operation to the CPU, GPU or shared queue.
 - It manages the sub-engines:
   - It starts them.
   - It collects their capability sets and resource offers.
@@ -13,6 +14,7 @@
 - It reports the resource kind of a task kind's first operation in advance.
 
 **Restrictions.**
+
 - The Planner never pushes into queues. It returns `PlannedOp`s, and the Processor pushes them. A failed `expand` therefore enqueues nothing.
 - It claims the task exactly once, in `expand`, to read its data (`Task::claim`). It never completes or cancels tasks.
 - It does not execute operations, load resources or run workers.
@@ -185,10 +187,9 @@ impl<D, T, E, V> Planner<D, T, E, V> {
 
     /// available = a sub-engine offers `kind`; loaded = a started sub-engine that offers it reports is_loaded.
     pub fn resource_status(&self, kind: ResourceKind, model: Option<&ModelId>) -> ResourceStatus;
-    /// Resource kind of the first operation of this task kind, reported in advance.
+    /// Resource kind of the first operation of this task kind. Pure. A caller that already
+    /// knows the `TaskSpec` can pass it as `processor::TaskMeta.first_kind` to `submit`.
     pub fn first_resource_kind(&self, spec: &TaskSpec) -> Option<ResourceKind>;
-    /// The Engine puts this value into the task-queue metadata (`processor::TaskMeta.first_kind`).
-    pub fn first_resource_kind_of_task(&self, task: &Task<D, T, E>) -> Option<ResourceKind>;
     /// Placement of one step created at run time (stepwise mode). Queue assignment and
     /// materialization as in `expand` (`next` = the following step, if known); announces the
     /// resource. Never blocks and never activates (lazy initialization, build order 106).
@@ -196,7 +197,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
                       next: Option<&PlannedOperation>) -> Result<OpMeta, PlanError>;
 }
 
-impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> {
+impl<D, T, E, V> processor::TaskPlanner<D, T, E, OpMeta, V> for Planner<D, T, E, V> {
     type Error = PlanError;
     fn expand(&self, task: &Task<D, T, E>) -> Result<Vec<PlannedOp<OpMeta, V>>, PlanError>;
 }
@@ -205,6 +206,7 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 ## 4. Behavior and invariants
 
 **Configuration and start**
+
 - A duplicate sub-engine name gives `DuplicateSubengine`. A model failing `validate()` or whose architecture is unsupported gives `InvalidModel(model_id)`. `default_model` of an unconfigured model gives `UnknownDefaultModel`.
 - `build` does not start anything. `start` is the only place sub-engines are started, and nothing starts lazily.
 - `start` calls `start()` on each sub-engine once. It then stores `capabilities()` per (sub-engine, queue) and `offers()`. `add_offer` before `start` is kept. `add_offer` for an unknown name gives `UnknownSubengine`.
@@ -212,11 +214,13 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 - `capabilities()` (the set given to the Expander) is the union over all queues and sub-engines.
 
 **Resource status**
-- *available* means registered in the offers. *loaded* means `Subengine::is_loaded` is true.
+
+- _available_ means registered in the offers. _loaded_ means `Subengine::is_loaded` is true.
 - loaded implies the sub-engine offers the kind; a kind that is not offered has `available == false` and `loaded == false`.
 - Querying never activates or loads anything.
 
 **First resource kind** (pure, and independent of `start`)
+
 - Embedding → `Tokenizer`.
 - Similarity with a vector scorer → `Scorer`.
 - Similarity with a cross-encoder (inference) → `Tokenizer`.
@@ -224,19 +228,22 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 - This equals the `resource.kind()` of the first operation the Expander produces for that kind.
 
 **expand(task)**: strictly in this order. The first error wins, and an error leaves nothing pushed and nothing activated.
+
 1. Not started → `NotStarted`.
 2. `task.claim()` gives the data `d`. An error gives `TaskNotClaimable(e)`. `resolver.resolve(task, &d)` gives `(task_id, spec)`. `TaskSpec::Other{kind}` → `Expand(ForeignTaskKind{expected:"Embedding/Similarity", got:kind})`. Every error from here on leaves the task `Claimed`; the caller completes it (build order 135).
 3. Model: the chosen model is always the configured default model, whatever the model in the spec. The Planner replaces the model in the spec (`EmbeddingTask.model` or `SimilaritySpec.model`) with the default. A missing default, an unconfigured model, or no expander for (model, `TaskKindTag` of the spec) gives `UnknownModel{model}`. The message names the model.
 4. The expander runs with a snapshot of the idle value and the pipelines. Its `ExpandError` is wrapped as `Expand(..)`.
 5. Queue assignment for every operation, in chain order. Candidates depend on `resource.environment()`:
-   - `GpuOnly` → [Gpu].
-   - `CpuOnly` → [Cpu].
-   - `Any` → [Shared, Gpu, Cpu]. The shared queue is preferred.
-   
+
+   - `GpuOnly` → \[Gpu].
+   - `CpuOnly` → \[Cpu].
+   - `Any` → \[Shared, Gpu, Cpu]. The shared queue is preferred.
+
    A candidate queue `q` is compatible iff all of these hold:
+
    - `queue_capabilities(q).satisfies(resource.capabilities())`;
    - at least one sub-engine assigned to `q` offers `resource.kind()`.
-   
+
    The first compatible candidate wins. If none is compatible, the result is `MissingPlanningCapability{kind, resource}`. Every operation needs a queue. No partial result is returned.
 6. Materialization (see below).
 7. For the whole chain, each operation announces itself to the sub-engines that are assigned to its queue and offer its kind, via `announce(&resource)`. Then the Planner activates the deduplicated set of those sub-engines with `activate()`, blocking and one after another. The first failure gives `Activation{subengine, reason}`. Activation is idempotent and happens only when an operation is created, never at `start` or `build`.
@@ -244,6 +251,7 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 9. The result is exactly one `PlannedOp{kind: steps[0].meta.queue, meta, values}` with `meta = steps[0].meta` and `meta.batch` set to the batch information returned by the `ValueBuilder` (the Planner cannot read `V`). For every step `meta.priority` equals `task.params().priority`, `meta.descriptor` and `meta.resource` are the `PlannedOperation` values unchanged, and `meta.required == resource.capabilities()`.
 
 **Materialization** (`meta.materialize`)
+
 - It is `false` only if both of these hold:
   - this operation and the immediately following one both have `environment() == GpuOnly`;
   - the following operation is not an `IndexWrite`.
@@ -251,12 +259,14 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 - It is decided from the Expander's environments before queue assignment, and queue choice does not change it.
 
 **Chain wiring (contract of the reference `ValueBuilder`)**
+
 - It creates `TaskContext::new(task_id, priority, 1)` once per chain.
 - It builds the nodes in chain order: `OperationNode::new(task_id, steps[k].planned.clone(), input_k, steps[k].meta.materialize, task.clone())`. `input_0` is prepared from `d` as in build order 78; `input_{k+1} = ChainInput::Upstream(nodes[k].output_handle())`, taken before the node is moved.
 - It returns `StepPayload::new(nodes[0], context, rest)` with `rest[k-1] = PlannedStep { placement: steps[k].meta, node: nodes[k] }` for k >= 1. `StepPayload::new` sets `ends_chain` to `false` for every node that has a rest; the last node keeps `true`.
 - It never reads or writes queues.
 
 **Concurrency**
+
 - `expand` and all accessors take `&self` and can run concurrently from any thread. State sits behind short-lived locks. No lock is held across `activate`, `announce`, the expander or the `ValueBuilder`.
 - `set_idle` affects only expansions that start after it. A running expansion keeps its snapshot.
 - `expand` blocks only in `Subengine::activate`. It never touches queues.
@@ -266,14 +276,14 @@ impl<D, T, E, V> processor::Planner<D, T, E, OpMeta, V> for Planner<D, T, E, V> 
 
 ## 5. Relied-on elements
 
-- `processor::Planner<D,T,E,O,V>`: `type Error: std::error::Error + Send + Sync + 'static; fn expand(&self, &Task<D,T,E>) -> Result<Vec<PlannedOp<O,V>>, Self::Error>`. `PlannedOp<O,V>{kind: QueueKind, meta: O, values: V}`. `QueueKind{Cpu, Gpu, Shared}`. The Processor pushes in the returned order, and an `Err` pushes nothing.
+- `processor::TaskPlanner<D,T,E,O,V>`: `type Error: std::error::Error + Send + Sync + 'static; fn expand(&self, &Task<D,T,E>) -> Result<Vec<PlannedOp<O,V>>, Self::Error>`. `PlannedOp<O,V>{kind: QueueKind, meta: O, values: V}`. `QueueKind{Cpu, Gpu, Shared}`. The Processor pushes in the returned order, and an `Err` pushes nothing.
 - `task_model`: `Task<D,T,E>` is a clone handle. `params() -> &TaskParams{priority:i32, resource, model, mode}`. The Planner never reads the task data.
 - `capability_model`: `CapabilitySet` (`new`, `add`, `satisfies(&Requirements) -> bool`, `Extend<(Axis,Value)>`, `iter`, `Clone`, `Default`). An empty requirement is always satisfied.
 - `resource_requirements`:
   - `ResourceRequirements::{kind(), environment(), model() -> Option<&ModelId>, index(), capabilities() -> &Requirements}`.
   - `ResourceKind` and `ExecutionEnvironment` are `non_exhaustive`, `Copy + Eq + Hash`. Handle unknown variants with a wildcard.
   - `ExecutionEnvironment::{CpuOnly, GpuOnly, Any}`.
-  - `ModelId::new/as_str`, `IndexId::new/as_str`.
+  - `ModelId::new/as_str`, `IndexId::new/as_str`. `ModelId` is the single model identifier type; the task params of Embedding and Similarity use it directly.
 - `expander`: the signatures of `expand`, `TaskSpec`, `PlannedOperation{kind, descriptor, resource, config}`, `PipelineConfig::from_descriptor`, `PipelineConfigs = HashMap<String, PipelineConfig>`, `IdleNotification{idle_devices}`, `ExpandError` as specified there. Chain order is the data flow. The environments are fixed by the Expander (the encoder, pooling and L2 operations follow the idle-device rule).
 - `operation`: `OperationKind` (`non_exhaustive`, `Copy + Debug`), `OperationDescriptor` (`Clone`), `TaskId(pub u64)`.
 - `model_descriptor`: `ModelDescriptor::validate() -> Result<(), ModelConfigError>`, with the fields `model_id` and `architecture`.

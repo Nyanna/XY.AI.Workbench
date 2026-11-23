@@ -5,11 +5,13 @@
 Implement the Rust module `resource_requirements`. It is a pure value module that describes which resource an operation needs. The Planner passes this description to the sub-engines.
 
 The module:
+
 - defines the resource kind, model ID, index ID, execution environment, required capabilities and placement hint of an operation;
 - checks whether a device can satisfy these requirements;
 - provides the accessor trait through which a sub-engine reads an operation's requirements.
 
 Out of scope:
+
 - Planning, scheduling, device discovery and loading models or indexes.
 - Resolving or validating region handles.
 - Pull-filter logic. The hint is only carried along.
@@ -50,6 +52,7 @@ impl ExecutionEnvironment {
 }
 
 /// String IDs. Compared, hashed and ordered by string content.
+/// `ModelId` is the only model identifier type; the embedding and similarity tasks use it as well.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ModelId(String);
 impl ModelId {
@@ -116,6 +119,7 @@ pub trait HasResourceRequirements {
 ## 4. Behavior and invariants
 
 **Construction**
+
 - `new(kind, env)` succeeds without any other data. It sets model, index and affinity to `None` and the capabilities to an empty set.
 - Each `with_*` call changes only its own part:
   - `with_model`, `with_index` and `with_affinity` overwrite.
@@ -124,12 +128,14 @@ pub trait HasResourceRequirements {
 - There is no validation. Any combination is valid, and construction never fails or panics.
 
 **Execution environment**
+
 - `Any.accepts(k)` is `true` for every `DeviceKind`, including future ones.
 - `CpuOnly` accepts only `DeviceKind::Cpu`.
 - `GpuOnly` accepts only `DeviceKind::Gpu`.
 - `CpuOnly` and `GpuOnly` return `false` for any other or unknown kind (wildcard arm, because `DeviceKind` is `#[non_exhaustive]`).
 
 **Satisfiability**
+
 - `is_satisfied_by(kind, caps)` is true iff both conditions hold:
   - the environment accepts `kind`;
   - `caps.satisfies(self.capabilities())`.
@@ -138,6 +144,7 @@ pub trait HasResourceRequirements {
 - The function is pure and has no side effects.
 
 **Comparison and key**
+
 - `Eq` and `Hash` cover all six parts: kind, model, index, environment, capabilities and affinity.
   - The capability part is compared as a set. It is independent of insertion order.
   - The hash is consistent with `Eq`.
@@ -158,10 +165,12 @@ pub trait HasResourceRequirements {
 - `Clone` is a deep copy of independent values.
 
 **Accessor trait**
+
 - `resource_requirements()` returns a reference to the operation's requirements.
 - Repeated calls on an unchanged operation return equal values.
 
 **Concurrency and errors**
+
 - There is no internal state, no interior mutability, no locks and no globals.
 - Shared references can be read concurrently.
 - The module has no error type, and no operation panics.
@@ -169,6 +178,7 @@ pub trait HasResourceRequirements {
 ## 5. Relied-on elements
 
 From Capability-Modell (used unchanged):
+
 ```rust
 pub type Axis = Name;  pub type Value = Name;   // Name: From<&str>/From<String>
 pub type Requirements = CapabilitySet;
@@ -182,10 +192,12 @@ impl CapabilitySet {
 }
 impl Extend<(Axis, Value)> for CapabilitySet {}
 ```
+
 - `Name` is `Ord`. The set is `Send + Sync`.
 - `with_capabilities` can merge by iterating `caps.iter()` and calling `add` with clones.
 
 From Device und Lane und Event:
+
 ```rust
 #[non_exhaustive] #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DeviceKind { Cpu, Gpu }
@@ -193,11 +205,14 @@ pub enum DeviceKind { Cpu, Gpu }
 pub enum DeviceHandle { Cpu, Gpu(u32) }
 impl DeviceHandle { pub fn kind(&self) -> DeviceKind; pub fn ordinal(&self) -> Option<u32>; }
 ```
+
 - `DeviceHandle` does not implement `Ord`, so `Affinity` needs a manual `Ord`.
 
 From Region-Handle:
+
 ```rust
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RegionHandle { /* arena, offset, len, generation */ }
 ```
+
 - `RegionHandle` is a `Copy` value, `Send + Sync + 'static`. This module does not resolve it or check its generation.

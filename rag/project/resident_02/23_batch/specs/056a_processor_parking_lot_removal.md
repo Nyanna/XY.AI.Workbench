@@ -5,6 +5,7 @@
 **Task:** Remove the unused parking lot from the `Processor` and align the affected specifications. Parking and waking of worker threads belongs only to `worker_pool` (build order 56).
 
 Removed from the `processor` module:
+
 - `WorkerPool`, `WorkerId`
 - `Notification`
 - `IdleNotifications`
@@ -12,6 +13,7 @@ Removed from the `processor` module:
 - the internal state behind them (pool state, notify core, idle core) and the helpers only they use
 
 **Restrictions:**
+
 - `std` only. No `unsafe`.
 - No behavior of `submit`, `expand`, `task_queue` or `ops_queue` other than the notification bump changes.
 - `worker_pool` is not modified.
@@ -31,7 +33,7 @@ Public surface of `processor` after the change:
 ```rust
 pub enum QueueKind { Cpu, Gpu, Shared }
 pub struct PlannedOp<O, V> { pub kind: QueueKind, pub meta: O, pub values: V }
-pub trait Planner<D, T, E, O, V>: Send + Sync { /* unchanged */ }
+pub trait TaskPlanner<D, T, E, O, V>: Send + Sync { /* unchanged */ }
 pub enum ExpandError<PE> { Planner(PE) }
 pub type TaskQueue<D, T, E> = Queue<TaskParams, Task<D, T, E>, (), ()>;
 pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
@@ -39,7 +41,7 @@ pub type OpsQueue<O, V, R, OE> = Queue<O, V, R, OE>;
 pub struct Processor<D, T, E, O, V, R, OE, PL> { /* private */ }
 
 impl<D, T, E, O, V, R, OE, PL> Processor<D, T, E, O, V, R, OE, PL>
-where PL: Planner<D, T, E, O, V> {
+where PL: TaskPlanner<D, T, E, O, V> {
     pub fn new(planner: PL) -> Arc<Self>;
     pub fn submit(&self, data: D, params: TaskParams) -> Task<D, T, E>;
     pub fn expand(&self, task: &Task<D, T, E>)
@@ -54,6 +56,7 @@ No other public item of the module changes.
 ## 4. Behavior and invariants
 
 **Code**
+
 - `Processor::new` creates the four queues and holds the planner. It creates no pool, notification or idle state.
 - `submit` pushes one item into the task queue. The queue bumps its own `Channel::Available`. Nothing else is notified.
 - `expand` calls `planner.expand(task)` exactly once and pushes every `PlannedOp` to the queue of its `kind`, in Planner order. Nothing else is notified. On `Err(e)` nothing is pushed and the result is `Err(ExpandError::Planner(e))`. An empty result is `Ok(vec![])`.
@@ -61,10 +64,12 @@ No other public item of the module changes.
 - Imports used only by the removed items (`Condvar`, `HashSet`, `AtomicU64` and similar) are removed. No unused-import or dead-code warning remains.
 
 **Tests**
+
 - Remove every test of `pool()`, `notification()` and `idle()`: registration, parking, epoch and timeout rules, wake-all, idle epoch rules, and tests that read the notification epoch after `submit` or `expand`.
 - Keep and, where needed, reduce to queue assertions: submit state and queue content, expand routing and order, expand on empty and error, queue independence.
 
 **Specifications to update**
+
 - Build order 37 (Processor):
   - Remove the WorkerPool, Notification and Idle-notifications items from §1, §3 and §4.
   - In §2, replace the sentence on parking with: workers take from the queues, and waking is done by `worker_pool::Notifier`, which the caller of `submit` triggers.
@@ -81,25 +86,32 @@ No other public item of the module changes.
 - `25_implement/index.md` is the generic implementation prompt and needs no entry for this build order.
 
 **Errors**
+
 - No new error type or function. Public API is only reduced.
 
 **Concurrency**
+
 - Unchanged. `submit`, `expand`, `task_queue` and `ops_queue` stay callable from any thread concurrently.
 
 ## 5. Relied-on elements
 
 From Queue:
+
 - `push`, `take`, `take_where`, `len`, `wait_change`. `push` bumps `Channel::Available` of that queue.
 
 From Task-Modell:
+
 - `Task` handle and `TaskParams`, unchanged.
 
 From Worker-Pool (informational):
+
 - `Notifier::notify()` is the only wake-up for dispatcher workers. The Facade calls it after `submit`.
 
 From Backpressure (informational):
+
 - Idle signals come from `report_iteration`. The Processor provides none.
 
 Verification:
+
 - The crate builds without warnings and the whole test run passes.
 - A search for `WorkerId`, `IdleNotifications`, `.pool()`, `.notification()` and `.idle()` finds no remaining use.

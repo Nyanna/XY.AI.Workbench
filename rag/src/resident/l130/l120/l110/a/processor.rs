@@ -18,7 +18,7 @@ pub struct PlannedOp<O, V> {
     pub meta: O,
     pub values: V,
 }
-pub trait Planner<D, T, E, O, V>: Send + Sync {
+pub trait TaskPlanner<D, T, E, O, V>: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
     fn expand(&self, task: &Task<D, T, E>) -> Result<Vec<PlannedOp<O, V>>, Self::Error>;
 }
@@ -68,7 +68,7 @@ where
     V: Send + 'static,
     R: Send + 'static,
     OE: Send + 'static,
-    PL: Planner<D, T, E, O, V>,
+    PL: TaskPlanner<D, T, E, O, V>,
 {
     pub fn new(planner: PL) -> Arc<Self> {
         Arc::new(Self {

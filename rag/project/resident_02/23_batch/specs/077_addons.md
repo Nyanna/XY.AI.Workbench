@@ -3,12 +3,14 @@
 ## 1. Task, restrictions and boundaries
 
 Implement the Rust crate module `addons`. It has two jobs:
+
 - It derives follow-up tasks from finished tasks, with cloned or changed parameters.
 - It enqueues them through the normal queue path.
 
 This is how iteration, cascade and recursion are built outside the core.
 
 **Restrictions**
+
 - No change to the core. Addon tasks are ordinary `Task<D,T,E>` handles with ordinary `TaskParams` and `Extensions`. No flag, type parameter or field marks a task as an addon task. No parent/child link is stored anywhere.
 - No queue, scheduler, worker, timeout or retry logic. A follow-up is enqueued only through the injected `Enqueue` trait. Pull-filtering (priority, affinity) stays with the queue.
 - No thresholds or decision logic of its own. Whether and how to follow up is decided by caller-supplied closures or policies, based on the facts in a result or `SimilarityReport`.
@@ -32,7 +34,8 @@ This is how iteration, cascade and recursion are built outside the core.
 use std::sync::Arc;
 use task_model::{Task, TaskParams, TaskError};
 use extensions::Extensions;
-use embedding_task::{EmbeddingTask, EmbeddingMode, EmbeddingInput, ModelId, Precision as EmbPrecision};
+use embedding_task::{EmbeddingTask, EmbeddingMode, EmbeddingInput, Precision as EmbPrecision};
+use resource_requirements::ModelId;
 use similarity_task::{SimilarityParams, Scoring};
 use similarity_report::SimilarityReport;
 use scopes::{Scope, EntrySet};
@@ -147,29 +150,35 @@ pub fn rerank_job(queries: Vec<Vec<f32>>, report: &SimilarityReport, scoring: Sc
 ## 4. Behavior and invariants
 
 **Derivation**
+
 - `derive_params` and `derive_extensions` never mutate their input. The result equals the input except for the change made by `f`. Extension values are shared, never copied (T need not be `Clone`).
 - Follow-up tasks go only through `Enqueue::enqueue`. No other path exists. They have the same type as application tasks and carry only `TaskParams` and the data. All additional parameters travel in the `Extensions` inside the data, for example `EmbeddingTask.extensions` and `SimilarityParams.extensions`.
 
-**enqueue_all / follow_ups / cascade**
+**enqueue\_all / follow\_ups / cascade**
+
 - `enqueue_all` enqueues in input order and returns handles in that order. An empty list returns `Ok(vec![])`. On the first `Err(e)` it returns `AddonError::Enqueue(e)` and does not enqueue the rest.
 - `follow_ups` calls `parent.wait().await`, then `derive` exactly once with that result, then `enqueue_all`. If `derive` returns an empty list, no task is enqueued and the result is `Ok(vec![])`. A failed or cancelled parent is not an error here, and `derive` decides.
 - `cascade` enqueues `first` and waits for it. It calls `next` with its result. On `Some(f)` it enqueues `f` and repeats. On `None` it returns all handles (including `first`). `cascade` itself imposes no depth limit.
 - Dropping a returned future at any await point is safe. Tasks already enqueued stay enqueued and are not cancelled.
 - No handle is retained after return, and there is no shared state between calls. Concurrent calls are independent.
 
-**text_query**
+**text\_query**
+
 1. Builds `EmbeddingTask::new(text, model, EmbeddingMode::Query, precision)` with no target and with `embed_extensions`. It enqueues it with `embed_task_params`, then awaits it.
 2. `Cancelled` becomes `AddonError::Cancelled{Embedding}`. `Failed(e)` becomes `TaskFailed{Embedding, ..}`. A result where `embeddings()` is `None` becomes `UnexpectedOutput{Embedding}`. An empty vector list becomes `NoQueryVectors`.
 3. It enqueues `SimilarityJob{queries: vectors, params: search}` with `search_task_params`, then awaits it. Errors map as in step 2 with stage `Similarity`. A result where `similarity_report()` is `None` becomes `UnexpectedOutput{Similarity}`.
 4. If `rerank` is `Some` and the policy returns `Some(scoring)` for that report, it enqueues `rerank_job(vectors, &report, scoring)` with `rerank_task_params` and awaits it. Errors map with stage `Rerank`. The rerank report becomes `outcome.report`. If the policy returns `None` or `rerank` is `None`, no rerank task exists (`rerank == None`) and `outcome.report` is the first report.
 5. The policy sees only the report, so it is steered by facts and not by the addon.
+
 - The embedding task is a separate task and the similarity task depends on it only through the enqueue order. Priority and affinity are the caller's `TaskParams`. This module does not alter them.
 
-**rerank_job**
+**rerank\_job**
+
 - It does not mutate the report. `top_k`, index, precision and extensions are taken unchanged from `report.params`. Stale hits remain in the scope. An empty report gives an empty `EntrySet`.
 - The result is equivalent to `SimilarityParams::rerank` for a `SimilarityOutput` with the same hit IDs.
 
 **Errors**
+
 - No panics from this module. All failures map to `AddonError`. Task `Cancelled` or `Failed` in `follow_ups` and `cascade` is passed to the caller's closure and is not an error. In `text_query` it is an error.
 
 ## 5. Relied-on elements
@@ -186,7 +195,7 @@ pub fn rerank_job(queries: Vec<Vec<f32>>, report: &SimilarityReport, scoring: Sc
   - `EmbeddingTask::new(input: impl Into<EmbeddingInput>, model: ModelId, mode: EmbeddingMode, precision: Precision)` gives target `None` and empty extensions.
   - `.with_extensions(Extensions)`.
   - `EmbeddingMode::{Query, Passage}`.
-  - `ModelId(pub String)`.
+  - `resource_requirements::ModelId` (constructed with `ModelId::new`).
   - Without a target the result is `TaskResult::Embeddings(Vec<Vec<f32>>)`, one vector per text in order. With a target it is `EntryRefs`.
 - `similarity_task`:
   - `SimilarityParams` (`Debug + Clone`) has the public fields `index, top_k, scope, scoring, precision, extensions`.
@@ -197,4 +206,4 @@ pub fn rerank_job(queries: Vec<Vec<f32>>, report: &SimilarityReport, scoring: Sc
 - `similarity_report::SimilarityReport`:
   - Fields `task_id`, `params: SimilarityParams`, `candidate_count`, `dropped_count`, `stale_count`, `hits: Vec<ReportHit>`, `metrics: Option<Metrics>`.
   - `ReportHit { entry_id: operation::EntryId(pub u64), score, stale, source_link }`.
-  - `Metrics` (gap, spread, z_score, softmax, knee) are facts only, and the addon applies no thresholds.
+  - `Metrics` (gap, spread, z\_score, softmax, knee) are facts only, and the addon applies no thresholds.

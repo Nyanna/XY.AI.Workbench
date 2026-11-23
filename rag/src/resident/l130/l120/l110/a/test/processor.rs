@@ -14,7 +14,7 @@ struct TestPlanner {
     fail: bool,
     calls: AtomicUsize,
 }
-impl Planner<u32, u32, (), u32, u32> for TestPlanner {
+impl TaskPlanner<u32, u32, (), u32, u32> for TestPlanner {
     type Error = PErr;
     fn expand(&self, _t: &Task<u32, u32, ()>) -> Result<Vec<PlannedOp<u32, u32>>, PErr> {
         self.calls.fetch_add(1, Ordering::SeqCst);

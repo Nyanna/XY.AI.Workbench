@@ -5,10 +5,12 @@
 Rust-Modul `expander`. Es zerlegt einen Task als reine Funktion genau einmal in eine geordnete Kette von `PlannedOperation`. Es übersetzt Task-Parameter, Pipeline-Konfiguration und Subengine-Capabilities in die Konfiguration jeder Operation.
 
 Es unterstützt zwei Task-Arten:
+
 - Embedding
 - Similarity, mit Vektor-Scorer oder Cross-Encoder
 
 Einschränkungen:
+
 - Es ist zustandslos. Es hat keine Queues, Worker und Notification und startet keine Subengines.
 - It executes no operation and builds no `Operation<R>` (no regions, no `TaskId`, no priority). In the reference engine `PlannedOperation` itself is the operation of an operation node (`OperationNode<PlannedOperation, ..>`); nobody builds an `Operation<R>` from it.
 - Das Ergebnis hängt nicht von Nutzdaten ab. Texte, Query-Vektoren und Payload werden nicht gelesen.
@@ -17,7 +19,7 @@ Einschränkungen:
 
 ## 2. Kontext
 
-- Der Planner ruft `expand` pro Task auf und erhält die Kette. Die Reihenfolge der Kette ist der implizite Graph: Ausgabe *n* speist Operation *n+1*.
+- Der Planner ruft `expand` pro Task auf und erhält die Kette. Die Reihenfolge der Kette ist der implizite Graph: Ausgabe _n_ speist Operation _n+1_.
 - Die Sub-Engines wählen ihren Ressourceneintrag über `PlannedOperation::resource` (`ResourceKind`, Modell, Index, Environment).
 - Worker filtern über `PlannedOperation::descriptor`. Der Descriptor ist als Schlüssel nutzbar.
 - Die Pipeline-Konfiguration pro Modell stammt aus dem `ModelDescriptor`. `PipelineConfig::from_descriptor` bildet sie ab.
@@ -138,6 +140,7 @@ Alle Typen sind `Send + Sync + 'static`. Dafür gibt es eine Compile-Time-Assert
 ## 4. Verhalten und Invarianten
 
 **Allgemein**
+
 - `expand` ist rein: Gleiche Eingabe ergibt eine gleiche Kette (`kind`, `descriptor`, `resource` und `config` je Position).
 - Bei Erfolg loggt `expand` auf Debug-Level die Task-Art (`"embedding"`, `"similarity"` oder `"similarity/cross-encoder"`) und die Anzahl der Operationen. Bei Fehlern wird nichts geloggt.
 - Prüfreihenfolge:
@@ -148,15 +151,18 @@ Alle Typen sind `Send + Sync + 'static`. Dafür gibt es eine Compile-Time-Assert
 - Bei einem Fehler wird keine Teilkette geliefert.
 
 **Fremde Art**
+
 - `TaskSpec::Other{kind}` ergibt `ForeignTaskKind{expected: "Embedding/Similarity", got: kind}`.
 - Display: `"fremde Task-Art: erwartet Embedding/Similarity, erhalten {got}"`. Die Meldung nennt beide Arten.
 
 **Pipeline-Konfiguration**
-- Das Modell ist `task.model.0` (Embedding) bzw. `spec.model.as_str()` (Similarity). Fehlt es in `pipelines`, ergibt das `MissingPipelineConfig{model}`.
+
+- Das Modell ist `task.model.as_str()` (Embedding) bzw. `spec.model.as_str()` (Similarity). Fehlt es in `pipelines`, ergibt das `MissingPipelineConfig{model}`.
 - Display: `"keine Pipeline-Konfiguration für Modell {model}"`.
-- Die Embedding-`ModelId` (`embedding_task::ModelId(String)`) wird in `resource_requirements::ModelId::new(..)` umgewandelt.
+- Embedding and Similarity share `resource_requirements::ModelId`. The expander clones it from the task; there is no conversion.
 
 **Mapping auf `resource` und `descriptor`**
+
 - `resource` ist `ResourceRequirements::new(kind, env)`. Es enthält `with_model(model)`. `with_index(..)` kommt nur dort dazu, wo die Tabellen unten einen Index nennen. Es gibt keine Capabilities und keine Affinity.
 - Der `descriptor` ist `OperationDescriptor::new(kind, OperationParams::new(req))`.
   - `req` ist `operation::ResourceRequirements{resource, model, mode}`.
@@ -167,6 +173,7 @@ Alle Typen sind `Send + Sync + 'static`. Dafür gibt es eine Compile-Time-Assert
 - Ein Index wird umgewandelt als `IndexId::new(params.index.0.to_string())` (Similarity-`IndexId(u64)`). Die Index-ID der Embedding-Variante wird unverändert übernommen.
 
 **Environment der Embedding-Berechnung**
+
 - Die Environment wird aus `idle` bestimmt:
   - Enthält `idle_devices` nur `Gpu` (eventuell mehrfach), ist sie `GpuOnly`.
   - Enthält sie nur `Cpu`, ist sie `CpuOnly`.
@@ -221,9 +228,11 @@ Genau drei Operationen:
 - `mode` ist bei Similarity immer `None`.
 
 **Nebenläufigkeit**
+
 - `expand` hat keinen geteilten veränderlichen Zustand. Beliebig viele gleichzeitige Aufrufe auf geteilten Referenzen sind sicher. `expand` blockiert nicht.
 
 **Fehler**
+
 - Die Fehler sind `ForeignTaskKind`, `MissingPipelineConfig`, `Config(ZeroTopK)` und `ScoringUnavailable`. Kein Fall führt zu einem Panic.
 
 ## 5. Relied-on elements
@@ -247,7 +256,7 @@ Genau drei Operationen:
   - Der Descriptor wird nur gelesen.
 - `layout::DType` (`Copy`).
 - `embedding_task`:
-  - `EmbeddingTask { input, model: ModelId(pub String), mode: EmbeddingMode::{Query, Passage}, precision, target, extensions }`.
+  - `EmbeddingTask { input, model: ModelId (resource_requirements), mode: EmbeddingMode::{Query, Passage}, precision, target, extensions }`.
   - Nur `model` und `mode` werden gelesen.
 - `similarity_task`:
   - `SimilarityParams { index: IndexId(pub u64), top_k: usize, scope: Scope, scoring: Scoring, .. }`.

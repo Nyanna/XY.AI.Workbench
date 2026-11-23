@@ -285,7 +285,7 @@ fn embedding_spec(model: &str, target: Option<&str>) -> TaskSpec {
     TaskSpec::Embedding {
         task: EmbeddingTask::new(
             "hello".to_string(),
-            TaskModelId(model.to_string()),
+            ModelId::new(model),
             EmbeddingMode::Query,
             EmbeddingPrecision::F32,
         ),
@@ -534,29 +534,6 @@ fn first_resource_kind_matches_the_first_planned_operation() {
             assert_eq!(Some(chain[0].resource.kind()), expected);
         }
     }
-}
-#[test]
-fn first_resource_kind_of_task_reads_the_resource_name_of_the_params() {
-    let log = new_log();
-    let values = ChainBuilder::new(None);
-    let planner = builder(&trio(&log), &values).build();
-    let task_with = |resource: Option<&str>| {
-        let params = TaskParams {
-            resource: resource.map(str::to_string),
-            ..TaskParams::default()
-        };
-        Task::<TaskSpec, StepOutput, String>::new(vector_spec(), params)
-    };
-    assert_eq!(
-        planner.first_resource_kind_of_task(& task_with(Some("scorer"))),
-        Some(ResourceKind::Scorer)
-    );
-    assert_eq!(
-        planner.first_resource_kind_of_task(& task_with(Some("tokenizer"))),
-        Some(ResourceKind::Tokenizer)
-    );
-    assert_eq!(planner.first_resource_kind_of_task(& task_with(Some("gpu"))), None);
-    assert_eq!(planner.first_resource_kind_of_task(& task_with(None)), None);
 }
 #[test]
 fn embedding_prefers_the_shared_queue() {

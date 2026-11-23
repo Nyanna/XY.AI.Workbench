@@ -1,8 +1,6 @@
 use super::*;
 use std::path::Path;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::embedding_task::{
-    ModelId as TaskModelId, Precision as EmbeddingPrecision,
-};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::embedding_task::Precision as EmbeddingPrecision;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::IndexId as SimilarityIndexId;
 const MODEL: &str = "e5";
 fn pipeline() -> PipelineConfig {
@@ -28,7 +26,7 @@ fn embedding(mode: EmbeddingMode, target: Option<&str>) -> TaskSpec {
     TaskSpec::Embedding {
         task: EmbeddingTask::new(
             "hello".to_string(),
-            TaskModelId(MODEL.to_string()),
+            ModelId::new(MODEL),
             mode,
             EmbeddingPrecision::F32,
         ),
@@ -205,7 +203,7 @@ fn embedding_unknown_model_id_conversion_is_verbatim() {
     let spec = TaskSpec::Embedding {
         task: EmbeddingTask::new(
             "hello".to_string(),
-            TaskModelId("org/Model-1".to_string()),
+            ModelId::new("org/Model-1"),
             EmbeddingMode::Query,
             EmbeddingPrecision::F32,
         ),

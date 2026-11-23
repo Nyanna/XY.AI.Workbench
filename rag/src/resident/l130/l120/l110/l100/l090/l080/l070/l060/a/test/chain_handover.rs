@@ -1,11 +1,9 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use super::super::super::l050::l040::a::resource_requirements::{
-    ExecutionEnvironment, ResourceKind, ResourceRequirements,
+    ExecutionEnvironment, ModelId, ResourceKind, ResourceRequirements,
 };
-use super::super::super::l050::l040::b::embedding_task::{
-    EmbeddingMode, ModelId, Precision,
-};
+use super::super::super::l050::l040::b::embedding_task::{EmbeddingMode, Precision};
 use super::super::super::l050::l040::b::similarity_task::IndexId;
 use super::super::super::l050::l040::l030::a::region_handle::{Generation, RegionHandle};
 use super::super::super::l050::l040::l030::b::operation::{
@@ -81,7 +79,7 @@ fn embedding_kind(texts: &[&str]) -> ChainKind {
     ChainKind::Embedding(
         EmbeddingTask::new(
             texts,
-            ModelId("m".into()),
+            ModelId::new("m"),
             EmbeddingMode::Passage,
             Precision::F32,
         ),
