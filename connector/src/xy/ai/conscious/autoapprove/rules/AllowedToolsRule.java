@@ -10,7 +10,7 @@ public class AllowedToolsRule implements IApprovalRule {
 
 	public static final String ID = AllowedToolsRule.class.getSimpleName();
 	public static final String TOOLS = "tools";
-	public static final String[] ALLOWED_TOOLS = { "ast_outline", "ast_read", "ast_validate", "run_command", "ast_find" };
+	public static final String[] ALLOWED_TOOLS = { "ast_outline", "ast_read", "ast_validate", "run_command", "ast_find", "ast_retrieve" };
 
 	private final RuleSettings defaults;
 
