@@ -95,6 +95,7 @@ public class PresetsTab {
         return;
       PresetHandler.Preset preset = PresetHandler.loadPreset(presetFiles.get(idx));
       cfg.setSystemPrompt(preset.body);
+      applySettings(cfg, preset);
       if (preset.tools != null) {
         tools.setSelection(preset.tools);
         cfg.setEnabledTools(preset.tools);
@@ -105,7 +106,6 @@ public class PresetsTab {
         inputs.setSelection(preset.inputs);
       if (preset.rules != null)
         rules.setSelection(preset.rules);
-      applySettings(cfg, preset);
     }));
     refreshPresetList();
   }
