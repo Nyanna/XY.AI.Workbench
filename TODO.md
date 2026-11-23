@@ -1,4 +1,5 @@
 # TODO
+- Tool schreiben zum auswerten der sessions, timestamp, alle token, alle projekte, aus logs oder mD?
 - verbessern der CC session anzeige, zeit in in ms oder sekunden, nur chars  kein total, dann typ der nachricht
 !verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
 	- sortierung vielleicht in filter und customizations
