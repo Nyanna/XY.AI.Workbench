@@ -126,7 +126,7 @@ impl Collector {
                                 TaskResult::Hits(
                                     hits
                                         .into_iter()
-                                        .map(|(id, score)| Hit { id, score })
+                                        .map(|(id, score)| Hit { id, score, stale: false })
                                         .collect(),
                                 ),
                             ),

@@ -10,6 +10,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::scopes_and_entry_sets::{
     EntrySet, Scope,
 };
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::embedding_task::Precision;
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Scoring {
@@ -17,14 +18,6 @@ pub enum Scoring {
     Cosine,
     DotProduct,
     NegEuclidean,
-}
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum Precision {
-    #[default]
-    F32,
-    F16,
-    Int8,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct SimilarityParams {
@@ -94,31 +87,16 @@ pub trait CandidateSource: Send + Sync {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceError(pub String);
-#[derive(Debug, Clone, Copy)]
-pub struct SimilarityHit {
-    pub entry: EntryId,
-    pub score: f32,
-    pub stale: bool,
-}
 #[derive(Debug, Clone, Default)]
 pub struct SimilarityOutput {
-    pub per_query: Vec<Vec<SimilarityHit>>,
+    pub per_query: Vec<Vec<Hit>>,
 }
 impl SimilarityOutput {
     pub fn narrowed_scope(&self) -> Scope {
-        Scope::Set(
-            EntrySet::from_ids(self.per_query.iter().flatten().map(|h| h.entry.0)),
-        )
+        Scope::Set(EntrySet::from_ids(self.per_query.iter().flatten().map(|h| h.id.0)))
     }
     pub fn into_task_result(self) -> TaskResult {
-        TaskResult::Hits(
-            self
-                .per_query
-                .into_iter()
-                .flatten()
-                .map(|h| Hit { id: h.entry, score: h.score })
-                .collect(),
-        )
+        TaskResult::Hits(self.per_query.into_iter().flatten().collect())
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,16 +145,16 @@ fn score(scoring: Scoring, a: &[f32], b: &[f32]) -> f32 {
 fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
-fn rank_order(a: &SimilarityHit, b: &SimilarityHit) -> Ordering {
+fn rank_order(a: &Hit, b: &Hit) -> Ordering {
     match (a.score.is_nan(), b.score.is_nan()) {
-        (true, true) => a.entry.cmp(&b.entry),
+        (true, true) => a.id.cmp(&b.id),
         (true, false) => Ordering::Greater,
         (false, true) => Ordering::Less,
         (false, false) => {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(Ordering::Equal)
-                .then_with(|| a.entry.cmp(&b.entry))
+                .then_with(|| a.id.cmp(&b.id))
         }
     }
 }
@@ -207,11 +185,11 @@ pub fn run_similarity(
             if params.top_k == 0 {
                 return Vec::new();
             }
-            let mut hits: Vec<SimilarityHit> = unique
+            let mut hits: Vec<Hit> = unique
                 .iter()
                 .filter(|c| c.vector.len() == q.len())
-                .map(|c| SimilarityHit {
-                    entry: c.id,
+                .map(|c| Hit {
+                    id: c.id,
                     score: score(params.scoring, q, &c.vector),
                     stale: c.stale,
                 })
@@ -231,7 +209,6 @@ const _: fn() = || {
     assert_traits::<SimilarityParams>();
     assert_traits::<Candidate>();
     assert_traits::<SourceError>();
-    assert_traits::<SimilarityHit>();
     assert_traits::<SimilarityOutput>();
     assert_traits::<SimilarityError>();
 };

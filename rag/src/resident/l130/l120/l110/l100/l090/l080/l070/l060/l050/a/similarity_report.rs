@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::SimilarityParams;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::{
-    ScoredHit, ScoredHitResult,
-};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::operation::ScoredHitResult;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::result_kinds::Hit;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 const MIN_STD_DEV: f64 = 1e-9;
@@ -68,11 +67,11 @@ impl fmt::Display for ReportError {
     }
 }
 impl std::error::Error for ReportError {}
-fn rank_order(a: &ScoredHit, b: &ScoredHit) -> Ordering {
+fn rank_order(a: &Hit, b: &Hit) -> Ordering {
     b.score
         .partial_cmp(&a.score)
         .unwrap_or(Ordering::Equal)
-        .then_with(|| a.entry_id.cmp(&b.entry_id))
+        .then_with(|| a.id.cmp(&b.id))
 }
 pub fn build_report(
     task_id: TaskId,
@@ -82,7 +81,7 @@ pub fn build_report(
     source_link: &dyn Fn(EntryId) -> Option<String>,
 ) -> Result<SimilarityReport, ReportError> {
     let params = params.ok_or(ReportError::MissingSearchParams)?;
-    let mut valid: Vec<&ScoredHit> = input
+    let mut valid: Vec<&Hit> = input
         .hits
         .iter()
         .filter(|h| h.score.is_finite())
@@ -93,10 +92,10 @@ pub fn build_report(
     let hits: Vec<ReportHit> = valid
         .iter()
         .map(|h| ReportHit {
-            entry_id: h.entry_id,
+            entry_id: h.id,
             score: h.score,
             stale: h.stale,
-            source_link: source_link(h.entry_id),
+            source_link: source_link(h.id),
         })
         .collect();
     let stale_count = hits.iter().filter(|h| h.stale).count();

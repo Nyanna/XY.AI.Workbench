@@ -1,9 +1,8 @@
 use super::*;
 use std::sync::Mutex;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::similarity_report::ReportHit;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::{
-    SimilarityHit, SimilarityOutput,
-};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::b::similarity_task::SimilarityOutput;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::result_kinds::Hit;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::IndexId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::b::task_context::TaskId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::EntryId;
@@ -439,8 +438,8 @@ fn rerank_job_matches_params_rerank() {
     assert_eq!(job.queries, vec![vec![0.5, 0.5]]);
     let output = SimilarityOutput {
         per_query: vec![
-            report.hits.iter().map(| h | SimilarityHit { entry : h.entry_id, score : h
-            .score, stale : h.stale, }).collect()
+            report.hits.iter().map(| h | Hit { id : h.entry_id, score : h.score, stale :
+            h.stale }).collect()
         ],
     };
     assert_eq!(job.params, report.params.rerank(& output, Scoring::NegEuclidean));

@@ -1,4 +1,3 @@
-pub mod dense_scoring;
 pub mod max_similarity_operation;
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};

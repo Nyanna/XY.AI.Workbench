@@ -6,9 +6,7 @@ use super::super::super::l050::l040::a::resource_requirements::{
 use super::super::super::l050::l040::b::embedding_task::{EmbeddingMode, Precision};
 use super::super::super::l050::l040::a::resource_requirements::IndexId;
 use super::super::super::l050::l040::l030::a::region_handle::{Generation, RegionHandle};
-use super::super::super::l050::l040::b::operation::{
-    OperationKind, ScoredHit, ScoredHitResult,
-};
+use super::super::super::l050::l040::b::operation::{OperationKind, ScoredHitResult};
 use super::super::super::l050::l040::l030::l020::a::arenas::ArenaKind;
 use super::super::super::l050::l040::l030::l020::a::memory_access::{
     AccessError, AccessRegion, RegionBackend, TensorRef,
@@ -415,18 +413,20 @@ fn similarity_hit_list_becomes_hits() {
     let (chain, _, _, _) = start(similarity_kind(vec![vec![1.0]], 5), 1);
     store(&chain, ram(RamData::HitList(vec![(EntryId(7), 0.9), (EntryId(3), 0.1)])));
     let expected = TaskResult::Hits(
-        vec![Hit { id : EntryId(7), score : 0.9 }, Hit { id : EntryId(3), score : 0.1 },],
+        vec![
+            Hit { id : EntryId(7), score : 0.9, stale : false }, Hit { id : EntryId(3),
+            score : 0.1, stale : false },
+        ],
     );
     assert_eq!(chain.collector.collect(), Ok(CollectedResult::Task(expected)));
 }
 #[test]
 fn similarity_scored_hits_become_a_ranked_report() {
     let (chain, _, _, _) = start(similarity_kind(vec![vec![1.0]], 2), 1);
-    let hit = |id, score| ScoredHit {
-        entry_id: EntryId(id),
+    let hit = |id, score| Hit {
+        id: EntryId(id),
         score,
         stale: false,
-        source_link: None,
     };
     let result = ScoredHitResult {
         scored_count: 3,

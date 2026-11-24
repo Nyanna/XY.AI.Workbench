@@ -4,15 +4,10 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 fn eid(n: u64) -> EntryId {
     EntryId(n)
 }
-fn hit(id: u64, score: f32, stale: bool) -> ScoredHit {
-    ScoredHit {
-        entry_id: eid(id),
-        score,
-        stale,
-        source_link: Some("ignored".to_string()),
-    }
+fn hit(id: u64, score: f32, stale: bool) -> Hit {
+    Hit { id: eid(id), score, stale }
 }
-fn input(hits: Vec<ScoredHit>) -> ScoredHitResult {
+fn input(hits: Vec<Hit>) -> ScoredHitResult {
     ScoredHitResult {
         scored_count: hits.len(),
         dropped_count: 0,
@@ -68,7 +63,7 @@ fn sorts_descending_with_id_tiebreak_and_truncates() {
     assert_eq!(r.candidate_count, 4);
     assert_eq!(r.params.top_k, 3);
     assert_eq!(inp.hits.len(), 4);
-    assert_eq!(inp.hits[0].entry_id, eid(5));
+    assert_eq!(inp.hits[0].id, eid(5));
 }
 #[test]
 fn invalid_hits_are_dropped_and_counted() {
@@ -155,19 +150,6 @@ fn lookup_called_once_per_returned_hit_in_rank_order() {
     assert_eq!(* calls.borrow(), vec![2, 3]);
     assert_eq!(r.hits[0].source_link, None);
     assert_eq!(r.hits[1].source_link.as_deref(), Some("link-3"));
-}
-#[test]
-fn input_source_link_is_ignored() {
-    let p = params(1);
-    let r = build_report(
-            TaskId(1),
-            Some(&p),
-            &input(vec![hit(1, 0.5, false)]),
-            opts(),
-            &no_link,
-        )
-        .unwrap();
-    assert_eq!(r.hits[0].source_link, None);
 }
 #[test]
 fn metrics_basic_statistics() {

@@ -10,8 +10,9 @@ pub enum EmbeddingMode {
     Passage,
 }
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Precision {
+    #[default]
     F32,
     F16,
     Bf16,

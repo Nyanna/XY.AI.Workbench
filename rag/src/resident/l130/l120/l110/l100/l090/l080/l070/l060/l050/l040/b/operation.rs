@@ -90,17 +90,10 @@ pub enum DataShape {
     ScoredHitResult,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct ScoredHit {
-    pub entry_id: EntryId,
-    pub score: f32,
-    pub stale: bool,
-    pub source_link: Option<String>,
-}
-#[derive(Debug, Clone, PartialEq)]
 pub struct ScoredHitResult {
     pub scored_count: usize,
     pub dropped_count: usize,
-    pub hits: Vec<ScoredHit>,
+    pub hits: Vec<Hit>,
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
@@ -125,3 +118,4 @@ impl RamData {
 #[cfg(test)]
 #[path = "test/operation.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::result_kinds::Hit;

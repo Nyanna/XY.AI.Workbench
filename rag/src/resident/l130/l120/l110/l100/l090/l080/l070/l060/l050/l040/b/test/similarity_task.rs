@@ -67,9 +67,9 @@ fn ranking_ties_stale_and_dimension() {
     let out = run_similarity(&src, &[vec![1.0, 0.0]], &params().with_top_k(2)).unwrap();
     let h = &out.per_query[0];
     assert_eq!(h.len(), 2);
-    assert_eq!(h[0].entry, EntryId(2));
+    assert_eq!(h[0].id, EntryId(2));
     assert!(h[0].stale);
-    assert_eq!(h[1].entry, EntryId(3));
+    assert_eq!(h[1].id, EntryId(3));
 }
 #[test]
 fn scoring_variants() {
@@ -94,8 +94,8 @@ fn nan_last_and_top_k_zero() {
             &params().with_scoring(Scoring::DotProduct),
         )
         .unwrap();
-    assert_eq!(out.per_query[0] [0].entry, EntryId(2));
-    assert_eq!(out.per_query[0] [1].entry, EntryId(1));
+    assert_eq!(out.per_query[0] [0].id, EntryId(2));
+    assert_eq!(out.per_query[0] [1].id, EntryId(1));
     let out = run_similarity(&src, &[vec![1.0]], &params().with_top_k(0)).unwrap();
     assert!(out.per_query[0].is_empty());
 }
