@@ -26,7 +26,7 @@ use l010::capability_model::{axes, cpu_reference, values};
 use l010::layout::Layout;
 use l010::queue::{Queue, State};
 use l010::target_env::ComputeCapability;
-use l040::index_residency::Advice;
+use l010::page_advice::{Advice, AdviceError, AdviceTarget, PageRange};
 static_assertions::assert_impl_all!(CpuSubengine : Send, Sync);
 static_assertions::assert_impl_all!(CpuManager : Send, Sync);
 static_assertions::assert_impl_all!(CpuKernelRegister : Send, Sync);
@@ -930,9 +930,12 @@ fn concurrent_first_access_shares_one_index_instance() {
     assert_eq!(from_residency, indexes[0].read(EntryId(3)));
 }
 struct CountingAdvisor(Mutex<Vec<(u64, u64, Advice)>>);
-impl MemoryAdvisor for CountingAdvisor {
-    fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), String> {
-        lock(&self.0).push((offset, len, advice));
+impl AdviceTarget for CountingAdvisor {
+    fn len(&self) -> u64 {
+        u64::MAX
+    }
+    fn advise(&self, advice: Advice, range: PageRange) -> Result<(), AdviceError> {
+        lock(&self.0).push((range.start, range.end - range.start, advice));
         Ok(())
     }
 }
@@ -1446,26 +1449,6 @@ fn encode_reports_precheck_violations_without_running() {
         matches!(ctx.encode(& ModelId::new("other"), & input, & wrong_output, 1, 4),
         Err(CpuError::UnknownModel(_)))
     );
-}
-#[test]
-fn robust_statistics_map_to_the_shared_functions() {
-    let stats = RobustStatistics;
-    let samples = [10.0, 11.0, 9.0, 10.5, 9.5, 10.2];
-    assert_eq!(
-        stats.estimate(& samples, EstimatorKind::Median), statistics::median(& samples)
-    );
-    assert_eq!(stats.estimate(& samples, EstimatorKind::Minimum), Some(9.0));
-    assert_eq!(
-        stats.dispersion(& samples, DispersionKind::Cv), Some(statistics::dispersion(&
-        samples, Dispersion::CoefficientOfVariation))
-    );
-    assert_eq!(
-        stats.dispersion(& samples, DispersionKind::RangeOverMedian),
-        Some(statistics::dispersion(& samples, Dispersion::TrimmedRange))
-    );
-    assert_eq!(stats.dispersion(& [1.0], DispersionKind::Cv), None);
-    assert_eq!(stats.dispersion(& [], DispersionKind::RangeOverMedian), None);
-    assert_eq!(stats.estimate(& [], EstimatorKind::Median), None);
 }
 struct ProbeBackend {
     threads: Mutex<Vec<Option<String>>>,

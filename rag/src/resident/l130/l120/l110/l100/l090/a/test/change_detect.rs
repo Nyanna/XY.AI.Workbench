@@ -130,18 +130,18 @@ fn unchanged_requires_equal_meta_and_not_racy() {
 fn equal_stamp_alone_is_not_enough() {
     let m = meta(5, 100, Some(100));
     let mut r = record(m);
-    r.stamp = Some(ChangeStamp::from_raw(7));
+    r.stamp = Some(Stamp(7));
     r.reference = at(101);
-    let c = check_file(&r, &m, Some(ChangeStamp::from_raw(7)));
+    let c = check_file(&r, &m, Some(Stamp(7)));
     assert_eq!(reason_of(c), CheckReason::Racy);
 }
 #[test]
 fn stamp_difference_wins_over_everything() {
     let m = meta(5, 100, Some(100));
     let mut r = record(m);
-    r.stamp = Some(ChangeStamp::from_raw(1));
+    r.stamp = Some(Stamp(1));
     let other = meta(6, 101, None);
-    match check_file(&r, &other, Some(ChangeStamp::from_raw(2))) {
+    match check_file(&r, &other, Some(Stamp(2))) {
         ChangeCheck::ContentCheckRequired { reason, diagnostic } => {
             assert_eq!(reason, CheckReason::StampDiffers);
             assert!(diagnostic.contains('1') && diagnostic.contains('2'));
@@ -153,12 +153,10 @@ fn stamp_difference_wins_over_everything() {
 fn missing_stamp_on_either_side_falls_through() {
     let m = meta(5, 100, Some(100));
     let mut r = record(m);
-    r.stamp = Some(ChangeStamp::from_raw(1));
+    r.stamp = Some(Stamp(1));
     assert_eq!(check_file(& r, & m, None), ChangeCheck::Unchanged);
     r.stamp = None;
-    assert_eq!(
-        check_file(& r, & m, Some(ChangeStamp::from_raw(2))), ChangeCheck::Unchanged
-    );
+    assert_eq!(check_file(& r, & m, Some(Stamp(2))), ChangeCheck::Unchanged);
 }
 #[test]
 fn size_then_mtime_then_ctime_order() {

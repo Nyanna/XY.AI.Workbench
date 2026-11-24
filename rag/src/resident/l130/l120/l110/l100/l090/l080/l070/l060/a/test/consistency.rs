@@ -267,7 +267,7 @@ fn concurrent_writers_end_in_consistent_state() {
     for h in handles {
         all.extend(h.join().unwrap());
     }
-    let mut raws: Vec<u64> = all.iter().map(|i| i.stamp.as_raw()).collect();
+    let mut raws: Vec<u64> = all.iter().map(|i| i.stamp.0).collect();
     raws.sort_unstable();
     raws.dedup();
     assert_eq!(raws.len(), 200);

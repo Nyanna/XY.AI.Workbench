@@ -129,7 +129,7 @@ impl EntryStore {
         if !exists {
             return Ok(None);
         }
-        let stamp = Stamp(rt.counter.next()?.as_raw());
+        let stamp = rt.counter.next()?;
         if in_file {
             overlay.insert(id, Slot::Tombstone);
         } else {
@@ -155,7 +155,7 @@ impl EntryStore {
     }
     pub fn max_stamp(&self) -> Option<Stamp> {
         let rt = self.runtime().ok()?;
-        rt.counter.max().map(|stamp| Stamp(stamp.as_raw()))
+        rt.counter.max()
     }
     pub fn is_dirty(&self) -> bool {
         self.change_seq.load(Ordering::SeqCst) > self.saved_seq.load(Ordering::SeqCst)
@@ -323,7 +323,7 @@ impl EntryStore {
             .checksum
             .checksum(id, vector, &meta)
             .map_err(EntryError::Meta)?;
-        let stamp = Stamp(rt.counter.next()?.as_raw());
+        let stamp = rt.counter.next()?;
         let meta_len = meta.len();
         overlay
             .insert(

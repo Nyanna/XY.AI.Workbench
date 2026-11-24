@@ -6,44 +6,31 @@ use log::warn;
 use super::l030::l020::a::index_contract::{
     AccessMethod, ByteRange, EntryId, Index, Payload,
 };
-
-const MSG_NOT_ATTACHED: &str = "Index nicht angehängt";
-const MSG_TASK_ABORTED: &str = "Lese-Task abgebrochen";
-
+use super::l030::l020::l010::page_advice::{
+    advise, read_blocking, Advice, AdviceTarget, PageRange,
+};
 /// Lazily activated index: the slot is filled once by the owner at a later point.
 pub type IndexSlot = Arc<OnceLock<Arc<dyn Index>>>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Advice {
-    WillNeed,
-    Sequential,
-    Random,
-    Cold,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResidencyError {
+    NotAttached,
+    TaskAborted,
 }
-
-/// Hint sink (e.g. the mmap region of the index). Applies the hint to `[offset, offset + len)`.
-pub trait MemoryAdvisor: Send + Sync {
-    fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), String>;
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TransferError(pub String);
-
-impl fmt::Display for TransferError {
+impl fmt::Display for ResidencyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        match self {
+            ResidencyError::NotAttached => f.write_str("index not attached"),
+            ResidencyError::TaskAborted => f.write_str("read task aborted"),
+        }
     }
 }
-
-impl std::error::Error for TransferError {}
-
+impl std::error::Error for ResidencyError {}
 /// Copy of the entry bytes (not shared). A missing entry yields both parts empty.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OwnedPayload {
     pub vector: Vec<u8>,
     pub meta: Vec<u8>,
 }
-
 impl From<Payload> for OwnedPayload {
     fn from(payload: Payload) -> Self {
         OwnedPayload {
@@ -52,16 +39,13 @@ impl From<Payload> for OwnedPayload {
         }
     }
 }
-
 type Span = (u64, u64);
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum HintPlan {
     None,
     Dense(Span),
     Scattered(Vec<Span>),
 }
-
 fn plan_hints(ranges: &[Option<Span>]) -> HintPlan {
     let mut distinct: Vec<Span> = Vec::new();
     let mut seen: HashSet<Span> = HashSet::new();
@@ -102,7 +86,6 @@ fn plan_hints(ranges: &[Option<Span>]) -> HintPlan {
         HintPlan::Scattered(distinct)
     }
 }
-
 fn locate_hints(index: &dyn Index, ids: &[EntryId]) -> Vec<Option<Span>> {
     let none = vec![None; ids.len()];
     let (Some(min), Some(max)) = (ids.iter().min().copied(), ids.iter().max().copied())
@@ -128,32 +111,32 @@ fn locate_hints(index: &dyn Index, ids: &[EntryId]) -> Vec<Option<Span>> {
         })
         .collect()
 }
-
 struct Inner {
     index: IndexSlot,
-    advisor: Option<Arc<dyn MemoryAdvisor>>,
+    advisor: Option<Arc<dyn AdviceTarget>>,
     idle_after: Duration,
     tracked: Mutex<HashMap<Span, Instant>>,
 }
-
 impl Inner {
     fn tracked(&self) -> MutexGuard<'_, HashMap<Span, Instant>> {
         self.tracked.lock().unwrap_or_else(|e| e.into_inner())
     }
-
     fn hint(&self, offset: u64, len: u64, advice: Advice) {
-        let Some(advisor) = &self.advisor else {
+        let Some(target) = &self.advisor else {
             return;
         };
         if len == 0 {
             return;
         }
-        if let Err(err) = advisor.advise(offset, len, advice) {
+        let range = PageRange {
+            start: offset,
+            end: offset.saturating_add(len),
+        };
+        if let Err(err) = advise(target.as_ref(), advice, range) {
             warn!("memory advice {advice:?} for [{offset}, +{len}) failed: {err}");
         }
         self.tracked().insert((offset, len), Instant::now());
     }
-
     fn apply(&self, plan: &HintPlan) {
         match plan {
             HintPlan::None => {}
@@ -167,30 +150,25 @@ impl Inner {
             }
         }
     }
-
     fn read_all(index: &dyn Index, ids: &[EntryId]) -> Vec<OwnedPayload> {
         ids.iter().map(|&id| index.read(id).into()).collect()
     }
 }
-
-fn not_attached() -> TransferError {
-    TransferError(MSG_NOT_ATTACHED.to_string())
+fn not_attached() -> ResidencyError {
+    ResidencyError::NotAttached
 }
-
-fn join_failed<E>(_: E) -> TransferError {
-    TransferError(MSG_TASK_ABORTED.to_string())
+fn join_failed<E>(_: E) -> ResidencyError {
+    ResidencyError::TaskAborted
 }
-
 /// Keeps file-backed index data resident and reads entries through the blocking pool.
 pub struct IndexResidency {
     inner: Arc<Inner>,
 }
-
 impl IndexResidency {
     /// `advisor = None`: hints are no-ops. `idle_after`: idle threshold for cold marking.
     pub fn new(
         index: IndexSlot,
-        advisor: Option<Arc<dyn MemoryAdvisor>>,
+        advisor: Option<Arc<dyn AdviceTarget>>,
         idle_after: Duration,
     ) -> IndexResidency {
         IndexResidency {
@@ -202,21 +180,17 @@ impl IndexResidency {
             }),
         }
     }
-
-    fn index(&self) -> Result<Arc<dyn Index>, TransferError> {
+    fn index(&self) -> Result<Arc<dyn Index>, ResidencyError> {
         self.inner.index.get().cloned().ok_or_else(not_attached)
     }
-
     /// Synchronous pass-through to the index on the calling thread; `None` if not attached.
     pub fn read_direct(&self, id: EntryId) -> Option<Payload> {
         self.inner.index.get().map(|index| index.read(id))
     }
-
     /// Hints `WillNeed` for `range` and tracks it as used now.
     pub fn secure_residency(&self, range: ByteRange) {
         self.inner.hint(range.offset, range.len, Advice::WillNeed);
     }
-
     /// Marks tracked ranges idle for at least `idle_after` as cold and stops tracking them.
     pub fn mark_idle_cold(&self, now: Instant) -> usize {
         let Some(advisor) = &self.inner.advisor else {
@@ -237,33 +211,35 @@ impl IndexResidency {
             idle
         };
         for &(offset, len) in &idle {
-            if let Err(err) = advisor.advise(offset, len, Advice::Cold) {
+            let range = PageRange {
+                start: offset,
+                end: offset.saturating_add(len),
+            };
+            if let Err(err) = advise(advisor.as_ref(), Advice::Cold, range) {
                 warn!("cold advice for [{offset}, +{len}) failed: {err}");
             }
         }
         idle.len()
     }
-
     /// Reads a single entry; `hint` is the entry's hint range, if known.
     pub async fn read_entry(
         &self,
         id: EntryId,
         hint: Option<ByteRange>,
-    ) -> Result<OwnedPayload, TransferError> {
+    ) -> Result<OwnedPayload, ResidencyError> {
         let index = self.index()?;
         if let Some(range) = hint {
             self.inner.hint(range.offset, range.len, Advice::WillNeed);
         }
-        tokio::task::spawn_blocking(move || OwnedPayload::from(index.read(id)))
+        read_blocking(move || OwnedPayload::from(index.read(id)))
             .await
             .map_err(join_failed)
     }
-
     /// Reads several entries in input order with an access pattern derived from their hints.
     pub async fn read_entries(
         &self,
         entries: &[(EntryId, Option<ByteRange>)],
-    ) -> Result<Vec<OwnedPayload>, TransferError> {
+    ) -> Result<Vec<OwnedPayload>, ResidencyError> {
         if entries.is_empty() {
             return Ok(Vec::new());
         }
@@ -274,23 +250,22 @@ impl IndexResidency {
             .collect();
         self.inner.apply(&plan_hints(&spans));
         let ids: Vec<EntryId> = entries.iter().map(|(id, _)| *id).collect();
-        tokio::task::spawn_blocking(move || Inner::read_all(index.as_ref(), &ids))
+        read_blocking(move || Inner::read_all(index.as_ref(), &ids))
             .await
             .map_err(join_failed)
     }
-
     /// Like `read_entries`, but the hint ranges are requested from the index.
     pub async fn read_entries_auto(
         &self,
         ids: &[EntryId],
-    ) -> Result<Vec<OwnedPayload>, TransferError> {
+    ) -> Result<Vec<OwnedPayload>, ResidencyError> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
         let index = self.index()?;
         let inner = Arc::clone(&self.inner);
         let ids = ids.to_vec();
-        tokio::task::spawn_blocking(move || {
+        read_blocking(move || {
                 let spans = locate_hints(index.as_ref(), &ids);
                 inner.apply(&plan_hints(&spans));
                 Inner::read_all(index.as_ref(), &ids)
@@ -299,7 +274,6 @@ impl IndexResidency {
             .map_err(join_failed)
     }
 }
-
 #[cfg(test)]
 #[path = "test/index_residency.rs"]
 mod tests;

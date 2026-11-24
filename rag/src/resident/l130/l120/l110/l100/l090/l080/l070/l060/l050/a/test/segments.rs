@@ -5,7 +5,7 @@ use std::thread;
 use super::super::super::l040::l030::a::region_handle::Generation;
 use super::super::super::l040::l030::l020::a::memory_access::RegionBackend;
 static_assertions::assert_impl_all!(SegmentStore : Send, Sync);
-static_assertions::assert_impl_all!(SlotError : Send, Sync);
+static_assertions::assert_impl_all!(SegmentError : Send, Sync);
 #[derive(Debug)]
 struct MemBackend {
     bytes: Mutex<Vec<u8>>,
@@ -51,7 +51,7 @@ fn store_with(slot_size: u64, len: u64) -> (SegmentStore, SegmentId) {
 }
 #[test]
 fn zero_slot_size_is_rejected() {
-    assert_eq!(SegmentStore::new(0).err(), Some(SlotError::InvalidSlotSize));
+    assert_eq!(SegmentStore::new(0).err(), Some(SegmentError::InvalidSlotSize));
     assert_eq!(SegmentStore::new(8).unwrap().slot_size(), 8);
 }
 #[test]
@@ -59,15 +59,16 @@ fn add_segment_validation_order() {
     let store = SegmentStore::new(16).unwrap();
     let wrong = handle_at(ArenaKind::Weights, 0, 8);
     assert_eq!(
-        store.add_segment(wrong, mem(1)), Err(SlotError::WrongArena(ArenaKind::Weights))
+        store.add_segment(wrong, mem(1)),
+        Err(SegmentError::WrongArena(ArenaKind::Weights))
     );
     assert_eq!(
-        store.add_segment(seg_handle(0, 15), mem(1)), Err(SlotError::SegmentTooSmall {
+        store.add_segment(seg_handle(0, 15), mem(1)), Err(SegmentError::SegmentTooSmall {
         len : 15, slot_size : 16 })
     );
     assert_eq!(
-        store.add_segment(seg_handle(0, 32), mem(31)), Err(SlotError::BackingMismatch {
-        handle_len : 32, mem_len : 31 })
+        store.add_segment(seg_handle(0, 32), mem(31)), Err(SegmentError::BackingMismatch
+        { handle_len : 32, mem_len : 31 })
     );
     assert_eq!(store.stats().segments, 0);
 }
@@ -76,7 +77,7 @@ fn duplicate_region_is_rejected_but_other_fields_differ() {
     let store = SegmentStore::new(8).unwrap();
     let h = seg_handle(0, 32);
     store.add_segment(h, mem(32)).unwrap();
-    assert_eq!(store.add_segment(h, mem(32)), Err(SlotError::DuplicateRegion(h)));
+    assert_eq!(store.add_segment(h, mem(32)), Err(SegmentError::DuplicateRegion(h)));
     let other_gen = RegionHandle::new(ArenaKind::IndexSegments, 0, 32, Generation(1))
         .unwrap();
     assert!(store.add_segment(other_gen, mem(32)).is_ok());
@@ -121,7 +122,7 @@ fn put_picks_lowest_free_slot_across_segments() {
     assert_eq!(
         store.put(EntryId(9), b"y").unwrap(), SlotRef { segment : a, slot : Slot(1) }
     );
-    assert_eq!(store.put(EntryId(10), b"z"), Err(SlotError::NoFreeSlot));
+    assert_eq!(store.put(EntryId(10), b"z"), Err(SegmentError::NoFreeSlot));
     assert_eq!(store.slot_of(EntryId(10)), None);
     assert_eq!(
         store.stats(), SegmentStats { segments : 2, slots_total : 4, slots_used : 4 }
@@ -150,7 +151,7 @@ fn empty_payload_zeroes_slot() {
 fn payload_too_large_changes_nothing() {
     let (store, _) = store_with(4, 8);
     assert_eq!(
-        store.put(EntryId(1), & [0; 5]), Err(SlotError::PayloadTooLarge { len : 5,
+        store.put(EntryId(1), & [0; 5]), Err(SegmentError::PayloadTooLarge { len : 5,
         slot_size : 4 })
     );
     assert_eq!(store.slot_of(EntryId(1)), None);
@@ -174,17 +175,18 @@ fn trailing_remainder_is_unused() {
     assert_eq!(store.slot_count(id), Some(2));
     store.put(EntryId(1), b"a").unwrap();
     store.put(EntryId(2), b"b").unwrap();
-    assert_eq!(store.put(EntryId(3), b"c"), Err(SlotError::NoFreeSlot));
+    assert_eq!(store.put(EntryId(3), b"c"), Err(SegmentError::NoFreeSlot));
 }
 #[test]
 fn read_errors_and_partial_reads() {
     let (store, _) = store_with(4, 8);
     assert_eq!(
-        store.read(EntryId(1), & mut [0u8; 1]), Err(SlotError::UnknownEntry(EntryId(1)))
+        store.read(EntryId(1), & mut [0u8; 1]),
+        Err(SegmentError::UnknownEntry(EntryId(1)))
     );
     store.put(EntryId(1), &[1, 2, 3, 4]).unwrap();
     assert_eq!(
-        store.read(EntryId(1), & mut [0u8; 5]), Err(SlotError::OutOfBounds { len : 5,
+        store.read(EntryId(1), & mut [0u8; 5]), Err(SegmentError::OutOfBounds { len : 5,
         slot_size : 4 })
     );
     let mut two = [0u8; 2];
@@ -200,7 +202,8 @@ fn remove_keeps_bytes_until_next_put() {
     assert_eq!(store.remove(EntryId(1)), None);
     assert_eq!(store.entry_at(slot), None);
     assert_eq!(
-        store.read(EntryId(1), & mut [0u8; 1]), Err(SlotError::UnknownEntry(EntryId(1)))
+        store.read(EntryId(1), & mut [0u8; 1]),
+        Err(SegmentError::UnknownEntry(EntryId(1)))
     );
     let again = store.put(EntryId(2), &[1]).unwrap();
     assert_eq!(again, slot);
@@ -226,7 +229,7 @@ fn mapping_lookup_and_entries_in_order() {
     assert_eq!(store.entry_at(SlotRef { segment : id, slot : Slot(1) }), None);
     assert_eq!(store.entry_at(SlotRef { segment : SegmentId(7), slot : Slot(0) }), None);
     assert_eq!(
-        store.entries_in(SegmentId(7)), Err(SlotError::UnknownSegment(SegmentId(7)))
+        store.entries_in(SegmentId(7)), Err(SegmentError::UnknownSegment(SegmentId(7)))
     );
 }
 #[test]
@@ -246,11 +249,12 @@ fn remove_segment_returns_sorted_entries_and_drops_mapping() {
     assert_eq!(store.slot_of(EntryId(5)), None);
     assert_eq!(store.slot_of(EntryId(2)), None);
     assert_eq!(
-        store.read(EntryId(2), & mut [0u8; 1]), Err(SlotError::UnknownEntry(EntryId(2)))
+        store.read(EntryId(2), & mut [0u8; 1]),
+        Err(SegmentError::UnknownEntry(EntryId(2)))
     );
     assert_eq!(store.entry_at(SlotRef { segment : a, slot : Slot(0) }), None);
     assert_eq!(store.slot_of(EntryId(9)), Some(SlotRef { segment : b, slot : Slot(0) }));
-    assert_eq!(store.remove_segment(a), Err(SlotError::UnknownSegment(a)));
+    assert_eq!(store.remove_segment(a), Err(SegmentError::UnknownSegment(a)));
     assert_eq!(store.segment_ids(), vec![b]);
     assert!(store.add_segment(h1, mem(8)).is_ok());
 }
@@ -261,9 +265,9 @@ fn backend_failure_leaves_mapping_untouched() {
     let id = store.add_segment(seg_handle(0, 8), mem_with(8, &fail)).unwrap();
     store.put(EntryId(1), &[1, 1, 1, 1]).unwrap();
     fail.store(true, Ordering::SeqCst);
-    assert!(matches!(store.put(EntryId(2), b"x"), Err(SlotError::Access(_))));
+    assert!(matches!(store.put(EntryId(2), b"x"), Err(SegmentError::Access(_))));
     assert_eq!(store.slot_of(EntryId(2)), None);
-    assert!(matches!(store.put(EntryId(1), & [2; 4]), Err(SlotError::Access(_))));
+    assert!(matches!(store.put(EntryId(1), & [2; 4]), Err(SegmentError::Access(_))));
     assert_eq!(
         store.slot_of(EntryId(1)), Some(SlotRef { segment : id, slot : Slot(0) })
     );
@@ -282,7 +286,8 @@ fn segment_desc_and_entry_of_addr() {
         stride : 16 } }
     );
     assert_eq!(
-        store.segment_desc(SegmentId(5), 0), Err(SlotError::UnknownSegment(SegmentId(5)))
+        store.segment_desc(SegmentId(5), 0),
+        Err(SegmentError::UnknownSegment(SegmentId(5)))
     );
     store.put(EntryId(7), b"a").unwrap();
     store.put(EntryId(8), b"b").unwrap();
@@ -327,7 +332,7 @@ fn concurrent_puts_get_distinct_slots() {
     assert_eq!(all.len(), 64);
     assert_eq!(store.stats().slots_used, 64);
     assert_eq!(store.entries_in(id).unwrap().len(), 64);
-    assert_eq!(store.put(EntryId(999), b"x"), Err(SlotError::NoFreeSlot));
+    assert_eq!(store.put(EntryId(999), b"x"), Err(SegmentError::NoFreeSlot));
 }
 #[test]
 fn concurrent_puts_for_same_entry_do_not_mix() {
@@ -355,29 +360,29 @@ fn concurrent_puts_for_same_entry_do_not_mix() {
 #[test]
 fn error_display_is_non_empty() {
     let errors = [
-        SlotError::InvalidSlotSize,
-        SlotError::WrongArena(ArenaKind::Weights),
-        SlotError::SegmentTooSmall {
+        SegmentError::InvalidSlotSize,
+        SegmentError::WrongArena(ArenaKind::Weights),
+        SegmentError::SegmentTooSmall {
             len: 1,
             slot_size: 2,
         },
-        SlotError::BackingMismatch {
+        SegmentError::BackingMismatch {
             handle_len: 1,
             mem_len: 2,
         },
-        SlotError::UnknownSegment(SegmentId(1)),
-        SlotError::DuplicateRegion(seg_handle(0, 1)),
-        SlotError::NoFreeSlot,
-        SlotError::PayloadTooLarge {
+        SegmentError::UnknownSegment(SegmentId(1)),
+        SegmentError::DuplicateRegion(seg_handle(0, 1)),
+        SegmentError::NoFreeSlot,
+        SegmentError::PayloadTooLarge {
             len: 3,
             slot_size: 2,
         },
-        SlotError::UnknownEntry(EntryId(1)),
-        SlotError::OutOfBounds {
+        SegmentError::UnknownEntry(EntryId(1)),
+        SegmentError::OutOfBounds {
             len: 3,
             slot_size: 2,
         },
-        SlotError::Access(AccessError::Backend("x".into())),
+        SegmentError::Access(AccessError::Backend("x".into())),
     ];
     for e in errors {
         assert!(! e.to_string().is_empty());

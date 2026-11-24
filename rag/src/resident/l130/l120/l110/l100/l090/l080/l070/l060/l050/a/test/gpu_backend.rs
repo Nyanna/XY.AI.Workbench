@@ -5,7 +5,6 @@ fn assert_thread_safe<T: Send + Sync + 'static>() {}
 fn types_are_send_sync_static() {
     assert_thread_safe::<GpuBackend>();
     assert_thread_safe::<PinnedBuffer>();
-    assert_thread_safe::<StagingRing>();
     assert_thread_safe::<BackendError>();
 }
 const TEST_MIB: u64 = 1024 * 1024;
@@ -31,8 +30,7 @@ fn backend() -> Option<GpuBackend> {
     }
 }
 fn pinned(b: &GpuBackend, data: &[u8]) -> PinnedBuffer {
-    let mut ring = b.create_staging_ring(1, data.len()).unwrap();
-    let mut buf = std::mem::replace(&mut ring.buffers[0], PinnedBuffer::empty());
+    let mut buf = b.allocate_pinned(data.len()).unwrap();
     buf.as_mut_slice().copy_from_slice(data);
     buf
 }
@@ -53,23 +51,6 @@ fn error_display_texts() {
         BackendError::DeviceMemoryUnavailable("x".into()).to_string(),
         "Device-Speicher nicht verfügbar: x"
     );
-}
-#[test]
-fn empty_ring_has_no_index() {
-    let ring = StagingRing::from_buffers(Vec::new());
-    assert_eq!(ring.len(), 0);
-    assert_eq!(ring.next_index(), None);
-    assert!(ring.get(0).is_none());
-}
-#[test]
-fn ring_indices_wrap_round_robin() {
-    let ring = StagingRing::from_buffers(
-        vec![PinnedBuffer::empty(), PinnedBuffer::empty(), PinnedBuffer::empty(),],
-    );
-    let seen: Vec<_> = (0..7).filter_map(|_| ring.next_index()).collect();
-    assert_eq!(seen, vec![0, 1, 2, 0, 1, 2, 0]);
-    assert_eq!(ring.buffer_size(), 0);
-    assert!(ring.get(2).unwrap().is_empty());
 }
 #[test]
 fn creation_reports_layout_and_zeroed_state() {
@@ -224,17 +205,14 @@ fn deferred_free_keeps_region_live_until_event_completes() {
     assert_eq!(again.offset(), r.offset());
 }
 #[test]
-fn staging_ring_buffers_are_zeroed_and_sized() {
+fn pinned_buffers_are_zeroed_and_sized() {
     let Some(b) = backend() else { return };
-    let ring = b.create_staging_ring(3, 4096).unwrap();
-    assert_eq!((ring.len(), ring.buffer_size()), (3, 4096));
-    assert!(ring.get(2).unwrap().as_slice().iter().all(|& v | v == 0));
-    assert!(ring.get(3).is_none());
-    assert_eq!(b.create_staging_ring(0, 64).unwrap().len(), 0);
-    let zero = b.create_staging_ring(2, 0).unwrap();
-    assert_eq!(zero.get(0).unwrap().len(), 0);
+    let buf = b.allocate_pinned(4096).unwrap();
+    assert_eq!(buf.len(), 4096);
+    assert!(buf.as_slice().iter().all(|& v | v == 0));
+    assert!(b.allocate_pinned(0).unwrap().is_empty());
     assert!(
-        matches!(b.create_staging_ring(usize::MAX, 2),
+        matches!(b.allocate_pinned(usize::MAX),
         Err(BackendError::DeviceMemoryUnavailable(_)))
     );
 }

@@ -5,13 +5,12 @@ pub use super::super::l060::l050::a::segments::{SegmentId, SlotRef};
 use super::super::l060::l050::l040::l030::l020::a::index_contract::{
     EntryId, Index, Payload, Stamp, StampObserver,
 };
-use super::super::l060::l050::l040::l030::l020::l010::change_stamp::ChangeStamp;
 pub const MAX_LOAD_RETRIES: u32 = 8;
 const WAIT_SLICE: Duration = Duration::from_millis(100);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resident {
     pub slot: SlotRef,
-    pub stamp: ChangeStamp,
+    pub stamp: Stamp,
 }
 #[derive(Debug, Default)]
 pub struct ResidencyDirectory {
@@ -26,10 +25,7 @@ impl ResidencyDirectory {
     }
     /// Inserts or replaces; returns the previous entry.
     pub fn insert(&self, id: EntryId, slot: SlotRef, known: Stamp) -> Option<Resident> {
-        let resident = Resident {
-            slot,
-            stamp: ChangeStamp::from_raw(known.0),
-        };
+        let resident = Resident { slot, stamp: known };
         self.lock().insert(id, resident)
     }
     pub fn remove(&self, id: EntryId) -> Option<Resident> {
@@ -38,7 +34,7 @@ impl ResidencyDirectory {
     pub fn get(&self, id: EntryId) -> Option<Resident> {
         self.lock().get(&id).copied()
     }
-    pub fn stamp(&self, id: EntryId) -> Option<ChangeStamp> {
+    pub fn stamp(&self, id: EntryId) -> Option<Stamp> {
         self.lock().get(&id).map(|r| r.stamp)
     }
     /// Records the return stamp of an own write as known; the slot stays unchanged.
@@ -46,7 +42,7 @@ impl ResidencyDirectory {
     pub fn set_known_stamp(&self, id: EntryId, known: Stamp) -> bool {
         match self.lock().get_mut(&id) {
             Some(resident) => {
-                resident.stamp = ChangeStamp::from_raw(known.0);
+                resident.stamp = known;
                 true
             }
             None => false,
@@ -166,9 +162,7 @@ impl Reconciler {
         for (id, resident) in dir.iter() {
             match index.stamp(id) {
                 None => removed.push(id),
-                Some(stamp) if ChangeStamp::from_raw(stamp.0) != resident.stamp => {
-                    reload.push(id)
-                }
+                Some(stamp) if stamp != resident.stamp => reload.push(id),
                 Some(_) => current += 1,
             }
         }

@@ -18,7 +18,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::{
     AccessMethod, IndexError, Payload, Stamp, StampObserver,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::change_stamp::ChangeStamp;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::layout::DType;
 use self::hit_queues::{channel, HitProducer, WriteProducer};
 use self::hit_resolution::SegmentBinding;
@@ -312,8 +311,8 @@ impl Env {
 }
 #[test]
 fn error_display() {
-    assert_eq!(SlotError::NoIndexAttached.to_string(), "kein Index angeh\u{e4}ngt");
-    assert_eq!(SlotError::StaleMapping.to_string(), "stale Mapping");
+    assert_eq!(CompletionError::NoIndexAttached.to_string(), "no index attached");
+    assert_eq!(CompletionError::StaleMapping.to_string(), "stale mapping");
 }
 #[test]
 fn without_index_nothing_happens() {
@@ -323,14 +322,14 @@ fn without_index_nothing_happens() {
     env.push_hit(seg1(0), 0.5);
     env.pend(1);
     let batch = env.batch();
-    assert_eq!(env.slot.try_complete(& batch), Err(SlotError::NoIndexAttached));
-    assert_eq!(env.slot.complete(& batch), Err(SlotError::NoIndexAttached));
+    assert_eq!(env.slot.try_complete(& batch), Err(CompletionError::NoIndexAttached));
+    assert_eq!(env.slot.complete(& batch), Err(CompletionError::NoIndexAttached));
     assert_eq!(env.slot.consumer.write_depth(), 1);
     assert_eq!(env.slot.consumer.hit_depth(), 1);
     assert!(events(& env.log).is_empty());
     env.slot.attach_index(env.index.clone());
     env.slot.detach_index();
-    assert_eq!(env.slot.complete(& batch), Err(SlotError::NoIndexAttached));
+    assert_eq!(env.slot.complete(& batch), Err(CompletionError::NoIndexAttached));
 }
 #[test]
 fn writes_are_read_back_and_upserted() {
@@ -358,7 +357,7 @@ fn writes_are_read_back_and_upserted() {
     for id in [1u64, 2] {
         let stamp = env.index.stamp(EntryId(id)).unwrap();
         let known = env.residency.lock().unwrap().get(EntryId(id)).unwrap().stamp;
-        assert_eq!(known, ChangeStamp::from_raw(stamp.0));
+        assert_eq!(known, stamp);
     }
     assert_eq!(
         events(& env.log), vec!["snapshot".to_string(), read_event(seg1(0)),
@@ -481,7 +480,7 @@ fn failed_index_write_consumes_the_write() {
     assert_eq!(r.progress_bytes, 2 * SLOT_BYTES);
     assert_eq!(env.slot.deferred_len(), 0);
     let known = env.residency.lock().unwrap().get(EntryId(1)).unwrap().stamp;
-    assert_eq!(known, ChangeStamp::from_raw(1));
+    assert_eq!(known, Stamp(1));
 }
 #[test]
 fn every_write_is_accounted_for() {
@@ -562,7 +561,7 @@ fn stale_mapping_is_reported_without_side_effects() {
     env.push_hit(seg1(0) + 16, 0.5);
     env.pend(1);
     let older = Arc::clone(&env.manifests[0]);
-    assert_eq!(env.slot.try_complete(& older), Err(SlotError::StaleMapping));
+    assert_eq!(env.slot.try_complete(& older), Err(CompletionError::StaleMapping));
     assert_eq!(events(& env.log), vec!["snapshot".to_string()]);
     assert_eq!(env.slot.consumer.write_depth(), 1);
     assert_eq!(env.slot.consumer.hit_depth(), 1);

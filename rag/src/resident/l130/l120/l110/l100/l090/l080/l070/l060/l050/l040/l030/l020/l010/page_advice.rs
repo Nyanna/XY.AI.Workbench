@@ -1,5 +1,5 @@
 //! Non-binding page-cache hints per byte range and blocking reads in the async runtime's blocking pool.
-use std::{io, sync::Arc};
+use std::{io, sync::{Arc, RwLock}};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Advice {
     WillNeed,
@@ -9,7 +9,7 @@ pub enum Advice {
 }
 /// Half-open byte range [start, end).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ByteRange {
+pub struct PageRange {
     pub start: u64,
     pub end: u64,
 }
@@ -34,10 +34,10 @@ pub trait AdviceTarget: Send + Sync {
     /// Length of the target in bytes.
     fn len(&self) -> u64;
     /// Apply advice. The range is already validated and non-empty.
-    fn advise(&self, advice: Advice, range: ByteRange) -> Result<(), AdviceError>;
+    fn advise(&self, advice: Advice, range: PageRange) -> Result<(), AdviceError>;
 }
 /// Validation only: start<=end, end<=len.
-pub fn check_range(range: ByteRange, len: u64) -> Result<(), AdviceError> {
+pub fn check_range(range: PageRange, len: u64) -> Result<(), AdviceError> {
     if range.start > range.end {
         return Err(AdviceError::StartAfterEnd {
             start: range.start,
@@ -56,7 +56,7 @@ pub fn check_range(range: ByteRange, len: u64) -> Result<(), AdviceError> {
 pub fn advise(
     target: &dyn AdviceTarget,
     advice: Advice,
-    range: ByteRange,
+    range: PageRange,
 ) -> Result<(), AdviceError> {
     check_range(range, target.len())?;
     if range.start == range.end {
@@ -65,7 +65,7 @@ pub fn advise(
     target.advise(advice, range)
 }
 /// Equivalent to `advise(target, Advice::WillNeed, range)`.
-pub fn prefetch(target: &dyn AdviceTarget, range: ByteRange) -> Result<(), AdviceError> {
+pub fn prefetch(target: &dyn AdviceTarget, range: PageRange) -> Result<(), AdviceError> {
     advise(target, Advice::WillNeed, range)
 }
 /// Concrete target over a memory mapping.
@@ -77,7 +77,7 @@ impl MmapAdvisor {
         Self { map }
     }
     #[cfg(target_os = "linux")]
-    fn advise_cold(&self, range: ByteRange) -> Result<(), AdviceError> {
+    fn advise_cold(&self, range: PageRange) -> Result<(), AdviceError> {
         const MADV_COLD: libc::c_int = 20;
         let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
         if page <= 0 {
@@ -94,7 +94,7 @@ impl MmapAdvisor {
         Ok(())
     }
     #[cfg(not(target_os = "linux"))]
-    fn advise_cold(&self, _range: ByteRange) -> Result<(), AdviceError> {
+    fn advise_cold(&self, _range: PageRange) -> Result<(), AdviceError> {
         Ok(())
     }
 }
@@ -102,7 +102,7 @@ impl AdviceTarget for MmapAdvisor {
     fn len(&self) -> u64 {
         self.map.len() as u64
     }
-    fn advise(&self, advice: Advice, range: ByteRange) -> Result<(), AdviceError> {
+    fn advise(&self, advice: Advice, range: PageRange) -> Result<(), AdviceError> {
         let native = match advice {
             Advice::WillNeed => memmap2::Advice::WillNeed,
             Advice::Sequential => memmap2::Advice::Sequential,
@@ -116,6 +116,37 @@ impl AdviceTarget for MmapAdvisor {
                 (range.end - range.start) as usize,
             )?;
         Ok(())
+    }
+}
+/// Hint target bound later to the mapping of a lazily opened file.
+/// While unbound it accepts every range and ignores it.
+#[derive(Default)]
+pub struct AdviceSlot {
+    target: RwLock<Option<Arc<dyn AdviceTarget>>>,
+}
+impl AdviceSlot {
+    pub fn set(&self, target: Arc<dyn AdviceTarget>) {
+        *self.target.write().unwrap_or_else(|e| e.into_inner()) = Some(target);
+    }
+    pub fn clear(&self) {
+        *self.target.write().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+    pub fn is_bound(&self) -> bool {
+        self.current().is_some()
+    }
+    fn current(&self) -> Option<Arc<dyn AdviceTarget>> {
+        self.target.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+impl AdviceTarget for AdviceSlot {
+    fn len(&self) -> u64 {
+        self.current().map_or(u64::MAX, |t| t.len())
+    }
+    fn advise(&self, advice: Advice, range: PageRange) -> Result<(), AdviceError> {
+        match self.current() {
+            Some(target) => target.advise(advice, range),
+            None => Ok(()),
+        }
     }
 }
 /// Read without advice: runs `f` in the blocking pool.
@@ -134,7 +165,7 @@ where
 /// `advice: None` means `Advice::WillNeed`; `source: None` means no hint.
 pub async fn read_with_advice<T, F>(
     source: Option<Arc<dyn AdviceTarget>>,
-    range: ByteRange,
+    range: PageRange,
     advice: Option<Advice>,
     f: F,
 ) -> Result<T, BlockingError>

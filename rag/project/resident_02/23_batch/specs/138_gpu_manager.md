@@ -50,8 +50,7 @@ Crate module `gpu_manager`.
 ```rust
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use change_stamp::ChangeStamp;
-use index_contract::{EntryId, Index, IndexError, Stamp};
+use index_contract::{EntryId, Index, IndexError, Stamp};   // Stamp is defined in change_stamp and re-exported
 use scopes::{EntrySet, Scope};
 use scope_resolution::{CellSelector, ResolveError, ScopeResolverRegistry};
 use reconcile::{Reconciliation, ResidencyDirectory};
@@ -137,7 +136,7 @@ pub enum GpuManagerError {
 
 /// Binding delivered with a loaded segment; becomes an Update (Bind) in the UpdateQueue.
 #[derive(Clone, Copy, Debug)]
-pub struct LoadedBinding { pub entry: EntryRef, pub slot: Slot, pub stamp: ChangeStamp }
+pub struct LoadedBinding { pub entry: EntryRef, pub slot: Slot, pub stamp: Stamp }
 
 /// A filled segment that is not yet visible to readers.
 pub struct LoadedSegment {
@@ -328,7 +327,7 @@ Further rules:
 1. Under the records lock, take the newest record or unpublished segment that has a writer and a free slot. `writer.reserve(EntryRef{id, 0}, tokens, None)` returns the reservation. On `NoFreeSlot`, create a new segment (below) and reserve once more. Add the entry to `in_flight` if its segment is not published.
 2. Without a lock: decode the payload rows to f32 (`half` for F16 and BF16), build the slot with `view.encode_slot(tokens, &values)` (padding rows get the mask value), and call `subengine.write_visible(&handle, res.target.start - handle.offset(), &bytes)`. An error gives `Memory(e)`.
 3. `event.wait()`, then `writer.commit(&res, &event)`. The commit binds the slot and sets the valid bit last. A failure gives `SlotWrite(e)`. The entry stays out of `in_flight`, and its reserved slot stays unused.
-4. Record the binding `(EntryRef, slot, ChangeStamp::from_raw(le.stamp.0))`.
+4. Record the binding `(EntryRef, slot, le.stamp)`.
    - If the segment is published: `updates.push_bind(entry_ref, SlotRef{segment: id, slot}, stamp)` right away.
    - If it is not published: keep the binding with the unpublished segment.
 5. Add `slot_bytes` to `bytes_moved`.
@@ -477,7 +476,7 @@ The valid bit is cleared here and not at the time of the update, because mapping
    - A vector length that is not a multiple of `row_bytes` gives `failed(InvalidVector)`.
    - Otherwise call `IndexWriter::write(id, PayloadRef{vector, meta})`.
      - An `IndexError` gives `failed(IndexWrite(e))`.
-     - Success gives `written.push((id, Stamp(identity.stamp.as_raw())))`.
+     - Success gives `written.push((id, identity.stamp))`.
      - If `placed` is `Some(slot_ref)`, call `updates.push_bind(EntryRef{id, 0}, slot_ref, identity.stamp)`. The entry becomes resident in the next gap with exactly the stamp of this write.
      - Else if the entry is resident, call `directory.set_known_stamp(id, stamp)` with exactly the stamp returned by the write. This is echo suppression, so the next reconcile does not reload the entry.
      - A non-resident entry without `placed` only gets the index write.
@@ -487,7 +486,7 @@ The valid bit is cleared here and not at the time of the update, because mapping
 **`mirrored_index()`** returns an `Index` that wraps the index from `LazyIndex::get`. It forwards every method unchanged, with one addition for `write` and `write_many`:
 
 - After a successful write with stamp `s`, if the entry is not in the directory and has no pending update, look for a slot of the entry in the published records (`assignment.slot_of_entry(EntryRef{id, 0})` with a set valid bit).
-- If there is one, call `updates.push_bind(EntryRef{id, 0}, SlotRef{segment, slot}, ChangeStamp::from_raw(s.0))`.
+- If there is one, call `updates.push_bind(EntryRef{id, 0}, SlotRef{segment, slot}, s)`.
 - Reason: the Communication-Slot (119) calls `index.write` for slots that the kernel filled. It records the stamp with `set_known_stamp`, which ignores entries that are not resident. This addition makes a new GPU-built entry resident in the next gap with the stamp of its own write, so it is neither lost nor reloaded.
 - The wrapper adds no lock to the index. The index serializes its writers itself.
 - The Communication-Slot is attached with `attach_index(mirrored_index()?)`.
@@ -531,7 +530,7 @@ The valid bit is cleared here and not at the time of the update, because mapping
   - `EntryRef { entry: EntryId, section: u32 }`.
 - **`segment_writer` (101):** `SegmentWriter::new(view, device_base)`, `reserve(entry, tokens, centroid) -> Reservation{slot, target: Range<u64>, ..}`, `commit(&Reservation, &Event)`, `free_slots()`, `states()`, `assignment()`. Slots are handed out in ascending order and never reused. A commit binds the slot and sets the valid bit last.
 - **`update_queue` (109):**
-  - `UpdateQueue::{push_bind, push_unbind}(&self, EntryRef, SlotRef, ChangeStamp)`.
+  - `UpdateQueue::{push_bind, push_unbind}(&self, EntryRef, SlotRef, Stamp)`.
   - `contains`, `get`, `depth`, `apply(&self, &ResidencyDirectory, &AddressMap) -> usize`, `take_warnings`.
   - One update per entry; the newest replaces the older. `apply` runs Unbinds first, then Binds, and fills or empties the directory. It never changes `SlotStates`.
 - **`address_map` (083):** `Entry::new(SegmentId, SegmentView, Addr, Arc<SlotStates>, Arc<SlotAssignment>)`, `MappingStore::{next, publish, current}`, `AddressMap::{add, remove, get}` and `MapError::StaleMapping`.
@@ -551,8 +550,8 @@ The valid bit is cleared here and not at the time of the update, because mapping
   - The stamp from a write's return value goes into the directory (echo suppression). A later `stamp()` result must never be entered as an echo.
 - **`scope_resolution`:** `ScopeResolverRegistry::resolve(&self, &Scope, &ResolveContext{index: Option<&dyn Index>, cell_selector}) -> Result<EntrySet, ResolveError>`. It never falls back to all entries.
 - **`load_aggregation` (124):** `load_aggregated<I>(Vec<LoadRequest{index: I, scope}>, &ScopeResolverRegistry, &(dyn Fn(&I) -> Option<Arc<dyn Index>> + Sync), Option<&dyn CellSelector>) -> Vec<IndexLoad{index, result: Result<Loaded, ResolveError>}>`. `Loaded = Vec<(EntryId, Option<LoadedEntry>)>`, ascending. It blocks until the load is done.
-- **`consistency` (086):** `IndexWriter::new(Arc<dyn Index>)` and `write(id, PayloadRef{vector, meta}) -> Result<EntryIdentity{id, stamp: ChangeStamp}, IndexError>`. `ChangeStamp::{from_raw, as_raw}`.
-- **`index_contract`:** `EntryId(u64)`, `Stamp(u64)`, `IndexError`, `PayloadRef{vector, meta}`, `Index: Send + Sync` with `dtype`, `stamp`, `stamps`, `read`, `write`, `write_many`, `delete`, `subscribe` and the optional access methods. The index serializes its writers.
+- **`consistency` (086):** `IndexWriter::new(Arc<dyn Index>)` and `write(id, PayloadRef{vector, meta}) -> Result<EntryIdentity{id, stamp: Stamp}, IndexError>`.
+- **`index_contract`:** `EntryId(u64)`, `Stamp(u64)` (totally ordered, defined in `change_stamp`; it is the only stamp type), `IndexError`, `PayloadRef{vector, meta}`, `Index: Send + Sync` with `dtype`, `stamp`, `stamps`, `read`, `write`, `write_many`, `delete`, `subscribe` and the optional access methods. The index serializes its writers.
 - **`segment_arena`:** `SegmentArena<A>::allocate(len) -> Result<Segment{region: Region, offset, len}, SegmentArenaError>`, `release(&Segment, Readers::None)` and `Exhausted{requested, available}`. `offset` is 256-aligned and lies inside `region`.
 - **`region_handle`:** `RegionHandle::new(ArenaKind, offset, len, Generation(u64)) -> Result<RegionHandle, RegionError>`. A `bookkeeping::Region` generation is `u32`.
 - **`device_lane_event`:** `Event` (`wait`, `is_complete`) and `Lane`.

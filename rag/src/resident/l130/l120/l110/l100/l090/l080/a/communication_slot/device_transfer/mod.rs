@@ -18,7 +18,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     Event, EventError,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::page_advice::{
-    self, read_blocking, Advice, AdviceTarget, BlockingError, ByteRange as AdviceRange,
+    self, read_blocking, Advice, AdviceTarget, BlockingError, PageRange,
 };
 use self::staging_ring::{
     SlotId, StagingError, StagingRing, TransferDirection, TransferError,
@@ -431,7 +431,7 @@ impl DeviceTransfer {
         let Some(target) = self.source.advice_target() else {
             return;
         };
-        let range = AdviceRange {
+        let range = PageRange {
             start: offset,
             end: offset.saturating_add(len),
         };

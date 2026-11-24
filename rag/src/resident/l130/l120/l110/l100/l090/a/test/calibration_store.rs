@@ -1,7 +1,6 @@
 use super::*;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::calibration_run::{
-    BudgetStatus, Counters, DispersionKind, EstimatorKind, FrontPoint, ProbeError,
-    ReportEntry, SkipReason, Summary,
+    BudgetStatus, Counters, FrontPoint, ProbeError, ReportEntry, SkipReason, Summary,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::E5_SMALL_MODEL_ID;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::layout::DType;
@@ -74,39 +73,8 @@ impl CalibrationBackend for TestBackend {
         if let Some(g) = &self.gate {
             g.pass();
         }
-        let fast = c.0.get(&axes::batch_size()).map(|v| v.as_str()) == Some("8");
+        let fast = c.value(&axes::batch_size()).map(|v| v.as_str()) == Some("8");
         Ok(Duration::from_micros(if fast { 100 } else { 200 }))
-    }
-}
-struct TestStats;
-fn median(samples: &[f64]) -> f64 {
-    let mut s = samples.to_vec();
-    s.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    s[s.len() / 2]
-}
-impl Statistics for TestStats {
-    fn dispersion(&self, samples: &[f64], kind: DispersionKind) -> Option<f64> {
-        if samples.is_empty() {
-            return None;
-        }
-        let m = median(samples);
-        if m == 0.0 {
-            return None;
-        }
-        let max = samples.iter().cloned().fold(f64::MIN, f64::max);
-        let min = samples.iter().cloned().fold(f64::MAX, f64::min);
-        match kind {
-            DispersionKind::Cv | DispersionKind::RangeOverMedian => Some((max - min) / m),
-        }
-    }
-    fn estimate(&self, samples: &[f64], kind: EstimatorKind) -> Option<f64> {
-        if samples.is_empty() {
-            return None;
-        }
-        match kind {
-            EstimatorKind::Median => Some(median(samples)),
-            EstimatorKind::Minimum => samples.iter().cloned().reduce(f64::min),
-        }
     }
 }
 fn fingerprint(engine: &str) -> Fingerprint {
@@ -131,7 +99,6 @@ fn request(engine: &str, backend: TestBackend) -> CalibrationRequest {
         capabilities: caps(),
         model: ModelDescriptor::e5_small_repo_default(DType::F32),
         backend: Arc::new(backend),
-        stats: Arc::new(TestStats),
         config: CalibrationConfig {
             backoff: Duration::ZERO,
             ..CalibrationConfig::default()
@@ -146,7 +113,7 @@ fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<Axis, Value> {
     pairs.iter().map(|(a, v)| (Name::new(a), Name::new(v))).collect()
 }
 fn comb(pairs: &[(&str, &str)]) -> Combination {
-    Combination(cfg(pairs))
+    Combination::from_values(cfg(pairs)).unwrap()
 }
 fn record(engine: &str) -> CalibrationRecord {
     CalibrationRecord {
@@ -437,7 +404,7 @@ fn fallback_prefers_precision_and_first_value() {
         .with(axes::fusion(), "b")
         .with(axes::fusion(), "a")
         .with(axes::fusion(), "10");
-    let Combination(m) = most_precise_combination(&c);
+    let m = most_precise_combination(&c).values().clone();
     assert_eq!(m[& axes::operands()], values::fp32());
     assert_eq!(m[& axes::accumulator()], values::fp16_storage_fp32_compute());
     assert_eq!(m[& axes::scoring()], values::int8());
@@ -536,7 +503,7 @@ fn report_conversion_collects_annotations() {
     assert!(! r.profiles.is_empty());
     assert!(r.profiles.windows(2).all(| w | w[0].position <= w[1].position));
     for p in &r.profiles {
-        assert!(front().iter().any(| f | f.combination.0 == p.config));
+        assert!(front().iter().any(| f | * f.combination.values() == p.config));
     }
 }
 #[test]

@@ -1,33 +1,20 @@
 //! Benchmark-driven hardware calibration producing a Pareto front over time and deviation.
-
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use std::time::{Duration, Instant};
-
 use super::super::l020::a::model_descriptor::{ModelConfigError, ModelDescriptor};
 use super::super::l020::l010::capability_model::{axes, Axis, CapabilitySet, Value};
-
+use super::super::l020::l010::combination::check_name;
+pub use super::super::l020::l010::combination::{Combination, CombinationError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
     pub subengine: String,
     pub model_id: String,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Combination(pub BTreeMap<Axis, Value>);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DispersionKind {
-    Cv,
-    RangeOverMedian,
+/// Sets a value on a combination whose names were validated before the run.
+fn put(c: &mut Combination, axis: &Axis, value: &Value) {
+    let _ = c.set(axis.clone(), value.clone());
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EstimatorKind {
-    Median,
-    Minimum,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalibrationConfig {
     pub max_deviation: f64,
@@ -36,8 +23,8 @@ pub struct CalibrationConfig {
     pub stability_threshold: f64,
     pub chunk_budget: Duration,
     pub backoff: Duration,
-    pub dispersion: DispersionKind,
-    pub estimator: EstimatorKind,
+    pub dispersion: Dispersion,
+    pub estimator: Estimator,
     pub max_attempts: usize,
     pub max_duration: Option<Duration>,
     pub total_budget: Option<Duration>,
@@ -47,7 +34,6 @@ pub struct CalibrationConfig {
     pub seq_start: usize,
     pub seq_factor: usize,
 }
-
 impl Default for CalibrationConfig {
     fn default() -> Self {
         CalibrationConfig {
@@ -57,20 +43,21 @@ impl Default for CalibrationConfig {
             stability_threshold: 0.05,
             chunk_budget: Duration::from_millis(5),
             backoff: Duration::from_millis(5),
-            dispersion: DispersionKind::Cv,
-            estimator: EstimatorKind::Median,
+            dispersion: Dispersion::CoefficientOfVariation,
+            estimator: Estimator::Median,
             max_attempts: 40,
             max_duration: Some(Duration::from_secs(30)),
             total_budget: Some(Duration::from_secs(600)),
             dominance_margin: 0.10,
-            separable_axes: vec![axes::batch_size(), axes::tile_size(), axes::thread_count()],
+            separable_axes: vec![
+                axes::batch_size(), axes::tile_size(), axes::thread_count()
+            ],
             full_product: false,
             seq_start: 16,
             seq_factor: 4,
         }
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProbeError {
     Failed(String),
@@ -79,7 +66,6 @@ pub enum ProbeError {
     Unavailable,
     Fatal(String),
 }
-
 pub trait CalibrationBackend: Send + Sync {
     fn deviation(&self, c: &Combination, seq_lens: &[usize]) -> Result<f64, ProbeError>;
     fn time(
@@ -90,19 +76,12 @@ pub trait CalibrationBackend: Send + Sync {
         chunk_budget: Duration,
     ) -> Result<Duration, ProbeError>;
 }
-
-pub trait Statistics: Send + Sync {
-    fn dispersion(&self, samples: &[f64], kind: DispersionKind) -> Option<f64>;
-    fn estimate(&self, samples: &[f64], kind: EstimatorKind) -> Option<f64>;
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Axis,
     Verification,
     Full,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiscardReason {
     Failed(String),
@@ -110,13 +89,11 @@ pub enum DiscardReason {
     ExceedsMax,
     Other(String),
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkipReason {
     Budget,
     DeviceUnavailable,
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Outcome {
     Dominated,
@@ -130,28 +107,24 @@ pub enum Outcome {
         uncertainty: f64,
     },
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReportEntry {
     pub stage: Stage,
     pub combination: Combination,
     pub outcome: Outcome,
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrontPoint {
     pub combination: Combination,
     pub time: Duration,
     pub deviation: f64,
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct BudgetStatus {
     pub limit: Option<Duration>,
     pub elapsed: Duration,
     pub exhausted: bool,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Counters {
     pub measured: usize,
@@ -163,13 +136,11 @@ pub struct Counters {
     pub attempts: usize,
     pub interruptions: usize,
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Summary {
     pub front: Vec<FrontPoint>,
     pub candidate_count: usize,
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalibrationReport {
     pub target: Target,
@@ -181,28 +152,30 @@ pub struct CalibrationReport {
     pub counters: Counters,
     pub log: Vec<String>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalibrationError {
     Capability,
+    InvalidName(String),
     Model(String),
     TargetMismatch,
     Backend(String),
 }
-
 impl fmt::Display for CalibrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CalibrationError::Capability => write!(f, "empty capability set"),
+            CalibrationError::InvalidName(n) => {
+                write!(f, "invalid axis or value name: {n}")
+            }
             CalibrationError::Model(r) => write!(f, "invalid model descriptor: {r}"),
-            CalibrationError::TargetMismatch => write!(f, "target model id does not match model"),
+            CalibrationError::TargetMismatch => {
+                write!(f, "target model id does not match model")
+            }
             CalibrationError::Backend(m) => write!(f, "backend failure: {m}"),
         }
     }
 }
-
 impl std::error::Error for CalibrationError {}
-
 pub fn sequence_lengths(max_seq_len: usize, start: usize, factor: usize) -> Vec<usize> {
     if max_seq_len < start {
         return vec![max_seq_len];
@@ -222,7 +195,6 @@ pub fn sequence_lengths(max_seq_len: usize, start: usize, factor: usize) -> Vec<
     }
     out
 }
-
 fn sort_values(set: &std::collections::BTreeSet<Value>) -> Vec<Value> {
     let mut numeric: Vec<(u64, Value)> = Vec::new();
     let mut other: Vec<Value> = Vec::new();
@@ -240,36 +212,29 @@ fn sort_values(set: &std::collections::BTreeSet<Value>) -> Vec<Value> {
     }
     numeric.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
     other.sort_by(|a, b| a.as_str().as_bytes().cmp(b.as_str().as_bytes()));
-    numeric
-        .into_iter()
-        .map(|(_, v)| v)
-        .chain(other)
-        .collect()
+    numeric.into_iter().map(|(_, v)| v).chain(other).collect()
 }
-
 fn product(axes: &[(Axis, Vec<Value>)]) -> Vec<Combination> {
-    let mut cur = vec![Combination(BTreeMap::new())];
+    let mut cur = vec![Combination::new()];
     for (axis, values) in axes {
         let mut next = Vec::with_capacity(cur.len().saturating_mul(values.len()));
         for c in &cur {
             for v in values {
-                let mut m = c.0.clone();
-                m.insert(axis.clone(), v.clone());
-                next.push(Combination(m));
+                let mut m = c.clone();
+                put(&mut m, axis, v);
+                next.push(m);
             }
         }
         cur = next;
     }
     cur
 }
-
 fn describe(c: &Combination) -> String {
-    c.0.iter()
+    c.iter()
         .map(|(a, v)| format!("{}={}", a.as_str(), v.as_str()))
         .collect::<Vec<_>>()
         .join(",")
 }
-
 struct Slot {
     samples: Vec<f64>,
     ratios: Vec<f64>,
@@ -278,7 +243,6 @@ struct Slot {
     deviation: f64,
     result: Option<Outcome>,
 }
-
 impl Slot {
     fn new() -> Self {
         Slot {
@@ -290,15 +254,12 @@ impl Slot {
             result: None,
         }
     }
-
     fn alive(&self) -> bool {
         matches!(self.result, None | Some(Outcome::Measured { .. }))
     }
 }
-
 struct Runner<'a> {
     backend: &'a dyn CalibrationBackend,
-    stats: &'a dyn Statistics,
     cfg: &'a CalibrationConfig,
     seq: Vec<usize>,
     start: Instant,
@@ -307,7 +268,6 @@ struct Runner<'a> {
     entries: Vec<ReportEntry>,
     log: Vec<String>,
 }
-
 impl<'a> Runner<'a> {
     fn out_of_budget(&mut self) -> bool {
         if self.exhausted {
@@ -322,21 +282,15 @@ impl<'a> Runner<'a> {
         }
         false
     }
-
     fn estimate(&self, samples: &[f64]) -> Option<f64> {
-        self.stats
-            .estimate(samples, self.cfg.estimator)
+        statistics::estimate(samples, self.cfg.estimator)
             .filter(|v| v.is_finite() && *v >= 0.0)
     }
-
     fn is_stable(&self, series: &[f64]) -> bool {
         series.len() >= self.cfg.min_repeats
-            && self
-                .stats
-                .dispersion(series, self.cfg.dispersion)
-                .map_or(false, |d| d <= self.cfg.stability_threshold)
+            && statistics::dispersion(series, self.cfg.dispersion)
+                <= self.cfg.stability_threshold
     }
-
     fn at_cap(&self, s: &Slot) -> bool {
         s.attempts >= self.cfg.max_attempts
             || match (self.cfg.max_duration, s.first) {
@@ -344,7 +298,6 @@ impl<'a> Runner<'a> {
                 _ => false,
             }
     }
-
     fn measured(&self, s: &Slot, stable: bool) -> Outcome {
         if s.samples.is_empty() {
             return Outcome::Skipped(SkipReason::DeviceUnavailable);
@@ -353,32 +306,37 @@ impl<'a> Runner<'a> {
             .estimate(&s.samples)
             .and_then(|e| Duration::try_from_secs_f64(e).ok());
         match time {
-            Some(time) => Outcome::Measured {
-                time,
-                deviation: s.deviation,
-                stable,
-                samples: s.samples.len(),
-                uncertainty: self
-                    .stats
-                    .dispersion(&s.samples, self.cfg.dispersion)
-                    .filter(|d| d.is_finite())
-                    .unwrap_or(self.cfg.dominance_margin),
-            },
+            Some(time) => {
+                Outcome::Measured {
+                    time,
+                    deviation: s.deviation,
+                    stable,
+                    samples: s.samples.len(),
+                    uncertainty: {
+                        let spread = statistics::dispersion(
+                            &s.samples,
+                            self.cfg.dispersion,
+                        );
+                        if spread.is_finite() {
+                            spread
+                        } else {
+                            self.cfg.dominance_margin
+                        }
+                    },
+                }
+            }
             None => Outcome::Discarded(DiscardReason::Other("no samples".to_string())),
         }
     }
-
     fn pause(&self) {
         std::thread::sleep(self.cfg.backoff);
     }
-
     fn measure_group(
         &mut self,
         group: &[Combination],
         stage: Stage,
     ) -> Result<Vec<Outcome>, CalibrationError> {
-        self.log
-            .push(format!("group start: stage={:?} size={}", stage, group.len()));
+        self.log.push(format!("group start: stage={:?} size={}", stage, group.len()));
         let mut slots: Vec<Slot> = group.iter().map(|_| Slot::new()).collect();
         for (c, slot) in group.iter().zip(slots.iter_mut()) {
             self.deviation_phase(c, slot)?;
@@ -389,16 +347,20 @@ impl<'a> Runner<'a> {
             .map(|s| s.result.unwrap_or(Outcome::Skipped(SkipReason::Budget)))
             .collect();
         for (c, o) in group.iter().zip(&outcomes) {
-            self.entries.push(ReportEntry {
-                stage,
-                combination: c.clone(),
-                outcome: o.clone(),
-            });
+            self.entries
+                .push(ReportEntry {
+                    stage,
+                    combination: c.clone(),
+                    outcome: o.clone(),
+                });
         }
         Ok(outcomes)
     }
-
-    fn deviation_phase(&mut self, c: &Combination, slot: &mut Slot) -> Result<(), CalibrationError> {
+    fn deviation_phase(
+        &mut self,
+        c: &Combination,
+        slot: &mut Slot,
+    ) -> Result<(), CalibrationError> {
         let backend = self.backend;
         let mut tries = 0usize;
         loop {
@@ -413,7 +375,9 @@ impl<'a> Runner<'a> {
                     if !v.is_finite() {
                         slot.result = Some(Outcome::Discarded(DiscardReason::NonFinite));
                     } else if v > self.cfg.max_deviation {
-                        slot.result = Some(Outcome::Discarded(DiscardReason::ExceedsMax));
+                        slot.result = Some(
+                            Outcome::Discarded(DiscardReason::ExceedsMax),
+                        );
                     } else {
                         slot.deviation = v;
                     }
@@ -434,9 +398,11 @@ impl<'a> Runner<'a> {
                 Err(ProbeError::Interrupted) => {
                     self.counters.interruptions += 1;
                     if tries >= self.cfg.max_attempts {
-                        slot.result = Some(Outcome::Discarded(DiscardReason::Other(
-                            "interrupted".to_string(),
-                        )));
+                        slot.result = Some(
+                            Outcome::Discarded(
+                                DiscardReason::Other("interrupted".to_string()),
+                            ),
+                        );
                         return Ok(());
                     }
                     self.pause();
@@ -445,7 +411,6 @@ impl<'a> Runner<'a> {
             }
         }
     }
-
     fn finish_on_budget(&self, slots: &mut [Slot]) {
         for i in 0..slots.len() {
             if slots[i].result.is_none() {
@@ -458,20 +423,20 @@ impl<'a> Runner<'a> {
             }
         }
     }
-
     fn decide_non_anchor(&self, i: usize, slots: &[Slot]) -> Option<Outcome> {
         let s = &slots[i];
         let min = self.cfg.min_repeats;
         if s.samples.len() >= min {
             if let Some(ei) = self.estimate(&s.samples) {
                 let limit = ei * (1.0 - self.cfg.dominance_margin);
-                let dominated = slots.iter().enumerate().any(|(j, o)| {
-                    j != i
-                        && o.alive()
-                        && o.samples.len() >= min
-                        && o.deviation <= s.deviation
-                        && self.estimate(&o.samples).map_or(false, |ej| ej < limit)
-                });
+                let dominated = slots
+                    .iter()
+                    .enumerate()
+                    .any(|(j, o)| {
+                        j != i && o.alive() && o.samples.len() >= min
+                            && o.deviation <= s.deviation
+                            && self.estimate(&o.samples).map_or(false, |ej| ej < limit)
+                    });
                 if dominated {
                     return Some(Outcome::Dominated);
                 }
@@ -485,7 +450,6 @@ impl<'a> Runner<'a> {
         }
         None
     }
-
     fn decide_anchor(&self, a: usize, slots: &[Slot]) -> Option<Outcome> {
         let mut any_stable = false;
         let mut any_unstable = false;
@@ -509,7 +473,6 @@ impl<'a> Runner<'a> {
         }
         None
     }
-
     fn time_phase(
         &mut self,
         group: &[Combination],
@@ -521,7 +484,9 @@ impl<'a> Runner<'a> {
         let mut anchor = slots.iter().position(|s| s.result.is_none());
         let mut round = 0usize;
         loop {
-            let active: Vec<usize> = (0..n).filter(|&i| slots[i].result.is_none()).collect();
+            let active: Vec<usize> = (0..n)
+                .filter(|&i| slots[i].result.is_none())
+                .collect();
             if active.is_empty() {
                 return Ok(());
             }
@@ -547,7 +512,9 @@ impl<'a> Runner<'a> {
                 slot.first.get_or_insert_with(Instant::now);
                 self.counters.attempts += 1;
                 let mut lost = false;
-                match backend.time(&group[i], &self.seq, cfg.time_window, cfg.chunk_budget) {
+                match backend
+                    .time(&group[i], &self.seq, cfg.time_window, cfg.chunk_budget)
+                {
                     Ok(d) => {
                         let t = d.as_secs_f64();
                         slot.samples.push(t);
@@ -567,7 +534,9 @@ impl<'a> Runner<'a> {
                     }
                     Err(ProbeError::Unavailable) => {
                         if slot.samples.is_empty() {
-                            slot.result = Some(Outcome::Skipped(SkipReason::DeviceUnavailable));
+                            slot.result = Some(
+                                Outcome::Skipped(SkipReason::DeviceUnavailable),
+                            );
                             lost = true;
                         } else {
                             self.counters.interruptions += 1;
@@ -615,20 +584,19 @@ impl<'a> Runner<'a> {
         }
     }
 }
-
 fn pareto_winners(points: &[(Value, Duration, f64)]) -> Vec<Value> {
     points
         .iter()
         .filter(|(_, t, d)| {
-            !points
-                .iter()
-                .any(|(_, t2, d2)| t2 <= t && d2 <= d && (t2 < t || d2 < d))
+            !points.iter().any(|(_, t2, d2)| t2 <= t && d2 <= d && (t2 < t || d2 < d))
         })
         .map(|(v, _, _)| v.clone())
         .collect()
 }
-
-fn build_front(entries: &[ReportEntry], log: &mut Vec<String>) -> (Vec<FrontPoint>, usize) {
+fn build_front(
+    entries: &[ReportEntry],
+    log: &mut Vec<String>,
+) -> (Vec<FrontPoint>, usize) {
     let mut points: Vec<FrontPoint> = Vec::new();
     let mut count = 0usize;
     for e in entries {
@@ -637,41 +605,38 @@ fn build_front(entries: &[ReportEntry], log: &mut Vec<String>) -> (Vec<FrontPoin
         }
         count += 1;
         if let Outcome::Measured { time, deviation, .. } = &e.outcome {
-            points.push(FrontPoint {
-                combination: e.combination.clone(),
-                time: *time,
-                deviation: *deviation,
-            });
+            points
+                .push(FrontPoint {
+                    combination: e.combination.clone(),
+                    time: *time,
+                    deviation: *deviation,
+                });
         }
     }
-    points.sort_by(|a, b| {
-        a.time
-            .cmp(&b.time)
-            .then_with(|| a.deviation.total_cmp(&b.deviation))
-    });
+    points
+        .sort_by(|a, b| {
+            a.time.cmp(&b.time).then_with(|| a.deviation.total_cmp(&b.deviation))
+        });
     let mut front: Vec<FrontPoint> = Vec::new();
     for p in points {
         let keep = front.last().map_or(true, |l| p.deviation < l.deviation);
-        log.push(format!(
-            "{}: {} time={:?} deviation={}",
-            if keep { "front" } else { "excluded" },
-            describe(&p.combination),
-            p.time,
-            p.deviation
-        ));
+        log.push(
+            format!(
+                "{}: {} time={:?} deviation={}", if keep { "front" } else { "excluded" },
+                describe(& p.combination), p.time, p.deviation
+            ),
+        );
         if keep {
             front.push(p);
         }
     }
     (front, count)
 }
-
 pub fn run_calibration(
     target: Target,
     capabilities: &CapabilitySet,
     model: &ModelDescriptor,
     backend: &dyn CalibrationBackend,
-    stats: &dyn Statistics,
     config: &CalibrationConfig,
 ) -> Result<CalibrationReport, CalibrationError> {
     let start = Instant::now();
@@ -686,7 +651,6 @@ pub fn run_calibration(
     if capabilities.is_empty() {
         return Err(CalibrationError::Capability);
     }
-
     let all_axes: Vec<(Axis, Vec<Value>)> = capabilities
         .axes()
         .filter_map(|a| {
@@ -696,13 +660,19 @@ pub fn run_calibration(
                 .map(|v| (a.clone(), sort_values(v)))
         })
         .collect();
+    for (axis, values) in &all_axes {
+        for name in std::iter::once(axis.as_str())
+            .chain(values.iter().map(|v| v.as_str()))
+        {
+            check_name(name)
+                .map_err(|_| CalibrationError::InvalidName(name.to_string()))?;
+        }
+    }
     let product_size = all_axes
         .iter()
         .fold(1usize, |p, (_, v)| p.saturating_mul(v.len()));
-
     let mut runner = Runner {
         backend,
-        stats,
         cfg: &cfg,
         seq: sequence_lengths(model.max_seq_len, cfg.seq_start, cfg.seq_factor),
         start,
@@ -711,7 +681,6 @@ pub fn run_calibration(
         entries: Vec::new(),
         log: Vec::new(),
     };
-
     if cfg.full_product {
         let all = product(&all_axes);
         runner.measure_group(&all, Stage::Full)?;
@@ -722,17 +691,16 @@ pub fn run_calibration(
             .partition(|(a, _)| cfg.separable_axes.contains(a));
         let mut candidates: Vec<Combination> = Vec::new();
         let mut seen: HashSet<Combination> = HashSet::new();
-
         for core_combo in product(&core) {
             let mut base = core_combo.clone();
             for (a, vals) in &sep {
-                base.0.insert(a.clone(), vals[0].clone());
+                put(&mut base, a, &vals[0]);
             }
             let mut group = vec![base.clone()];
             for (a, vals) in &sep {
                 for v in vals {
                     let mut c = base.clone();
-                    c.0.insert(a.clone(), v.clone());
+                    put(&mut c, a, v);
                     if !group.contains(&c) {
                         group.push(c);
                     }
@@ -743,7 +711,6 @@ pub fn run_calibration(
                 continue;
             }
             let outcomes = runner.measure_group(&group, Stage::Axis)?;
-
             let mut winners: Vec<(Axis, Vec<Value>)> = Vec::new();
             let mut missing = false;
             for (a, vals) in &sep {
@@ -753,9 +720,10 @@ pub fn run_calibration(
                     let mut points = Vec::new();
                     for v in vals {
                         let mut c = base.clone();
-                        c.0.insert(a.clone(), v.clone());
+                        put(&mut c, a, v);
                         if let Some(pos) = group.iter().position(|g| *g == c) {
-                            if let Outcome::Measured { time, deviation, .. } = &outcomes[pos] {
+                            if let Outcome::Measured { time, deviation, .. } = &outcomes[pos]
+                            {
                                 points.push((v.clone(), *time, *deviation));
                             }
                         }
@@ -769,10 +737,14 @@ pub fn run_calibration(
                 winners.push((a.clone(), won));
             }
             if missing {
-                runner.log.push(format!(
-                    "core combination skipped, axis without winner: {}",
-                    describe(&core_combo)
-                ));
+                runner
+                    .log
+                    .push(
+                        format!(
+                            "core combination skipped, axis without winner: {}",
+                            describe(& core_combo)
+                        ),
+                    );
                 continue;
             }
             let mut expanded = vec![core_combo.clone()];
@@ -780,9 +752,9 @@ pub fn run_calibration(
                 let mut next = Vec::new();
                 for c in &expanded {
                     for v in won {
-                        let mut m = c.0.clone();
-                        m.insert(a.clone(), v.clone());
-                        next.push(Combination(m));
+                        let mut m = c.clone();
+                        put(&mut m, a, v);
+                        next.push(m);
                     }
                 }
                 expanded = next;
@@ -797,7 +769,6 @@ pub fn run_calibration(
             runner.measure_group(&candidates, Stage::Verification)?;
         }
     }
-
     let (front, candidate_count) = build_front(&runner.entries, &mut runner.log);
     let mut counters = runner.counters.clone();
     for e in &runner.entries {
@@ -827,15 +798,11 @@ pub fn run_calibration(
             exhausted,
         },
         runtime: elapsed,
-        summary: Summary {
-            front,
-            candidate_count,
-        },
+        summary: Summary { front, candidate_count },
         counters,
         log: runner.log,
     })
 }
-
 const _: fn() = || {
     fn assert_send_sync<T: Send + Sync + 'static>() {}
     assert_send_sync::<Target>();
@@ -845,7 +812,7 @@ const _: fn() = || {
     assert_send_sync::<CalibrationError>();
     assert_send_sync::<ProbeError>();
 };
-
 #[cfg(test)]
 #[path = "test/calibration_run.rs"]
 mod tests;
+use super::super::l020::l010::statistics::{self, Dispersion, Estimator};

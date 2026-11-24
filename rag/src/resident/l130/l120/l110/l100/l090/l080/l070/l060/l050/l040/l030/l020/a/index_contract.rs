@@ -13,9 +13,7 @@ pub struct EntryId(pub u64);
 pub struct NodeId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CellId(pub u64);
-/// Totally ordered change stamp. `Stamp(0)` is never assigned to a write or delete.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct Stamp(pub u64);
+pub use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::change_stamp::Stamp;
 /// Shared immutable bytes; cloning is cheap.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SharedBytes(pub Arc<[u8]>);

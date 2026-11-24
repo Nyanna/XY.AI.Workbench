@@ -226,14 +226,14 @@ fn resolve_location_picks_first_segment_of_generation() {
 }
 #[test]
 fn error_display() {
-    assert_eq!(ResolveError::SlotOutOfRange.to_string(), "Slot außerhalb des Bereichs");
-    assert_eq!(ResolveError::StaleGeneration.to_string(), "stale Generation");
+    assert_eq!(ResolveError::SlotOutOfRange.to_string(), "slot out of range");
+    assert_eq!(ResolveError::StaleGeneration.to_string(), "stale generation");
     let text = ResolveError::MissingMapping {
         generation: Generation(31),
         slot: Slot(17),
     }
         .to_string();
-    assert!(text.contains("fehlende Zuordnung"));
+    assert!(text.contains("missing mapping"));
     assert!(text.contains("31"));
     assert!(text.contains("17"));
 }

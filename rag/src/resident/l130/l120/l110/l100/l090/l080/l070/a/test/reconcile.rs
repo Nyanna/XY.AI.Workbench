@@ -161,10 +161,10 @@ fn directory_insert_replace_remove() {
     assert_eq!(dir.insert(id(1), slot(0), Stamp(5)), None);
     let prev = dir.insert(id(1), slot(3), Stamp(7)).unwrap();
     assert_eq!(prev.slot, slot(0));
-    assert_eq!(prev.stamp, ChangeStamp::from_raw(5));
+    assert_eq!(prev.stamp, Stamp(5));
     assert_eq!(dir.len(), 1);
     assert_eq!(dir.get(id(1)).unwrap().slot, slot(3));
-    assert_eq!(dir.stamp(id(1)), Some(ChangeStamp::from_raw(7)));
+    assert_eq!(dir.stamp(id(1)), Some(Stamp(7)));
     assert_eq!(dir.remove(id(1)).unwrap().slot, slot(3));
     assert_eq!(dir.remove(id(1)), None);
     assert_eq!(dir.get(id(1)), None);
@@ -180,7 +180,7 @@ fn directory_set_known_stamp_keeps_slot() {
     assert!(dir.set_known_stamp(id(1), Stamp(9)));
     let r = dir.get(id(1)).unwrap();
     assert_eq!(r.slot, slot(4));
-    assert_eq!(r.stamp, ChangeStamp::from_raw(9));
+    assert_eq!(r.stamp, Stamp(9));
 }
 #[test]
 fn directory_iter_is_sorted_snapshot() {

@@ -1,5 +1,10 @@
 use std::fmt;
 use std::sync::{Condvar, Mutex, MutexGuard};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::gpu_backend::{
+    GpuBackend, PinnedBuffer,
+};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::memory_backend::BackendError;
+pub use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::memory_backend::TransferDirection;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::arenas::{
     Arena, ArenaKind,
 };
@@ -14,12 +19,6 @@ pub enum SlotState {
     Occupied,
     InFlight,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum TransferDirection {
-    H2D,
-    D2H,
-}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TransferError {
     pub direction: TransferDirection,
@@ -31,6 +30,7 @@ pub enum StagingError {
     InvalidSlot,
     Transfer(TransferError),
     InvalidConfig,
+    Backend(BackendError),
 }
 impl fmt::Display for TransferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -41,19 +41,35 @@ impl std::error::Error for TransferError {}
 impl fmt::Display for StagingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StagingError::Exhausted => write!(f, "Staging erschöpft"),
-            StagingError::InvalidSlot => write!(f, "ungültiger Slot"),
+            StagingError::Exhausted => write!(f, "staging ring exhausted"),
+            StagingError::InvalidSlot => write!(f, "invalid staging slot"),
             StagingError::Transfer(e) => write!(f, "{}", e),
-            StagingError::InvalidConfig => write!(f, "ungültige Staging-Konfiguration"),
+            StagingError::InvalidConfig => write!(f, "invalid staging configuration"),
+            StagingError::Backend(e) => write!(f, "{}", e),
         }
     }
 }
 impl std::error::Error for StagingError {}
+enum Payload {
+    Heap(Box<[u8]>),
+    Pinned(PinnedBuffer),
+}
+impl Payload {
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        match self {
+            Payload::Heap(bytes) => bytes,
+            Payload::Pinned(buffer) => buffer.as_mut_slice(),
+        }
+    }
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.bytes_mut().as_mut_ptr()
+    }
+}
 struct Slot {
     state: SlotState,
     event: Option<Event>,
     seq: u64,
-    payload: Box<[u8]>,
+    payload: Payload,
 }
 struct Inner {
     slots: Vec<Slot>,
@@ -110,7 +126,7 @@ impl StagingRing {
                 state: SlotState::Free,
                 event: None,
                 seq: 0,
-                payload: vec![0u8; slot_size].into_boxed_slice(),
+                payload: Payload::Heap(vec![0u8; slot_size].into_boxed_slice()),
             })
             .collect();
         Ok(StagingRing {
@@ -133,6 +149,38 @@ impl StagingRing {
         let size = arena.capacity / slot_count as u64;
         let size = usize::try_from(size).map_err(|_| StagingError::InvalidConfig)?;
         StagingRing::new(slot_count, size)
+    }
+    /// Slots backed by pinned host memory, so uploads from a slot stay asynchronous.
+    pub fn pinned(
+        backend: &GpuBackend,
+        slot_count: usize,
+        slot_size: usize,
+    ) -> Result<StagingRing, StagingError> {
+        if slot_count == 0 {
+            return Err(StagingError::InvalidConfig);
+        }
+        let mut slots = Vec::with_capacity(slot_count);
+        for _ in 0..slot_count {
+            let buffer = backend
+                .allocate_pinned(slot_size)
+                .map_err(StagingError::Backend)?;
+            slots
+                .push(Slot {
+                    state: SlotState::Free,
+                    event: None,
+                    seq: 0,
+                    payload: Payload::Pinned(buffer),
+                });
+        }
+        Ok(StagingRing {
+            slot_size,
+            inner: Mutex::new(Inner {
+                slots,
+                last: slot_count - 1,
+                next_seq: 0,
+            }),
+            changed: Condvar::new(),
+        })
     }
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock().unwrap_or_else(|p| p.into_inner())
@@ -203,7 +251,7 @@ impl StagingRing {
     ) -> Result<R, StagingError> {
         let mut guard = self.lock();
         let s = guard.occupied_mut(slot)?;
-        Ok(f(&mut s.payload))
+        Ok(f(s.payload.bytes_mut()))
     }
     pub fn payload_ptr(&self, slot: SlotId) -> Result<*mut u8, StagingError> {
         let mut guard = self.lock();

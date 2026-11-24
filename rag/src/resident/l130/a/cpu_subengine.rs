@@ -47,11 +47,11 @@ use l050::l040;
 use l040::a::resource_requirements::{
     HasResourceRequirements, IndexId, ModelId, ResourceKind, ResourceRequirements,
 };
-use l040::index_residency::{IndexResidency, IndexSlot, MemoryAdvisor};
+use l040::index_residency::{IndexResidency, IndexSlot};
 use l040::l030;
 use l030::a::calibration_run::{
     run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError,
-    CalibrationReport, DispersionKind, EstimatorKind, Statistics, Target,
+    CalibrationReport, Target,
 };
 use l030::a::index_open::{LazyIndexFile, OpenOptions};
 use l030::l020;
@@ -64,7 +64,7 @@ use l010::background_pool::{BackgroundPool, JobFuture, PoolError};
 use l010::capability_model::CapabilitySet;
 use l010::device_lane_event::{DeviceHandle, DeviceKind, Lane, LaneConfig, LaneKind};
 use l010::layout::DType;
-use l010::statistics::{self, Dispersion, Estimator};
+use l010::page_advice::{AdviceSlot, AdviceTarget};
 const SCORE_BLOCK_ROWS: usize = 1024;
 const LOADING_POLL: Duration = Duration::from_millis(1);
 const ENCODER_KERNEL: &str = "encoder";
@@ -221,7 +221,7 @@ pub struct CpuIndexSpec {
     pub path: PathBuf,
     pub header: IndexHeader,
     pub open: OpenOptions,
-    pub advisor: Option<Arc<dyn MemoryAdvisor>>,
+    pub advisor: Option<Arc<dyn AdviceTarget>>,
     pub idle_after: Duration,
 }
 /// Creates plain host lanes without a stream.
@@ -604,6 +604,7 @@ pub struct FileLazyIndex {
     header: IndexHeader,
     open: OpenOptions,
     slot: IndexSlot,
+    advice: Arc<AdviceSlot>,
 }
 impl FileLazyIndex {
     pub fn new(
@@ -612,7 +613,18 @@ impl FileLazyIndex {
         open: OpenOptions,
         slot: IndexSlot,
     ) -> Self {
-        Self { path, header, open, slot }
+        Self {
+            path,
+            header,
+            open,
+            slot,
+            advice: Arc::new(AdviceSlot::default()),
+        }
+    }
+    /// Binds the slot that receives the hint target of the mapped file.
+    pub fn with_advice_slot(mut self, advice: Arc<AdviceSlot>) -> Self {
+        self.advice = advice;
+        self
     }
     pub fn slot(&self) -> &IndexSlot {
         &self.slot
@@ -622,7 +634,8 @@ impl FileLazyIndex {
         let decoder = Arc::new(ParquetDecoder::new(self.header.clone(), checksum));
         let checksums = Arc::new(PayloadChecksums::new(Arc::clone(&decoder)));
         let file = if self.path.exists() {
-            let file = LazyIndexFile::new(&self.path, decoder, self.open.clone());
+            let file = LazyIndexFile::new(&self.path, decoder, self.open.clone())
+                .with_advice_slot(Arc::clone(&self.advice));
             file.ensure_open().map_err(|e| e.to_string())?;
             Some(Arc::new(file))
         } else {
@@ -665,11 +678,17 @@ impl CpuManager {
             return Err(CpuError::AlreadyAttached(spec.index));
         }
         let slot: IndexSlot = IndexSlot::default();
+        let advice = Arc::new(AdviceSlot::default());
+        let advisor: Arc<dyn AdviceTarget> = match spec.advisor {
+            Some(explicit) => explicit,
+            None => Arc::clone(&advice) as Arc<dyn AdviceTarget>,
+        };
         let residency = Arc::new(
-            IndexResidency::new(Arc::clone(&slot), spec.advisor, spec.idle_after),
+            IndexResidency::new(Arc::clone(&slot), Some(advisor), spec.idle_after),
         );
         let vector_bytes = spec.header.vector_bytes();
-        let lazy = FileLazyIndex::new(spec.path, spec.header, spec.open, slot);
+        let lazy = FileLazyIndex::new(spec.path, spec.header, spec.open, slot)
+            .with_advice_slot(advice);
         attached
             .insert(
                 spec.index,
@@ -706,26 +725,6 @@ impl CpuManager {
             .get(index)
             .cloned()
             .ok_or_else(|| CpuError::UnknownIndex(index.clone()))
-    }
-}
-/// Statistics adapter for calibration, backed by the shared statistics functions.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct RobustStatistics;
-impl Statistics for RobustStatistics {
-    fn dispersion(&self, samples: &[f64], kind: DispersionKind) -> Option<f64> {
-        let kind = match kind {
-            DispersionKind::Cv => Dispersion::CoefficientOfVariation,
-            DispersionKind::RangeOverMedian => Dispersion::TrimmedRange,
-        };
-        let value = statistics::dispersion(samples, kind);
-        (value != f64::INFINITY).then_some(value)
-    }
-    fn estimate(&self, samples: &[f64], kind: EstimatorKind) -> Option<f64> {
-        let estimator = match kind {
-            EstimatorKind::Median => Estimator::Median,
-            EstimatorKind::Minimum => Estimator::Minimum,
-        };
-        statistics::estimate(samples, estimator)
     }
 }
 #[derive(Clone, Copy, Debug)]
@@ -935,14 +934,7 @@ impl CpuSubengine {
                     subengine,
                     model_id: model.model_id.clone(),
                 };
-                run_calibration(
-                    target,
-                    &capabilities,
-                    &model,
-                    backend.as_ref(),
-                    &RobustStatistics,
-                    &config,
-                )
+                run_calibration(target, &capabilities, &model, backend.as_ref(), &config)
             })
             .map_err(CpuError::Pool)
     }

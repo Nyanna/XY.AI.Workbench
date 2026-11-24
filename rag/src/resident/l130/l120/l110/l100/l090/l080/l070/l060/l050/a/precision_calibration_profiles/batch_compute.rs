@@ -61,11 +61,6 @@ impl BatchKernel {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BackendKind {
-    Cpu,
-    Gpu,
-}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ComputeError {
     /// Wrong operand count or incompatible shapes.
@@ -89,7 +84,7 @@ impl fmt::Display for ComputeError {
 impl std::error::Error for ComputeError {}
 /// Swappable float-batch to float-batch compute interface.
 pub trait BatchCompute: Send + Sync {
-    fn kind(&self) -> BackendKind;
+    fn kind(&self) -> DeviceKind;
     fn run(
         &self,
         kernel: BatchKernel,
@@ -214,8 +209,8 @@ fn cpu_softmax(a: &FloatBatch) -> Result<Vec<f32>, ComputeError> {
     Ok(out)
 }
 impl BatchCompute for CpuBatchCompute {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Cpu
+    fn kind(&self) -> DeviceKind {
+        DeviceKind::Cpu
     }
     fn run(
         &self,
@@ -246,7 +241,7 @@ impl BatchCompute for CpuBatchCompute {
 }
 mod gpu {
     use super::{
-        check_operands, trivial_result, BackendKind, BatchCompute, BatchKernel,
+        check_operands, trivial_result, BatchCompute, BatchKernel, DeviceKind,
         ComputeError, FloatBatch,
     };
     use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::library_adapter::{
@@ -366,8 +361,8 @@ mod gpu {
         }
     }
     impl BatchCompute for GpuBatchCompute {
-        fn kind(&self) -> BackendKind {
-            BackendKind::Gpu
+        fn kind(&self) -> DeviceKind {
+            DeviceKind::Gpu
         }
         fn run(
             &self,
@@ -396,3 +391,4 @@ pub fn create_default() -> Box<dyn BatchCompute> {
 #[cfg(test)]
 #[path = "test/batch_compute.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::DeviceKind;

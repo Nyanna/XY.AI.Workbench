@@ -58,7 +58,7 @@ fn vector_bytes(seed: u64) -> Vec<u8> {
 fn entry(id: u64, stamp: u64) -> SnapshotEntry {
     SnapshotEntry {
         id: EntryId(id),
-        stamp: ChangeStamp::from_raw(stamp),
+        stamp: Stamp(stamp),
         data: EntryData::new(
             vector_bytes(id).into(),
             SourceRef::new(format!("f/{id}.txt"), id * 10, id * 10 + 5),
@@ -67,7 +67,7 @@ fn entry(id: u64, stamp: u64) -> SnapshotEntry {
 }
 fn snapshot(ids: impl IntoIterator<Item = u64>, token: u64) -> Snapshot {
     let entries: Vec<SnapshotEntry> = ids.into_iter().map(|id| entry(id, id)).collect();
-    let max_stamp = entries.iter().map(|e| e.stamp.as_raw()).max().unwrap_or(0);
+    let max_stamp = entries.iter().map(|e| e.stamp.0).max().unwrap_or(0);
     Snapshot {
         token: SnapshotToken(token),
         max_stamp,
@@ -154,7 +154,7 @@ fn assert_reads_back(path: &Path, expected: &Snapshot) {
     assert_eq!(stamps.len(), expected.entries.len());
     for (entry, (id, stamp)) in expected.entries.iter().zip(stamps) {
         assert_eq!(id, entry.id);
-        assert_eq!(stamp.0, entry.stamp.as_raw());
+        assert_eq!(stamp.0, entry.stamp.0);
         assert_eq!(& file.read_vector(id) [..], & entry.data.vector[..]);
         let meta = meta_codec::encode_meta_parts(
             &entry.data.source.target_file,
@@ -323,7 +323,7 @@ fn invalid_snapshots_leave_target_untouched() {
     let mut duplicate = snapshot([1, 2], 3);
     duplicate.entries[1].id = EntryId(1);
     let mut stamp_zero = snapshot([1, 2], 4);
-    stamp_zero.entries[0].stamp = ChangeStamp::from_raw(0);
+    stamp_zero.entries[0].stamp = Stamp(0);
     let mut stamp_above_max = snapshot([1, 2], 5);
     stamp_above_max.max_stamp = 1;
     for (i, snap) in [wrong_length, unsorted, duplicate, stamp_zero, stamp_above_max]

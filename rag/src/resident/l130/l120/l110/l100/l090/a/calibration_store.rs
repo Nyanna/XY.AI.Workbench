@@ -1,5 +1,4 @@
 //! Persistence of calibration results per (subengine, model) with fingerprint-based staleness.
-
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::ffi::OsString;
 use std::fmt;
@@ -8,13 +7,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-
 use crate::resident::l130::l120::l110::l100::l090::l080::a::capability_detection::{
     detect_cpu_features, CpuFeatures,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::calibration_run::{
-    run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError, CalibrationReport,
-    Combination, DiscardReason, Outcome, Stage, Statistics, Target,
+    run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError,
+    CalibrationReport, Combination, DiscardReason, Outcome, Stage, Target,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::ModelDescriptor;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::pareto_profiles::{
@@ -26,21 +24,16 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
     axes, values, Axis, CapabilitySet, Name, Value,
 };
-
 pub const SCHEMA_VERSION: u32 = 1;
-
 const UNKNOWN: &str = "unknown";
 const FILE_SUFFIX: &str = ".calib.txt";
-
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
-
 /// Supplied by the GPU binding; `None` means unknown.
 pub trait DriverInfo: Send + Sync {
     fn gpu_name(&self) -> Option<String>;
     fn compute_capability(&self) -> Option<(u32, u32)>;
     fn driver_version(&self) -> Option<String>;
 }
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fingerprint {
     pub schema_version: u32,
@@ -52,21 +45,14 @@ pub struct Fingerprint {
     pub model_id: String,
     pub engine_version: String,
 }
-
 fn cpu_features_text(f: CpuFeatures) -> String {
-    [
-        (f.avx2, "avx2"),
-        (f.f16c, "f16c"),
-        (f.fma, "fma"),
-        (f.vnni, "vnni"),
-    ]
-    .iter()
-    .filter(|(set, _)| *set)
-    .map(|(_, name)| *name)
-    .collect::<Vec<_>>()
-    .join(",")
+    [(f.avx2, "avx2"), (f.f16c, "f16c"), (f.fma, "fma"), (f.vnni, "vnni")]
+        .iter()
+        .filter(|(set, _)| *set)
+        .map(|(_, name)| *name)
+        .collect::<Vec<_>>()
+        .join(",")
 }
-
 impl Fingerprint {
     pub fn detect(
         subengine: &str,
@@ -76,9 +62,7 @@ impl Fingerprint {
     ) -> Fingerprint {
         let (gpu_name, compute_capability, driver_version) = if subengine == "gpu" {
             (
-                driver
-                    .and_then(|d| d.gpu_name())
-                    .unwrap_or_else(|| UNKNOWN.to_string()),
+                driver.and_then(|d| d.gpu_name()).unwrap_or_else(|| UNKNOWN.to_string()),
                 driver
                     .and_then(|d| d.compute_capability())
                     .map(|(major, minor)| format!("{major}.{minor}"))
@@ -102,13 +86,11 @@ impl Fingerprint {
         }
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Annotated {
     pub combination: Combination,
     pub reason: String,
 }
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct CalibrationRecord {
     pub fingerprint: Fingerprint,
@@ -117,7 +99,6 @@ pub struct CalibrationRecord {
     pub discarded: Vec<Annotated>,
     pub pruned: Vec<Annotated>,
 }
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum PersistError {
     NotFound,
@@ -127,7 +108,6 @@ pub enum PersistError {
     Calibration(CalibrationError),
     NoProfiles,
 }
-
 impl fmt::Display for PersistError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -140,35 +120,27 @@ impl fmt::Display for PersistError {
         }
     }
 }
-
 impl std::error::Error for PersistError {}
-
 #[derive(Clone)]
 pub struct CalibrationRequest {
     pub fingerprint: Fingerprint,
     pub capabilities: CapabilitySet,
     pub model: ModelDescriptor,
     pub backend: Arc<dyn CalibrationBackend>,
-    pub stats: Arc<dyn Statistics>,
     pub config: CalibrationConfig,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MissingPolicy {
     MostPreciseValid,
     ExplicitCalibrate,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MissingResolution {
     Fallback(Combination),
     CalibrateCommand,
 }
-
 pub enum Resolution {
-    Calibrated {
-        record: CalibrationRecord,
-    },
+    Calibrated { record: CalibrationRecord },
     Stale {
         record: CalibrationRecord,
         /// `None` if a recalibration for the same key is already running or submit failed.
@@ -176,31 +148,25 @@ pub enum Resolution {
     },
     Missing(MissingResolution),
 }
-
 type InFlightKey = (String, String);
-
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
-
 struct InFlightGuard {
     set: Arc<Mutex<HashSet<InFlightKey>>>,
     key: InFlightKey,
 }
-
 impl Drop for InFlightGuard {
     fn drop(&mut self) {
         lock(&self.set).remove(&self.key);
     }
 }
-
 /// Send + Sync; shareable via `Arc`.
 pub struct CalibrationStore {
     dir: PathBuf,
     pool: Arc<BackgroundPool>,
     in_flight: Arc<Mutex<HashSet<InFlightKey>>>,
 }
-
 impl CalibrationStore {
     pub fn new(dir: PathBuf, pool: Arc<BackgroundPool>) -> CalibrationStore {
         CalibrationStore {
@@ -209,24 +175,27 @@ impl CalibrationStore {
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         }
     }
-
     pub fn dir(&self) -> &Path {
         &self.dir
     }
-
     pub fn path_for(&self, subengine: &str, model_id: &str) -> PathBuf {
         record_path(&self.dir, subengine, model_id)
     }
-
-    pub fn load(&self, subengine: &str, model_id: &str) -> Result<CalibrationRecord, PersistError> {
+    pub fn load(
+        &self,
+        subengine: &str,
+        model_id: &str,
+    ) -> Result<CalibrationRecord, PersistError> {
         load_file(&self.path_for(subengine, model_id))
     }
-
     pub fn save(&self, record: &CalibrationRecord) -> Result<(), PersistError> {
         save_record(&self.dir, record)
     }
-
-    pub fn resolve(&self, req: &CalibrationRequest, policy: MissingPolicy) -> Resolution {
+    pub fn resolve(
+        &self,
+        req: &CalibrationRequest,
+        policy: MissingPolicy,
+    ) -> Resolution {
         let fp = &req.fingerprint;
         match self.load(&fp.subengine, &fp.model_id) {
             Ok(record) if record.fingerprint == *fp => Resolution::Calibrated { record },
@@ -235,9 +204,8 @@ impl CalibrationStore {
                     Ok(future) => future,
                     Err(e) => {
                         log::warn!(
-                            "recalibration not started subengine={} model_id={}: {e}",
-                            fp.subengine,
-                            fp.model_id
+                            "recalibration not started subengine={} model_id={}: {e}", fp
+                            .subengine, fp.model_id
                         );
                         None
                     }
@@ -250,9 +218,8 @@ impl CalibrationStore {
             Err(e) => {
                 if let PersistError::Unreadable(m) = &e {
                     log::warn!(
-                        "calibration file unreadable subengine={} model_id={}: {m}",
-                        fp.subengine,
-                        fp.model_id
+                        "calibration file unreadable subengine={} model_id={}: {m}", fp
+                        .subengine, fp.model_id
                     );
                 }
                 match policy {
@@ -262,26 +229,26 @@ impl CalibrationStore {
                     MissingPolicy::MostPreciseValid => {
                         log::warn!(
                             "no calibration subengine={} model_id={}; using most precise combination",
-                            fp.subengine,
-                            fp.model_id
+                            fp.subengine, fp.model_id
                         );
-                        Resolution::Missing(MissingResolution::Fallback(most_precise_combination(
-                            &req.capabilities,
-                        )))
+                        Resolution::Missing(
+                            MissingResolution::Fallback(
+                                most_precise_combination(&req.capabilities),
+                            ),
+                        )
                     }
                 }
             }
         }
     }
-
     pub fn request_calibration(
         &self,
         req: CalibrationRequest,
-    ) -> Result<Option<JobFuture<Result<CalibrationRecord, PersistError>>>, PersistError> {
-        let key = (
-            req.fingerprint.subengine.clone(),
-            req.fingerprint.model_id.clone(),
-        );
+    ) -> Result<
+        Option<JobFuture<Result<CalibrationRecord, PersistError>>>,
+        PersistError,
+    > {
+        let key = (req.fingerprint.subengine.clone(), req.fingerprint.model_id.clone());
         if !lock(&self.in_flight).insert(key.clone()) {
             return Ok(None);
         }
@@ -290,67 +257,65 @@ impl CalibrationStore {
             key,
         };
         let dir = self.dir.clone();
-        // The guard lives in the job, so it is released on completion, panic, and rejected submit.
-        let submitted = self.pool.submit(move || {
-            let _guard = guard;
-            run_job(&dir, &req)
-        });
+        let submitted = self
+            .pool
+            .submit(move || {
+                let _guard = guard;
+                run_job(&dir, &req)
+            });
         match submitted {
             Ok(future) => Ok(Some(future)),
             Err(e) => Err(PersistError::Pool(e.to_string())),
         }
     }
 }
-
-fn run_job(dir: &Path, req: &CalibrationRequest) -> Result<CalibrationRecord, PersistError> {
+fn run_job(
+    dir: &Path,
+    req: &CalibrationRequest,
+) -> Result<CalibrationRecord, PersistError> {
     let fp = &req.fingerprint;
-    let outcome = calibrate_record(req).and_then(|record| {
-        let old = load_file(&record_path(dir, &fp.subengine, &fp.model_id))
-            .ok()
-            .map(|r| r.fingerprint);
-        save_record(dir, &record)?;
-        Ok((record, old))
-    });
+    let outcome = calibrate_record(req)
+        .and_then(|record| {
+            let old = load_file(&record_path(dir, &fp.subengine, &fp.model_id))
+                .ok()
+                .map(|r| r.fingerprint);
+            save_record(dir, &record)?;
+            Ok((record, old))
+        });
     match outcome {
         Ok((record, old)) => {
             log::info!(
                 "calibration replaced subengine={} model_id={} profiles={} new={:?} old={:?}",
-                fp.subengine,
-                fp.model_id,
-                record.profiles.len(),
-                record.fingerprint,
-                old
+                fp.subengine, fp.model_id, record.profiles.len(), record.fingerprint, old
             );
             Ok(record)
         }
         Err(e) => {
             log::warn!(
-                "recalibration failed subengine={} model_id={}: {e}",
-                fp.subengine,
-                fp.model_id
+                "recalibration failed subengine={} model_id={}: {e}", fp.subengine, fp
+                .model_id
             );
             Err(e)
         }
     }
 }
-
-pub fn calibrate_record(req: &CalibrationRequest) -> Result<CalibrationRecord, PersistError> {
+pub fn calibrate_record(
+    req: &CalibrationRequest,
+) -> Result<CalibrationRecord, PersistError> {
     let target = Target {
         subengine: req.fingerprint.subengine.clone(),
         model_id: req.fingerprint.model_id.clone(),
     };
     let report = run_calibration(
-        target,
-        &req.capabilities,
-        &req.model,
-        &*req.backend,
-        &*req.stats,
-        &req.config,
-    )
-    .map_err(PersistError::Calibration)?;
+            target,
+            &req.capabilities,
+            &req.model,
+            &*req.backend,
+            &req.config,
+        )
+        .map_err(PersistError::Calibration)?;
     record_from_report(req.fingerprint.clone(), &report)
 }
-
 fn discard_text(reason: &DiscardReason) -> String {
     match reason {
         DiscardReason::Failed(m) => format!("failed: {m}"),
@@ -359,7 +324,6 @@ fn discard_text(reason: &DiscardReason) -> String {
         DiscardReason::Other(m) => m.clone(),
     }
 }
-
 pub fn record_from_report(
     fp: Fingerprint,
     report: &CalibrationReport,
@@ -369,7 +333,7 @@ pub fn record_from_report(
         .front
         .iter()
         .map(|p| Measurement {
-            config: p.combination.0.clone(),
+            config: p.combination.values().clone(),
             time: p.time.as_secs_f64(),
             deviation: p.deviation,
         })
@@ -378,25 +342,31 @@ pub fn record_from_report(
         Ok(p) if !p.is_empty() => p,
         _ => return Err(PersistError::NoProfiles),
     };
-
     let mut unstable = false;
     let mut discarded = Vec::new();
     let mut pruned = Vec::new();
     for entry in &report.entries {
         match &entry.outcome {
-            Outcome::Measured { stable: false, .. }
-                if matches!(entry.stage, Stage::Verification | Stage::Full) =>
-            {
+            Outcome::Measured {
+                stable: false,
+                ..
+            } if matches!(entry.stage, Stage::Verification | Stage::Full) => {
                 unstable = true;
             }
-            Outcome::Discarded(reason) => discarded.push(Annotated {
-                combination: entry.combination.clone(),
-                reason: discard_text(reason),
-            }),
-            Outcome::Dominated => pruned.push(Annotated {
-                combination: entry.combination.clone(),
-                reason: "dominated".to_string(),
-            }),
+            Outcome::Discarded(reason) => {
+                discarded
+                    .push(Annotated {
+                        combination: entry.combination.clone(),
+                        reason: discard_text(reason),
+                    })
+            }
+            Outcome::Dominated => {
+                pruned
+                    .push(Annotated {
+                        combination: entry.combination.clone(),
+                        reason: "dominated".to_string(),
+                    })
+            }
             _ => {}
         }
     }
@@ -408,11 +378,9 @@ pub fn record_from_report(
         pruned,
     })
 }
-
 fn is_precision_axis(axis: &Axis) -> bool {
     *axis == axes::operands() || *axis == axes::accumulator() || *axis == axes::scoring()
 }
-
 fn precision_rank(v: &Value) -> u8 {
     if *v == values::fp32() {
         4
@@ -420,13 +388,14 @@ fn precision_rank(v: &Value) -> u8 {
         3
     } else if *v == values::fp16() {
         2
-    } else if *v == values::int8() || *v == values::int8_vnni() || *v == values::int8_dp4a() {
+    } else if *v == values::int8() || *v == values::int8_vnni()
+        || *v == values::int8_dp4a()
+    {
         1
     } else {
         0
     }
 }
-
 /// Numeric values first (ascending), then the rest in byte order.
 fn ordered_values(set: &BTreeSet<Value>) -> Vec<Value> {
     let mut out: Vec<Value> = set.iter().cloned().collect();
@@ -436,7 +405,6 @@ fn ordered_values(set: &BTreeSet<Value>) -> Vec<Value> {
     });
     out
 }
-
 fn most_precise_combination(caps: &CapabilitySet) -> Combination {
     let mut map = BTreeMap::new();
     for axis in caps.axes() {
@@ -445,10 +413,15 @@ fn most_precise_combination(caps: &CapabilitySet) -> Combination {
         };
         let ordered = ordered_values(set);
         let pick = if is_precision_axis(axis) {
-            ordered.iter().fold(None, |best: Option<&Value>, v| match best {
-                Some(b) if precision_rank(b) >= precision_rank(v) => Some(b),
-                _ => Some(v),
-            })
+            ordered
+                .iter()
+                .fold(
+                    None,
+                    |best: Option<&Value>, v| match best {
+                        Some(b) if precision_rank(b) >= precision_rank(v) => Some(b),
+                        _ => Some(v),
+                    },
+                )
         } else {
             ordered.first()
         };
@@ -456,9 +429,8 @@ fn most_precise_combination(caps: &CapabilitySet) -> Combination {
             map.insert(axis.clone(), v.clone());
         }
     }
-    Combination(map)
+    Combination::from_values(map).unwrap_or_default()
 }
-
 fn path_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for &b in s.as_bytes() {
@@ -470,19 +442,16 @@ fn path_component(s: &str) -> String {
     }
     out
 }
-
 fn record_path(dir: &Path, subengine: &str, model_id: &str) -> PathBuf {
-    dir.join(format!(
-        "{}__{}{FILE_SUFFIX}",
-        path_component(subengine),
-        path_component(model_id)
-    ))
+    dir.join(
+        format!(
+            "{}__{}{FILE_SUFFIX}", path_component(subengine), path_component(model_id)
+        ),
+    )
 }
-
 fn is_escaped(c: char) -> bool {
     matches!(c, '%' | '|' | ';' | '=' | '\n' | '\r')
 }
-
 fn escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -494,7 +463,6 @@ fn escape(s: &str) -> String {
     }
     out
 }
-
 fn hex_digit(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),
@@ -503,7 +471,6 @@ fn hex_digit(b: u8) -> Option<u8> {
         _ => None,
     }
 }
-
 fn unescape(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
@@ -521,14 +488,12 @@ fn unescape(s: &str) -> String {
     }
     String::from_utf8_lossy(&out).into_owned()
 }
-
 fn encode_pairs(map: &BTreeMap<Axis, Value>) -> String {
     map.iter()
         .map(|(a, v)| format!("{}={}", escape(a.as_str()), escape(v.as_str())))
         .collect::<Vec<_>>()
         .join(";")
 }
-
 fn decode_pairs(s: &str) -> Option<BTreeMap<Axis, Value>> {
     let mut map = BTreeMap::new();
     if s.is_empty() {
@@ -540,7 +505,6 @@ fn decode_pairs(s: &str) -> Option<BTreeMap<Axis, Value>> {
     }
     Some(map)
 }
-
 fn decode_profile(v: &str) -> Option<PrecisionProfile> {
     let (pos, cfg) = v.split_once('|')?;
     let position: f64 = pos.trim().parse().ok()?;
@@ -552,25 +516,22 @@ fn decode_profile(v: &str) -> Option<PrecisionProfile> {
         config: decode_pairs(cfg)?,
     })
 }
-
 fn decode_annotated(v: &str) -> Option<Annotated> {
     let (comb, reason) = v.split_once('|')?;
     Some(Annotated {
-        combination: Combination(decode_pairs(comb)?),
+        combination: Combination::from_values(decode_pairs(comb)?).ok()?,
         reason: unescape(reason),
     })
 }
-
 fn push_annotated(out: &mut String, key: &str, items: &[Annotated]) {
     for a in items {
-        out.push_str(&format!(
-            "{key}={}|{}\n",
-            encode_pairs(&a.combination.0),
-            escape(&a.reason)
-        ));
+        out.push_str(
+            &format!(
+                "{key}={}|{}\n", encode_pairs(a.combination.values()), escape(& a.reason)
+            ),
+        );
     }
 }
-
 pub fn encode_record(r: &CalibrationRecord) -> String {
     let fp = &r.fingerprint;
     let mut out = String::from("# kalibrierung\n");
@@ -588,13 +549,12 @@ pub fn encode_record(r: &CalibrationRecord) -> String {
     }
     out.push_str(&format!("unstable={}\n", r.unstable));
     for p in &r.profiles {
-        out.push_str(&format!("profile={}|{}\n", p.position, encode_pairs(&p.config)));
+        out.push_str(&format!("profile={}|{}\n", p.position, encode_pairs(& p.config)));
     }
     push_annotated(&mut out, "discarded", &r.discarded);
     push_annotated(&mut out, "pruned", &r.pruned);
     out
 }
-
 pub fn decode_record(text: &str) -> Option<CalibrationRecord> {
     let mut record = CalibrationRecord {
         fingerprint: Fingerprint::default(),
@@ -613,7 +573,9 @@ pub fn decode_record(text: &str) -> Option<CalibrationRecord> {
         };
         let fp = &mut record.fingerprint;
         match key.trim() {
-            "schema_version" => fp.schema_version = unescape(value).trim().parse().unwrap_or(0),
+            "schema_version" => {
+                fp.schema_version = unescape(value).trim().parse().unwrap_or(0);
+            }
             "subengine" => fp.subengine = unescape(value),
             "gpu_name" => fp.gpu_name = unescape(value),
             "compute_capability" => fp.compute_capability = unescape(value),
@@ -632,26 +594,27 @@ pub fn decode_record(text: &str) -> Option<CalibrationRecord> {
     if !known {
         return None;
     }
-    record.profiles.sort_by(|a, b| {
-        a.position
-            .partial_cmp(&b.position)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    record
+        .profiles
+        .sort_by(|a, b| {
+            a.position.partial_cmp(&b.position).unwrap_or(std::cmp::Ordering::Equal)
+        });
     Some(record)
 }
-
 fn load_file(path: &Path) -> Result<CalibrationRecord, PersistError> {
-    let bytes = fs::read(path).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            PersistError::NotFound
-        } else {
-            PersistError::Unreadable(e.to_string())
-        }
-    })?;
-    let text = String::from_utf8(bytes).map_err(|e| PersistError::Unreadable(e.to_string()))?;
-    decode_record(&text).ok_or_else(|| PersistError::Unreadable("no known keys".to_string()))
+    let bytes = fs::read(path)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                PersistError::NotFound
+            } else {
+                PersistError::Unreadable(e.to_string())
+            }
+        })?;
+    let text = String::from_utf8(bytes)
+        .map_err(|e| PersistError::Unreadable(e.to_string()))?;
+    decode_record(&text)
+        .ok_or_else(|| PersistError::Unreadable("no known keys".to_string()))
 }
-
 fn write_then_rename(tmp: &Path, target: &Path, content: &str) -> std::io::Result<()> {
     let mut file = fs::File::create(tmp)?;
     file.write_all(content.as_bytes())?;
@@ -659,18 +622,19 @@ fn write_then_rename(tmp: &Path, target: &Path, content: &str) -> std::io::Resul
     drop(file);
     fs::rename(tmp, target)
 }
-
 fn save_record(dir: &Path, record: &CalibrationRecord) -> Result<(), PersistError> {
     let io = |e: std::io::Error| PersistError::Io(e.to_string());
     let fp = &record.fingerprint;
     let target = record_path(dir, &fp.subengine, &fp.model_id);
     fs::create_dir_all(dir).map_err(io)?;
     let mut tmp_name: OsString = target.as_os_str().to_owned();
-    tmp_name.push(format!(
-        ".tmp.{}.{}",
-        std::process::id(),
-        TMP_COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
+    tmp_name
+        .push(
+            format!(
+                ".tmp.{}.{}", std::process::id(), TMP_COUNTER.fetch_add(1,
+                Ordering::Relaxed)
+            ),
+        );
     let tmp = PathBuf::from(tmp_name);
     if let Err(e) = write_then_rename(&tmp, &target, &encode_record(record)) {
         let _ = fs::remove_file(&tmp);
@@ -679,7 +643,6 @@ fn save_record(dir: &Path, record: &CalibrationRecord) -> Result<(), PersistErro
     let _ = fs::File::open(dir).and_then(|d| d.sync_all());
     Ok(())
 }
-
 #[cfg(test)]
 #[path = "test/calibration_store.rs"]
 mod tests;

@@ -3,7 +3,6 @@ use std::ffi::c_void;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use candle_core::cuda_backend::CudaDevice;
 use cudarc::driver::result as drv;
@@ -103,49 +102,6 @@ impl Drop for PinnedBuffer {
 impl fmt::Debug for PinnedBuffer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PinnedBuffer").field("len", &self.len).finish()
-    }
-}
-/// Ring of pinned, zeroed buffers.
-pub struct StagingRing {
-    buffers: Vec<PinnedBuffer>,
-    cursor: AtomicUsize,
-}
-impl StagingRing {
-    fn from_buffers(buffers: Vec<PinnedBuffer>) -> StagingRing {
-        StagingRing {
-            buffers,
-            cursor: AtomicUsize::new(0),
-        }
-    }
-    pub fn len(&self) -> usize {
-        self.buffers.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.buffers.is_empty()
-    }
-    pub fn buffer_size(&self) -> usize {
-        self.buffers.first().map_or(0, PinnedBuffer::len)
-    }
-    pub fn get(&self, i: usize) -> Option<&PinnedBuffer> {
-        self.buffers.get(i)
-    }
-    pub fn get_mut(&mut self, i: usize) -> Option<&mut PinnedBuffer> {
-        self.buffers.get_mut(i)
-    }
-    /// Round-robin index in `0..len`; `None` for an empty ring.
-    pub fn next_index(&self) -> Option<usize> {
-        if self.buffers.is_empty() {
-            return None;
-        }
-        Some(self.cursor.fetch_add(1, Ordering::Relaxed) % self.buffers.len())
-    }
-}
-impl fmt::Debug for StagingRing {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StagingRing")
-            .field("count", &self.len())
-            .field("buffer_size", &self.buffer_size())
-            .finish()
     }
 }
 /// Host-side source of an upload.
@@ -595,22 +551,8 @@ impl GpuBackend {
             },
         )
     }
-    pub fn create_staging_ring(
-        &self,
-        count: usize,
-        buffer_size: usize,
-    ) -> Result<StagingRing, BackendError> {
-        count
-            .checked_mul(buffer_size)
-            .ok_or_else(|| unavailable("staging ring size overflows"))?;
-        let mut buffers = Vec::new();
-        for _ in 0..count {
-            buffers
-                .push(
-                    PinnedBuffer::allocate(&self.ctx, buffer_size).map_err(unavailable)?,
-                );
-        }
-        Ok(StagingRing::from_buffers(buffers))
+    pub fn allocate_pinned(&self, len: usize) -> Result<PinnedBuffer, BackendError> {
+        PinnedBuffer::allocate(&self.ctx, len).map_err(unavailable)
     }
     /// Locks the mapped block and validates an access; returns the guard and the host address.
     fn mapped_span(

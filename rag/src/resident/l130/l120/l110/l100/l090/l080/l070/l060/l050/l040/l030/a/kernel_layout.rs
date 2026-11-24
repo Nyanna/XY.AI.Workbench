@@ -20,31 +20,33 @@ pub struct Extent {
     pub len: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LayoutError {
+pub enum AddrLayoutError {
     Overflow,
     TooManyEntries,
     Overlap,
     CountMismatch { expected: usize, got: usize },
     ZeroStride,
 }
-impl fmt::Display for LayoutError {
+impl fmt::Display for AddrLayoutError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LayoutError::Overflow => {
+            AddrLayoutError::Overflow => {
                 write!(f, "address arithmetic overflow while building layout")
             }
-            LayoutError::TooManyEntries => {
+            AddrLayoutError::TooManyEntries => {
                 write!(f, "more than u32::MAX slots requested")
             }
-            LayoutError::Overlap => write!(f, "extents overlap"),
-            LayoutError::CountMismatch { expected, got } => {
+            AddrLayoutError::Overlap => write!(f, "extents overlap"),
+            AddrLayoutError::CountMismatch { expected, got } => {
                 write!(f, "entry id count mismatch: expected {expected}, got {got}")
             }
-            LayoutError::ZeroStride => write!(f, "fixed layout stride must be non-zero"),
+            AddrLayoutError::ZeroStride => {
+                write!(f, "fixed layout stride must be non-zero")
+            }
         }
     }
 }
-impl std::error::Error for LayoutError {}
+impl std::error::Error for AddrLayoutError {}
 /// Fixed layout: slot i occupies `[base + i*stride, base + (i+1)*stride)`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedLayout {
@@ -53,12 +55,12 @@ pub struct FixedLayout {
     count: u32,
 }
 impl FixedLayout {
-    pub fn new(base: u64, stride: u32, count: u32) -> Result<Self, LayoutError> {
+    pub fn new(base: u64, stride: u32, count: u32) -> Result<Self, AddrLayoutError> {
         if stride == 0 {
-            return Err(LayoutError::ZeroStride);
+            return Err(AddrLayoutError::ZeroStride);
         }
         let total = u64::from(stride) * u64::from(count);
-        base.checked_add(total).ok_or(LayoutError::Overflow)?;
+        base.checked_add(total).ok_or(AddrLayoutError::Overflow)?;
         Ok(Self { base, stride, count })
     }
     pub fn stride(&self) -> u32 {
@@ -92,15 +94,15 @@ pub struct VariableLayout {
 }
 impl VariableLayout {
     /// Contiguous: exclusive prefix sum of the lengths on `base`; n lengths give n+1 offsets.
-    pub fn from_lengths(base: u64, lengths: &[u64]) -> Result<Self, LayoutError> {
+    pub fn from_lengths(base: u64, lengths: &[u64]) -> Result<Self, AddrLayoutError> {
         if lengths.len() > u32::MAX as usize {
-            return Err(LayoutError::TooManyEntries);
+            return Err(AddrLayoutError::TooManyEntries);
         }
         let mut offsets = Vec::with_capacity(lengths.len() + 1);
         let mut cur = base;
         offsets.push(cur);
         for &len in lengths {
-            cur = cur.checked_add(len).ok_or(LayoutError::Overflow)?;
+            cur = cur.checked_add(len).ok_or(AddrLayoutError::Overflow)?;
             offsets.push(cur);
         }
         Ok(Self {
@@ -108,20 +110,20 @@ impl VariableLayout {
         })
     }
     /// Existing segments: slot i = extents[i]; any order, non-overlapping.
-    pub fn from_extents(extents: &[Extent]) -> Result<Self, LayoutError> {
+    pub fn from_extents(extents: &[Extent]) -> Result<Self, AddrLayoutError> {
         if extents.len() > u32::MAX as usize {
-            return Err(LayoutError::TooManyEntries);
+            return Err(AddrLayoutError::TooManyEntries);
         }
         let mut sorted = Vec::with_capacity(extents.len());
         for (i, e) in extents.iter().enumerate() {
-            let end = e.start.checked_add(e.len).ok_or(LayoutError::Overflow)?;
+            let end = e.start.checked_add(e.len).ok_or(AddrLayoutError::Overflow)?;
             if e.len > 0 {
                 sorted.push((e.start, end, i as u32));
             }
         }
         sorted.sort_unstable();
         if sorted.windows(2).any(|w| w[0].1 > w[1].0) {
-            return Err(LayoutError::Overlap);
+            return Err(AddrLayoutError::Overlap);
         }
         Ok(Self {
             repr: VariableRepr::Extents {
@@ -177,15 +179,15 @@ impl VariableLayout {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Layout {
+pub enum AddrLayout {
     Fixed(FixedLayout),
     Variable(VariableLayout),
 }
-impl Layout {
+impl AddrLayout {
     pub fn len(&self) -> usize {
         match self {
-            Layout::Fixed(f) => f.count as usize,
-            Layout::Variable(v) => v.len(),
+            AddrLayout::Fixed(f) => f.count as usize,
+            AddrLayout::Variable(v) => v.len(),
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -194,22 +196,22 @@ impl Layout {
     /// Address to slot; `None` when the address lies in no slot.
     pub fn slot_of(&self, addr: Addr) -> Option<Slot> {
         match self {
-            Layout::Fixed(f) => f.slot_of(addr.0),
-            Layout::Variable(v) => v.slot_of(addr.0),
+            AddrLayout::Fixed(f) => f.slot_of(addr.0),
+            AddrLayout::Variable(v) => v.slot_of(addr.0),
         }
     }
     /// Address range of a slot (fixed: full stride width; variable: `[start, start+len)`).
     pub fn slot_range(&self, slot: Slot) -> Option<Range<u64>> {
         match self {
-            Layout::Fixed(f) => f.slot_range(slot),
-            Layout::Variable(v) => v.slot_range(slot),
+            AddrLayout::Fixed(f) => f.slot_range(slot),
+            AddrLayout::Variable(v) => v.slot_range(slot),
         }
     }
     /// Attach entry ids; `ids[i]` belongs to slot i.
-    pub fn into_slot_map(self, ids: Vec<EntryId>) -> Result<SlotMap, LayoutError> {
+    pub fn into_slot_map(self, ids: Vec<EntryId>) -> Result<SlotMap, AddrLayoutError> {
         let expected = self.len();
         if ids.len() != expected {
-            return Err(LayoutError::CountMismatch {
+            return Err(AddrLayoutError::CountMismatch {
                 expected,
                 got: ids.len(),
             });
@@ -223,7 +225,7 @@ pub fn choose_layout(
     base: u64,
     lengths: &[u64],
     max_padding_permille: u32,
-) -> Result<Layout, LayoutError> {
+) -> Result<AddrLayout, AddrLayoutError> {
     let n = lengths.len();
     if n > 0 && n <= u32::MAX as usize {
         let stride = lengths.iter().copied().max().unwrap_or(0);
@@ -233,21 +235,21 @@ pub fn choose_layout(
             let padding = full - sum;
             if padding * 1000 <= u128::from(max_padding_permille) * full {
                 return Ok(
-                    Layout::Fixed(FixedLayout::new(base, stride as u32, n as u32)?),
+                    AddrLayout::Fixed(FixedLayout::new(base, stride as u32, n as u32)?),
                 );
             }
         }
     }
-    Ok(Layout::Variable(VariableLayout::from_lengths(base, lengths)?))
+    Ok(AddrLayout::Variable(VariableLayout::from_lengths(base, lengths)?))
 }
 /// Slot assignment: layout plus one entry id per slot.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlotMap {
-    layout: Layout,
+    layout: AddrLayout,
     ids: Vec<EntryId>,
 }
 impl SlotMap {
-    pub fn layout(&self) -> &Layout {
+    pub fn layout(&self) -> &AddrLayout {
         &self.layout
     }
     pub fn entry_of_slot(&self, slot: Slot) -> Option<EntryId> {

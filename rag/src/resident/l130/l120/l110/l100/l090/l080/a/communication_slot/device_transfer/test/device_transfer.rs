@@ -520,7 +520,7 @@ struct Fixture {
 fn fixture(source: Arc<MemSource>, slots: usize, slot_size: usize) -> Option<Fixture> {
     let backend = backend()?;
     let sink = Arc::new(CollectSink::default());
-    let ring = Arc::new(StagingRing::new(slots, slot_size).unwrap());
+    let ring = Arc::new(StagingRing::pinned(&backend, slots, slot_size).unwrap());
     let transfer = Arc::new(
         DeviceTransfer::new(
                 source,
@@ -533,10 +533,22 @@ fn fixture(source: Arc<MemSource>, slots: usize, slot_size: usize) -> Option<Fix
     );
     Some(Fixture { backend, sink, transfer })
 }
+#[test]
+fn pinned_ring_slots_hold_zeroed_writable_payload() {
+    let Some(b) = backend() else { return };
+    let ring = StagingRing::pinned(&b, 2, 64).unwrap();
+    assert_eq!((ring.slot_count(), ring.slot_size()), (2, 64));
+    let slot = ring.acquire().unwrap();
+    assert!(ring.with_payload(slot, | p | p.iter().all(|& v | v == 0)).unwrap());
+    ring.with_payload(slot, |p| p[..4].copy_from_slice(&[1, 2, 3, 4])).unwrap();
+    assert_eq!(
+        ring.with_payload(slot, | p | p[..4].to_vec()).unwrap(), vec![1, 2, 3, 4]
+    );
+    assert_eq!(StagingRing::pinned(& b, 0, 8).err(), Some(StagingError::InvalidConfig));
+}
 fn device_bytes(backend: &GpuBackend, segment: &LoadedSegment) -> Vec<u8> {
-    let ring = backend.create_staging_ring(1, segment.region.len() as usize).unwrap();
-    let buffer = ring.get(0).unwrap();
-    backend.download(&segment.region, buffer).unwrap().wait().unwrap();
+    let buffer = backend.allocate_pinned(segment.region.len() as usize).unwrap();
+    backend.download(&segment.region, &buffer).unwrap().wait().unwrap();
     buffer.as_slice().to_vec()
 }
 fn check_contents(f: &Fixture, source: &MemSource, segment: &LoadedSegment) {

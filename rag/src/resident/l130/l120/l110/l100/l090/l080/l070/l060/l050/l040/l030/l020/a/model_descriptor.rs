@@ -3,11 +3,8 @@ use std::path::{Path, PathBuf};
 use super::super::l010::layout::DType;
 pub const E5_SMALL_MODEL_ID: &str = "intfloat/multilingual-e5-small";
 pub const E5_SMALL_REPO_DIR: &str = "/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small";
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DeviceClass {
-    Cpu,
-    Gpu,
-}
+/// Device class an encoder is built for; the same type as the lane device kind.
+pub use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::DeviceKind as DeviceClass;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Pooling {
     Mean,

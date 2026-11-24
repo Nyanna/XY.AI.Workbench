@@ -54,22 +54,22 @@ pub trait UpdateQueue: Send {
     fn apply(&mut self, residency: &ResidencyDirectory) -> UpdateOutcome;
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SlotError {
+pub enum CompletionError {
     /// No index attached; no side effects.
     NoIndexAttached,
     /// The mapping has moved past the batch epoch; only returned by `try_complete`,
     /// without side effects.
     StaleMapping,
 }
-impl fmt::Display for SlotError {
+impl fmt::Display for CompletionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SlotError::NoIndexAttached => f.write_str("kein Index angeh\u{e4}ngt"),
-            SlotError::StaleMapping => f.write_str("stale Mapping"),
+            CompletionError::NoIndexAttached => f.write_str("no index attached"),
+            CompletionError::StaleMapping => f.write_str("stale mapping"),
         }
     }
 }
-impl std::error::Error for SlotError {}
+impl std::error::Error for CompletionError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeferReason {
     UnmappedAddress(EmbeddingWrite),
@@ -216,13 +216,13 @@ impl CommunicationSlot {
     }
     /// Full completion: attempt against the batch epoch; on stale mapping repeat under the
     /// Structure-Lock.
-    pub fn complete(&mut self, batch: &Manifest) -> Result<SlotOutput, SlotError> {
+    pub fn complete(&mut self, batch: &Manifest) -> Result<SlotOutput, CompletionError> {
         match self.try_complete(batch) {
-            Err(SlotError::StaleMapping) => {}
+            Err(CompletionError::StaleMapping) => {}
             other => return other,
         }
         warn!(target : LOG_TARGET, "stale Mapping");
-        let index = self.index.clone().ok_or(SlotError::NoIndexAttached)?;
+        let index = self.index.clone().ok_or(CompletionError::NoIndexAttached)?;
         let mapping = Arc::clone(&self.mapping);
         let updates = Arc::clone(&self.updates);
         let residency = Arc::clone(&self.residency);
@@ -240,8 +240,11 @@ impl CommunicationSlot {
         Ok(out)
     }
     /// Single attempt against the batch epoch; `Err(StaleMapping)` without any side effect.
-    pub fn try_complete(&mut self, batch: &Manifest) -> Result<SlotOutput, SlotError> {
-        let index = self.index.clone().ok_or(SlotError::NoIndexAttached)?;
+    pub fn try_complete(
+        &mut self,
+        batch: &Manifest,
+    ) -> Result<SlotOutput, CompletionError> {
+        let index = self.index.clone().ok_or(CompletionError::NoIndexAttached)?;
         let mapping = Arc::clone(&self.mapping);
         let updates = Arc::clone(&self.updates);
         let residency = Arc::clone(&self.residency);
@@ -249,7 +252,7 @@ impl CommunicationSlot {
         let residency_guard = lock(&residency);
         let snap = mapping.snapshot();
         if snap.current.generation() != batch.generation() {
-            return Err(SlotError::StaleMapping);
+            return Err(CompletionError::StaleMapping);
         }
         Ok(self.run_pass(batch, &snap, &*index, &mut *updates_guard, &residency_guard))
     }
@@ -346,7 +349,7 @@ impl CommunicationSlot {
 static_assertions::assert_impl_all!(CommunicationSlot : Send);
 static_assertions::assert_impl_all!(SlotOutput : Send, Sync);
 static_assertions::assert_impl_all!(SlotReport : Send, Sync);
-static_assertions::assert_impl_all!(SlotError : Send, Sync);
+static_assertions::assert_impl_all!(CompletionError : Send, Sync);
 #[cfg(test)]
 #[path = "test/communication_slot.rs"]
 mod tests;

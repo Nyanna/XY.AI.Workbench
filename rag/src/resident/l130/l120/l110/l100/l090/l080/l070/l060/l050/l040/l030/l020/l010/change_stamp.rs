@@ -1,18 +1,8 @@
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
-/// Opaque change marker. Only equality is semantically meaningful.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct ChangeStamp(u64);
-impl ChangeStamp {
-    /// Raw representation for persistence and notification.
-    pub fn as_raw(&self) -> u64 {
-        self.0
-    }
-    /// Rebuilds a stamp from a raw value without checking that it was issued.
-    pub fn from_raw(raw: u64) -> ChangeStamp {
-        ChangeStamp(raw)
-    }
-}
+/// Totally ordered change stamp. `Stamp(0)` is never assigned to a write or delete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct Stamp(pub u64);
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StampError {
     /// The counter has already issued `u64::MAX`.
@@ -47,14 +37,14 @@ impl StampCounter {
             last: AtomicU64::new(base),
         }
     }
-    pub fn next(&self) -> Result<ChangeStamp, StampError> {
+    pub fn next(&self) -> Result<Stamp, StampError> {
         self.last
             .try_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_add(1))
-            .map(|prev| ChangeStamp(prev + 1))
+            .map(|prev| Stamp(prev + 1))
             .map_err(|_| StampError::Exhausted)
     }
-    pub fn max(&self) -> Option<ChangeStamp> {
-        self.max_raw().map(ChangeStamp)
+    pub fn max(&self) -> Option<Stamp> {
+        self.max_raw().map(Stamp)
     }
     pub fn max_raw(&self) -> Option<u64> {
         match self.last.load(Ordering::Acquire) {

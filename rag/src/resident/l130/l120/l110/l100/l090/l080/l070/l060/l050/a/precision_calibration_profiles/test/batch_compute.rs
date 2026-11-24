@@ -2,7 +2,7 @@ use super::*;
 use std::sync::Arc;
 static_assertions::assert_impl_all!(FloatBatch : Send, Sync);
 static_assertions::assert_impl_all!(BatchKernel : Send, Sync);
-static_assertions::assert_impl_all!(BackendKind : Send, Sync);
+static_assertions::assert_impl_all!(DeviceKind : Send, Sync);
 static_assertions::assert_impl_all!(ComputeError : Send, Sync);
 static_assertions::assert_impl_all!(CpuBatchCompute : Send, Sync);
 static_assertions::assert_impl_all!(GpuBatchCompute : Send, Sync);
@@ -71,8 +71,8 @@ fn error_display_is_nonempty() {
 fn trait_is_object_safe() {
     let boxed: Box<dyn BatchCompute> = Box::new(CpuBatchCompute::new());
     let arc: Arc<dyn BatchCompute> = Arc::new(CpuBatchCompute::default());
-    assert_eq!(boxed.kind(), BackendKind::Cpu);
-    assert_eq!(arc.kind(), BackendKind::Cpu);
+    assert_eq!(boxed.kind(), DeviceKind::Cpu);
+    assert_eq!(arc.kind(), DeviceKind::Cpu);
 }
 #[test]
 fn cpu_add_and_mul() {
@@ -205,10 +205,10 @@ fn concurrent_runs_on_one_instance() {
 #[test]
 fn default_matches_gpu_availability() {
     match GpuBatchCompute::new() {
-        Ok(_) => assert_eq!(create_default().kind(), BackendKind::Gpu),
+        Ok(_) => assert_eq!(create_default().kind(), DeviceKind::Gpu),
         Err(e) => {
             assert!(matches!(e, ComputeError::GpuUnavailable(_)));
-            assert_eq!(create_default().kind(), BackendKind::Cpu);
+            assert_eq!(create_default().kind(), DeviceKind::Cpu);
         }
     }
 }
@@ -227,7 +227,7 @@ mod gpu_parity {
     #[test]
     fn gpu_matches_cpu() {
         let Some(gpu) = gpu_or_skip() else { return };
-        assert_eq!(gpu.kind(), BackendKind::Gpu);
+        assert_eq!(gpu.kind(), DeviceKind::Gpu);
         let cpu = CpuBatchCompute::new();
         let a = pattern(5, 7, 0.1);
         let b = pattern(7, 4, 0.9);

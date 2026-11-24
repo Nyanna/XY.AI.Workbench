@@ -451,7 +451,7 @@ impl GpuSubengine {
 - **`model_registry`:**
   - `ModelRegistry::encoder_resource(self: &Arc<Self>, Arc<ModelDescriptor>, DeviceClass) -> EncoderResource { key, init_cost: 100, loader: Arc<dyn ResourceLoader<LoadedEncoder>> }`.
   - `LoadedEncoder: Send + Sync + 'static`.
-  - `model_descriptor::DeviceClass { Cpu, Gpu }`.
+  - `model_descriptor::DeviceClass`, a re-export of `device_lane_event::DeviceKind { Cpu, Gpu }`.
 - **`lane_batching`:**
   - `LaneResource::new(LaneResourceConfig<N>, Vec<Lane>, Arc<dyn BatchRunner<N::Payload>>) -> Result<Arc<Self>, LaneSetError>`.
   - `LaneResourceConfig { own_head, shared_head, filter, limit, notifier, kind, device }`.

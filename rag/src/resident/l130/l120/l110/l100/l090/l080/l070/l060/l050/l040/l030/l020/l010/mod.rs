@@ -2,6 +2,7 @@ pub mod background_pool;
 pub mod batching;
 pub mod capability_model;
 pub mod change_stamp;
+pub mod combination;
 pub mod completion_wait;
 pub mod device_lane_event;
 pub mod extensions;

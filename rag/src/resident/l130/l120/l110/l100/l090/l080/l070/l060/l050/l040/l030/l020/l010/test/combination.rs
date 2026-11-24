@@ -1,7 +1,5 @@
 use super::*;
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
-    axes, values,
-};
+use super::super::capability_model::{axes, values};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -120,6 +118,18 @@ fn from_capability_rejects_invalid_names() {
         Combination::from_capability(&set),
         Err(CombinationError::InvalidName(_))
     ));
+}
+
+#[test]
+fn from_values_validates_and_keeps_order() {
+    let mut map = BTreeMap::new();
+    map.insert(Axis::new("b"), Value::new("1"));
+    map.insert(Axis::new("a"), Value::new("2"));
+    let c = Combination::from_values(map.clone()).unwrap();
+    assert_eq!(c.values(), &map);
+    assert!(c.seq_lens.is_empty());
+    map.insert(Axis::new("c"), Value::new("x,y"));
+    assert!(matches!(Combination::from_values(map), Err(CombinationError::InvalidName(_))));
 }
 
 #[test]

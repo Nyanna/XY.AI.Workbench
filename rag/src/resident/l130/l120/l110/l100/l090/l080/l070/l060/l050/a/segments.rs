@@ -18,7 +18,7 @@ pub struct SlotRef {
 /// Slots of one segment are addressed by `Slot(u32)`; larger segments are truncated to this count.
 pub const MAX_SLOTS_PER_SEGMENT: u64 = u32::MAX as u64 + 1;
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SlotError {
+pub enum SegmentError {
     InvalidSlotSize,
     WrongArena(ArenaKind),
     SegmentTooSmall { len: u64, slot_size: u64 },
@@ -31,50 +31,52 @@ pub enum SlotError {
     OutOfBounds { len: usize, slot_size: u64 },
     Access(AccessError),
 }
-impl fmt::Display for SlotError {
+impl fmt::Display for SegmentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SlotError::InvalidSlotSize => write!(f, "slot size must be non-zero"),
-            SlotError::WrongArena(kind) => {
+            SegmentError::InvalidSlotSize => write!(f, "slot size must be non-zero"),
+            SegmentError::WrongArena(kind) => {
                 write!(f, "region belongs to arena {:?}, expected IndexSegments", kind)
             }
-            SlotError::SegmentTooSmall { len, slot_size } => {
+            SegmentError::SegmentTooSmall { len, slot_size } => {
                 write!(
                     f, "region of {len} bytes cannot hold a slot of {slot_size} bytes"
                 )
             }
-            SlotError::BackingMismatch { handle_len, mem_len } => {
+            SegmentError::BackingMismatch { handle_len, mem_len } => {
                 write!(
                     f, "handle length {handle_len} differs from backing length {mem_len}"
                 )
             }
-            SlotError::UnknownSegment(id) => write!(f, "unknown segment {}", id.0),
-            SlotError::DuplicateRegion(handle) => {
+            SegmentError::UnknownSegment(id) => write!(f, "unknown segment {}", id.0),
+            SegmentError::DuplicateRegion(handle) => {
                 write!(f, "region already registered: {:?}", handle)
             }
-            SlotError::NoFreeSlot => write!(f, "no free slot"),
-            SlotError::PayloadTooLarge { len, slot_size } => {
+            SegmentError::NoFreeSlot => write!(f, "no free slot"),
+            SegmentError::PayloadTooLarge { len, slot_size } => {
                 write!(f, "payload of {len} bytes exceeds slot size {slot_size}")
             }
-            SlotError::UnknownEntry(entry) => write!(f, "entry {} has no slot", entry.0),
-            SlotError::OutOfBounds { len, slot_size } => {
+            SegmentError::UnknownEntry(entry) => {
+                write!(f, "entry {} has no slot", entry.0)
+            }
+            SegmentError::OutOfBounds { len, slot_size } => {
                 write!(f, "read of {len} bytes exceeds slot size {slot_size}")
             }
-            SlotError::Access(err) => write!(f, "region access failed: {err}"),
+            SegmentError::Access(err) => write!(f, "region access failed: {err}"),
         }
     }
 }
-impl std::error::Error for SlotError {
+impl std::error::Error for SegmentError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            SlotError::Access(err) => Some(err),
+            SegmentError::Access(err) => Some(err),
             _ => None,
         }
     }
 }
-impl From<AccessError> for SlotError {
+impl From<AccessError> for SegmentError {
     fn from(err: AccessError) -> Self {
-        SlotError::Access(err)
+        SegmentError::Access(err)
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -134,8 +136,8 @@ struct Inner {
     entries: HashMap<EntryId, SlotRef>,
 }
 impl Inner {
-    fn slot_range(&self, slot: u64) -> Result<usize, SlotError> {
-        let out_of_bounds = SlotError::OutOfBounds {
+    fn slot_range(&self, slot: u64) -> Result<usize, SegmentError> {
+        let out_of_bounds = SegmentError::OutOfBounds {
             len: 0,
             slot_size: self.slot_size,
         };
@@ -147,10 +149,10 @@ impl Inner {
         segment: &Segment,
         slot: u64,
         bytes: &[u8],
-    ) -> Result<(), SlotError> {
+    ) -> Result<(), SegmentError> {
         let offset = self.slot_range(slot)?;
         let size = usize::try_from(self.slot_size)
-            .map_err(|_| SlotError::PayloadTooLarge {
+            .map_err(|_| SegmentError::PayloadTooLarge {
                 len: bytes.len(),
                 slot_size: self.slot_size,
             })?;
@@ -187,9 +189,9 @@ fn write_lock(lock: &RwLock<Inner>) -> RwLockWriteGuard<'_, Inner> {
     lock.write().unwrap_or_else(PoisonError::into_inner)
 }
 impl SegmentStore {
-    pub fn new(slot_size: u64) -> Result<SegmentStore, SlotError> {
+    pub fn new(slot_size: u64) -> Result<SegmentStore, SegmentError> {
         if slot_size == 0 {
-            return Err(SlotError::InvalidSlotSize);
+            return Err(SegmentError::InvalidSlotSize);
         }
         Ok(SegmentStore {
             slot_size,
@@ -211,28 +213,28 @@ impl SegmentStore {
         &self,
         handle: RegionHandle,
         mem: AccessRegion,
-    ) -> Result<SegmentId, SlotError> {
+    ) -> Result<SegmentId, SegmentError> {
         if handle.arena() != ArenaKind::IndexSegments {
-            return Err(SlotError::WrongArena(handle.arena()));
+            return Err(SegmentError::WrongArena(handle.arena()));
         }
         if handle.len() < self.slot_size {
-            return Err(SlotError::SegmentTooSmall {
+            return Err(SegmentError::SegmentTooSmall {
                 len: handle.len(),
                 slot_size: self.slot_size,
             });
         }
         let mem_len = mem.len() as u64;
         if mem_len != handle.len() {
-            return Err(SlotError::BackingMismatch {
+            return Err(SegmentError::BackingMismatch {
                 handle_len: handle.len(),
                 mem_len,
             });
         }
         let mut inner = write_lock(&self.inner);
         if inner.handles.contains(&handle) {
-            return Err(SlotError::DuplicateRegion(handle));
+            return Err(SegmentError::DuplicateRegion(handle));
         }
-        let next = inner.next_id.checked_add(1).ok_or(SlotError::NoFreeSlot)?;
+        let next = inner.next_id.checked_add(1).ok_or(SegmentError::NoFreeSlot)?;
         let id = SegmentId(inner.next_id);
         inner.next_id = next;
         inner.handles.insert(handle);
@@ -254,9 +256,12 @@ impl SegmentStore {
         Ok(id)
     }
     /// Removes the segment and the mapping of its entries; frees nothing.
-    pub fn remove_segment(&self, id: SegmentId) -> Result<RemovedSegment, SlotError> {
+    pub fn remove_segment(&self, id: SegmentId) -> Result<RemovedSegment, SegmentError> {
         let mut inner = write_lock(&self.inner);
-        let segment = inner.segments.remove(&id).ok_or(SlotError::UnknownSegment(id))?;
+        let segment = inner
+            .segments
+            .remove(&id)
+            .ok_or(SegmentError::UnknownSegment(id))?;
         inner.handles.remove(&segment.handle);
         inner.with_free.remove(&id);
         let mut entries: Vec<EntryId> = segment.occupied.values().copied().collect();
@@ -280,9 +285,9 @@ impl SegmentStore {
         read_lock(&self.inner).segments.keys().copied().collect()
     }
     /// Maps `entry` to a slot and writes `bytes`, zero-padding the rest of the slot.
-    pub fn put(&self, entry: EntryId, bytes: &[u8]) -> Result<SlotRef, SlotError> {
+    pub fn put(&self, entry: EntryId, bytes: &[u8]) -> Result<SlotRef, SegmentError> {
         if u64::try_from(bytes.len()).map_or(true, |len| len > self.slot_size) {
-            return Err(SlotError::PayloadTooLarge {
+            return Err(SegmentError::PayloadTooLarge {
                 len: bytes.len(),
                 slot_size: self.slot_size,
             });
@@ -292,14 +297,14 @@ impl SegmentStore {
             let segment = inner
                 .segments
                 .get(&existing.segment)
-                .ok_or(SlotError::UnknownSegment(existing.segment))?;
+                .ok_or(SegmentError::UnknownSegment(existing.segment))?;
             inner.write_slot(segment, u64::from(existing.slot.0), bytes)?;
             return Ok(existing);
         }
-        let id = inner.with_free.first().copied().ok_or(SlotError::NoFreeSlot)?;
-        let segment = inner.segments.get(&id).ok_or(SlotError::UnknownSegment(id))?;
-        let index = segment.lowest_free().ok_or(SlotError::NoFreeSlot)?;
-        let slot = Slot(u32::try_from(index).map_err(|_| SlotError::NoFreeSlot)?);
+        let id = inner.with_free.first().copied().ok_or(SegmentError::NoFreeSlot)?;
+        let segment = inner.segments.get(&id).ok_or(SegmentError::UnknownSegment(id))?;
+        let index = segment.lowest_free().ok_or(SegmentError::NoFreeSlot)?;
+        let slot = Slot(u32::try_from(index).map_err(|_| SegmentError::NoFreeSlot)?);
         inner.write_slot(segment, index, bytes)?;
         if let Some(segment) = inner.segments.get_mut(&id) {
             segment.claim(index, entry);
@@ -320,15 +325,15 @@ impl SegmentStore {
         Some(slot_ref)
     }
     /// Reads `dst.len()` bytes from the start of the entry's slot.
-    pub fn read(&self, entry: EntryId, dst: &mut [u8]) -> Result<(), SlotError> {
+    pub fn read(&self, entry: EntryId, dst: &mut [u8]) -> Result<(), SegmentError> {
         let inner = read_lock(&self.inner);
         let slot_ref = inner
             .entries
             .get(&entry)
             .copied()
-            .ok_or(SlotError::UnknownEntry(entry))?;
+            .ok_or(SegmentError::UnknownEntry(entry))?;
         if u64::try_from(dst.len()).map_or(true, |len| len > self.slot_size) {
-            return Err(SlotError::OutOfBounds {
+            return Err(SegmentError::OutOfBounds {
                 len: dst.len(),
                 slot_size: self.slot_size,
             });
@@ -339,7 +344,7 @@ impl SegmentStore {
         let segment = inner
             .segments
             .get(&slot_ref.segment)
-            .ok_or(SlotError::UnknownSegment(slot_ref.segment))?;
+            .ok_or(SegmentError::UnknownSegment(slot_ref.segment))?;
         let offset = inner.slot_range(u64::from(slot_ref.slot.0))?;
         segment.mem.read(offset, dst)?;
         Ok(())
@@ -357,9 +362,12 @@ impl SegmentStore {
             .copied()
     }
     /// Occupied slots in slot order.
-    pub fn entries_in(&self, id: SegmentId) -> Result<Vec<(Slot, EntryId)>, SlotError> {
+    pub fn entries_in(
+        &self,
+        id: SegmentId,
+    ) -> Result<Vec<(Slot, EntryId)>, SegmentError> {
         let inner = read_lock(&self.inner);
-        let segment = inner.segments.get(&id).ok_or(SlotError::UnknownSegment(id))?;
+        let segment = inner.segments.get(&id).ok_or(SegmentError::UnknownSegment(id))?;
         Ok(
             segment
                 .occupied
@@ -376,9 +384,9 @@ impl SegmentStore {
         &self,
         id: SegmentId,
         base: DeviceAddr,
-    ) -> Result<SegmentDesc, SlotError> {
+    ) -> Result<SegmentDesc, SegmentError> {
         let inner = read_lock(&self.inner);
-        let segment = inner.segments.get(&id).ok_or(SlotError::UnknownSegment(id))?;
+        let segment = inner.segments.get(&id).ok_or(SegmentError::UnknownSegment(id))?;
         Ok(SegmentDesc {
             base,
             entries: segment.slot_count,

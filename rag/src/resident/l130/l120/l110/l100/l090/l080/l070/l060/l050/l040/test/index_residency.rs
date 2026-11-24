@@ -2,6 +2,7 @@ use super::super::l030::l020::a::index_contract::{
     IndexError, PayloadRef, SharedBytes, Stamp, StampObserver, StampSignal,
 };
 use super::super::l030::l020::l010::layout::DType;
+use super::super::l030::l020::l010::page_advice::AdviceError;
 use super::*;
 static_assertions::assert_impl_all!(IndexResidency : Send, Sync);
 type Call = (u64, u64, Advice);
@@ -15,10 +16,17 @@ impl RecordingAdvisor {
         self.calls.lock().unwrap().clone()
     }
 }
-impl MemoryAdvisor for RecordingAdvisor {
-    fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), String> {
-        self.calls.lock().unwrap().push((offset, len, advice));
-        if self.fail { Err("rejected".to_string()) } else { Ok(()) }
+impl AdviceTarget for RecordingAdvisor {
+    fn len(&self) -> u64 {
+        u64::MAX
+    }
+    fn advise(&self, advice: Advice, range: PageRange) -> Result<(), AdviceError> {
+        self.calls.lock().unwrap().push((range.start, range.end - range.start, advice));
+        if self.fail {
+            Err(AdviceError::Os(std::io::Error::other("rejected")))
+        } else {
+            Ok(())
+        }
     }
 }
 struct MockIndex {
@@ -122,7 +130,7 @@ fn residency(
     advisor: &Arc<RecordingAdvisor>,
     idle_after: Duration,
 ) -> IndexResidency {
-    let advisor: Arc<dyn MemoryAdvisor> = advisor.clone();
+    let advisor: Arc<dyn AdviceTarget> = advisor.clone();
     IndexResidency::new(slot_with(Some(index)), Some(advisor), idle_after)
 }
 fn owned(i: u64) -> OwnedPayload {
@@ -131,12 +139,10 @@ fn owned(i: u64) -> OwnedPayload {
         meta: vec![i as u8 + 100],
     }
 }
-fn err(text: &str) -> TransferError {
-    TransferError(text.to_string())
-}
 #[test]
-fn transfer_error_displays_its_text() {
-    assert_eq!(err("x y").to_string(), "x y");
+fn residency_error_displays_its_text() {
+    assert_eq!(ResidencyError::NotAttached.to_string(), "index not attached");
+    assert_eq!(ResidencyError::TaskAborted.to_string(), "read task aborted");
 }
 #[test]
 fn plan_without_ranges_is_none() {
@@ -234,16 +240,14 @@ async fn read_entry_ignores_empty_hint() {
 #[tokio::test]
 async fn read_entry_not_attached_fails() {
     let m = IndexResidency::new(slot_with(None), None, Duration::ZERO);
-    assert_eq!(
-        m.read_entry(EntryId(1), None). await, Err(err("Index nicht angehängt"))
-    );
+    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError::NotAttached));
 }
 #[tokio::test]
 async fn read_entry_panicking_task_reports_abort() {
     let mut index = MockIndex::new(&[1]);
     index.panic_on = Some(1);
     let m = IndexResidency::new(slot_with(Some(Arc::new(index))), None, Duration::ZERO);
-    assert_eq!(m.read_entry(EntryId(1), None). await, Err(err("Lese-Task abgebrochen")));
+    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError::TaskAborted));
 }
 #[tokio::test]
 async fn read_entry_survives_advisor_failure() {
@@ -257,7 +261,7 @@ async fn read_entry_survives_advisor_failure() {
 #[tokio::test]
 async fn read_entries_empty_is_ok_even_when_not_attached() {
     let advisor = Arc::new(RecordingAdvisor::default());
-    let advisor_dyn: Arc<dyn MemoryAdvisor> = advisor.clone();
+    let advisor_dyn: Arc<dyn AdviceTarget> = advisor.clone();
     let m = IndexResidency::new(slot_with(None), Some(advisor_dyn), Duration::ZERO);
     assert_eq!(m.read_entries(& []). await, Ok(vec![]));
     assert_eq!(m.read_entries_auto(& []). await, Ok(vec![]));
@@ -267,10 +271,10 @@ async fn read_entries_empty_is_ok_even_when_not_attached() {
 async fn read_entries_not_attached_fails() {
     let m = IndexResidency::new(slot_with(None), None, Duration::ZERO);
     assert_eq!(
-        m.read_entries(& [(EntryId(1), None)]). await, Err(err("Index nicht angehängt"))
+        m.read_entries(& [(EntryId(1), None)]). await, Err(ResidencyError::NotAttached)
     );
     assert_eq!(
-        m.read_entries_auto(& [EntryId(1)]). await, Err(err("Index nicht angehängt"))
+        m.read_entries_auto(& [EntryId(1)]). await, Err(ResidencyError::NotAttached)
     );
 }
 #[tokio::test]
@@ -331,7 +335,7 @@ async fn read_entries_panicking_task_reports_abort() {
     let m = IndexResidency::new(slot_with(Some(Arc::new(index))), None, Duration::ZERO);
     assert_eq!(
         m.read_entries(& [(EntryId(1), None), (EntryId(2), None)]). await,
-        Err(err("Lese-Task abgebrochen"))
+        Err(ResidencyError::TaskAborted)
     );
 }
 #[tokio::test]
@@ -510,7 +514,7 @@ fn attached(index: Arc<EntryStore>) -> IndexSlot {
 #[tokio::test]
 async fn entry_store_reads_without_hints_in_auto_mode() {
     let advisor = Arc::new(RecordingAdvisor::default());
-    let advisor_dyn: Arc<dyn MemoryAdvisor> = advisor.clone();
+    let advisor_dyn: Arc<dyn AdviceTarget> = advisor.clone();
     let m = IndexResidency::new(
         attached(entry_store_with(&[1, 2])),
         Some(advisor_dyn),

@@ -2,9 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
-    Axis, CapabilitySet, Value,
-};
+use super::capability_model::{Axis, CapabilitySet, Value};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CombinationError {
@@ -31,13 +29,14 @@ impl fmt::Display for CombinationError {
 impl std::error::Error for CombinationError {}
 
 /// One value per axis, plus the sequence lengths of the test set.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct Combination {
     values: BTreeMap<Axis, Value>,
     pub seq_lens: Vec<usize>,
 }
 
-fn check_name(name: &str) -> Result<(), CombinationError> {
+/// Axis and value names must survive the text form.
+pub fn check_name(name: &str) -> Result<(), CombinationError> {
     let bad = name.is_empty()
         || name.contains(',')
         || name.contains('=')
@@ -51,6 +50,18 @@ fn check_name(name: &str) -> Result<(), CombinationError> {
 impl Combination {
     pub fn new() -> Self {
         Combination::default()
+    }
+
+    /// Validates every name; `seq_lens` stays empty.
+    pub fn from_values(values: BTreeMap<Axis, Value>) -> Result<Self, CombinationError> {
+        for (axis, value) in &values {
+            check_name(axis.as_str())?;
+            check_name(value.as_str())?;
+        }
+        Ok(Combination {
+            values,
+            seq_lens: Vec::new(),
+        })
     }
 
     /// Replaces an existing value of the axis.
@@ -83,6 +94,10 @@ impl Combination {
 
     pub fn value(&self, axis: &Axis) -> Option<&Value> {
         self.values.get(axis)
+    }
+
+    pub fn values(&self) -> &BTreeMap<Axis, Value> {
+        &self.values
     }
 
     /// Ascending by axis.

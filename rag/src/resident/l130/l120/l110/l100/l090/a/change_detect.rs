@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::resident::l130::l120::l110::l100::l090::l080::a::index_format::{
     fnv1a64_extend, IndexHeader, FNV_OFFSET, HASH_ALGORITHM, HASH_VERSION,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::change_stamp::ChangeStamp;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::change_stamp::Stamp;
 pub const RACY_WINDOW: Duration = Duration::from_secs(2);
 const READ_BLOCK_SIZE: usize = 64 * 1024;
 const NO_VALUE: &str = "keine";
@@ -19,7 +19,7 @@ pub struct FileRecord {
     pub meta: FileMeta,
     /// Reference time of the iteration in which the file was recorded.
     pub reference: SystemTime,
-    pub stamp: Option<ChangeStamp>,
+    pub stamp: Option<Stamp>,
     pub content_hash: Option<u64>,
 }
 impl FileRecord {
@@ -79,15 +79,15 @@ fn required(reason: CheckReason, diagnostic: String) -> ChangeCheck {
 pub fn check_file(
     record: &FileRecord,
     current: &FileMeta,
-    current_stamp: Option<ChangeStamp>,
+    current_stamp: Option<Stamp>,
 ) -> ChangeCheck {
     if let (Some(recorded), Some(now)) = (record.stamp, current_stamp) {
         if recorded != now {
             return required(
                 CheckReason::StampDiffers,
                 format!(
-                    "Change-Stamp abweichend: aufgezeichnet={}, aktuell={}", recorded
-                    .as_raw(), now.as_raw()
+                    "Change-Stamp abweichend: aufgezeichnet={}, aktuell={}", recorded.0,
+                    now.0
                 ),
             );
         }
