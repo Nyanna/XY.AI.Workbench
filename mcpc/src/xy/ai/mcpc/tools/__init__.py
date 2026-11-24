@@ -19,6 +19,7 @@ from xy.ai.mcpc.tools.edit_block import register_edit_block_tool
 from xy.ai.mcpc.tools.edit_line import register_edit_line_tool
 from xy.ai.mcpc.tools.skills import register_skills
 from xy.ai.mcpc.tools.write import register_write_tool
+from xy.ai.mcpc.tools.move import register_move_tool
 from xy.ai.mcpc.tools.agent import register_agent_tools
 from xy.ai.mcpc.tools.search import register_search_tool
 from xy.ai.mcpc.tools.tool_search import register as register_tool_search_tool
@@ -38,6 +39,7 @@ def register_tools(registry: ToolRegistry, environment: AppEnvironment) -> None:
     register_file_stats_tool(registry, functions)
     register_list_tool(registry, functions)
     register_write_tool(registry, functions)
+    register_move_tool(registry, functions)
     register_edit_marks_tool(registry, functions)
     register_edit_chars_tool(registry, functions)
     register_edit_lines_tool(registry, functions)
