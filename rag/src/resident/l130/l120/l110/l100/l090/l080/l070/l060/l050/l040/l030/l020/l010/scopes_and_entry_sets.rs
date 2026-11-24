@@ -4,9 +4,22 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Range, RangeInclusive};
 /// Raw entry identifier used in entry sets and load plans.
 ///
-/// A plain `u64` alias, so the compiler does not separate it from other integers. The typed
-/// identifier is `index_contract::EntryId`; convert at the boundary with `.0` and `EntryId(x)`.
+/// A plain `u64` alias: ranges, `len() -> u128` and `u64::MAX` need integer arithmetic. The typed
+/// identifier is `EntryId`; the two convert with `From` and `EntrySet::{from_entry_ids, entry_ids}`.
 pub type RawEntryId = u64;
+/// Identifier of an entry in the index contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EntryId(pub u64);
+impl From<RawEntryId> for EntryId {
+    fn from(raw: RawEntryId) -> Self {
+        EntryId(raw)
+    }
+}
+impl From<EntryId> for RawEntryId {
+    fn from(id: EntryId) -> Self {
+        id.0
+    }
+}
 const CHUNK_BITS: u32 = 16;
 const WORDS_PER_CHUNK: usize = 1024;
 const CHUNK_BYTES: u128 = (WORDS_PER_CHUNK * 8) as u128;
@@ -234,6 +247,15 @@ impl EntrySet {
         v.dedup();
         let runs: Vec<Run> = v.into_iter().map(|i| (i, i)).collect();
         Self::from_normalized(coalesce(runs))
+    }
+    pub fn from_entry_ids<I: IntoIterator<Item = EntryId>>(ids: I) -> Self {
+        Self::from_ids(ids.into_iter().map(RawEntryId::from))
+    }
+    pub fn contains_entry(&self, id: EntryId) -> bool {
+        self.contains(id.0)
+    }
+    pub fn entry_ids(&self) -> impl Iterator<Item = EntryId> + '_ {
+        self.iter().map(EntryId::from)
     }
     fn from_normalized(runs: Vec<Run>) -> Self {
         let len = runs.iter().map(|&(s, e)| (e - s) as u128 + 1).sum();

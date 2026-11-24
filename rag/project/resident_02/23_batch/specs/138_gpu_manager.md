@@ -70,8 +70,7 @@ use layout::DType;
 use region_handle::RegionHandle;
 use device_lane_event::{Event, Lane};
 use manager::LazyIndex;
-use communication_slot::{MappingSnapshot, MappingSource, StructureGuard as SlotStructureGuard, UpdateOutcome};
-use communication_slot::UpdateQueue as SlotUpdateQueue;   // the slot's trait, not update_queue::UpdateQueue
+use communication_slot::{MappingSnapshot, MappingSource, StructureHold, UpdateApplier, UpdateOutcome};
 use hit_resolution::{SegmentBinding, SegmentDirectory};
 
 /// The one structure lock of the sub-engine. Not reentrant.
@@ -81,7 +80,7 @@ impl StructureLock {
     pub fn lock(&self) -> StructureGuard<'_>;      // recovers a poisoned lock
 }
 pub struct StructureGuard<'a> { /* MutexGuard<'a, ()> */ }
-impl SlotStructureGuard for StructureGuard<'_> {}
+impl StructureHold for StructureGuard<'_> {}
 
 /// Implemented by the GPU sub-engine (on top of GpuBackend), once per attached index. Send + Sync.
 pub trait GpuServices: Send + Sync {
@@ -205,7 +204,7 @@ pub struct ReleasedSegment {
     pub cleared: Vec<EntryId>,                // entries whose residency was removed, ascending
 }
 
-/// Update-queue adapter for the Communication-Slot. Implements `communication_slot::UpdateQueue`.
+/// Update-queue adapter for the Communication-Slot. Implements `communication_slot::UpdateApplier`.
 pub struct SlotUpdates { /* Arc<UpdateQueue>, Arc<MappingStore> */ }
 
 pub struct GpuManager { /* private */ }       // Send + Sync
@@ -493,7 +492,7 @@ The valid bit is cleared here and not at the time of the update, because mapping
 
 ### 4.12 Services for the Communication-Slot and hit resolution
 
-- **`SlotUpdates`** implements `communication_slot::UpdateQueue`:
+- **`SlotUpdates`** implements `communication_slot::UpdateApplier`:
   - `depth()` is `updates.depth()`. `is_pending(e)` is `updates.contains(e)`.
   - `apply(&mut self, residency)` takes `map = store.current()`, calls `updates.apply(residency, &map)`, logs every warning from `take_warnings()` with `log::warn!(target: "update_queue", ..)` and returns `UpdateOutcome{applied}`.
   - It is the only place in production that calls `UpdateQueue::apply`. Producers push at any time without a lock. `depth()` and `is_pending()` are snapshots.
@@ -555,7 +554,7 @@ The valid bit is cleared here and not at the time of the update, because mapping
 - **`segment_arena`:** `SegmentArena<A>::allocate(len) -> Result<Segment{region: Region, offset, len}, SegmentArenaError>`, `release(&Segment, Readers::None)` and `Exhausted{requested, available}`. `offset` is 256-aligned and lies inside `region`.
 - **`region_handle`:** `RegionHandle::new(ArenaKind, offset, len, Generation(u64)) -> Result<RegionHandle, RegionError>`. A `bookkeeping::Region` generation is `u32`.
 - **`device_lane_event`:** `Event` (`wait`, `is_complete`) and `Lane`.
-- **`communication_slot` (119):** the traits `MappingSource`, `StructureGuard` and `UpdateQueue`, and `MappingSnapshot` and `UpdateOutcome`.
+- **`communication_slot` (119):** the traits `MappingSource`, `StructureHold` and `UpdateApplier`, and `MappingSnapshot` and `UpdateOutcome`.
 - **`hit_resolution` (114):** `SegmentDirectory` and `SegmentBinding{assignment, states}`.
 - **`gpu_kernel` (118, 119c):** `encode_segment_table(&[SegmentEntry]) -> Vec<u8>` and `SegmentEntry::to_bytes`. `SegmentEntry` (`repr(C)`, 40 bytes): `base u64, lens_addr u64, stride_bytes u64, first_slot u32, slot_count u32, pad_len u32, _reserved u32`.
   - The kernel finds the segment of a ring slot via `first_slot <= slot < first_slot + slot_count`.

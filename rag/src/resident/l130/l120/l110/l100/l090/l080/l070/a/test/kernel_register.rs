@@ -114,7 +114,7 @@ fn key(name: &str) -> KernelKey {
 fn gpu(k: Kernel) -> Arc<GpuKernel> {
     match k {
         Kernel::Gpu(g) => g,
-        Kernel::Library(_) => panic!("expected gpu kernel"),
+        Kernel::Library(_) | Kernel::Cpu(_) => panic!("expected gpu kernel"),
     }
 }
 #[test]
@@ -201,6 +201,11 @@ fn source_text_and_file_name() {
     assert!(! req.source.contains("#define DIM"));
     assert!(! req.source.contains("#define TILE"));
     assert!(req.source.contains("typedef float T;"));
+}
+#[test]
+fn kernel_resource_key_names_kernel_and_dtype() {
+    assert_eq!(kernel_resource_key("score_dot", DType::F32), "kernel:score_dot:F32");
+    assert_eq!(kernel_resource_key("score_negl2", DType::F16), "kernel:score_negl2:F16");
 }
 #[test]
 fn dtype_checks_precede_compilation() {

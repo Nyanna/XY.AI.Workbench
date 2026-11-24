@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::Duration;
-pub use super::super::l060::l050::a::segments::{SegmentId, SlotRef};
+use super::super::l060::l050::a::segments::SlotRef;
 use super::super::l060::l050::l040::l030::l020::a::index_contract::{
     EntryId, Index, Payload, Stamp, StampObserver,
 };

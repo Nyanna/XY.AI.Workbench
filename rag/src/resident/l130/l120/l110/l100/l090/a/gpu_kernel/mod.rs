@@ -1,6 +1,6 @@
 pub mod max_similarity_operation;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::kernel_register::{
     Kernel, KernelError, KernelFunction, KernelRegister, KernelSource, Variant,
 };
@@ -337,9 +337,6 @@ pub struct GpuKernels<const DIM: usize> {
     launched: Mutex<u64>,
 }
 static_assertions::assert_impl_all!(GpuKernels < 8 >: Send, Sync);
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
 impl<const DIM: usize> GpuKernels<DIM> {
     const DIM_VALID: () = assert!(DIM >= 1 && DIM <= u32::MAX as usize);
     pub fn new(register: Arc<KernelRegister>, launcher: Arc<dyn GpuLauncher>) -> Self {
@@ -444,7 +441,7 @@ impl<const DIM: usize> GpuKernels<DIM> {
         };
         match self.register.request(name, dtype, variant) {
             Ok(Kernel::Gpu(k)) => Ok(Arc::clone(&k.function)),
-            Ok(Kernel::Library(_)) => {
+            Ok(Kernel::Library(_) | Kernel::Cpu(_)) => {
                 Err(
                     GpuKernelError::Kernel(
                         KernelError::Unavailable(
@@ -462,3 +459,4 @@ impl<const DIM: usize> GpuKernels<DIM> {
 #[cfg(test)]
 #[path = "test/gpu_kernel.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

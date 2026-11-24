@@ -3,7 +3,7 @@ use std::ffi::c_void;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::{self, NonNull};
-use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use candle_core::cuda_backend::CudaDevice;
 use cudarc::driver::result as drv;
 use cudarc::driver::{sys, CudaContext};
@@ -24,9 +24,6 @@ use super::super::l040::l030::l020::l010::device_lane_event::{
 use super::super::l040::l030::l020::l010::layout::Layout;
 use super::memory_backend::{rounded_len, BackendError, MemoryBackend, TransferDirection};
 const SLOTS: usize = ArenaKind::ALL.len();
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
 fn read<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
     l.read().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
@@ -750,3 +747,4 @@ impl MemoryBackend for GpuBackend {
 #[cfg(test)]
 #[path = "test/gpu_backend.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

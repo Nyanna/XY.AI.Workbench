@@ -1,6 +1,6 @@
 //! Rule set and base implementation shared by the CPU and GPU sub-engines: configuration checks,
 //! resource ownership, lane activation, queue registrations and compute-path selection.
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use log::debug;
 use crate::resident::l130::l120::l110::l100::a::plan_contract::QueueKind;
 use crate::resident::l130::l120::l110::l100::a::planner::Subengine;
@@ -11,7 +11,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::a::kernel_scoring::{
     Metric, Scorer,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::kernel_register::{
-    Kernel, KernelError, KernelRegister, Variant,
+    Kernel, KernelError, KernelProvider, Variant,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::resource_requirements::{
     ExecutionEnvironment, IndexId, ModelId, ResourceKind, ResourceRequirements,
@@ -140,9 +140,6 @@ pub enum SubengineError {
     #[error("Ressource passt nicht zur Subengine: {0}")]
     Incompatible(String),
 }
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 #[derive(Default)]
 struct State {
     pending: Vec<ResourceRequirements>,
@@ -156,7 +153,7 @@ pub struct SubengineCore {
     cfg: SubengineConfig,
     lane_factory: Arc<dyn LaneFactory>,
     policy: Arc<dyn PathPolicy>,
-    kernels: Arc<KernelRegister>,
+    kernels: Arc<dyn KernelProvider>,
     registry: Arc<ModelRegistry>,
     registrations: Arc<QueueRegistrations>,
     /// Serializes `activate`; never held together with a state lock across a factory call.
@@ -169,7 +166,7 @@ impl SubengineCore {
         mut cfg: SubengineConfig,
         lanes: Arc<dyn LaneFactory>,
         policy: Arc<dyn PathPolicy>,
-        kernels: Arc<KernelRegister>,
+        kernels: Arc<dyn KernelProvider>,
         registry: Arc<ModelRegistry>,
         registrations: Arc<QueueRegistrations>,
     ) -> Result<Self, SubengineError> {
@@ -529,3 +526,4 @@ impl Subengine for SubengineCore {
 #[cfg(test)]
 #[path = "test/subengine_core.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

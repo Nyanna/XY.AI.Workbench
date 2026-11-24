@@ -6,7 +6,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use crate::resident::l130::l120::l110::l100::l090::l080::a::capability_detection::{
     detect_cpu_features, CpuFeatures,
 };
@@ -149,9 +149,6 @@ pub enum Resolution {
     Missing(MissingResolution),
 }
 type InFlightKey = (String, String);
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
 struct InFlightGuard {
     set: Arc<Mutex<HashSet<InFlightKey>>>,
     key: InFlightKey,
@@ -646,3 +643,4 @@ fn save_record(dir: &Path, record: &CalibrationRecord) -> Result<(), PersistErro
 #[cfg(test)]
 #[path = "test/calibration_store.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

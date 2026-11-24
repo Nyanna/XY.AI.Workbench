@@ -3,7 +3,7 @@ use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::collections::HashMap;
 use std::fmt;
 use std::ptr::NonNull;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use super::super::l040::a::allocator::AllocatorSet;
 use super::super::l040::l030::a::bookkeeping::Bookkeeping;
 use super::super::l040::l030::a::region_handle::RegionHandle;
@@ -16,9 +16,6 @@ use super::super::l040::l030::l020::a::memory_access::{
 use super::super::l040::l030::l020::l010::device_lane_event::{DeviceKind, Event};
 use super::memory_backend::{rounded_len, BackendError, MemoryBackend, ALLOC_GRANULE};
 const BUFFER_ALIGN: usize = ALLOC_GRANULE as usize;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
 /// Zeroed, granule-aligned heap block. Never exposes its address outside this module.
 struct RawBuf {
     ptr: NonNull<u8>,
@@ -361,3 +358,4 @@ static_assertions::assert_impl_all!(CpuBackend : Send, Sync);
 #[cfg(test)]
 #[path = "test/cpu_backend.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

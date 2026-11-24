@@ -2,9 +2,7 @@
 //! queue and manages the sub-engines. It never pushes into queues.
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{
-    Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard,
-};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use super::plan_contract::{PlannedOp, QueueKind, TaskPlanner};
 use crate::resident::l130::l120::l110::l100::l090::a::lane_batching::{
     BatchKey, BatchMeta,
@@ -214,9 +212,6 @@ impl fmt::Display for PlannerConfigError {
     }
 }
 impl std::error::Error for PlannerConfigError {}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 fn read<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
     l.read().unwrap_or_else(PoisonError::into_inner)
 }
@@ -731,3 +726,4 @@ impl<D, T, E, V> TaskPlanner<D, T, E, OpMeta, V> for Planner<D, T, E, V> {
 #[cfg(test)]
 #[path = "test/planner.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

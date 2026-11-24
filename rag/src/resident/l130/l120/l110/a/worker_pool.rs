@@ -1,8 +1,7 @@
 //! Fixed-size pool of OS threads that repeatedly call an opaque work function and park when idle.
-use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle, ThreadId};
 /// Result of one work attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,9 +12,6 @@ pub enum Step {
 /// Implemented by the Processor. Called concurrently from all workers.
 pub trait WorkSource: Send + Sync + 'static {
     fn run_once(&self, worker: usize) -> Step;
-}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 /// Pool-wide wake-up channel.
 #[derive(Clone)]
@@ -55,24 +51,6 @@ impl PoolConfig {
     pub fn effective_workers(&self) -> usize {
         let limit = self.max_workers.unwrap_or_else(default_max_workers).max(1);
         self.min_workers.clamp(1, limit)
-    }
-}
-#[derive(Debug)]
-pub enum PoolError {
-    Spawn(std::io::Error),
-}
-impl fmt::Display for PoolError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PoolError::Spawn(e) => write!(f, "failed to spawn worker thread: {e}"),
-        }
-    }
-}
-impl std::error::Error for PoolError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            PoolError::Spawn(e) => Some(e),
-        }
     }
 }
 pub fn default_max_workers() -> usize {
@@ -202,3 +180,5 @@ impl Drop for WorkerPool {
 #[cfg(test)]
 #[path = "test/worker_pool.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::background_pool::PoolError;

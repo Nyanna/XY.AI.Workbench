@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 use arc_swap::{ArcSwap, Guard};
 use crossbeam::channel::{bounded, Receiver, Sender, TrySendError};
@@ -15,14 +15,11 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::{
     Event, Lane,
 };
-pub use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SegmentId;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SegmentId;
 pub type ManifestGeneration = u64;
 const KERNEL_ENTRY_BYTES: usize = 24;
 const MIN_MARKER_PRUNE: usize = 32;
 const DEFAULT_SUBSCRIBER_BUFFER: usize = 64;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 fn is_done(event: &Event) -> bool {
     matches!(event.is_complete(), Ok(true))
 }
@@ -565,3 +562,4 @@ static_assertions::assert_impl_all!(SyncError : Send, Sync);
 #[cfg(test)]
 #[path = "test/manifest.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

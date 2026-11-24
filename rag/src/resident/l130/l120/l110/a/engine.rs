@@ -3,7 +3,7 @@
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, RwLock, Weak};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock, Weak};
 use std::time::Instant;
 use crate::resident::l130::l120::l110::a::backpressure::ExpansionControl;
 use crate::resident::l130::l120::l110::l100::l090::a::gpu_completion::GpuCompletion;
@@ -120,9 +120,6 @@ type Proc<D, T, E, V, R, OE> = Processor<
     OE,
     PlannerHandle<D, T, E, V>,
 >;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 struct PlannerHandle<D, T, E, V>(Arc<Planner<D, T, E, V>>);
 impl<D, T, E, V> TaskPlanner<D, T, E, OpMeta, V> for PlannerHandle<D, T, E, V> {
     type Error = PlanError;
@@ -1010,3 +1007,4 @@ where
 #[cfg(test)]
 #[path = "test/engine.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

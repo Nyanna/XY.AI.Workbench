@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use log::warn;
 use super::manager_lifecycle::IndexManager;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040 as l040;
@@ -76,9 +76,6 @@ static_assertions::assert_impl_all!(IndexSpec : Send, Sync);
 static_assertions::assert_impl_all!(EnsureSummary : Send, Sync);
 static_assertions::assert_impl_all!(ReconcileSummary : Send, Sync);
 static_assertions::assert_impl_all!(ResidencyError : Send, Sync);
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 struct Gate {
     closed: bool,
 }
@@ -246,3 +243,4 @@ impl ResidencyController {
 #[cfg(test)]
 #[path = "test/residency_control.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

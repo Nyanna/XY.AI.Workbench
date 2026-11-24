@@ -331,7 +331,7 @@ impl GpuSubengine {
     - Otherwise F32, if `caps` has `fp32`.
     - If neither is available, `None`.
   - The result is `ComputePath { kernel, dtype, variant: Variant::default(), lane: Query }`. **BF16 is never chosen.**
-- The policy only decides. The core loads a kernel only through `KernelRegister::request(path.kernel, path.dtype, path.variant)`. This module holds no kernel cache; the Kernel-Register caches, compiles and swaps kernels.
+- The policy only decides. The core loads a kernel only through `KernelProvider::request(path.kernel, path.dtype, path.variant)`, which the shared `KernelRegister` implements. This module holds no kernel cache; the Kernel-Register caches, compiles and swaps kernels.
 
 ### 4.4 Weights: RAM to VRAM, swap
 
@@ -420,7 +420,7 @@ impl GpuSubengine {
 ## 5. Relied-on elements
 
 - **`subengine_core`:**
-  - `SubengineCore::new(cfg: SubengineConfig, lanes: Arc<dyn LaneFactory>, policy: Arc<dyn PathPolicy>, kernels: Arc<KernelRegister>, registry: Arc<ModelRegistry>, registrations: Arc<QueueRegistrations>) -> Result<Self, SubengineError>`.
+  - `SubengineCore::new(cfg: SubengineConfig, lanes: Arc<dyn LaneFactory>, policy: Arc<dyn PathPolicy>, kernels: Arc<dyn KernelProvider>, registry: Arc<ModelRegistry>, registrations: Arc<QueueRegistrations>) -> Result<Self, SubengineError>`.
   - Methods: `adopt_scorer(Metric)`, `adopt_index_segment(IndexSegment)`, `index_segments(&IndexId)`, `select_path`, `kernel(&ComputePath)`, `with_lane(LaneKind, FnOnce(&mut Lane))`. It implements `Subengine`.
   - `SubengineConfig { name, device, own_queue, own_capabilities, shared_capabilities (⊆ own), offers, lanes }`.
   - `LaneFactory::create(&LaneConfig) -> Result<Lane, String>`. A GPU lane without a stream gives `LaneWithoutStream`.
@@ -488,6 +488,6 @@ impl GpuSubengine {
   - Layout: file order, start = `align_up(cursor, 256)`, one `Region::write` per tensor.
   - `WeightInfo { name, dtype, shape, data_begin, data_end }`.
 - **`index_contract`:** `EntryId`; `Index` is used only through `GpuManager` and `IndexOperations`.
-- **`kernel_register`:** `KernelRegister::request(name, dtype, Variant)` is the only way to load a kernel. BF16 is rejected.
+- **`kernel_register`:** `KernelRegister::request(name, dtype, Variant)` is the only way to load a kernel. BF16 is rejected. `KernelRegister` implements `KernelProvider`, which is what the core holds (`Arc<dyn KernelProvider>`). `Kernel` has a third variant `Cpu(..)`. A GPU launch path treats it like `Library`: it is not launchable and gives `UnknownKernel`.
 - **`target_env`:** `ComputeCapability { major, minor }`.
 - **`region_handle`:** `RegionHandle` is pointer-free and never resolved here.

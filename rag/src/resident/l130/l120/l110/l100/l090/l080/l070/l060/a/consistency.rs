@@ -1,7 +1,7 @@
 //! Consistency model: entry identity checks against the index, serialized index
 //! writes, and copy-on-write table publication with gap-deferred mapping changes.
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::table_swap::{
     Epoch, SegmentTable, TableSwap, TableSwapError,
 };
@@ -9,9 +9,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     EntryId, Index, IndexError, PayloadRef, Stamp,
 };
 const MAX_PUBLISH_ATTEMPTS: usize = 3;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntryIdentity {
     pub id: EntryId,
@@ -173,3 +170,4 @@ impl TablePublisher {
 #[cfg(test)]
 #[path = "test/consistency.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

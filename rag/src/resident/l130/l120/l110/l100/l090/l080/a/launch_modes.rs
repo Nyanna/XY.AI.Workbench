@@ -2,7 +2,7 @@
 //! launch keys and the warm-up hook.
 use std::collections::HashSet;
 use std::fmt;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use log::trace;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::kernel_register::Variant;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::table_swap::{
@@ -108,9 +108,6 @@ impl std::error::Error for LaunchError {}
 pub struct LaunchReport {
     pub args: LaunchArgs,
     pub productive: bool,
-}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 #[derive(Default)]
 struct Phases {
@@ -247,3 +244,4 @@ impl Launcher {
 #[cfg(test)]
 #[path = "test/launch_modes.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

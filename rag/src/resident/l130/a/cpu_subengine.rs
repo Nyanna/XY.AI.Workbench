@@ -1,15 +1,17 @@
 //! CPU realisation of a sub-engine: a `SubengineCore` on the host with lazily loaded RAM resources,
-//! its own SIMD score kernels, a registry of attached file-backed indexes and low-priority calibration.
+//! its own score kernel register, a registry of attached file-backed indexes and low-priority calibration.
 use std::borrow::Cow;
+use l080::a::cpu_kernels::CpuKernelRegister;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use half::f16;
 use log::warn;
 use crate::resident::l130::l120::l110;
+use crate::resident::l130::l120::file_lazy_index::FileLazyIndex;
 use crate::resident::l130::l120::manager::LazyIndex;
 use l110::l100::a::plan_contract::QueueKind;
 use l110::a::subengine_core::{
@@ -19,19 +21,16 @@ use l110::a::subengine_core::{
 use l110::l100;
 use l100::a::planner::Subengine;
 use l100::l090;
-use l090::a::entry_store::{EntryStore, PayloadChecksums};
 use l090::a::lane_batching::{
     BatchMeta, BatchPayload, BatchRunner, ExecBatch, LaneResource, LaneResourceConfig,
     LaneSetError, Launch,
 };
 use l090::a::model_registry::{LoadedEncoder, ModelRegistry};
-use l090::a::persistent_save::entry_payload::compute_checksum_parts;
 use l090::l080;
 use l080::a::index_format::IndexHeader;
 use l080::a::kernel_scoring::{Metric, KERNEL_SCORE_DOT};
-use l080::a::parquet_decoder::{ChecksumFn, ParquetDecoder};
 use l080::l070;
-use l070::a::kernel_register::{KernelRegister, Variant};
+use l070::a::kernel_register::{KernelError, KernelProvider, Variant};
 use l070::a::text_normalization::{
     NormalizationParams, NormalizerLoader, TextNormalizer, TextPreprocessor,
 };
@@ -53,7 +52,7 @@ use l030::a::calibration_run::{
     run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError,
     CalibrationReport, Target,
 };
-use l030::a::index_open::{LazyIndexFile, OpenOptions};
+use l030::a::index_open::OpenOptions;
 use l030::l020;
 use l020::a::index_contract::{EntryId, Index};
 use l020::a::memory_access::TensorRef;
@@ -68,9 +67,6 @@ use l010::page_advice::{AdviceSlot, AdviceTarget};
 const SCORE_BLOCK_ROWS: usize = 1024;
 const LOADING_POLL: Duration = Duration::from_millis(1);
 const ENCODER_KERNEL: &str = "encoder";
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 #[derive(Debug)]
 pub enum CpuError {
     InvalidConfig(String),
@@ -85,7 +81,7 @@ pub enum CpuError {
     Encoder(EncoderError),
     Normalize(String),
     IndexOpen(String),
-    NoKernel { name: String, dtype: DType },
+    Kernel(KernelError),
     QueryDimMismatch { query: usize, row_bytes: usize },
     Pool(PoolError),
     Lane(LaneSetError),
@@ -107,9 +103,7 @@ impl fmt::Display for CpuError {
             CpuError::Encoder(e) => write!(f, "{e}"),
             CpuError::Normalize(m) => write!(f, "Normalisierung fehlgeschlagen: {m}"),
             CpuError::IndexOpen(m) => write!(f, "Index öffnen fehlgeschlagen: {m}"),
-            CpuError::NoKernel { name, dtype } => {
-                write!(f, "kein CPU-Kernel {name} für {dtype:?}")
-            }
+            CpuError::Kernel(e) => write!(f, "{e}"),
             CpuError::QueryDimMismatch { query, row_bytes } => {
                 write!(
                     f, "Query-Dimension {query} passt nicht zu Vektorgröße {row_bytes}"
@@ -206,8 +200,6 @@ impl CpuSubengineConfig {
 pub struct CpuDeps {
     pub models: Arc<ModelRegistry>,
     pub registrations: Arc<QueueRegistrations>,
-    /// Register owned by this sub-engine and handed to the core only; CPU kernels do not use it.
-    pub core_kernels: Arc<KernelRegister>,
 }
 #[derive(Clone)]
 pub struct ModelSetup {
@@ -253,408 +245,6 @@ impl PathPolicy for CpuPathPolicy {
             variant: Variant { dim: None, tile: None },
             lane: LaneKind::Query,
         })
-    }
-}
-pub trait CpuScoreKernel: Send + Sync {
-    /// `rows`: n*dim contiguous f32 values; `out.len() == n`; f32 accumulation.
-    fn score(&self, query: &[f32], rows: &[f32], dim: usize, out: &mut [f32]);
-}
-type KernelKey = (String, DType);
-struct LiveKernel {
-    handle: Arc<dyn CpuScoreKernel>,
-    last_used: Instant,
-}
-struct KernelHandle(Arc<dyn CpuScoreKernel>);
-impl CpuScoreKernel for KernelHandle {
-    fn score(&self, query: &[f32], rows: &[f32], dim: usize, out: &mut [f32]) {
-        self.0.score(query, rows, dim, out);
-    }
-}
-#[derive(Default)]
-struct KernelState {
-    defined: HashMap<KernelKey, Arc<dyn CpuScoreKernel>>,
-    live: HashMap<KernelKey, LiveKernel>,
-}
-/// Register of CPU score kernels, separate from the GPU register.
-pub struct CpuKernelRegister {
-    state: Mutex<KernelState>,
-}
-impl CpuKernelRegister {
-    pub fn with_builtin() -> Self {
-        let register = Self {
-            state: Mutex::new(KernelState::default()),
-        };
-        let isa = Isa::detect();
-        let builtin: [(&str, Op); 2] = [
-            (Metric::Dot.kernel_name(), Op::Dot),
-            (Metric::NegL2Sq.kernel_name(), Op::NegL2),
-        ];
-        for (name, op) in builtin {
-            let kernel: Arc<dyn CpuScoreKernel> = Arc::new(BuiltinKernel { op, isa });
-            register
-                .register(name, DType::F32, kernel)
-                .expect("builtin kernel names are unique");
-        }
-        register
-    }
-    pub fn register(
-        &self,
-        name: &str,
-        dtype: DType,
-        kernel: Arc<dyn CpuScoreKernel>,
-    ) -> Result<(), CpuError> {
-        let mut st = lock(&self.state);
-        let key = (name.to_string(), dtype);
-        if st.defined.contains_key(&key) {
-            return Err(
-                CpuError::InvalidConfig(
-                    format!("kernel {name} for {dtype:?} is already registered"),
-                ),
-            );
-        }
-        st.defined.insert(key, kernel);
-        Ok(())
-    }
-    pub fn request(
-        &self,
-        name: &str,
-        dtype: DType,
-        now: Instant,
-    ) -> Result<Arc<dyn CpuScoreKernel>, CpuError> {
-        let mut st = lock(&self.state);
-        let key = (name.to_string(), dtype);
-        if let Some(live) = st.live.get_mut(&key) {
-            live.last_used = now;
-            return Ok(Arc::clone(&live.handle));
-        }
-        let Some(defined) = st.defined.get(&key).cloned() else {
-            return Err(CpuError::NoKernel {
-                name: name.to_string(),
-                dtype,
-            });
-        };
-        let handle: Arc<dyn CpuScoreKernel> = Arc::new(KernelHandle(defined));
-        st.live
-            .insert(
-                key,
-                LiveKernel {
-                    handle: Arc::clone(&handle),
-                    last_used: now,
-                },
-            );
-        Ok(handle)
-    }
-    /// Drops unused active kernels idle for at least `ttl`. Returns `kernel:{name}:{dtype:?}` keys.
-    pub fn evict_expired(&self, now: Instant, ttl: Duration) -> Vec<String> {
-        let mut st = lock(&self.state);
-        let expired: Vec<KernelKey> = st
-            .live
-            .iter()
-            .filter(|(_, live)| {
-                Arc::strong_count(&live.handle) == 1
-                    && now.saturating_duration_since(live.last_used) >= ttl
-            })
-            .map(|(key, _)| key.clone())
-            .collect();
-        for key in &expired {
-            st.live.remove(key);
-        }
-        let mut keys: Vec<String> = expired
-            .into_iter()
-            .map(|(name, dtype)| format!("kernel:{name}:{dtype:?}"))
-            .collect();
-        keys.sort();
-        keys
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Op {
-    Dot,
-    NegL2,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Isa {
-    Scalar,
-    #[cfg(target_arch = "x86_64")]
-    Avx2Fma,
-    #[cfg(target_arch = "aarch64")]
-    Neon,
-}
-impl Isa {
-    fn detect() -> Isa {
-        #[cfg(target_arch = "x86_64")]
-        {
-            if std::is_x86_feature_detected!("avx2")
-                && std::is_x86_feature_detected!("fma")
-            {
-                return Isa::Avx2Fma;
-            }
-        }
-        #[cfg(target_arch = "aarch64")]
-        {
-            if std::arch::is_aarch64_feature_detected!("neon") {
-                return Isa::Neon;
-            }
-        }
-        Isa::Scalar
-    }
-}
-struct BuiltinKernel {
-    op: Op,
-    isa: Isa,
-}
-impl CpuScoreKernel for BuiltinKernel {
-    fn score(&self, query: &[f32], rows: &[f32], dim: usize, out: &mut [f32]) {
-        for (i, slot) in out.iter_mut().enumerate() {
-            let row = i
-                .checked_mul(dim)
-                .and_then(|start| {
-                    start.checked_add(dim).and_then(|end| rows.get(start..end))
-                });
-            *slot = match row {
-                Some(row) if row.len() == query.len() => {
-                    row_score(self.isa, self.op, query, row)
-                }
-                _ => f32::NAN,
-            };
-        }
-    }
-}
-fn row_score(isa: Isa, op: Op, query: &[f32], row: &[f32]) -> f32 {
-    match isa {
-        #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma => {
-            unsafe {
-                match op {
-                    Op::Dot => x86::dot(query, row),
-                    Op::NegL2 => -x86::sq_dist(query, row),
-                }
-            }
-        }
-        #[cfg(target_arch = "aarch64")]
-        Isa::Neon => {
-            unsafe {
-                match op {
-                    Op::Dot => neon::dot(query, row),
-                    Op::NegL2 => -neon::sq_dist(query, row),
-                }
-            }
-        }
-        Isa::Scalar => {
-            match op {
-                Op::Dot => dot_scalar(query, row),
-                Op::NegL2 => -sq_dist_scalar(query, row),
-            }
-        }
-    }
-}
-fn dot_scalar(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
-}
-fn sq_dist_scalar(a: &[f32], b: &[f32]) -> f32 {
-    a.iter()
-        .zip(b)
-        .map(|(x, y)| {
-            let d = x - y;
-            d * d
-        })
-        .sum()
-}
-#[cfg(target_arch = "x86_64")]
-mod x86 {
-    use std::arch::x86_64::*;
-    #[target_feature(enable = "avx2,fma")]
-    unsafe fn hsum(v: __m256) -> f32 {
-        let lo = _mm256_castps256_ps128(v);
-        let hi = _mm256_extractf128_ps::<1>(v);
-        let s = _mm_add_ps(lo, hi);
-        let s = _mm_add_ps(s, _mm_movehl_ps(s, s));
-        let s = _mm_add_ss(s, _mm_shuffle_ps::<0x55>(s, s));
-        _mm_cvtss_f32(s)
-    }
-    #[target_feature(enable = "avx2,fma")]
-    pub(super) unsafe fn dot(a: &[f32], b: &[f32]) -> f32 {
-        let n = a.len().min(b.len());
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let mut acc0 = _mm256_setzero_ps();
-        let mut acc1 = _mm256_setzero_ps();
-        let mut i = 0;
-        while i + 16 <= n {
-            acc0 = _mm256_fmadd_ps(
-                _mm256_loadu_ps(pa.add(i)),
-                _mm256_loadu_ps(pb.add(i)),
-                acc0,
-            );
-            acc1 = _mm256_fmadd_ps(
-                _mm256_loadu_ps(pa.add(i + 8)),
-                _mm256_loadu_ps(pb.add(i + 8)),
-                acc1,
-            );
-            i += 16;
-        }
-        if i + 8 <= n {
-            acc0 = _mm256_fmadd_ps(
-                _mm256_loadu_ps(pa.add(i)),
-                _mm256_loadu_ps(pb.add(i)),
-                acc0,
-            );
-            i += 8;
-        }
-        let mut sum = hsum(_mm256_add_ps(acc0, acc1));
-        while i < n {
-            sum += *pa.add(i) * *pb.add(i);
-            i += 1;
-        }
-        sum
-    }
-    #[target_feature(enable = "avx2,fma")]
-    pub(super) unsafe fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
-        let n = a.len().min(b.len());
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let mut acc0 = _mm256_setzero_ps();
-        let mut acc1 = _mm256_setzero_ps();
-        let mut i = 0;
-        while i + 16 <= n {
-            let d0 = _mm256_sub_ps(
-                _mm256_loadu_ps(pa.add(i)),
-                _mm256_loadu_ps(pb.add(i)),
-            );
-            let d1 = _mm256_sub_ps(
-                _mm256_loadu_ps(pa.add(i + 8)),
-                _mm256_loadu_ps(pb.add(i + 8)),
-            );
-            acc0 = _mm256_fmadd_ps(d0, d0, acc0);
-            acc1 = _mm256_fmadd_ps(d1, d1, acc1);
-            i += 16;
-        }
-        if i + 8 <= n {
-            let d = _mm256_sub_ps(
-                _mm256_loadu_ps(pa.add(i)),
-                _mm256_loadu_ps(pb.add(i)),
-            );
-            acc0 = _mm256_fmadd_ps(d, d, acc0);
-            i += 8;
-        }
-        let mut sum = hsum(_mm256_add_ps(acc0, acc1));
-        while i < n {
-            let d = *pa.add(i) - *pb.add(i);
-            sum += d * d;
-            i += 1;
-        }
-        sum
-    }
-}
-#[cfg(target_arch = "aarch64")]
-mod neon {
-    use std::arch::aarch64::*;
-    #[target_feature(enable = "neon")]
-    pub(super) unsafe fn dot(a: &[f32], b: &[f32]) -> f32 {
-        let n = a.len().min(b.len());
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let mut acc0 = vdupq_n_f32(0.0);
-        let mut acc1 = vdupq_n_f32(0.0);
-        let mut i = 0;
-        while i + 8 <= n {
-            acc0 = vfmaq_f32(acc0, vld1q_f32(pa.add(i)), vld1q_f32(pb.add(i)));
-            acc1 = vfmaq_f32(acc1, vld1q_f32(pa.add(i + 4)), vld1q_f32(pb.add(i + 4)));
-            i += 8;
-        }
-        if i + 4 <= n {
-            acc0 = vfmaq_f32(acc0, vld1q_f32(pa.add(i)), vld1q_f32(pb.add(i)));
-            i += 4;
-        }
-        let mut sum = vaddvq_f32(vaddq_f32(acc0, acc1));
-        while i < n {
-            sum += *pa.add(i) * *pb.add(i);
-            i += 1;
-        }
-        sum
-    }
-    #[target_feature(enable = "neon")]
-    pub(super) unsafe fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
-        let n = a.len().min(b.len());
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let mut acc0 = vdupq_n_f32(0.0);
-        let mut acc1 = vdupq_n_f32(0.0);
-        let mut i = 0;
-        while i + 8 <= n {
-            let d0 = vsubq_f32(vld1q_f32(pa.add(i)), vld1q_f32(pb.add(i)));
-            let d1 = vsubq_f32(vld1q_f32(pa.add(i + 4)), vld1q_f32(pb.add(i + 4)));
-            acc0 = vfmaq_f32(acc0, d0, d0);
-            acc1 = vfmaq_f32(acc1, d1, d1);
-            i += 8;
-        }
-        if i + 4 <= n {
-            let d = vsubq_f32(vld1q_f32(pa.add(i)), vld1q_f32(pb.add(i)));
-            acc0 = vfmaq_f32(acc0, d, d);
-            i += 4;
-        }
-        let mut sum = vaddvq_f32(vaddq_f32(acc0, acc1));
-        while i < n {
-            let d = *pa.add(i) - *pb.add(i);
-            sum += d * d;
-            i += 1;
-        }
-        sum
-    }
-}
-/// Opens the index file on the first successful `get` and then always returns the same instance.
-pub struct FileLazyIndex {
-    path: PathBuf,
-    header: IndexHeader,
-    open: OpenOptions,
-    slot: IndexSlot,
-    advice: Arc<AdviceSlot>,
-}
-impl FileLazyIndex {
-    pub fn new(
-        path: PathBuf,
-        header: IndexHeader,
-        open: OpenOptions,
-        slot: IndexSlot,
-    ) -> Self {
-        Self {
-            path,
-            header,
-            open,
-            slot,
-            advice: Arc::new(AdviceSlot::default()),
-        }
-    }
-    /// Binds the slot that receives the hint target of the mapped file.
-    pub fn with_advice_slot(mut self, advice: Arc<AdviceSlot>) -> Self {
-        self.advice = advice;
-        self
-    }
-    pub fn slot(&self) -> &IndexSlot {
-        &self.slot
-    }
-    fn build(&self) -> Result<Arc<dyn Index>, String> {
-        let checksum: ChecksumFn = Arc::new(compute_checksum_parts);
-        let decoder = Arc::new(ParquetDecoder::new(self.header.clone(), checksum));
-        let checksums = Arc::new(PayloadChecksums::new(Arc::clone(&decoder)));
-        let file = if self.path.exists() {
-            let file = LazyIndexFile::new(&self.path, decoder, self.open.clone())
-                .with_advice_slot(Arc::clone(&self.advice));
-            file.ensure_open().map_err(|e| e.to_string())?;
-            Some(Arc::new(file))
-        } else {
-            None
-        };
-        Ok(Arc::new(EntryStore::new(self.header.clone(), file, checksums)))
-    }
-}
-impl LazyIndex for FileLazyIndex {
-    fn get(&self) -> Result<Arc<dyn Index>, String> {
-        if let Some(index) = self.slot.get() {
-            return Ok(Arc::clone(index));
-        }
-        let opened = self.build()?;
-        let _ = self.slot.set(opened);
-        self.slot
-            .get()
-            .cloned()
-            .ok_or_else(|| "index slot is empty after opening".to_string())
     }
 }
 struct AttachedIndex {
@@ -761,7 +351,7 @@ pub struct CpuSubengine {
     own_capabilities: CapabilitySet,
     offers: Vec<ResourceKind>,
     ram_ttl: Duration,
-    kernels: CpuKernelRegister,
+    kernels: Arc<CpuKernelRegister>,
     manager: CpuManager,
     encoders: ResourceRegistry<LoadedEncoder>,
     tokenizers: ResourceRegistry<LoadedTokenizer>,
@@ -786,6 +376,7 @@ impl CpuSubengine {
             .into_iter()
             .map(|kind| LaneConfig::preset(kind, DeviceHandle::Cpu))
             .collect();
+        let kernels = Arc::new(CpuKernelRegister::with_builtin());
         let core = SubengineCore::new(
                 SubengineConfig {
                     name: cfg.name.clone(),
@@ -798,7 +389,7 @@ impl CpuSubengine {
                 },
                 Arc::new(CpuLaneFactory),
                 Arc::new(CpuPathPolicy),
-                Arc::clone(&deps.core_kernels),
+                Arc::clone(&kernels) as Arc<dyn KernelProvider>,
                 Arc::clone(&deps.models),
                 Arc::clone(&deps.registrations),
             )
@@ -823,7 +414,7 @@ impl CpuSubengine {
                 own_capabilities: own,
                 offers,
                 ram_ttl: cfg.lifecycle.ram_ttl(),
-                kernels: CpuKernelRegister::with_builtin(),
+                kernels,
                 manager: CpuManager::new(),
                 encoders: ResourceRegistry::new(cfg.lifecycle.clone()),
                 tokenizers: ResourceRegistry::new(cfg.lifecycle),
@@ -1118,7 +709,8 @@ impl<'a> CpuContext<'a> {
         let kernel = self
             .sub
             .kernels
-            .request(req.metric.kernel_name(), DType::F32, Instant::now())?;
+            .request_at(req.metric.kernel_name(), DType::F32, Instant::now())
+            .map_err(CpuError::Kernel)?;
         let block = SCORE_BLOCK_ROWS.min(req.entries.len().max(1));
         let mut seen: HashSet<EntryId> = HashSet::with_capacity(req.entries.len());
         let mut result = CpuScoreResult::default();
@@ -1220,3 +812,4 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 #[cfg(test)]
 #[path = "test/cpu_subengine.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

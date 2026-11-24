@@ -93,7 +93,9 @@ pub struct SimilarityOutput {
 }
 impl SimilarityOutput {
     pub fn narrowed_scope(&self) -> Scope {
-        Scope::Set(EntrySet::from_ids(self.per_query.iter().flatten().map(|h| h.id.0)))
+        Scope::Set(
+            EntrySet::from_entry_ids(self.per_query.iter().flatten().map(|h| h.id)),
+        )
     }
     pub fn into_task_result(self) -> TaskResult {
         TaskResult::Hits(self.per_query.into_iter().flatten().collect())
@@ -124,26 +126,13 @@ impl std::error::Error for SimilarityError {}
 fn score(scoring: Scoring, a: &[f32], b: &[f32]) -> f32 {
     match scoring {
         Scoring::DotProduct => dot(a, b),
-        Scoring::NegEuclidean => {
-            let s: f32 = a
-                .iter()
-                .zip(b)
-                .map(|(x, y)| {
-                    let d = x - y;
-                    d * d
-                })
-                .sum();
-            -s.sqrt()
-        }
+        Scoring::NegEuclidean => -sq_dist(a, b).sqrt(),
         _ => {
             let na = dot(a, a).sqrt();
             let nb = dot(b, b).sqrt();
             if na == 0.0 || nb == 0.0 { 0.0 } else { dot(a, b) / (na * nb) }
         }
     }
-}
-fn dot(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 fn rank_order(a: &Hit, b: &Hit) -> Ordering {
     match (a.score.is_nan(), b.score.is_nan()) {
@@ -215,3 +204,6 @@ const _: fn() = || {
 #[cfg(test)]
 #[path = "test/similarity_task.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::cpu_compute::{
+    dot, sq_dist,
+};

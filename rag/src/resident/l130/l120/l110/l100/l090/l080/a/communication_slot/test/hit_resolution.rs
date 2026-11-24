@@ -126,9 +126,11 @@ fn locate_fixed_segment() {
     );
     assert_eq!(
         locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES, 1.0)),
-        Err(ResolveError::SlotOutOfRange)
+        Err(HitResolveError::SlotOutOfRange)
     );
-    assert_eq!(locate(& m, & dir, hit(0xFFFF, 1.0)), Err(ResolveError::SlotOutOfRange));
+    assert_eq!(
+        locate(& m, & dir, hit(0xFFFF, 1.0)), Err(HitResolveError::SlotOutOfRange)
+    );
 }
 #[test]
 fn locate_keeps_score_bits() {
@@ -143,10 +145,14 @@ fn locate_keeps_score_bits() {
 fn locate_empty_manifest_and_zero_slots() {
     let dir = Dir::default();
     let empty = single(vec![]);
-    assert_eq!(locate(& empty, & dir, hit(0, 1.0)), Err(ResolveError::SlotOutOfRange));
+    assert_eq!(
+        locate(& empty, & dir, hit(0, 1.0)), Err(HitResolveError::SlotOutOfRange)
+    );
     let mut dir = Dir::default();
     let m = single(vec![variable(& mut dir, 1, 1, 0x2000, & [], 0)]);
-    assert_eq!(locate(& m, & dir, hit(0x2000, 1.0)), Err(ResolveError::SlotOutOfRange));
+    assert_eq!(
+        locate(& m, & dir, hit(0x2000, 1.0)), Err(HitResolveError::SlotOutOfRange)
+    );
 }
 #[test]
 fn locate_variable_segment() {
@@ -161,10 +167,12 @@ fn locate_variable_segment() {
     assert_eq!(slot_at(149), Ok(Slot(2)));
     assert_eq!(slot_at(150), Ok(Slot(3)));
     assert_eq!(slot_at(349), Ok(Slot(3)));
-    assert_eq!(slot_at(350), Err(ResolveError::SlotOutOfRange));
-    assert_eq!(slot_at(399), Err(ResolveError::SlotOutOfRange));
-    assert_eq!(slot_at(400), Err(ResolveError::SlotOutOfRange));
-    assert_eq!(locate(& m, & dir, hit(0x1FFF, 0.0)), Err(ResolveError::SlotOutOfRange));
+    assert_eq!(slot_at(350), Err(HitResolveError::SlotOutOfRange));
+    assert_eq!(slot_at(399), Err(HitResolveError::SlotOutOfRange));
+    assert_eq!(slot_at(400), Err(HitResolveError::SlotOutOfRange));
+    assert_eq!(
+        locate(& m, & dir, hit(0x1FFF, 0.0)), Err(HitResolveError::SlotOutOfRange)
+    );
 }
 #[test]
 fn locate_skips_variable_segment_without_binding() {
@@ -173,7 +181,9 @@ fn locate_skips_variable_segment_without_binding() {
     let fix = fixed(&mut dir, 2, 2, 0x10000, 2);
     dir.0.remove(&SegmentId(1));
     let m = single(vec![var, fix]);
-    assert_eq!(locate(& m, & dir, hit(0x2000, 1.0)), Err(ResolveError::SlotOutOfRange));
+    assert_eq!(
+        locate(& m, & dir, hit(0x2000, 1.0)), Err(HitResolveError::SlotOutOfRange)
+    );
     let loc = locate(&m, &dir, hit(0x10000 + SLOT_BYTES, 1.0)).unwrap();
     assert_eq!((loc.generation, loc.slot), (Generation(2), Slot(1)));
 }
@@ -183,11 +193,11 @@ fn locate_near_address_limit() {
     let base = u64::MAX - 1000;
     let m = single(vec![variable(& mut dir, 1, 1, base, & [500], 500)]);
     assert_eq!(
-        locate(& m, & dir, hit(u64::MAX, 1.0)), Err(ResolveError::SlotOutOfRange)
+        locate(& m, & dir, hit(u64::MAX, 1.0)), Err(HitResolveError::SlotOutOfRange)
     );
     assert_eq!(locate(& m, & dir, hit(base + 499, 1.0)).unwrap().slot, Slot(0));
     assert_eq!(
-        locate(& m, & dir, hit(base + 500, 1.0)), Err(ResolveError::SlotOutOfRange)
+        locate(& m, & dir, hit(base + 500, 1.0)), Err(HitResolveError::SlotOutOfRange)
     );
 }
 #[test]
@@ -198,20 +208,22 @@ fn resolve_location_cases() {
     assert_eq!(resolve_location(& m, & dir, Generation(3), Slot(1)), Ok(entry(7)));
     assert_eq!(
         resolve_location(& m, & dir, Generation(3), Slot(0)),
-        Err(ResolveError::MissingMapping { generation : Generation(3), slot : Slot(0) })
+        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot(0)
+        })
     );
     assert_eq!(
         resolve_location(& m, & dir, Generation(3), Slot(99)),
-        Err(ResolveError::MissingMapping { generation : Generation(3), slot : Slot(99) })
+        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot(99)
+        })
     );
     assert_eq!(
         resolve_location(& m, & dir, Generation(9), Slot(1)),
-        Err(ResolveError::StaleGeneration)
+        Err(HitResolveError::StaleGeneration)
     );
     let no_dir = Dir::default();
     assert_eq!(
         resolve_location(& m, & no_dir, Generation(3), Slot(1)),
-        Err(ResolveError::StaleGeneration)
+        Err(HitResolveError::StaleGeneration)
     );
 }
 #[test]
@@ -226,9 +238,9 @@ fn resolve_location_picks_first_segment_of_generation() {
 }
 #[test]
 fn error_display() {
-    assert_eq!(ResolveError::SlotOutOfRange.to_string(), "slot out of range");
-    assert_eq!(ResolveError::StaleGeneration.to_string(), "stale generation");
-    let text = ResolveError::MissingMapping {
+    assert_eq!(HitResolveError::SlotOutOfRange.to_string(), "slot out of range");
+    assert_eq!(HitResolveError::StaleGeneration.to_string(), "stale generation");
+    let text = HitResolveError::MissingMapping {
         generation: Generation(31),
         slot: Slot(17),
     }

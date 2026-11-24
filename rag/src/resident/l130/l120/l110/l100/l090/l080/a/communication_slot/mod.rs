@@ -2,7 +2,7 @@ pub mod device_transfer;
 pub mod hit_queues;
 pub mod hit_resolution;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use log::{debug, warn};
 use self::hit_queues::{EmbeddingWrite, QueueConsumer};
 use self::hit_resolution::{resolve_hits, ResolvedHit, SegmentDirectory};
@@ -32,11 +32,11 @@ pub struct MappingSnapshot {
     pub previous: Option<Arc<Manifest>>,
 }
 /// Marker. Holding the guard blocks mapping and structure changes; dropping releases it.
-pub trait StructureGuard {}
+pub trait StructureHold {}
 /// Implemented by the manager.
 pub trait MappingSource: Send + Sync {
     fn snapshot(&self) -> MappingSnapshot;
-    fn lock_structure(&self) -> Box<dyn StructureGuard + '_>;
+    fn lock_structure(&self) -> Box<dyn StructureHold + '_>;
     /// Reclaims deferred-freed memory whose work is complete; returns the number of regions.
     fn reclaim_deferred(&self) -> usize;
 }
@@ -45,7 +45,7 @@ pub struct UpdateOutcome {
     pub applied: usize,
 }
 /// Implemented by the manager; always accessed under its mutex.
-pub trait UpdateQueue: Send {
+pub trait UpdateApplier: Send {
     fn depth(&self) -> usize;
     /// True if a not-yet-applied update exists for this entry.
     fn is_pending(&self, entry: EntryId) -> bool;
@@ -104,9 +104,6 @@ enum WriteStep {
     Failed(usize),
     Unmapped,
     Readback(ReadbackError),
-}
-fn lock<T: ?Sized>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 fn process_write(
     w: &EmbeddingWrite,
@@ -179,7 +176,7 @@ pub struct CommunicationSlot {
     readback: Arc<dyn DeviceReadback>,
     dir: Arc<dyn SegmentDirectory>,
     mapping: Arc<dyn MappingSource>,
-    updates: Arc<Mutex<dyn UpdateQueue>>,
+    updates: Arc<Mutex<dyn UpdateApplier>>,
     residency: Arc<Mutex<ResidencyDirectory>>,
     deferred: Vec<EmbeddingWrite>,
     index: Option<Arc<dyn Index>>,
@@ -190,7 +187,7 @@ impl CommunicationSlot {
         readback: Arc<dyn DeviceReadback>,
         dir: Arc<dyn SegmentDirectory>,
         mapping: Arc<dyn MappingSource>,
-        updates: Arc<Mutex<dyn UpdateQueue>>,
+        updates: Arc<Mutex<dyn UpdateApplier>>,
         residency: Arc<Mutex<ResidencyDirectory>>,
     ) -> CommunicationSlot {
         CommunicationSlot {
@@ -261,7 +258,7 @@ impl CommunicationSlot {
         batch: &Manifest,
         snap: &MappingSnapshot,
         index: &dyn Index,
-        updates: &mut dyn UpdateQueue,
+        updates: &mut dyn UpdateApplier,
         residency: &ResidencyDirectory,
     ) -> SlotOutput {
         let mut report = SlotReport {
@@ -353,3 +350,4 @@ static_assertions::assert_impl_all!(CompletionError : Send, Sync);
 #[cfg(test)]
 #[path = "test/communication_slot.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

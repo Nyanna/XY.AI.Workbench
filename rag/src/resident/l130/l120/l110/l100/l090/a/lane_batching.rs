@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, TryLockError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError, TryLockError};
 use std::time::Instant;
 use log::{error, warn};
 use crate::resident::l130::l120::l110::l100::l090::a::gpu_completion::{
@@ -114,9 +114,6 @@ pub struct LaneResourceConfig<M, P> {
     pub device: DeviceHandle,
 }
 type ClaimOf<M, P> = Claim<M, P, (), ()>;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 struct LaneSlot {
     /// `None` while the lane is running a batch or is in flight.
     lane: Mutex<Option<Lane>>,
@@ -595,3 +592,4 @@ where
 #[cfg(test)]
 #[path = "test/lane_batching.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

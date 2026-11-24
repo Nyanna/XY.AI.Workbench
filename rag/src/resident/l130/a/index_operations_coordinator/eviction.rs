@@ -1,11 +1,12 @@
 //! Cost-aware eviction of derived segment mirrors in the VRAM and RAM tiers.
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use log::{info, warn};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060 as l060;
-use l060::a::address_map::{AddressMap, MapError, MappingStore, SegmentId};
+use l060::a::address_map::{AddressMap, MapError, MappingStore};
+use l060::l050::a::segments::SegmentId;
 use l060::l050::a::table_swap::{Epoch, TableSwap, TableSwapError};
 use l060::l050::l040::a::allocator::AllocatorSet;
 use l060::l050::l040::a::resource_requirements::IndexId;
@@ -240,9 +241,6 @@ enum Step {
     Skipped,
     Gone,
     Aborted(Abort),
-}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 /// Tracks mirrors and evicts them by idle time, pressure and space need.
 pub struct Eviction {
@@ -616,3 +614,4 @@ impl Eviction {
 #[cfg(test)]
 #[path = "test/eviction.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

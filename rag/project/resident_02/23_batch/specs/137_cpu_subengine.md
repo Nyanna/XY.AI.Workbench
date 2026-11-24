@@ -42,12 +42,12 @@ use capability_model::CapabilitySet;
 use device_lane_event::{DeviceHandle, Lane};
 use encoder_interface::EncoderError;
 use index_format::IndexHeader;
-use index_open::{LazyIndexFile, OpenOptions};
-use parquet_decoder::ParquetDecoder;
-use entry_store::{EntryStore, PayloadChecksums};
+use index_open::OpenOptions;
+use file_lazy_index::FileLazyIndex;
+use cpu_kernels::CpuKernelRegister;
 use index_contract::{EntryId, Index};
 use index_residency::{IndexResidency, MemoryAdvisor};
-use kernel_register::KernelRegister;
+use kernel_register::{CpuScoreKernel, KernelError, KernelProvider};
 use kernel_scoring::Metric;
 use lane_batching::{BatchPayload, BatchRunner, ExecBatch, LaneResource, LaneResourceConfig, LaneSetError};
 use layout::DType;
@@ -87,8 +87,6 @@ impl CpuSubengineConfig { pub fn new(name: impl Into<String>, topology: CpuTopol
 pub struct CpuDeps {
     pub models: Arc<ModelRegistry>,
     pub registrations: Arc<QueueRegistrations>,
-    /// Register exclusively owned by this sub-engine, never shared with the GPU. Handed to SubengineCore only; CPU kernels do not use it.
-    pub core_kernels: Arc<KernelRegister>,
 }
 
 /// Setup of one model on the CPU. Registering loads nothing.
@@ -130,8 +128,8 @@ pub enum CpuError {
     Normalize(String),
     /// "Index öffnen fehlgeschlagen: {0}" ({0}: Display of `OpenError`, which contains the decoder's header or binding text)
     IndexOpen(String),
-    /// "kein CPU-Kernel {name} für {dtype:?}"
-    NoKernel { name: String, dtype: DType },
+    /// Display of the `KernelError` (unknown kernel, duplicate registration)
+    Kernel(KernelError),
     /// "Query-Dimension {query} passt nicht zu Vektorgröße {row_bytes}"
     QueryDimMismatch { query: usize, row_bytes: usize },
     Pool(PoolError),
@@ -139,18 +137,18 @@ pub enum CpuError {
 }
 // Display + std::error::Error; Send + Sync + 'static.
 
-// ---------- CPU kernel register (own, separate from the GPU) ----------
-pub trait CpuScoreKernel: Send + Sync {
-    /// rows: n*dim contiguous f32 values; out.len() == n; f32 accumulation.
-    fn score(&self, query: &[f32], rows: &[f32], dim: usize, out: &mut [f32]);
-}
+// ---------- CPU kernel register (module `cpu_kernels`, below the sub-engines) ----------
+// `kernel_register::CpuScoreKernel` is the kernel trait; `kernel_register::Kernel::Cpu(Arc<dyn CpuScoreKernel>)` carries it.
+// CpuKernelRegister implements `kernel_register::KernelProvider`, like the GPU `KernelRegister`; the core obtains every kernel through that trait.
 pub struct CpuKernelRegister { /* private */ }   // Send + Sync
 impl CpuKernelRegister {
-    pub fn with_builtin() -> Self;   // "score_dot" and "score_negl2", F32, SIMD with scalar fallback
-    pub fn register(&self, name: &str, dtype: DType, kernel: Arc<dyn CpuScoreKernel>) -> Result<(), CpuError>; // duplicate => InvalidConfig
-    pub fn request(&self, name: &str, dtype: DType, now: Instant) -> Result<Arc<dyn CpuScoreKernel>, CpuError>;
-    pub fn evict_expired(&self, now: Instant, ttl: std::time::Duration) -> Vec<String>; // evicts unused entries (no outstanding Arc) idle >= ttl
+    pub fn new() -> Self;
+    pub fn with_builtin() -> Self;   // "score_dot" and "score_negl2", F32, SIMD with scalar fallback (cpu_compute::{Isa, dot_with, sq_dist_with})
+    pub fn register(&self, name: &str, dtype: DType, kernel: Arc<dyn CpuScoreKernel>) -> Result<(), KernelError>; // duplicate => Unavailable
+    pub fn request_at(&self, name: &str, dtype: DType, now: Instant) -> Result<Arc<dyn CpuScoreKernel>, KernelError>; // missing => UnknownKernel
+    pub fn evict_expired(&self, now: Instant, ttl: std::time::Duration) -> Vec<String>; // evicts unused entries (no outstanding Arc) idle >= ttl; keys from kernel_resource_key
 }
+impl KernelProvider for CpuKernelRegister { /* request(name, dtype, variant) -> Kernel::Cpu; variant is ignored */ }
 
 // ---------- CPU manager (own component: registry of the attached indexes) ----------
 pub struct CpuManager { /* private */ }          // Send + Sync
@@ -310,7 +308,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - Validation order, first error wins:
   1. The index is attached, else `UnknownIndex`. It is opened on first use, and a failure gives `IndexOpen`.
   2. `query.len() * 2 == header.vector_bytes()`, else `QueryDimMismatch`. An empty query is rejected the same way.
-  3. The kernel is obtained from `CpuKernelRegister`, else `NoKernel`.
+  3. The kernel is obtained from `CpuKernelRegister::request_at`, else `CpuError::Kernel(UnknownKernel)`.
 - The entries are processed in request order, with duplicates removed (first occurrence wins). Each entry is read with `index.read(id)`:
   - An empty vector means the entry is absent. It goes to `absent`.
   - A vector length other than `header.vector_bytes()` goes to `malformed` and is logged with `warn!`.
@@ -361,7 +359,7 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 ## 5. Relied-on elements
 
 - **`subengine_core`:**
-  - `SubengineCore::new(SubengineConfig, Arc<dyn LaneFactory>, Arc<dyn PathPolicy>, Arc<KernelRegister>, Arc<ModelRegistry>, Arc<QueueRegistrations>)`.
+  - `SubengineCore::new(SubengineConfig, Arc<dyn LaneFactory>, Arc<dyn PathPolicy>, Arc<dyn KernelProvider>, Arc<ModelRegistry>, Arc<QueueRegistrations>)`.
   - `SubengineConfig { name, device, own_queue, own_capabilities, shared_capabilities, offers, lanes }`.
   - `adopt_scorer(Metric)`, `with_lane`.
   - `SubengineCore` implements `planner::Subengine`. Activation is idempotent, creates only lanes via `LaneFactory::create`, and never loads.
@@ -381,9 +379,12 @@ pub fn cpu_runner<P: CpuPayload>(sub: Arc<CpuSubengine>) -> Arc<dyn BatchRunner<
 - **`text_normalization`:** `NormalizerLoader::new(params, TextPreprocessor)`, `TextPreprocessor::{new, apply}` (`Clone`), `ResolvedNormalization`, `TextNormalizer`.
 - **`index_residency`:** `IndexResidency::{new(IndexSlot, Option<Arc<dyn MemoryAdvisor>>, Duration), mark_idle_cold(Instant) -> usize}`, `IndexSlot = Arc<OnceLock<Arc<dyn Index>>>`, `MemoryAdvisor`. `FileLazyIndex` fills the slot and implements `manager::LazyIndex`.
 - **`index_contract` / `entry_store` / `index_open` / `parquet_decoder`:** `Index` trait, `EntryStore`, `LazyIndexFile::{new, ensure_open}` and `ParquetDecoder`/`PayloadChecksums`, which `FileLazyIndex` builds; errors as `OpenError` (Display used for `IndexOpen`).
-- **`manager`:** `trait LazyIndex: Send + Sync { fn get(&self) -> Result<Arc<dyn Index>, String>; }`. `FileLazyIndex` implements it.
-- **`lane_batching`:** `LaneResource::new(cfg, Vec<Lane>, Arc<dyn BatchRunner<P>>)`, `BatchRunner::run(&self, &mut Lane, ExecBatch<P>)`, `ExecBatch`, `BatchPayload`, `BatchMeta`, `LaneResourceConfig`, `LaneSetError`.
+- **`manager`:** `trait LazyIndex: Send + Sync { fn get(&self) -> Result<Arc<dyn Index>, String>; }`.
+- **`file_lazy_index`:** `FileLazyIndex::{new(path, IndexHeader, OpenOptions, IndexSlot), with_advice_slot, slot}` implements `manager::LazyIndex`. It lives below the sub-engines so that the GPU side can use it as well.
+- **`lane_batching`:** `LaneResource::new(cfg, Vec<Lane>, Arc<dyn BatchRunner<P>>)`, `BatchRunner::{run(&self, &mut Lane, &mut ExecBatch<P>) -> Launch, collect(&self, &mut Lane, ExecBatch<P>, Result<(), EventError>)}`, `ExecBatch`, `BatchPayload`, `BatchMeta`, `LaneResourceConfig`, `LaneSetError`.
 - **`calibration_run`:** `run_calibration(Target, &CapabilitySet, &ModelDescriptor, &dyn CalibrationBackend, &dyn Statistics, &CalibrationConfig)`. `Statistics::{dispersion(&[f64], DispersionKind) -> Option<f64>, estimate(&[f64], EstimatorKind) -> Option<f64>}`.
 - **`background_exec`:** `BackgroundPool::{new(name, threads), submit, shutdown}`, `JobFuture`, `median`, `minimum`, `estimate`, `dispersion` (returns `INFINITY` when not computable), `Dispersion::{CoefficientOfVariation, TrimmedRange}`, `Estimator::{Median, Minimum}`.
 - **`kernel_scoring`:** `Metric::{Dot, NegL2Sq}` with `kernel_name()`.
+- **`kernel_register`:** `trait KernelProvider { fn request(&self, name, DType, Variant) -> Result<Kernel, KernelError> }`, `Kernel::Cpu(Arc<dyn CpuScoreKernel>)`, `CpuScoreKernel::score`. `CpuSubengine::new` passes its own `CpuKernelRegister` to the core as the provider; the core's `kernel(&ComputePath)` therefore yields `Kernel::Cpu`. `kernel_resource_key(name, DType) -> ResourceKey` builds the `kernel:{name}:{dtype:?}` key returned by `CpuKernelRegister::evict_expired`.
+- **`cpu_compute`:** `Isa::detect()`, `dot_with(Isa, &[f32], &[f32])`, `sq_dist_with(Isa, &[f32], &[f32])`. They are the only CPU score primitives; the built-in `CpuScoreKernel`s call them.
 - **Others:** `layout::DType`, `memory_access::TensorRef`,  `resource_requirements::{ModelId, IndexId, ResourceKind}`.

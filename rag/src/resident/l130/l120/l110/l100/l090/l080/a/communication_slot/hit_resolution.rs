@@ -1,8 +1,9 @@
 use std::fmt;
 use std::sync::Arc;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::manifest::{
-    Manifest, ManifestGeneration, SegmentId, SegmentSpec,
+    Manifest, ManifestGeneration, SegmentSpec,
 };
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SegmentId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::slot_layout::{
     EntryRef, SlotAssignment, SlotStates,
 };
@@ -35,17 +36,17 @@ pub struct ResolvedHit {
     pub stale: bool,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResolveError {
+pub enum HitResolveError {
     SlotOutOfRange,
     StaleGeneration,
     MissingMapping { generation: Generation, slot: Slot },
 }
-impl fmt::Display for ResolveError {
+impl fmt::Display for HitResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResolveError::SlotOutOfRange => write!(f, "slot out of range"),
-            ResolveError::StaleGeneration => write!(f, "stale generation"),
-            ResolveError::MissingMapping { generation, slot } => {
+            HitResolveError::SlotOutOfRange => write!(f, "slot out of range"),
+            HitResolveError::StaleGeneration => write!(f, "stale generation"),
+            HitResolveError::MissingMapping { generation, slot } => {
                 write!(
                     f, "missing mapping (generation {}, slot {})", generation.0, slot.0
                 )
@@ -53,7 +54,7 @@ impl fmt::Display for ResolveError {
         }
     }
 }
-impl std::error::Error for ResolveError {}
+impl std::error::Error for HitResolveError {}
 /// Hits in input order plus the number of dropped hits.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Resolution {
@@ -63,7 +64,7 @@ pub struct Resolution {
 static_assertions::assert_impl_all!(SegmentBinding : Send, Sync);
 static_assertions::assert_impl_all!(HitLocation : Send, Sync);
 static_assertions::assert_impl_all!(ResolvedHit : Send, Sync);
-static_assertions::assert_impl_all!(ResolveError : Send, Sync);
+static_assertions::assert_impl_all!(HitResolveError : Send, Sync);
 static_assertions::assert_impl_all!(Resolution : Send, Sync);
 fn fixed_slot(spec: &SegmentSpec, addr: u64) -> Option<Slot> {
     let layout = FixedLayout::new(spec.start().0, spec.slot_stride(), spec.slot_count())
@@ -84,7 +85,7 @@ pub fn locate(
     manifest: &Manifest,
     dir: &dyn SegmentDirectory,
     hit: KernelHit,
-) -> Result<HitLocation, ResolveError> {
+) -> Result<HitLocation, HitResolveError> {
     let addr = hit.addr.0;
     for spec in manifest.segments() {
         let slot = if spec.slot_stride() > 0 {
@@ -103,24 +104,24 @@ pub fn locate(
             });
         }
     }
-    Err(ResolveError::SlotOutOfRange)
+    Err(HitResolveError::SlotOutOfRange)
 }
 fn resolve_with_binding(
     manifest: &Manifest,
     dir: &dyn SegmentDirectory,
     generation: Generation,
     slot: Slot,
-) -> Result<(EntryRef, SegmentBinding), ResolveError> {
+) -> Result<(EntryRef, SegmentBinding), HitResolveError> {
     let spec = manifest
         .segments()
         .iter()
         .find(|s| s.generation() == generation)
-        .ok_or(ResolveError::StaleGeneration)?;
-    let binding = dir.binding(spec.id()).ok_or(ResolveError::StaleGeneration)?;
+        .ok_or(HitResolveError::StaleGeneration)?;
+    let binding = dir.binding(spec.id()).ok_or(HitResolveError::StaleGeneration)?;
     match binding.assignment.lookup(slot) {
         Some(entry) => Ok((entry, binding)),
         None => {
-            Err(ResolveError::MissingMapping {
+            Err(HitResolveError::MissingMapping {
                 generation,
                 slot,
             })
@@ -133,7 +134,7 @@ pub fn resolve_location(
     dir: &dyn SegmentDirectory,
     generation: Generation,
     slot: Slot,
-) -> Result<EntryRef, ResolveError> {
+) -> Result<EntryRef, HitResolveError> {
     resolve_with_binding(manifest, dir, generation, slot).map(|(entry, _)| entry)
 }
 /// Newest valid location of the entry within `manifest`.
@@ -165,7 +166,7 @@ fn transfer_one(
     let (entry, binding) = resolve_with_binding(current, dir, generation, slot)
         .or_else(|_| match previous {
             Some(prev) => resolve_with_binding(prev, dir, generation, slot),
-            None => Err(ResolveError::StaleGeneration),
+            None => Err(HitResolveError::StaleGeneration),
         })
         .ok()?;
     if binding.states.is_valid(slot)

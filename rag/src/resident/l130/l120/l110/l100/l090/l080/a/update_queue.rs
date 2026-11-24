@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::reconcile::{
-    ResidencyDirectory, SlotRef,
-};
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::reconcile::ResidencyDirectory;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SlotRef;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::a::address_map::AddressMap;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::slot_layout::EntryRef;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::{

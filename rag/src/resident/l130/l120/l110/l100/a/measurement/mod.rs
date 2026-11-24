@@ -6,7 +6,7 @@ pub mod hooks;
 pub mod result;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex};
 use crate::resident::l130::l120::l110::l100::l090::a::gpu_kernel::GpuKernelError;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::axes;
 use self::bench_workload::{
@@ -128,9 +128,6 @@ pub trait Measure: Send + Sync {
     fn deviation(&self, combo: &Combination) -> Result<DeviationOutcome, MeasureError>;
     /// One time probe scaled to the time window; warms up on first use.
     fn time_probe(&self, combo: &Combination) -> Result<TimeProbe, MeasureError>;
-}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 /// Admits one measurement call at a time without holding a mutex while the call runs.
 struct Gate {
@@ -255,3 +252,4 @@ const _: () = {
 #[cfg(test)]
 #[path = "test/measurement.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

@@ -1,7 +1,7 @@
 //! Per-arena allocator with deferred free and the arena-to-allocator mapping.
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use log::warn;
 use super::super::l030::a::bookkeeping::{AllocError, Bookkeeping};
 use super::super::l030::a::region_handle::RegionHandle;
@@ -34,9 +34,6 @@ impl std::error::Error for AllocatorError {}
 struct Pending {
     region: RegionHandle,
     event: Event,
-}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 /// Thread-safe; `Send + Sync`.
 pub struct Allocator {
@@ -226,3 +223,4 @@ static_assertions::assert_impl_all!(AllocatorSet : Send, Sync);
 #[cfg(test)]
 #[path = "test/allocator.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

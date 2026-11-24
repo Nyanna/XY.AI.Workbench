@@ -1,9 +1,6 @@
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
+use std::sync::{Arc, Condvar, Mutex};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum DeviceKind {
@@ -384,3 +381,4 @@ impl Lane {
 #[cfg(test)]
 #[path = "test/device_lane_event.rs"]
 mod tests;
+use super::sync_util::lock;

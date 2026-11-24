@@ -8,6 +8,7 @@ use super::super::l030::a::kernel_layout::{
 };
 use super::super::l030::a::region_handle::{Generation, RegionHandle};
 use super::super::l030::l020::a::index_contract::EntryId;
+use super::super::l030::l020::l010::float_codec::{f32_to_bf16_bits, f32_to_f16_bits};
 use super::super::l030::l020::l010::layout::{DType, MASK_VALUE};
 const MAX_CLASS_TOKENS: u32 = 65_535;
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,50 +162,6 @@ fn push_element(out: &mut Vec<u8>, dtype: DType, value: f32) {
         DType::BF16 => out.extend_from_slice(&f32_to_bf16_bits(value).to_le_bytes()),
         _ => unreachable!("dtype validated by caller"),
     }
-}
-fn f32_to_f16_bits(value: f32) -> u16 {
-    let bits = value.to_bits();
-    let sign = ((bits >> 16) & 0x8000) as u16;
-    let exp = ((bits >> 23) & 0xff) as i32;
-    let man = bits & 0x007f_ffff;
-    if exp == 0xff {
-        if man == 0 {
-            return sign | 0x7c00;
-        }
-        return sign | 0x7e00 | (man >> 13) as u16;
-    }
-    let e = exp - 127 + 15;
-    if e >= 0x1f {
-        return sign | 0x7c00;
-    }
-    if e <= 0 {
-        if e < -10 {
-            return sign;
-        }
-        let m = man | 0x0080_0000;
-        let shift = (14 - e) as u32;
-        let mut half = m >> shift;
-        let rem = m & ((1u32 << shift) - 1);
-        let halfway = 1u32 << (shift - 1);
-        if rem > halfway || (rem == halfway && (half & 1) == 1) {
-            half += 1;
-        }
-        return sign | half as u16;
-    }
-    let mut half = ((e as u32) << 10) | (man >> 13);
-    let rem = man & 0x1fff;
-    if rem > 0x1000 || (rem == 0x1000 && (half & 1) == 1) {
-        half += 1;
-    }
-    sign | half as u16
-}
-fn f32_to_bf16_bits(value: f32) -> u16 {
-    let bits = value.to_bits();
-    if value.is_nan() {
-        return ((bits >> 16) as u16) | 0x0040;
-    }
-    let rounding = 0x7fff + ((bits >> 16) & 1);
-    (bits.wrapping_add(rounding) >> 16) as u16
 }
 /// Kernel descriptor: start address, slot count and stride in bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

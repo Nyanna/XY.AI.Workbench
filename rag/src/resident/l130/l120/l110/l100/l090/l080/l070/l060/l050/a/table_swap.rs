@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use log::{info, warn};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::allocator::{
     Allocator, AllocatorError,
@@ -50,9 +50,6 @@ impl fmt::Display for TableSwapError {
     }
 }
 impl std::error::Error for TableSwapError {}
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(PoisonError::into_inner)
-}
 /// Ordered list of segment regions of one epoch. Immutable once published.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SegmentTable {
@@ -522,3 +519,4 @@ impl Drop for TableGuard<'_> {
 #[cfg(test)]
 #[path = "test/table_swap.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;

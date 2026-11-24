@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 use std::time::Instant;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SegmentId;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::kernel_layout::Slot;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::index_contract::{
     AccessMethod, IndexError, PayloadRef, StampSignal,
@@ -430,9 +431,8 @@ fn load_entry_real_index() {
     assert_eq!(load_entry(idx.as_ref(), id(4)), None);
 }
 #[test]
-fn directory_uses_segment_store_types() {
+fn directory_accepts_slot_refs() {
     use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments as store;
-    use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::a::address_map;
     let from_store: store::SlotRef = store::SlotRef {
         segment: store::SegmentId(3),
         slot: Slot(4),
@@ -440,5 +440,4 @@ fn directory_uses_segment_store_types() {
     let dir = ResidencyDirectory::new();
     dir.insert(id(1), from_store, Stamp(1));
     assert_eq!(dir.get(id(1)).unwrap().slot, from_store);
-    let _: address_map::SegmentId = from_store.segment;
 }

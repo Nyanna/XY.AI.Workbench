@@ -10,8 +10,8 @@ use crate::resident::l130::l120::l110::l100::l090::l080 as l080;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040 as l040;
 use l080::a::kernel_scoring::{LaunchRequest, ScoreLauncher, ScoreReadback};
 use l080::l070::a::kernel_register::{
-    ArchLevel, CodeImage, CodeKind, CompileRequest, CompilerError, KernelCompiler,
-    KernelFunction, KernelSource, LoadFailure, ModuleLoader,
+    KernelRegister, ArchLevel, CodeImage, CodeKind, CompileRequest, CompilerError,
+    KernelCompiler, KernelFunction, KernelSource, LoadFailure, ModuleLoader,
 };
 use l040::a::library_adapter::library_kernel_source;
 use l040::l030::a::region_handle::Generation;

@@ -1,9 +1,11 @@
 use super::*;
 use std::collections::{BTreeSet, HashMap};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::manifest::{
-    ManifestStore, SegmentId, SegmentSpec, StoreConfig,
+    ManifestStore, SegmentSpec, StoreConfig,
 };
-use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::SlotRef;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::segments::{
+    SegmentId, SlotRef,
+};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::a::slot_layout::{
     EntryRef, SegmentView, SlotAssignment, SlotClass, SlotStates,
 };
@@ -69,7 +71,7 @@ impl SegmentDirectory for Dir {
     }
 }
 struct Held(Log);
-impl StructureGuard for Held {}
+impl StructureHold for Held {}
 impl Drop for Held {
     fn drop(&mut self) {
         note(&self.0, "unlock_structure");
@@ -84,7 +86,7 @@ impl MappingSource for MockMapping {
         note(&self.log, "snapshot");
         self.snap.lock().unwrap().clone()
     }
-    fn lock_structure(&self) -> Box<dyn StructureGuard + '_> {
+    fn lock_structure(&self) -> Box<dyn StructureHold + '_> {
         note(&self.log, "lock_structure");
         Box::new(Held(Arc::clone(&self.log)))
     }
@@ -97,7 +99,7 @@ struct MockUpdates {
     pending: BTreeSet<EntryId>,
     log: Log,
 }
-impl UpdateQueue for MockUpdates {
+impl UpdateApplier for MockUpdates {
     fn depth(&self) -> usize {
         self.pending.len()
     }

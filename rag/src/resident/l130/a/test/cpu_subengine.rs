@@ -1,17 +1,20 @@
 use super::*;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Barrier, Condvar};
+use std::sync::{Barrier, Condvar, PoisonError};
 use std::thread;
 use l090::a::lane_batching::{BatchKey, BatchLimit};
 use l090::a::persistent_save::index_save::{IndexSaver, SaveConfig, StoreSource};
 use l080::a::index_format::{TokenizerFingerprint, TOKENIZER_FP_ALGORITHM};
 use l080::a::kernel_scoring::{LaunchRequest, ScoreLauncher, ScoreReadback, Scorer};
+use l090::a::entry_store::{EntryStore, PayloadChecksums};
+use l090::a::persistent_save::entry_payload::compute_checksum_parts;
 use l080::a::meta_codec;
+use l080::a::parquet_decoder::{ChecksumFn, ParquetDecoder};
 use l080::subengine_loop::ResourceExec;
 use l070::a::kernel_register::{
-    CodeImage, CodeKind, CompileRequest, CompilerError, KernelCompiler, KernelFunction,
-    LoadFailure, ModuleLoader,
+    Kernel, KernelRegister, CodeImage, CodeKind, CompileRequest, CompilerError,
+    KernelCompiler, KernelFunction, LoadFailure, ModuleLoader,
 };
 use l070::a::notification_topology::NotificationTopology;
 use l070::a::text_normalization::NormalizeError;
@@ -29,7 +32,6 @@ use l010::target_env::ComputeCapability;
 use l010::page_advice::{Advice, AdviceError, AdviceTarget, PageRange};
 static_assertions::assert_impl_all!(CpuSubengine : Send, Sync);
 static_assertions::assert_impl_all!(CpuManager : Send, Sync);
-static_assertions::assert_impl_all!(CpuKernelRegister : Send, Sync);
 static_assertions::assert_impl_all!(CpuTopology : Send, Sync);
 static_assertions::assert_impl_all!(CpuError : Send, Sync);
 const DIM: usize = 8;
@@ -134,7 +136,6 @@ fn deps(models: Arc<ModelRegistry>) -> (CpuDeps, Arc<QueueRegistrations>) {
     let deps = CpuDeps {
         models,
         registrations: Arc::clone(&registrations),
-        core_kernels: core_kernels(),
     };
     (deps, registrations)
 }
@@ -329,8 +330,8 @@ fn error_display_texts() {
         "Index öffnen fehlgeschlagen: kaputt"
     );
     assert_eq!(
-        CpuError::NoKernel { name : "k".into(), dtype : DType::F16 } .to_string(),
-        "kein CPU-Kernel k für F16"
+        CpuError::Kernel(KernelError::UnknownKernel("k".into())).to_string(),
+        "unknown kernel: k"
     );
     assert_eq!(
         CpuError::QueryDimMismatch { query : 3, row_bytes : 16 } .to_string(),
@@ -340,149 +341,6 @@ fn error_display_texts() {
         std::error::Error::source(& CpuError::Lane(LaneSetError::NoLanes)).is_some()
     );
     assert!(std::error::Error::source(& CpuError::Load("x".into())).is_none());
-}
-fn run_kernel(
-    kernel: &dyn CpuScoreKernel,
-    query: &[f32],
-    rows: &[f32],
-    dim: usize,
-) -> Vec<f32> {
-    let n = if dim == 0 { 3 } else { rows.len() / dim };
-    let mut out = vec![f32::MIN; n];
-    kernel.score(query, rows, dim, &mut out);
-    out
-}
-#[test]
-fn builtin_kernels_match_the_reference_for_many_dimensions() {
-    let register = CpuKernelRegister::with_builtin();
-    let dot = register.request("score_dot", DType::F32, Instant::now()).unwrap();
-    let negl2 = register.request("score_negl2", DType::F32, Instant::now()).unwrap();
-    let mut rng = Lcg(7);
-    for dim in [
-        1usize, 2, 3, 4, 7, 8, 9, 15, 16, 17, 23, 31, 32, 33, 63, 64, 65, 100, 384, 385,
-    ] {
-        let rows_n = 5;
-        let query = rng.vector(dim);
-        let rows = rng.vector(dim * rows_n);
-        let d = run_kernel(dot.as_ref(), &query, &rows, dim);
-        let l = run_kernel(negl2.as_ref(), &query, &rows, dim);
-        for i in 0..rows_n {
-            let row = &rows[i * dim..(i + 1) * dim];
-            assert_close(d[i], dot_ref(&query, row));
-            assert_close(l[i], negl2_ref(&query, row));
-        }
-    }
-}
-#[test]
-fn simd_and_scalar_paths_agree() {
-    let detected = Isa::detect();
-    let mut rng = Lcg(11);
-    for dim in [3usize, 8, 17, 64, 384] {
-        let query = rng.vector(dim);
-        let row = rng.vector(dim);
-        for op in [Op::Dot, Op::NegL2] {
-            let simd = row_score(detected, op, &query, &row);
-            let scalar = row_score(Isa::Scalar, op, &query, &row);
-            assert!(
-                (simd - scalar).abs() <= 1e-4 * (1.0 + scalar.abs()), "{op:?} dim {dim}"
-            );
-        }
-    }
-}
-#[test]
-fn kernels_pass_nan_and_inf_through() {
-    let kernels = [
-        BuiltinKernel {
-            op: Op::Dot,
-            isa: Isa::detect(),
-        },
-        BuiltinKernel {
-            op: Op::Dot,
-            isa: Isa::Scalar,
-        },
-    ];
-    for k in &kernels {
-        let mut q = vec![1.0f32; 20];
-        let mut row = vec![1.0f32; 20];
-        assert_eq!(run_kernel(k, & q, & row, 20), vec![20.0]);
-        row[5] = f32::NAN;
-        assert!(run_kernel(k, & q, & row, 20) [0].is_nan());
-        row[5] = f32::INFINITY;
-        assert_eq!(run_kernel(k, & q, & row, 20) [0], f32::INFINITY);
-        q[19] = f32::NEG_INFINITY;
-        row[19] = 1.0;
-        assert!(run_kernel(k, & q, & row, 20) [0].is_nan());
-    }
-    let negl2 = BuiltinKernel {
-        op: Op::NegL2,
-        isa: Isa::detect(),
-    };
-    let mut row = vec![0.0f32; 12];
-    row[3] = f32::INFINITY;
-    assert_eq!(run_kernel(& negl2, & vec![0.0; 12], & row, 12) [0], f32::NEG_INFINITY);
-    assert_eq!(run_kernel(& negl2, & vec![1.0; 12], & vec![1.0; 12], 12) [0], 0.0);
-}
-#[test]
-fn kernels_reject_inconsistent_shapes_with_nan() {
-    let k = BuiltinKernel {
-        op: Op::Dot,
-        isa: Isa::detect(),
-    };
-    let mut out = vec![0.0; 2];
-    k.score(&[1.0, 2.0], &[1.0, 2.0, 3.0], 2, &mut out);
-    assert_eq!(out[0], 5.0);
-    assert!(out[1].is_nan());
-    k.score(&[1.0], &[1.0, 2.0], 2, &mut out);
-    assert!(out.iter().all(| v | v.is_nan()));
-    let mut empty = vec![9.0; 3];
-    k.score(&[], &[], 0, &mut empty);
-    assert_eq!(empty, vec![0.0; 3]);
-}
-struct ConstKernel(f32);
-impl CpuScoreKernel for ConstKernel {
-    fn score(&self, _query: &[f32], _rows: &[f32], _dim: usize, out: &mut [f32]) {
-        out.fill(self.0);
-    }
-}
-#[test]
-fn kernel_register_registers_requests_and_evicts() {
-    let register = CpuKernelRegister::with_builtin();
-    let now = Instant::now();
-    assert!(
-        matches!(register.register("score_dot", DType::F32, Arc::new(ConstKernel(0.0))),
-        Err(CpuError::InvalidConfig(_)))
-    );
-    register.register("score_dot", DType::F16, Arc::new(ConstKernel(1.0))).unwrap();
-    assert!(
-        matches!(register.request("missing", DType::F32, now), Err(CpuError::NoKernel {
-        ref name, dtype : DType::F32 }) if name == "missing")
-    );
-    let ttl = Duration::from_secs(30);
-    let held = register.request("score_dot", DType::F32, now).unwrap();
-    let released = register.request("score_negl2", DType::F32, now).unwrap();
-    drop(released);
-    assert!(
-        register.evict_expired(now + ttl - Duration::from_millis(1), ttl).is_empty()
-    );
-    assert_eq!(
-        register.evict_expired(now + ttl, ttl), vec!["kernel:score_negl2:F32"
-        .to_string()]
-    );
-    assert!(register.evict_expired(now + ttl * 10, ttl).is_empty());
-    let again = register.request("score_dot", DType::F32, now + ttl).unwrap();
-    assert!(Arc::ptr_eq(& held, & again));
-    drop((held, again));
-    let later = now + ttl * 3;
-    assert_eq!(
-        register.evict_expired(later, ttl), vec!["kernel:score_dot:F32".to_string()]
-    );
-    let recreated = register.request("score_dot", DType::F32, later).unwrap();
-    let mut out = [0.0];
-    recreated.score(&[1.0, 2.0], &[3.0, 4.0], 2, &mut out);
-    assert_eq!(out[0], 11.0);
-    let custom = register.request("score_dot", DType::F16, later).unwrap();
-    custom.score(&[], &[], 0, &mut out);
-    assert_eq!(out[0], 1.0);
 }
 #[test]
 fn lane_factory_and_path_policy() {
@@ -788,10 +646,13 @@ fn live_leases_and_kernels_in_use_are_not_evicted() {
     let lane = cpu_lane();
     let ctx = CpuContext::new(&sub, &lane);
     let lease = ctx.tokenizer(&model).unwrap();
-    let kernel = sub.kernels().request("score_dot", DType::F32, Instant::now()).unwrap();
+    let kernel = sub
+        .kernels()
+        .request_at("score_dot", DType::F32, Instant::now())
+        .unwrap();
     let released = sub
         .kernels()
-        .request("score_negl2", DType::F32, Instant::now())
+        .request_at("score_negl2", DType::F32, Instant::now())
         .unwrap();
     drop(released);
     let far = Instant::now() + Duration::from_secs(3600);
@@ -801,6 +662,34 @@ fn live_leases_and_kernels_in_use_are_not_evicted() {
     let mut evicted = sub.evict_expired(far);
     evicted.sort();
     assert_eq!(evicted, vec!["kernel:score_dot:F32".to_string(), "tok:e5".to_string()]);
+}
+#[test]
+fn the_core_obtains_cpu_kernels_from_the_cpu_register() {
+    let sub = sub();
+    let path = ComputePath {
+        kernel: "score_dot".to_string(),
+        dtype: DType::F32,
+        variant: Variant { dim: None, tile: None },
+        lane: LaneKind::Query,
+    };
+    let Ok(Kernel::Cpu(kernel)) = sub.core().kernel(&path) else {
+        panic!("expected a cpu kernel");
+    };
+    let mut out = [0.0];
+    kernel.score(&[1.0, 2.0], &[3.0, 4.0], 2, &mut out);
+    assert_eq!(out[0], 11.0);
+    let far = Instant::now() + Duration::from_secs(3600);
+    assert!(sub.evict_expired(far).is_empty());
+    drop(kernel);
+    assert_eq!(sub.evict_expired(far), vec!["kernel:score_dot:F32".to_string()]);
+    let missing = ComputePath {
+        kernel: "nope".to_string(),
+        ..path
+    };
+    assert!(
+        matches!(sub.core().kernel(& missing),
+        Err(SubengineError::Kernel(KernelError::UnknownKernel(_))))
+    );
 }
 #[test]
 fn concurrent_first_access_loads_once() {

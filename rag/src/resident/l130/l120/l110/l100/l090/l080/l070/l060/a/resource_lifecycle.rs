@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
@@ -99,15 +98,6 @@ pub struct ResourceRegistry<H> {
 }
 fn deadline(now: Instant, wait: Duration) -> Instant {
     now.checked_add(wait).unwrap_or(now)
-}
-fn panic_message(payload: &(dyn Any + Send)) -> String {
-    if let Some(text) = payload.downcast_ref::<&str>() {
-        (*text).to_string()
-    } else if let Some(text) = payload.downcast_ref::<String>() {
-        text.clone()
-    } else {
-        "unknown panic".to_string()
-    }
 }
 impl<H: Send + Sync + 'static> ResourceRegistry<H> {
     pub fn new(config: LifecycleConfig) -> Self {
@@ -309,7 +299,12 @@ impl<H: Send + Sync + 'static> LoadTicket<H> {
         let outcome = match catch_unwind(AssertUnwindSafe(|| resource.loader.load())) {
             Ok(result) => result,
             Err(payload) => {
-                Err(format!("loader panicked: {}", panic_message(&* payload)))
+                Err(
+                    format!(
+                        "loader panicked: {}", panic_payload_text(&* payload)
+                        .unwrap_or("unknown panic")
+                    ),
+                )
             }
         };
         self.armed = false;
@@ -423,3 +418,4 @@ pub fn fail_batch<D, T, E>(
 #[cfg(test)]
 #[path = "test/resource_lifecycle.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::panic_payload_text;

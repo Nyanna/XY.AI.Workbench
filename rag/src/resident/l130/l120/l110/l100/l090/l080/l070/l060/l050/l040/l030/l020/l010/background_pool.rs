@@ -1,14 +1,9 @@
 use std::collections::VecDeque;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 #[derive(Debug)]
 pub enum PoolError {
     /// Thread creation failed.
@@ -16,7 +11,6 @@ pub enum PoolError {
     /// The pool has been shut down; no new jobs are accepted.
     ShutDown,
 }
-
 impl fmt::Display for PoolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -25,7 +19,6 @@ impl fmt::Display for PoolError {
         }
     }
 }
-
 impl std::error::Error for PoolError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -34,13 +27,11 @@ impl std::error::Error for PoolError {
         }
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobError {
     /// The job panicked; contains the panic message.
     Panicked(String),
 }
-
 impl fmt::Display for JobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -48,25 +39,20 @@ impl fmt::Display for JobError {
         }
     }
 }
-
 impl std::error::Error for JobError {}
-
 enum Slot<T> {
     Pending,
     Ready(Result<T, JobError>),
     Taken,
 }
-
 struct FutureShared<T> {
     slot: Mutex<Slot<T>>,
     cv: Condvar,
 }
-
 /// Result container of one job.
 pub struct JobFuture<T> {
     shared: Arc<FutureShared<T>>,
 }
-
 impl<T: Send + 'static> JobFuture<T> {
     pub fn wait(self) -> Result<T, JobError> {
         let mut slot = lock(&self.shared.slot);
@@ -78,7 +64,6 @@ impl<T: Send + 'static> JobFuture<T> {
             slot = self.shared.cv.wait(slot).unwrap_or_else(|e| e.into_inner());
         }
     }
-
     pub fn wait_timeout(self, timeout: Duration) -> Result<Result<T, JobError>, Self> {
         let deadline = Instant::now().checked_add(timeout);
         {
@@ -108,7 +93,6 @@ impl<T: Send + 'static> JobFuture<T> {
         }
         Err(self)
     }
-
     pub fn try_get(&mut self) -> Option<Result<T, JobError>> {
         let mut slot = lock(&self.shared.slot);
         match std::mem::replace(&mut *slot, Slot::Taken) {
@@ -119,24 +103,19 @@ impl<T: Send + 'static> JobFuture<T> {
             }
         }
     }
-
     pub fn is_done(&self) -> bool {
-        !matches!(*lock(&self.shared.slot), Slot::Pending)
+        !matches!(* lock(& self.shared.slot), Slot::Pending)
     }
 }
-
 type Job = Box<dyn FnOnce() + Send + 'static>;
-
 struct QueueState {
     jobs: VecDeque<Job>,
     closed: bool,
 }
-
 struct PoolShared {
     state: Mutex<QueueState>,
     cv: Condvar,
 }
-
 /// Named pool of low-priority worker threads.
 pub struct BackgroundPool {
     name: String,
@@ -144,20 +123,8 @@ pub struct BackgroundPool {
     shared: Arc<PoolShared>,
     workers: Mutex<Vec<JoinHandle<()>>>,
 }
-
-fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
-    if let Some(s) = payload.downcast_ref::<&str>() {
-        (*s).to_string()
-    } else if let Some(s) = payload.downcast_ref::<String>() {
-        s.clone()
-    } else {
-        "unknown panic".to_string()
-    }
-}
-
 #[cfg(target_os = "linux")]
 fn lower_priority() {
-    // SAFETY: gettid takes no arguments; setpriority only changes this thread's nice value.
     let rc = unsafe {
         let tid = libc::syscall(libc::SYS_gettid) as libc::id_t;
         libc::setpriority(libc::PRIO_PROCESS, tid, 19)
@@ -169,12 +136,10 @@ fn lower_priority() {
         );
     }
 }
-
 #[cfg(not(target_os = "linux"))]
 fn lower_priority() {
     log::warn!("lowering background worker priority is not supported on this platform");
 }
-
 fn worker_loop(shared: Arc<PoolShared>) {
     lower_priority();
     loop {
@@ -196,7 +161,6 @@ fn worker_loop(shared: Arc<PoolShared>) {
         }
     }
 }
-
 impl BackgroundPool {
     pub fn new(name: &str, threads: usize) -> Result<BackgroundPool, PoolError> {
         let threads = threads.max(1);
@@ -228,15 +192,12 @@ impl BackgroundPool {
         }
         Ok(pool)
     }
-
     pub fn name(&self) -> &str {
         &self.name
     }
-
     pub fn thread_count(&self) -> usize {
         self.threads
     }
-
     pub fn submit<T, F>(&self, job: F) -> Result<JobFuture<T>, PoolError>
     where
         F: FnOnce() -> T + Send + 'static,
@@ -249,7 +210,9 @@ impl BackgroundPool {
         let producer = Arc::clone(&fshared);
         let boxed: Job = Box::new(move || {
             let result = catch_unwind(AssertUnwindSafe(job))
-                .map_err(|p| JobError::Panicked(panic_message(p)));
+                .map_err(|p| JobError::Panicked(
+                    panic_payload_text(&*p).unwrap_or("unknown panic").to_string(),
+                ));
             *lock(&producer.slot) = Slot::Ready(result);
             producer.cv.notify_all();
         });
@@ -263,7 +226,6 @@ impl BackgroundPool {
         self.shared.cv.notify_one();
         Ok(JobFuture { shared: fshared })
     }
-
     pub fn shutdown(&self) {
         lock(&self.shared.state).closed = true;
         self.shared.cv.notify_all();
@@ -277,13 +239,13 @@ impl BackgroundPool {
         }
     }
 }
-
 impl Drop for BackgroundPool {
     fn drop(&mut self) {
         self.shutdown();
     }
 }
-
 #[cfg(test)]
 #[path = "test/background_pool.rs"]
 mod tests;
+use super::sync_util::lock;
+use super::sync_util::panic_payload_text;

@@ -17,6 +17,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::Normalization;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::{
     device_lane_event::{Event, EventError, Lane, LaneError},
+    float_codec::{f32_to_bf16_bits, f32_to_f16_bits},
     layout::DType,
 };
 pub const WRITE_KERNEL_NAME: &str = "embedding_write";
@@ -144,43 +145,6 @@ pub struct WriteReport {
 }
 pub fn is_supported_output(dtype: DType) -> bool {
     matches!(dtype, DType::F32 | DType::F16 | DType::BF16)
-}
-/// Round-to-nearest-even conversion to IEEE-754 binary16 bits.
-pub fn f32_to_f16_bits(x: f32) -> u16 {
-    let bits = x.to_bits();
-    let sign = ((bits >> 16) & 0x8000) as u16;
-    let mag = bits & 0x7FFF_FFFF;
-    if mag > 0x7F80_0000 {
-        return sign | 0x7E00;
-    }
-    if mag >= 0x477F_F000 {
-        return sign | 0x7C00;
-    }
-    if mag >= 0x3880_0000 {
-        let r = mag - 0x3800_0000;
-        return sign | ((r + 0xFFF + ((r >> 13) & 1)) >> 13) as u16;
-    }
-    let exp = mag >> 23;
-    if exp < 102 {
-        return sign;
-    }
-    let mant = (mag & 0x7F_FFFF) | 0x80_0000;
-    let shift = 126 - exp;
-    let mut q = mant >> shift;
-    let rem = mant & ((1u32 << shift) - 1);
-    let half = 1u32 << (shift - 1);
-    if rem > half || (rem == half && (q & 1) == 1) {
-        q += 1;
-    }
-    sign | q as u16
-}
-/// Round-to-nearest-even conversion to bfloat16 bits.
-pub fn f32_to_bf16_bits(x: f32) -> u16 {
-    let bits = x.to_bits();
-    if bits & 0x7FFF_FFFF > 0x7F80_0000 {
-        return ((bits >> 16) & 0x8000) as u16 | 0x7FC0;
-    }
-    (bits.wrapping_add(0x7FFF + ((bits >> 16) & 1)) >> 16) as u16
 }
 /// Little-endian bytes of `vectors` in `dtype`.
 pub fn encode_f32_slice(vectors: &[f32], dtype: DType) -> Result<Vec<u8>, OutputError> {
@@ -370,7 +334,7 @@ pub fn write_embeddings_gpu(
         .map_err(OutputError::Kernel)?;
     let kernel = match kernel {
         Kernel::Gpu(k) => k,
-        Kernel::Library(_) => {
+        Kernel::Library(_) | Kernel::Cpu(_) => {
             return Err(
                 OutputError::Kernel(
                     KernelError::UnknownKernel(WRITE_KERNEL_NAME.to_string()),

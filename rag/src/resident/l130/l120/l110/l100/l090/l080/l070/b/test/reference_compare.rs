@@ -16,7 +16,7 @@ fn batch(queries: usize) -> QueryBatch {
     QueryBatch::from_queries(1, qs).unwrap()
 }
 struct Fixed(Vec<f32>);
-impl Scorer for Fixed {
+impl DocRangeScorer for Fixed {
     fn score_range(
         &self,
         _src: &dyn DocSource,
@@ -33,7 +33,7 @@ impl Scorer for Fixed {
     }
 }
 struct Failing;
-impl Scorer for Failing {
+impl DocRangeScorer for Failing {
     fn score_range(
         &self,
         _: &dyn DocSource,
@@ -45,7 +45,7 @@ impl Scorer for Failing {
     }
 }
 struct WrongLen;
-impl Scorer for WrongLen {
+impl DocRangeScorer for WrongLen {
     fn score_range(
         &self,
         _: &dyn DocSource,
@@ -58,8 +58,28 @@ impl Scorer for WrongLen {
 }
 #[test]
 fn tolerances() {
-    assert_eq!(Precision::Fp32.tolerance(), 1e-5);
-    assert_eq!(Precision::Fp16.tolerance(), 1e-3);
+    assert_eq!(tolerance(DType::F32), Some(1e-5));
+    assert_eq!(tolerance(DType::F16), Some(1e-3));
+    assert_eq!(tolerance(DType::BF16), None);
+    assert_eq!(tolerance(DType::U8), None);
+}
+#[test]
+fn unsupported_dtype_fails_before_scoring() {
+    let src = source(2);
+    let ws = [Workspace::new(0, 2)];
+    let e = compare_scorers(
+            &Failing,
+            &Failing,
+            &src,
+            SEG,
+            &ws,
+            &batch(1),
+            1,
+            DType::BF16,
+        )
+        .unwrap_err();
+    assert!(matches!(e, CompareError::UnsupportedDType(DType::BF16)));
+    assert!(e.to_string().contains("BF16"));
 }
 #[test]
 fn identical_lists_are_clean() {
@@ -159,8 +179,7 @@ fn identical_scorers_are_clean() {
     let s = Fixed(vec![0.1, 0.4, 0.3, 0.2]);
     let ws = [Workspace::new(0, 2), Workspace::new(2, 2), Workspace::new(2, 4)];
     let b = batch(2);
-    let rep = compare_scorers(&s, &s, &src, SEG, &ws[..1], &b, 3, Precision::Fp32)
-        .unwrap();
+    let rep = compare_scorers(&s, &s, &src, SEG, &ws[..1], &b, 3, DType::F32).unwrap();
     assert!(rep.is_clean());
     assert_eq!(rep.candidate, rep.reference);
     assert_eq!(rep.candidate.len(), 2);
@@ -172,7 +191,7 @@ fn identical_scorers_are_clean() {
             &[ws[0], ws[1], ws[2]][..2],
             &b,
             3,
-            Precision::Fp32,
+            DType::F32,
         )
         .unwrap();
     assert!(rep.is_clean());
@@ -184,8 +203,7 @@ fn differing_scorers_report_but_succeed() {
     let c = Fixed(vec![0.1, 0.5, 0.3]);
     let r = Fixed(vec![0.1, 0.5, 0.2]);
     let ws = [Workspace::new(0, 3)];
-    let rep = compare_scorers(&c, &r, &src, SEG, &ws, &batch(1), 3, Precision::Fp16)
-        .unwrap();
+    let rep = compare_scorers(&c, &r, &src, SEG, &ws, &batch(1), 3, DType::F16).unwrap();
     assert!(! rep.is_clean());
     assert!(
         matches!(rep.deviations[0].kind, DeviationKind::ValueMismatch { rank : 1, .. })
@@ -197,13 +215,13 @@ fn errors_are_forwarded() {
     let ok = Fixed(vec![0.0, 1.0]);
     let ws = [Workspace::new(0, 2)];
     let b = batch(1);
-    let e = compare_scorers(&Failing, &ok, &src, SEG, &ws, &b, 1, Precision::Fp32)
+    let e = compare_scorers(&Failing, &ok, &src, SEG, &ws, &b, 1, DType::F32)
         .unwrap_err();
     assert!(matches!(& e, CompareError::Candidate(x) if x.to_string() == "boom"));
-    let e = compare_scorers(&ok, &Failing, &src, SEG, &ws, &b, 1, Precision::Fp32)
+    let e = compare_scorers(&ok, &Failing, &src, SEG, &ws, &b, 1, DType::F32)
         .unwrap_err();
     assert!(matches!(& e, CompareError::Reference(x) if x.to_string() == "boom"));
-    let e = compare_scorers(&WrongLen, &ok, &src, SEG, &ws, &b, 1, Precision::Fp32)
+    let e = compare_scorers(&WrongLen, &ok, &src, SEG, &ws, &b, 1, DType::F32)
         .unwrap_err();
     assert!(matches!(e, CompareError::TopK(TopKError::ScoreLen { .. })));
 }
@@ -219,7 +237,7 @@ fn empty_workspaces_skip_scorers() {
             &ws,
             &batch(1),
             2,
-            Precision::Fp32,
+            DType::F32,
         )
         .unwrap();
     assert!(rep.is_clean());
@@ -230,11 +248,9 @@ fn zero_k_and_empty_batch() {
     let src = source(2);
     let s = Fixed(vec![0.0, 1.0]);
     let ws = [Workspace::new(0, 2)];
-    let rep = compare_scorers(&s, &s, &src, SEG, &ws, &batch(2), 0, Precision::Fp32)
-        .unwrap();
+    let rep = compare_scorers(&s, &s, &src, SEG, &ws, &batch(2), 0, DType::F32).unwrap();
     assert!(rep.is_clean());
-    let rep = compare_scorers(&s, &s, &src, SEG, &ws, &batch(0), 2, Precision::Fp32)
-        .unwrap();
+    let rep = compare_scorers(&s, &s, &src, SEG, &ws, &batch(0), 2, DType::F32).unwrap();
     assert!(rep.is_clean());
     assert!(rep.candidate.is_empty() && rep.reference.is_empty());
 }

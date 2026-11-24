@@ -1,37 +1,99 @@
 use super::*;
-
 #[test]
 fn dot_basic_and_empty() {
-    assert_eq!(dot(&[], &[]), 0.0);
+    assert_eq!(dot(& [], & []), 0.0);
     let a: Vec<f32> = (1..=11).map(|x| x as f32).collect();
     let expected: f32 = a.iter().map(|x| x * x).sum();
-    assert_eq!(dot(&a, &a), expected);
+    assert_eq!(dot(& a, & a), expected);
 }
-
 #[test]
 #[should_panic]
 fn dot_len_mismatch_panics() {
     dot(&[1.0], &[1.0, 2.0]);
 }
-
+fn ramp(n: usize, seed: f32) -> Vec<f32> {
+    (0..n).map(|i| ((i as f32 * 0.37 + seed).sin()) * 2.0).collect()
+}
+fn naive_dot(a: &[f32], b: &[f32]) -> f64 {
+    a.iter().zip(b).map(|(x, y)| f64::from(*x) * f64::from(*y)).sum()
+}
+fn naive_sq_dist(a: &[f32], b: &[f32]) -> f64 {
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| {
+            let d = f64::from(*x) - f64::from(*y);
+            d * d
+        })
+        .sum()
+}
+#[test]
+fn sq_dist_basic_and_empty() {
+    assert_eq!(sq_dist(& [], & []), 0.0);
+    assert_eq!(sq_dist(& [1.0, 2.0], & [4.0, 6.0]), 25.0);
+}
+#[test]
+#[should_panic(expected = "length mismatch")]
+fn sq_dist_len_mismatch_panics() {
+    sq_dist(&[1.0], &[1.0, 2.0]);
+}
+#[test]
+fn scalar_kernels_match_the_naive_sums() {
+    for n in [0usize, 1, 7, 8, 9, 15, 16, 17, 33, 384] {
+        let (a, b) = (ramp(n, 0.1), ramp(n, 1.7));
+        let tol = 1e-3 * (1.0 + n as f64);
+        assert!(
+            (f64::from(dot_with(Isa::Scalar, & a, & b)) - naive_dot(& a, & b)).abs() <
+            tol
+        );
+        assert!(
+            (f64::from(sq_dist_with(Isa::Scalar, & a, & b)) - naive_sq_dist(& a, & b))
+            .abs() < tol
+        );
+    }
+}
+#[test]
+fn detected_isa_matches_the_naive_sums() {
+    let isa = Isa::detect();
+    for n in [0usize, 1, 3, 4, 7, 8, 9, 15, 16, 17, 31, 32, 33, 384] {
+        let (a, b) = (ramp(n, 0.3), ramp(n, 2.9));
+        let tol = 1e-3 * (1.0 + n as f64);
+        assert!(
+            (f64::from(dot_with(isa, & a, & b)) - naive_dot(& a, & b)).abs() < tol,
+            "dot n={n}"
+        );
+        assert!(
+            (f64::from(sq_dist_with(isa, & a, & b)) - naive_sq_dist(& a, & b)).abs() <
+            tol, "sq_dist n={n}"
+        );
+    }
+}
+#[test]
+#[should_panic(expected = "length mismatch")]
+fn dot_with_len_mismatch_panics() {
+    dot_with(Isa::detect(), &[1.0], &[1.0, 2.0]);
+}
+#[test]
+#[should_panic(expected = "length mismatch")]
+fn sq_dist_with_len_mismatch_panics() {
+    sq_dist_with(Isa::detect(), &[1.0], &[1.0, 2.0]);
+}
 #[test]
 fn max_sim_values_and_errors() {
     let q = [1.0, 0.0, 0.0, 1.0];
     let d = [1.0, 0.0, 0.5, 0.5];
-    assert_eq!(max_sim(&q, &d, 2).unwrap(), 1.5);
-    assert_eq!(max_sim(&q, &[], 2).unwrap(), 2.0 * MASK_VALUE);
-    assert_eq!(max_sim(&[], &[], 2).unwrap(), 0.0);
-    assert_eq!(max_sim(&q, &d, 0), Err(CpuComputeError::InvalidDim));
+    assert_eq!(max_sim(& q, & d, 2).unwrap(), 1.5);
+    assert_eq!(max_sim(& q, & [], 2).unwrap(), 2.0 * MASK_VALUE);
+    assert_eq!(max_sim(& [], & [], 2).unwrap(), 0.0);
+    assert_eq!(max_sim(& q, & d, 0), Err(CpuComputeError::InvalidDim));
     assert_eq!(
-        max_sim(&[1.0, 2.0, 3.0], &d, 2),
-        Err(CpuComputeError::Shape { what: ShapeSource::Query(0), len: 3, dim: 2 })
+        max_sim(& [1.0, 2.0, 3.0], & d, 2), Err(CpuComputeError::Shape { what :
+        ShapeSource::Query(0), len : 3, dim : 2 })
     );
     assert_eq!(
-        max_sim(&q, &[1.0], 2),
-        Err(CpuComputeError::Shape { what: ShapeSource::Doc, len: 1, dim: 2 })
+        max_sim(& q, & [1.0], 2), Err(CpuComputeError::Shape { what : ShapeSource::Doc,
+        len : 1, dim : 2 })
     );
 }
-
 #[test]
 fn l2_normalize_cases() {
     let mut v = [3.0, 4.0];
@@ -43,7 +105,6 @@ fn l2_normalize_cases() {
     let mut e: [f32; 0] = [];
     l2_normalize(&mut e);
 }
-
 #[test]
 fn scan_matches_max_sim() {
     let q1: &[f32] = &[1.0, 0.0, 0.0, 1.0];
@@ -54,30 +115,29 @@ fn scan_matches_max_sim() {
     let out = scan_slots(&[q1, q2], &slots, 0..3, 2).unwrap();
     assert_eq!(out.len(), 6);
     for (i, s) in [Some(s0), None, Some(s2)].iter().enumerate() {
-        assert_eq!(out[i], max_sim(q1, s.unwrap_or(&[]), 2).unwrap());
+        assert_eq!(out[i], max_sim(q1, s.unwrap_or(& []), 2).unwrap());
         assert_eq!(out[3 + i], 0.0);
     }
     let sub = scan_slots(&[q1], &slots, 1..3, 2).unwrap();
     assert_eq!(sub, vec![out[1], out[2]]);
 }
-
 #[test]
 fn scan_errors() {
     let q: &[f32] = &[1.0, 2.0];
     let bad: &[f32] = &[1.0, 2.0, 3.0];
     let slots = [Some(q), Some(bad)];
-    assert_eq!(scan_slots(&[q], &slots, 0..2, 0), Err(CpuComputeError::InvalidDim));
+    assert_eq!(scan_slots(& [q], & slots, 0..2, 0), Err(CpuComputeError::InvalidDim));
     assert_eq!(
-        scan_slots(&[q], &slots, 0..3, 2),
-        Err(CpuComputeError::RangeOutOfBounds { start: 0, end: 3, slots: 2 })
+        scan_slots(& [q], & slots, 0..3, 2), Err(CpuComputeError::RangeOutOfBounds {
+        start : 0, end : 3, slots : 2 })
     );
     assert_eq!(
-        scan_slots(&[bad], &slots, 0..2, 2),
-        Err(CpuComputeError::Shape { what: ShapeSource::Query(0), len: 3, dim: 2 })
+        scan_slots(& [bad], & slots, 0..2, 2), Err(CpuComputeError::Shape { what :
+        ShapeSource::Query(0), len : 3, dim : 2 })
     );
     assert_eq!(
-        scan_slots(&[q], &slots, 0..2, 2),
-        Err(CpuComputeError::Shape { what: ShapeSource::Slot(1), len: 3, dim: 2 })
+        scan_slots(& [q], & slots, 0..2, 2), Err(CpuComputeError::Shape { what :
+        ShapeSource::Slot(1), len : 3, dim : 2 })
     );
-    assert_eq!(scan_slots(&[], &slots, 1..1, 2), Ok(vec![]));
+    assert_eq!(scan_slots(& [], & slots, 1..1, 2), Ok(vec![]));
 }

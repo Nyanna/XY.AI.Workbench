@@ -2,7 +2,7 @@ pub mod projection_layer;
 pub mod transformer_model;
 use std::fmt;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::{mpsc, Arc, Mutex, MutexGuard};
+use std::sync::{mpsc, Arc, Mutex};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::pooling_norm::PoolNorm;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::memory_access::TensorRef;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
@@ -43,9 +43,6 @@ pub fn oneshot() -> (TaskSender, TaskReceiver) {
     mpsc::sync_channel(1)
 }
 type ErrorSlot = Arc<Mutex<Option<EncoderError>>>;
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
 #[derive(Clone)]
 pub struct CompletionEvent {
     event: Event,
@@ -214,7 +211,7 @@ fn run_job(job: Job, senders: Vec<TaskSender>, error: ErrorSlot, signal: EventSi
     let outcome: TaskOutcome = match result {
         Ok(()) => Ok(()),
         Err(text) => {
-            log::warn!("Embedding-Batch fehlgeschlagen: {text}");
+            log::warn!("embedding batch failed: {text}");
             let e = EncoderError::Processing(text);
             *lock(&error) = Some(e.clone());
             Err(e)
@@ -225,12 +222,9 @@ fn run_job(job: Job, senders: Vec<TaskSender>, error: ErrorSlot, signal: EventSi
     }
 }
 fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
-    if let Some(s) = payload.downcast_ref::<&str>() {
-        format!("panic: {s}")
-    } else if let Some(s) = payload.downcast_ref::<String>() {
-        format!("panic: {s}")
-    } else {
-        "panic".to_string()
+    match panic_payload_text(payload) {
+        Some(s) => format!("panic: {s}"),
+        None => "panic".to_string(),
     }
 }
 fn execute(job: &Job) -> Result<(), String> {
@@ -364,3 +358,5 @@ fn f32_to_f16_bits(v: f32) -> u16 {
 #[cfg(test)]
 #[path = "test/encoder_interface.rs"]
 mod tests;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::lock;
+use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::sync_util::panic_payload_text;
