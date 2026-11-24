@@ -7,6 +7,7 @@ from xy.ai.mcpc.tools.ast.delete import DeleteTool
 from xy.ai.mcpc.tools.ast.edit_block import EditBlockNodeTool
 from xy.ai.mcpc.tools.ast.edit_marks import EditMarksNodeTool
 from xy.ai.mcpc.tools.ast.insert import InsertNodeTool
+from xy.ai.mcpc.tools.ast.move import MoveTool
 from xy.ai.mcpc.tools.ast.replace import ReplaceNodeTool
 from xy.ai.mcpc.tools.function_registry import FunctionRegistry
 from xy.ai.mcpc.tools.tool_context import ToolContext
@@ -21,8 +22,8 @@ class _SectionError(ItemError):
         return {}
 __all__ = ['EditTool', 'register']
 '# Execution order: files must exist before edits, deletions come last.'
-_STEPS: tuple[tuple[str, ToolDefinition], ...] = (('create', CreateFileTool()), ('insert', InsertNodeTool(
-)), ('replace', ReplaceNodeTool()), ('edit_block', EditBlockNodeTool()), ('edit_marks', EditMarksNodeTool()), ('delete', DeleteTool()))
+_STEPS: tuple[tuple[str, ToolDefinition], ...] = (('create', CreateFileTool()), ('insert', InsertNodeTool()), ('replace', ReplaceNodeTool(
+)), ('edit_block', EditBlockNodeTool()), ('edit_marks', EditMarksNodeTool()), ('move', MoveTool()), ('delete', DeleteTool()))
 
 def _error_text(result: ToolResult) -> str:
     return ' '.join((str(c.get('text', '')) for c in result.content)) or 'Unknown error'
@@ -31,7 +32,7 @@ class EditTool(ToolDefinition):
     name = 'ast_edit'
     features = frozenset({ToolFeature.INPUT_ASTID})
     title = 'Batch of AST modifications'
-    description = 'Run create, insert, replace, edit_block, edit_marks and delete operations in one call. Each list has the item format of the tool ast_<list name>.'
+    description = 'Run create, insert, replace, edit_block, edit_marks, move and delete operations in one call. Each list has the item format of the tool ast_<list name>.'
     input_schema = {
         'type': 'object',
         'properties': {

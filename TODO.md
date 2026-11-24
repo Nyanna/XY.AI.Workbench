@@ -1,5 +1,11 @@
 # TODO
+AST move NOde operationen
 Editorrendering bei großen datein ändern
+
+Weiter entwicklung von AST ist IR
+größer ID space, gerichteter graph, referencen.
+code wird automatisch in dateien regeneriert bei jeder änderung
+agent arbeitet auf den building block, methoden klassen module nur für grouping oder aber das grouping selber programatisch ableiten
 
 neues editorinterface
 gleiche zeilenhöhe

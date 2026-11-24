@@ -76,12 +76,11 @@ def _insert_one(item: InsertItem) -> InsertResult:
     file_path = core.require_path(item.path)
     tree = core.CACHE.get_tree(file_path)
     target = select_by_path(tree, id=item.id)
-    before_ids = {loc.node_id for loc in core.locate_all(tree)}
-    inserted = core.insert_node(target, item.source, item.position)
-    new_ids = [loc.node_id for loc in core.locate_all(tree) if loc.node_id not in before_ids]
+    placement = core.place_node(tree, target, item.source, item.position)
+    new_ids = core.placed_ids(tree, placement)
     imports = core.apply_imports(tree, item.add_import, item.remove_import)
     core.CACHE.save(file_path, tree)
-    return InsertResult(path=item.path, id=item.id, inserted=inserted, ids=new_ids or None, imports=imports)
+    return InsertResult(path=item.path, id=item.id, inserted=placement.units, ids=new_ids or None, imports=imports)
 
 def ast_insert(items: list[InsertItem]) -> InsertBatchResult:
     """Insert statement(s) parsed from ``source`` relative to one or more selected nodes.

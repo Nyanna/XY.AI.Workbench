@@ -207,9 +207,14 @@ class PythonEngine(Engine):
     def delete(self, loc: Located) -> None:
         node = loc.node
         if isinstance(node, _StatementGroup):
-            del node.parent.body[node.start:node.stop]
+            parent = node.parent
+            del parent.body[node.start:node.stop]
         else:
-            del loc.parent.body[loc.index]
+            parent = loc.parent
+            del parent.body[loc.index]
+        '# A compound statement (class/def/...) must keep a non-empty body.'
+        if not parent.body and (not isinstance(parent, ast.Module)):
+            parent.body.append(ast.Pass())
 
     def append(self, tree: Tree, code: str) -> int:
         check_no_control_chars(code)

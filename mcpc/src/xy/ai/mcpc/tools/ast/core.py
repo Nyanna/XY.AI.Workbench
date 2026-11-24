@@ -130,6 +130,61 @@ def delete_node(loc: Located) -> None:
 def append_nodes(tree: Tree, code: str) -> int:
     return tree.engine.append(tree, code)
 
+@dataclass(frozen=True)
+class Placement:
+    """Where an insert/append landed, in :func:`locate_all` order.
+
+    Attributes:
+        start: Index of the first inserted node after the edit.
+        count: Number of addressable nodes the edit added.
+        units: Units the engine reported as inserted/appended.
+        exact: Whether the nodes outside ``[start, start + count)`` kept their structure
+            (node types). If not (e.g. merged statement groups), ``start``/``count``
+            cannot be trusted.
+    """
+    start: int
+    count: int
+    units: int
+    exact: bool
+
+def top_level_ids(ids: list[str]) -> list[str]:
+    """Those ``ids`` without an ancestor among ``ids``, in the given order."""
+    return [i for i in ids if not any((i.startswith(other + '.') for other in ids if other != i))]
+
+def place_node(tree: Tree, loc: Located | None, code: str, position: str) -> Placement:
+    """Insert ``code`` ``position`` ``loc`` (append to ``tree`` if ``loc`` is ``None``) and track where it landed.
+
+    The inserted nodes are found by position, not by an id diff: inserting may rename
+    existing nodes (a second ``foo`` turns the old one into ``foo_1``), so neither a
+    new id nor a changed id proves a node new. In document order the inserted nodes
+    start at the target's index (``before``), right behind its subtree (``after``) or
+    at the end (append).
+    """
+    before = locate_all(tree)
+    if loc is None:
+        start = len(before)
+        units = append_nodes(tree, code)
+    else:
+        index = next((i for i, other in enumerate(before) if other.node_id == loc.node_id), None)
+        if index is None:
+            raise AstError('The target node is no longer present.')
+        start = index
+        if position != 'before':
+            start += 1 + sum((1 for other in before if other.node_id.startswith(loc.node_id + '.')))
+        units = insert_node(loc, code, position)
+    after = locate_all(tree)
+    count = len(after) - len(before)
+    rest = after[:start] + after[start + count:]
+    exact = count > 0 and [other.node_type for other in rest] == [other.node_type for other in before]
+    return Placement(start=start, count=count, units=units, exact=exact)
+
+def placed_ids(tree: Tree, placement: Placement) -> list[str] | None:
+    """Top-level ids of the nodes ``placement`` inserted, or ``None`` if it is not exact."""
+    if not placement.exact:
+        return None
+    located = locate_all(tree)[placement.start:placement.start + placement.count]
+    return top_level_ids([loc.node_id for loc in located])
+
 def apply_imports(tree: Tree, add: list[str] | None, remove: list[str] | None) -> ImportOutcome | None:
     """Apply an item's ``addImport``/``removeImport`` to the already edited ``tree``.
 
