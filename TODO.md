@@ -1,4 +1,12 @@
 # TODO
+Editorrendering bei großen datein ändern
+
+neues editorinterface
+gleiche zeilenhöhe
+vertikales scrolling pro block oder screen nicht dateeiweit
+vertikale scrollbar auf basis von newline index
+vertikale scrollbar,newline index klein, byteoffset wenn groß
+
 - Tool schreiben zum auswerten der sessions, timestamp, alle token, alle projekte, aus logs oder mD?
 - verbessern der CC session anzeige, zeit in in ms oder sekunden, nur chars  kein total, dann typ der nachricht
 !verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen

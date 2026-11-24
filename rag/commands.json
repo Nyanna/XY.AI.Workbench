@@ -1,6 +1,6 @@
 {
   "commands": {
-    "runTests": {"script": "cargo test --quiet", "spill_to_disk": false},
+    "runTests": {"script": "scripts/test-compact.sh", "spill_to_disk": false},
     "read.Cargo.toml": {"script": "cat Cargo.toml", "spill_to_disk": false}
   }
 }
