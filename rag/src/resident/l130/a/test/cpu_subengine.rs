@@ -6,19 +6,14 @@ use std::thread;
 use l090::a::lane_batching::{BatchKey, BatchLimit};
 use l090::a::persistent_save::index_save::{IndexSaver, SaveConfig, StoreSource};
 use l080::a::index_format::{TokenizerFingerprint, TOKENIZER_FP_ALGORITHM};
-use l080::a::kernel_scoring::{LaunchRequest, ScoreLauncher, ScoreReadback, Scorer};
 use l090::a::entry_store::{EntryStore, PayloadChecksums};
 use l090::a::persistent_save::entry_payload::compute_checksum_parts;
 use l080::a::meta_codec;
 use l080::a::parquet_decoder::{ChecksumFn, ParquetDecoder};
 use l080::subengine_loop::ResourceExec;
-use l070::a::kernel_register::{
-    Kernel, KernelRegister, CodeImage, CodeKind, CompileRequest, CompilerError,
-    KernelCompiler, KernelFunction, LoadFailure, ModuleLoader,
-};
+use l070::a::kernel_register::Kernel;
 use l070::a::notification_topology::NotificationTopology;
 use l070::a::text_normalization::NormalizeError;
-use l040::a::library_adapter::library_kernel_source;
 use l030::a::calibration_run::{Combination, ProbeError};
 use l020::a::index_contract::{
     AccessMethod, ByteRange, IndexError, Payload, PayloadRef, SharedBytes, Stamp,
@@ -28,7 +23,6 @@ use l020::a::memory_access::{AccessError, AccessRegion, RegionBackend};
 use l010::capability_model::{axes, cpu_reference, values};
 use l010::layout::Layout;
 use l010::queue::{Queue, State};
-use l010::target_env::ComputeCapability;
 use l010::page_advice::{Advice, AdviceError, AdviceTarget, PageRange};
 static_assertions::assert_impl_all!(CpuSubengine : Send, Sync);
 static_assertions::assert_impl_all!(CpuManager : Send, Sync);
@@ -67,69 +61,16 @@ impl Lcg {
         (0..len).map(|_| self.next()).collect()
     }
 }
-struct StubCompiler;
-impl KernelCompiler for StubCompiler {
-    fn compile(&self, _req: &CompileRequest) -> Result<CodeImage, CompilerError> {
-        Ok(CodeImage {
-            kind: CodeKind::Ptx,
-            bytes: vec![0],
-        })
-    }
+fn registry() -> Arc<ModelRegistry> {
+    Arc::new(ModelRegistry::with_builtin())
 }
-#[derive(Debug)]
-struct MockFunction;
-impl KernelFunction for MockFunction {
-    fn symbol(&self) -> &str {
-        "test_entry"
+fn score_path() -> ComputePath {
+    ComputePath {
+        kernel: "score_dot".to_string(),
+        dtype: DType::F32,
+        variant: Variant { dim: None, tile: None },
+        lane: LaneKind::Query,
     }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-struct StubLoader;
-impl ModuleLoader for StubLoader {
-    fn device_capability(&self) -> Option<ComputeCapability> {
-        None
-    }
-    fn load(
-        &self,
-        _image: &CodeImage,
-        _symbol: &str,
-    ) -> Result<Arc<dyn KernelFunction>, LoadFailure> {
-        Ok(Arc::new(MockFunction))
-    }
-}
-struct StubLauncher;
-impl ScoreLauncher for StubLauncher {
-    fn launch(
-        &self,
-        _function: &Arc<dyn KernelFunction>,
-        _lane: &Lane,
-        _req: &LaunchRequest<'_>,
-    ) -> Result<Box<dyn ScoreReadback>, String> {
-        Err("stub".to_string())
-    }
-}
-fn core_kernels() -> Arc<KernelRegister> {
-    Arc::new(
-        KernelRegister::new(
-            DeviceHandle::Cpu,
-            Arc::new(StubCompiler),
-            Arc::new(StubLoader),
-            library_kernel_source(),
-        ),
-    )
-}
-fn registry_with(metrics: &[Metric]) -> Arc<ModelRegistry> {
-    let mut registry = ModelRegistry::with_builtin();
-    for metric in metrics {
-        registry
-            .register_scorer(
-                *metric,
-                Arc::new(Scorer::new(core_kernels(), Arc::new(StubLauncher))),
-            );
-    }
-    Arc::new(registry)
 }
 fn deps(models: Arc<ModelRegistry>) -> (CpuDeps, Arc<QueueRegistrations>) {
     let registrations = Arc::new(QueueRegistrations::new());
@@ -146,7 +87,7 @@ fn sub_with(cfg: CpuSubengineConfig, models: Arc<ModelRegistry>) -> Arc<CpuSuben
     CpuSubengine::new(cfg, deps(models).0).unwrap()
 }
 fn sub() -> Arc<CpuSubengine> {
-    sub_with(config(), registry_with(&[]))
+    sub_with(config(), registry())
 }
 fn cpu_lane() -> Lane {
     Lane::new(LaneConfig::preset(LaneKind::Query, DeviceHandle::Cpu), None)
@@ -375,7 +316,7 @@ fn lane_factory_and_path_policy() {
 }
 #[test]
 fn new_builds_a_cpu_core_and_loads_nothing() {
-    let (deps, _) = deps(registry_with(&[]));
+    let (deps, _) = deps(registry());
     let sub = CpuSubengine::new(config(), deps).unwrap();
     let expected = precision_capabilities(DeviceKind::Cpu);
     let mut fp32 = CapabilitySet::new();
@@ -404,7 +345,7 @@ fn new_builds_a_cpu_core_and_loads_nothing() {
 }
 #[test]
 fn new_validates_configuration_first_error_wins() {
-    let models = registry_with(&[]);
+    let models = registry();
     let mut cfg = config();
     cfg.name = String::new();
     assert!(
@@ -430,7 +371,7 @@ fn new_validates_configuration_first_error_wins() {
 fn extra_and_shared_capabilities_are_merged_into_the_core() {
     let mut cfg = config();
     cfg.extra_capabilities = CapabilitySet::new().with(axes::scoring(), values::int8());
-    let sub = sub_with(cfg, registry_with(&[]));
+    let sub = sub_with(cfg, registry());
     let caps = Subengine::capabilities(&*sub);
     assert!(caps[0].1.contains(& axes::scoring(), & values::int8()));
     assert!(caps[0].1.contains(& axes::scoring(), & values::fp32()));
@@ -439,22 +380,24 @@ fn extra_and_shared_capabilities_are_merged_into_the_core() {
     let mut cfg = config();
     cfg.extra_capabilities = CapabilitySet::new().with(axes::scoring(), values::int8());
     cfg.shared_capabilities = Some(precision_capabilities(DeviceKind::Cpu));
-    let sub = sub_with(cfg, registry_with(&[]));
+    let sub = sub_with(cfg, registry());
     let caps = Subengine::capabilities(&*sub);
     assert_eq!(caps[1].1, precision_capabilities(DeviceKind::Cpu));
 }
 #[test]
-fn scorers_are_adopted_only_for_available_metrics() {
-    let sub = sub_with(config(), registry_with(&[Metric::Dot]));
-    assert!(sub.core().scorer(Metric::Dot).is_some());
-    assert!(sub.core().scorer(Metric::NegL2Sq).is_none());
-    let sub = sub_with(config(), registry_with(&[Metric::Dot, Metric::NegL2Sq]));
-    assert!(sub.core().scorer(Metric::NegL2Sq).is_some());
+fn the_scorer_is_loaded_while_its_cpu_kernel_is_live() {
+    let sub = sub();
+    assert!(! sub.is_loaded(ResourceKind::Scorer, None));
+    let kernel = sub.core().kernel(&score_path()).unwrap();
     assert!(sub.is_loaded(ResourceKind::Scorer, None));
+    drop(kernel);
+    let far = Instant::now() + Duration::from_secs(3600);
+    assert_eq!(sub.evict_expired(far), vec!["kernel:score_dot:F32".to_string()]);
+    assert!(! sub.is_loaded(ResourceKind::Scorer, None));
 }
 #[test]
 fn trait_methods_delegate_and_activation_only_creates_lanes() {
-    let (deps, registrations) = deps(registry_with(&[Metric::Dot]));
+    let (deps, registrations) = deps(registry());
     let sub = CpuSubengine::new(config(), deps).unwrap();
     Subengine::start(&*sub).unwrap();
     Subengine::start(&*sub).unwrap();
@@ -491,7 +434,8 @@ fn trait_methods_delegate_and_activation_only_creates_lanes() {
 fn kinds_outside_the_offers_are_never_loaded() {
     let mut cfg = config();
     cfg.offers = vec![ResourceKind::Scorer];
-    let sub = sub_with(cfg, registry_with(&[Metric::Dot]));
+    let sub = sub_with(cfg, registry());
+    let _kernel = sub.core().kernel(&score_path()).unwrap();
     assert!(sub.is_loaded(ResourceKind::Scorer, None));
     assert!(! sub.is_loaded(ResourceKind::Index, None));
     assert!(! sub.is_loaded(ResourceKind::Tokenizer, None));

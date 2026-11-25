@@ -2,9 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
-
 use log::warn;
-
 use super::backend::{GpuBackend, GpuDeviceInfo};
 use super::config::{default_kernel_names, GpuConfig, GpuShared};
 use super::deps::*;
@@ -12,15 +10,12 @@ use super::error::GpuError;
 use super::index_services::{IndexServices, IndexShared};
 use super::policy::{Fp16FirstPolicy, GpuLaneFactory};
 use super::vram::VramManager;
-
 /// Memory manager and coordinator of one attached index.
 pub struct IndexMemory {
     pub gpu: Arc<GpuManager>,
     pub ops: Arc<IndexOperations>,
 }
-
 static_assertions::assert_impl_all!(IndexMemory : Send, Sync);
-
 /// The sub-engine of one GPU.
 pub struct GpuSubengine {
     info: GpuDeviceInfo,
@@ -37,15 +32,16 @@ pub struct GpuSubengine {
     segments: Mutex<Option<Arc<IndexShared>>>,
     indexes: Mutex<HashMap<IndexId, Arc<IndexMemory>>>,
 }
-
 static_assertions::assert_impl_all!(GpuSubengine : Send, Sync);
-
-fn lane_config(kind: LaneKind, device: DeviceHandle, workspace_bytes: usize) -> LaneConfig {
+fn lane_config(
+    kind: LaneKind,
+    device: DeviceHandle,
+    workspace_bytes: usize,
+) -> LaneConfig {
     let mut cfg = LaneConfig::preset(kind, device);
     cfg.workspace_size = workspace_bytes;
     cfg
 }
-
 impl GpuSubengine {
     /// Validates, detects the capabilities and builds the core. Creates no lane, reserves no VRAM
     /// and loads nothing.
@@ -65,7 +61,6 @@ impl GpuSubengine {
             .map_err(GpuError::Capability)?;
         GpuSubengine::build(info, backend, shared, cfg, detected)
     }
-
     pub(super) fn build(
         info: GpuDeviceInfo,
         backend: Arc<dyn GpuBackend>,
@@ -98,12 +93,14 @@ impl GpuSubengine {
                     lanes,
                 },
                 Arc::new(GpuLaneFactory::new(Arc::clone(&backend), ordinal)),
-                Arc::new(Fp16FirstPolicy::new(cfg.default_dtype, default_kernel_names())),
+                Arc::new(
+                    Fp16FirstPolicy::new(cfg.default_dtype, default_kernel_names()),
+                ),
                 Arc::clone(&shared.kernels) as Arc<dyn KernelProvider>,
-                Arc::clone(&shared.registry),
                 Arc::clone(&shared.registrations),
             )
             .map_err(GpuError::Subengine)?;
+        core.adopt_scorer();
         let offers = Subengine::offers(&core);
         let vram = VramManager::new(ordinal, Arc::clone(&backend), &cfg);
         Ok(
@@ -124,31 +121,24 @@ impl GpuSubengine {
             }),
         )
     }
-
     pub fn device(&self) -> DeviceHandle {
         DeviceHandle::Gpu(self.info.ordinal)
     }
-
     pub fn info(&self) -> &GpuDeviceInfo {
         &self.info
     }
-
     pub fn compute_units(&self) -> u32 {
         self.info.multiprocessors
     }
-
     pub fn core(&self) -> &Arc<SubengineCore> {
         &self.core
     }
-
     pub fn vram(&self) -> &Arc<VramManager> {
         &self.vram
     }
-
     pub fn detected(&self) -> &DetectedCapabilities {
         &self.detected
     }
-
     /// F16 if configured and the capability set has fp16, otherwise F32. Never BF16.
     pub fn compute_dtype(&self) -> DType {
         let half = self
@@ -161,7 +151,6 @@ impl GpuSubengine {
             DType::F32
         }
     }
-
     /// Registers the encoder of the model for VRAM residency. Loads nothing.
     pub fn register_model(
         &self,
@@ -173,21 +162,22 @@ impl GpuSubengine {
             return Err(GpuError::AlreadyRegistered(model));
         }
         let key: ResourceKey = format!("gpu:{}:{}", self.info.ordinal, model.as_str());
-        let resource = self.shared.registry.encoder_resource(descriptor, DeviceClass::Gpu);
+        let resource = self
+            .shared
+            .registry
+            .encoder_resource(descriptor, DeviceClass::Gpu);
         self.encoders
             .register(key.clone(), MemoryClass::Vram, resource.loader)
             .map_err(GpuError::Lifecycle)?;
         models.insert(model, key);
         Ok(())
     }
-
     fn model_key(&self, model: &ModelId) -> Result<ResourceKey, GpuError> {
         lock(&self.models)
             .get(model)
             .cloned()
             .ok_or_else(|| GpuError::UnknownModel(model.clone()))
     }
-
     /// Never blocks. A started load has to be run with `load_model`.
     pub fn request_model(
         &self,
@@ -198,7 +188,6 @@ impl GpuSubengine {
         let key = self.model_key(model)?;
         Ok(self.encoders.request_init(&key, task_id, now))
     }
-
     /// Runs the ticket of `request_model` on the caller's thread.
     pub fn load_model(
         &self,
@@ -215,13 +204,12 @@ impl GpuSubengine {
         let took = started.elapsed();
         if took > self.cfg.vram_init_deadline {
             warn!(
-                "gpu:{}: loading model {model} took {took:?}, deadline {:?}",
-                self.info.ordinal, self.cfg.vram_init_deadline
+                "gpu:{}: loading model {model} took {took:?}, deadline {:?}", self.info
+                .ordinal, self.cfg.vram_init_deadline
             );
         }
         outcome
     }
-
     /// End-of-iteration eviction of expired models (VRAM time to live).
     pub fn evict_expired_models(&self, now: Instant) -> Vec<ModelId> {
         let keys = self.encoders.evict_expired(now);
@@ -232,7 +220,6 @@ impl GpuSubengine {
             })
             .collect()
     }
-
     fn index_shared(&self) -> Result<Arc<IndexShared>, GpuError> {
         let reserved = self.vram.reserved()?;
         let sink = self.backend.table_sink(self.info.ordinal);
@@ -247,7 +234,6 @@ impl GpuSubengine {
         *slot = Some(Arc::clone(&built));
         Ok(built)
     }
-
     /// Builds the memory manager and the coordinator of an index. Loads nothing.
     pub fn attach_index(
         &self,
@@ -257,7 +243,9 @@ impl GpuSubengine {
     ) -> Result<Arc<IndexMemory>, GpuError> {
         if !self.offers.contains(&ResourceKind::Index) {
             return Err(
-                GpuError::InvalidConfig("the sub-engine does not offer indexes".to_string()),
+                GpuError::InvalidConfig(
+                    "the sub-engine does not offer indexes".to_string(),
+                ),
             );
         }
         if !self.vram.arenas_ready() {
@@ -317,11 +305,9 @@ impl GpuSubengine {
         indexes.insert(index, Arc::clone(&memory));
         Ok(memory)
     }
-
     pub fn index_memory(&self, index: &IndexId) -> Option<Arc<IndexMemory>> {
         lock(&self.indexes).get(index).cloned()
     }
-
     /// Loads the entries into VRAM in batches of `upload_batch`.
     pub fn ensure_entries(
         &self,
@@ -332,7 +318,11 @@ impl GpuSubengine {
             .index_memory(index)
             .ok_or_else(|| GpuError::UnknownIndex(index.clone()))?;
         let mut seen = HashSet::with_capacity(ids.len());
-        let unique: Vec<EntryId> = ids.iter().copied().filter(|id| seen.insert(*id)).collect();
+        let unique: Vec<EntryId> = ids
+            .iter()
+            .copied()
+            .filter(|id| seen.insert(*id))
+            .collect();
         let mut report = EnsureReport::default();
         for chunk in unique.chunks(self.cfg.upload_batch.max(1)) {
             let part = memory
@@ -348,7 +338,6 @@ impl GpuSubengine {
         }
         Ok(report)
     }
-
     /// Builds a lane resource with `worker_lanes` new Query lanes, each with its own stream.
     pub fn build_lane_resource<M, P>(
         &self,
@@ -363,7 +352,8 @@ impl GpuSubengine {
             return Err(
                 GpuError::InvalidConfig(
                     format!(
-                        "lane resource device is {}, expected {}", cfg.device, self.device()
+                        "lane resource device is {}, expected {}", cfg.device, self
+                        .device()
                     ),
                 ),
             );
@@ -387,7 +377,6 @@ impl GpuSubengine {
         LaneResource::new(cfg, lanes, runner).map_err(GpuError::LaneSet)
     }
 }
-
 fn merge(into: &mut EnsureReport, from: EnsureReport) {
     into.loaded.extend(from.loaded);
     into.already_resident.extend(from.already_resident);
@@ -396,37 +385,29 @@ fn merge(into: &mut EnsureReport, from: EnsureReport) {
     into.bytes_moved = into.bytes_moved.saturating_add(from.bytes_moved);
     into.segments_created = into.segments_created.saturating_add(from.segments_created);
 }
-
 fn model_ready(registry: &ResourceRegistry<LoadedEncoder>, key: &str) -> bool {
     registry.state(key) == Some(ResourceState::Ready)
 }
-
 impl Subengine for GpuSubengine {
     fn name(&self) -> String {
         self.core.name()
     }
-
     fn start(&self) -> Result<(), String> {
         self.core.start()
     }
-
     fn capabilities(&self) -> Vec<(QueueKind, CapabilitySet)> {
         self.core.capabilities()
     }
-
     fn offers(&self) -> Vec<ResourceKind> {
         self.core.offers()
     }
-
     fn announce(&self, req: &ResourceRequirements) {
         self.core.announce(req);
     }
-
     fn activate(&self) -> Result<(), String> {
         self.vram.ensure_arenas().map_err(|e| e.to_string())?;
         self.core.activate()
     }
-
     fn is_loaded(&self, kind: ResourceKind, model: Option<&ModelId>) -> bool {
         if !self.offers.contains(&kind) {
             return false;
@@ -441,7 +422,6 @@ impl Subengine for GpuSubengine {
         }
     }
 }
-
 impl BackendFactory for GpuSubengine {
     fn create(
         &self,
@@ -455,7 +435,6 @@ impl BackendFactory for GpuSubengine {
         Ok(Arc::clone(&memory.ops) as Arc<dyn ResidencyBackend>)
     }
 }
-
 #[cfg(test)]
 #[path = "test/subengine.rs"]
 mod tests;

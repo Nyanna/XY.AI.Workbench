@@ -417,6 +417,19 @@ fn clear_drops_entries_and_recompiles() {
     assert_eq!(f.compiler.calls.load(Ordering::SeqCst), 2);
 }
 #[test]
+fn residency_follows_compiled_slots() {
+    let f = fixture();
+    f.reg.register_source(source("scale")).unwrap();
+    assert!(! f.reg.is_resident("scale", DType::F32));
+    f.reg.get(&key("scale")).unwrap();
+    assert!(f.reg.is_resident("scale", DType::F32));
+    assert!(! f.reg.is_resident("scale", DType::F16));
+    assert!(! f.reg.is_resident("other", DType::F32));
+    assert!(KernelProvider::is_resident(&* f.reg, "scale", DType::F32));
+    f.reg.clear();
+    assert!(! f.reg.is_resident("scale", DType::F32));
+}
+#[test]
 fn concurrent_requests_single_flight() {
     let f = fixture_with(
         DeviceHandle::Gpu(0),

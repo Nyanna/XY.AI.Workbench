@@ -1,9 +1,6 @@
-//! Fixed set of models: maps architecture ids to encoder factories and scoring kinds to scorers.
+//! Fixed set of models: maps architecture ids to encoder factories.
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::resident::l130::l120::l110::l100::l090::l080::a::kernel_scoring::{
-    Metric, Scorer,
-};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::a::resource_lifecycle::{
     ResourceKey, ResourceLoader,
 };
@@ -14,7 +11,6 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::a::en
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::model_descriptor::{
     DeviceClass, ModelConfigError, ModelDescriptor,
 };
-pub type ScoringKind = Metric;
 pub const ENCODER_INIT_COST: u32 = 100;
 const BERT_ARCHITECTURE: &str = "bert";
 /// Builds an encoder for one architecture. Blocks until the weights are ready.
@@ -45,8 +41,6 @@ pub enum RegistryError {
     Config(ModelConfigError),
     #[error("Encoder-Laden fehlgeschlagen ({architecture}): {reason}")]
     Load { architecture: String, reason: String },
-    #[error("Scorer nicht verfügbar: {scorer}")]
-    ScorerUnavailable { kind: ScoringKind, scorer: String },
 }
 /// Resource handle of `ResourceRegistry<LoadedEncoder>`. Dropping it releases the weights.
 pub struct LoadedEncoder {
@@ -79,7 +73,6 @@ pub fn encoder_key(architecture: &str, class: DeviceClass) -> ResourceKey {
 }
 pub struct ModelRegistry {
     factories: HashMap<String, Arc<dyn EncoderFactory>>,
-    scorers: HashMap<ScoringKind, Arc<Scorer>>,
 }
 impl Default for ModelRegistry {
     fn default() -> Self {
@@ -90,7 +83,6 @@ impl ModelRegistry {
     pub fn new() -> ModelRegistry {
         ModelRegistry {
             factories: HashMap::new(),
-            scorers: HashMap::new(),
         }
     }
     pub fn with_builtin() -> ModelRegistry {
@@ -105,13 +97,6 @@ impl ModelRegistry {
     ) -> Option<Arc<dyn EncoderFactory>> {
         self.factories.insert(architecture.into(), factory)
     }
-    pub fn register_scorer(
-        &mut self,
-        kind: ScoringKind,
-        scorer: Arc<Scorer>,
-    ) -> Option<Arc<Scorer>> {
-        self.scorers.insert(kind, scorer)
-    }
     pub fn supports_architecture(&self, architecture: &str) -> bool {
         self.factories.contains_key(architecture)
     }
@@ -119,18 +104,6 @@ impl ModelRegistry {
         let mut ids: Vec<String> = self.factories.keys().cloned().collect();
         ids.sort();
         ids
-    }
-    pub fn scorer_available(&self, kind: ScoringKind) -> bool {
-        self.scorers.contains_key(&kind)
-    }
-    pub fn scorer(&self, kind: ScoringKind) -> Result<Arc<Scorer>, RegistryError> {
-        self.scorers
-            .get(&kind)
-            .cloned()
-            .ok_or_else(|| RegistryError::ScorerUnavailable {
-                kind,
-                scorer: kind.kernel_name().to_string(),
-            })
     }
     pub fn load_encoder(
         &self,

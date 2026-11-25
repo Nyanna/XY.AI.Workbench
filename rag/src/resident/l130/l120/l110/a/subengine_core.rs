@@ -4,12 +4,7 @@ use std::sync::{Arc, Mutex};
 use log::debug;
 use crate::resident::l130::l120::l110::l100::a::plan_contract::QueueKind;
 use crate::resident::l130::l120::l110::l100::a::planner::Subengine;
-use crate::resident::l130::l120::l110::l100::l090::a::model_registry::{
-    LoadedEncoder, ModelRegistry,
-};
-use crate::resident::l130::l120::l110::l100::l090::l080::a::kernel_scoring::{
-    Metric, Scorer,
-};
+use crate::resident::l130::l120::l110::l100::l090::a::model_registry::LoadedEncoder;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::a::kernel_register::{
     Kernel, KernelError, KernelProvider, Variant,
 };
@@ -150,7 +145,7 @@ pub enum SubengineError {
 struct State {
     pending: Vec<ResourceRequirements>,
     encoders: Vec<(ModelId, Arc<LoadedEncoder>)>,
-    scorers: Vec<(Metric, Arc<Scorer>)>,
+    scorer: bool,
     segments: Vec<IndexSegment>,
     lanes: Vec<(LaneKind, SharedLane)>,
     active: bool,
@@ -160,7 +155,6 @@ pub struct SubengineCore {
     lane_factory: Arc<dyn LaneFactory>,
     policy: Arc<dyn PathPolicy>,
     kernels: Arc<dyn KernelProvider>,
-    registry: Arc<ModelRegistry>,
     registrations: Arc<QueueRegistrations>,
     /// Serializes `activate`; never held together with a state lock across a factory call.
     activation: Mutex<()>,
@@ -173,7 +167,6 @@ impl SubengineCore {
         lanes: Arc<dyn LaneFactory>,
         policy: Arc<dyn PathPolicy>,
         kernels: Arc<dyn KernelProvider>,
-        registry: Arc<ModelRegistry>,
         registrations: Arc<QueueRegistrations>,
     ) -> Result<Self, SubengineError> {
         let invalid = |text: String| -> Result<Self, SubengineError> {
@@ -228,7 +221,6 @@ impl SubengineCore {
             lane_factory: lanes,
             policy,
             kernels,
-            registry,
             registrations,
             activation: Mutex::new(()),
             state: Mutex::new(State::default()),
@@ -257,21 +249,13 @@ impl SubengineCore {
         }
         Ok(())
     }
-    /// Adopts the scorer the model registry holds for `metric`.
-    pub fn adopt_scorer(&self, metric: Metric) -> Result<(), SubengineError> {
-        let scorer = self
-            .registry
-            .scorer(metric)
-            .map_err(|e| SubengineError::Incompatible(e.to_string()))?;
+    /// Makes the scorer available; it counts as loaded once its kernel is resident.
+    pub fn adopt_scorer(&self) {
         let mut st = lock(&self.state);
-        match st.scorers.iter_mut().find(|(m, _)| *m == metric) {
-            Some(slot) => slot.1 = scorer,
-            None => st.scorers.push((metric, scorer)),
-        }
+        st.scorer = true;
         if st.active {
             self.register(&st, ResourceKind::Scorer, None, None);
         }
-        Ok(())
     }
     /// Segments are identified by index and region; adopting one again replaces it.
     pub fn adopt_index_segment(&self, seg: IndexSegment) -> Result<(), SubengineError> {
@@ -297,13 +281,6 @@ impl SubengineCore {
             .iter()
             .find(|(m, _)| m == model)
             .map(|(_, e)| Arc::clone(e))
-    }
-    pub fn scorer(&self, metric: Metric) -> Option<Arc<Scorer>> {
-        lock(&self.state)
-            .scorers
-            .iter()
-            .find(|(m, _)| *m == metric)
-            .map(|(_, s)| Arc::clone(s))
     }
     pub fn index_segments(&self, index: &IndexId) -> Vec<IndexSegment> {
         lock(&self.state)
@@ -366,6 +343,14 @@ impl SubengineCore {
             )
         }
     }
+    fn scorer_kernel_resident(&self) -> bool {
+        let req = ResourceRequirements::new(
+            ResourceKind::Scorer,
+            ExecutionEnvironment::Any,
+        );
+        self.select_path(&req)
+            .is_ok_and(|path| self.kernels.is_resident(&path.kernel, path.dtype))
+    }
     fn activate_inner(&self) -> Result<(), SubengineError> {
         let _serial = lock(&self.activation);
         if lock(&self.state).active {
@@ -407,7 +392,7 @@ impl SubengineCore {
             for (model, _) in &st.encoders {
                 self.register(&st, ResourceKind::Encoder, Some(model), None);
             }
-            if !st.scorers.is_empty() {
+            if st.scorer {
                 self.register(&st, ResourceKind::Scorer, None, None);
             }
             for seg in &st.segments {
@@ -436,7 +421,7 @@ impl SubengineCore {
                     None => !st.encoders.is_empty(),
                 }
             }
-            ResourceKind::Scorer => !st.scorers.is_empty(),
+            ResourceKind::Scorer => st.scorer,
             ResourceKind::Index => {
                 match req.index() {
                     Some(i) => st.segments.iter().any(|s| s.index == *i),
@@ -523,7 +508,7 @@ impl Subengine for SubengineCore {
                     None => !st.encoders.is_empty(),
                 }
             }
-            ResourceKind::Scorer => !st.scorers.is_empty(),
+            ResourceKind::Scorer => st.scorer && self.scorer_kernel_resident(),
             ResourceKind::Index => !st.segments.is_empty(),
             _ => st.active,
         }

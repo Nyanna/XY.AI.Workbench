@@ -6,9 +6,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Barrier, OnceLock};
 use std::thread;
 use std::time::Duration;
+use crate::resident::l130::l120::l110::l100::l090::a::model_registry::ModelRegistry;
 use crate::resident::l130::l120::l110::l100::l090::l080 as l080;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040 as l040;
-use l080::a::kernel_scoring::{LaunchRequest, ScoreLauncher, ScoreReadback};
 use l080::l070::a::kernel_register::{
     KernelRegister, ArchLevel, CodeImage, CodeKind, CompileRequest, CompilerError,
     KernelCompiler, KernelFunction, KernelSource, LoadFailure, ModuleLoader,
@@ -138,17 +138,6 @@ impl ModuleLoader for StubLoader {
         Ok(Arc::new(MockFunction))
     }
 }
-struct StubLauncher;
-impl ScoreLauncher for StubLauncher {
-    fn launch(
-        &self,
-        _function: &Arc<dyn KernelFunction>,
-        _lane: &Lane,
-        _req: &LaunchRequest<'_>,
-    ) -> Result<Box<dyn ScoreReadback>, String> {
-        Err("stub".to_string())
-    }
-}
 fn cpu_register() -> Arc<KernelRegister> {
     Arc::new(
         KernelRegister::new(
@@ -178,16 +167,6 @@ fn gpu_register() -> Arc<KernelRegister> {
         })
         .unwrap();
     Arc::new(register)
-}
-fn stub_scorer() -> Arc<Scorer> {
-    Arc::new(Scorer::new(cpu_register(), Arc::new(StubLauncher)))
-}
-fn registry_with(metrics: &[Metric]) -> Arc<ModelRegistry> {
-    let mut registry = ModelRegistry::new();
-    for metric in metrics {
-        registry.register_scorer(*metric, stub_scorer());
-    }
-    Arc::new(registry)
 }
 fn load_encoder() -> Arc<LoadedEncoder> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("model/multilingual-e5-small");
@@ -247,11 +226,7 @@ struct Rig {
     factory: Arc<TestFactory>,
     policy: Arc<TestPolicy>,
 }
-fn rig_with(
-    cfg: SubengineConfig,
-    registry: Arc<ModelRegistry>,
-    regs: Arc<QueueRegistrations>,
-) -> Rig {
+fn rig_with(cfg: SubengineConfig, regs: Arc<QueueRegistrations>) -> Rig {
     let gpu = cfg.device.kind() == DeviceKind::Gpu;
     let factory = TestFactory::new(gpu);
     let policy = Arc::new(TestPolicy {
@@ -264,18 +239,13 @@ fn rig_with(
             factory.clone(),
             policy.clone(),
             kernels,
-            registry,
             regs.clone(),
         )
         .unwrap_or_else(|e| panic!("valid configuration rejected: {e}"));
     Rig { core, regs, factory, policy }
 }
 fn rig(cfg: SubengineConfig) -> Rig {
-    rig_with(
-        cfg,
-        registry_with(&[Metric::Dot, Metric::NegL2Sq]),
-        Arc::new(QueueRegistrations::new()),
-    )
+    rig_with(cfg, Arc::new(QueueRegistrations::new()))
 }
 fn cpu_rig() -> Rig {
     rig(config("cpu0", DeviceHandle::Cpu))
@@ -292,7 +262,6 @@ fn config_error(cfg: SubengineConfig) -> SubengineError {
             answer: scorer_path(),
         }),
         cpu_register(),
-        registry_with(&[]),
         Arc::new(QueueRegistrations::new()),
     );
     match result {
@@ -373,7 +342,6 @@ fn tuning_axes_are_not_bounded_by_the_reference() {
                 answer: scorer_path(),
             }),
             cpu_register(),
-            registry_with(&[]),
             Arc::new(QueueRegistrations::new()),
         );
         assert!(result.is_ok(), "{device:?}");
@@ -442,7 +410,7 @@ fn empty_shared_capabilities_are_omitted() {
     cfg.shared_capabilities = CapabilitySet::new();
     let r = rig(cfg);
     assert!(r.core.capabilities() == vec![(QueueKind::Cpu, own_caps())]);
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     r.core.activate().unwrap();
     assert_eq!(r.regs.entries(QueueKind::Cpu).len(), 1);
     assert!(r.regs.entries(QueueKind::Shared).is_empty());
@@ -543,7 +511,7 @@ fn lane_creation_error_leaves_nothing_behind() {
 #[test]
 fn failed_activation_registers_nothing() {
     let r = gpu_rig();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     *lock(&r.factory.fail) = Some(LaneKind::Query);
     assert!(r.core.activate().is_err());
     assert!(r.regs.entries(QueueKind::Gpu).is_empty());
@@ -553,7 +521,7 @@ fn failed_activation_registers_nothing() {
 fn concurrent_activations_are_serialized() {
     let r = gpu_rig();
     r.factory.delay_ms.store(20, Ordering::SeqCst);
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     thread::scope(|s| {
         for _ in 0..8 {
             s.spawn(|| {
@@ -592,7 +560,7 @@ fn state_queries_do_not_wait_for_activation() {
 #[test]
 fn scorer_registered_at_activation_in_both_queues() {
     let r = cpu_rig();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     assert!(r.regs.entries(QueueKind::Cpu).is_empty());
     r.core.activate().unwrap();
     let own = r.regs.entries_of(QueueKind::Cpu, ResourceKind::Scorer);
@@ -612,38 +580,21 @@ fn scorer_registered_at_activation_in_both_queues() {
 fn adoption_after_activation_registers_at_once_without_duplicates() {
     let r = cpu_rig();
     r.core.activate().unwrap();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     assert_eq!(r.regs.entries(QueueKind::Cpu).len(), 1);
-    r.core.adopt_scorer(Metric::Dot).unwrap();
-    r.core.adopt_scorer(Metric::NegL2Sq).unwrap();
+    r.core.adopt_scorer();
     r.core.activate().unwrap();
     assert_eq!(r.regs.entries(QueueKind::Cpu).len(), 1);
     assert_eq!(r.regs.entries(QueueKind::Shared).len(), 1);
-    assert!(r.core.scorer(Metric::Dot).is_some());
-    assert!(r.core.scorer(Metric::NegL2Sq).is_some());
 }
 #[test]
 fn registered_lanes_are_the_cores_lanes() {
     let r = cpu_rig();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     r.core.activate().unwrap();
     let reg = r.regs.entries(QueueKind::Cpu).remove(0);
     reg.lanes[0].1.lock().unwrap().params_mut()[0] = 9;
     assert_eq!(r.core.with_lane(LaneKind::Query, | l | l.params() [0]), Ok(9));
-}
-#[test]
-fn adopt_scorer_requires_the_registry_to_know_it() {
-    let r = rig_with(
-        config("cpu0", DeviceHandle::Cpu),
-        registry_with(&[Metric::Dot]),
-        Arc::new(QueueRegistrations::new()),
-    );
-    assert!(
-        matches!(r.core.adopt_scorer(Metric::NegL2Sq),
-        Err(SubengineError::Incompatible(_)))
-    );
-    assert!(r.core.scorer(Metric::NegL2Sq).is_none());
-    assert!(r.core.adopt_scorer(Metric::Dot).is_ok());
 }
 #[test]
 fn not_offered_kinds_are_rejected_or_owned_unregistered() {
@@ -654,8 +605,7 @@ fn not_offered_kinds_are_rejected_or_owned_unregistered() {
         matches!(r.core.adopt_index_segment(segment("i", 0, 2)),
         Err(SubengineError::Incompatible(_)))
     );
-    r.core.adopt_scorer(Metric::Dot).unwrap();
-    assert!(r.core.scorer(Metric::Dot).is_some());
+    r.core.adopt_scorer();
     r.core.activate().unwrap();
     assert!(r.regs.entries(QueueKind::Cpu).is_empty());
     assert!(! r.core.is_loaded(ResourceKind::Scorer, None));
@@ -725,12 +675,10 @@ fn is_loaded_follows_ownership_and_never_activates() {
         assert!(! r.core.is_loaded(kind, None));
     }
     r.core.adopt_encoder(m.clone(), real_encoder()).unwrap();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
     r.core.adopt_index_segment(segment("i", 0, 1)).unwrap();
     assert!(r.core.is_loaded(ResourceKind::Encoder, Some(& m)));
     assert!(r.core.is_loaded(ResourceKind::Encoder, None));
     assert!(! r.core.is_loaded(ResourceKind::Encoder, Some(& ModelId::new("other"))));
-    assert!(r.core.is_loaded(ResourceKind::Scorer, None));
     assert!(r.core.is_loaded(ResourceKind::Index, None));
     assert!(! r.core.is_loaded(ResourceKind::Tokenizer, None));
     assert!(! r.core.is_active());
@@ -738,6 +686,23 @@ fn is_loaded_follows_ownership_and_never_activates() {
     assert!(r.core.is_loaded(ResourceKind::Tokenizer, None));
     assert!(! r.core.is_loaded(ResourceKind::Normalizer, None));
     assert!(! r.core.is_loaded(ResourceKind::CrossEncoder, None));
+}
+#[test]
+fn scorer_is_available_when_registered_and_loaded_once_its_kernel_is_resident() {
+    let r = gpu_rig();
+    r.core.adopt_scorer();
+    r.core.activate().unwrap();
+    assert_eq!(r.regs.entries_of(QueueKind::Gpu, ResourceKind::Scorer).len(), 1);
+    assert!(! r.core.is_loaded(ResourceKind::Scorer, None));
+    r.core.kernel(&scorer_path()).unwrap();
+    assert!(r.core.is_loaded(ResourceKind::Scorer, None));
+}
+#[test]
+fn scorer_without_adoption_is_not_loaded_even_if_its_kernel_is_resident() {
+    let r = gpu_rig();
+    r.core.kernel(&scorer_path()).unwrap();
+    assert!(! r.core.is_loaded(ResourceKind::Scorer, None));
+    assert!(r.regs.entries(QueueKind::Gpu).is_empty());
 }
 #[test]
 fn select_path_checks_environment_before_the_policy() {
@@ -865,7 +830,7 @@ fn lane_state_is_exclusive_and_survives_a_panic() {
 #[test]
 fn registrations_outlive_the_core() {
     let r = cpu_rig();
-    r.core.adopt_scorer(Metric::Dot).unwrap();
+    r.core.adopt_scorer();
     r.core.activate().unwrap();
     let Rig { core, regs, .. } = r;
     let reg = regs.entries(QueueKind::Cpu).remove(0);
@@ -877,11 +842,10 @@ fn registrations_outlive_the_core() {
 #[test]
 fn sub_engines_share_one_registration_store() {
     let regs = Arc::new(QueueRegistrations::new());
-    let registry = registry_with(&[Metric::Dot]);
-    let a = rig_with(config("cpu0", DeviceHandle::Cpu), registry.clone(), regs.clone());
-    let b = rig_with(config("gpu0", DeviceHandle::Gpu(0)), registry, regs.clone());
+    let a = rig_with(config("cpu0", DeviceHandle::Cpu), regs.clone());
+    let b = rig_with(config("gpu0", DeviceHandle::Gpu(0)), regs.clone());
     for r in [&b, &a] {
-        r.core.adopt_scorer(Metric::Dot).unwrap();
+        r.core.adopt_scorer();
         r.core.activate().unwrap();
     }
     let shared = regs.entries(QueueKind::Shared);
@@ -895,7 +859,7 @@ fn sub_engines_share_one_registration_store() {
 fn equal_inputs_give_equal_registrations() {
     let build = || {
         let r = gpu_rig();
-        r.core.adopt_scorer(Metric::NegL2Sq).unwrap();
+        r.core.adopt_scorer();
         r.core.adopt_index_segment(segment("i", 0, 2)).unwrap();
         r.core.adopt_index_segment(segment("j", 0, 2)).unwrap();
         r.core.activate().unwrap();

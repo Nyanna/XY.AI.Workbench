@@ -390,15 +390,10 @@ impl CpuSubengine {
                 Arc::new(CpuLaneFactory),
                 Arc::new(CpuPathPolicy),
                 Arc::clone(&kernels) as Arc<dyn KernelProvider>,
-                Arc::clone(&deps.models),
                 Arc::clone(&deps.registrations),
             )
             .map_err(CpuError::Subengine)?;
-        for metric in [Metric::Dot, Metric::NegL2Sq] {
-            if deps.models.scorer_available(metric) {
-                core.adopt_scorer(metric).map_err(CpuError::Subengine)?;
-            }
-        }
+        core.adopt_scorer();
         let calibration = BackgroundPool::new(
                 &format!("{}-calib", cfg.name),
                 cfg.calibration_threads.max(1),

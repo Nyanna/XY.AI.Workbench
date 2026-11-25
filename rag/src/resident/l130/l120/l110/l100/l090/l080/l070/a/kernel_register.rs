@@ -165,6 +165,8 @@ pub trait KernelProvider: Send + Sync {
         dtype: DType,
         variant: Variant,
     ) -> Result<Kernel, KernelError>;
+    /// Whether a kernel of that name and element type currently sits in memory.
+    fn is_resident(&self, name: &str, dtype: DType) -> bool;
 }
 impl fmt::Debug for Kernel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -411,6 +413,18 @@ impl KernelRegister {
             }
         }
     }
+    /// Library kernels have no slot: they exist once the library source knows them.
+    pub fn is_resident(&self, name: &str, dtype: DType) -> bool {
+        if lock(&self.sources).contains_key(name) {
+            return lock(&self.slots)
+                .iter()
+                .any(|(key, slot)| {
+                    key.name == name && key.dtype == dtype
+                        && matches!(slot, Slot::Ready(_))
+                });
+        }
+        self.library.get(name).is_ok()
+    }
     pub fn len(&self) -> usize {
         lock(&self.slots).values().filter(|s| matches!(s, Slot::Ready(_))).count()
     }
@@ -561,6 +575,9 @@ impl KernelProvider for KernelRegister {
         variant: Variant,
     ) -> Result<Kernel, KernelError> {
         KernelRegister::request(self, name, dtype, variant)
+    }
+    fn is_resident(&self, name: &str, dtype: DType) -> bool {
+        KernelRegister::is_resident(self, name, dtype)
     }
 }
 struct FactoryLoader {

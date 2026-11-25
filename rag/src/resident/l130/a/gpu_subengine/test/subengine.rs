@@ -385,6 +385,24 @@ fn activation_loads_no_model_kernel_or_index() {
     assert!(! rig.sub.is_loaded(ResourceKind::Index, None));
 }
 #[test]
+fn the_scorer_is_registered_at_activation_but_not_loaded_without_its_kernel() {
+    let backend = MockBackend::single();
+    let shared = shared();
+    let sub = GpuSubengine::new(
+            device(0),
+            Arc::clone(&backend) as Arc<dyn GpuBackend>,
+            shared.clone(),
+            config(),
+        )
+        .unwrap();
+    assert!(shared.registrations.entries(QueueKind::Gpu).is_empty());
+    sub.activate().unwrap();
+    assert_eq!(
+        shared.registrations.entries_of(QueueKind::Gpu, ResourceKind::Scorer).len(), 1
+    );
+    assert!(! sub.is_loaded(ResourceKind::Scorer, None));
+}
+#[test]
 fn the_core_selects_fp16_for_scorers_and_nothing_for_encoders() {
     let backend = MockBackend::single();
     let sub = subengine(&backend);
