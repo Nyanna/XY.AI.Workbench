@@ -1,5 +1,4 @@
 # TODO
-AST move NOde operationen
 Editorrendering bei großen datein ändern
 
 Weiter entwicklung von AST ist IR
