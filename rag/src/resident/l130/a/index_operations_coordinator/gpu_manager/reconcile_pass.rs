@@ -1,18 +1,16 @@
 //! Reconcile iterations against the index.
-
 use std::sync::TryLockError;
-
 use super::deps::*;
 use super::placement::Placement;
 use super::state::entry_ref;
 use super::types::*;
 use super::GpuManager;
-
 const LOAD_CHUNK: usize = 64;
-
 impl GpuManager {
     /// `Ok(None)`: the index no longer exists.
-    pub fn reconcile_iteration(&self) -> Result<Option<ReconcileOutcome>, GpuManagerError> {
+    pub fn reconcile_iteration(
+        &self,
+    ) -> Result<Option<ReconcileOutcome>, GpuManagerError> {
         let inner = &*self.inner;
         let index = inner.index()?;
         let updates = inner.services.updates();
@@ -90,7 +88,9 @@ impl GpuManager {
                         outcome.failed += 1;
                     }
                     Err(e) => {
-                        log::warn!("gpu_manager reconcile: entry {} not reloaded: {e}", id.0);
+                        log::warn!(
+                            "gpu_manager reconcile: entry {} not reloaded: {e}", id.0
+                        );
                         outcome.failed += 1;
                     }
                 }
@@ -102,7 +102,6 @@ impl GpuManager {
         }
         Ok(Some(outcome))
     }
-
     /// Is an unseen index signal pending? Never blocks.
     pub fn signal_pending(&self) -> bool {
         match self.inner.reconciler.try_lock() {
@@ -113,7 +112,6 @@ impl GpuManager {
             Err(TryLockError::WouldBlock) => true,
         }
     }
-
     fn queue_unbind(&self, id: EntryId, resident: Resident) {
         self.inner
             .services
@@ -122,7 +120,6 @@ impl GpuManager {
         self.inner.retire(resident.slot, id);
     }
 }
-
 #[cfg(test)]
 #[path = "test/reconcile_pass.rs"]
 mod tests;

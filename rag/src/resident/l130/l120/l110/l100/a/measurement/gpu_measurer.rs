@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
-
-use crate::resident::l130::l120::l110::l100::l090::a::gpu_kernel::{GpuKernels, KernelParams};
+use crate::resident::l130::l120::l110::l100::l090::a::gpu_kernel::{
+    GpuKernels, KernelParams,
+};
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
     axes, values, Axis, Value,
 };
@@ -10,26 +11,22 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     DeviceHandle, Event, Lane,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::layout::DType;
-
 use super::bench_workload::{DeviationConfig, Workload};
 use super::{
-    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate, Hooks,
-    Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe, GPU_FLUSH_BYTES,
-    GPU_WARMUP_NS, MAX_REPS, MIN_REPS, MIN_SAMPLE_NS,
+    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate,
+    Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe,
+    GPU_FLUSH_BYTES, GPU_WARMUP_NS, MAX_REPS, MIN_REPS, MIN_SAMPLE_NS,
 };
-
 /// Slots of the first warm-up launch, before the launch rate is known.
 const WARMUP_PILOT_SLOTS: usize = 64;
 /// Upper bound of warm-up groups, in case the clock never advances.
 const MAX_WARMUP_GROUPS: usize = 100_000;
-
 /// A point in time on the stream of a lane.
 #[derive(Debug, Clone)]
 pub struct TimingMark {
     pub event: Event,
     pub id: u64,
 }
-
 /// Implemented by the GPU binding. Holds the documents in F32 and F16 on the device.
 pub trait GpuRig: Send + Sync {
     /// Parameters for `dense_dot`: the first `n_queries` workload queries (F32), a slot ring over
@@ -40,23 +37,17 @@ pub trait GpuRig: Send + Sync {
         n_queries: usize,
         slots: Range<u32>,
     ) -> Result<KernelParams, String>;
-
     /// Polls the doorbell, closes completed batches and returns the acknowledged batch count.
     fn ack_completed(&self) -> Result<u64, String>;
-
     /// Enqueues `bytes` of cache-flush work on the lane's stream; the event covers it.
     fn flush_cache(&self, lane: &mut Lane, bytes: u64) -> Result<Event, String>;
-
     /// Records a time mark on the lane's stream.
     fn mark(&self, lane: &Lane) -> Result<TimingMark, String>;
-
     /// GPU time between two marks in ns; valid once `end.event` has completed.
     fn elapsed_ns(&self, start: &TimingMark, end: &TimingMark) -> Result<f64, String>;
-
     /// Scores of the last launch over the full slot range (`q * docs + d`).
     fn read_scores(&self, n_queries: usize) -> Result<Vec<f32>, String>;
 }
-
 /// Repetition plan of one combination.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Plan {
@@ -64,10 +55,18 @@ struct Plan {
     slots_per_launch: u32,
     group_reps: u32,
 }
-
 impl Plan {
-    fn from_pass(t_pass_ns: f64, docs: u32, window_ns: u64, chunk_budget_ns: u64) -> Plan {
-        let t = if t_pass_ns.is_finite() { t_pass_ns.max(MIN_SAMPLE_NS) } else { MIN_SAMPLE_NS };
+    fn from_pass(
+        t_pass_ns: f64,
+        docs: u32,
+        window_ns: u64,
+        chunk_budget_ns: u64,
+    ) -> Plan {
+        let t = if t_pass_ns.is_finite() {
+            t_pass_ns.max(MIN_SAMPLE_NS)
+        } else {
+            MIN_SAMPLE_NS
+        };
         let chunk = chunk_budget_ns as f64;
         let reps = (window_ns as f64 / t)
             .ceil()
@@ -78,10 +77,13 @@ impl Plan {
             ((f64::from(docs) * chunk / t).floor() as u32).clamp(1, docs)
         };
         let group_reps = ((chunk / t).floor() as u32).clamp(1, MAX_REPS);
-        Plan { reps, slots_per_launch, group_reps }
+        Plan {
+            reps,
+            slots_per_launch,
+            group_reps,
+        }
     }
 }
-
 struct GpuState {
     lane: Lane,
     plans: HashMap<(String, usize), Plan>,
@@ -89,12 +91,10 @@ struct GpuState {
     /// Last event of work that was enqueued but not yet waited for.
     in_flight: Option<Event>,
 }
-
 enum Warm {
     Done,
     Interrupted,
 }
-
 pub struct GpuMeasurer<const DIM: usize> {
     workload: Workload,
     kernels: Arc<GpuKernels<DIM>>,
@@ -106,7 +106,6 @@ pub struct GpuMeasurer<const DIM: usize> {
     state: Mutex<GpuState>,
     references: ReferenceCache,
 }
-
 fn dtype_of(value: &Value) -> Option<DType> {
     if *value == values::fp32() {
         Some(DType::F32)
@@ -116,15 +115,20 @@ fn dtype_of(value: &Value) -> Option<DType> {
         None
     }
 }
-
 /// Document dtype from `scoring`, else from `operands`; fp32 when neither is present.
 fn gpu_dtype(combo: &Combination) -> Result<DType, String> {
     let check = |axis: &Axis| -> Result<Option<DType>, String> {
         match combo.value(axis) {
             None => Ok(None),
-            Some(value) => dtype_of(value).map(Some).ok_or_else(|| {
-                format!("axis {axis}: value {value} is not supported by the gpu scorer (fp32, fp16)")
-            }),
+            Some(value) => {
+                dtype_of(value)
+                    .map(Some)
+                    .ok_or_else(|| {
+                        format!(
+                            "axis {axis}: value {value} is not supported by the gpu scorer (fp32, fp16)"
+                        )
+                    })
+            }
         }
     };
     let scoring = axes::scoring();
@@ -132,20 +136,22 @@ fn gpu_dtype(combo: &Combination) -> Result<DType, String> {
     let by_scoring = check(&scoring)?;
     let by_operands = check(&operands)?;
     match (by_scoring, by_operands) {
-        (Some(a), Some(b)) if a != b => Err(format!(
-            "axes {scoring} and {operands} disagree: {} vs {}",
-            combo.value(&scoring).map_or(String::new(), |v| v.to_string()),
-            combo.value(&operands).map_or(String::new(), |v| v.to_string()),
-        )),
+        (Some(a), Some(b)) if a != b => {
+            Err(
+                format!(
+                    "axes {scoring} and {operands} disagree: {} vs {}", combo.value(&
+                    scoring).map_or(String::new(), | v | v.to_string()), combo.value(&
+                    operands).map_or(String::new(), | v | v.to_string()),
+                ),
+            )
+        }
         (Some(a), _) | (None, Some(a)) => Ok(a),
         (None, None) => Ok(DType::F32),
     }
 }
-
 fn event_error(e: impl std::fmt::Display) -> MeasureError {
     MeasureError::Rig(e.to_string())
 }
-
 impl<const DIM: usize> GpuMeasurer<DIM> {
     pub fn new(
         workload: Workload,
@@ -156,25 +162,32 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
         hooks: Hooks,
     ) -> Result<Self, MeasureError> {
         if !matches!(lane.device(), DeviceHandle::Gpu(_)) {
-            return Err(MeasureError::Capability(format!(
-                "lane belongs to device {}, not to a gpu",
-                lane.device()
-            )));
+            return Err(
+                MeasureError::Capability(
+                    format!("lane belongs to device {}, not to a gpu", lane.device()),
+                ),
+            );
         }
         if lane.stream().is_none() {
             return Err(MeasureError::Capability("lane has no stream".to_string()));
         }
         if workload.config().dim != DIM {
-            return Err(MeasureError::Config(format!(
-                "workload dimension {} differs from kernel dimension {DIM}",
-                workload.config().dim
-            )));
+            return Err(
+                MeasureError::Config(
+                    format!(
+                        "workload dimension {} differs from kernel dimension {DIM}",
+                        workload.config().dim
+                    ),
+                ),
+            );
         }
         cfg.validate_timing()?;
         DeviationConfig::new(cfg.max_deviation)
             .map_err(|e| MeasureError::Config(e.to_string()))?;
         let docs = u32::try_from(workload.config().docs)
-            .map_err(|_| MeasureError::Config("document count does not fit in u32".to_string()))?;
+            .map_err(|_| MeasureError::Config(
+                "document count does not fit in u32".to_string(),
+            ))?;
         Ok(GpuMeasurer {
             workload,
             kernels,
@@ -192,7 +205,6 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
             references: ReferenceCache::default(),
         })
     }
-
     /// One `dense_dot` launch. The predecessor is complete before the launch; the launch is
     /// complete when this returns. Returns the event time of the launch if `timed`.
     fn launch(
@@ -232,13 +244,16 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
         }
         Ok(ns)
     }
-
-    fn timed_launch(&self, dtype: DType, n: usize, slots: Range<u32>) -> Result<f64, MeasureError> {
+    fn timed_launch(
+        &self,
+        dtype: DType,
+        n: usize,
+        slots: Range<u32>,
+    ) -> Result<f64, MeasureError> {
         let params = self.rig.kernel_params(dtype, n, slots).map_err(MeasureError::Rig)?;
         let mut st = lock(&self.state);
         self.launch(&mut st, dtype, &params, true)
     }
-
     fn flush(&self) -> Result<(), MeasureError> {
         let mut st = lock(&self.state);
         if let Some(previous) = st.in_flight.take() {
@@ -253,10 +268,14 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
         st.in_flight = None;
         Ok(())
     }
-
     /// Dense-dot work for at least `GPU_WARMUP_NS` of clock time, in groups of one launch that
     /// fill at most the chunk budget. Runs once per instance.
-    fn warm_up(&self, dtype: DType, n: usize, interruptible: bool) -> Result<Warm, MeasureError> {
+    fn warm_up(
+        &self,
+        dtype: DType,
+        n: usize,
+        interruptible: bool,
+    ) -> Result<Warm, MeasureError> {
         if lock(&self.state).warmed {
             return Ok(Warm::Done);
         }
@@ -279,19 +298,25 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
         lock(&self.state).warmed = true;
         Ok(Warm::Done)
     }
-
     fn plan(&self, key: &(String, usize), dtype: DType) -> Result<Plan, MeasureError> {
         if let Some(plan) = lock(&self.state).plans.get(key).copied() {
             return Ok(plan);
         }
         let t_pass = self.timed_launch(dtype, key.1, 0..self.docs)?;
-        let plan = Plan::from_pass(t_pass, self.docs, self.cfg.window_ns, self.cfg.chunk_budget_ns);
+        let plan = Plan::from_pass(
+            t_pass,
+            self.docs,
+            self.cfg.window_ns,
+            self.cfg.chunk_budget_ns,
+        );
         lock(&self.state).plans.insert(key.clone(), plan);
         Ok(plan)
     }
-
     fn execute(&self, dtype: DType, n: usize) -> Result<Vec<f32>, MeasureError> {
-        let params = self.rig.kernel_params(dtype, n, 0..self.docs).map_err(MeasureError::Rig)?;
+        let params = self
+            .rig
+            .kernel_params(dtype, n, 0..self.docs)
+            .map_err(MeasureError::Rig)?;
         {
             let mut st = lock(&self.state);
             self.launch(&mut st, dtype, &params, false)?;
@@ -299,7 +324,6 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
         self.rig.read_scores(n).map_err(MeasureError::Rig)
     }
 }
-
 impl<const DIM: usize> Measure for GpuMeasurer<DIM> {
     fn deviation(&self, combo: &Combination) -> Result<DeviationOutcome, MeasureError> {
         let _turn = self.gate.enter();
@@ -313,14 +337,19 @@ impl<const DIM: usize> Measure for GpuMeasurer<DIM> {
             .warm_up(dtype, n, false)
             .and_then(|_| self.execute(dtype, n))
             .map_err(|e| e.cause_text());
-        judge(&self.workload, &self.references, &dev_cfg, n, scores.as_deref().map_err(|e| e.clone()))
+        judge(
+            &self.workload,
+            &self.references,
+            &dev_cfg,
+            n,
+            scores.as_deref().map_err(|e| e.clone()),
+        )
     }
-
     fn time_probe(&self, combo: &Combination) -> Result<TimeProbe, MeasureError> {
         let _turn = self.gate.enter();
         let max_queries = self.workload.config().max_queries;
-        let (n, dtype) =
-            preflight(combo, max_queries, gpu_dtype).map_err(MeasureError::Config)?;
+        let (n, dtype) = preflight(combo, max_queries, gpu_dtype)
+            .map_err(MeasureError::Config)?;
         if let Warm::Interrupted = self.warm_up(dtype, n, true)? {
             return Ok(TimeProbe::Interrupted);
         }
@@ -350,9 +379,7 @@ impl<const DIM: usize> Measure for GpuMeasurer<DIM> {
         Ok(TimeProbe::Time(sample_ns(total, plan.reps, n)))
     }
 }
-
 const _: () = super::assert_send_sync::<GpuMeasurer<8>>();
-
 #[cfg(test)]
 #[path = "test/gpu_measurer.rs"]
 mod tests;

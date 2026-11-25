@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
-
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::kernel_layout::Slot;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::a::cpu_compute::scan_slots;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::background_pool::BackgroundPool;
@@ -9,15 +8,13 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
     axes, values,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::query_batch::DocSource;
-
 use super::bench_workload::{Workload, WorkloadConfig};
 use super::{
-    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate, Hooks,
-    Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe, CPU_DOCS, MAX_REPS,
+    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate,
+    Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe, CPU_DOCS,
+    MAX_REPS,
 };
-
 pub const DEFAULT_SEED: u64 = 0x5EED_0127;
-
 #[derive(Debug, Clone)]
 pub struct CpuConfig {
     pub common: MeasureConfig,
@@ -25,7 +22,6 @@ pub struct CpuConfig {
     pub threads: usize,
     pub seed: u64,
 }
-
 impl CpuConfig {
     pub fn new(max_deviation: f64) -> Self {
         CpuConfig {
@@ -35,7 +31,6 @@ impl CpuConfig {
         }
     }
 }
-
 pub struct CpuMeasurer {
     cfg: CpuConfig,
     hooks: Hooks,
@@ -45,23 +40,22 @@ pub struct CpuMeasurer {
     warmed: Mutex<HashSet<(String, usize)>>,
     references: ReferenceCache,
 }
-
 const POOL_NAME: &str = "measure-cpu";
-
 /// Only fp32 is supported by the cpu scorer.
 fn cpu_precision(combo: &Combination) -> Result<(), String> {
     for axis in [axes::scoring(), axes::operands()] {
         if let Some(value) = combo.value(&axis) {
             if *value != values::fp32() {
-                return Err(format!(
-                    "axis {axis}: value {value} is not supported by the cpu scorer (fp32 only)"
-                ));
+                return Err(
+                    format!(
+                        "axis {axis}: value {value} is not supported by the cpu scorer (fp32 only)"
+                    ),
+                );
             }
         }
     }
     Ok(())
 }
-
 /// Contiguous, non-empty ranges that cover `0..docs` exactly.
 fn split_ranges(docs: usize, parts: usize) -> Vec<Range<usize>> {
     let parts = parts.clamp(1, docs.max(1));
@@ -78,20 +72,29 @@ fn split_ranges(docs: usize, parts: usize) -> Vec<Range<usize>> {
     }
     ranges
 }
-
-fn scan_range(workload: &Workload, n: usize, range: Range<usize>) -> Result<Vec<f32>, String> {
+fn scan_range(
+    workload: &Workload,
+    n: usize,
+    range: Range<usize>,
+) -> Result<Vec<f32>, String> {
     let source = workload.source();
     let segment = workload.segment();
     let mut queries: Vec<&[f32]> = Vec::with_capacity(n);
     for i in 0..n {
-        queries.push(workload.queries().data(i).ok_or_else(|| format!("query {i} is missing"))?);
+        queries
+            .push(
+                workload
+                    .queries()
+                    .data(i)
+                    .ok_or_else(|| format!("query {i} is missing"))?,
+            );
     }
     let slots: Vec<Option<&[f32]>> = range
         .map(|i| source.slot_vectors(segment, Slot(i as u32)))
         .collect();
-    scan_slots(&queries, &slots, 0..slots.len(), workload.config().dim).map_err(|e| e.to_string())
+    scan_slots(&queries, &slots, 0..slots.len(), workload.config().dim)
+        .map_err(|e| e.to_string())
 }
-
 impl CpuMeasurer {
     pub fn new(cfg: CpuConfig, hooks: Hooks) -> Result<Self, MeasureError> {
         if cfg.threads == 0 {
@@ -102,7 +105,9 @@ impl CpuMeasurer {
         wc.docs = CPU_DOCS;
         let workload = Arc::new(Workload::build(wc)?);
         let pool = BackgroundPool::new(POOL_NAME, cfg.threads)
-            .map_err(|e| MeasureError::Compute(format!("cannot create worker pool: {e}")))?;
+            .map_err(|e| MeasureError::Compute(
+                format!("cannot create worker pool: {e}"),
+            ))?;
         Ok(CpuMeasurer {
             cfg,
             hooks,
@@ -113,7 +118,6 @@ impl CpuMeasurer {
             references: ReferenceCache::default(),
         })
     }
-
     /// Query-major score matrix (`q * docs + d`) of the first `n` queries over all documents.
     fn scan(&self, n: usize) -> Result<Vec<f32>, String> {
         let docs = self.workload.config().docs;
@@ -157,7 +161,6 @@ impl CpuMeasurer {
         }
         Ok(out)
     }
-
     fn warm_up(&self, key: &(String, usize)) -> Result<(), String> {
         if lock(&self.warmed).contains(key) {
             return Ok(());
@@ -166,7 +169,6 @@ impl CpuMeasurer {
         lock(&self.warmed).insert(key.clone());
         Ok(())
     }
-
     /// Duration of one scan in ns, taken from the clock.
     fn timed_pass(&self, n: usize) -> Result<f64, MeasureError> {
         let begin = self.hooks.clock.now_ns();
@@ -176,7 +178,6 @@ impl CpuMeasurer {
         Ok(end.saturating_sub(begin) as f64)
     }
 }
-
 impl Measure for CpuMeasurer {
     fn deviation(&self, combo: &Combination) -> Result<DeviationOutcome, MeasureError> {
         let _turn = self.gate.enter();
@@ -188,14 +189,19 @@ impl Measure for CpuMeasurer {
         let dev_cfg = self.cfg.common.deviation_config()?;
         let key = (combo.to_text(), n);
         let scores = self.warm_up(&key).and_then(|()| self.scan(n));
-        judge(&self.workload, &self.references, &dev_cfg, n, scores.as_deref().map_err(|e| e.clone()))
+        judge(
+            &self.workload,
+            &self.references,
+            &dev_cfg,
+            n,
+            scores.as_deref().map_err(|e| e.clone()),
+        )
     }
-
     fn time_probe(&self, combo: &Combination) -> Result<TimeProbe, MeasureError> {
         let _turn = self.gate.enter();
         let max_queries = self.workload.config().max_queries;
-        let (n, ()) =
-            preflight(combo, max_queries, cpu_precision).map_err(MeasureError::Config)?;
+        let (n, ()) = preflight(combo, max_queries, cpu_precision)
+            .map_err(MeasureError::Config)?;
         let key = (combo.to_text(), n);
         self.warm_up(&key).map_err(MeasureError::Compute)?;
         if self.hooks.pending.productive_waiting() {
@@ -218,9 +224,7 @@ impl Measure for CpuMeasurer {
         Ok(TimeProbe::Time(sample_ns(total, passes, n)))
     }
 }
-
 const _: () = super::assert_send_sync::<CpuMeasurer>();
-
 #[cfg(test)]
 #[path = "test/cpu_measurer.rs"]
 mod tests;

@@ -1,12 +1,9 @@
 //! Scope resolution and loading of entry sets into slots.
-
 use std::time::Instant;
-
 use super::deps::*;
 use super::placement::Placement;
 use super::types::*;
 use super::GpuManager;
-
 impl GpuManager {
     /// Resolves the scope through the resolver registry; there is no fallback to all entries.
     pub fn resolve_scope(&self, scope: &Scope) -> Result<EntrySet, GpuManagerError> {
@@ -18,7 +15,6 @@ impl GpuManager {
         };
         inner.resolver.resolve(scope, &ctx).map_err(GpuManagerError::Resolve)
     }
-
     /// Places the missing members of `set` into slots. Placed segments are reported to the
     /// `LoadedQueue`; publishing them is up to the coordinator.
     pub fn ensure(&self, set: &EntrySet) -> Result<EnsureReport, GpuManagerError> {
@@ -31,7 +27,10 @@ impl GpuManager {
             });
         }
         let (present, missing) = inner.classify(set.entry_ids());
-        let mut report = EnsureReport { already_resident: present, ..EnsureReport::default() };
+        let mut report = EnsureReport {
+            already_resident: present,
+            ..EnsureReport::default()
+        };
         let loaded = if missing.is_empty() {
             Vec::new()
         } else {
@@ -88,26 +87,25 @@ impl GpuManager {
         self.touch_published(Instant::now());
         log::info!(
             "gpu_manager ensure: requested={} loaded={} bytes_moved={} segments_created={}",
-            set.len(),
-            report.loaded.len(),
-            report.bytes_moved,
-            report.segments_created
+            set.len(), report.loaded.len(), report.bytes_moved, report.segments_created
         );
         match exhausted {
             Some(e) => Err(e),
             None => Ok(report),
         }
     }
-
     fn touch_published(&self, now: Instant) {
-        let ids: Vec<u64> = lock(&self.inner.state).records.iter().map(|r| r.id.0).collect();
+        let ids: Vec<u64> = lock(&self.inner.state)
+            .records
+            .iter()
+            .map(|r| r.id.0)
+            .collect();
         let eviction = self.inner.services.eviction();
         for id in ids {
             eviction.touch(EvictKey(id), now);
         }
     }
 }
-
 #[cfg(test)]
 #[path = "test/ensure.rs"]
 mod tests;

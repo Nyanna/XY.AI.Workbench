@@ -1,16 +1,16 @@
 //! Publishing, releasing and evicting segments; work in the gap between batches.
-
 use std::sync::Arc;
 use std::time::Instant;
-
 use super::deps::*;
 use super::state::{Inner, Record};
 use super::types::*;
 use super::GpuManager;
-
 impl GpuManager {
     /// Makes a filled segment visible: table, mapping, manifest, eviction tracking, binds.
-    pub fn publish_segment(&self, seg: LoadedSegment) -> Result<SegmentId, GpuManagerError> {
+    pub fn publish_segment(
+        &self,
+        seg: LoadedSegment,
+    ) -> Result<SegmentId, GpuManagerError> {
         let inner = &*self.inner;
         let _structure = inner.services.structure_lock().lock();
         let id = SegmentId(lock(&inner.state).next_id);
@@ -63,31 +63,45 @@ impl GpuManager {
             .manifest_specs(&[], Some((id, &seg.view, seg.device_base)))
             .and_then(|specs| inner.publish_manifest(&specs));
         if let Err(e) = manifest {
-            match inner.publish_map(|map| {
-                map.remove(id);
-                Ok(())
-            }) {
+            match inner
+                .publish_map(|map| {
+                    map.remove(id);
+                    Ok(())
+                })
+            {
                 Ok(_) => inner.rollback_table(&seg.segment),
                 Err(re) => {
-                    log::error!("gpu_manager: mapping rollback failed, region kept: {re}");
+                    log::error!(
+                        "gpu_manager: mapping rollback failed, region kept: {re}"
+                    );
                 }
             }
             inner.abandon(&seg, false);
             return Err(e);
         }
-        let LoadedSegment { segment, view, device_base, states, assignment, bindings, writer } = seg;
+        let LoadedSegment {
+            segment,
+            view,
+            device_base,
+            states,
+            assignment,
+            bindings,
+            writer,
+        } = seg;
         {
             let mut state = lock(&inner.state);
-            state.records.push(Record {
-                id,
-                segment,
-                view,
-                device_base,
-                states,
-                assignment,
-                writer,
-                first_slot,
-            });
+            state
+                .records
+                .push(Record {
+                    id,
+                    segment,
+                    view,
+                    device_base,
+                    states,
+                    assignment,
+                    writer,
+                    first_slot,
+                });
             state.next_id += 1;
             state.table_version += 1;
         }
@@ -109,7 +123,14 @@ impl GpuManager {
         let updates = inner.services.updates();
         for binding in &bindings {
             updates
-                .push_bind(binding.entry, SlotRef { segment: id, slot: binding.slot }, binding.stamp);
+                .push_bind(
+                    binding.entry,
+                    SlotRef {
+                        segment: id,
+                        slot: binding.slot,
+                    },
+                    binding.stamp,
+                );
         }
         {
             let mut state = lock(&inner.state);
@@ -121,14 +142,15 @@ impl GpuManager {
         log::info!(
             "gpu_manager: segment {} published (table epoch {table_epoch}, map epoch {map_epoch}, \
              manifest generation {})",
-            id.0,
-            inner.services.manifests().current().generation()
+            id.0, inner.services.manifests().current().generation()
         );
         Ok(id)
     }
-
     /// Removes a published segment and cleans up its residency.
-    pub fn release_segment(&self, id: SegmentId) -> Result<ReleasedSegment, GpuManagerError> {
+    pub fn release_segment(
+        &self,
+        id: SegmentId,
+    ) -> Result<ReleasedSegment, GpuManagerError> {
         let inner = &*self.inner;
         let _structure = inner.services.structure_lock().lock();
         let (segment, entry) = {
@@ -172,10 +194,15 @@ impl GpuManager {
         inner.services.eviction().remove(EvictKey(id.0));
         let cleared = inner.cleanup_segment(id);
         lock(&inner.deferred).push((segment, table_epoch));
-        log::info!("gpu_manager: segment {} released, {} entries cleared", id.0, cleared.len());
-        Ok(ReleasedSegment { id, region, cleared })
+        log::info!(
+            "gpu_manager: segment {} released, {} entries cleared", id.0, cleared.len()
+        );
+        Ok(ReleasedSegment {
+            id,
+            region,
+            cleared,
+        })
     }
-
     /// Idle and pressure eviction. `Eviction` removes the segments from table and map.
     pub fn evict_step(&self, now: Instant) -> EvictionOutcome {
         let inner = &*self.inner;
@@ -186,7 +213,6 @@ impl GpuManager {
         inner.after_eviction(&outcome);
         outcome
     }
-
     /// Evicts until `need` bytes fit; `Err(Exhausted)` changes nothing.
     pub fn make_room(&self, need: u64) -> Result<EvictionOutcome, EvictionError> {
         let inner = &*self.inner;
@@ -199,7 +225,6 @@ impl GpuManager {
         eviction.reclaim(swap.min_reader_epoch());
         Ok(outcome)
     }
-
     /// Call once per gap, after the Communication-Slot completion.
     pub fn run_gap(&self) -> GapReport {
         let inner = &*self.inner;
@@ -227,15 +252,19 @@ impl GpuManager {
                 };
                 match states.invalidate(slot.slot) {
                     Ok(()) => slots_hidden += 1,
-                    Err(e) => log::warn!("gpu_manager: slot {} not hidden: {e}", slot.slot.0),
+                    Err(e) => {
+                        log::warn!("gpu_manager: slot {} not hidden: {e}", slot.slot.0)
+                    }
                 }
             }
         }
         lock(&inner.state).retired_slots.extend(keep);
-        GapReport { slots_hidden, reclaimed: inner.reclaim_deferred() }
+        GapReport {
+            slots_hidden,
+            reclaimed: inner.reclaim_deferred(),
+        }
     }
 }
-
 impl Inner {
     /// The permanent first slot of a segment; segments of unknown origin get a new range.
     fn first_slot_of(&self, seg: &LoadedSegment) -> Result<u32, GpuManagerError> {
@@ -252,7 +281,6 @@ impl Inner {
         state.first_slots.insert(seg.segment.region, first as u32);
         Ok(first as u32)
     }
-
     /// Drops a segment that was not published; `release` hands it back to the arena.
     fn abandon(&self, seg: &LoadedSegment, release: bool) {
         {
@@ -268,7 +296,6 @@ impl Inner {
             }
         }
     }
-
     /// Takes the region out of the table again; it is returned once the epoch is unreferenced.
     fn rollback_table(&self, segment: &Segment) {
         let region = segment.region;
@@ -283,7 +310,6 @@ impl Inner {
             }
         }
     }
-
     /// Puts a segment back into table and, if it was removed there, into the map.
     fn restore(&self, entry: &Entry, region: RegionHandle, map_removed: bool) {
         if let Err(e) = self.publish_table(|table| table.add(region)) {
@@ -295,7 +321,6 @@ impl Inner {
             }
         }
     }
-
     /// Removes the record and the residency of its entries; returns the cleared entries.
     pub(super) fn cleanup_segment(&self, id: SegmentId) -> Vec<EntryId> {
         let cleared: Vec<EntryId> = {
@@ -320,7 +345,6 @@ impl Inner {
         }
         cleared
     }
-
     /// Cleans up the evicted segments of this manager and republishes the manifest.
     fn after_eviction(&self, outcome: &EvictionOutcome) {
         let mut evicted = 0;
@@ -342,7 +366,6 @@ impl Inner {
             log::error!("gpu_manager: manifest after eviction not published: {e}");
         }
     }
-
     /// Reclaims memory that readers no longer reference; returns the number of regions.
     pub(super) fn reclaim_deferred(&self) -> usize {
         let minimum = self.services.table_swap().min_reader_epoch();
@@ -365,7 +388,6 @@ impl Inner {
         count
     }
 }
-
 #[cfg(test)]
 #[path = "test/lifecycle.rs"]
 mod tests;

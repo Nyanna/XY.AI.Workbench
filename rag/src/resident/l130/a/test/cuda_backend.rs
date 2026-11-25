@@ -325,7 +325,9 @@ fn the_device_manager_builds_a_subengine_for_the_real_card() {
 #[test]
 fn activation_reserves_real_arenas_and_creates_five_real_lanes() {
     let (backend, sub) = real_subengine();
-    let before = backend.memory_query(0).query().unwrap().free;
+    let probe = RegionHandle::new(ArenaKind::IndexSegments, 0, 16, Generation::INITIAL)
+        .unwrap();
+    assert!(backend.device_base(0, & probe).is_none());
     sub.activate().unwrap();
     sub.activate().unwrap();
     assert!(sub.core().is_active());
@@ -334,8 +336,7 @@ fn activation_reserves_real_arenas_and_creates_five_real_lanes() {
         let region = sub.vram().arena_region(kind).unwrap();
         assert_eq!(region.len() as u64, caps.get(kind), "{kind:?}");
     }
-    let after = backend.memory_query(0).query().unwrap().free;
-    assert!(after < before, "before {before}, after {after}");
+    assert_ne!(backend.device_base(0, & probe).unwrap().0, 0);
     for kind in [
         LaneKind::Query,
         LaneKind::Insert,

@@ -1,9 +1,7 @@
 //! Writing the kernel segment table to VRAM.
-
 use super::deps::*;
 use super::types::*;
 use super::GpuManager;
-
 impl GpuManager {
     /// Writes the segment table if the published records changed since the last sync.
     /// The caller syncs on a lane before it starts work on that lane.
@@ -33,20 +31,27 @@ impl GpuManager {
             }
         }
         let table = if entries.is_empty() {
-            VramTable { segments_addr: 0, segment_count: 0, version }
+            VramTable {
+                segments_addr: 0,
+                segment_count: 0,
+                version,
+            }
         } else {
             let bytes = encode_segment_table(&entries);
             let segments_addr = inner
                 .services
                 .write_kernel_table(lane, &bytes)
                 .map_err(GpuManagerError::VramSync)?;
-            VramTable { segments_addr, segment_count: entries.len() as u32, version }
+            VramTable {
+                segments_addr,
+                segment_count: entries.len() as u32,
+                version,
+            }
         };
         *cache = Some(table);
         Ok(table)
     }
 }
-
 #[cfg(test)]
 #[path = "test/vram_sync.rs"]
 mod tests;
