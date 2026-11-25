@@ -2,6 +2,7 @@
 Zielverzeichnis: `/home/user/xyan/xy.ai.workbench/rag/src/resident` entsprechend dann `/home/user/xyan/xy.ai.workbench/rag/src/resident/l130...`
 Modell (multilingual-e5-small): `/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small`
 Wurzel ist: `/home/user/xyan/xy.ai.workbench/rag/src/lib.rs`. Sie enthält `pub mod resident;` bereits.
+Hygiene/Arch Tests: `/home/user/xyan/xy.ai.workbench/rag/tests`
 
 Umgebung:
 - nvcc: /usr/local/cuda-13.3/bin/nvcc (CUDA 13.3, V13.3.73)
@@ -15,6 +16,7 @@ Regeln:
 - Kommentare minimal halten; keine Referenzen auf Planelemente und Plannummern in Kommentaren.
 - Direkte Kindbeziehung von Modulen sind in Unterverzeichnissen zu erstellen
 - Abhängikeiten nach oben sind nicht erlaubt
+- Tests dürfen Contracts niemals über Loging verifizieren
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]

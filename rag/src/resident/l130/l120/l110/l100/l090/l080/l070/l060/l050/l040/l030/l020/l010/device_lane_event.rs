@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -272,6 +273,10 @@ pub trait StreamBackend: Send + Sync + fmt::Debug {
     fn notify_on_complete(&self, f: Box<dyn FnOnce() + Send>) -> Result<bool, String> {
         drop(f);
         Ok(false)
+    }
+    /// Lets the binding that created the stream recover its concrete type; `None` by default.
+    fn as_any(&self) -> Option<&dyn Any> {
+        None
     }
 }
 #[derive(Clone, Debug)]
