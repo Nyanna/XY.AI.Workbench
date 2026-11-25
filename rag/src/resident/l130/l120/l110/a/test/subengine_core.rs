@@ -356,6 +356,35 @@ fn rejects_capabilities_beyond_the_reference() {
     assert!(invalid_text(config_error(cfg)).contains("reference"));
 }
 #[test]
+fn tuning_axes_are_not_bounded_by_the_reference() {
+    for device in [DeviceHandle::Cpu, DeviceHandle::Gpu(0)] {
+        let mut cfg = config("x", device);
+        cfg.own_capabilities = own_caps()
+            .with(axes::batch_size(), "1")
+            .with(axes::batch_size(), "4096")
+            .with(axes::tile_size(), "64")
+            .with(axes::thread_count(), "12");
+        cfg.shared_capabilities = own_caps();
+        let result = SubengineCore::new(
+            cfg,
+            TestFactory::new(false),
+            Arc::new(TestPolicy {
+                calls: AtomicUsize::new(0),
+                answer: scorer_path(),
+            }),
+            cpu_register(),
+            registry_with(&[]),
+            Arc::new(QueueRegistrations::new()),
+        );
+        assert!(result.is_ok(), "{device:?}");
+    }
+    let mut cfg = config("x", DeviceHandle::Gpu(0));
+    cfg.own_capabilities = own_caps()
+        .with(axes::batch_size(), "8")
+        .with(axes::operands(), "fp128");
+    assert!(invalid_text(config_error(cfg)).contains("reference"));
+}
+#[test]
 fn rejects_foreign_and_duplicate_lanes() {
     let mut cfg = config("x", DeviceHandle::Cpu);
     cfg.lanes.push(LaneConfig::preset(LaneKind::Update, DeviceHandle::Gpu(0)));

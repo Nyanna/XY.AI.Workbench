@@ -18,7 +18,7 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::a::region_handle::RegionHandle;
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::capability_model::{
-    cpu_reference, gpu_reference, CapabilitySet,
+    axes, cpu_reference, gpu_reference, CapabilitySet,
 };
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::device_lane_event::{
     DeviceHandle, DeviceKind, Lane, LaneConfig, LaneKind,
@@ -26,6 +26,12 @@ use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040:
 use crate::resident::l130::l120::l110::l100::l090::l080::l070::l060::l050::l040::l030::l020::l010::layout::{
     DType, Layout,
 };
+/// Numeric tuning axes have no fixed value set, so the reference does not bound them.
+fn within_reference(own: &CapabilitySet, reference: &CapabilitySet) -> bool {
+    let tuning = [axes::batch_size(), axes::tile_size(), axes::thread_count()];
+    own.iter()
+        .all(|(axis, value)| tuning.contains(axis) || reference.contains(axis, value))
+}
 /// An exclusively usable lane. GPU lanes always have a stream.
 pub type SharedLane = Arc<Mutex<Lane>>;
 /// Index segment owned by the sub-engine. Region and layout only.
@@ -189,7 +195,7 @@ impl SubengineCore {
                 "shared capabilities exceed the own capabilities".to_string(),
             );
         }
-        if !cfg.own_capabilities.is_within(&reference) {
+        if !within_reference(&cfg.own_capabilities, &reference) {
             return invalid(
                 format!("own capabilities exceed the reference of device {}", cfg.device),
             );
