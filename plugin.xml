@@ -406,6 +406,25 @@
 			</command>
 		</menuContribution>
 		<menuContribution
+			locationURI="popup:org.eclipse.ui.popup.any?after=additions">
+			<command
+				commandId="org.eclipse.ui.edit.rename"
+				label="Rename"
+				mnemonic="R"
+				style="push">
+				<visibleWhen
+					checkEnabled="false">
+					<with
+						variable="activePartId">
+						<equals
+							value="xy.ai.workbench.view.AIExplorer">
+						</equals>
+					</with>
+				</visibleWhen>
+			</command>
+		</menuContribution>
+
+		<menuContribution
 			locationURI="popup:#TextEditorContext?after=additions">
 			<command
 				commandId="XY.AI.Workbench.commands.copyPath"

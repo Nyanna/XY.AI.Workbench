@@ -1,4 +1,5 @@
 # TODO
+Neue Rule, ein write erlauben in einer Datei die schonmal approved wurde pro session
 Editorrendering bei großen datein ändern
 
 Weiter entwicklung von AST ist IR
@@ -16,7 +17,6 @@ vertikale scrollbar,newline index klein, byteoffset wenn groß
 - verbessern der CC session anzeige, zeit in in ms oder sekunden, nur chars  kein total, dann typ der nachricht
 !verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
 	- sortierung vielleicht in filter und customizations
-!Der AI explorer zeigt /done/ folder nicht mehr richtig an 
 - Batch requests für autoapprover aufsplitten und einzelnen durch die rules schicken, für calls nach festem batch schema
 
 - MCPC ignore Dann Zusätzlich per Header für session
