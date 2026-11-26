@@ -109,5 +109,38 @@ fn module_declarations_are_remembered_except_test_modules() {
 #[test]
 fn impl_blocks_remember_their_file() {
     let collected = collect("impl Target {}");
-    assert_eq!(collected.impls[0].file, PathBuf::from("x.rs"));
+    assert_eq!(collected.impls[0].scope, PathBuf::from("x.rs"));
+}
+#[test]
+fn nested_modules_have_their_own_scope() {
+    let collected = collect(
+        "use std::fmt; mod m { use std::io; pub struct A; } struct B;",
+    );
+    let scopes: Vec<&Path> = collected
+        .objects
+        .iter()
+        .map(|l| l.scope.as_path())
+        .collect();
+    assert_eq!(scopes, vec![Path::new("x.rs/m"), Path::new("x.rs")]);
+    let files: Vec<&Path> = collected.imports.iter().map(|i| i.file.as_path()).collect();
+    assert_eq!(files, vec![Path::new("x.rs"), Path::new("x.rs/m")]);
+}
+#[test]
+fn cfg_of_modules_and_items_accumulates_into_the_gate() {
+    let collected = collect(
+        "#[cfg(unix)] mod m { #[cfg(target_pointer_width = \"64\")] pub fn a() {} pub fn b() {} } pub fn c() {}",
+    );
+    let gates: Vec<Option<&str>> = collected
+        .objects
+        .iter()
+        .map(|l| l.gate.as_deref())
+        .collect();
+    assert_eq!(
+        gates, vec![Some("all(unix, target_pointer_width = \"64\")"), Some("unix"), None]
+    );
+}
+#[test]
+fn impls_in_gated_modules_carry_the_gate() {
+    let collected = collect("#[cfg(unix)] mod m { impl Target {} }");
+    assert_eq!(collected.impls[0].body, "#[cfg(unix)]\nimpl Target {}");
 }

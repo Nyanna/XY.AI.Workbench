@@ -1,0 +1,6 @@
+[1/5] checking object names in /home/user/xyan/xy.ai.workbench/rag/src/resident
+[2/5] reusing /tmp/rustir-resident/edges.txt
+[3/5] skipped
+[4/5] rendering sources into /home/user/xyan/xy.ai.workbench/ast-engines/rustir/testrag/src
+wrote 1730 modules to /home/user/xyan/xy.ai.workbench/ast-engines/rustir/testrag
+[5/5] compiling /home/user/xyan/xy.ai.workbench/ast-engines/rustir/testrag with toolchain nightly-2026-11-25

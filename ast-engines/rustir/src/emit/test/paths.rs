@@ -97,3 +97,15 @@ fn macro_tokens_without_known_objects_are_left_alone() {
     let source = "fn f() { println!(\"{}\", std::fmt::Result::Ok(())); }";
     assert_eq!(rewrite(source), source);
 }
+#[test]
+fn local_uses_of_internal_modules_are_removed() {
+    assert_eq!(
+        rewrite("fn f() { use cli::*; use crate::ir::{a, b}; use std::fmt; run(); }"),
+        "fn f() {   use std::fmt; run(); }"
+    );
+}
+#[test]
+fn renamed_and_foreign_local_uses_are_kept() {
+    let source = "fn f() { use cli::run as go; use Object::*; go(); }";
+    assert_eq!(rewrite(source), source);
+}

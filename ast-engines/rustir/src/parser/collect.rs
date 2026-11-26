@@ -9,10 +9,12 @@ use crate::parser::source::item_text;
 pub struct Located {
     pub object: Object,
     pub file: PathBuf,
+    pub scope: PathBuf,
+    pub gate: Option<String>,
 }
 #[derive(Debug)]
 pub struct ImplBlock {
-    pub file: PathBuf,
+    pub scope: PathBuf,
     pub self_name: Option<String>,
     pub trait_name: Option<String>,
     pub names: Vec<String>,
@@ -25,29 +27,53 @@ pub struct Collected {
     pub imports: Vec<Import>,
     pub modules: BTreeSet<String>,
 }
+struct Scope {
+    key: PathBuf,
+    gates: Vec<String>,
+}
 pub fn collect_items(file: &Path, source: &str, items: &[Item], out: &mut Collected) {
+    let scope = Scope {
+        key: file.to_path_buf(),
+        gates: Vec::new(),
+    };
+    collect_scoped(file, source, items, &scope, out);
+}
+fn collect_scoped(
+    file: &Path,
+    source: &str,
+    items: &[Item],
+    scope: &Scope,
+    out: &mut Collected,
+) {
     for item in items {
-        if is_test_only(attributes(item)) {
+        let attrs = attributes(item);
+        if is_test_only(attrs) {
             continue;
         }
+        let mut gates = scope.gates.clone();
+        gates.extend(cfg_predicates(attrs));
         match item {
             Item::Mod(module) => {
                 out.modules.insert(module.ident.to_string());
                 if let Some((_, inner)) = &module.content {
-                    collect_items(file, source, inner, out);
+                    let inner_scope = Scope {
+                        key: scope.key.join(module.ident.to_string()),
+                        gates,
+                    };
+                    collect_scoped(file, source, inner, &inner_scope, out);
                 }
             }
             Item::Use(declaration) => {
-                out.imports.extend(flatten_use(file, &declaration.tree))
+                out.imports.extend(flatten_use(&scope.key, &declaration.tree))
             }
             Item::Impl(block) => {
                 out.impls
                     .push(ImplBlock {
-                        file: file.to_path_buf(),
+                        scope: scope.key.clone(),
                         self_name: impl_target(block),
                         trait_name: impl_trait(block),
                         names: item_names(item).into_iter().collect(),
-                        body: item_text(source, item),
+                        body: gated_text(&scope.gates, item_text(source, item)),
                     })
             }
             other => {
@@ -63,10 +89,33 @@ pub fn collect_items(file: &Path, source: &str, items: &[Item], out: &mut Collec
                                 dependencies: names.into_iter().collect(),
                             },
                             file: file.to_path_buf(),
+                            scope: scope.key.clone(),
+                            gate: join_gates(&gates),
                         });
                 }
             }
         }
+    }
+}
+fn cfg_predicates(attrs: &[Attribute]) -> Vec<String> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| attr.meta.require_list().ok())
+        .map(|list| list.tokens.to_string())
+        .collect()
+}
+fn join_gates(predicates: &[String]) -> Option<String> {
+    match predicates {
+        [] => None,
+        [only] => Some(only.clone()),
+        many => Some(format!("all({})", many.join(", "))),
+    }
+}
+fn gated_text(gates: &[String], text: String) -> String {
+    match join_gates(gates) {
+        Some(gate) => format!("#[cfg({gate})]\n{text}"),
+        None => text,
     }
 }
 fn describe(item: &Item) -> Option<(String, ObjectKind)> {

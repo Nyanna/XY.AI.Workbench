@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::File;
+use syn::{File, ItemUse, UseTree};
 use crate::emit::edits::{Edit, Source};
 use crate::emit::layout::Layout;
 struct PathRewriter<'a> {
@@ -78,6 +78,43 @@ impl<'ast> Visit<'ast> for PathRewriter<'_> {
     fn visit_macro(&mut self, mac: &'ast syn::Macro) {
         self.scan_tokens(mac.tokens.clone());
         visit::visit_macro(self, mac);
+    }
+    fn visit_item_use(&mut self, item: &'ast ItemUse) {
+        let internal = leading_module(&item.tree)
+            .is_some_and(|name| self.qualifiers.contains(&name));
+        if internal && !has_rename(&item.tree) {
+            let first = item
+                .attrs
+                .first()
+                .map_or(item.use_token.span, |attr| attr.pound_token.span);
+            self.edits
+                .push(Edit {
+                    start: self.source.start_of(first),
+                    end: self.source.end_of(item.semi_token.span),
+                    text: String::new(),
+                });
+        }
+    }
+}
+fn leading_module(tree: &UseTree) -> Option<String> {
+    match tree {
+        UseTree::Path(step) => {
+            let name = step.ident.to_string();
+            if matches!(name.as_str(), "crate" | "self" | "super") {
+                leading_module(&step.tree)
+            } else {
+                Some(name)
+            }
+        }
+        _ => None,
+    }
+}
+fn has_rename(tree: &UseTree) -> bool {
+    match tree {
+        UseTree::Rename(_) => true,
+        UseTree::Path(step) => has_rename(&step.tree),
+        UseTree::Group(group) => group.items.iter().any(has_rename),
+        _ => false,
     }
 }
 pub fn path_edits(

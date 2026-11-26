@@ -38,11 +38,11 @@ else
     (
         cd "$RAG_DIR"
         export CARGO_TARGET_DIR="$OUT_DIR/rag-target"
-        cargo "+$TOOLCHAIN" clean --quiet -p rag
+        cargo "+$TOOLCHAIN" clean --quiet -p xy-ai-rag
         RUSTC_WORKSPACE_WRAPPER="$DRIVER_BIN" \
             RUSTIR_OUT="$EDGES_FILE" \
             RUSTIR_PREFIX="$PREFIX" \
-            cargo "+$TOOLCHAIN" check -p rag "${RAG_CARGO_ARGS[@]}"
+            cargo "+$TOOLCHAIN" check -p xy-ai-rag "${RAG_CARGO_ARGS[@]}"
     )
     if [ ! -s "$EDGES_FILE" ]; then
         echo "error: the driver wrote no edges to $EDGES_FILE (check RUSTIR_PREFIX=$PREFIX)" >&2

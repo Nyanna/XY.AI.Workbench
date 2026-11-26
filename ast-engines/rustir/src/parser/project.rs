@@ -38,13 +38,16 @@ pub fn parse_project(root: &Path) -> Result<Project> {
         sources
             .entry(located.object.name.clone())
             .or_default()
-            .push((located.file, names));
+            .push((located.scope, names));
+        if let Some(gate) = located.gate {
+            project.gates.insert(located.object.name.clone(), gate);
+        }
         project.objects.insert(located.object);
     }
     for block in collected.impls {
         if let Some(owner) = owner_of(&block, &project.objects) {
             let names = block.names.iter().cloned().collect();
-            sources.entry(owner.clone()).or_default().push((block.file.clone(), names));
+            sources.entry(owner.clone()).or_default().push((block.scope.clone(), names));
             project.objects.attach(&owner, &block.body, block.names);
         }
     }

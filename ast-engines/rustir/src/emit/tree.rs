@@ -52,6 +52,7 @@ fn write_modules(project: &Project, src: &Path) -> Result<Option<String>> {
                 module: module.to_string(),
                 kind: object.kind,
                 public: rendered.public,
+                gate: project.gates.get(&object.name).cloned(),
             });
     }
     fs::write(src.join("lib.rs"), lib_source(&declared, &layout))?;

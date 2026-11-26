@@ -176,3 +176,23 @@ fn manifest_provides_package_and_dependencies() {
     assert!(project.manifest.dependencies.contains("syn = \"2\""));
     assert!(project.qualifiers.contains("demo_app"));
 }
+#[test]
+fn module_imports_stay_with_the_objects_of_that_module() {
+    let dir = scratch("module-imports");
+    write(
+        &dir,
+        "a.rs",
+        "use std::fmt;\nmod m { use std::io::Write; pub struct A(Box<dyn Write>); }\npub struct B(Box<dyn fmt::Debug>);",
+    );
+    let project = parse_project(&dir).unwrap();
+    assert_eq!(project.imports["A"], vec!["std::io::Write".to_string()]);
+    assert_eq!(project.imports["B"], vec!["std::fmt".to_string()]);
+}
+#[test]
+fn gates_are_recorded_per_object() {
+    let dir = scratch("gates");
+    write(&dir, "a.rs", "#[cfg(unix)] mod m { pub fn f() {} }\npub fn g() {}");
+    let project = parse_project(&dir).unwrap();
+    assert_eq!(project.gates["f"], "unix");
+    assert!(! project.gates.contains_key("g"));
+}

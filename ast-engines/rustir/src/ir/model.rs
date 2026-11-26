@@ -52,6 +52,7 @@ pub struct Project {
     pub objects: ObjectTable,
     pub imports: BTreeMap<String, Vec<String>>,
     pub qualifiers: BTreeSet<String>,
+    pub gates: BTreeMap<String, String>,
     pub manifest: Manifest,
 }
 impl Project {
@@ -62,6 +63,7 @@ impl Project {
             objects: ObjectTable::new(),
             imports: BTreeMap::new(),
             qualifiers: BTreeSet::new(),
+            gates: BTreeMap::new(),
             manifest: Manifest::default(),
         }
     }
