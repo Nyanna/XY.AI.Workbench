@@ -94,7 +94,11 @@ fn gather(tcx: TyCtxt<'_>, prefix: &str) -> (Edges, Aliases) {
     for item_id in tcx.hir_free_items() {
         let item = tcx.hir_item(item_id);
         let def_id = item.owner_id.def_id.to_def_id();
-        if !in_prefix(&local_path(tcx, def_id), prefix) {
+        let scope = match item.kind {
+            ItemKind::Impl(_) => tcx.parent(def_id),
+            _ => def_id,
+        };
+        if !in_prefix(&local_path(tcx, scope), prefix) {
             continue;
         }
         let mut references = References {

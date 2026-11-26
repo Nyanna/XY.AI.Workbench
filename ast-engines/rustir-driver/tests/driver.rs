@@ -26,6 +26,23 @@ pub mod resident {
         Settings
     }
     pub fn spelled_plainly(_: Config) {}
+    pub struct Limits {
+        pub max: u8,
+    }
+    const DEFAULT_MAX: u8 = 16;
+    pub trait Describe {
+        fn describe(&self) -> u8;
+    }
+    impl Default for Limits {
+        fn default() -> Self {
+            Limits { max: DEFAULT_MAX }
+        }
+    }
+    impl Describe for Limits {
+        fn describe(&self) -> u8 {
+            self.max
+        }
+    }
 }
 pub fn outside() -> resident::Config {
     resident::Config
@@ -88,6 +105,18 @@ fn method_calls_resolve_to_the_exact_trait() {
     let run = deps_of(&edges, "run");
     assert!(run.contains(& "Loader"), "{run:?}");
     assert!(run.contains(& "Config"), "{run:?}");
+}
+#[test]
+fn foreign_trait_impl_body_counts_for_the_type() {
+    let edges = analyze("colocated_body", "resident");
+    let limits = deps_of(&edges, "Limits");
+    assert!(limits.contains(& "DEFAULT_MAX"), "{limits:?}");
+}
+#[test]
+fn local_trait_impl_header_counts_for_the_type() {
+    let edges = analyze("colocated_header", "resident");
+    let limits = deps_of(&edges, "Limits");
+    assert!(limits.contains(& "Describe"), "{limits:?}");
 }
 #[test]
 fn impl_for_foreign_type_is_attributed_to_the_local_trait() {
