@@ -68,7 +68,7 @@ fn queue_full_and_cancel_frees_slot() {
     let h = sync.submit(&l, ok_change(&log, 1)).unwrap();
     assert_eq!(
         sync.submit(&l, ok_change(&log, 2)).err(),
-        Some(SyncError::QueueFull)
+        Some(SyncError2::QueueFull)
     );
     assert!(h.cancel());
     assert!(!h.cancel());
@@ -170,7 +170,7 @@ fn close_cancels_pending_and_rejects_submit() {
     assert!(h.event().is_complete().unwrap());
     assert_eq!(
         sync.submit(&l, ok_change(&log, 2)).err(),
-        Some(SyncError::Closed)
+        Some(SyncError2::Closed)
     );
     assert_eq!(sync.gap_begin(&l, GapKind::BatchEnd, LONG), 0);
 }

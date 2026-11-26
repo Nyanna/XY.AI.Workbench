@@ -93,7 +93,7 @@ pub enum DataShape {
 pub struct ScoredHitResult {
     pub scored_count: usize,
     pub dropped_count: usize,
-    pub hits: Vec<Hit>,
+    pub hits: Vec<Hit2>,
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
@@ -118,4 +118,4 @@ impl RamData {
 #[cfg(test)]
 #[path = "test/operation.rs"]
 mod tests;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit2;

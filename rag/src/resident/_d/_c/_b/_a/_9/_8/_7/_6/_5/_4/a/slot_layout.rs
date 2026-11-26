@@ -4,11 +4,11 @@ use std::ops::Range;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::RwLock;
 use super::super::_3::a::kernel_layout::{
-    Addr, AddrLayout, AddrLayoutError, FixedLayout, Slot, VariableLayout,
+    Addr, AddrLayout, AddrLayoutError, FixedLayout, Slot5, VariableLayout,
 };
 use super::super::_3::a::region_handle::{Generation, RegionHandle};
 use super::super::_3::_2::a::index_contract::EntryId;
-use super::super::_3::_2::_1::float_codec::{f32_to_bf16_bits, f32_to_f16_bits};
+use super::super::_3::_2::_1::float_codec::{f32_to_bf16_bits2, f32_to_f16_bits2};
 use super::super::_3::_2::_1::layout::{DType, MASK_VALUE};
 const MAX_CLASS_TOKENS: u32 = 65_535;
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,8 +158,8 @@ pub fn encode_slot(
 fn push_element(out: &mut Vec<u8>, dtype: DType, value: f32) {
     match dtype {
         DType::F32 => out.extend_from_slice(&value.to_le_bytes()),
-        DType::F16 => out.extend_from_slice(&f32_to_f16_bits(value).to_le_bytes()),
-        DType::BF16 => out.extend_from_slice(&f32_to_bf16_bits(value).to_le_bytes()),
+        DType::F16 => out.extend_from_slice(&f32_to_f16_bits2(value).to_le_bytes()),
+        DType::BF16 => out.extend_from_slice(&f32_to_bf16_bits2(value).to_le_bytes()),
         _ => unreachable!("dtype validated by caller"),
     }
 }
@@ -240,7 +240,7 @@ impl SegmentView {
         u64::from(self.slot_count) * u64::from(self.slot_bytes)
     }
     /// Byte range of a slot relative to the region start.
-    pub fn slot_range(&self, slot: Slot) -> Result<Range<u64>, SlotError> {
+    pub fn slot_range(&self, slot: Slot5) -> Result<Range<u64>, SlotError> {
         if slot.0 >= self.slot_count {
             return Err(SlotError::SlotOutOfRange {
                 slot: slot.0,
@@ -296,7 +296,7 @@ impl SlotStates {
     pub fn slot_count(&self) -> u32 {
         self.slot_count
     }
-    fn check(&self, slot: Slot) -> Result<usize, SlotError> {
+    fn check(&self, slot: Slot5) -> Result<usize, SlotError> {
         if slot.0 >= self.slot_count {
             return Err(SlotError::SlotOutOfRange {
                 slot: slot.0,
@@ -305,7 +305,7 @@ impl SlotStates {
         }
         Ok(slot.0 as usize)
     }
-    pub fn set_filled(&self, slot: Slot, tokens: u32) -> Result<(), SlotError> {
+    pub fn set_filled(&self, slot: Slot5, tokens: u32) -> Result<(), SlotError> {
         let idx = self.check(slot)?;
         if tokens > self.max_tokens {
             return Err(SlotError::TokensExceedClass {
@@ -318,13 +318,13 @@ impl SlotStates {
         Ok(())
     }
     /// Tombstone: clears the valid bit and the token count; idempotent.
-    pub fn invalidate(&self, slot: Slot) -> Result<(), SlotError> {
+    pub fn invalidate(&self, slot: Slot5) -> Result<(), SlotError> {
         let idx = self.check(slot)?;
         self.words[idx / 64].fetch_and(!(1u64 << (idx % 64)), Ordering::AcqRel);
         self.tokens[idx].store(0, Ordering::Release);
         Ok(())
     }
-    pub fn is_valid(&self, slot: Slot) -> bool {
+    pub fn is_valid(&self, slot: Slot5) -> bool {
         if slot.0 >= self.slot_count {
             return false;
         }
@@ -334,7 +334,7 @@ impl SlotStates {
     pub fn valid_count(&self) -> u32 {
         self.words.iter().map(|w| w.load(Ordering::Acquire).count_ones()).sum()
     }
-    pub fn meta(&self, slot: Slot) -> Result<SlotMeta, SlotError> {
+    pub fn meta(&self, slot: Slot5) -> Result<SlotMeta, SlotError> {
         let idx = self.check(slot)?;
         let valid = self.words[idx / 64].load(Ordering::Acquire) & (1u64 << (idx % 64))
             != 0;
@@ -417,13 +417,13 @@ impl SlotAssignment {
     fn write(&self) -> std::sync::RwLockWriteGuard<'_, Bindings> {
         self.bindings.write().unwrap_or_else(|e| e.into_inner())
     }
-    fn out_of_range(&self, slot: Slot) -> SlotError {
+    fn out_of_range(&self, slot: Slot5) -> SlotError {
         SlotError::SlotOutOfRange {
             slot: slot.0,
             count: self.slot_count,
         }
     }
-    pub fn bind(&self, slot: Slot, entry: EntryRef) -> Result<(), SlotError> {
+    pub fn bind(&self, slot: Slot5, entry: EntryRef) -> Result<(), SlotError> {
         if slot.0 >= self.slot_count {
             return Err(self.out_of_range(slot));
         }
@@ -444,7 +444,7 @@ impl SlotAssignment {
         guard.backward.insert(entry, slot.0);
         Ok(())
     }
-    pub fn unbind(&self, slot: Slot) -> Result<Option<EntryRef>, SlotError> {
+    pub fn unbind(&self, slot: Slot5) -> Result<Option<EntryRef>, SlotError> {
         if slot.0 >= self.slot_count {
             return Err(self.out_of_range(slot));
         }
@@ -455,24 +455,24 @@ impl SlotAssignment {
         }
         Ok(previous)
     }
-    pub fn lookup(&self, slot: Slot) -> Option<EntryRef> {
+    pub fn lookup(&self, slot: Slot5) -> Option<EntryRef> {
         self.read().forward.get(&slot.0).copied()
     }
-    pub fn slot_of_entry(&self, entry: EntryRef) -> Option<Slot> {
-        self.read().backward.get(&entry).copied().map(Slot)
+    pub fn slot_of_entry(&self, entry: EntryRef) -> Option<Slot5> {
+        self.read().backward.get(&entry).copied().map(Slot5)
     }
-    fn addr_range(&self, slot: Slot) -> Result<Range<u64>, SlotError> {
+    fn addr_range(&self, slot: Slot5) -> Result<Range<u64>, SlotError> {
         self.layout.slot_range(slot).ok_or_else(|| self.out_of_range(slot))
     }
-    pub fn device_addr(&self, slot: Slot) -> Result<Addr, SlotError> {
+    pub fn device_addr(&self, slot: Slot5) -> Result<Addr, SlotError> {
         Ok(Addr(self.addr_range(slot)?.start))
     }
     /// Slot that contains the device address, if any.
-    pub fn slot_of(&self, addr: Addr) -> Option<Slot> {
+    pub fn slot_of(&self, addr: Addr) -> Option<Slot5> {
         self.layout.slot_of(addr)
     }
     /// Absolute byte range in the arena offset space.
-    pub fn byte_range(&self, slot: Slot) -> Result<Range<u64>, SlotError> {
+    pub fn byte_range(&self, slot: Slot5) -> Result<Range<u64>, SlotError> {
         let r = self.addr_range(slot)?;
         self.to_arena_range(r)
     }
@@ -497,7 +497,7 @@ impl SlotAssignment {
         let guard = self.read();
         let mut span: Option<Range<u64>> = None;
         for &slot in guard.forward.keys() {
-            let Ok(r) = self.byte_range(Slot(slot)) else {
+            let Ok(r) = self.byte_range(Slot5(slot)) else {
                 continue;
             };
             span = Some(

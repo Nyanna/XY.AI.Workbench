@@ -7,24 +7,24 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::task::{Context, Poll, Waker};
 
 #[derive(Debug, Default)]
-struct Slot {
+struct Slot3 {
     notified: bool,
     waker: Option<Waker>,
 }
 
 #[derive(Debug, Default)]
-struct Inner {
+struct Inner2 {
     next_id: u64,
-    slots: HashMap<u64, Slot>,
+    slots: HashMap<u64, Slot3>,
 }
 
 #[derive(Debug, Default)]
-struct Shared {
-    inner: Mutex<Inner>,
+struct Shared2 {
+    inner: Mutex<Inner2>,
 }
 
-impl Shared {
-    fn lock(&self) -> MutexGuard<'_, Inner> {
+impl Shared2 {
+    fn lock(&self) -> MutexGuard<'_, Inner2> {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
@@ -32,7 +32,7 @@ impl Shared {
 /// Cheap to clone; all clones share the same notifier.
 #[derive(Clone, Default, Debug)]
 pub struct CompletionNotifier {
-    shared: Arc<Shared>,
+    shared: Arc<Shared2>,
 }
 
 impl CompletionNotifier {
@@ -63,7 +63,7 @@ impl CompletionNotifier {
         let mut inner = self.shared.lock();
         let id = inner.next_id;
         inner.next_id = inner.next_id.wrapping_add(1);
-        inner.slots.insert(id, Slot::default());
+        inner.slots.insert(id, Slot3::default());
         drop(inner);
         Subscription {
             shared: Arc::clone(&self.shared),
@@ -90,7 +90,7 @@ impl CompletionNotifier {
 #[must_use]
 #[derive(Debug)]
 pub struct Subscription {
-    shared: Arc<Shared>,
+    shared: Arc<Shared2>,
     id: u64,
 }
 

@@ -39,7 +39,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::tokenizer_loader::{
     LoadedTokenizer, TokenizerLoader,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
-    InitRequest, Lease, LifecycleConfig, LifecycleError, MemoryClass, ResourceKey,
+    InitRequest, Lease2, LifecycleConfig, LifecycleError, MemoryClass, ResourceKey,
     ResourceRegistry, ResourceState,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::encoder_interface::{
@@ -53,7 +53,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::index_residency::{
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::calibration_run::{
     run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError,
-    CalibrationReport, Target,
+    CalibrationReport, Target2,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::index_open::OpenOptions;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
@@ -527,7 +527,7 @@ impl CpuSubengine {
         let capabilities = self.own_capabilities.clone();
         self.calibration
             .submit(move || {
-                let target = Target {
+                let target = Target2 {
                     subengine,
                     model_id: model.model_id.clone(),
                 };
@@ -603,7 +603,7 @@ impl Subengine for CpuSubengine {
         }
     }
 }
-fn load_error(error: LifecycleError) -> CpuError {
+fn load_error5(error: LifecycleError) -> CpuError {
     match error {
         LifecycleError::Failed(message) => CpuError::Load(message),
         other => CpuError::Load(format!("{other:?}")),
@@ -612,12 +612,12 @@ fn load_error(error: LifecycleError) -> CpuError {
 fn acquire<H: Send + Sync + 'static>(
     registry: &ResourceRegistry<H>,
     key: &str,
-) -> Result<Lease<H>, CpuError> {
+) -> Result<Lease2<H>, CpuError> {
     loop {
         match registry.request_init(key, 0, Instant::now()) {
             InitRequest::Ready(lease) => return Ok(lease),
             InitRequest::Started(ticket) => {
-                ticket.run(Instant::now()).map_err(load_error)?
+                ticket.run(Instant::now()).map_err(load_error5)?
             }
             InitRequest::Loading => std::thread::sleep(LOADING_POLL),
             InitRequest::Backoff { until } => return Err(CpuError::Backoff { until }),
@@ -639,14 +639,14 @@ impl<'a> CpuContext<'a> {
     pub fn new(sub: &'a CpuSubengine, lane: &'a Lane) -> Self {
         Self { sub, lane }
     }
-    pub fn encoder(&self, model: &ModelId) -> Result<Lease<LoadedEncoder>, CpuError> {
+    pub fn encoder(&self, model: &ModelId) -> Result<Lease2<LoadedEncoder>, CpuError> {
         let key = self.sub.entry_key(model, encoder_key_of)?;
         acquire(&self.sub.encoders, &key)
     }
     pub fn tokenizer(
         &self,
         model: &ModelId,
-    ) -> Result<Lease<LoadedTokenizer>, CpuError> {
+    ) -> Result<Lease2<LoadedTokenizer>, CpuError> {
         let key = self.sub.entry_key(model, tokenizer_key_of)?;
         acquire(&self.sub.tokenizers, &key)
     }

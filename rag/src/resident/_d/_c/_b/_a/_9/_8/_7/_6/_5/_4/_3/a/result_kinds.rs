@@ -19,7 +19,7 @@ impl ResultKind {
     }
 }
 #[derive(Debug, Clone, Copy)]
-pub struct Hit {
+pub struct Hit2 {
     pub id: EntryId,
     pub score: f32,
     pub stale: bool,
@@ -29,7 +29,7 @@ pub struct Hit {
 pub enum TaskResult {
     Embeddings(Vec<Vec<f32>>),
     EntryRefs(Vec<EntryId>),
-    Hits(Vec<Hit>),
+    Hits(Vec<Hit2>),
     Scores(Vec<f32>),
 }
 impl TaskResult {
@@ -53,7 +53,7 @@ impl TaskResult {
             _ => None,
         }
     }
-    pub fn as_hits(&self) -> Option<&[Hit]> {
+    pub fn as_hits(&self) -> Option<&[Hit2]> {
         match self {
             TaskResult::Hits(v) => Some(v),
             _ => None,
@@ -75,14 +75,14 @@ fn hash_f32_slice<H: Hasher>(v: &[f32], state: &mut H) {
         x.to_bits().hash(state);
     }
 }
-impl PartialEq for Hit {
+impl PartialEq for Hit2 {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id && self.score.to_bits() == other.score.to_bits()
             && self.stale == other.stale
     }
 }
-impl Eq for Hit {}
-impl Hash for Hit {
+impl Eq for Hit2 {}
+impl Hash for Hit2 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
         self.score.to_bits().hash(state);
@@ -122,7 +122,7 @@ impl Hash for TaskResult {
 const _: fn() = || {
     fn assert_traits<T: Send + Sync + 'static>() {}
     assert_traits::<ResultKind>();
-    assert_traits::<Hit>();
+    assert_traits::<Hit2>();
     assert_traits::<TaskResult>();
 };
 #[cfg(test)]

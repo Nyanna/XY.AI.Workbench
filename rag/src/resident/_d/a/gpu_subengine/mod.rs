@@ -14,7 +14,7 @@ mod vram;
 #[path = "test/fixture.rs"]
 pub(crate) mod fixture;
 
-pub use backend::{GpuBackend, GpuDeviceInfo};
+pub use backend::{GpuBackend3, GpuDeviceInfo};
 pub use config::{GpuConfig, GpuDeviceManagerConfig, GpuShared};
 pub use device_manager::GpuDeviceManager;
 pub use error::GpuError;

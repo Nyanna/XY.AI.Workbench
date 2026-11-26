@@ -94,10 +94,10 @@ fn the_directory_resolves_published_segments_only() {
     let directory = f.manager.segment_directory();
     let binding = directory.binding(SegmentId(0)).unwrap();
     assert_eq!(
-        binding.assignment.lookup(Slot(0)),
+        binding.assignment.lookup(Slot5(0)),
         Some(EntryRef { entry: EntryId(1), section: 0 })
     );
-    assert!(binding.states.is_valid(Slot(0)));
+    assert!(binding.states.is_valid(Slot5(0)));
     assert!(directory.binding(SegmentId(5)).is_none());
     f.manager.release_segment(SegmentId(0)).unwrap();
     assert!(directory.binding(SegmentId(0)).is_none());

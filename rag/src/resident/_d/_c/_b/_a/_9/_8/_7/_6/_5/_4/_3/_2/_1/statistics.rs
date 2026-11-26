@@ -19,7 +19,7 @@ fn sorted_valid(samples: &[f64]) -> Vec<f64> {
     v
 }
 
-fn median_of_sorted(v: &[f64]) -> f64 {
+fn median_of_sorted2(v: &[f64]) -> f64 {
     let n = v.len();
     if n % 2 == 1 {
         v[n / 2]
@@ -34,7 +34,7 @@ pub fn median(samples: &[f64]) -> Option<f64> {
     if v.is_empty() {
         None
     } else {
-        Some(median_of_sorted(&v))
+        Some(median_of_sorted2(&v))
     }
 }
 
@@ -67,7 +67,7 @@ pub fn dispersion(samples: &[f64], kind: Dispersion) -> f64 {
         }
         Dispersion::TrimmedRange => {
             let kept = &v[..n - n / 5];
-            (kept[kept.len() - 1] - kept[0], median_of_sorted(kept))
+            (kept[kept.len() - 1] - kept[0], median_of_sorted2(kept))
         }
     };
     if !(center > 0.0) {

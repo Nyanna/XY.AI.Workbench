@@ -12,9 +12,9 @@ fn segment_ids_order_by_value() {
 
 #[test]
 fn slot_refs_order_by_segment_then_slot() {
-    let a = SlotRef { segment: SegmentId(1), slot: Slot(9) };
-    let b = SlotRef { segment: SegmentId(2), slot: Slot(0) };
-    let c = SlotRef { segment: SegmentId(2), slot: Slot(1) };
+    let a = SlotRef { segment: SegmentId(1), slot: Slot5(9) };
+    let b = SlotRef { segment: SegmentId(2), slot: Slot5(0) };
+    let c = SlotRef { segment: SegmentId(2), slot: Slot5(1) };
     assert!(a < b);
     assert!(b < c);
 }
@@ -22,8 +22,8 @@ fn slot_refs_order_by_segment_then_slot() {
 #[test]
 fn slot_refs_are_hashable() {
     let set: HashSet<SlotRef> = [
-        SlotRef { segment: SegmentId(1), slot: Slot(1) },
-        SlotRef { segment: SegmentId(1), slot: Slot(1) },
+        SlotRef { segment: SegmentId(1), slot: Slot5(1) },
+        SlotRef { segment: SegmentId(1), slot: Slot5(1) },
     ]
     .into_iter()
     .collect();

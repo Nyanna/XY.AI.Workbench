@@ -94,7 +94,7 @@ fn expand_empty_and_error() {
     assert!(p.expand(& t).unwrap().is_empty());
     let p = make(vec![QueueKind::Cpu], true);
     let t = p.submit(1, TaskParams::default(), None);
-    assert!(matches!(p.expand(& t), Err(ExpandError::Planner(PErr))));
+    assert!(matches!(p.expand(& t), Err(ExpandError3::Planner(PErr))));
     assert_eq!(p.ops_queue(QueueKind::Cpu).len(), 0);
 }
 #[test]

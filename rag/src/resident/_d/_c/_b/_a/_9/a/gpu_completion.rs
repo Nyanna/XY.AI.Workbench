@@ -5,7 +5,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::notification_topology::Suben
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{
     Event, EventError, Lane,
 };
-const PENDING: u8 = 0;
+const PENDING3: u8 = 0;
 const DONE: u8 = 1;
 const TAKEN: u8 = 2;
 /// A lane that finished.
@@ -26,11 +26,11 @@ pub enum TakenVia {
 }
 /// Per-submission state shared between the tracker and the callback.
 /// It holds only the atomic state so the callback never owns GPU resources.
-struct Slot {
+struct Slot10 {
     state: AtomicU8,
 }
-struct Entry {
-    slot: Arc<Slot>,
+struct Entry8 {
+    slot: Arc<Slot10>,
     lane: Lane,
     event: Event,
     tag: u64,
@@ -38,7 +38,7 @@ struct Entry {
 /// Callback to be run at the end of the stream. Single use. `submit` already registers one with
 /// the lane's stream if the stream supports it; firing this one as well is harmless.
 pub struct CompletionCallback {
-    slot: Arc<Slot>,
+    slot: Arc<Slot10>,
     notifier: SubengineNotifier,
 }
 impl CompletionCallback {
@@ -48,13 +48,13 @@ impl CompletionCallback {
         let _ = self
             .slot
             .state
-            .compare_exchange(PENDING, DONE, Ordering::AcqRel, Ordering::Acquire);
+            .compare_exchange(PENDING3, DONE, Ordering::AcqRel, Ordering::Acquire);
         let _ = catch_unwind(AssertUnwindSafe(|| self.notifier.notify_result()));
     }
 }
 /// Tracker of in-flight lanes.
 pub struct GpuCompletion {
-    entries: Mutex<Vec<Entry>>,
+    entries: Mutex<Vec<Entry8>>,
     notifier: SubengineNotifier,
 }
 impl GpuCompletion {
@@ -67,12 +67,12 @@ impl GpuCompletion {
     /// Puts an in-flight lane under tracking. `event` is the event recorded on
     /// `lane` after the submitted work.
     pub fn submit(&self, lane: Lane, event: Event, tag: u64) -> CompletionCallback {
-        let slot = Arc::new(Slot {
-            state: AtomicU8::new(PENDING),
+        let slot = Arc::new(Slot10 {
+            state: AtomicU8::new(PENDING3),
         });
         let mut entries = lock(&self.entries);
         entries
-            .push(Entry {
+            .push(Entry8 {
                 slot: Arc::clone(&slot),
                 lane,
                 event,
@@ -107,7 +107,7 @@ impl GpuCompletion {
             let entry = &entries[i];
             let queried = match entry.slot.state.load(Ordering::Acquire) {
                 DONE => Ok(()),
-                PENDING => {
+                PENDING3 => {
                     match entry.event.is_complete() {
                         Ok(true) => Ok(()),
                         Ok(false) => {

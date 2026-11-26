@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use tracing::{error, info, warn};
-use super::super::_2::a::index_contract::{EntryId, Payload, SharedBytes, Stamp};
+use super::super::_2::a::index_contract::{EntryId, Payload2, SharedBytes, Stamp};
 use super::super::_2::_1::change_stamp::StampCounter;
 use super::super::_2::_1::page_advice::{
     advise, Advice, AdviceSlot, MmapAdvisor, PageRange,
@@ -75,16 +75,16 @@ impl Backing {
         }
     }
 }
-struct Entry {
+struct Entry4 {
     id: EntryId,
     stamp: Stamp,
     row: u64,
 }
-struct Loaded {
+struct Loaded2 {
     info: FileInfo,
     access: AccessKind,
     backing: Backing,
-    entries: Vec<Entry>,
+    entries: Vec<Entry4>,
     counter: Arc<StampCounter>,
     batches: Vec<OnceLock<Result<DecodedBatch, String>>>,
 }
@@ -93,7 +93,7 @@ pub struct LazyIndexFile {
     path: PathBuf,
     decoder: Arc<dyn FormatDecoder>,
     options: OpenOptions,
-    state: OnceLock<Result<Loaded, OpenError>>,
+    state: OnceLock<Result<Loaded2, OpenError>>,
     advice: Arc<AdviceSlot>,
 }
 enum RowLookup<'a> {
@@ -161,24 +161,24 @@ impl LazyIndexFile {
             _ => None,
         }
     }
-    pub fn read(&self, id: EntryId) -> Payload {
+    pub fn read(&self, id: EntryId) -> Payload2 {
         match self.lookup(id) {
             RowLookup::Found(batch, i) => {
-                Payload {
+                Payload2 {
                     vector: batch.vectors.get(i).cloned().unwrap_or_default(),
                     meta: batch.metas.get(i).cloned().unwrap_or_default(),
                 }
             }
-            _ => Payload::default(),
+            _ => Payload2::default(),
         }
     }
-    fn loaded(&self) -> Result<&Loaded, OpenError> {
+    fn loaded(&self) -> Result<&Loaded2, OpenError> {
         match self.state.get_or_init(|| self.open()) {
             Ok(loaded) => Ok(loaded),
             Err(err) => Err(err.clone()),
         }
     }
-    fn find(loaded: &Loaded, id: EntryId) -> Option<usize> {
+    fn find(loaded: &Loaded2, id: EntryId) -> Option<usize> {
         loaded.entries.binary_search_by(|e| e.id.cmp(&id)).ok()
     }
     fn lookup(&self, id: EntryId) -> RowLookup<'_> {
@@ -259,7 +259,7 @@ impl LazyIndexFile {
             Err(err) => Err(self.fail(format!("read failed: {err}"))),
         }
     }
-    fn open(&self) -> Result<Loaded, OpenError> {
+    fn open(&self) -> Result<Loaded2, OpenError> {
         let (backing, access) = self.load_backing()?;
         let bytes = backing.bytes();
         let info = self.decoder.read_info(bytes).map_err(|c| self.fail(c))?;
@@ -279,10 +279,10 @@ impl LazyIndexFile {
             );
         }
         let highest = pairs.iter().map(|&(_, s)| s).max();
-        let mut entries: Vec<Entry> = pairs
+        let mut entries: Vec<Entry4> = pairs
             .iter()
             .enumerate()
-            .map(|(row, &(id, stamp))| Entry {
+            .map(|(row, &(id, stamp))| Entry4 {
                 id: EntryId(id),
                 stamp: Stamp(stamp),
                 row: row as u64,
@@ -304,7 +304,7 @@ impl LazyIndexFile {
             row_groups = info.row_groups, checksum = if self.options.verify { "ok" } else
             { "übersprungen" }, "index opened"
         );
-        Ok(Loaded {
+        Ok(Loaded2 {
             info,
             access,
             backing,

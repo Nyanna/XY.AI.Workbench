@@ -3,9 +3,9 @@ use super::*;
 fn assert_thread_safe<T: Send + Sync + 'static>() {}
 #[test]
 fn types_are_send_sync_static() {
-    assert_thread_safe::<GpuBackend>();
+    assert_thread_safe::<GpuBackend2>();
     assert_thread_safe::<PinnedBuffer>();
-    assert_thread_safe::<BackendError>();
+    assert_thread_safe::<BackendError2>();
 }
 const TEST_MIB: u64 = 1024 * 1024;
 fn caps() -> ArenaCapacities {
@@ -19,36 +19,36 @@ fn caps() -> ArenaCapacities {
     caps
 }
 /// `None` when no usable Nvidia device is present.
-fn backend() -> Option<GpuBackend> {
-    match GpuBackend::new(DeviceHandle::Gpu(0), caps(), TEST_MIB) {
+fn backend() -> Option<GpuBackend2> {
+    match GpuBackend2::new(DeviceHandle::Gpu(0), caps(), TEST_MIB) {
         Ok(b) => Some(b),
-        Err(BackendError::DeviceMemoryUnavailable(reason)) => {
+        Err(BackendError2::DeviceMemoryUnavailable(reason)) => {
             eprintln!("skipped, no device: {reason}");
             None
         }
         Err(e) => panic!("unexpected error: {e}"),
     }
 }
-fn pinned(b: &GpuBackend, data: &[u8]) -> PinnedBuffer {
+fn pinned(b: &GpuBackend2, data: &[u8]) -> PinnedBuffer {
     let mut buf = b.allocate_pinned(data.len()).unwrap();
     buf.as_mut_slice().copy_from_slice(data);
     buf
 }
 #[test]
 fn cpu_device_is_unavailable() {
-    let err = GpuBackend::new(DeviceHandle::Cpu, caps(), 0).unwrap_err();
-    assert!(matches!(err, BackendError::DeviceMemoryUnavailable(_)));
+    let err = GpuBackend2::new(DeviceHandle::Cpu, caps(), 0).unwrap_err();
+    assert!(matches!(err, BackendError2::DeviceMemoryUnavailable(_)));
 }
 #[test]
 fn error_display_texts() {
-    let e = BackendError::Transfer {
+    let e = BackendError2::Transfer {
         direction: TransferDirection::D2D,
         reason: "same arena".to_string(),
     };
     assert_eq!(e.to_string(), "transfer D2D failed: same arena");
-    assert_eq!(BackendError::StaleRegion.to_string(), "stale Region");
+    assert_eq!(BackendError2::StaleRegion.to_string(), "stale Region");
     assert_eq!(
-        BackendError::DeviceMemoryUnavailable("x".into()).to_string(),
+        BackendError2::DeviceMemoryUnavailable("x".into()).to_string(),
         "Device-Speicher nicht verfügbar: x"
     );
 }
@@ -70,8 +70,8 @@ fn creation_reports_layout_and_zeroed_state() {
 fn oversized_request_does_not_fit() {
     let mut caps = ArenaCapacities::default();
     caps.set(ArenaKind::Weights, u64::MAX / 2);
-    match GpuBackend::new(DeviceHandle::Gpu(0), caps, 0) {
-        Err(BackendError::Budget(_)) | Err(BackendError::DeviceMemoryUnavailable(_)) => {}
+    match GpuBackend2::new(DeviceHandle::Gpu(0), caps, 0) {
+        Err(BackendError2::Budget(_)) | Err(BackendError2::DeviceMemoryUnavailable(_)) => {}
         other => panic!("unexpected: {other:?}"),
     }
 }
@@ -84,19 +84,19 @@ fn allocation_rounds_and_validates() {
     for (size, align) in [(0, 1), (8, 0), (8, 3), (8, 512), (u64::MAX, 1)] {
         assert_eq!(
             b.allocate(ArenaKind::Weights, size, align),
-            Err(BackendError::AllocationFailed)
+            Err(BackendError2::AllocationFailed)
         );
     }
     assert!(
         matches!(b.allocate(ArenaKind::Weights, 16 * TEST_MIB, 1),
-        Err(BackendError::OutOfMemory { .. }))
+        Err(BackendError2::OutOfMemory { .. }))
     );
     assert!(
-        matches!(b.allocate(ArenaKind::Staging, 256, 1), Err(BackendError::OutOfMemory {
+        matches!(b.allocate(ArenaKind::Staging, 256, 1), Err(BackendError2::OutOfMemory {
         .. }))
     );
     b.free(&r).unwrap();
-    assert_eq!(b.free(& r), Err(BackendError::StaleRegion));
+    assert_eq!(b.free(& r), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn upload_download_roundtrip_pinned_and_pageable() {
@@ -130,27 +130,27 @@ fn transfer_error_ordering() {
     let w = b.allocate(ArenaKind::Workspace, 256, 1).unwrap();
     let same = b.copy_d2d(&a, &a2, 16).unwrap_err();
     assert_eq!(
-        same, BackendError::Transfer { direction : TransferDirection::D2D, reason :
+        same, BackendError2::Transfer { direction : TransferDirection::D2D, reason :
         "same arena".to_string() }
     );
     assert!(
-        matches!(b.copy_d2d(& a, & w, 257), Err(BackendError::Transfer { direction :
+        matches!(b.copy_d2d(& a, & w, 257), Err(BackendError2::Transfer { direction :
         TransferDirection::D2D, .. }))
     );
     assert!(
         matches!(b.upload(& a, HostSource::Pageable(& [0u8; 300])),
-        Err(BackendError::Transfer { direction : TransferDirection::H2D, .. }))
+        Err(BackendError2::Transfer { direction : TransferDirection::H2D, .. }))
     );
     let big = pinned(&b, &vec![0; 300]);
     assert!(
-        matches!(b.download(& a, & big), Err(BackendError::Transfer { direction :
+        matches!(b.download(& a, & big), Err(BackendError2::Transfer { direction :
         TransferDirection::D2H, .. }))
     );
     b.free(&w).unwrap();
-    assert_eq!(b.copy_d2d(& a, & w, 16).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.copy_d2d(& a, & w, 16).unwrap_err(), BackendError2::StaleRegion);
     assert_eq!(
         b.upload(& w, HostSource::Pageable(& [0u8; 4])).unwrap_err(),
-        BackendError::StaleRegion
+        BackendError2::StaleRegion
     );
 }
 #[test]
@@ -177,20 +177,20 @@ fn mapped_access_checks_in_order() {
     b.mapped_write(&m, 0, &[]).unwrap();
     let w = b.allocate(ArenaKind::Weights, 256, 1).unwrap();
     assert_eq!(
-        b.mapped_read(& w, 0, & mut got), Err(BackendError::ArenaMismatch { expected :
+        b.mapped_read(& w, 0, & mut got), Err(BackendError2::ArenaMismatch { expected :
         ArenaKind::MappedHost, found : ArenaKind::Weights })
     );
     assert_eq!(
         b.mapped_write(& m, 510, & [0; 4]),
-        Err(BackendError::Access(AccessError::OutOfBounds { offset : 510, len : 4,
+        Err(BackendError2::Access(AccessError::OutOfBounds { offset : 510, len : 4,
         region_len : 512 }))
     );
     assert!(
         matches!(b.mapped_write(& m, usize::MAX, & [0; 4]),
-        Err(BackendError::Access(AccessError::OutOfBounds { .. })))
+        Err(BackendError2::Access(AccessError::OutOfBounds { .. })))
     );
     b.free(&m).unwrap();
-    assert_eq!(b.mapped_read(& m, 0, & mut got), Err(BackendError::StaleRegion));
+    assert_eq!(b.mapped_read(& m, 0, & mut got), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn deferred_free_keeps_region_live_until_event_completes() {
@@ -213,7 +213,7 @@ fn pinned_buffers_are_zeroed_and_sized() {
     assert!(b.allocate_pinned(0).unwrap().is_empty());
     assert!(
         matches!(b.allocate_pinned(usize::MAX),
-        Err(BackendError::DeviceMemoryUnavailable(_)))
+        Err(BackendError2::DeviceMemoryUnavailable(_)))
     );
 }
 #[test]
@@ -231,7 +231,7 @@ fn wrap_tensor_views_device_memory() {
     b.free(&region).unwrap();
     assert!(
         matches!(unsafe { b.wrap_tensor(& region, & layout) },
-        Err(BackendError::StaleRegion))
+        Err(BackendError2::StaleRegion))
     );
 }
 #[test]
@@ -244,9 +244,9 @@ fn shutdown_invalidates_everything_and_is_idempotent() {
     assert_eq!(b.mapped_device_addr(), None);
     assert_eq!(
         b.upload(& r, HostSource::Pageable(& [1])).unwrap_err(),
-        BackendError::StaleRegion
+        BackendError2::StaleRegion
     );
-    assert_eq!(b.mapped_write(& m, 0, & [1]), Err(BackendError::StaleRegion));
+    assert_eq!(b.mapped_write(& m, 0, & [1]), Err(BackendError2::StaleRegion));
     assert_eq!(b.available(ArenaKind::Weights), Ok(0));
 }
 #[test]

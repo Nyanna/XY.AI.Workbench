@@ -1,7 +1,7 @@
 use std::time::Duration;
 pub const BUCKETS: [usize; 5] = [32, 64, 128, 256, 512];
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BatchError {
+pub enum BatchError2 {
     /// token_budget == 0 or max_seq_len == 0
     InvalidConfig,
 }
@@ -85,9 +85,9 @@ fn finish_batch(seqs: &[Vec<u32>], members: &[usize], cfg: &BatchConfig) -> Batc
 pub fn build_batches(
     seqs: &[Vec<u32>],
     cfg: &BatchConfig,
-) -> Result<Vec<Batch>, BatchError> {
+) -> Result<Vec<Batch>, BatchError2> {
     if cfg.token_budget == 0 || cfg.max_seq_len == 0 {
-        return Err(BatchError::InvalidConfig);
+        return Err(BatchError2::InvalidConfig);
     }
     let mut order: Vec<usize> = (0..seqs.len()).collect();
     order.sort_by_key(|&i| seqs[i].len());

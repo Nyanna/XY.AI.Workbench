@@ -2,19 +2,19 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
-use super::_5::_4::_3::a::kernel_layout::Slot;
-use super::_5::query_batch::{check_slot_range, DocSource, SegmentId, SourceError, Workspace};
+use super::_5::_4::_3::a::kernel_layout::Slot5;
+use super::_5::query_batch::{check_slot_range, DocSource, SegmentId, SourceError3, Workspace};
 
 /// One hit: byte offset of the slot and its score.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Hit {
+pub struct Hit3 {
     pub offset: u64,
     pub score: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TopKError {
-    Source(SourceError),
+    Source(SourceError3),
     ScoreLen { expected: usize, got: usize },
     Mismatch { what: &'static str },
 }
@@ -40,20 +40,20 @@ impl std::error::Error for TopKError {
     }
 }
 
-impl From<SourceError> for TopKError {
-    fn from(e: SourceError) -> Self {
+impl From<SourceError3> for TopKError {
+    fn from(e: SourceError3) -> Self {
         TopKError::Source(e)
     }
 }
 
 /// Heap entry ordered so that the worst hit compares greatest.
 #[derive(Debug, Clone, Copy)]
-struct Entry {
+struct Entry7 {
     offset: u64,
     score: f32,
 }
 
-impl Ord for Entry {
+impl Ord for Entry7 {
     fn cmp(&self, other: &Self) -> Ordering {
         other
             .score
@@ -63,25 +63,25 @@ impl Ord for Entry {
     }
 }
 
-impl PartialOrd for Entry {
+impl PartialOrd for Entry7 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for Entry {
+impl PartialEq for Entry7 {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == Ordering::Equal
     }
 }
 
-impl Eq for Entry {}
+impl Eq for Entry7 {}
 
 /// Bounded set of the best hits of one query.
 #[derive(Debug, Clone)]
 pub struct TopK {
     k: usize,
-    heap: BinaryHeap<Entry>,
+    heap: BinaryHeap<Entry7>,
 }
 
 impl TopK {
@@ -109,7 +109,7 @@ impl TopK {
         if self.k == 0 || score.is_nan() {
             return false;
         }
-        let candidate = Entry { offset, score };
+        let candidate = Entry7 { offset, score };
         if self.heap.len() < self.k {
             self.heap.push(candidate);
             return true;
@@ -137,11 +137,11 @@ impl TopK {
     }
 
     /// Best hit first.
-    pub fn into_sorted_vec(self) -> Vec<Hit> {
+    pub fn into_sorted_vec(self) -> Vec<Hit3> {
         self.heap
             .into_sorted_vec()
             .into_iter()
-            .map(|e| Hit {
+            .map(|e| Hit3 {
                 offset: e.offset,
                 score: e.score,
             })
@@ -202,7 +202,7 @@ impl RangeScorer {
         }
 
         let offsets: Vec<Option<u64>> = (0..ws.len())
-            .map(|i| src.slot_offset(segment, Slot(ws.start() + i)))
+            .map(|i| src.slot_offset(segment, Slot5(ws.start() + i)))
             .collect();
         for (top, row) in self.tops.iter_mut().zip(scores.chunks_exact(width)) {
             let mut local = TopK::new(self.k);
@@ -233,7 +233,7 @@ impl RangeScorer {
     }
 
     /// Sorted hits per query, indexed by query index.
-    pub fn into_results(self) -> Vec<Vec<Hit>> {
+    pub fn into_results(self) -> Vec<Vec<Hit3>> {
         self.tops.into_iter().map(TopK::into_sorted_vec).collect()
     }
 }

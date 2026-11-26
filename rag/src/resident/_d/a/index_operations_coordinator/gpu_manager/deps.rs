@@ -1,6 +1,6 @@
 //! Project elements the GPU manager relies on.
 pub(super) use super::super::eviction::{
-    EvictKey, Eviction, EvictionError, EvictionOutcome, Tier, TrackSpec,
+    EvictKey, Eviction, EvictionError, EvictionOutcome, Tier2, TrackSpec,
 };
 pub(super) use super::load_aggregation::{load_aggregated, LoadRequest};
 pub(super) use super::scope_resolution::{
@@ -13,10 +13,10 @@ pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::sync_util::lock;
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, ByteRange, CellId, EntryId, Index, IndexError, NodeId, Payload,
-    PayloadRef, Stamp, StampObserver, Summary,
+    AccessMethod, ByteRange, CellId, EntryId, Index, IndexError, NodeId, Payload2,
+    PayloadRef, Stamp, StampObserver, Summary2,
 };
-pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{Addr, Slot};
+pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{Addr, Slot5};
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::RegionHandle;
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::allocator::Allocator;
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
@@ -24,14 +24,14 @@ pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_
 };
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::segments::{SegmentId, SlotRef};
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::{Epoch, SegmentTable, TableSwap, TableSwapError};
-pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::address_map::{AddressMap, Entry, MapError, MappingStore};
+pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::address_map::{AddressMap, Entry6, MapError, MappingStore};
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::consistency::IndexWriter;
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::segment_arena::{
     Readers, Segment, SegmentArena, SegmentArenaError,
 };
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::manifest::{Manifest, ManifestError, ManifestStore, SegmentSpec};
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::reconcile::{
-    load_entry, Reconciler, Reconciliation, Resident, ResidencyDirectory,
+    load_entry, Reconciler, Reconciliation, Resident2, ResidencyDirectory,
 };
 pub(super) use crate::resident::_d::_c::_b::_a::_9::_8::a::communication_slot::hit_resolution::{
     SegmentBinding, SegmentDirectory,

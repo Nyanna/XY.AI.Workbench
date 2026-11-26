@@ -34,7 +34,7 @@ fn done() -> Event {
     ctl.complete();
     ev
 }
-fn insert(w: &SegmentWriter, id: u64, tokens: u32) -> Slot {
+fn insert(w: &SegmentWriter, id: u64, tokens: u32) -> Slot5 {
     let res = w.reserve(eref(id), tokens, None).expect("reserve");
     w.commit(&res, &done()).expect("commit");
     res.slot
@@ -75,29 +75,29 @@ fn from_parts_keeps_existing_state_and_cursor() {
     let v = view(4);
     let states = Arc::new(SlotStates::new(&v));
     let assignment = Arc::new(SlotAssignment::fixed(&v, Addr(0)).unwrap());
-    assignment.bind(Slot(0), eref(1)).unwrap();
-    states.set_filled(Slot(0), 3).unwrap();
+    assignment.bind(Slot5(0), eref(1)).unwrap();
+    states.set_filled(Slot5(0), 3).unwrap();
     let w = SegmentWriter::from_parts(v, states, assignment, 2, 10).unwrap();
     assert_eq!(w.used_slots(), 2);
     assert_eq!(w.free_slots(), 2);
-    assert!(w.states().is_valid(Slot(0)));
+    assert!(w.states().is_valid(Slot5(0)));
     let res = w.reserve(eref(2), 1, None).unwrap();
-    assert_eq!(res.slot, Slot(2));
+    assert_eq!(res.slot, Slot5(2));
     w.commit(&res, &done()).unwrap();
-    assert_eq!(w.slot_info(Slot(2)).unwrap().write_no, 10);
-    assert_eq!(w.slot_info(Slot(0)).unwrap().write_no, 0);
+    assert_eq!(w.slot_info(Slot5(2)).unwrap().write_no, 10);
+    assert_eq!(w.slot_info(Slot5(0)).unwrap().write_no, 0);
 }
 #[test]
 fn reserve_assigns_ascending_unique_slots_and_stays_invisible() {
     let w = writer(3);
     let a = w.reserve(eref(1), 2, Some(CentroidId(7))).unwrap();
     let b = w.reserve(eref(2), 0, None).unwrap();
-    assert_eq!((a.slot, b.slot), (Slot(0), Slot(1)));
+    assert_eq!((a.slot, b.slot), (Slot5(0), Slot5(1)));
     assert_eq!(a.tokens, 2);
     assert_eq!(a.centroid, Some(CentroidId(7)));
     let asg = w.assignment();
-    assert_eq!(a.addr, asg.device_addr(Slot(0)).unwrap());
-    assert_eq!(a.target, asg.byte_range(Slot(0)).unwrap());
+    assert_eq!(a.addr, asg.device_addr(Slot5(0)).unwrap());
+    assert_eq!(a.target, asg.byte_range(Slot5(0)).unwrap());
     assert_eq!(a.target.end - a.target.start, u64::from(w.view().slot_bytes()));
     assert!(! w.states().is_valid(a.slot));
     assert_eq!(asg.lookup(a.slot), None);
@@ -311,14 +311,14 @@ fn tombstone_does_not_touch_open_reservations() {
 fn slot_info_bounds_and_untouched_slots() {
     let w = writer(2);
     assert!(
-        matches!(w.slot_info(Slot(2)), Err(WriteError::Slot(SlotError::SlotOutOfRange {
+        matches!(w.slot_info(Slot5(2)), Err(WriteError::Slot(SlotError::SlotOutOfRange {
         slot : 2, count : 2 })))
     );
     assert_eq!(
-        w.slot_info(Slot(1)).unwrap(), SlotInfo { valid : false, tokens : 0, write_no :
+        w.slot_info(Slot5(1)).unwrap(), SlotInfo { valid : false, tokens : 0, write_no :
         0, centroid : None, }
     );
-    assert_eq!(w.resolve(Slot(9)), None);
+    assert_eq!(w.resolve(Slot5(9)), None);
 }
 #[test]
 fn compaction_plan_packs_valid_slots() {
@@ -334,10 +334,10 @@ fn compaction_plan_packs_valid_slots() {
     let plan = w.compaction_plan();
     assert_eq!(plan.reclaimed_slots, 2);
     assert_eq!(
-        plan.moves, vec![SlotMove { from : Slot(0), to : Slot(0), entry : eref(1), tokens
-        : 1, centroid : Some(CentroidId(10)), }, SlotMove { from : Slot(2), to : Slot(1),
+        plan.moves, vec![SlotMove { from : Slot5(0), to : Slot5(0), entry : eref(1), tokens
+        : 1, centroid : Some(CentroidId(10)), }, SlotMove { from : Slot5(2), to : Slot5(1),
         entry : eref(3), tokens : 3, centroid : Some(CentroidId(30)), }, SlotMove { from
-        : Slot(3), to : Slot(2), entry : eref(4), tokens : 4, centroid :
+        : Slot5(3), to : Slot5(2), entry : eref(4), tokens : 4, centroid :
         Some(CentroidId(40)), },]
     );
     assert_eq!(w.states().valid_count(), 3);
@@ -379,19 +379,19 @@ fn rebuild_creates_reservations_and_leaves_old_writer_untouched() {
     assert_eq!(w.compaction_plan(), before);
     assert_eq!(w.used_slots(), 3);
     assert_eq!(w.pending_count(), 0);
-    assert_eq!(w.resolve(Slot(1)), Some(eref(2)));
-    assert!(w.states().is_valid(Slot(0)));
+    assert_eq!(w.resolve(Slot5(1)), Some(eref(2)));
+    assert!(w.states().is_valid(Slot5(0)));
     assert_eq!(reservations.len(), 2);
-    assert_eq!(reservations[0].0, Slot(0));
-    assert_eq!(reservations[1].0, Slot(2));
-    assert_eq!(reservations[0].1.slot, Slot(0));
-    assert_eq!(reservations[1].1.slot, Slot(1));
+    assert_eq!(reservations[0].0, Slot5(0));
+    assert_eq!(reservations[1].0, Slot5(2));
+    assert_eq!(reservations[0].1.slot, Slot5(0));
+    assert_eq!(reservations[1].1.slot, Slot5(1));
     assert_eq!(reservations[1].1.entry, eref(3));
     assert_eq!(reservations[1].1.tokens, 3);
     assert_eq!(nw.used_slots(), 2);
     assert_eq!(nw.pending_count(), 2);
     assert_eq!(nw.states().valid_count(), 0);
-    assert_eq!(nw.resolve(Slot(0)), None);
+    assert_eq!(nw.resolve(Slot5(0)), None);
     assert_eq!(
         w.commit(& reservations[0].1, & done()).err(),
         Some(WriteError::ForeignReservation)
@@ -400,9 +400,9 @@ fn rebuild_creates_reservations_and_leaves_old_writer_untouched() {
         nw.commit(res, &done()).unwrap();
     }
     assert_eq!(nw.states().valid_count(), 2);
-    assert_eq!(nw.assignment().slot_of_entry(eref(3)), Some(Slot(1)));
-    assert_eq!(nw.slot_info(Slot(0)).unwrap().write_no, 1);
-    assert_eq!(nw.slot_info(Slot(1)).unwrap().write_no, 2);
+    assert_eq!(nw.assignment().slot_of_entry(eref(3)), Some(Slot5(1)));
+    assert_eq!(nw.slot_info(Slot5(0)).unwrap().write_no, 1);
+    assert_eq!(nw.slot_info(Slot5(1)).unwrap().write_no, 2);
     assert_eq!(nw.free_slots(), 2);
 }
 #[test]
@@ -417,8 +417,8 @@ fn rebuild_drops_replaced_table_and_keeps_centroids() {
     assert_eq!(reservations[0].0, upd.slot);
     assert_eq!(reservations[0].1.centroid, Some(CentroidId(11)));
     nw.commit(&reservations[0].1, &done()).unwrap();
-    assert_eq!(nw.resolve(Slot(1)), None);
-    assert_eq!(nw.resolve(Slot(0)), Some(eref(1)));
+    assert_eq!(nw.resolve(Slot5(1)), None);
+    assert_eq!(nw.resolve(Slot5(0)), Some(eref(1)));
     assert_eq!(w.resolve(res.slot), Some(eref(1)));
 }
 #[test]
@@ -449,7 +449,7 @@ fn concurrent_reservations_get_distinct_slots() {
     assert_eq!(w.states().valid_count(), 64);
     assert_eq!(w.free_slots(), 0);
     let mut write_nos: Vec<u64> = (0..64)
-        .map(|s| w.slot_info(Slot(s)).unwrap().write_no)
+        .map(|s| w.slot_info(Slot5(s)).unwrap().write_no)
         .collect();
     write_nos.sort_unstable();
     assert_eq!(write_nos, (1..= 64).collect::< Vec < _ >> ());
@@ -498,7 +498,7 @@ fn poisoned_lock_is_recovered() {
 fn error_display_and_source() {
     use std::error::Error;
     let e = WriteError::NotReserved {
-        slot: Slot(3),
+        slot: Slot5(3),
     };
     assert!(e.to_string().contains('3'));
     assert!(e.source().is_none());
@@ -527,7 +527,7 @@ fn reserve_sweeps_expired_reservations() {
         .slot })
     );
     assert_eq!(w.used_slots(), 2);
-    assert_eq!(fresh.slot, Slot(1));
+    assert_eq!(fresh.slot, Slot5(1));
     assert!(! w.states().is_valid(stale.slot));
     assert_eq!(w.resolve(stale.slot), None);
 }

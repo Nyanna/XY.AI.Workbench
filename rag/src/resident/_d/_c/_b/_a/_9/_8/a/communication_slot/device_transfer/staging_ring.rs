@@ -1,9 +1,9 @@
 use std::fmt;
 use std::sync::{Condvar, Mutex, MutexGuard};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::gpu_backend::{
-    GpuBackend, PinnedBuffer,
+    GpuBackend2, PinnedBuffer,
 };
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::memory_backend::BackendError;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::memory_backend::BackendError2;
 pub use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::memory_backend::TransferDirection;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::{
     Arena, ArenaKind,
@@ -30,7 +30,7 @@ pub enum StagingError {
     InvalidSlot,
     Transfer(TransferError),
     InvalidConfig,
-    Backend(BackendError),
+    Backend(BackendError2),
 }
 impl fmt::Display for TransferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,40 +50,40 @@ impl fmt::Display for StagingError {
     }
 }
 impl std::error::Error for StagingError {}
-enum Payload {
+enum Payload3 {
     Heap(Box<[u8]>),
     Pinned(PinnedBuffer),
 }
-impl Payload {
+impl Payload3 {
     fn bytes_mut(&mut self) -> &mut [u8] {
         match self {
-            Payload::Heap(bytes) => bytes,
-            Payload::Pinned(buffer) => buffer.as_mut_slice(),
+            Payload3::Heap(bytes) => bytes,
+            Payload3::Pinned(buffer) => buffer.as_mut_slice(),
         }
     }
     fn as_mut_ptr(&mut self) -> *mut u8 {
         self.bytes_mut().as_mut_ptr()
     }
 }
-struct Slot {
+struct Slot8 {
     state: SlotState,
     event: Option<Event>,
     seq: u64,
-    payload: Payload,
+    payload: Payload3,
 }
-struct Inner {
-    slots: Vec<Slot>,
+struct Inner7 {
+    slots: Vec<Slot8>,
     last: usize,
     next_seq: u64,
 }
 pub struct StagingRing {
     slot_size: usize,
-    inner: Mutex<Inner>,
+    inner: Mutex<Inner7>,
     /// Signalled when a slot is released or starts a transfer.
     changed: Condvar,
 }
 static_assertions::assert_impl_all!(StagingRing : Send, Sync);
-impl Inner {
+impl Inner7 {
     fn reclaim(&mut self) {
         for slot in self.slots.iter_mut() {
             if slot.state != SlotState::InFlight {
@@ -106,7 +106,7 @@ impl Inner {
             .min_by_key(|(_, s)| s.seq)
             .and_then(|(i, s)| s.event.clone().map(|e| (i, s.seq, e)))
     }
-    fn occupied_mut(&mut self, slot: SlotId) -> Result<&mut Slot, StagingError> {
+    fn occupied_mut(&mut self, slot: SlotId) -> Result<&mut Slot8, StagingError> {
         match self.slots.get_mut(slot.0) {
             Some(s) if s.state == SlotState::Occupied => Ok(s),
             _ => Err(StagingError::InvalidSlot),
@@ -122,16 +122,16 @@ impl StagingRing {
             return Err(StagingError::InvalidConfig);
         }
         let slots = (0..slot_count)
-            .map(|_| Slot {
+            .map(|_| Slot8 {
                 state: SlotState::Free,
                 event: None,
                 seq: 0,
-                payload: Payload::Heap(vec![0u8; slot_size].into_boxed_slice()),
+                payload: Payload3::Heap(vec![0u8; slot_size].into_boxed_slice()),
             })
             .collect();
         Ok(StagingRing {
             slot_size,
-            inner: Mutex::new(Inner {
+            inner: Mutex::new(Inner7 {
                 slots,
                 last: slot_count - 1,
                 next_seq: 0,
@@ -152,7 +152,7 @@ impl StagingRing {
     }
     /// Slots backed by pinned host memory, so uploads from a slot stay asynchronous.
     pub fn pinned(
-        backend: &GpuBackend,
+        backend: &GpuBackend2,
         slot_count: usize,
         slot_size: usize,
     ) -> Result<StagingRing, StagingError> {
@@ -165,16 +165,16 @@ impl StagingRing {
                 .allocate_pinned(slot_size)
                 .map_err(StagingError::Backend)?;
             slots
-                .push(Slot {
+                .push(Slot8 {
                     state: SlotState::Free,
                     event: None,
                     seq: 0,
-                    payload: Payload::Pinned(buffer),
+                    payload: Payload3::Pinned(buffer),
                 });
         }
         Ok(StagingRing {
             slot_size,
-            inner: Mutex::new(Inner {
+            inner: Mutex::new(Inner7 {
                 slots,
                 last: slot_count - 1,
                 next_seq: 0,
@@ -182,7 +182,7 @@ impl StagingRing {
             changed: Condvar::new(),
         })
     }
-    fn lock(&self) -> MutexGuard<'_, Inner> {
+    fn lock(&self) -> MutexGuard<'_, Inner7> {
         self.inner.lock().unwrap_or_else(|p| p.into_inner())
     }
     pub fn slot_count(&self) -> usize {

@@ -337,10 +337,10 @@ fn cross_encoder_chain() {
 fn cross_encoder_unavailable() {
     let spec = similarity(ScorerChoice::CrossEncoder("other".to_string()), 4);
     let err = expand(&spec, &models(), &cross_encoder_caps(), None).unwrap_err();
-    assert_eq!(err, ExpandError::ScoringUnavailable { scorer : "other".to_string() });
+    assert_eq!(err, ExpandError2::ScoringUnavailable { scorer : "other".to_string() });
     assert_eq!(err.to_string(), "Scoring-Verfahren nicht verfügbar: other");
     let err = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap_err();
-    assert!(matches!(err, ExpandError::ScoringUnavailable { .. }));
+    assert!(matches!(err, ExpandError2::ScoringUnavailable { .. }));
 }
 #[test]
 fn cross_encoder_requires_the_dedicated_axis() {
@@ -354,7 +354,7 @@ fn zero_top_k_is_rejected_for_both_scorers() {
     let cross = similarity(ScorerChoice::CrossEncoder("minilm".to_string()), 0);
     for spec in [vector, cross] {
         let err = expand(&spec, &models(), &cross_encoder_caps(), None).unwrap_err();
-        assert_eq!(err, ExpandError::Config(ConfigError::ZeroTopK));
+        assert_eq!(err, ExpandError2::Config(ConfigError::ZeroTopK));
         assert_eq!(
             err.to_string(), "Konfigurationsfehler: top_k muss größer als 0 sein"
         );
@@ -370,7 +370,7 @@ fn unknown_model_for_embedding_and_similarity() {
             None,
         )
         .unwrap_err();
-    assert_eq!(err, ExpandError::UnknownModel { model : MODEL.to_string() });
+    assert_eq!(err, ExpandError2::UnknownModel { model : MODEL.to_string() });
     assert_eq!(err.to_string(), "unbekanntes Modell: e5");
     let err = expand(
             &similarity(ScorerChoice::Vector(Scoring::Cosine), 3),
@@ -379,7 +379,7 @@ fn unknown_model_for_embedding_and_similarity() {
             None,
         )
         .unwrap_err();
-    assert!(matches!(err, ExpandError::UnknownModel { .. }));
+    assert!(matches!(err, ExpandError2::UnknownModel { .. }));
 }
 #[test]
 fn foreign_task_kind() {
@@ -388,7 +388,7 @@ fn foreign_task_kind() {
     };
     let err = expand(&spec, &models(), &CapabilitySet::new(), None).unwrap_err();
     assert_eq!(
-        err, ExpandError::ForeignTaskKind { expected : "Embedding/Similarity"
+        err, ExpandError2::ForeignTaskKind { expected : "Embedding/Similarity"
         .to_string(), got : "Rerank".to_string() }
     );
     assert_eq!(
@@ -404,16 +404,16 @@ fn check_order_kind_then_model_then_top_k_then_scorer() {
     };
     assert!(
         matches!(expand(& foreign, & empty, & CapabilitySet::new(), None),
-        Err(ExpandError::ForeignTaskKind { .. }))
+        Err(ExpandError2::ForeignTaskKind { .. }))
     );
     let bad = similarity(ScorerChoice::CrossEncoder("nope".to_string()), 0);
     assert!(
         matches!(expand(& bad, & empty, & CapabilitySet::new(), None),
-        Err(ExpandError::UnknownModel { .. }))
+        Err(ExpandError2::UnknownModel { .. }))
     );
     assert_eq!(
         expand(& bad, & models(), & CapabilitySet::new(), None).unwrap_err(),
-        ExpandError::Config(ConfigError::ZeroTopK)
+        ExpandError2::Config(ConfigError::ZeroTopK)
     );
 }
 #[test]
@@ -454,6 +454,6 @@ fn concurrent_calls_agree() {
 #[test]
 fn error_types_implement_error() {
     fn assert_error<E: std::error::Error>() {}
-    assert_error::<ExpandError>();
+    assert_error::<ExpandError2>();
     assert_error::<ConfigError>();
 }

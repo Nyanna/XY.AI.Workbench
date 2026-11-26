@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::fmt;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::{
-    Hit, TaskResult,
+    Hit2, TaskResult,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::extensions::Extensions;
@@ -71,7 +71,7 @@ impl SimilarityParams {
     }
 }
 #[derive(Debug, Clone)]
-pub struct Candidate {
+pub struct Candidate2 {
     pub id: EntryId,
     pub vector: Vec<f32>,
     pub stale: bool,
@@ -83,13 +83,13 @@ pub trait CandidateSource: Send + Sync {
         scope: &Scope,
         precision: Precision,
         extensions: &Extensions,
-    ) -> Result<Vec<Candidate>, SourceError>;
+    ) -> Result<Vec<Candidate2>, SourceError2>;
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourceError(pub String);
+pub struct SourceError2(pub String);
 #[derive(Debug, Clone, Default)]
 pub struct SimilarityOutput {
-    pub per_query: Vec<Vec<Hit>>,
+    pub per_query: Vec<Vec<Hit2>>,
 }
 impl SimilarityOutput {
     pub fn narrowed_scope(&self) -> Scope {
@@ -104,14 +104,14 @@ impl SimilarityOutput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SimilarityError {
     EmptyQueryVector { query: usize },
-    Source(SourceError),
+    Source(SourceError2),
 }
-impl fmt::Display for SourceError {
+impl fmt::Display for SourceError2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "candidate source error: {}", self.0)
     }
 }
-impl std::error::Error for SourceError {}
+impl std::error::Error for SourceError2 {}
 impl fmt::Display for SimilarityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -125,16 +125,16 @@ impl fmt::Display for SimilarityError {
 impl std::error::Error for SimilarityError {}
 fn score(scoring: Scoring, a: &[f32], b: &[f32]) -> f32 {
     match scoring {
-        Scoring::DotProduct => dot(a, b),
-        Scoring::NegEuclidean => -sq_dist(a, b).sqrt(),
+        Scoring::DotProduct => dot2(a, b),
+        Scoring::NegEuclidean => -sq_dist2(a, b).sqrt(),
         _ => {
-            let na = dot(a, a).sqrt();
-            let nb = dot(b, b).sqrt();
-            if na == 0.0 || nb == 0.0 { 0.0 } else { dot(a, b) / (na * nb) }
+            let na = dot2(a, a).sqrt();
+            let nb = dot2(b, b).sqrt();
+            if na == 0.0 || nb == 0.0 { 0.0 } else { dot2(a, b) / (na * nb) }
         }
     }
 }
-fn rank_order(a: &Hit, b: &Hit) -> Ordering {
+fn rank_order2(a: &Hit2, b: &Hit2) -> Ordering {
     match (a.score.is_nan(), b.score.is_nan()) {
         (true, true) => a.id.cmp(&b.id),
         (true, false) => Ordering::Greater,
@@ -164,7 +164,7 @@ pub fn run_similarity(
         .candidates(&params.index, &params.scope, params.precision, &params.extensions)
         .map_err(SimilarityError::Source)?;
     let mut seen = HashSet::with_capacity(candidates.len());
-    let unique: Vec<&Candidate> = candidates
+    let unique: Vec<&Candidate2> = candidates
         .iter()
         .filter(|c| seen.insert(c.id))
         .collect();
@@ -174,16 +174,16 @@ pub fn run_similarity(
             if params.top_k == 0 {
                 return Vec::new();
             }
-            let mut hits: Vec<Hit> = unique
+            let mut hits: Vec<Hit2> = unique
                 .iter()
                 .filter(|c| c.vector.len() == q.len())
-                .map(|c| Hit {
+                .map(|c| Hit2 {
                     id: c.id,
                     score: score(params.scoring, q, &c.vector),
                     stale: c.stale,
                 })
                 .collect();
-            hits.sort_by(rank_order);
+            hits.sort_by(rank_order2);
             hits.truncate(params.top_k);
             hits
         })
@@ -196,8 +196,8 @@ const _: fn() = || {
     assert_traits::<Scoring>();
     assert_traits::<Precision>();
     assert_traits::<SimilarityParams>();
-    assert_traits::<Candidate>();
-    assert_traits::<SourceError>();
+    assert_traits::<Candidate2>();
+    assert_traits::<SourceError2>();
     assert_traits::<SimilarityOutput>();
     assert_traits::<SimilarityError>();
 };
@@ -205,5 +205,5 @@ const _: fn() = || {
 #[path = "test/similarity_task.rs"]
 mod tests;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::cpu_compute::{
-    dot, sq_dist,
+    dot2, sq_dist2,
 };

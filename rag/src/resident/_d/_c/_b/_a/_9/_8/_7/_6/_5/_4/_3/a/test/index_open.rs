@@ -163,7 +163,7 @@ fn unknown_id_does_not_decode() {
     let (f, m) = open(Mock::new(vec![(1, 1)]), "unknown", OpenOptions::default());
     assert!(f.read_vector(EntryId(7)).is_empty());
     assert!(f.read_meta(EntryId(7)).is_none());
-    assert_eq!(f.read(EntryId(7)), Payload::default());
+    assert_eq!(f.read(EntryId(7)), Payload2::default());
     assert_eq!(m.decodes.load(Ordering::SeqCst), 0);
 }
 #[test]
@@ -174,7 +174,7 @@ fn failed_batch_is_remembered_others_usable() {
     let (f, m) = open(m, "failbatch", OpenOptions::default());
     assert!(f.read_meta(EntryId(1)).is_none());
     assert!(f.read_vector(EntryId(1)).is_empty());
-    assert_eq!(f.read(EntryId(1)), Payload::default());
+    assert_eq!(f.read(EntryId(1)), Payload2::default());
     assert_eq!(m.decodes.load(Ordering::SeqCst), 1);
     assert!(f.read_meta(EntryId(BATCH_ROWS as u64)).is_some());
 }

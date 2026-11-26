@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{OnceLock, Weak};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::{
     a::index_contract::{
-        AccessMethod, EntryId, Payload, PayloadRef, SharedBytes, Stamp, StampObserver,
+        AccessMethod, EntryId, Payload2, PayloadRef, SharedBytes, Stamp, StampObserver,
         StampSignal,
     },
     _1::{
@@ -44,8 +44,8 @@ impl Index for MockIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         Vec::new()
     }
-    fn read(&self, _id: EntryId) -> Payload {
-        Payload::default()
+    fn read(&self, _id: EntryId) -> Payload2 {
+        Payload2::default()
     }
     fn write(
         &self,
@@ -60,7 +60,7 @@ impl Index for MockIndex {
     fn subscribe(&self) -> StampObserver {
         StampSignal::new(Stamp(0)).observer()
     }
-    fn summary(&self, node: NodeId) -> Result<Summary, IndexError> {
+    fn summary(&self, node: NodeId) -> Result<Summary2, IndexError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         if let Some(m) = self.manager.get().and_then(Weak::upgrade) {
             let _ = m.resident_bytes();
@@ -69,7 +69,7 @@ impl Index for MockIndex {
             Mode::Unsupported => Err(IndexError::Unsupported(AccessMethod::Centroid)),
             Mode::FailOn(n) if n == node.0 => Err(IndexError::NotFound),
             _ => {
-                Ok(Summary {
+                Ok(Summary2 {
                     node,
                     centroid: SharedBytes::from(vec![0u8; node.0 as usize]),
                     count: 1,
@@ -246,7 +246,7 @@ fn regular_never_direct_maps() {
     assert!(plans.iter().all(| p | ! matches!(p, LoadPlan::DirectMap { .. })));
 }
 struct Interleaved;
-impl Geometry for Interleaved {
+impl Geometry3 for Interleaved {
     fn segment_of(&self, entry: u64) -> u64 {
         entry % 3
     }
@@ -275,7 +275,7 @@ fn non_monotonic_geometry_keeps_lists_sorted_and_disjoint() {
     assert_eq!(* bytes, 40);
 }
 struct Huge;
-impl Geometry for Huge {
+impl Geometry3 for Huge {
     fn segment_of(&self, _entry: u64) -> u64 {
         0
     }
@@ -370,8 +370,8 @@ fn manager_loads_nothing_on_construction() {
     let (index, m) = manager_with(Mode::Ok);
     assert_eq!(index.calls.load(Ordering::SeqCst), 0);
     assert_eq!(m.resident_bytes(), 0);
-    assert_eq!(m.tier(Resident::Summary(NodeId(1))), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Segment(0)), Tier::NotLoaded);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(1))), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Segment(0)), Tier3::NotLoaded);
     assert_eq!(m.summary(NodeId(1)), None);
     assert_eq!(m.policy(), LoadPolicy::default());
 }
@@ -382,7 +382,7 @@ fn load_summaries_skips_held_nodes() {
     assert_eq!(index.calls.load(Ordering::SeqCst), 2);
     assert_eq!(m.load_summaries(& [NodeId(1), NodeId(2), NodeId(3)]), Ok(1));
     assert_eq!(index.calls.load(Ordering::SeqCst), 3);
-    assert_eq!(m.tier(Resident::Summary(NodeId(3))), Tier::Summary);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(3))), Tier3::Summary);
     assert_eq!(m.summary(NodeId(2)).map(| s | s.centroid.len()), Some(2));
     assert_eq!(m.resident_bytes(), (1 + 24) + (2 + 24) + (3 + 24));
 }
@@ -392,10 +392,10 @@ fn load_summaries_error_keeps_earlier_loads() {
     let result = m.load_summaries(&[NodeId(1), NodeId(2), NodeId(3), NodeId(4)]);
     assert_eq!(result, Err(IndexError::NotFound));
     assert_eq!(index.calls.load(Ordering::SeqCst), 3);
-    assert_eq!(m.tier(Resident::Summary(NodeId(1))), Tier::Summary);
-    assert_eq!(m.tier(Resident::Summary(NodeId(2))), Tier::Summary);
-    assert_eq!(m.tier(Resident::Summary(NodeId(3))), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Summary(NodeId(4))), Tier::NotLoaded);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(1))), Tier3::Summary);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(2))), Tier3::Summary);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(3))), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(4))), Tier3::NotLoaded);
 }
 #[test]
 fn unsupported_index_error_is_passed_through() {
@@ -481,9 +481,9 @@ fn mark_replaces_bytes_and_touch_ignores_unknown() {
     m.mark_segment_loaded(1, 100);
     m.mark_segment_loaded(1, 50);
     assert_eq!(m.resident_bytes(), 50);
-    assert_eq!(m.tier(Resident::Segment(1)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Segment(1)), Tier3::Vector);
     m.touch_segment(99);
-    assert_eq!(m.tier(Resident::Segment(99)), Tier::NotLoaded);
+    assert_eq!(m.tier(Resident3::Segment(99)), Tier3::NotLoaded);
     assert_eq!(m.resident_bytes(), 50);
 }
 #[test]
@@ -494,10 +494,10 @@ fn evict_frees_segments_in_lru_order() {
     m.mark_segment_loaded(3, 300);
     m.touch_segment(1);
     assert_eq!(m.evict(150), 200);
-    assert_eq!(m.tier(Resident::Segment(2)), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Segment(3)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Segment(2)), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Segment(3)), Tier3::Vector);
     assert_eq!(m.evict(1), 300);
-    assert_eq!(m.tier(Resident::Segment(1)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Segment(1)), Tier3::Vector);
     assert_eq!(m.resident_bytes(), 100);
 }
 #[test]
@@ -507,8 +507,8 @@ fn remarking_moves_segment_to_newest_position() {
     m.mark_segment_loaded(2, 10);
     m.mark_segment_loaded(1, 10);
     assert_eq!(m.evict(1), 10);
-    assert_eq!(m.tier(Resident::Segment(2)), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Segment(1)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Segment(2)), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Segment(1)), Tier3::Vector);
 }
 #[test]
 fn evict_prefers_vectors_then_summaries() {
@@ -516,11 +516,11 @@ fn evict_prefers_vectors_then_summaries() {
     m.load_summaries(&[NodeId(1), NodeId(2), NodeId(3)]).unwrap();
     m.mark_segment_loaded(7, 500);
     assert_eq!(m.evict(10), 500);
-    assert_eq!(m.tier(Resident::Segment(7)), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Summary(NodeId(1))), Tier::Summary);
+    assert_eq!(m.tier(Resident3::Segment(7)), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(1))), Tier3::Summary);
     assert_eq!(m.evict(1), 25);
-    assert_eq!(m.tier(Resident::Summary(NodeId(1))), Tier::NotLoaded);
-    assert_eq!(m.tier(Resident::Summary(NodeId(2))), Tier::Summary);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(1))), Tier3::NotLoaded);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(2))), Tier3::Summary);
     m.mark_segment_loaded(8, 5);
     assert_eq!(m.evict(u64::MAX), 5 + 26 + 27);
     assert_eq!(m.resident_bytes(), 0);
@@ -531,15 +531,15 @@ fn evict_zero_and_empty_free_nothing() {
     assert_eq!(m.evict(100), 0);
     m.mark_segment_loaded(1, 100);
     assert_eq!(m.evict(0), 0);
-    assert_eq!(m.tier(Resident::Segment(1)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Segment(1)), Tier3::Vector);
 }
 #[test]
 fn tiers_are_disjoint_between_summary_and_segment() {
     let (_, m) = manager_with(Mode::Ok);
     m.load_summaries(&[NodeId(4)]).unwrap();
     m.mark_segment_loaded(4, 10);
-    assert_eq!(m.tier(Resident::Summary(NodeId(4))), Tier::Summary);
-    assert_eq!(m.tier(Resident::Segment(4)), Tier::Vector);
+    assert_eq!(m.tier(Resident3::Summary(NodeId(4))), Tier3::Summary);
+    assert_eq!(m.tier(Resident3::Segment(4)), Tier3::Vector);
 }
 #[test]
 fn manager_survives_concurrent_mixed_use() {

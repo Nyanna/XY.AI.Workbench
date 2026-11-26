@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::{
     a::{
         arenas::{Budget, MIB},
-        index_contract::{Index, IndexError, NodeId, Summary},
+        index_contract::{Index, IndexError, NodeId, Summary2},
         pareto_profiles::PrecisionProfile,
     },
     _1::{capability_model::axes, scopes_and_entry_sets::EntrySet},
@@ -22,7 +22,7 @@ const MAX_SEGMENT_BYTES: u64 = 256 * MIB;
 const SUMMARY_OVERHEAD_BYTES: u64 = 24;
 
 /// Replaceable layout of entries within segments.
-pub trait Geometry: Send + Sync {
+pub trait Geometry3: Send + Sync {
     fn segment_of(&self, entry: u64) -> u64;
     fn entry_size(&self, entry: u64) -> u64;
     fn segment_size(&self, segment: u64) -> u64;
@@ -53,7 +53,7 @@ impl UniformGeometry {
     }
 }
 
-impl Geometry for UniformGeometry {
+impl Geometry3 for UniformGeometry {
     fn segment_of(&self, entry: u64) -> u64 {
         entry / self.entries_per_segment
     }
@@ -185,7 +185,7 @@ struct SegmentGroup {
 pub fn plan_loads(
     set: &EntrySet,
     access: Access,
-    geometry: &dyn Geometry,
+    geometry: &dyn Geometry3,
     policy: &LoadPolicy,
 ) -> Vec<LoadPlan> {
     if set.is_empty() {
@@ -276,19 +276,19 @@ pub fn execute_plans<E>(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tier {
+pub enum Tier3 {
     Summary,
     Vector,
     NotLoaded,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Resident {
+pub enum Resident3 {
     Summary(NodeId),
     Segment(u64),
 }
 
-struct Slot<V> {
+struct Slot11<V> {
     value: V,
     bytes: u64,
     tick: u64,
@@ -296,7 +296,7 @@ struct Slot<V> {
 
 /// Map with least-recently-used ordering.
 struct LruMap<K, V> {
-    slots: HashMap<K, Slot<V>>,
+    slots: HashMap<K, Slot11<V>>,
     order: BTreeMap<u64, K>,
     clock: u64,
 }
@@ -329,7 +329,7 @@ impl<K: Copy + Eq + Hash, V> LruMap<K, V> {
         }
         let tick = self.next_tick();
         self.order.insert(tick, key);
-        self.slots.insert(key, Slot { value, bytes, tick });
+        self.slots.insert(key, Slot11 { value, bytes, tick });
     }
 
     fn insert_if_absent(&mut self, key: K, value: V, bytes: u64) -> bool {
@@ -366,37 +366,37 @@ impl<K: Copy + Eq + Hash, V> LruMap<K, V> {
     }
 }
 
-struct State {
-    summaries: LruMap<NodeId, Summary>,
+struct State11 {
+    summaries: LruMap<NodeId, Summary2>,
     segments: LruMap<u64, ()>,
 }
 
-fn summary_bytes(summary: &Summary) -> u64 {
+fn summary_bytes(summary: &Summary2) -> u64 {
     (summary.centroid.len() as u64).saturating_add(SUMMARY_OVERHEAD_BYTES)
 }
 
 /// Thread-safe tiering: summaries first and longest, vector segments warm and evictable.
 pub struct LoadManager {
     index: Arc<dyn Index>,
-    geometry: Arc<dyn Geometry>,
+    geometry: Arc<dyn Geometry3>,
     policy: LoadPolicy,
-    state: Mutex<State>,
+    state: Mutex<State11>,
 }
 
 impl LoadManager {
-    pub fn new(index: Arc<dyn Index>, geometry: Arc<dyn Geometry>, policy: LoadPolicy) -> Self {
+    pub fn new(index: Arc<dyn Index>, geometry: Arc<dyn Geometry3>, policy: LoadPolicy) -> Self {
         Self {
             index,
             geometry,
             policy,
-            state: Mutex::new(State {
+            state: Mutex::new(State11 {
                 summaries: LruMap::new(),
                 segments: LruMap::new(),
             }),
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, State> {
+    fn lock(&self) -> MutexGuard<'_, State11> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -429,7 +429,7 @@ impl LoadManager {
         Ok(loaded)
     }
 
-    pub fn summary(&self, node: NodeId) -> Option<Summary> {
+    pub fn summary(&self, node: NodeId) -> Option<Summary2> {
         self.lock().summaries.get(&node).cloned()
     }
 
@@ -455,12 +455,12 @@ impl LoadManager {
         self.lock().segments.touch(&segment);
     }
 
-    pub fn tier(&self, r: Resident) -> Tier {
+    pub fn tier(&self, r: Resident3) -> Tier3 {
         let st = self.lock();
         match r {
-            Resident::Summary(node) if st.summaries.contains(&node) => Tier::Summary,
-            Resident::Segment(segment) if st.segments.contains(&segment) => Tier::Vector,
-            _ => Tier::NotLoaded,
+            Resident3::Summary(node) if st.summaries.contains(&node) => Tier3::Summary,
+            Resident3::Segment(segment) if st.segments.contains(&segment) => Tier3::Vector,
+            _ => Tier3::NotLoaded,
         }
     }
 
@@ -496,7 +496,7 @@ impl LoadManager {
 fn prune_resident(
     plan: LoadPlan,
     resident: &HashSet<u64>,
-    geometry: &dyn Geometry,
+    geometry: &dyn Geometry3,
 ) -> Option<LoadPlan> {
     let keep_entry = |e: &u64| !resident.contains(&geometry.segment_of(*e));
     let entry_bytes = |entries: &[u64]| {

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt;
 
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot5;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::cpu_compute::{
     l2_normalize, scan_slots, CpuComputeError,
 };
@@ -9,10 +9,10 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capabil
     axes, CapabilitySet,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::{
-    DocSource, Query, QueryBatch, RamSource, SegmentId, ShapeError, SourceError, Workspace,
+    DocSource, Query, QueryBatch, RamSource, SegmentId, ShapeError, SourceError3, Workspace,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::topk::{
-    Hit, RangeScorer, TopK, TopKError,
+    Hit3, RangeScorer, TopK, TopKError,
 };
 
 pub const DEFAULT_DOCS: usize = 20_000;
@@ -32,7 +32,7 @@ pub enum BenchError {
     CannotBuildUnique { what: &'static str },
     TooManyQueries { requested: usize, max: usize },
     Shape(ShapeError),
-    Source(SourceError),
+    Source(SourceError3),
     Compute(CpuComputeError),
     TopK(TopKError),
 }
@@ -63,8 +63,8 @@ impl From<ShapeError> for BenchError {
     }
 }
 
-impl From<SourceError> for BenchError {
-    fn from(e: SourceError) -> Self {
+impl From<SourceError3> for BenchError {
+    fn from(e: SourceError3) -> Self {
         BenchError::Source(e)
     }
 }
@@ -82,31 +82,31 @@ impl From<TopKError> for BenchError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BatchError {
+pub enum BatchError4 {
     NotNumeric { value: String },
     Zero,
     TooLarge { value: String, max: usize },
     Ambiguous { count: usize },
 }
 
-impl fmt::Display for BatchError {
+impl fmt::Display for BatchError4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BatchError::NotNumeric { value } => {
+            BatchError4::NotNumeric { value } => {
                 write!(f, "batch size {value:?} is not a decimal number")
             }
-            BatchError::Zero => write!(f, "batch size must not be zero"),
-            BatchError::TooLarge { value, max } => {
+            BatchError4::Zero => write!(f, "batch size must not be zero"),
+            BatchError4::TooLarge { value, max } => {
                 write!(f, "batch size {value} exceeds the maximum of {max}")
             }
-            BatchError::Ambiguous { count } => {
+            BatchError4::Ambiguous { count } => {
                 write!(f, "batch size axis carries {count} values, expected one")
             }
         }
     }
 }
 
-impl std::error::Error for BatchError {}
+impl std::error::Error for BatchError4 {}
 
 #[derive(Debug, Clone)]
 pub struct WorkloadConfig {
@@ -258,12 +258,12 @@ impl Workload {
             .map(|i| self.queries.data(i).unwrap_or(&[]))
             .collect();
         let slots: Vec<Option<&[f32]>> = (0..docs)
-            .map(|i| self.source.slot_vectors(seg, Slot(i as u32)))
+            .map(|i| self.source.slot_vectors(seg, Slot5(i as u32)))
             .collect();
         Ok(scan_slots(&query_data, &slots, 0..docs, self.config.dim)?)
     }
 
-    pub fn reference_top_k(&self, n_queries: usize) -> Result<Vec<Vec<Hit>>, BenchError> {
+    pub fn reference_top_k(&self, n_queries: usize) -> Result<Vec<Vec<Hit3>>, BenchError> {
         let scores = self.reference_scores(n_queries)?;
         let mut scorer = RangeScorer::new(n_queries, self.config.top_k);
         scorer.add_range(
@@ -292,7 +292,7 @@ impl Workload {
     }
 }
 
-pub fn query_count(combo: &CapabilitySet, max_queries: usize) -> Result<usize, BatchError> {
+pub fn query_count(combo: &CapabilitySet, max_queries: usize) -> Result<usize, BatchError4> {
     match combo.values(&axes::batch_size()) {
         None => query_count_from_value(None, max_queries),
         Some(values) => match values.len() {
@@ -301,22 +301,22 @@ pub fn query_count(combo: &CapabilitySet, max_queries: usize) -> Result<usize, B
                 let value = values.iter().next().map(|v| v.as_str());
                 query_count_from_value(value, max_queries)
             }
-            count => Err(BatchError::Ambiguous { count }),
+            count => Err(BatchError4::Ambiguous { count }),
         },
     }
 }
 
-pub fn query_count_from_value(value: Option<&str>, max_queries: usize) -> Result<usize, BatchError> {
+pub fn query_count_from_value(value: Option<&str>, max_queries: usize) -> Result<usize, BatchError4> {
     let Some(text) = value else {
         return Ok(DEFAULT_QUERIES.min(max_queries));
     };
     if text.is_empty() || !text.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(BatchError::NotNumeric { value: text.to_string() });
+        return Err(BatchError4::NotNumeric { value: text.to_string() });
     }
-    let too_large = || BatchError::TooLarge { value: text.to_string(), max: max_queries };
+    let too_large = || BatchError4::TooLarge { value: text.to_string(), max: max_queries };
     let parsed: u64 = text.parse().map_err(|_| too_large())?;
     if parsed == 0 {
-        return Err(BatchError::Zero);
+        return Err(BatchError4::Zero);
     }
     match usize::try_from(parsed) {
         Ok(n) if n <= max_queries => Ok(n),
@@ -468,7 +468,7 @@ pub fn relative_error(reference: &[f32], candidate: &[f32]) -> Result<f64, Lengt
     Ok(dist / nr)
 }
 
-fn top_positions(scores: &[f32], k: usize) -> Vec<Hit> {
+fn top_positions(scores: &[f32], k: usize) -> Vec<Hit3> {
     let mut top = TopK::new(k);
     for (i, s) in scores.iter().enumerate() {
         top.push(i as u64, *s);

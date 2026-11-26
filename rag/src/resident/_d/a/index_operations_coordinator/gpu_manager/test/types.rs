@@ -20,7 +20,7 @@ fn error_messages_match_the_contract() {
 fn types_are_thread_safe() {
     assert_send_sync::<GpuManagerError>();
     assert_send_sync::<LoadedQueue>();
-    assert_send_sync::<LoadedSegment>();
+    assert_send_sync::<LoadedSegment3>();
     assert_send_sync::<EnsureReport>();
 }
 

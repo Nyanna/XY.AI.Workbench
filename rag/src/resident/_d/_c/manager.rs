@@ -8,7 +8,7 @@ pub trait LazyIndex: Send + Sync {
     fn get(&self) -> Result<Arc<dyn Index>, String>;
 }
 
-fn _object_safe(_: &dyn LazyIndex) {}
+fn _object_safe3(_: &dyn LazyIndex) {}
 
 #[cfg(test)]
 #[path = "test/manager.rs"]

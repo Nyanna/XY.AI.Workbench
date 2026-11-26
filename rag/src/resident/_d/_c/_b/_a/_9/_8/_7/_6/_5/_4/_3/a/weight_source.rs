@@ -134,7 +134,7 @@ fn io_err(path: &Path, e: std::io::Error) -> WeightError {
         reason: e.to_string(),
     }
 }
-fn align_up(v: u64) -> Option<u64> {
+fn align_up2(v: u64) -> Option<u64> {
     v.checked_add(WEIGHT_ALIGN - 1).map(|x| x & !(WEIGHT_ALIGN - 1))
 }
 impl WeightFile {
@@ -289,7 +289,7 @@ impl WeightFile {
             if !select(&info.name) {
                 continue;
             }
-            let start = align_up(cursor).ok_or_else(|| exceeded(u64::MAX))?;
+            let start = align_up2(cursor).ok_or_else(|| exceeded(u64::MAX))?;
             let end = start
                 .checked_add(info.data_end - info.data_begin)
                 .ok_or_else(|| exceeded(u64::MAX))?;

@@ -6,7 +6,7 @@ use super::super::_2::a::index_contract::EntryId;
 pub struct Addr(pub u64);
 /// Position of an entry in a layout (0-based, input order).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Slot(pub u32);
+pub struct Slot5(pub u32);
 /// The only per-hit kernel result.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct KernelHit {
@@ -66,15 +66,15 @@ impl FixedLayout {
     pub fn stride(&self) -> u32 {
         self.stride
     }
-    fn slot_of(&self, addr: u64) -> Option<Slot> {
+    fn slot_of(&self, addr: u64) -> Option<Slot5> {
         let off = addr.checked_sub(self.base)?;
         let total = u64::from(self.stride) * u64::from(self.count);
         if off >= total {
             return None;
         }
-        Some(Slot((off / u64::from(self.stride)) as u32))
+        Some(Slot5((off / u64::from(self.stride)) as u32))
     }
-    fn slot_range(&self, slot: Slot) -> Option<Range<u64>> {
+    fn slot_range(&self, slot: Slot5) -> Option<Range<u64>> {
         if slot.0 >= self.count {
             return None;
         }
@@ -145,7 +145,7 @@ impl VariableLayout {
             VariableRepr::Extents { by_slot, .. } => by_slot.len(),
         }
     }
-    fn slot_of(&self, addr: u64) -> Option<Slot> {
+    fn slot_of(&self, addr: u64) -> Option<Slot5> {
         match &self.repr {
             VariableRepr::Offsets(o) => {
                 let n = o.len() - 1;
@@ -153,16 +153,16 @@ impl VariableLayout {
                     return None;
                 }
                 let p = o.partition_point(|&x| x <= addr);
-                Some(Slot((p - 1) as u32))
+                Some(Slot5((p - 1) as u32))
             }
             VariableRepr::Extents { sorted, .. } => {
                 let p = sorted.partition_point(|&(s, _, _)| s <= addr);
                 let &(_, end, slot) = sorted.get(p.checked_sub(1)?)?;
-                (addr < end).then_some(Slot(slot))
+                (addr < end).then_some(Slot5(slot))
             }
         }
     }
-    fn slot_range(&self, slot: Slot) -> Option<Range<u64>> {
+    fn slot_range(&self, slot: Slot5) -> Option<Range<u64>> {
         let i = slot.0 as usize;
         match &self.repr {
             VariableRepr::Offsets(o) => {
@@ -194,14 +194,14 @@ impl AddrLayout {
         self.len() == 0
     }
     /// Address to slot; `None` when the address lies in no slot.
-    pub fn slot_of(&self, addr: Addr) -> Option<Slot> {
+    pub fn slot_of(&self, addr: Addr) -> Option<Slot5> {
         match self {
             AddrLayout::Fixed(f) => f.slot_of(addr.0),
             AddrLayout::Variable(v) => v.slot_of(addr.0),
         }
     }
     /// Address range of a slot (fixed: full stride width; variable: `[start, start+len)`).
-    pub fn slot_range(&self, slot: Slot) -> Option<Range<u64>> {
+    pub fn slot_range(&self, slot: Slot5) -> Option<Range<u64>> {
         match self {
             AddrLayout::Fixed(f) => f.slot_range(slot),
             AddrLayout::Variable(v) => v.slot_range(slot),
@@ -252,7 +252,7 @@ impl SlotMap {
     pub fn layout(&self) -> &AddrLayout {
         &self.layout
     }
-    pub fn entry_of_slot(&self, slot: Slot) -> Option<EntryId> {
+    pub fn entry_of_slot(&self, slot: Slot5) -> Option<EntryId> {
         self.ids.get(slot.0 as usize).copied()
     }
     pub fn entry_of(&self, addr: Addr) -> Option<EntryId> {

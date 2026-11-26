@@ -13,7 +13,7 @@ use super::super::super::_5::_4::_3::_2::a::memory_access::{
 };
 use super::super::super::_5::_4::_3::_2::b::task_model::TaskParams;
 use super::super::super::_5::_4::_3::_2::_1::layout::{DType, Layout};
-static_assertions::assert_impl_all!(Collector : Send, Sync, Clone);
+static_assertions::assert_impl_all!(Collector2 : Send, Sync, Clone);
 static_assertions::assert_impl_all!(ChainKind : Send, Sync, Clone);
 static_assertions::assert_impl_all!(StepOutput : Send, Sync, Clone);
 static_assertions::assert_impl_all!(ChainNode < TestOp, String, String >: Send, Sync);
@@ -167,7 +167,7 @@ fn empty_chain_has_no_first_node_and_no_result() {
     let (chain, _, built, _) = start(inference_kind(), 0);
     assert!(chain.first.is_none());
     assert_eq!(built.load(Ordering::SeqCst), 0);
-    assert_eq!(chain.collector.collect(), Err(ResultError::MissingResult));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::MissingResult));
 }
 #[test]
 fn only_the_first_node_is_built_at_start() {
@@ -269,7 +269,7 @@ fn non_final_steps_leave_the_slot_empty() {
     let next = first.advance().unwrap();
     next[0].set_output(floats(&[2.0])).unwrap();
     let _ = next[0].advance().unwrap();
-    assert_eq!(chain.collector.collect(), Err(ResultError::MissingResult));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::MissingResult));
 }
 #[test]
 fn device_output_is_handed_over_unchanged() {
@@ -317,7 +317,7 @@ fn collect_takes_the_result_once() {
     let (chain, _, _, _) = start(inference_kind(), 1);
     store(&chain, floats(&[0.5]));
     assert!(chain.collector.collect().is_ok());
-    assert_eq!(chain.collector.collect(), Err(ResultError::MissingResult));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::MissingResult));
 }
 #[test]
 fn clones_share_the_same_slot() {
@@ -325,14 +325,14 @@ fn clones_share_the_same_slot() {
     let other = chain.collector.clone();
     store(&chain, floats(&[0.5]));
     assert!(other.collect().is_ok());
-    assert_eq!(chain.collector.collect(), Err(ResultError::MissingResult));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::MissingResult));
 }
 #[test]
 fn failed_conversion_still_consumes_the_result() {
     let (chain, _, _, _) = start(inference_kind(), 1);
     store(&chain, ram(RamData::HitList(Vec::new())));
     assert!(chain.collector.collect().is_err());
-    assert_eq!(chain.collector.collect(), Err(ResultError::MissingResult));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::MissingResult));
 }
 #[test]
 fn concurrent_collect_has_exactly_one_winner() {
@@ -347,7 +347,7 @@ fn concurrent_collect_has_exactly_one_winner() {
                 Ok(_) => {
                     wins.fetch_add(1, Ordering::SeqCst);
                 }
-                Err(e) => assert_eq!(e, ResultError::MissingResult),
+                Err(e) => assert_eq!(e, ResultError3::MissingResult),
             })
         })
         .collect();
@@ -360,7 +360,7 @@ fn concurrent_collect_has_exactly_one_winner() {
 fn device_result_is_not_materialized() {
     let (chain, _, _, _) = start(inference_kind(), 1);
     store(&chain, device_output());
-    assert_eq!(chain.collector.collect(), Err(ResultError::NotMaterialized));
+    assert_eq!(chain.collector.collect(), Err(ResultError3::NotMaterialized));
 }
 #[test]
 fn embeddings_are_split_in_order() {
@@ -377,7 +377,7 @@ fn embedding_split_rejects_uneven_values() {
     let (chain, _, _, _) = start(embedding_kind(&["a", "b"]), 1);
     store(&chain, floats(&[1.0, 2.0, 3.0]));
     assert_eq!(
-        chain.collector.collect(), Err(ResultError::EmbeddingSplit { values : 3, texts :
+        chain.collector.collect(), Err(ResultError3::EmbeddingSplit { values : 3, texts :
         2 })
     );
 }
@@ -386,7 +386,7 @@ fn embedding_split_rejects_zero_texts() {
     let (chain, _, _, _) = start(embedding_kind(&[]), 1);
     store(&chain, floats(&[]));
     assert_eq!(
-        chain.collector.collect(), Err(ResultError::EmbeddingSplit { values : 0, texts :
+        chain.collector.collect(), Err(ResultError3::EmbeddingSplit { values : 0, texts :
         0 })
     );
 }
@@ -404,7 +404,7 @@ fn embedding_rejects_other_shapes() {
     let (chain, _, _, _) = start(embedding_kind(&["a"]), 1);
     store(&chain, ram(RamData::HitList(Vec::new())));
     assert_eq!(
-        chain.collector.collect(), Err(ResultError::KindMismatch { task_kind :
+        chain.collector.collect(), Err(ResultError3::KindMismatch { task_kind :
         "embedding", found : DataShape::HitList })
     );
 }
@@ -414,7 +414,7 @@ fn similarity_hit_list_becomes_hits() {
     store(&chain, ram(RamData::HitList(vec![(EntryId(7), 0.9), (EntryId(3), 0.1)])));
     let expected = TaskResult::Hits(
         vec![
-            Hit { id : EntryId(7), score : 0.9, stale : false }, Hit { id : EntryId(3),
+            Hit2 { id : EntryId(7), score : 0.9, stale : false }, Hit2 { id : EntryId(3),
             score : 0.1, stale : false },
         ],
     );
@@ -423,7 +423,7 @@ fn similarity_hit_list_becomes_hits() {
 #[test]
 fn similarity_scored_hits_become_a_ranked_report() {
     let (chain, _, _, _) = start(similarity_kind(vec![vec![1.0]], 2), 1);
-    let hit = |id, score| Hit {
+    let hit = |id, score| Hit2 {
         id: EntryId(id),
         score,
         stale: false,
@@ -451,7 +451,7 @@ fn similarity_rejects_other_shapes() {
     let (chain, _, _, _) = start(similarity_kind(Vec::new(), 1), 1);
     store(&chain, floats(&[1.0]));
     assert_eq!(
-        chain.collector.collect(), Err(ResultError::KindMismatch { task_kind :
+        chain.collector.collect(), Err(ResultError3::KindMismatch { task_kind :
         "similarity", found : DataShape::Floats })
     );
 }
@@ -469,24 +469,24 @@ fn inference_rejects_other_shapes() {
     let (chain, _, _, _) = start(inference_kind(), 1);
     store(&chain, ram(RamData::TextList(Vec::new())));
     assert_eq!(
-        chain.collector.collect(), Err(ResultError::KindMismatch { task_kind :
+        chain.collector.collect(), Err(ResultError3::KindMismatch { task_kind :
         "inference", found : DataShape::TextList })
     );
 }
 #[test]
 fn errors_display_and_are_configuration_errors() {
     let errors = [
-        ResultError::MissingResult,
-        ResultError::NotMaterialized,
-        ResultError::KindMismatch {
+        ResultError3::MissingResult,
+        ResultError3::NotMaterialized,
+        ResultError3::KindMismatch {
             task_kind: "inference",
             found: DataShape::HitList,
         },
-        ResultError::EmbeddingSplit {
+        ResultError3::EmbeddingSplit {
             values: 5,
             texts: 2,
         },
-        ResultError::Report(ReportError::MissingSearchParams),
+        ResultError3::Report(ReportError::MissingSearchParams),
     ];
     for e in &errors {
         assert!(e.is_configuration_error());

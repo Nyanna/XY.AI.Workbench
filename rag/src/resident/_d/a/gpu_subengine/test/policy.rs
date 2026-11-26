@@ -111,7 +111,7 @@ fn the_kernel_name_comes_from_the_map() {
 #[test]
 fn lane_factory_creates_lanes_with_a_stream_of_the_device() {
     let backend = MockBackend::single();
-    let factory = GpuLaneFactory::new(Arc::clone(&backend) as Arc<dyn GpuBackend>, 0);
+    let factory = GpuLaneFactory::new(Arc::clone(&backend) as Arc<dyn GpuBackend3>, 0);
     for kind in [LaneKind::Query, LaneKind::Insert, LaneKind::CopyH2D] {
         let cfg = LaneConfig::preset(kind, DeviceHandle::Gpu(0));
         let lane = factory.create(&cfg).unwrap();
@@ -130,7 +130,7 @@ fn lane_factory_creates_lanes_with_a_stream_of_the_device() {
 fn lane_factory_reports_stream_errors() {
     let backend = MockBackend::single();
     backend.streams_before_failure.store(0, std::sync::atomic::Ordering::SeqCst);
-    let factory = GpuLaneFactory::new(Arc::clone(&backend) as Arc<dyn GpuBackend>, 0);
+    let factory = GpuLaneFactory::new(Arc::clone(&backend) as Arc<dyn GpuBackend3>, 0);
     let cfg = LaneConfig::preset(LaneKind::Query, DeviceHandle::Gpu(0));
     assert!(factory.create(&cfg).is_err());
 }

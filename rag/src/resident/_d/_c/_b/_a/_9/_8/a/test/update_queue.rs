@@ -6,17 +6,17 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
     SegmentView, SlotAssignment, SlotClass, SlotStates,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    Addr, Slot,
+    Addr, Slot5,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::{
     Generation, RegionHandle,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::address_map::Entry;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::address_map::Entry6;
 static_assertions::assert_impl_all!(UpdateQueue : Send, Sync);
 const SLOT_BYTES: u64 = 512;
-fn segment(id: u64, offset: u64, slots: u32) -> Entry {
+fn segment(id: u64, offset: u64, slots: u32) -> Entry6 {
     let region = RegionHandle::new(
             ArenaKind::IndexSegments,
             offset,
@@ -35,7 +35,7 @@ fn segment(id: u64, offset: u64, slots: u32) -> Entry {
         .unwrap();
     let states = Arc::new(SlotStates::new(&view));
     let assignment = Arc::new(SlotAssignment::fixed(&view, Addr(offset)).unwrap());
-    Entry::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
+    Entry6::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
 }
 fn map_with(segments: &[(u64, u64, u32)]) -> AddressMap {
     let mut map = AddressMap::new(0);
@@ -53,7 +53,7 @@ fn eref(id: u64) -> EntryRef {
 fn sref(segment: u64, slot: u32) -> SlotRef {
     SlotRef {
         segment: SegmentId(segment),
-        slot: Slot(slot),
+        slot: Slot5(slot),
     }
 }
 fn st(raw: u64) -> Stamp {
@@ -98,7 +98,7 @@ fn push_does_not_touch_state() {
     let map = map_with(&[(1, 0, 4)]);
     q.push_bind(eref(1), sref(1, 0), st(5));
     assert!(dir.is_empty());
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(0)), None);
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(0)), None);
 }
 #[test]
 fn bind_binds_and_records_stamp() {
@@ -108,7 +108,7 @@ fn bind_binds_and_records_stamp() {
     q.push_bind(eref(1), sref(1, 2), st(7));
     assert_eq!(q.apply(& dir, & map), 1);
     assert!(q.is_empty());
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(2)), Some(eref(1)));
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(2)), Some(eref(1)));
     let r = dir.get(EntryId(1)).unwrap();
     assert_eq!(r.slot, sref(1, 2));
     assert_eq!(r.stamp, st(7));
@@ -120,14 +120,14 @@ fn bind_does_not_change_valid_bits() {
     let dir = ResidencyDirectory::new();
     let map = map_with(&[(1, 0, 4)]);
     let states = Arc::clone(map.get(SegmentId(1)).unwrap().states());
-    states.set_filled(Slot(1), 3).unwrap();
+    states.set_filled(Slot5(1), 3).unwrap();
     q.push_bind(eref(1), sref(1, 1), st(1));
     q.apply(&dir, &map);
-    assert!(states.is_valid(Slot(1)));
-    assert!(! states.is_valid(Slot(0)));
+    assert!(states.is_valid(Slot5(1)));
+    assert!(! states.is_valid(Slot5(0)));
     q.push_unbind(eref(1), sref(1, 1), st(2));
     q.apply(&dir, &map);
-    assert!(states.is_valid(Slot(1)));
+    assert!(states.is_valid(Slot5(1)));
 }
 #[test]
 fn unbind_removes_directory_and_binding() {
@@ -139,7 +139,7 @@ fn unbind_removes_directory_and_binding() {
     q.push_unbind(eref(1), sref(1, 0), st(2));
     assert_eq!(q.apply(& dir, & map), 1);
     assert_eq!(dir.get(EntryId(1)), None);
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(0)), None);
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(0)), None);
     assert!(q.take_warnings().is_empty());
 }
 #[test]
@@ -148,12 +148,12 @@ fn unbind_keeps_binding_of_other_entry() {
     let dir = ResidencyDirectory::new();
     let map = map_with(&[(1, 0, 4)]);
     let a = assignment_of(&map, 1);
-    a.bind(Slot(0), eref(2)).unwrap();
+    a.bind(Slot5(0), eref(2)).unwrap();
     dir.insert(EntryId(1), sref(1, 0), Stamp(1));
     q.push_unbind(eref(1), sref(1, 0), st(2));
     assert_eq!(q.apply(& dir, & map), 1);
     assert_eq!(dir.get(EntryId(1)), None);
-    assert_eq!(a.lookup(Slot(0)), Some(eref(2)));
+    assert_eq!(a.lookup(Slot5(0)), Some(eref(2)));
     assert!(q.take_warnings().is_empty());
 }
 #[test]
@@ -177,11 +177,11 @@ fn bind_unmapped_segment_changes_nothing() {
     let dir = ResidencyDirectory::new();
     let map = map_with(&[(1, 0, 4)]);
     dir.insert(EntryId(1), sref(1, 0), Stamp(1));
-    assignment_of(&map, 1).bind(Slot(0), eref(1)).unwrap();
+    assignment_of(&map, 1).bind(Slot5(0), eref(1)).unwrap();
     q.push_bind(eref(1), sref(9, 0), st(2));
     assert_eq!(q.apply(& dir, & map), 0);
     assert_eq!(dir.get(EntryId(1)).unwrap().slot, sref(1, 0));
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(0)), Some(eref(1)));
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(0)), Some(eref(1)));
     assert_eq!(
         q.take_warnings(), vec![Warning::UnmappedTarget { entry : eref(1), slot : sref(9,
         0), kind : UpdateKind::Bind, }]
@@ -197,8 +197,8 @@ fn bind_moves_entry_within_segment() {
     q.push_bind(eref(1), sref(1, 3), st(2));
     assert_eq!(q.apply(& dir, & map), 1);
     let a = assignment_of(&map, 1);
-    assert_eq!(a.lookup(Slot(0)), None);
-    assert_eq!(a.lookup(Slot(3)), Some(eref(1)));
+    assert_eq!(a.lookup(Slot5(0)), None);
+    assert_eq!(a.lookup(Slot5(3)), Some(eref(1)));
     assert_eq!(dir.get(EntryId(1)).unwrap().slot, sref(1, 3));
     assert_eq!(dir.get(EntryId(1)).unwrap().stamp, st(2));
 }
@@ -211,8 +211,8 @@ fn bind_moves_entry_across_segments() {
     q.apply(&dir, &map);
     q.push_bind(eref(1), sref(2, 1), st(2));
     assert_eq!(q.apply(& dir, & map), 1);
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(0)), None);
-    assert_eq!(assignment_of(& map, 2).lookup(Slot(1)), Some(eref(1)));
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(0)), None);
+    assert_eq!(assignment_of(& map, 2).lookup(Slot5(1)), Some(eref(1)));
     assert_eq!(dir.get(EntryId(1)).unwrap().slot, sref(2, 1));
 }
 #[test]
@@ -224,7 +224,7 @@ fn bind_same_slot_rebinds() {
     q.apply(&dir, &map);
     q.push_bind(eref(1), sref(1, 1), st(9));
     assert_eq!(q.apply(& dir, & map), 1);
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(1)), Some(eref(1)));
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(1)), Some(eref(1)));
     assert_eq!(dir.get(EntryId(1)).unwrap().stamp, st(9));
     assert!(q.take_warnings().is_empty());
 }
@@ -236,11 +236,11 @@ fn bind_occupied_is_rejected_and_old_binding_stays_released() {
     let a = assignment_of(&map, 1);
     q.push_bind(eref(1), sref(1, 0), st(1));
     q.apply(&dir, &map);
-    a.bind(Slot(2), eref(2)).unwrap();
+    a.bind(Slot5(2), eref(2)).unwrap();
     q.push_bind(eref(1), sref(1, 2), st(2));
     assert_eq!(q.apply(& dir, & map), 0);
-    assert_eq!(a.lookup(Slot(0)), None);
-    assert_eq!(a.lookup(Slot(2)), Some(eref(2)));
+    assert_eq!(a.lookup(Slot5(0)), None);
+    assert_eq!(a.lookup(Slot5(2)), Some(eref(2)));
     let r = dir.get(EntryId(1)).unwrap();
     assert_eq!(r.slot, sref(1, 0));
     assert_eq!(r.stamp, st(1));
@@ -274,7 +274,7 @@ fn unbinds_run_before_binds() {
     q.push_unbind(eref(5), sref(1, 0), st(3));
     assert_eq!(q.depth(), 2);
     assert_eq!(q.apply(& dir, & map), 2);
-    assert_eq!(a.lookup(Slot(0)), Some(eref(1)));
+    assert_eq!(a.lookup(Slot5(0)), Some(eref(1)));
     assert_eq!(dir.get(EntryId(5)), None);
     assert_eq!(dir.get(EntryId(1)).unwrap().slot, sref(1, 0));
     assert!(q.take_warnings().is_empty());
@@ -287,7 +287,7 @@ fn binds_apply_in_ascending_entry_order() {
     q.push_bind(eref(9), sref(1, 0), st(1));
     q.push_bind(eref(3), sref(1, 0), st(2));
     assert_eq!(q.apply(& dir, & map), 1);
-    assert_eq!(assignment_of(& map, 1).lookup(Slot(0)), Some(eref(3)));
+    assert_eq!(assignment_of(& map, 1).lookup(Slot5(0)), Some(eref(3)));
     assert_eq!(
         q.take_warnings(), vec![Warning::BindRejected { entry : eref(9), slot : sref(1,
         0), }]

@@ -58,7 +58,7 @@ pub fn dtype_for(precision: Precision) -> Result<DType, PrecisionError> {
         Err(PrecisionError(name))
     }
 }
-pub fn plan(
+pub fn plan3(
     scoring: Scoring,
     precision: Precision,
 ) -> Result<ScoringPlan, PrecisionError> {

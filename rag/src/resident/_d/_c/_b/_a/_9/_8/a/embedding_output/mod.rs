@@ -17,7 +17,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_a
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::Normalization;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::{
     device_lane_event::{Event, EventError, Lane, LaneError},
-    float_codec::{f32_to_bf16_bits, f32_to_f16_bits},
+    float_codec::{f32_to_bf16_bits2, f32_to_f16_bits2},
     layout::DType,
 };
 pub const WRITE_KERNEL_NAME: &str = "embedding_write";
@@ -160,12 +160,12 @@ pub fn encode_f32_slice(vectors: &[f32], dtype: DType) -> Result<Vec<u8>, Output
         }
         DType::F16 => {
             for v in vectors {
-                out.extend_from_slice(&f32_to_f16_bits(*v).to_le_bytes());
+                out.extend_from_slice(&f32_to_f16_bits2(*v).to_le_bytes());
             }
         }
         _ => {
             for v in vectors {
-                out.extend_from_slice(&f32_to_bf16_bits(*v).to_le_bytes());
+                out.extend_from_slice(&f32_to_bf16_bits2(*v).to_le_bytes());
             }
         }
     }

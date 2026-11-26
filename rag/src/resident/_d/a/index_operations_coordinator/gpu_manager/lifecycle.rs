@@ -2,14 +2,14 @@
 use std::sync::Arc;
 use std::time::Instant;
 use super::deps::*;
-use super::state::{Inner, Record};
+use super::state::{Inner8, Record};
 use super::types::*;
 use super::GpuManager;
 impl GpuManager {
     /// Makes a filled segment visible: table, mapping, manifest, eviction tracking, binds.
     pub fn publish_segment(
         &self,
-        seg: LoadedSegment,
+        seg: LoadedSegment3,
     ) -> Result<SegmentId, GpuManagerError> {
         let inner = &*self.inner;
         let _structure = inner.services.structure_lock().lock();
@@ -22,7 +22,7 @@ impl GpuManager {
                 return Err(e);
             }
         };
-        let entry = match Entry::new(
+        let entry = match Entry6::new(
             id,
             seg.view,
             seg.device_base,
@@ -79,7 +79,7 @@ impl GpuManager {
             inner.abandon(&seg, false);
             return Err(e);
         }
-        let LoadedSegment {
+        let LoadedSegment3 {
             segment,
             view,
             device_base,
@@ -111,7 +111,7 @@ impl GpuManager {
             .track(
                 EvictKey(id.0),
                 TrackSpec {
-                    tier: Tier::Vram,
+                    tier: Tier2::Vram,
                     segment: id,
                     region,
                     size: region.len(),
@@ -160,7 +160,7 @@ impl GpuManager {
                 .iter()
                 .find(|r| r.id == id)
                 .ok_or(GpuManagerError::UnknownSegment(id.0))?;
-            let entry = Entry::new(
+            let entry = Entry6::new(
                     id,
                     record.view,
                     record.device_base,
@@ -220,13 +220,13 @@ impl GpuManager {
         let eviction = inner.services.eviction();
         let swap = inner.services.table_swap();
         eviction.reclaim(swap.min_reader_epoch());
-        let outcome = eviction.make_room(Tier::Vram, need)?;
+        let outcome = eviction.make_room(Tier2::Vram, need)?;
         inner.after_eviction(&outcome);
         eviction.reclaim(swap.min_reader_epoch());
         Ok(outcome)
     }
     /// Call once per gap, after the Communication-Slot completion.
-    pub fn run_gap(&self) -> GapReport {
+    pub fn run_gap(&self) -> GapReport3 {
         let inner = &*self.inner;
         let retired = std::mem::take(&mut lock(&inner.state).retired_slots);
         let mut keep = Vec::new();
@@ -259,15 +259,15 @@ impl GpuManager {
             }
         }
         lock(&inner.state).retired_slots.extend(keep);
-        GapReport {
+        GapReport3 {
             slots_hidden,
             reclaimed: inner.reclaim_deferred(),
         }
     }
 }
-impl Inner {
+impl Inner8 {
     /// The permanent first slot of a segment; segments of unknown origin get a new range.
-    fn first_slot_of(&self, seg: &LoadedSegment) -> Result<u32, GpuManagerError> {
+    fn first_slot_of(&self, seg: &LoadedSegment3) -> Result<u32, GpuManagerError> {
         let mut state = lock(&self.state);
         if let Some(first) = state.first_slots.get(&seg.segment.region) {
             return Ok(*first);
@@ -282,7 +282,7 @@ impl Inner {
         Ok(first as u32)
     }
     /// Drops a segment that was not published; `release` hands it back to the arena.
-    fn abandon(&self, seg: &LoadedSegment, release: bool) {
+    fn abandon(&self, seg: &LoadedSegment3, release: bool) {
         {
             let mut state = lock(&self.state);
             for binding in &seg.bindings {
@@ -311,7 +311,7 @@ impl Inner {
         }
     }
     /// Puts a segment back into table and, if it was removed there, into the map.
-    fn restore(&self, entry: &Entry, region: RegionHandle, map_removed: bool) {
+    fn restore(&self, entry: &Entry6, region: RegionHandle, map_removed: bool) {
         if let Err(e) = self.publish_table(|table| table.add(region)) {
             log::error!("gpu_manager: table restore failed: {e}");
         }

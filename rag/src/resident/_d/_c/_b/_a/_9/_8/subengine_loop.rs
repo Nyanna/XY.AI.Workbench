@@ -7,13 +7,13 @@ use std::time::Instant;
 use log::debug;
 
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
-    InitRequest, Lease, LoadTicket, ResourceKey, ResourceRegistry,
+    InitRequest, Lease2, LoadTicket, ResourceKey, ResourceRegistry,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::{
     HasResourceRequirements, ResourceKind, ResourceRequirements,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::{
-    Claim, Queue,
+    Claim2, Queue,
 };
 
 /// Resource handle that executes nodes.
@@ -26,7 +26,7 @@ pub trait ResourceExec: Sized + Send + Sync + 'static {
 
     /// Takes over the claim and the lease and holds both until the work is finished.
     /// CPU resources run synchronously on the calling thread; GPU resources only launch.
-    fn execute(&self, entry: Self::Entry, lease: Lease<Self>);
+    fn execute(&self, entry: Self::Entry, lease: Lease2<Self>);
 }
 
 /// Pull filter on the node metadata. `false` skips the node.
@@ -81,7 +81,7 @@ pub struct SubengineLoop<M, P, H>
 where
     M: HasResourceRequirements + Send + Sync + 'static,
     P: Send + 'static,
-    H: ResourceExec<Entry = Claim<M, P, (), ()>>,
+    H: ResourceExec<Entry = Claim2<M, P, (), ()>>,
 {
     own: Arc<Queue<M, P, (), ()>>,
     shared: Option<Arc<Queue<M, P, (), ()>>>,
@@ -96,7 +96,7 @@ impl<M, P, H> SubengineLoop<M, P, H>
 where
     M: HasResourceRequirements + Send + Sync + 'static,
     P: Send + 'static,
-    H: ResourceExec<Entry = Claim<M, P, (), ()>>,
+    H: ResourceExec<Entry = Claim2<M, P, (), ()>>,
 {
     pub fn new(
         own: Arc<Queue<M, P, (), ()>>,

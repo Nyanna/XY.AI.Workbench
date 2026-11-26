@@ -30,8 +30,8 @@ fn hit() -> IterationOutcome {
     }
 }
 
-fn cand(item: u32, first_kind: Option<ResourceKind>) -> Candidate<u32> {
-    Candidate { item, first_kind }
+fn cand(item: u32, first_kind: Option<ResourceKind>) -> Candidate3<u32> {
+    Candidate3 { item, first_kind }
 }
 
 fn load(kind: ResourceKind, capacity: usize) -> LoadReport {

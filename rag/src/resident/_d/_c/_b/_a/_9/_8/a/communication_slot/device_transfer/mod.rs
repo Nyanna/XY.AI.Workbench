@@ -3,10 +3,10 @@ use std::fmt;
 use std::sync::Arc;
 use log::{debug, warn};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::gpu_backend::{
-    GpuBackend, HostSource, PinnedBuffer,
+    GpuBackend2, HostSource, PinnedBuffer,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::memory_backend::{
-    BackendError, MemoryBackend,
+    BackendError2, MemoryBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::RegionHandle;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
@@ -23,7 +23,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::page_ad
 use self::staging_ring::{
     SlotId, StagingError, StagingRing, TransferDirection, TransferError,
 };
-const MAX_ALIGN: u64 = 256;
+const MAX_ALIGN3: u64 = 256;
 const DEFAULT_ALIGN: u64 = 16;
 /// Bytes of an index range in host memory.
 #[derive(Clone, Copy, Debug)]
@@ -65,7 +65,7 @@ pub struct Binding {
 }
 /// A loaded segment: region, slot assignment and bindings.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LoadedSegment {
+pub struct LoadedSegment2 {
     /// Arena `IndexSegments` (direct copy, gather) or `MappedHost` (mapping).
     pub region: RegionHandle,
     /// Ascending; slot `i` holds `entries[i]`.
@@ -85,10 +85,10 @@ impl fmt::Display for SinkError {
 }
 impl std::error::Error for SinkError {}
 /// Replaceable receiver of loaded segments. Called from the blocking pool.
-pub trait SegmentSink: Send + Sync {
+pub trait SegmentSink2: Send + Sync {
     /// Takes ownership of segment and region. On `Err` the region stays with the module, which
     /// frees it.
-    fn accept(&self, segment: LoadedSegment) -> Result<(), SinkError>;
+    fn accept(&self, segment: LoadedSegment2) -> Result<(), SinkError>;
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TransferConfig {
@@ -118,7 +118,7 @@ pub enum DeviceTransferError {
     GatherNoProgress,
     ArenaExhausted,
     InvalidConfig,
-    Backend(BackendError),
+    Backend(BackendError2),
     Staging(StagingError),
     Sink(SinkError),
 }
@@ -149,22 +149,22 @@ impl std::error::Error for DeviceTransferError {
     }
 }
 fn check_config(config: &TransferConfig) -> Result<(), DeviceTransferError> {
-    if (1..=MAX_ALIGN).contains(&config.align) && config.align.is_power_of_two() {
+    if (1..=MAX_ALIGN3).contains(&config.align) && config.align.is_power_of_two() {
         Ok(())
     } else {
         Err(DeviceTransferError::InvalidConfig)
     }
 }
-fn align_up(value: u64, align: u64) -> Option<u64> {
+fn align_up4(value: u64, align: u64) -> Option<u64> {
     let mask = align - 1;
     value.checked_add(mask).map(|v| v & !mask)
 }
 /// Start offset for an entry of `len` bytes behind `cur`, if it fits into `limit` bytes.
 fn place(cur: u64, len: u64, align: u64, limit: u64) -> Option<u64> {
-    let off = align_up(cur, align)?;
+    let off = align_up4(cur, align)?;
     (off.checked_add(len)? <= limit).then_some(off)
 }
-fn normalize(entries: &[EntryId]) -> Vec<EntryId> {
+fn normalize3(entries: &[EntryId]) -> Vec<EntryId> {
     let mut sorted = entries.to_vec();
     sorted.sort();
     sorted.dedup();
@@ -226,7 +226,7 @@ fn build_segment(
     stamps: &[Option<Stamp>],
     offsets: &[u64],
     end: u64,
-) -> LoadedSegment {
+) -> LoadedSegment2 {
     let base = region.offset();
     let mut bounds: Vec<u64> = offsets.iter().map(|off| base + off).collect();
     bounds.push(base + end);
@@ -242,7 +242,7 @@ fn build_segment(
                 })
         })
         .collect();
-    LoadedSegment {
+    LoadedSegment2 {
         region,
         entries,
         bounds,
@@ -344,18 +344,18 @@ impl Drop for SlotLease<'_> {
 /// Moves index entries from the host index arena into VRAM segments and reports them to a sink.
 pub struct DeviceTransfer {
     source: Arc<dyn IndexArenaSource>,
-    backend: Arc<GpuBackend>,
+    backend: Arc<GpuBackend2>,
     ring: Arc<StagingRing>,
-    sink: Arc<dyn SegmentSink>,
+    sink: Arc<dyn SegmentSink2>,
     config: TransferConfig,
 }
 static_assertions::assert_impl_all!(DeviceTransfer : Send, Sync);
 impl DeviceTransfer {
     pub fn new(
         source: Arc<dyn IndexArenaSource>,
-        backend: Arc<GpuBackend>,
+        backend: Arc<GpuBackend2>,
         ring: Arc<StagingRing>,
-        sink: Arc<dyn SegmentSink>,
+        sink: Arc<dyn SegmentSink2>,
         config: TransferConfig,
     ) -> Result<DeviceTransfer, DeviceTransferError> {
         check_config(&config)?;
@@ -394,7 +394,7 @@ impl DeviceTransfer {
         &self,
         entries: &[EntryId],
     ) -> Result<TransferReport, DeviceTransferError> {
-        let entries = normalize(entries);
+        let entries = normalize3(entries);
         if entries.is_empty() {
             return Ok(TransferReport::default());
         }
@@ -408,7 +408,7 @@ impl DeviceTransfer {
         &self,
         entries: &[EntryId],
     ) -> Result<TransferReport, DeviceTransferError> {
-        let entries = normalize(entries);
+        let entries = normalize3(entries);
         if entries.is_empty() {
             return Ok(TransferReport::default());
         }
@@ -449,7 +449,7 @@ impl DeviceTransfer {
             warn!("region could not be freed deferred: {e}");
         }
     }
-    fn deliver(&self, segment: LoadedSegment) -> Result<(), DeviceTransferError> {
+    fn deliver(&self, segment: LoadedSegment2) -> Result<(), DeviceTransferError> {
         let region = segment.region;
         self.sink
             .accept(segment)
@@ -645,7 +645,7 @@ impl DeviceTransfer {
                 continue;
             }
             let vector = index.read(entry).vector;
-            let Some(off) = align_up(cur, align) else {
+            let Some(off) = align_up4(cur, align) else {
                 warn!("mapped layout overflows, using gather path");
                 return Ok(None);
             };

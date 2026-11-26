@@ -22,7 +22,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capabil
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::scopes_and_entry_sets::Scope;
-const EXPECTED_TASK_KINDS: &str = "Embedding/Similarity";
+const EXPECTED_TASK_KINDS2: &str = "Embedding/Similarity";
 const CROSS_ENCODER_AXIS: &str = "cross_encoder";
 #[non_exhaustive]
 #[derive(Clone)]
@@ -92,29 +92,29 @@ impl fmt::Display for ConfigError {
 }
 impl std::error::Error for ConfigError {}
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ExpandError {
+pub enum ExpandError2 {
     ForeignTaskKind { expected: String, got: String },
     UnknownModel { model: String },
     Config(ConfigError),
     ScoringUnavailable { scorer: String },
 }
-impl fmt::Display for ExpandError {
+impl fmt::Display for ExpandError2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExpandError::ForeignTaskKind { expected, got } => {
+            ExpandError2::ForeignTaskKind { expected, got } => {
                 write!(f, "fremde Task-Art: erwartet {expected}, erhalten {got}")
             }
-            ExpandError::UnknownModel { model } => {
+            ExpandError2::UnknownModel { model } => {
                 write!(f, "unbekanntes Modell: {model}")
             }
-            ExpandError::Config(e) => write!(f, "Konfigurationsfehler: {e}"),
-            ExpandError::ScoringUnavailable { scorer } => {
+            ExpandError2::Config(e) => write!(f, "Konfigurationsfehler: {e}"),
+            ExpandError2::ScoringUnavailable { scorer } => {
                 write!(f, "Scoring-Verfahren nicht verfügbar: {scorer}")
             }
         }
     }
 }
-impl std::error::Error for ExpandError {}
+impl std::error::Error for ExpandError2 {}
 const _: () = {
     const fn assert_shareable<T: Send + Sync + 'static>() {}
     assert_shareable::<TaskSpec>();
@@ -126,22 +126,22 @@ const _: () = {
     assert_shareable::<PlannedOperation>();
     assert_shareable::<OperationConfig>();
     assert_shareable::<ConfigError>();
-    assert_shareable::<ExpandError>();
+    assert_shareable::<ExpandError2>();
 };
 pub fn expand(
     task: &TaskSpec,
     models: &ModelDescriptors,
     capabilities: &CapabilitySet,
     idle: Option<&IdleNotification>,
-) -> Result<Vec<PlannedOperation>, ExpandError> {
+) -> Result<Vec<PlannedOperation>, ExpandError2> {
     let (label, chain) = match task {
         TaskSpec::Embedding { task, target_index } => {
             ("embedding", expand_embedding(task, target_index.as_ref(), models, idle)?)
         }
         TaskSpec::Similarity(spec) => expand_similarity(spec, models, capabilities)?,
         TaskSpec::Other { kind } => {
-            return Err(ExpandError::ForeignTaskKind {
-                expected: EXPECTED_TASK_KINDS.to_string(),
+            return Err(ExpandError2::ForeignTaskKind {
+                expected: EXPECTED_TASK_KINDS2.to_string(),
                 got: kind.clone(),
             });
         }
@@ -152,10 +152,10 @@ pub fn expand(
 fn lookup_model<'a>(
     models: &'a ModelDescriptors,
     model: &str,
-) -> Result<&'a ModelDescriptor, ExpandError> {
+) -> Result<&'a ModelDescriptor, ExpandError2> {
     models
         .get(model)
-        .ok_or_else(|| ExpandError::UnknownModel {
+        .ok_or_else(|| ExpandError2::UnknownModel {
             model: model.to_string(),
         })
 }
@@ -184,7 +184,7 @@ fn requirements(
         None => resource,
     }
 }
-fn plan(
+fn plan2(
     kind: OperationKind,
     params: OperationParams,
     config: OperationConfig,
@@ -196,7 +196,7 @@ fn expand_embedding(
     target_index: Option<&IndexId>,
     models: &ModelDescriptors,
     idle: Option<&IdleNotification>,
-) -> Result<Vec<PlannedOperation>, ExpandError> {
+) -> Result<Vec<PlannedOperation>, ExpandError2> {
     let descriptor = lookup_model(models, task.model.as_str())?;
     let model = &task.model;
     let mode = task.mode;
@@ -216,7 +216,7 @@ fn expand_embedding(
     let mut chain = Vec::with_capacity(5);
     chain
         .push(
-            plan(
+            plan2(
                 OperationKind::Tokenization,
                 params(ResourceKind::Tokenizer, ExecutionEnvironment::CpuOnly, None),
                 OperationConfig {
@@ -228,7 +228,7 @@ fn expand_embedding(
         );
     chain
         .push(
-            plan(
+            plan2(
                 OperationKind::Embedding,
                 params(ResourceKind::Encoder, encoder_env, None)
                     .with_dimension(descriptor.dimension),
@@ -241,7 +241,7 @@ fn expand_embedding(
     if descriptor.pooling != Pooling::PerToken {
         chain
             .push(
-                plan(
+                plan2(
                     OperationKind::Pooling,
                     params(ResourceKind::Encoder, encoder_env, None),
                     OperationConfig {
@@ -254,7 +254,7 @@ fn expand_embedding(
     if descriptor.normalization == Normalization::L2 {
         chain
             .push(
-                plan(
+                plan2(
                     OperationKind::L2Normalization,
                     params(ResourceKind::Encoder, encoder_env, None),
                     OperationConfig::default(),
@@ -264,7 +264,7 @@ fn expand_embedding(
     if let Some(index) = target_index {
         chain
             .push(
-                plan(
+                plan2(
                     OperationKind::IndexWrite,
                     params(ResourceKind::Index, ExecutionEnvironment::Any, Some(index)),
                     OperationConfig::default(),
@@ -277,14 +277,14 @@ fn expand_similarity(
     spec: &SimilaritySpec,
     models: &ModelDescriptors,
     capabilities: &CapabilitySet,
-) -> Result<(&'static str, Vec<PlannedOperation>), ExpandError> {
+) -> Result<(&'static str, Vec<PlannedOperation>), ExpandError2> {
     let descriptor = lookup_model(models, spec.model.as_str())?;
     if spec.params.top_k == 0 {
-        return Err(ExpandError::Config(ConfigError::ZeroTopK));
+        return Err(ExpandError2::Config(ConfigError::ZeroTopK));
     }
     if let ScorerChoice::CrossEncoder(name) = &spec.scorer {
         if !capabilities.contains(&Name::new(CROSS_ENCODER_AXIS), &Name::new(name)) {
-            return Err(ExpandError::ScoringUnavailable {
+            return Err(ExpandError2::ScoringUnavailable {
                 scorer: name.clone(),
             });
         }
@@ -301,28 +301,28 @@ fn expand_similarity(
     match &spec.scorer {
         ScorerChoice::Vector(scoring) => {
             let chain = vec![
-                plan(OperationKind::Similarity, params(ResourceKind::Scorer,
-                ExecutionEnvironment::Any, Some(& index)).with_dimension(descriptor
+                plan2(OperationKind::Similarity, params(ResourceKind::Scorer,
+                                                        ExecutionEnvironment::Any, Some(& index)).with_dimension(descriptor
                 .dimension), OperationConfig { scorer : Some(format!("{scoring:?}")),
                 scope : Some(scope), dtype : Some(descriptor.storage_dtype),
-                ..OperationConfig::default() },), plan(OperationKind::TopK,
-                params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
+                ..OperationConfig::default() },), plan2(OperationKind::TopK,
+                                                        params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
                 .with_top_k(top_k), OperationConfig::default(),),
             ];
             Ok(("similarity", chain))
         }
         ScorerChoice::CrossEncoder(name) => {
             let chain = vec![
-                plan(OperationKind::Tokenization, params(ResourceKind::Tokenizer,
-                ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
+                plan2(OperationKind::Tokenization, params(ResourceKind::Tokenizer,
+                                                          ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
                 max_seq_len : Some(descriptor.max_seq_len), scope : Some(scope.clone()),
-                ..OperationConfig::default() },), plan(OperationKind::Inference,
-                params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
-                OperationConfig { scorer : Some(name.clone()), dtype : Some(descriptor
+                ..OperationConfig::default() },), plan2(OperationKind::Inference,
+                                                        params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
+                                                        OperationConfig { scorer : Some(name.clone()), dtype : Some(descriptor
                 .storage_dtype), ..OperationConfig::default() },),
-                plan(OperationKind::Similarity, params(ResourceKind::CrossEncoder,
-                ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
-                OperationConfig { scorer : Some(name.clone()), scope : Some(scope),
+                plan2(OperationKind::Similarity, params(ResourceKind::CrossEncoder,
+                                                        ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
+                      OperationConfig { scorer : Some(name.clone()), scope : Some(scope),
                 ..OperationConfig::default() },),
             ];
             Ok(("similarity/cross-encoder", chain))

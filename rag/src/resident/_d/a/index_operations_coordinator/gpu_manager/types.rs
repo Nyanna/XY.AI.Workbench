@@ -76,12 +76,12 @@ impl std::error::Error for GpuManagerError {}
 #[derive(Clone, Copy, Debug)]
 pub struct LoadedBinding {
     pub entry: EntryRef,
-    pub slot: Slot,
+    pub slot: Slot5,
     pub stamp: Stamp,
 }
 
 /// A filled segment that is not yet visible to readers.
-pub struct LoadedSegment {
+pub struct LoadedSegment3 {
     pub segment: Segment,
     pub view: SegmentView,
     pub device_base: Addr,
@@ -95,15 +95,15 @@ pub struct LoadedSegment {
 /// FIFO queue of reported segments. Clones share the queue.
 #[derive(Clone, Default)]
 pub struct LoadedQueue {
-    queue: Arc<Mutex<VecDeque<LoadedSegment>>>,
+    queue: Arc<Mutex<VecDeque<LoadedSegment3>>>,
 }
 
 impl LoadedQueue {
-    pub fn report(&self, seg: LoadedSegment) {
+    pub fn report(&self, seg: LoadedSegment3) {
         lock(&self.queue).push_back(seg);
     }
 
-    pub fn drain(&self) -> Vec<LoadedSegment> {
+    pub fn drain(&self) -> Vec<LoadedSegment3> {
         lock(&self.queue).drain(..).collect()
     }
 
@@ -140,7 +140,7 @@ pub struct ReconcileOutcome {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct GapReport {
+pub struct GapReport3 {
     pub slots_hidden: usize,
     pub reclaimed: usize,
 }

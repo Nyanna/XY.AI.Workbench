@@ -143,18 +143,18 @@ pub trait Measure: Send + Sync {
 }
 
 /// Admits one measurement call at a time without holding a mutex while the call runs.
-struct Gate {
+struct Gate3 {
     busy: Mutex<bool>,
     freed: Condvar,
 }
 
 struct GateGuard<'a> {
-    gate: &'a Gate,
+    gate: &'a Gate3,
 }
 
-impl Gate {
+impl Gate3 {
     fn new() -> Self {
-        Gate {
+        Gate3 {
             busy: Mutex::new(false),
             freed: Condvar::new(),
         }
@@ -211,7 +211,7 @@ fn preflight<T>(
     Ok((n, checked))
 }
 
-fn incompatible(text: String) -> DeviationOutcome {
+fn incompatible6(text: String) -> DeviationOutcome {
     let text = if text.is_empty() {
         "combination cannot be processed".to_string()
     } else {
@@ -242,7 +242,7 @@ fn outcome_of(assessment: Assessment) -> DeviationOutcome {
 }
 
 /// Judges a candidate score matrix against the cached reference.
-fn judge(
+fn judge3(
     workload: &Workload,
     references: &ReferenceCache,
     cfg: &DeviationConfig,

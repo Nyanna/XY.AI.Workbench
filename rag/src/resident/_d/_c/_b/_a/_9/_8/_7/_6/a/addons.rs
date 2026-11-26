@@ -52,7 +52,7 @@ pub struct FollowUp<D> {
     pub params: TaskParams,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stage {
+pub enum Stage3 {
     Embedding,
     Similarity,
     Rerank,
@@ -61,11 +61,11 @@ pub enum Stage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AddonError {
     Enqueue(EnqueueError),
-    Cancelled { stage: Stage },
+    Cancelled { stage: Stage3 },
     /// Task completed with `Err(Failed(e))`; `message` is `format!("{:?}", e)`.
-    TaskFailed { stage: Stage, message: String },
+    TaskFailed { stage: Stage3, message: String },
     /// Result did not have the expected kind.
-    UnexpectedOutput { stage: Stage },
+    UnexpectedOutput { stage: Stage3 },
     /// Embedding returned no vector.
     NoQueryVectors,
 }
@@ -181,9 +181,9 @@ pub struct TextQueryOutcome<D, T, E> {
     /// Report of the rerank task if one ran, otherwise of the similarity task.
     pub report: SimilarityReport,
 }
-async fn settle<'a, D, T, E: fmt::Debug>(
+async fn settle2<'a, D, T, E: fmt::Debug>(
     task: &'a Task<D, T, E>,
-    stage: Stage,
+    stage: Stage3,
 ) -> Result<&'a T, AddonError> {
     match task.wait().await {
         Ok(output) => Ok(output),
@@ -198,13 +198,13 @@ async fn settle<'a, D, T, E: fmt::Debug>(
 }
 async fn settle_report<D, T, E>(
     task: &Task<D, T, E>,
-    stage: Stage,
+    stage: Stage3,
 ) -> Result<SimilarityReport, AddonError>
 where
     T: AddonOutput,
     E: fmt::Debug,
 {
-    let output = settle(task, stage).await?;
+    let output = settle2(task, stage).await?;
     output
         .similarity_report()
         .cloned()
@@ -237,11 +237,11 @@ where
         .with_extensions(embed_extensions);
     let embedding = q.enqueue(D::from(embed_job), embed_task_params)?;
     let vectors: Vec<Vec<f32>> = {
-        let output = settle(&embedding, Stage::Embedding).await?;
+        let output = settle2(&embedding, Stage3::Embedding).await?;
         let vectors = output
             .embeddings()
             .ok_or(AddonError::UnexpectedOutput {
-                stage: Stage::Embedding,
+                stage: Stage3::Embedding,
             })?;
         if vectors.is_empty() {
             return Err(AddonError::NoQueryVectors);
@@ -258,13 +258,13 @@ where
         params: search,
     };
     let similarity = q.enqueue(D::from(search_job), search_task_params)?;
-    let mut report = settle_report(&similarity, Stage::Similarity).await?;
+    let mut report = settle_report(&similarity, Stage3::Similarity).await?;
     let mut rerank_task = None;
     if let (Some(policy), Some(queries)) = (rerank.as_ref(), rerank_queries) {
         if let Some(scoring) = (policy.as_ref())(&report) {
             let job = rerank_job(queries, &report, scoring);
             let task = q.enqueue(D::from(job), rerank_task_params)?;
-            report = settle_report(&task, Stage::Rerank).await?;
+            report = settle_report(&task, Stage3::Rerank).await?;
             rerank_task = Some(task);
         }
     }
@@ -292,7 +292,7 @@ const _: fn() = || {
     fn assert_traits<T: Send + Sync + 'static>() {}
     assert_traits::<EnqueueError>();
     assert_traits::<SimilarityJob>();
-    assert_traits::<Stage>();
+    assert_traits::<Stage3>();
     assert_traits::<AddonError>();
     assert_traits::<TextQuery>();
 };

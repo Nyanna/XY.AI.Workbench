@@ -3,11 +3,11 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-type Entry = Arc<dyn Any + Send + Sync>;
+type Entry2 = Arc<dyn Any + Send + Sync>;
 /// Map holding at most one value per type; clones share the stored values.
 #[derive(Clone, Default)]
 pub struct Extensions {
-    map: HashMap<TypeId, Entry>,
+    map: HashMap<TypeId, Entry2>,
 }
 impl Extensions {
     pub fn new() -> Self {

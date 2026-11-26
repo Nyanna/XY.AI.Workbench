@@ -13,7 +13,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use super::bench_workload::{DeviationConfig, Workload};
 use super::{
-    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate,
+    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate3,
     Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe,
     GPU_FLUSH_BYTES, GPU_WARMUP_NS, MAX_REPS, MIN_REPS, MIN_SAMPLE_NS,
 };
@@ -84,7 +84,7 @@ impl Plan {
         }
     }
 }
-struct GpuState {
+struct GpuState3 {
     lane: Lane,
     plans: HashMap<(String, usize), Plan>,
     warmed: bool,
@@ -102,8 +102,8 @@ pub struct GpuMeasurer<const DIM: usize> {
     cfg: MeasureConfig,
     hooks: Hooks,
     docs: u32,
-    gate: Gate,
-    state: Mutex<GpuState>,
+    gate: Gate3,
+    state: Mutex<GpuState3>,
     references: ReferenceCache,
 }
 fn dtype_of(value: &Value) -> Option<DType> {
@@ -195,8 +195,8 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
             cfg,
             hooks,
             docs,
-            gate: Gate::new(),
-            state: Mutex::new(GpuState {
+            gate: Gate3::new(),
+            state: Mutex::new(GpuState3 {
                 lane,
                 plans: HashMap::new(),
                 warmed: false,
@@ -209,7 +209,7 @@ impl<const DIM: usize> GpuMeasurer<DIM> {
     /// complete when this returns. Returns the event time of the launch if `timed`.
     fn launch(
         &self,
-        st: &mut GpuState,
+        st: &mut GpuState3,
         dtype: DType,
         params: &KernelParams,
         timed: bool,
@@ -330,14 +330,14 @@ impl<const DIM: usize> Measure for GpuMeasurer<DIM> {
         let max_queries = self.workload.config().max_queries;
         let (n, dtype) = match preflight(combo, max_queries, gpu_dtype) {
             Ok(checked) => checked,
-            Err(text) => return Ok(incompatible(text)),
+            Err(text) => return Ok(incompatible6(text)),
         };
         let dev_cfg = self.cfg.deviation_config()?;
         let scores = self
             .warm_up(dtype, n, false)
             .and_then(|_| self.execute(dtype, n))
             .map_err(|e| e.cause_text());
-        judge(
+        judge3(
             &self.workload,
             &self.references,
             &dev_cfg,

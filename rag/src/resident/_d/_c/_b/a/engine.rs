@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock, Weak};
 use std::time::Instant;
 use crate::resident::_d::_c::_b::a::backpressure::ExpansionControl;
 use crate::resident::_d::_c::_b::_a::_9::a::gpu_completion::GpuCompletion;
-use crate::resident::_d::_c::_b::a::processor::{ExpandError, Processor};
+use crate::resident::_d::_c::_b::a::processor::{ExpandError3, Processor};
 use crate::resident::_d::_c::_b::_a::a::plan_contract::{
     PlannedOp, QueueKind, TaskPlanner,
 };
@@ -16,7 +16,7 @@ use crate::resident::_d::_c::_b::a::worker_loop::{
     ExpandStep, FinishedHandler, WorkerLoop,
 };
 use crate::resident::_d::_c::_b::a::worker_pool::{
-    Notifier, PoolConfig, Step, WorkSource, WorkerPool,
+    Notifier3, PoolConfig, Step2, WorkSource, WorkerPool,
 };
 use crate::resident::_d::_c::_b::_a::a::planner::{
     BatchInfo, OpMeta, PlanError, Planner, PlannerBuilder, PlannerConfigError, Subengine,
@@ -398,7 +398,7 @@ enum SubengineSpec<D, T, E, V, R, OE> {
     Factory(String, SubengineFactory<D, T, E, V, R, OE>),
     HandleFactory(String, HandleFactory<D, T, E, V, R, OE>),
 }
-enum Job<D, T, E, V, R, OE> {
+enum Job4<D, T, E, V, R, OE> {
     Plain(SubengineFactory<D, T, E, V, R, OE>),
     Handle(HandleFactory<D, T, E, V, R, OE>),
 }
@@ -572,7 +572,7 @@ where
         );
         let mut deferred: Vec<Arc<DeferredSubengine>> = Vec::new();
         let mut jobs: Vec<
-            (usize, String, Arc<DeferredSubengine>, Job<D, T, E, V, R, OE>),
+            (usize, String, Arc<DeferredSubengine>, Job4<D, T, E, V, R, OE>),
         > = Vec::new();
         for spec in self.subengines {
             let index = subengines.len();
@@ -590,14 +590,14 @@ where
                     deferred.push(Arc::clone(&wrapper));
                     subengines.push(Arc::clone(&wrapper) as Arc<dyn Subengine>);
                     handles.push(None);
-                    jobs.push((index, name, wrapper, Job::Plain(f)));
+                    jobs.push((index, name, wrapper, Job4::Plain(f)));
                 }
                 SubengineSpec::HandleFactory(name, f) => {
                     let wrapper = DeferredSubengine::new(name.clone());
                     deferred.push(Arc::clone(&wrapper));
                     subengines.push(Arc::clone(&wrapper) as Arc<dyn Subengine>);
                     handles.push(None);
-                    jobs.push((index, name, wrapper, Job::Handle(f)));
+                    jobs.push((index, name, wrapper, Job4::Handle(f)));
                 }
             }
         }
@@ -608,7 +608,7 @@ where
         let processor: Arc<Proc<D, T, E, V, R, OE>> = Processor::new(
             PlannerHandle(Arc::clone(&planner)),
         );
-        let wake_target: Arc<OnceLock<Notifier>> = Arc::new(OnceLock::new());
+        let wake_target: Arc<OnceLock<Notifier3>> = Arc::new(OnceLock::new());
         let wake: Wake = {
             let target = Arc::clone(&wake_target);
             Arc::new(move || {
@@ -638,8 +638,8 @@ where
         };
         for (index, name, wrapper, job) in jobs {
             let created = match job {
-                Job::Plain(f) => f(&wiring).map(|s| (s, None)),
-                Job::Handle(f) => {
+                Job4::Plain(f) => f(&wiring).map(|s| (s, None)),
+                Job4::Handle(f) => {
                     f(&wiring).map(|h| (Arc::clone(h.subengine()), Some(h)))
                 }
             };
@@ -781,7 +781,7 @@ where
                 drop(tickets);
                 self.topology.notify_push();
             }
-            Err(ExpandError::Planner(e)) => {
+            Err(ExpandError3::Planner(e)) => {
                 log::warn!("task expansion failed: {e}");
                 if task.state() == TaskState::Claimed {
                     let _ = task.complete(Err((self.plan_error)(&e)));
@@ -829,13 +829,13 @@ struct EngineWork {
     loops: Vec<Mutex<WorkerLoop>>,
 }
 impl WorkSource for EngineWork {
-    fn run_once(&self, worker: usize) -> Step {
+    fn run_once(&self, worker: usize) -> Step2 {
         let Some(slot) = self.loops.get(worker) else {
-            return Step::Idle;
+            return Step2::Idle;
         };
         match lock(slot).run_once(Instant::now()) {
-            Some(_) => Step::Worked,
-            None => Step::Idle,
+            Some(_) => Step2::Worked,
+            None => Step2::Idle,
         }
     }
 }
@@ -851,7 +851,7 @@ where
     processor: Arc<Proc<D, T, E, V, R, OE>>,
     planner: Arc<Planner<D, T, E, V>>,
     wiring: EngineWiring<D, T, E, V, R, OE>,
-    notifier: Notifier,
+    notifier: Notifier3,
     gate: Arc<ClosedGate>,
     indexes: Vec<(IndexId, Arc<dyn Index>)>,
     subengines: Mutex<Vec<Arc<dyn Subengine>>>,

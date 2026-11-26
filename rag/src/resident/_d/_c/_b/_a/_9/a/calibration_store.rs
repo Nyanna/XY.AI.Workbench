@@ -8,11 +8,11 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use crate::resident::_d::_c::_b::_a::_9::_8::a::capability_detection::{
-    detect_cpu_features, CpuFeatures,
+    detect_cpu_features2, CpuFeatures,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::calibration_run::{
     run_calibration, CalibrationBackend, CalibrationConfig, CalibrationError,
-    CalibrationReport, Combination, DiscardReason, Outcome, Stage, Target,
+    CalibrationReport, Combination, DiscardReason, Outcome, Stage2, Target2,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::ModelDescriptor;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::pareto_profiles::{
@@ -24,7 +24,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::backgro
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
     axes, values, Axis, CapabilitySet, Name, Value,
 };
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION3: u32 = 1;
 const UNKNOWN: &str = "unknown";
 const FILE_SUFFIX: &str = ".calib.txt";
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -75,12 +75,12 @@ impl Fingerprint {
             (String::new(), String::new(), String::new())
         };
         Fingerprint {
-            schema_version: SCHEMA_VERSION,
+            schema_version: SCHEMA_VERSION3,
             subengine: subengine.to_string(),
             gpu_name,
             compute_capability,
             driver_version,
-            cpu_features: cpu_features_text(detect_cpu_features()),
+            cpu_features: cpu_features_text(detect_cpu_features2()),
             model_id: model_id.to_string(),
             engine_version: engine_version.to_string(),
         }
@@ -139,7 +139,7 @@ pub enum MissingResolution {
     Fallback(Combination),
     CalibrateCommand,
 }
-pub enum Resolution {
+pub enum Resolution3 {
     Calibrated { record: CalibrationRecord },
     Stale {
         record: CalibrationRecord,
@@ -192,10 +192,10 @@ impl CalibrationStore {
         &self,
         req: &CalibrationRequest,
         policy: MissingPolicy,
-    ) -> Resolution {
+    ) -> Resolution3 {
         let fp = &req.fingerprint;
         match self.load(&fp.subengine, &fp.model_id) {
-            Ok(record) if record.fingerprint == *fp => Resolution::Calibrated { record },
+            Ok(record) if record.fingerprint == *fp => Resolution3::Calibrated { record },
             Ok(record) => {
                 let recalibration = match self.request_calibration(req.clone()) {
                     Ok(future) => future,
@@ -207,7 +207,7 @@ impl CalibrationStore {
                         None
                     }
                 };
-                Resolution::Stale {
+                Resolution3::Stale {
                     record,
                     recalibration,
                 }
@@ -221,14 +221,14 @@ impl CalibrationStore {
                 }
                 match policy {
                     MissingPolicy::ExplicitCalibrate => {
-                        Resolution::Missing(MissingResolution::CalibrateCommand)
+                        Resolution3::Missing(MissingResolution::CalibrateCommand)
                     }
                     MissingPolicy::MostPreciseValid => {
                         log::warn!(
                             "no calibration subengine={} model_id={}; using most precise combination",
                             fp.subengine, fp.model_id
                         );
-                        Resolution::Missing(
+                        Resolution3::Missing(
                             MissingResolution::Fallback(
                                 most_precise_combination(&req.capabilities),
                             ),
@@ -258,7 +258,7 @@ impl CalibrationStore {
             .pool
             .submit(move || {
                 let _guard = guard;
-                run_job(&dir, &req)
+                run_job3(&dir, &req)
             });
         match submitted {
             Ok(future) => Ok(Some(future)),
@@ -266,7 +266,7 @@ impl CalibrationStore {
         }
     }
 }
-fn run_job(
+fn run_job3(
     dir: &Path,
     req: &CalibrationRequest,
 ) -> Result<CalibrationRecord, PersistError> {
@@ -299,7 +299,7 @@ fn run_job(
 pub fn calibrate_record(
     req: &CalibrationRequest,
 ) -> Result<CalibrationRecord, PersistError> {
-    let target = Target {
+    let target = Target2 {
         subengine: req.fingerprint.subengine.clone(),
         model_id: req.fingerprint.model_id.clone(),
     };
@@ -347,7 +347,7 @@ pub fn record_from_report(
             Outcome::Measured {
                 stable: false,
                 ..
-            } if matches!(entry.stage, Stage::Verification | Stage::Full) => {
+            } if matches!(entry.stage, Stage2::Verification | Stage2::Full) => {
                 unstable = true;
             }
             Outcome::Discarded(reason) => {

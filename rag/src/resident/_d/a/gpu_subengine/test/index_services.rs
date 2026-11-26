@@ -14,7 +14,7 @@ struct Rig {
 
 fn rig() -> Rig {
     let backend = MockBackend::single();
-    let vram = VramManager::new(0, Arc::clone(&backend) as Arc<dyn GpuBackend>, &config());
+    let vram = VramManager::new(0, Arc::clone(&backend) as Arc<dyn GpuBackend3>, &config());
     let reserved = vram.reserved().unwrap();
     let shared = IndexShared::new(
             Arc::clone(reserved.allocators()),
@@ -43,7 +43,7 @@ fn services(rig: &Rig, ordinal: u32, label: &str) -> IndexServices {
     );
     IndexServices::new(
         ordinal,
-        Arc::clone(&rig.backend) as Arc<dyn GpuBackend>,
+        Arc::clone(&rig.backend) as Arc<dyn GpuBackend3>,
         Arc::clone(&rig.shared),
         store,
         eviction,

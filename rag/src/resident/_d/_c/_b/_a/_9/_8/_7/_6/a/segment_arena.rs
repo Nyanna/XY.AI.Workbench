@@ -138,17 +138,17 @@ pub struct ReplacementInfo {
     pub old: Segment,
     pub new: Segment,
 }
-struct Deferred {
+struct Deferred2 {
     region: RegionHandle,
     epoch: Epoch,
 }
 #[derive(Default)]
-struct State {
+struct State5 {
     live: HashMap<RegionHandle, Segment>,
-    deferred: Vec<Deferred>,
+    deferred: Vec<Deferred2>,
     replacement: Option<ReplacementInfo>,
 }
-impl State {
+impl State5 {
     fn largest(&self) -> u64 {
         self.live
             .keys()
@@ -164,7 +164,7 @@ impl State {
         self.deferred.iter().fold(0u64, |s, d| s.saturating_add(d.region.len()))
     }
 }
-fn align_up(value: u64, align: u64) -> Option<u64> {
+fn align_up3(value: u64, align: u64) -> Option<u64> {
     value.checked_add(align - 1).map(|v| v & !(align - 1))
 }
 fn map_allocator_error(e: AllocatorError, requested: u64) -> SegmentArenaError {
@@ -184,7 +184,7 @@ pub struct SegmentArena<A: Borrow<Allocator>> {
     config: SegmentArenaConfig,
     capacity: u64,
     reserve: u64,
-    state: Mutex<State>,
+    state: Mutex<State5>,
 }
 impl<A: Borrow<Allocator>> SegmentArena<A> {
     pub fn new(
@@ -204,18 +204,18 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
             config,
             capacity,
             reserve,
-            state: Mutex::new(State::default()),
+            state: Mutex::new(State5::default()),
         })
     }
     fn alloc(&self) -> &Allocator {
         self.allocator.borrow()
     }
-    fn lock(&self) -> MutexGuard<'_, State> {
+    fn lock(&self) -> MutexGuard<'_, State5> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
     /// Drops `live` entries whose region was freed at the allocator directly
     /// (e.g. by eviction); the running replacement is never touched.
-    fn prune_freed(&self, st: &mut State) {
+    fn prune_freed(&self, st: &mut State5) {
         let alloc = self.alloc();
         let protected = st.replacement.map(|r| (r.old.region, r.new.region));
         let before = st.live.len();
@@ -236,7 +236,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
     fn headroom_for(&self, largest: u64) -> u64 {
         u64::from(self.config.concurrent_replacements).saturating_mul(largest)
     }
-    fn budget_locked(&self, st: &State) -> ArenaBudget {
+    fn budget_locked(&self, st: &State5) -> ArenaBudget {
         let occupied = self.occupied();
         let headroom = self.headroom_for(st.largest());
         ArenaBudget {
@@ -258,7 +258,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
             .alloc()
             .allocate(region_len)
             .map_err(|e| map_allocator_error(e, region_len))?;
-        let aligned = align_up(region.offset(), self.config.alignment)
+        let aligned = align_up3(region.offset(), self.config.alignment)
             .and_then(|offset| {
                 let end = offset.checked_add(len)?;
                 let region_end = region.offset().checked_add(region.len())?;
@@ -283,7 +283,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
         self.prune_freed(&mut st);
         let occupied = self.occupied();
         let alignment = self.config.alignment;
-        let sizes = align_up(len, alignment)
+        let sizes = align_up3(len, alignment)
             .and_then(|l| l.checked_add(alignment - 1).map(|a| (l, a)));
         let Some((seg_len, region_len)) = sizes else {
             return Err(SegmentArenaError::Exhausted {
@@ -393,7 +393,7 @@ impl<A: Borrow<Allocator>> SegmentArena<A> {
         st.replacement = None;
         st.live.remove(&info.old.region);
         st.deferred
-            .push(Deferred {
+            .push(Deferred2 {
                 region: info.old.region,
                 epoch,
             });
@@ -474,7 +474,7 @@ impl BumpSegment {
         let base = self.segment.offset;
         let placed = base
             .checked_add(self.cursor)
-            .and_then(|p| align_up(p, align))
+            .and_then(|p| align_up3(p, align))
             .and_then(|addr| addr.checked_add(len).map(|end| (addr, end)))
             .filter(|&(_, end)| {
                 base.checked_add(self.segment.len).is_some_and(|limit| end <= limit)

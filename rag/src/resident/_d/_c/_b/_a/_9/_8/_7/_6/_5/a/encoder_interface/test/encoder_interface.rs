@@ -246,21 +246,21 @@ fn f16_rounding() {
         (f32::NEG_INFINITY, 0xFC00),
     ];
     for (v, bits) in cases {
-        assert_eq!(f32_to_f16_bits(v), bits, "value {v}");
+        assert_eq!(f32_to_f16_bits3(v), bits, "value {v}");
     }
-    let nan = f32_to_f16_bits(f32::NAN);
+    let nan = f32_to_f16_bits3(f32::NAN);
     assert_eq!(nan & 0x7C00, 0x7C00);
     assert_ne!(nan & 0x03FF, 0);
 }
 #[test]
 fn bf16_rounding() {
-    assert_eq!(f32_to_bf16_bits(1.0), 0x3F80);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F80_8000)), 0x3F80);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F81_8000)), 0x3F82);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F80_8001)), 0x3F81);
-    assert_eq!(f32_to_bf16_bits(f32::INFINITY), 0x7F80);
-    assert_eq!(f32_to_bf16_bits(f32::NEG_INFINITY), 0xFF80);
-    let nan = f32_to_bf16_bits(f32::NAN);
+    assert_eq!(f32_to_bf16_bits3(1.0), 0x3F80);
+    assert_eq!(f32_to_bf16_bits3(f32::from_bits(0x3F80_8000)), 0x3F80);
+    assert_eq!(f32_to_bf16_bits3(f32::from_bits(0x3F81_8000)), 0x3F82);
+    assert_eq!(f32_to_bf16_bits3(f32::from_bits(0x3F80_8001)), 0x3F81);
+    assert_eq!(f32_to_bf16_bits3(f32::INFINITY), 0x7F80);
+    assert_eq!(f32_to_bf16_bits3(f32::NEG_INFINITY), 0xFF80);
+    let nan = f32_to_bf16_bits3(f32::NAN);
     assert_eq!(nan & 0x7F80, 0x7F80);
     assert_ne!(nan & 0x007F, 0);
 }

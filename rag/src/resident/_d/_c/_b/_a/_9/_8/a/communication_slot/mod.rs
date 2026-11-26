@@ -12,7 +12,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layou
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
     EntryId, Index, PayloadRef,
 };
-const LOG_TARGET: &str = "communication_slot";
+const LOG_TARGET3: &str = "communication_slot";
 /// Replaceable device readback. Reads `dst.len()` bytes starting at the device address.
 pub trait DeviceReadback: Send + Sync {
     fn read_back(&self, addr: Addr, dst: &mut [u8]) -> Result<(), ReadbackError>;
@@ -141,7 +141,7 @@ fn process_write(
     let entry = entry_ref.entry;
     if entry != w.entry {
         debug!(
-            target : LOG_TARGET,
+            target : LOG_TARGET3,
             "write entry {:?} differs from assignment {:?}; assignment wins", w.entry,
             entry
         );
@@ -163,7 +163,7 @@ fn process_write(
         }
         Err(e) => {
             warn!(
-                target : LOG_TARGET, "index write failed entry={:?} slot={:?}: {}",
+                target : LOG_TARGET3, "index write failed entry={:?} slot={:?}: {}",
                 entry, w.slot, e
             );
             WriteStep::Failed(len)
@@ -218,7 +218,7 @@ impl CommunicationSlot {
             Err(CompletionError::StaleMapping) => {}
             other => return other,
         }
-        warn!(target : LOG_TARGET, "stale Mapping");
+        warn!(target : LOG_TARGET3, "stale Mapping");
         let index = self.index.clone().ok_or(CompletionError::NoIndexAttached)?;
         let mapping = Arc::clone(&self.mapping);
         let updates = Arc::clone(&self.updates);
@@ -332,7 +332,7 @@ impl CommunicationSlot {
         report.update_queue_depth = updates.depth();
         report.updates_applied = updates.apply(residency).applied;
         debug!(
-            target : LOG_TARGET,
+            target : LOG_TARGET3,
             "pass writes applied={} skipped={} failed={} deferred={} hits resolved={} discarded={} stale={} \
              depths write={} hit={} update={} updates_applied={}",
             report.writes_applied, report.writes_skipped, report.writes_failed, report

@@ -32,7 +32,7 @@ pub struct MeasurementResult {
     pub samples: usize,
     pub rel_uncertainty: f64,
 }
-fn median_of_sorted(sorted: &[f64]) -> f64 {
+fn median_of_sorted3(sorted: &[f64]) -> f64 {
     let n = sorted.len();
     if n == 0 {
         return 0.0;
@@ -53,7 +53,7 @@ impl MeasurementResult {
             return Err(MeasureError::NoSamples);
         }
         let n = samples.len();
-        let median = median_of_sorted(&sorted_copy(samples));
+        let median = median_of_sorted3(&sorted_copy(samples));
         let spread = if n < 2 {
             0.0
         } else {
@@ -61,7 +61,7 @@ impl MeasurementResult {
                 .iter()
                 .map(|s| (s - median).abs())
                 .collect();
-            let mad = median_of_sorted(&sorted_copy(&deviations));
+            let mad = median_of_sorted3(&sorted_copy(&deviations));
             if median > 0.0 { MAD_SCALE * mad / median } else { 0.0 }
         };
         let rel_uncertainty = if n >= 2 {

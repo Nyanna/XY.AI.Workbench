@@ -8,7 +8,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
     EntryRef, SegmentView, SlotAssignment, SlotError, SlotStates,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    Addr, Slot,
+    Addr, Slot5,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{
     Event, EventError,
@@ -34,7 +34,7 @@ pub enum WriteError {
     /// The reservation belongs to another writer.
     ForeignReservation,
     /// The slot is not in the reserved state (committed, queued or discarded).
-    NotReserved { slot: Slot },
+    NotReserved { slot: Slot5 },
     /// `CentroidId` equals `u32::MAX`.
     InvalidCentroid,
     /// Rebuild refused: reserved or queued commits are still open.
@@ -89,7 +89,7 @@ impl From<SlotError> for WriteError {
 /// Pre-assigned slot. Invisible until committed.
 #[derive(Debug)]
 pub struct Reservation {
-    pub slot: Slot,
+    pub slot: Slot5,
     pub entry: EntryRef,
     pub tokens: u32,
     pub centroid: Option<CentroidId>,
@@ -109,8 +109,8 @@ pub struct SlotInfo {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotMove {
-    pub from: Slot,
-    pub to: Slot,
+    pub from: Slot5,
+    pub to: Slot5,
     pub entry: EntryRef,
     pub tokens: u32,
     pub centroid: Option<CentroidId>,
@@ -132,7 +132,7 @@ struct WriterState {
     cursor: u32,
     next_write_no: u64,
     pending: HashMap<u32, PendingSlot>,
-    queue: VecDeque<(Slot, Event)>,
+    queue: VecDeque<(Slot5, Event)>,
     last_sweep: Instant,
     ttl: Duration,
     sweep_interval: Duration,
@@ -268,7 +268,7 @@ impl SegmentWriter {
         if st.cursor >= self.view.slot_count() {
             return Err(WriteError::NoFreeSlot);
         }
-        let slot = Slot(st.cursor);
+        let slot = Slot5(st.cursor);
         let addr = self.assignment.device_addr(slot)?;
         let target = self.assignment.byte_range(slot)?;
         st.cursor += 1;
@@ -377,12 +377,12 @@ impl SegmentWriter {
         true
     }
     /// Current binding of the slot, else the replaced or hidden entry.
-    pub fn resolve(&self, slot: Slot) -> Option<EntryRef> {
+    pub fn resolve(&self, slot: Slot5) -> Option<EntryRef> {
         self.assignment
             .lookup(slot)
             .or_else(|| self.replaced_read().get(&slot.0).copied())
     }
-    pub fn slot_info(&self, slot: Slot) -> Result<SlotInfo, WriteError> {
+    pub fn slot_info(&self, slot: Slot5) -> Result<SlotInfo, WriteError> {
         let meta = self.states.meta(slot)?;
         let idx = slot.0 as usize;
         Ok(SlotInfo {
@@ -411,7 +411,7 @@ impl SegmentWriter {
         &self,
         new_view: SegmentView,
         new_device_base: Addr,
-    ) -> Result<(SegmentWriter, Vec<(Slot, Reservation)>), WriteError> {
+    ) -> Result<(SegmentWriter, Vec<(Slot5, Reservation)>), WriteError> {
         let mut st = self.lock();
         Self::sweep_expired(&mut st, true);
         if !st.pending.is_empty() {
@@ -463,7 +463,7 @@ impl SegmentWriter {
             while bits != 0 {
                 let idx = word_idx * 64 + bits.trailing_zeros() as usize;
                 bits &= bits - 1;
-                let slot = Slot(idx as u32);
+                let slot = Slot5(idx as u32);
                 let Some(entry) = self.assignment.lookup(slot) else {
                     continue;
                 };
@@ -473,7 +473,7 @@ impl SegmentWriter {
                 moves
                     .push(SlotMove {
                         from: slot,
-                        to: Slot(moves.len() as u32),
+                        to: Slot5(moves.len() as u32),
                         entry,
                         tokens: meta.tokens,
                         centroid: self.centroid_at(idx),
@@ -486,7 +486,7 @@ impl SegmentWriter {
             reclaimed_slots,
         }
     }
-    fn apply(&self, st: &mut WriterState, slot: Slot) -> Result<(), WriteError> {
+    fn apply(&self, st: &mut WriterState, slot: Slot5) -> Result<(), WriteError> {
         let Some(p) = st.pending.get(&slot.0).copied() else {
             return Err(WriteError::NotReserved { slot });
         };
@@ -513,9 +513,9 @@ impl SegmentWriter {
     }
     fn publish(
         &self,
-        slot: Slot,
+        slot: Slot5,
         p: PendingSlot,
-        old: Option<Slot>,
+        old: Option<Slot5>,
     ) -> Result<(), WriteError> {
         if let Some(old) = old {
             self.replaced_write().insert(old.0, p.entry);

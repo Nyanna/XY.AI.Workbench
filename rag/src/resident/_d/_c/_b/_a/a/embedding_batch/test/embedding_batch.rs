@@ -113,7 +113,7 @@ fn begun(script: &Arc<Script>) -> (BatchInterface<Arc<Script>>, BatchId) {
     (batch, id)
 }
 fn assert_ended(batch: &BatchInterface<Arc<Script>>, id: BatchId) {
-    assert_eq!(batch.end(id), Err(BatchError::UnknownBatch(id)));
+    assert_eq!(batch.end(id), Err(BatchError3::UnknownBatch(id)));
 }
 #[test]
 fn hits_in_first_step() {
@@ -235,7 +235,7 @@ fn executor_error_is_reported_first() {
             &config(512, 4),
         )
         .unwrap_err();
-    assert_eq!(err, ExecError::Batch(BatchError::Executor("boom".to_string())));
+    assert_eq!(err, ExecError::Batch(BatchError3::Executor("boom".to_string())));
     assert_eq!(arena.stats().live_segments, 0);
     assert_ended(&batch, id);
 }
@@ -336,7 +336,7 @@ fn unknown_batch_reports_first_error() {
             &config(512, 2),
         )
         .unwrap_err();
-    assert_eq!(err, ExecError::Batch(BatchError::UnknownBatch(bogus)));
+    assert_eq!(err, ExecError::Batch(BatchError3::UnknownBatch(bogus)));
     assert_eq!(arena.stats().live_segments, 0);
     assert!(batch.end(id).is_ok());
 }
@@ -356,7 +356,7 @@ fn release_failure_does_not_change_the_error() {
             &config(512, 2),
         )
         .unwrap_err();
-    assert_eq!(err, ExecError::Batch(BatchError::Executor("boom".to_string())));
+    assert_eq!(err, ExecError::Batch(BatchError3::Executor("boom".to_string())));
     let seg = arena.allocate(512).unwrap();
     assert!(arena.release(& seg, Readers::None).is_ok());
     release_all(&arena, &[seg]);
@@ -448,7 +448,7 @@ fn same_id_concurrently_is_busy() {
             &config(512, 2),
         )
         .unwrap_err();
-    assert_eq!(err, ExecError::Batch(BatchError::Busy));
+    assert_eq!(err, ExecError::Batch(BatchError3::Busy));
     resume_tx.send(()).unwrap();
     let ok = first.join().unwrap().unwrap();
     assert_eq!(ok.hits, 3);

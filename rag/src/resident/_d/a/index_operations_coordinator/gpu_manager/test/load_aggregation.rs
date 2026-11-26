@@ -1,7 +1,7 @@
 use super::*;
 use futures::executor::block_on;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, CellId, IndexError, NodeId, Payload, PayloadRef, Stamp, StampObserver,
+    AccessMethod, CellId, IndexError, NodeId, Payload2, PayloadRef, Stamp, StampObserver,
     StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
@@ -72,11 +72,11 @@ impl Index for FakeIndex {
         self.touches.fetch_add(1, Ordering::SeqCst);
         self.entries.iter().map(|(&i, &s)| (EntryId(i), Stamp(s))).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.touches.fetch_add(1, Ordering::SeqCst);
         self.meet();
         self.reads.lock().unwrap().push(id.0);
-        Payload::default()
+        Payload2::default()
     }
     fn write(
         &self,
@@ -107,7 +107,7 @@ fn request(index: u32, scope: Scope) -> LoadRequest<u32> {
 fn registry() -> ScopeResolverRegistry {
     ScopeResolverRegistry::with_defaults()
 }
-fn loaded_ids(loaded: &Loaded) -> Vec<u64> {
+fn loaded_ids(loaded: &Loaded3) -> Vec<u64> {
     loaded.iter().map(|(id, _)| id.0).collect()
 }
 fn run(
@@ -124,14 +124,14 @@ fn indexes(list: Vec<(u32, FakeIndex)>) -> HashMap<u32, Arc<FakeIndex>> {
 fn types_are_send_and_sync() {
     fn sync_send<T: Send + Sync>() {}
     fn send<T: Send>() {}
-    sync_send::<Collector<u32>>();
+    sync_send::<Collector3<u32>>();
     sync_send::<SingleFlight<String, u32, String>>();
-    sync_send::<Flight<u32, String>>();
+    sync_send::<Flight3<u32, String>>();
     send::<FlightCompleter<String, u32, String>>();
 }
 #[test]
 fn collector_counts_and_drains_in_order() {
-    let c = Collector::new();
+    let c = Collector3::new();
     assert!(c.is_empty());
     assert_eq!(c.len(), 0);
     c.push(request(2, set(&[1])));
@@ -149,12 +149,12 @@ fn collector_counts_and_drains_in_order() {
 }
 #[test]
 fn collector_default_is_empty() {
-    let c: Collector<u32> = Collector::default();
+    let c: Collector3<u32> = Collector3::default();
     assert_eq!(c.len(), 0);
 }
 #[test]
 fn collector_concurrent_pushes_are_neither_lost_nor_duplicated() {
-    let c = Collector::new();
+    let c = Collector3::new();
     std::thread::scope(|s| {
         for t in 0..8u32 {
             let c = &c;
@@ -543,7 +543,7 @@ fn concurrent_callers_produce_exactly_one_starter() {
     let slot: Slot = Mutex::new(None);
     let starts = AtomicUsize::new(0);
     let barrier = Barrier::new(THREADS);
-    let flights: Vec<Flight<u32, NoClone>> = std::thread::scope(|s| {
+    let flights: Vec<Flight3<u32, NoClone>> = std::thread::scope(|s| {
         let handles: Vec<_> = (0..THREADS)
             .map(|_| {
                 s.spawn(|| {

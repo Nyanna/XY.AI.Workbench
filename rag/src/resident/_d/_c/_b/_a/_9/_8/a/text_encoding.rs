@@ -10,14 +10,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::tokenizer_loader::{
     EmbedMode, LoadedTokenizer,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::batching::{
-    build_batches, Batch, BatchConfig, BatchError,
+    build_batches, Batch, BatchConfig, BatchError2,
 };
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TextEncodingError {
     NoInputTexts,
     Normalize(NormalizeError),
     Schema(SchemaError),
-    Batch(BatchError),
+    Batch(BatchError2),
 }
 impl fmt::Display for TextEncodingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

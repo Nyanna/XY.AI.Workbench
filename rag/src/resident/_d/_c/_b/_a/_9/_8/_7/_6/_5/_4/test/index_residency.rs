@@ -72,19 +72,19 @@ impl Index for MockIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         Vec::new()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         if self.panic_on == Some(id.0) {
             panic!("read failure");
         }
         self.reads.lock().unwrap().push(id.0);
         match self.entries.get(&id.0) {
             Some((v, m)) => {
-                Payload {
+                Payload2 {
                     vector: SharedBytes::from(v.clone()),
                     meta: SharedBytes::from(m.clone()),
                 }
             }
-            None => Payload::default(),
+            None => Payload2::default(),
         }
     }
     fn write(
@@ -141,8 +141,8 @@ fn owned(i: u64) -> OwnedPayload {
 }
 #[test]
 fn residency_error_displays_its_text() {
-    assert_eq!(ResidencyError::NotAttached.to_string(), "index not attached");
-    assert_eq!(ResidencyError::TaskAborted.to_string(), "read task aborted");
+    assert_eq!(ResidencyError2::NotAttached.to_string(), "index not attached");
+    assert_eq!(ResidencyError2::TaskAborted.to_string(), "read task aborted");
 }
 #[test]
 fn plan_without_ranges_is_none() {
@@ -240,14 +240,14 @@ async fn read_entry_ignores_empty_hint() {
 #[tokio::test]
 async fn read_entry_not_attached_fails() {
     let m = IndexResidency::new(slot_with(None), None, Duration::ZERO);
-    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError::NotAttached));
+    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError2::NotAttached));
 }
 #[tokio::test]
 async fn read_entry_panicking_task_reports_abort() {
     let mut index = MockIndex::new(&[1]);
     index.panic_on = Some(1);
     let m = IndexResidency::new(slot_with(Some(Arc::new(index))), None, Duration::ZERO);
-    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError::TaskAborted));
+    assert_eq!(m.read_entry(EntryId(1), None). await, Err(ResidencyError2::TaskAborted));
 }
 #[tokio::test]
 async fn read_entry_survives_advisor_failure() {
@@ -271,10 +271,10 @@ async fn read_entries_empty_is_ok_even_when_not_attached() {
 async fn read_entries_not_attached_fails() {
     let m = IndexResidency::new(slot_with(None), None, Duration::ZERO);
     assert_eq!(
-        m.read_entries(& [(EntryId(1), None)]). await, Err(ResidencyError::NotAttached)
+        m.read_entries(& [(EntryId(1), None)]). await, Err(ResidencyError2::NotAttached)
     );
     assert_eq!(
-        m.read_entries_auto(& [EntryId(1)]). await, Err(ResidencyError::NotAttached)
+        m.read_entries_auto(& [EntryId(1)]). await, Err(ResidencyError2::NotAttached)
     );
 }
 #[tokio::test]
@@ -335,7 +335,7 @@ async fn read_entries_panicking_task_reports_abort() {
     let m = IndexResidency::new(slot_with(Some(Arc::new(index))), None, Duration::ZERO);
     assert_eq!(
         m.read_entries(& [(EntryId(1), None), (EntryId(2), None)]). await,
-        Err(ResidencyError::TaskAborted)
+        Err(ResidencyError2::TaskAborted)
     );
 }
 #[tokio::test]

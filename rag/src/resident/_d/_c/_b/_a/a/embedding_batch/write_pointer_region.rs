@@ -33,27 +33,27 @@ impl StateSnapshot {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Claim {
+pub enum Claim3 {
     Ok { offset: u64 },
     Invalid,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ClaimError {
+pub enum ClaimError3 {
     LengthMismatch { lens: usize, out: usize },
 }
 
-impl std::fmt::Display for ClaimError {
+impl std::fmt::Display for ClaimError3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ClaimError::LengthMismatch { lens, out } => {
+            ClaimError3::LengthMismatch { lens, out } => {
                 write!(f, "group claim length mismatch: {lens} lengths, {out} outputs")
             }
         }
     }
 }
 
-impl std::error::Error for ClaimError {}
+impl std::error::Error for ClaimError3 {}
 
 const _: () = {
     assert!(std::mem::size_of::<WriteState>() == STATE_SIZE);
@@ -97,21 +97,21 @@ impl WriteState {
         }
     }
 
-    pub fn claim(&self, len: u64) -> Claim {
+    pub fn claim(&self, len: u64) -> Claim3 {
         let old = self.ptr.fetch_add(len, Ordering::AcqRel);
         match old.checked_add(len) {
-            Some(end) if end <= self.capacity => Claim::Ok { offset: old },
+            Some(end) if end <= self.capacity => Claim3::Ok { offset: old },
             _ => {
                 self.record_overflow(old, len);
-                Claim::Invalid
+                Claim3::Invalid
             }
         }
     }
 
     /// One pointer update for the whole group; a failed member fails all later ones.
-    pub fn claim_group(&self, lens: &[u64], out: &mut [u64]) -> Result<(), ClaimError> {
+    pub fn claim_group(&self, lens: &[u64], out: &mut [u64]) -> Result<(), ClaimError3> {
         if lens.len() != out.len() {
-            return Err(ClaimError::LengthMismatch { lens: lens.len(), out: out.len() });
+            return Err(ClaimError3::LengthMismatch { lens: lens.len(), out: out.len() });
         }
         if lens.is_empty() {
             return Ok(());
@@ -314,13 +314,13 @@ impl WritePointerRegion {
     }
 }
 
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
+const fn assert_send_sync_static4<T: Send + Sync + 'static>() {}
 
 const _: () = {
-    assert_send_sync_static::<WriteState>();
-    assert_send_sync_static::<WritePointerRegion>();
-    assert_send_sync_static::<WriteResult>();
-    assert_send_sync_static::<StateSnapshot>();
+    assert_send_sync_static4::<WriteState>();
+    assert_send_sync_static4::<WritePointerRegion>();
+    assert_send_sync_static4::<WriteResult>();
+    assert_send_sync_static4::<StateSnapshot>();
 };
 
 #[cfg(test)]

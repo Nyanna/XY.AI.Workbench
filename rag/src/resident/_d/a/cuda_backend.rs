@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use cudarc::driver::result as drv;
 use cudarc::driver::{sys, CudaContext};
-use super::gpu_subengine::{GpuBackend, GpuDeviceInfo};
+use super::gpu_subengine::{GpuBackend3, GpuDeviceInfo};
 use crate::resident::_d::_c::_b::_a::_9::_8::a::capability_detection::GpuProbe;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::{RootSlot, TableSink};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Addr;
@@ -22,37 +22,37 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::sync_ut
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_env::ComputeCapability;
 const ROOT_BYTES: usize = 64;
 const TABLE_ALIGN: usize = 256;
-fn text(e: drv::DriverError) -> String {
+fn text3(e: drv::DriverError) -> String {
     e.to_string()
 }
 fn ensure_driver() -> Result<(), String> {
     match catch_unwind(AssertUnwindSafe(drv::init)) {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => Err(text(e)),
+        Ok(Err(e)) => Err(text3(e)),
         Err(_) => Err("CUDA driver could not be loaded".to_string()),
     }
 }
-struct StreamOwner {
+struct StreamOwner3 {
     ctx: Arc<CudaContext>,
     raw: sys::CUstream,
 }
-unsafe impl Send for StreamOwner {}
-unsafe impl Sync for StreamOwner {}
-impl fmt::Debug for StreamOwner {
+unsafe impl Send for StreamOwner3 {}
+unsafe impl Sync for StreamOwner3 {}
+impl fmt::Debug for StreamOwner3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StreamOwner").field("raw", &self.raw).finish()
     }
 }
-impl StreamOwner {
+impl StreamOwner3 {
     fn create(
         ctx: &Arc<CudaContext>,
         priority: Priority,
-    ) -> Result<Arc<StreamOwner>, String> {
-        ctx.bind_to_thread().map_err(text)?;
+    ) -> Result<Arc<StreamOwner3>, String> {
+        ctx.bind_to_thread().map_err(text3)?;
         let (mut least, mut greatest) = (0i32, 0i32);
         unsafe { sys::cuCtxGetStreamPriorityRange(&mut least, &mut greatest) }
             .result()
-            .map_err(text)?;
+            .map_err(text3)?;
         let level = match priority {
             Priority::High => greatest,
             Priority::Normal | Priority::Low => least,
@@ -66,31 +66,31 @@ impl StreamOwner {
             )
         }
             .result()
-            .map_err(text)?;
+            .map_err(text3)?;
         Ok(
-            Arc::new(StreamOwner {
+            Arc::new(StreamOwner3 {
                 ctx: Arc::clone(ctx),
                 raw,
             }),
         )
     }
     fn synchronize(&self) -> Result<(), String> {
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::stream::synchronize(self.raw) }.map_err(text)
+        self.ctx.bind_to_thread().map_err(text3)?;
+        unsafe { drv::stream::synchronize(self.raw) }.map_err(text3)
     }
-    fn record(self: &Arc<Self>) -> Result<CuEvent, String> {
-        self.ctx.bind_to_thread().map_err(text)?;
+    fn record(self: &Arc<Self>) -> Result<CuEvent3, String> {
+        self.ctx.bind_to_thread().map_err(text3)?;
         let raw = drv::event::create(sys::CUevent_flags::CU_EVENT_DISABLE_TIMING)
-            .map_err(text)?;
-        let event = CuEvent {
+            .map_err(text3)?;
+        let event = CuEvent3 {
             ctx: Arc::clone(&self.ctx),
             raw,
         };
-        unsafe { drv::event::record(event.raw, self.raw) }.map_err(text)?;
+        unsafe { drv::event::record(event.raw, self.raw) }.map_err(text3)?;
         Ok(event)
     }
 }
-impl Drop for StreamOwner {
+impl Drop for StreamOwner3 {
     fn drop(&mut self) {
         if self.ctx.bind_to_thread().is_ok() {
             let _ = unsafe { drv::stream::destroy(self.raw) };
@@ -99,7 +99,7 @@ impl Drop for StreamOwner {
 }
 #[derive(Debug)]
 struct CudaStream {
-    owner: Arc<StreamOwner>,
+    owner: Arc<StreamOwner3>,
 }
 unsafe extern "C" fn run_callback(arg: *mut c_void) {
     let callback = *Box::from_raw(arg.cast::<Box<dyn FnOnce() + Send>>());
@@ -110,7 +110,7 @@ impl StreamBackend for CudaStream {
         Ok(Box::new(self.owner.record()?))
     }
     fn notify_on_complete(&self, f: Box<dyn FnOnce() + Send>) -> Result<bool, String> {
-        self.owner.ctx.bind_to_thread().map_err(text)?;
+        self.owner.ctx.bind_to_thread().map_err(text3)?;
         let arg = Box::into_raw(Box::new(f)).cast::<c_void>();
         match unsafe {
             drv::stream::launch_host_function(self.owner.raw, run_callback, arg)
@@ -118,7 +118,7 @@ impl StreamBackend for CudaStream {
             Ok(()) => Ok(true),
             Err(e) => {
                 drop(unsafe { Box::from_raw(arg.cast::<Box<dyn FnOnce() + Send>>()) });
-                Err(text(e))
+                Err(text3(e))
             }
         }
     }
@@ -134,27 +134,27 @@ pub(super) fn stream_of(
     Some((Arc::clone(&cuda.owner.ctx), cuda.owner.raw))
 }
 #[derive(Debug)]
-struct CuEvent {
+struct CuEvent3 {
     ctx: Arc<CudaContext>,
     raw: sys::CUevent,
 }
-unsafe impl Send for CuEvent {}
-unsafe impl Sync for CuEvent {}
-impl GpuEventBackend for CuEvent {
+unsafe impl Send for CuEvent3 {}
+unsafe impl Sync for CuEvent3 {}
+impl GpuEventBackend for CuEvent3 {
     fn query(&self) -> Result<bool, String> {
-        self.ctx.bind_to_thread().map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text3)?;
         match unsafe { drv::event::query(self.raw) } {
             Ok(()) => Ok(true),
             Err(e) if e.0 == sys::CUresult::CUDA_ERROR_NOT_READY => Ok(false),
-            Err(e) => Err(text(e)),
+            Err(e) => Err(text3(e)),
         }
     }
     fn synchronize(&self) -> Result<(), String> {
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::event::synchronize(self.raw) }.map_err(text)
+        self.ctx.bind_to_thread().map_err(text3)?;
+        unsafe { drv::event::synchronize(self.raw) }.map_err(text3)
     }
 }
-impl Drop for CuEvent {
+impl Drop for CuEvent3 {
     fn drop(&mut self) {
         if self.ctx.bind_to_thread().is_ok() {
             let _ = unsafe { drv::event::destroy(self.raw) };
@@ -171,15 +171,15 @@ unsafe impl Send for MappedRoot {}
 unsafe impl Sync for MappedRoot {}
 impl MappedRoot {
     fn create(ctx: &Arc<CudaContext>) -> Result<MappedRoot, String> {
-        ctx.bind_to_thread().map_err(text)?;
+        ctx.bind_to_thread().map_err(text3)?;
         let raw = unsafe { drv::malloc_host(ROOT_BYTES, sys::CU_MEMHOSTALLOC_DEVICEMAP) }
-            .map_err(text)?;
+            .map_err(text3)?;
         let mut dev: sys::CUdeviceptr = 0;
         if let Err(e) = unsafe { sys::cuMemHostGetDevicePointer_v2(&mut dev, raw, 0) }
             .result()
         {
             let _ = unsafe { drv::free_host(raw) };
-            return Err(text(e));
+            return Err(text3(e));
         }
         let host = NonNull::new(raw.cast::<u8>()).ok_or("null host allocation")?;
         unsafe { ptr::write_bytes(host.as_ptr(), 0, ROOT_BYTES) };
@@ -211,7 +211,7 @@ impl Drop for MappedRoot {
 /// Everything the backend keeps per retained device.
 struct DeviceState {
     ctx: Arc<CudaContext>,
-    copy: Arc<StreamOwner>,
+    copy: Arc<StreamOwner3>,
     gate: Mutex<()>,
     root: Arc<MappedRoot>,
     next_table: Mutex<usize>,
@@ -222,15 +222,15 @@ impl DeviceState {
             return Ok(());
         }
         let _gate = lock(&self.gate);
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::memcpy_htod_async(dst, bytes, self.copy.raw) }.map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text3)?;
+        unsafe { drv::memcpy_htod_async(dst, bytes, self.copy.raw) }.map_err(text3)?;
         self.copy.synchronize()
     }
-    fn copy_in_visible(&self, dst: u64, bytes: &[u8]) -> Result<CuEvent, String> {
+    fn copy_in_visible(&self, dst: u64, bytes: &[u8]) -> Result<CuEvent3, String> {
         let _gate = lock(&self.gate);
-        self.ctx.bind_to_thread().map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text3)?;
         if !bytes.is_empty() {
-            unsafe { drv::memcpy_htod_async(dst, bytes, self.copy.raw) }.map_err(text)?;
+            unsafe { drv::memcpy_htod_async(dst, bytes, self.copy.raw) }.map_err(text3)?;
         }
         self.copy.record()
     }
@@ -239,14 +239,14 @@ impl DeviceState {
             return Ok(());
         }
         let _gate = lock(&self.gate);
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::memcpy_dtoh_async(out, src, self.copy.raw) }.map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text3)?;
+        unsafe { drv::memcpy_dtoh_async(out, src, self.copy.raw) }.map_err(text3)?;
         self.copy.synchronize()
     }
     fn zero(&self, dst: u64, len: usize) -> Result<(), String> {
         let _gate = lock(&self.gate);
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::memset_d8_async(dst, 0, len, self.copy.raw) }.map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text3)?;
+        unsafe { drv::memset_d8_async(dst, 0, len, self.copy.raw) }.map_err(text3)?;
         self.copy.synchronize()
     }
 }
@@ -366,14 +366,14 @@ impl GpuProbe for DeviceProbe {
         self.name.clone()
     }
 }
-struct DriverQuery {
+struct DriverQuery3 {
     state: Option<Arc<DeviceState>>,
 }
-impl MemoryQuery for DriverQuery {
+impl MemoryQuery for DriverQuery3 {
     fn query(&self) -> Result<MemInfo, String> {
         let state = self.state.as_ref().ok_or("the primary context is not retained")?;
-        state.ctx.bind_to_thread().map_err(text)?;
-        let (free, total) = drv::mem_get_info().map_err(text)?;
+        state.ctx.bind_to_thread().map_err(text3)?;
+        let (free, total) = drv::mem_get_info().map_err(text3)?;
         Ok(MemInfo {
             free: free as u64,
             total: total as u64,
@@ -381,12 +381,12 @@ impl MemoryQuery for DriverQuery {
     }
 }
 /// Writes into the `IndexSegments` arena and returns once the bytes are visible to the device.
-struct SegmentSink {
+struct SegmentSink3 {
     ordinal: u32,
     state: Arc<DeviceState>,
     regions: DeviceRegions,
 }
-impl TableSink for SegmentSink {
+impl TableSink for SegmentSink3 {
     fn write_visible(&self, region: &RegionHandle, bytes: &[u8]) -> Result<(), String> {
         let arena = device_region(
             &self.regions,
@@ -445,11 +445,11 @@ impl CudaBackend {
         dev: sys::CUdevice,
         attribute: sys::CUdevice_attribute,
     ) -> Result<u32, String> {
-        let value = unsafe { drv::device::get_attribute(dev, attribute) }.map_err(text)?;
+        let value = unsafe { drv::device::get_attribute(dev, attribute) }.map_err(text3)?;
         Ok(u32::try_from(value).unwrap_or(0))
     }
     fn describe(ordinal: u32) -> Result<(GpuDeviceInfo, sys::CUdevice), String> {
-        let dev = drv::device::get(ordinal as i32).map_err(text)?;
+        let dev = drv::device::get(ordinal as i32).map_err(text3)?;
         let capability = ComputeCapability {
             major: Self::attribute(
                 dev,
@@ -462,21 +462,21 @@ impl CudaBackend {
         };
         let info = GpuDeviceInfo {
             ordinal,
-            name: drv::device::get_name(dev).map_err(text)?,
+            name: drv::device::get_name(dev).map_err(text3)?,
             compute_capability: capability,
             multiprocessors: Self::attribute(
                 dev,
                 sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT,
             )?,
-            total_memory: unsafe { drv::device::total_mem(dev) }.map_err(text)? as u64,
+            total_memory: unsafe { drv::device::total_mem(dev) }.map_err(text3)? as u64,
         };
         Ok((info, dev))
     }
 }
-impl GpuBackend for CudaBackend {
+impl GpuBackend3 for CudaBackend {
     fn devices(&self) -> Result<Vec<GpuDeviceInfo>, String> {
         ensure_driver()?;
-        let count = drv::device::get_count().map_err(text)?;
+        let count = drv::device::get_count().map_err(text3)?;
         (0..count.max(0) as u32)
             .map(|ordinal| Self::describe(ordinal).map(|(info, _)| info))
             .collect()
@@ -488,8 +488,8 @@ impl GpuBackend for CudaBackend {
         }
         let ctx = catch_unwind(AssertUnwindSafe(|| CudaContext::new(ordinal as usize)))
             .map_err(|_| "CUDA driver could not be loaded".to_string())?
-            .map_err(text)?;
-        let copy = StreamOwner::create(&ctx, Priority::Normal)?;
+            .map_err(text3)?;
+        let copy = StreamOwner3::create(&ctx, Priority::Normal)?;
         let root = Arc::new(MappedRoot::create(&ctx)?);
         let state = Arc::new(DeviceState {
             ctx,
@@ -515,11 +515,11 @@ impl GpuBackend for CudaBackend {
         priority: Priority,
     ) -> Result<Box<dyn StreamBackend>, String> {
         let state = self.state(ordinal)?;
-        let owner = StreamOwner::create(&state.ctx, priority)?;
+        let owner = StreamOwner3::create(&state.ctx, priority)?;
         Ok(Box::new(CudaStream { owner }))
     }
     fn memory_query(&self, ordinal: u32) -> Arc<dyn MemoryQuery> {
-        Arc::new(DriverQuery {
+        Arc::new(DriverQuery3 {
             state: self.state(ordinal).ok(),
         })
     }
@@ -527,13 +527,13 @@ impl GpuBackend for CudaBackend {
         let state = self.state(ordinal)?;
         let len = usize::try_from(arena.capacity)
             .map_err(|_| "arena exceeds the address space".to_string())?;
-        state.ctx.bind_to_thread().map_err(text)?;
+        state.ctx.bind_to_thread().map_err(text3)?;
         if !arena.kind.is_device() {
             let ptr = if len == 0 {
                 None
             } else {
                 let raw = unsafe { drv::malloc_host(len, sys::CU_MEMHOSTALLOC_PORTABLE) }
-                    .map_err(text)?;
+                    .map_err(text3)?;
                 let ptr = NonNull::new(raw.cast::<u8>()).ok_or("null host allocation")?;
                 unsafe { ptr::write_bytes(ptr.as_ptr(), 0, len) };
                 Some(ptr)
@@ -549,7 +549,7 @@ impl GpuBackend for CudaBackend {
         let dev = if len == 0 {
             0
         } else {
-            unsafe { drv::malloc_sync(len) }.map_err(text)?
+            unsafe { drv::malloc_sync(len) }.map_err(text3)?
         };
         let region = Arc::new(DeviceRegion {
             state: Arc::clone(&state),
@@ -619,7 +619,7 @@ impl GpuBackend for CudaBackend {
     fn table_sink(&self, ordinal: u32) -> Arc<dyn TableSink> {
         match self.state(ordinal) {
             Ok(state) => {
-                Arc::new(SegmentSink {
+                Arc::new(SegmentSink3 {
                     ordinal,
                     state,
                     regions: Arc::clone(&self.regions),

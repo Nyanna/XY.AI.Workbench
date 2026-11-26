@@ -36,7 +36,7 @@ fn entries_are_placed_in_ascending_slots_and_reported() {
         assert_eq!(binding.stamp, f.stamp_of(binding.entry.entry.0));
         assert_eq!(binding.entry.section, 0);
     }
-    let addr = seg.assignment.device_addr(Slot(1)).unwrap();
+    let addr = seg.assignment.device_addr(Slot5(1)).unwrap();
     assert_eq!(f.services.read_device(addr.0, SLOT_BYTES as usize), vector(2, 2.0));
     assert!(seg.writer.is_some());
 }
@@ -46,13 +46,13 @@ fn short_entries_are_padded_with_the_mask_value() {
     f.put(1, 1, 5.0);
     f.manager.ensure(&set(&[1])).unwrap();
     let seg = f.queue.drain().pop().unwrap();
-    let addr = seg.assignment.device_addr(Slot(0)).unwrap();
+    let addr = seg.assignment.device_addr(Slot5(0)).unwrap();
     let mut expected = vector(1, 5.0);
     for _ in 0..DIM {
         expected.extend_from_slice(&(-10_000.0f32).to_le_bytes());
     }
     assert_eq!(f.services.read_device(addr.0, SLOT_BYTES as usize), expected);
-    assert_eq!(seg.states.meta(Slot(0)).unwrap().tokens, 1);
+    assert_eq!(seg.states.meta(Slot5(0)).unwrap().tokens, 1);
 }
 #[test]
 fn ensure_does_not_publish() {

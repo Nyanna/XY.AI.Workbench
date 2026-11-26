@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 use log::warn;
-use super::backend::{GpuBackend, GpuDeviceInfo};
+use super::backend::{GpuBackend3, GpuDeviceInfo};
 use super::config::{default_kernel_names, GpuConfig, GpuShared};
 use super::deps::*;
 use super::error::GpuError;
@@ -19,7 +19,7 @@ static_assertions::assert_impl_all!(IndexMemory : Send, Sync);
 /// The sub-engine of one GPU.
 pub struct GpuSubengine {
     info: GpuDeviceInfo,
-    backend: Arc<dyn GpuBackend>,
+    backend: Arc<dyn GpuBackend3>,
     cfg: GpuConfig,
     detected: DetectedCapabilities,
     shared: GpuShared,
@@ -47,7 +47,7 @@ impl GpuSubengine {
     /// and loads nothing.
     pub fn new(
         info: GpuDeviceInfo,
-        backend: Arc<dyn GpuBackend>,
+        backend: Arc<dyn GpuBackend3>,
         shared: GpuShared,
         cfg: GpuConfig,
     ) -> Result<Arc<GpuSubengine>, GpuError> {
@@ -63,7 +63,7 @@ impl GpuSubengine {
     }
     pub(super) fn build(
         info: GpuDeviceInfo,
-        backend: Arc<dyn GpuBackend>,
+        backend: Arc<dyn GpuBackend3>,
         shared: GpuShared,
         cfg: GpuConfig,
         detected: DetectedCapabilities,

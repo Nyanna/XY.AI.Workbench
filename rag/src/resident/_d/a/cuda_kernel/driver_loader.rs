@@ -10,7 +10,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::kernel_register::{
     CodeImage, CodeKind, KernelFunction, LoadFailure, ModuleLoader,
 };
-fn text(e: drv::DriverError) -> String {
+fn text4(e: drv::DriverError) -> String {
     e.to_string()
 }
 struct ModuleOwner {
@@ -64,11 +64,11 @@ impl DriverLoader {
     pub fn new(ordinal: u32) -> Result<DriverLoader, String> {
         let ctx = catch_unwind(AssertUnwindSafe(|| CudaContext::new(ordinal as usize)))
             .map_err(|_| "CUDA driver could not be loaded".to_string())?
-            .map_err(text)?;
+            .map_err(text4)?;
         DriverLoader::from_context(ctx)
     }
     pub fn from_context(ctx: Arc<CudaContext>) -> Result<DriverLoader, String> {
-        let (major, minor) = ctx.compute_capability().map_err(text)?;
+        let (major, minor) = ctx.compute_capability().map_err(text4)?;
         Ok(DriverLoader {
             ctx,
             capability: ComputeCapability::new(major as u32, minor as u32),
@@ -88,15 +88,15 @@ impl ModuleLoader for DriverLoader {
         symbol: &str,
     ) -> Result<Arc<dyn KernelFunction>, LoadFailure> {
         let name = CString::new(symbol).map_err(|e| LoadFailure::Other(e.to_string()))?;
-        self.ctx.bind_to_thread().map_err(|e| LoadFailure::Other(text(e)))?;
+        self.ctx.bind_to_thread().map_err(|e| LoadFailure::Other(text4(e)))?;
         let mut data = image.bytes.clone();
         data.push(0);
         let raw = unsafe { drv::module::load_data(data.as_ptr().cast()) }
             .map_err(|e| {
                 if image.kind == CodeKind::Ptx {
-                    LoadFailure::PtxRejected(text(e))
+                    LoadFailure::PtxRejected(text4(e))
                 } else {
-                    LoadFailure::Other(text(e))
+                    LoadFailure::Other(text4(e))
                 }
             })?;
         let module = Arc::new(ModuleOwner {
@@ -108,7 +108,7 @@ impl ModuleLoader for DriverLoader {
                 if e.0 == sys::CUresult::CUDA_ERROR_NOT_FOUND {
                     LoadFailure::MissingSymbol(symbol.to_string())
                 } else {
-                    LoadFailure::Other(text(e))
+                    LoadFailure::Other(text4(e))
                 }
             })?;
         Ok(

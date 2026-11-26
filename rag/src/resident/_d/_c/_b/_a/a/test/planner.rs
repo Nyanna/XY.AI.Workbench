@@ -193,7 +193,7 @@ impl Expander for DelegatingExpander {
         &self,
         spec: &TaskSpec,
         ctx: &ExpansionContext<'_>,
-    ) -> Result<Vec<PlannedOperation>, ExpandError> {
+    ) -> Result<Vec<PlannedOperation>, ExpandError2> {
         self.seen_models.lock().unwrap().push(requested_model(spec));
         StandardExpander.expand(spec, ctx)
     }
@@ -204,7 +204,7 @@ impl Expander for RequireExpander {
         &self,
         spec: &TaskSpec,
         ctx: &ExpansionContext<'_>,
-    ) -> Result<Vec<PlannedOperation>, ExpandError> {
+    ) -> Result<Vec<PlannedOperation>, ExpandError2> {
         let chain = StandardExpander.expand(spec, ctx)?;
         Ok(
             chain
@@ -237,7 +237,7 @@ impl Expander for EmptyExpander {
         &self,
         _spec: &TaskSpec,
         _ctx: &ExpansionContext<'_>,
-    ) -> Result<Vec<PlannedOperation>, ExpandError> {
+    ) -> Result<Vec<PlannedOperation>, ExpandError2> {
         Ok(Vec::new())
     }
 }
@@ -665,13 +665,13 @@ fn claimed_and_cancelled_tasks_are_rejected() {
     one(planner.expand(&task));
     assert_eq!(
         plan_err(planner.expand(& task)),
-        PlanError::TaskNotClaimable(ClaimError::NotEnqueued(TaskState::Claimed))
+        PlanError::TaskNotClaimable(ClaimError2::NotEnqueued(TaskState::Claimed))
     );
     let cancelled = new_task(vector_spec());
     assert!(cancelled.cancel());
     assert_eq!(
         plan_err(planner.expand(& cancelled)),
-        PlanError::TaskNotClaimable(ClaimError::Cancelled)
+        PlanError::TaskNotClaimable(ClaimError2::Cancelled)
     );
 }
 #[test]
@@ -683,7 +683,7 @@ fn foreign_task_kind_is_an_expand_error_and_leaves_the_task_claimed() {
         kind: "ocr".to_string(),
     });
     assert_eq!(
-        plan_err(planner.expand(& task)), PlanError::Expand(ExpandError::ForeignTaskKind
+        plan_err(planner.expand(& task)), PlanError::Expand(ExpandError2::ForeignTaskKind
         { expected : "Embedding/Similarity".to_string(), got : "ocr".to_string(), })
     );
     assert_eq!(task.state(), TaskState::Claimed);
@@ -751,14 +751,14 @@ fn expander_errors_are_wrapped() {
     let zero = new_task(similarity_spec(ScorerChoice::Vector(Scoring::Cosine), 0));
     assert_eq!(
         plan_err(planner.expand(& zero)),
-        PlanError::Expand(ExpandError::Config(ConfigError::ZeroTopK))
+        PlanError::Expand(ExpandError2::Config(ConfigError::ZeroTopK))
     );
     let cross = new_task(
         similarity_spec(ScorerChoice::CrossEncoder("minilm".to_string()), 3),
     );
     assert_eq!(
         plan_err(planner.expand(& cross)),
-        PlanError::Expand(ExpandError::ScoringUnavailable { scorer : "minilm".to_string()
+        PlanError::Expand(ExpandError2::ScoringUnavailable { scorer : "minilm".to_string()
         })
     );
     assert_eq!(count(& log, "activate"), 0);
@@ -1003,10 +1003,10 @@ fn error_messages() {
         .to_string() } .to_string(), "Subengine gpu nicht aktivierbar: boom"
     );
     assert_eq!(
-        PlanError::TaskNotClaimable(ClaimError::Cancelled).to_string(),
+        PlanError::TaskNotClaimable(ClaimError2::Cancelled).to_string(),
         "Task nicht beanspruchbar: Cancelled"
     );
-    let inner = ExpandError::UnknownModel {
+    let inner = ExpandError2::UnknownModel {
         model: "m".to_string(),
     };
     assert_eq!(PlanError::Expand(inner.clone()).to_string(), inner.to_string());

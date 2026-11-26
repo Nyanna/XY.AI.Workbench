@@ -24,16 +24,16 @@ const MAP_PUBLISH_ATTEMPTS: u32 = 3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EvictKey(pub u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Tier {
+pub enum Tier2 {
     Vram,
     Ram,
 }
-impl Tier {
-    const ALL: [Tier; 2] = [Tier::Vram, Tier::Ram];
+impl Tier2 {
+    const ALL: [Tier2; 2] = [Tier2::Vram, Tier2::Ram];
     fn index(self) -> usize {
         match self {
-            Tier::Vram => 0,
-            Tier::Ram => 1,
+            Tier2::Vram => 0,
+            Tier2::Ram => 1,
         }
     }
 }
@@ -75,15 +75,15 @@ impl EvictionPolicy {
             idle: Duration::from_secs(60),
         }
     }
-    fn default_for(tier: Tier) -> Self {
+    fn default_for(tier: Tier2) -> Self {
         match tier {
-            Tier::Vram => Self::vram(),
-            Tier::Ram => Self::ram(),
+            Tier2::Vram => Self::vram(),
+            Tier2::Ram => Self::ram(),
         }
     }
     /// Replaces non-finite marks by the tier default, clamps `high` to `[0, 1]`
     /// and `low` to `[0, high]`.
-    pub fn sanitized(self, tier: Tier) -> Self {
+    pub fn sanitized(self, tier: Tier2) -> Self {
         let default = Self::default_for(tier);
         let high = if self.high.is_finite() { self.high } else { default.high }
             .clamp(0.0, 1.0);
@@ -123,7 +123,7 @@ impl TierBudget {
 }
 #[derive(Clone, Copy, Debug)]
 pub struct TrackSpec {
-    pub tier: Tier,
+    pub tier: Tier2,
     pub segment: SegmentId,
     pub region: RegionHandle,
     pub size: u64,
@@ -187,7 +187,7 @@ struct Tracked {
     pins: PinCount,
 }
 impl Tracked {
-    fn eligible(&self, tier: Tier) -> bool {
+    fn eligible(&self, tier: Tier2) -> bool {
         self.spec.tier == tier && !self.spec.summary && self.pins.is_unpinned()
     }
     fn reprioritize(&mut self, floor: f64) {
@@ -195,40 +195,40 @@ impl Tracked {
         self.priority = floor + (self.hits as f64 * self.spec.reload_cost) / size;
     }
 }
-struct Deferred {
+struct Deferred3 {
     region: RegionHandle,
     epoch: Epoch,
     bytes: u64,
-    tier: Tier,
+    tier: Tier2,
 }
-struct State {
+struct State9 {
     entries: HashMap<EvictKey, Tracked>,
     floors: [f64; 2],
     policies: [EvictionPolicy; 2],
     budgets: [TierBudget; 2],
-    deferred: Vec<Deferred>,
+    deferred: Vec<Deferred3>,
 }
-impl State {
-    fn live_bytes(&self, tier: Tier) -> u64 {
+impl State9 {
+    fn live_bytes(&self, tier: Tier2) -> u64 {
         self.entries
             .values()
             .filter(|t| t.spec.tier == tier)
             .fold(0u64, |acc, t| acc.saturating_add(t.spec.size))
     }
-    fn deferred_bytes(&self, tier: Tier) -> u64 {
+    fn deferred_bytes(&self, tier: Tier2) -> u64 {
         self.deferred
             .iter()
             .filter(|d| d.tier == tier)
             .fold(0u64, |acc, d| acc.saturating_add(d.bytes))
     }
-    fn occupancy(&self, tier: Tier) -> u64 {
+    fn occupancy(&self, tier: Tier2) -> u64 {
         self.live_bytes(tier).saturating_add(self.deferred_bytes(tier))
     }
-    fn usable(&self, tier: Tier) -> u64 {
+    fn usable(&self, tier: Tier2) -> u64 {
         self.budgets[tier.index()].usable()
     }
     /// Eligible entries of `tier` as `(key, bytes)` in victim order.
-    fn victims(&self, tier: Tier) -> Vec<(EvictKey, u64)> {
+    fn victims(&self, tier: Tier2) -> Vec<(EvictKey, u64)> {
         let mut list: Vec<(&EvictKey, &Tracked)> = self
             .entries
             .iter()
@@ -243,7 +243,7 @@ impl State {
         list.into_iter().map(|(k, t)| (*k, t.spec.size)).collect()
     }
 }
-enum Step {
+enum Step3 {
     Evicted(EvictionDecision),
     Skipped,
     Gone,
@@ -256,7 +256,7 @@ pub struct Eviction {
     store: Arc<MappingStore>,
     allocators: Arc<AllocatorSet>,
     evict_lock: Mutex<()>,
-    state: Mutex<State>,
+    state: Mutex<State9>,
 }
 static_assertions::assert_impl_all!(Eviction : Send, Sync);
 impl Eviction {
@@ -274,7 +274,7 @@ impl Eviction {
             store,
             allocators,
             evict_lock: Mutex::new(()),
-            state: Mutex::new(State {
+            state: Mutex::new(State9 {
                 entries: HashMap::new(),
                 floors: [0.0; 2],
                 policies: [EvictionPolicy::vram(), EvictionPolicy::ram()],
@@ -283,13 +283,13 @@ impl Eviction {
             }),
         }
     }
-    pub fn set_policy(&self, tier: Tier, policy: EvictionPolicy) {
+    pub fn set_policy(&self, tier: Tier2, policy: EvictionPolicy) {
         lock(&self.state).policies[tier.index()] = policy.sanitized(tier);
     }
-    pub fn policy(&self, tier: Tier) -> EvictionPolicy {
+    pub fn policy(&self, tier: Tier2) -> EvictionPolicy {
         lock(&self.state).policies[tier.index()]
     }
-    pub fn set_budget(&self, tier: Tier, budget: TierBudget) {
+    pub fn set_budget(&self, tier: Tier2, budget: TierBudget) {
         lock(&self.state).budgets[tier.index()] = budget;
     }
     pub fn track(&self, key: EvictKey, spec: TrackSpec, now: Instant) {
@@ -342,19 +342,19 @@ impl Eviction {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    pub fn len_tier(&self, tier: Tier) -> usize {
+    pub fn len_tier(&self, tier: Tier2) -> usize {
         lock(&self.state).entries.values().filter(|t| t.spec.tier == tier).count()
     }
-    pub fn bytes(&self, tier: Tier) -> u64 {
+    pub fn bytes(&self, tier: Tier2) -> u64 {
         lock(&self.state).live_bytes(tier)
     }
-    pub fn deferred_bytes(&self, tier: Tier) -> u64 {
+    pub fn deferred_bytes(&self, tier: Tier2) -> u64 {
         lock(&self.state).deferred_bytes(tier)
     }
-    pub fn occupancy(&self, tier: Tier) -> u64 {
+    pub fn occupancy(&self, tier: Tier2) -> u64 {
         lock(&self.state).occupancy(tier)
     }
-    pub fn usable(&self, tier: Tier) -> u64 {
+    pub fn usable(&self, tier: Tier2) -> u64 {
         lock(&self.state).usable(tier)
     }
     pub fn priority(&self, key: EvictKey) -> Option<f64> {
@@ -363,21 +363,21 @@ impl Eviction {
     pub fn hits(&self, key: EvictKey) -> Option<u64> {
         lock(&self.state).entries.get(&key).map(|t| t.hits)
     }
-    pub fn floor(&self, tier: Tier) -> f64 {
+    pub fn floor(&self, tier: Tier2) -> f64 {
         lock(&self.state).floors[tier.index()]
     }
-    pub fn evict_idle(&self, tier: Tier, now: Instant) -> EvictionOutcome {
+    pub fn evict_idle(&self, tier: Tier2, now: Instant) -> EvictionOutcome {
         let _serial = lock(&self.evict_lock);
         self.idle_locked(tier, now)
     }
-    pub fn relieve_pressure(&self, tier: Tier) -> EvictionOutcome {
+    pub fn relieve_pressure(&self, tier: Tier2) -> EvictionOutcome {
         let _serial = lock(&self.evict_lock);
         self.pressure_locked(tier)
     }
     pub fn tick(&self, now: Instant) -> EvictionOutcome {
         let _serial = lock(&self.evict_lock);
         let mut total = EvictionOutcome::default();
-        for tier in Tier::ALL {
+        for tier in Tier2::ALL {
             total.merge(self.idle_locked(tier, now));
             if total.aborted.is_some() {
                 break;
@@ -391,7 +391,7 @@ impl Eviction {
     }
     pub fn make_room(
         &self,
-        tier: Tier,
+        tier: Tier2,
         need: u64,
     ) -> Result<EvictionOutcome, EvictionError> {
         let _serial = lock(&self.evict_lock);
@@ -426,7 +426,7 @@ impl Eviction {
     pub fn reclaim(&self, min_reader_epoch: Epoch) -> usize {
         let ready = {
             let mut st = lock(&self.state);
-            let (ready, kept): (Vec<Deferred>, Vec<Deferred>) = std::mem::take(
+            let (ready, kept): (Vec<Deferred3>, Vec<Deferred3>) = std::mem::take(
                     &mut st.deferred,
                 )
                 .into_iter()
@@ -452,7 +452,7 @@ impl Eviction {
         }
         freed
     }
-    fn idle_locked(&self, tier: Tier, now: Instant) -> EvictionOutcome {
+    fn idle_locked(&self, tier: Tier2, now: Instant) -> EvictionOutcome {
         let keys = {
             let st = lock(&self.state);
             let idle = st.policies[tier.index()].idle;
@@ -470,7 +470,7 @@ impl Eviction {
         };
         self.run(tier, keys, EvictReason::Idle)
     }
-    fn pressure_locked(&self, tier: Tier) -> EvictionOutcome {
+    fn pressure_locked(&self, tier: Tier2) -> EvictionOutcome {
         let keys = {
             let st = lock(&self.state);
             let policy = st.policies[tier.index()];
@@ -495,17 +495,17 @@ impl Eviction {
     }
     fn run(
         &self,
-        tier: Tier,
+        tier: Tier2,
         keys: Vec<EvictKey>,
         reason: EvictReason,
     ) -> EvictionOutcome {
         let mut out = EvictionOutcome::default();
         for key in keys {
             match self.evict_one(key, tier, reason) {
-                Step::Evicted(decision) => out.decisions.push(decision),
-                Step::Skipped => out.skipped.push(key),
-                Step::Gone => {}
-                Step::Aborted(abort) => {
+                Step3::Evicted(decision) => out.decisions.push(decision),
+                Step3::Skipped => out.skipped.push(key),
+                Step3::Gone => {}
+                Step3::Aborted(abort) => {
                     out.aborted = Some(abort);
                     break;
                 }
@@ -513,7 +513,7 @@ impl Eviction {
         }
         out
     }
-    fn evict_one(&self, key: EvictKey, tier: Tier, reason: EvictReason) -> Step {
+    fn evict_one(&self, key: EvictKey, tier: Tier2, reason: EvictReason) -> Step3 {
         let taken = {
             let mut st = lock(&self.state);
             if st.entries.get(&key).is_some_and(|t| t.eligible(tier)) {
@@ -523,7 +523,7 @@ impl Eviction {
             }
         };
         let Some(tracked) = taken else {
-            return Step::Gone;
+            return Step3::Gone;
         };
         let spec = tracked.spec;
         let mut table = self.swap.next_table();
@@ -538,7 +538,7 @@ impl Eviction {
                 "eviction index={} victim={} segment={} skipped: region unknown", self
                 .index, key.0, spec.segment.0
             );
-            return Step::Skipped;
+            return Step3::Skipped;
         }
         let epoch = if in_table {
             match self.swap.publish(table) {
@@ -554,7 +554,7 @@ impl Eviction {
         {
             let mut st = lock(&self.state);
             st.deferred
-                .push(Deferred {
+                .push(Deferred3 {
                     region: spec.region,
                     epoch,
                     bytes: spec.size,
@@ -579,7 +579,7 @@ impl Eviction {
             decision.index, key.0, decision.segment.0, decision.size, decision.bytes,
             decision.hits, reason
         );
-        Step::Evicted(decision)
+        Step3::Evicted(decision)
     }
     fn publish_map(&self, first: AddressMap, segment: SegmentId) {
         let mut map = first;
@@ -613,9 +613,9 @@ impl Eviction {
             }
         }
     }
-    fn restore(&self, key: EvictKey, tracked: Tracked, cause: AbortCause) -> Step {
+    fn restore(&self, key: EvictKey, tracked: Tracked, cause: AbortCause) -> Step3 {
         lock(&self.state).entries.entry(key).or_insert(tracked);
-        Step::Aborted(Abort { key, cause })
+        Step3::Aborted(Abort { key, cause })
     }
 }
 #[cfg(test)]

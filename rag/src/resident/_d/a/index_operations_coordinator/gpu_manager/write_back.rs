@@ -1,7 +1,7 @@
 //! Write-back of processed GPU results and the index wrapper for the Communication-Slot.
 use std::sync::{Arc, TryLockError};
 use super::deps::*;
-use super::state::{entry_ref, Inner};
+use super::state::{entry_ref, Inner8};
 use super::types::*;
 use super::GpuManager;
 impl GpuManager {
@@ -78,7 +78,7 @@ impl GpuManager {
         )
     }
 }
-impl Inner {
+impl Inner8 {
     /// Called after a successful index write through the wrapper. The residency mutex may be
     /// held by the caller of the wrapper, so it is never waited for: a busy mutex defers the
     /// decision to `SlotUpdates::apply`, which receives the directory.
@@ -98,7 +98,7 @@ impl Inner {
 }
 /// Forwards every call; adds the bind of GPU-built entries after a write.
 struct MirroredIndex {
-    inner: Arc<Inner>,
+    inner: Arc<Inner8>,
     base: Arc<dyn Index>,
 }
 impl Index for MirroredIndex {
@@ -114,7 +114,7 @@ impl Index for MirroredIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         self.base.stamps()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.base.read(id)
     }
     fn write(&self, id: EntryId, payload: PayloadRef<'_>) -> Result<Stamp, IndexError> {
@@ -138,7 +138,7 @@ impl Index for MirroredIndex {
     fn subscribe(&self) -> StampObserver {
         self.base.subscribe()
     }
-    fn summary(&self, node: NodeId) -> Result<Summary, IndexError> {
+    fn summary(&self, node: NodeId) -> Result<Summary2, IndexError> {
         self.base.summary(node)
     }
     fn children(&self, node: NodeId) -> Result<Vec<NodeId>, IndexError> {

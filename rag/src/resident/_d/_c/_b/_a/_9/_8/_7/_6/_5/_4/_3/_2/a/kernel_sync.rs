@@ -35,7 +35,7 @@ pub enum ChangeError {
     Cancelled,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SyncError {
+pub enum SyncError2 {
     Closed,
     QueueFull,
 }
@@ -49,7 +49,7 @@ pub enum ChangeStatus {
 const PHASE_PENDING: u8 = 0;
 const PHASE_RUNNING: u8 = 1;
 const PHASE_CANCELLED: u8 = 2;
-struct Entry {
+struct Entry3 {
     phase: AtomicU8,
     change: Mutex<Option<Change>>,
     status: Mutex<ChangeStatus>,
@@ -57,7 +57,7 @@ struct Entry {
     signal: EventSignal,
     live: Arc<AtomicUsize>,
 }
-impl Entry {
+impl Entry3 {
     fn finish(&self, status: ChangeStatus) {
         *self.status.lock() = status;
         self.signal.signal();
@@ -96,7 +96,7 @@ impl Entry {
     }
 }
 pub struct ChangeHandle {
-    entry: Arc<Entry>,
+    entry: Arc<Entry3>,
 }
 impl ChangeHandle {
     pub fn status(&self) -> ChangeStatus {
@@ -110,7 +110,7 @@ impl ChangeHandle {
     }
 }
 struct LaneState {
-    queue: SegQueue<Arc<Entry>>,
+    queue: SegQueue<Arc<Entry3>>,
     live: Arc<AtomicUsize>,
     open: AtomicBool,
 }
@@ -163,9 +163,9 @@ impl KernelSync {
         &self,
         lane: &Lane,
         change: Change,
-    ) -> Result<ChangeHandle, SyncError> {
+    ) -> Result<ChangeHandle, SyncError2> {
         if self.closed.load(Ordering::Acquire) {
-            return Err(SyncError::Closed);
+            return Err(SyncError2::Closed);
         }
         let state = self.lane_state_or_insert(lane_key(lane));
         let reserved = state
@@ -176,10 +176,10 @@ impl KernelSync {
                 |n| { if n < self.capacity { Some(n + 1) } else { None } },
             );
         if reserved.is_err() {
-            return Err(SyncError::QueueFull);
+            return Err(SyncError2::QueueFull);
         }
         let (event, signal) = Event::cpu();
-        let entry = Arc::new(Entry {
+        let entry = Arc::new(Entry3 {
             phase: AtomicU8::new(PHASE_PENDING),
             change: Mutex::new(Some(change)),
             status: Mutex::new(ChangeStatus::Pending),
@@ -190,7 +190,7 @@ impl KernelSync {
         state.queue.push(entry.clone());
         if self.closed.load(Ordering::Acquire) {
             entry.try_cancel();
-            return Err(SyncError::Closed);
+            return Err(SyncError2::Closed);
         }
         Ok(ChangeHandle { entry })
     }

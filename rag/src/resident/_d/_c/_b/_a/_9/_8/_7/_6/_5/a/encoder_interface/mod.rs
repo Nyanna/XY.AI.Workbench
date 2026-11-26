@@ -70,7 +70,7 @@ pub struct Encoder {
     pool_norm: PoolNorm,
     storage_dtype: DType,
 }
-fn incompatible(
+fn incompatible3(
     what: &'static str,
     expected: impl Into<String>,
     actual: impl Into<String>,
@@ -91,7 +91,7 @@ impl Encoder {
     ) -> Result<Encoder, EncoderError> {
         if !matches!(storage_dtype, DType::F32 | DType::F16 | DType::BF16) {
             return Err(
-                incompatible(
+                incompatible3(
                     "storage_dtype",
                     "F32, F16 or BF16",
                     storage_dtype.to_safetensors(),
@@ -101,7 +101,7 @@ impl Encoder {
         if let Some(p) = &projection {
             if p.input_dim() != model.dimension() {
                 return Err(
-                    incompatible(
+                    incompatible3(
                         "projection input_dim",
                         model.dimension().to_string(),
                         p.input_dim().to_string(),
@@ -113,7 +113,7 @@ impl Encoder {
             .as_ref()
             .map_or_else(|| model.dimension(), |p| p.output_dim());
         let pool_norm = PoolNorm::new(pooling, normalization, dim)
-            .map_err(|e| incompatible("pooling", "non-zero dimension", e.to_string()))?;
+            .map_err(|e| incompatible3("pooling", "non-zero dimension", e.to_string()))?;
         Ok(Encoder {
             model,
             projection,
@@ -148,7 +148,7 @@ impl Encoder {
         check_tensor("output", output, &out_shape, self.storage_dtype)?;
         let (event, signal) = Event::cpu();
         let error: ErrorSlot = Arc::new(Mutex::new(None));
-        let job = Job {
+        let job = Job3 {
             model: Arc::clone(&self.model),
             projection: self.projection.clone(),
             pool_norm: self.pool_norm,
@@ -158,7 +158,7 @@ impl Encoder {
             rows,
             seq_len,
         };
-        run_job(job, senders, Arc::clone(&error), signal);
+        run_job2(job, senders, Arc::clone(&error), signal);
         Ok(CompletionEvent { event, error })
     }
 }
@@ -171,22 +171,22 @@ fn check_tensor(
     let layout = t.layout();
     if layout.shape() != shape {
         return Err(
-            incompatible(what, format!("{shape:?}"), format!("{:?}", layout.shape())),
+            incompatible3(what, format!("{shape:?}"), format!("{:?}", layout.shape())),
         );
     }
     if layout.dtype() != dtype {
         return Err(
-            incompatible(what, dtype.to_safetensors(), layout.dtype().to_safetensors()),
+            incompatible3(what, dtype.to_safetensors(), layout.dtype().to_safetensors()),
         );
     }
     if !layout.is_contiguous() {
         return Err(
-            incompatible(what, "contiguous", format!("strides {:?}", layout.strides())),
+            incompatible3(what, "contiguous", format!("strides {:?}", layout.strides())),
         );
     }
     Ok(())
 }
-struct Job {
+struct Job3 {
     model: Arc<TransformerModel>,
     projection: Option<Arc<Projection>>,
     pool_norm: PoolNorm,
@@ -202,7 +202,7 @@ impl Drop for SignalOnDrop {
         self.0.signal();
     }
 }
-fn run_job(job: Job, senders: Vec<TaskSender>, error: ErrorSlot, signal: EventSignal) {
+fn run_job2(job: Job3, senders: Vec<TaskSender>, error: ErrorSlot, signal: EventSignal) {
     let _signal = SignalOnDrop(signal);
     let result = match catch_unwind(AssertUnwindSafe(|| execute(&job))) {
         Ok(r) => r,
@@ -227,7 +227,7 @@ fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
         None => "panic".to_string(),
     }
 }
-fn execute(job: &Job) -> Result<(), String> {
+fn execute(job: &Job3) -> Result<(), String> {
     let cells = job
         .rows
         .checked_mul(job.seq_len)
@@ -301,12 +301,12 @@ fn to_storage_bytes(values: &[f32], dtype: DType) -> Result<Vec<u8>, String> {
         DType::F16 => {
             values
                 .iter()
-                .for_each(|&v| out.extend_from_slice(&f32_to_f16_bits(v).to_le_bytes()))
+                .for_each(|&v| out.extend_from_slice(&f32_to_f16_bits3(v).to_le_bytes()))
         }
         DType::BF16 => {
             values
                 .iter()
-                .for_each(|&v| out.extend_from_slice(&f32_to_bf16_bits(v).to_le_bytes()))
+                .for_each(|&v| out.extend_from_slice(&f32_to_bf16_bits3(v).to_le_bytes()))
         }
         other => {
             return Err(format!("unsupported storage type {}", other.to_safetensors()));
@@ -314,7 +314,7 @@ fn to_storage_bytes(values: &[f32], dtype: DType) -> Result<Vec<u8>, String> {
     }
     Ok(out)
 }
-fn f32_to_bf16_bits(v: f32) -> u16 {
+fn f32_to_bf16_bits3(v: f32) -> u16 {
     let bits = v.to_bits();
     if v.is_nan() {
         return ((bits >> 16) as u16) | 0x0040;
@@ -322,7 +322,7 @@ fn f32_to_bf16_bits(v: f32) -> u16 {
     let rounded = bits.wrapping_add(0x7FFF + ((bits >> 16) & 1));
     (rounded >> 16) as u16
 }
-fn f32_to_f16_bits(v: f32) -> u16 {
+fn f32_to_f16_bits3(v: f32) -> u16 {
     let bits = v.to_bits();
     let sign = ((bits >> 16) & 0x8000) as u16;
     let exp = ((bits >> 23) & 0xFF) as i32;

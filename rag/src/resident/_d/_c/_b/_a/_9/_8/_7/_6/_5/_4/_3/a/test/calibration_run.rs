@@ -57,8 +57,8 @@ fn caps() -> CapabilitySet {
 fn model() -> ModelDescriptor {
     ModelDescriptor::e5_small_repo_default(DType::F32)
 }
-fn target() -> Target {
-    Target {
+fn target() -> Target2 {
+    Target2 {
         subengine: "gpu".into(),
         model_id: model().model_id,
     }
@@ -118,7 +118,7 @@ fn normal_mode_selects_faster_candidate() {
     assert_eq!(r.summary.candidate_count, 1);
     assert_eq!(r.summary.front.len(), 1);
     assert_eq!(r.summary.front[0].combination, bt("8", "16"));
-    assert_eq!(r.entries.iter().filter(| e | e.stage == Stage::Axis).count(), 2);
+    assert_eq!(r.entries.iter().filter(| e | e.stage == Stage2::Axis).count(), 2);
     assert_eq!(r.counters.measured, 3);
     assert_eq!(r.counters.stable, 3);
     assert!(! r.budget.exhausted);
@@ -130,7 +130,7 @@ fn full_mode_measures_whole_product() {
         ..config()
     };
     let r = run_calibration(target(), &caps(), &model(), &backend(), &cfg).unwrap();
-    assert!(r.entries.iter().all(| e | e.stage == Stage::Full));
+    assert!(r.entries.iter().all(| e | e.stage == Stage2::Full));
     assert_eq!(r.summary.candidate_count, 2);
     assert_eq!(r.summary.front.len(), 1);
     assert_eq!(r.summary.front[0].combination, bt("8", "16"));
@@ -189,7 +189,7 @@ fn core_axes_multiply_groups() {
     let b = MockBackend::new(vec![]);
     let r = run_calibration(target(), &c, &model(), &b, &config()).unwrap();
     assert_eq!(r.product_size, 4);
-    let axis_entries = r.entries.iter().filter(|e| e.stage == Stage::Axis).count();
+    let axis_entries = r.entries.iter().filter(|e| e.stage == Stage2::Axis).count();
     assert_eq!(axis_entries, 4);
     let _ = combo(&[]);
 }

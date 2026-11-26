@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use log::warn;
 
-use super::backend::{GpuBackend, GpuDeviceInfo};
+use super::backend::{GpuBackend3, GpuDeviceInfo};
 use super::config::{GpuDeviceManagerConfig, GpuShared};
 use super::deps::*;
 use super::error::GpuError;
@@ -12,7 +12,7 @@ use super::subengine::GpuSubengine;
 /// Manager of the GPU devices: retains one primary context per usable device and keeps it
 /// for its own lifetime.
 pub struct GpuDeviceManager {
-    _backend: Arc<dyn GpuBackend>,
+    _backend: Arc<dyn GpuBackend3>,
     infos: Vec<GpuDeviceInfo>,
     engines: Vec<Arc<GpuSubengine>>,
 }
@@ -23,7 +23,7 @@ impl GpuDeviceManager {
     /// Enumerates devices, retains one primary context per selected device, detects the
     /// capabilities and builds one sub-engine per device. Loads nothing, reserves no VRAM.
     pub fn new(
-        backend: Arc<dyn GpuBackend>,
+        backend: Arc<dyn GpuBackend3>,
         shared: GpuShared,
         cfg: GpuDeviceManagerConfig,
     ) -> Result<GpuDeviceManager, GpuError> {

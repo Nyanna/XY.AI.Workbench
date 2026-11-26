@@ -129,7 +129,7 @@ impl SegmentTable {
                 ),
             );
         }
-        let epoch = read_u64(bytes, 0);
+        let epoch = read_u642(bytes, 0);
         let count = read_u32(bytes, 8);
         let reserved = read_u32(bytes, 12);
         if reserved != 0 {
@@ -157,10 +157,10 @@ impl SegmentTable {
                 .ok_or_else(|| decode_err(format!("unknown arena id {arena_id}")))?;
             let generation = Generation(u64::from(read_u32(chunk, 4)));
             let region = RegionHandle::new(
-                    arena,
-                    read_u64(chunk, 8),
-                    read_u64(chunk, 16),
-                    generation,
+                arena,
+                read_u642(chunk, 8),
+                read_u642(chunk, 16),
+                generation,
                 )
                 .map_err(|e| decode_err(e.to_string()))?;
             segments.push(region);
@@ -173,7 +173,7 @@ fn read_u32(bytes: &[u8], at: usize) -> u32 {
     buf.copy_from_slice(&bytes[at..at + 4]);
     u32::from_le_bytes(buf)
 }
-fn read_u64(bytes: &[u8], at: usize) -> u64 {
+fn read_u642(bytes: &[u8], at: usize) -> u64 {
     let mut buf = [0u8; 8];
     buf.copy_from_slice(&bytes[at..at + 8]);
     u64::from_le_bytes(buf)
@@ -253,7 +253,7 @@ struct Published {
     table: Option<Arc<SegmentTable>>,
     region: Option<RegionHandle>,
 }
-struct Retired {
+struct Retired2 {
     region: RegionHandle,
     retire_epoch: Epoch,
 }
@@ -264,7 +264,7 @@ pub struct TableSwap {
     publish_lock: Mutex<()>,
     state: Mutex<Published>,
     tracker: Mutex<Tracker>,
-    retired: Mutex<Vec<Retired>>,
+    retired: Mutex<Vec<Retired2>>,
 }
 static_assertions::assert_impl_all!(TableSwap : Send, Sync);
 impl TableSwap {
@@ -343,7 +343,7 @@ impl TableSwap {
             state.epoch = epoch;
             if let Some(old) = previous {
                 lock(&self.retired)
-                    .push(Retired {
+                    .push(Retired2 {
                         region: old,
                         retire_epoch: epoch,
                     });

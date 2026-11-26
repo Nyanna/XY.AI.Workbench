@@ -4,10 +4,10 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_require
 fn eid(n: u64) -> EntryId {
     EntryId(n)
 }
-fn hit(id: u64, score: f32, stale: bool) -> Hit {
-    Hit { id: eid(id), score, stale }
+fn hit(id: u64, score: f32, stale: bool) -> Hit2 {
+    Hit2 { id: eid(id), score, stale }
 }
-fn input(hits: Vec<Hit>) -> ScoredHitResult {
+fn input(hits: Vec<Hit2>) -> ScoredHitResult {
     ScoredHitResult {
         scored_count: hits.len(),
         dropped_count: 0,

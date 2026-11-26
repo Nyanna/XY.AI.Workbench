@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::similarity_task::SimilarityParams;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::operation::ScoredHitResult;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit2;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context::TaskId;
 const MIN_STD_DEV: f64 = 1e-9;
@@ -67,7 +67,7 @@ impl fmt::Display for ReportError {
     }
 }
 impl std::error::Error for ReportError {}
-fn rank_order(a: &Hit, b: &Hit) -> Ordering {
+fn rank_order3(a: &Hit2, b: &Hit2) -> Ordering {
     b.score
         .partial_cmp(&a.score)
         .unwrap_or(Ordering::Equal)
@@ -81,13 +81,13 @@ pub fn build_report(
     source_link: &dyn Fn(EntryId) -> Option<String>,
 ) -> Result<SimilarityReport, ReportError> {
     let params = params.ok_or(ReportError::MissingSearchParams)?;
-    let mut valid: Vec<&Hit> = input
+    let mut valid: Vec<&Hit2> = input
         .hits
         .iter()
         .filter(|h| h.score.is_finite())
         .collect();
     let local_dropped = input.hits.len() - valid.len();
-    valid.sort_by(|a, b| rank_order(a, b));
+    valid.sort_by(|a, b| rank_order3(a, b));
     valid.truncate(params.top_k);
     let hits: Vec<ReportHit> = valid
         .iter()

@@ -18,7 +18,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::index_open::
     LazyIndexFile, OpenOptions,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    EntryId, Payload,
+    EntryId, Payload2,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::ModelDescriptor;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
@@ -910,7 +910,7 @@ fn lazy_index_file_reads_decoded_rows() {
                 assert_eq!(&* file.read_meta(EntryId(row.id)).unwrap(), &* payload.meta);
             }
             assert!(file.read_meta(EntryId(5)).is_none());
-            assert_eq!(file.read(EntryId(5)), Payload::default());
+            assert_eq!(file.read(EntryId(5)), Payload2::default());
             assert_eq!(file.stamp_counter().unwrap().max_raw(), Some(30));
         }
     }

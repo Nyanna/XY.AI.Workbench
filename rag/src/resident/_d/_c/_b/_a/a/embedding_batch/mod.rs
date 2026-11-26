@@ -8,7 +8,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::segment_arena::{
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::allocator::Allocator;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::kernel_batch::{
-    BatchError, BatchExecutor, BatchId, BatchInputs, BatchInterface, LaunchOutcome,
+    BatchError3, BatchExecutor, BatchId, BatchInputs, BatchInterface, LaunchOutcome,
     UsedRange,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::{
@@ -47,7 +47,7 @@ pub enum ExecError {
     InvalidConfig,
     Arena(SegmentArenaError),
     Region(RegionError),
-    Batch(BatchError),
+    Batch(BatchError3),
     Progress(String),
     ProgressOutOfRange { processed: u64, input_len: u64 },
 }
@@ -67,12 +67,12 @@ impl fmt::Display for ExecError {
     }
 }
 impl std::error::Error for ExecError {}
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
+const fn assert_send_sync_static3<T: Send + Sync + 'static>() {}
 const _: () = {
-    assert_send_sync_static::<ExecConfig>();
-    assert_send_sync_static::<BatchInput>();
-    assert_send_sync_static::<BatchSuccess>();
-    assert_send_sync_static::<ExecError>();
+    assert_send_sync_static3::<ExecConfig>();
+    assert_send_sync_static3::<BatchInput>();
+    assert_send_sync_static3::<BatchSuccess>();
+    assert_send_sync_static3::<ExecError>();
 };
 /// Runs an already begun batch to its hits. Always ends the batch; on error all
 /// reserved segments are released, on success they belong to the caller.

@@ -31,7 +31,7 @@ fn write_read_replace() {
     assert_eq!(ix.len(), 1);
     assert_eq!(ix.stamp(EntryId(1)), Some(s2));
     assert!(ix.read(EntryId(1)).vector.is_empty());
-    assert_eq!(ix.read(EntryId(9)), Payload::default());
+    assert_eq!(ix.read(EntryId(9)), Payload2::default());
     assert_eq!(p.vector.len(), 8);
 }
 

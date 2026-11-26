@@ -10,7 +10,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
     EntryRef, SegmentView, SlotAssignment, SlotClass, SlotStates,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    KernelHit, Slot,
+    KernelHit, Slot5,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::reference_index::ReferenceIndex;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::{
@@ -18,7 +18,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, IndexError, Payload, Stamp, StampObserver,
+    AccessMethod, IndexError, Payload2, Stamp, StampObserver,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use self::hit_queues::{channel, HitProducer, WriteProducer};
@@ -130,7 +130,7 @@ impl Index for FlakyIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         self.inner.stamps()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.inner.read(id)
     }
     fn write(&self, id: EntryId, payload: PayloadRef<'_>) -> Result<Stamp, IndexError> {
@@ -266,9 +266,9 @@ impl Env {
     }
     fn bind(&self, seg: u64, slot: u32, entry_id: u64, valid: bool) {
         let binding = &self.dir.0[&SegmentId(seg)];
-        binding.assignment.bind(Slot(slot), entry(entry_id)).unwrap();
+        binding.assignment.bind(Slot5(slot), entry(entry_id)).unwrap();
         if valid {
-            binding.states.set_filled(Slot(slot), 1).unwrap();
+            binding.states.set_filled(Slot5(slot), 1).unwrap();
         }
         self.residency
             .lock()
@@ -277,7 +277,7 @@ impl Env {
                 EntryId(entry_id),
                 SlotRef {
                     segment: SegmentId(seg),
-                    slot: Slot(slot),
+                    slot: Slot5(slot),
                 },
                 Stamp(1),
             );
@@ -293,7 +293,7 @@ impl Env {
         let w = EmbeddingWrite {
             entry: EntryId(entry_id),
             segment: SegmentId(seg),
-            slot: Slot(slot),
+            slot: Slot5(slot),
         };
         assert!(self.writes.push(w).is_ok());
     }
@@ -421,7 +421,7 @@ fn unmapped_address_defers_rest_but_hits_and_updates_still_run() {
     assert_eq!(env.slot.deferred_len(), 2);
     assert_eq!(
         r.defer_reason, Some(DeferReason::UnmappedAddress(EmbeddingWrite { entry :
-        EntryId(9), segment : SegmentId(77), slot : Slot(0), }))
+        EntryId(9), segment : SegmentId(77), slot : Slot5(0), }))
     );
     assert_eq!(out.hits.len(), 1);
     assert_eq!(out.hits[0].entry, entry(1));

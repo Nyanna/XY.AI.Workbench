@@ -21,13 +21,13 @@ fn fixed_lookup() {
     let l = AddrLayout::Fixed(FixedLayout::new(100, 10, 3).unwrap());
     assert_eq!(l.len(), 3);
     assert_eq!(l.slot_of(Addr(99)), None);
-    assert_eq!(l.slot_of(Addr(100)), Some(Slot(0)));
-    assert_eq!(l.slot_of(Addr(109)), Some(Slot(0)));
-    assert_eq!(l.slot_of(Addr(110)), Some(Slot(1)));
-    assert_eq!(l.slot_of(Addr(129)), Some(Slot(2)));
+    assert_eq!(l.slot_of(Addr(100)), Some(Slot5(0)));
+    assert_eq!(l.slot_of(Addr(109)), Some(Slot5(0)));
+    assert_eq!(l.slot_of(Addr(110)), Some(Slot5(1)));
+    assert_eq!(l.slot_of(Addr(129)), Some(Slot5(2)));
     assert_eq!(l.slot_of(Addr(130)), None);
-    assert_eq!(l.slot_range(Slot(1)), Some(110..120));
-    assert_eq!(l.slot_range(Slot(3)), None);
+    assert_eq!(l.slot_range(Slot5(1)), Some(110..120));
+    assert_eq!(l.slot_range(Slot5(3)), None);
 }
 #[test]
 fn lengths_offsets_and_lookup() {
@@ -36,13 +36,13 @@ fn lengths_offsets_and_lookup() {
     let l = AddrLayout::Variable(v);
     assert_eq!(l.len(), 5);
     assert_eq!(l.slot_of(Addr(9)), None);
-    assert_eq!(l.slot_of(Addr(10)), Some(Slot(0)));
-    assert_eq!(l.slot_of(Addr(13)), Some(Slot(0)));
-    assert_eq!(l.slot_of(Addr(14)), Some(Slot(3)));
-    assert_eq!(l.slot_of(Addr(19)), Some(Slot(3)));
+    assert_eq!(l.slot_of(Addr(10)), Some(Slot5(0)));
+    assert_eq!(l.slot_of(Addr(13)), Some(Slot5(0)));
+    assert_eq!(l.slot_of(Addr(14)), Some(Slot5(3)));
+    assert_eq!(l.slot_of(Addr(19)), Some(Slot5(3)));
     assert_eq!(l.slot_of(Addr(20)), None);
-    assert_eq!(l.slot_range(Slot(1)), Some(14..14));
-    assert_eq!(l.slot_range(Slot(5)), None);
+    assert_eq!(l.slot_range(Slot5(1)), Some(14..14));
+    assert_eq!(l.slot_range(Slot5(5)), None);
 }
 #[test]
 fn lengths_empty_and_overflow() {
@@ -70,14 +70,14 @@ fn extents_lookup_in_input_order() {
     assert!(v.offsets().is_none());
     let l = AddrLayout::Variable(v);
     assert_eq!(l.len(), 4);
-    assert_eq!(l.slot_of(Addr(0)), Some(Slot(1)));
-    assert_eq!(l.slot_of(Addr(5)), Some(Slot(3)));
-    assert_eq!(l.slot_of(Addr(24)), Some(Slot(3)));
+    assert_eq!(l.slot_of(Addr(0)), Some(Slot5(1)));
+    assert_eq!(l.slot_of(Addr(5)), Some(Slot5(3)));
+    assert_eq!(l.slot_of(Addr(24)), Some(Slot5(3)));
     assert_eq!(l.slot_of(Addr(25)), None);
-    assert_eq!(l.slot_of(Addr(55)), Some(Slot(0)));
+    assert_eq!(l.slot_of(Addr(55)), Some(Slot5(0)));
     assert_eq!(l.slot_of(Addr(60)), None);
-    assert_eq!(l.slot_range(Slot(0)), Some(50..60));
-    assert_eq!(l.slot_range(Slot(2)), Some(5..5));
+    assert_eq!(l.slot_range(Slot5(0)), Some(50..60));
+    assert_eq!(l.slot_range(Slot5(2)), Some(5..5));
 }
 #[test]
 fn extents_errors() {
@@ -128,7 +128,7 @@ fn slot_map_resolution() {
     assert_eq!(m.entry_of(Addr(11)), Some(eid(20)));
     assert_eq!(m.entry_of(Addr(12)), Some(eid(30)));
     assert_eq!(m.entry_of(Addr(14)), None);
-    assert_eq!(m.entry_of_slot(Slot(3)), None);
+    assert_eq!(m.entry_of_slot(Slot5(3)), None);
     let hit = KernelHit {
         addr: Addr(13),
         score: 0.5,

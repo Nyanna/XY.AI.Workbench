@@ -51,40 +51,40 @@ pub trait BackendFactory: Send + Sync {
     ) -> Result<Arc<dyn ResidencyBackend>, String>;
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResidencyError {
+pub enum ResidencyError3 {
     UnknownIndex(IndexId),
     AlreadyRegistered(IndexId),
     InvalidSpec,
     Backend(String),
 }
-impl fmt::Display for ResidencyError {
+impl fmt::Display for ResidencyError3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResidencyError::UnknownIndex(id) => {
+            ResidencyError3::UnknownIndex(id) => {
                 write!(f, "unknown index: {}", id.as_str())
             }
-            ResidencyError::AlreadyRegistered(id) => {
+            ResidencyError3::AlreadyRegistered(id) => {
                 write!(f, "index already registered: {}", id.as_str())
             }
-            ResidencyError::InvalidSpec => write!(f, "invalid index spec"),
-            ResidencyError::Backend(msg) => write!(f, "backend error: {msg}"),
+            ResidencyError3::InvalidSpec => write!(f, "invalid index spec"),
+            ResidencyError3::Backend(msg) => write!(f, "backend error: {msg}"),
         }
     }
 }
-impl std::error::Error for ResidencyError {}
+impl std::error::Error for ResidencyError3 {}
 static_assertions::assert_impl_all!(ResidencyController : Send, Sync);
 static_assertions::assert_impl_all!(IndexSpec : Send, Sync);
 static_assertions::assert_impl_all!(EnsureSummary : Send, Sync);
 static_assertions::assert_impl_all!(ReconcileSummary : Send, Sync);
-static_assertions::assert_impl_all!(ResidencyError : Send, Sync);
-struct Gate {
+static_assertions::assert_impl_all!(ResidencyError3 : Send, Sync);
+struct Gate2 {
     closed: bool,
 }
 struct IndexEntry {
     index: Arc<IndexManager>,
     spec: IndexSpec,
     /// Serializes `ensure`, `reconcile` and `unregister` of one index.
-    gate: Mutex<Gate>,
+    gate: Mutex<Gate2>,
     /// Readable without the gate so that `pending` and `run_gap` never wait on `ensure`.
     backend: RwLock<Option<Arc<dyn ResidencyBackend>>>,
 }
@@ -110,8 +110,8 @@ impl ResidencyController {
     fn find(&self, id: &IndexId) -> Option<Arc<IndexEntry>> {
         self.registry.read().unwrap_or_else(PoisonError::into_inner).get(id).cloned()
     }
-    fn require(&self, id: &IndexId) -> Result<Arc<IndexEntry>, ResidencyError> {
-        self.find(id).ok_or_else(|| ResidencyError::UnknownIndex(id.clone()))
+    fn require(&self, id: &IndexId) -> Result<Arc<IndexEntry>, ResidencyError3> {
+        self.find(id).ok_or_else(|| ResidencyError3::UnknownIndex(id.clone()))
     }
     fn entries(&self) -> Vec<Arc<IndexEntry>> {
         self.registry
@@ -126,15 +126,15 @@ impl ResidencyController {
         id: IndexId,
         index: Arc<IndexManager>,
         spec: IndexSpec,
-    ) -> Result<(), ResidencyError> {
+    ) -> Result<(), ResidencyError3> {
         let needed = slot_size(spec.class, spec.dim, spec.dtype)
-            .map_err(|_| ResidencyError::InvalidSpec)?;
+            .map_err(|_| ResidencyError3::InvalidSpec)?;
         if spec.dim == 0 || spec.segment_bytes < u64::from(needed) {
-            return Err(ResidencyError::InvalidSpec);
+            return Err(ResidencyError3::InvalidSpec);
         }
         let mut registry = self.registry.write().unwrap_or_else(PoisonError::into_inner);
         if registry.contains_key(&id) {
-            return Err(ResidencyError::AlreadyRegistered(id));
+            return Err(ResidencyError3::AlreadyRegistered(id));
         }
         registry
             .insert(
@@ -142,18 +142,18 @@ impl ResidencyController {
                 Arc::new(IndexEntry {
                     index,
                     spec,
-                    gate: Mutex::new(Gate { closed: false }),
+                    gate: Mutex::new(Gate2 { closed: false }),
                     backend: RwLock::new(None),
                 }),
             );
         Ok(())
     }
-    pub fn unregister(&self, id: &IndexId) -> Result<usize, ResidencyError> {
+    pub fn unregister(&self, id: &IndexId) -> Result<usize, ResidencyError3> {
         let entry = self.require(id)?;
         let released = {
             let mut gate = lock(&entry.gate);
             if gate.closed {
-                return Err(ResidencyError::UnknownIndex(id.clone()));
+                return Err(ResidencyError3::UnknownIndex(id.clone()));
             }
             let released = match entry.backend() {
                 Some(backend) => {
@@ -161,7 +161,7 @@ impl ResidencyController {
                         .shutdown()
                         .map_err(|msg| {
                             warn!("shutdown of index {} failed: {msg}", id.as_str());
-                            ResidencyError::Backend(msg)
+                            ResidencyError3::Backend(msg)
                         })?
                 }
                 None => 0,
@@ -180,11 +180,11 @@ impl ResidencyController {
         &self,
         id: &IndexId,
         scope: &Scope,
-    ) -> Result<EnsureSummary, ResidencyError> {
+    ) -> Result<EnsureSummary, ResidencyError3> {
         let entry = self.require(id)?;
         let gate = lock(&entry.gate);
         if gate.closed {
-            return Err(ResidencyError::UnknownIndex(id.clone()));
+            return Err(ResidencyError3::UnknownIndex(id.clone()));
         }
         let backend = match entry.backend() {
             Some(backend) => backend,
@@ -196,19 +196,19 @@ impl ResidencyController {
                         warn!(
                             "backend creation for index {} failed: {msg}", id.as_str()
                         );
-                        ResidencyError::Backend(msg)
+                        ResidencyError3::Backend(msg)
                     })?;
                 entry.set_backend(Some(Arc::clone(&backend)));
                 backend
             }
         };
-        backend.ensure(scope).map_err(ResidencyError::Backend)
+        backend.ensure(scope).map_err(ResidencyError3::Backend)
     }
-    pub fn reconcile(&self, id: &IndexId) -> Result<ReconcileSummary, ResidencyError> {
+    pub fn reconcile(&self, id: &IndexId) -> Result<ReconcileSummary, ResidencyError3> {
         let entry = self.require(id)?;
         let gate = lock(&entry.gate);
         if gate.closed {
-            return Err(ResidencyError::UnknownIndex(id.clone()));
+            return Err(ResidencyError3::UnknownIndex(id.clone()));
         }
         let Some(backend) = entry.backend() else {
             return Ok(ReconcileSummary::default());
@@ -216,9 +216,9 @@ impl ResidencyController {
         backend
             .reconcile()
             .map(Option::unwrap_or_default)
-            .map_err(ResidencyError::Backend)
+            .map_err(ResidencyError3::Backend)
     }
-    pub fn pending(&self, id: &IndexId) -> Result<bool, ResidencyError> {
+    pub fn pending(&self, id: &IndexId) -> Result<bool, ResidencyError3> {
         let entry = self.require(id)?;
         Ok(entry.backend().is_some_and(|b| b.pending()))
     }

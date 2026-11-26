@@ -9,7 +9,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
     LifecycleConfig, MemoryClass, ResourceLoader,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::ExecutionEnvironment;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State2;
 
 static_assertions::assert_impl_all!(SubengineLoop<TestMeta, u32, TestHandle>: Send, Sync);
 
@@ -41,13 +41,13 @@ struct TestHandle {
 }
 
 impl ResourceExec for TestHandle {
-    type Entry = Claim<TestMeta, u32, (), ()>;
+    type Entry = Claim2<TestMeta, u32, (), ()>;
 
     fn has_capacity(&self) -> bool {
         self.remaining.load(Ordering::SeqCst) > 0
     }
 
-    fn execute(&self, mut entry: Self::Entry, lease: Lease<Self>) {
+    fn execute(&self, mut entry: Self::Entry, lease: Lease2<Self>) {
         self.remaining.fetch_sub(1, Ordering::SeqCst);
         let payload = entry.take_payload().unwrap();
         self.log.lock().push(payload);
@@ -172,7 +172,7 @@ fn skipped_entry_does_not_block_later_entries() {
     f.own.push(meta(ResourceKind::Scorer), 3);
     let out = f.engine.run_iteration(now);
     assert_eq!(out.claimed, 2);
-    assert_eq!(skipped.state(), State::Pending);
+    assert_eq!(skipped.state(), State2::Pending);
     let mut log = f.log.lock().clone();
     log.sort();
     assert_eq!(log, vec![2, 3]);
@@ -188,8 +188,8 @@ fn unresolved_and_unavailable_entries_stay_pending() {
     let out = f.engine.run_iteration(now);
     assert_eq!(out.claimed, 0);
     assert_eq!(out.inits_started, 0);
-    assert_eq!(unresolved.state(), State::Pending);
-    assert_eq!(ghost.state(), State::Pending);
+    assert_eq!(unresolved.state(), State2::Pending);
+    assert_eq!(ghost.state(), State2::Pending);
 }
 
 #[test]
@@ -201,7 +201,7 @@ fn lazy_init_starts_once_and_entry_stays_pending() {
     let first = f.engine.run_iteration(now);
     assert_eq!(first.inits_started, 1);
     assert_eq!(first.claimed, 0);
-    assert_eq!(ticket.state(), State::Pending);
+    assert_eq!(ticket.state(), State2::Pending);
     assert_eq!(f.tickets.lock().len(), 1);
 
     let second = f.engine.run_iteration(now);
@@ -212,7 +212,7 @@ fn lazy_init_starts_once_and_entry_stays_pending() {
     started.run(now).unwrap();
     let third = f.engine.run_iteration(now);
     assert_eq!(third.claimed, 1);
-    assert_eq!(ticket.state(), State::Succeeded);
+    assert_eq!(ticket.state(), State2::Succeeded);
     assert_eq!(*f.log.lock(), vec![7]);
 }
 
@@ -236,7 +236,7 @@ fn failed_load_leads_to_backoff_skip() {
     let out = f.engine.run_iteration(now);
     assert_eq!(out.inits_started, 0);
     assert_eq!(out.claimed, 0);
-    assert_eq!(ticket.state(), State::Pending);
+    assert_eq!(ticket.state(), State2::Pending);
 }
 
 #[test]
@@ -260,9 +260,9 @@ fn exhausted_capacity_marks_busy_and_ends_early() {
     let out = f.engine.run_iteration(now);
     assert_eq!(out.claimed, 1);
     assert!(out.idle.is_empty());
-    assert_eq!(a.state(), State::Succeeded);
-    assert_eq!(b.state(), State::Pending);
-    assert_eq!(c.state(), State::Pending);
+    assert_eq!(a.state(), State2::Succeeded);
+    assert_eq!(b.state(), State2::Pending);
+    assert_eq!(c.state(), State2::Pending);
     assert_eq!(f.shared.len(), 1);
 }
 
@@ -295,7 +295,7 @@ fn idle_reported_for_free_slot_without_hit() {
     let out = f.engine.run_iteration(now);
     assert_eq!(out.claimed, 0);
     assert!(!out.progress());
-    assert_eq!(entry.state(), State::Pending);
+    assert_eq!(entry.state(), State2::Pending);
     assert_eq!(
         out.idle,
         vec![IdleNotice {

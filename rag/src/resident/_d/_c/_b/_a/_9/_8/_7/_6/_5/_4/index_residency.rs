@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use log::warn;
 use super::_3::_2::a::index_contract::{
-    AccessMethod, ByteRange, EntryId, Index, Payload,
+    AccessMethod, ByteRange, EntryId, Index, Payload2,
 };
 use super::_3::_2::_1::page_advice::{
     advise, read_blocking, Advice, AdviceTarget, PageRange,
@@ -12,27 +12,27 @@ use super::_3::_2::_1::page_advice::{
 /// Lazily activated index: the slot is filled once by the owner at a later point.
 pub type IndexSlot = Arc<OnceLock<Arc<dyn Index>>>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResidencyError {
+pub enum ResidencyError2 {
     NotAttached,
     TaskAborted,
 }
-impl fmt::Display for ResidencyError {
+impl fmt::Display for ResidencyError2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResidencyError::NotAttached => f.write_str("index not attached"),
-            ResidencyError::TaskAborted => f.write_str("read task aborted"),
+            ResidencyError2::NotAttached => f.write_str("index not attached"),
+            ResidencyError2::TaskAborted => f.write_str("read task aborted"),
         }
     }
 }
-impl std::error::Error for ResidencyError {}
+impl std::error::Error for ResidencyError2 {}
 /// Copy of the entry bytes (not shared). A missing entry yields both parts empty.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OwnedPayload {
     pub vector: Vec<u8>,
     pub meta: Vec<u8>,
 }
-impl From<Payload> for OwnedPayload {
-    fn from(payload: Payload) -> Self {
+impl From<Payload2> for OwnedPayload {
+    fn from(payload: Payload2) -> Self {
         OwnedPayload {
             vector: payload.vector.to_vec(),
             meta: payload.meta.to_vec(),
@@ -111,13 +111,13 @@ fn locate_hints(index: &dyn Index, ids: &[EntryId]) -> Vec<Option<Span>> {
         })
         .collect()
 }
-struct Inner {
+struct Inner4 {
     index: IndexSlot,
     advisor: Option<Arc<dyn AdviceTarget>>,
     idle_after: Duration,
     tracked: Mutex<HashMap<Span, Instant>>,
 }
-impl Inner {
+impl Inner4 {
     fn tracked(&self) -> MutexGuard<'_, HashMap<Span, Instant>> {
         self.tracked.lock().unwrap_or_else(|e| e.into_inner())
     }
@@ -154,15 +154,15 @@ impl Inner {
         ids.iter().map(|&id| index.read(id).into()).collect()
     }
 }
-fn not_attached() -> ResidencyError {
-    ResidencyError::NotAttached
+fn not_attached() -> ResidencyError2 {
+    ResidencyError2::NotAttached
 }
-fn join_failed<E>(_: E) -> ResidencyError {
-    ResidencyError::TaskAborted
+fn join_failed<E>(_: E) -> ResidencyError2 {
+    ResidencyError2::TaskAborted
 }
 /// Keeps file-backed index data resident and reads entries through the blocking pool.
 pub struct IndexResidency {
-    inner: Arc<Inner>,
+    inner: Arc<Inner4>,
 }
 impl IndexResidency {
     /// `advisor = None`: hints are no-ops. `idle_after`: idle threshold for cold marking.
@@ -172,7 +172,7 @@ impl IndexResidency {
         idle_after: Duration,
     ) -> IndexResidency {
         IndexResidency {
-            inner: Arc::new(Inner {
+            inner: Arc::new(Inner4 {
                 index,
                 advisor,
                 idle_after,
@@ -180,11 +180,11 @@ impl IndexResidency {
             }),
         }
     }
-    fn index(&self) -> Result<Arc<dyn Index>, ResidencyError> {
+    fn index(&self) -> Result<Arc<dyn Index>, ResidencyError2> {
         self.inner.index.get().cloned().ok_or_else(not_attached)
     }
     /// Synchronous pass-through to the index on the calling thread; `None` if not attached.
-    pub fn read_direct(&self, id: EntryId) -> Option<Payload> {
+    pub fn read_direct(&self, id: EntryId) -> Option<Payload2> {
         self.inner.index.get().map(|index| index.read(id))
     }
     /// Hints `WillNeed` for `range` and tracks it as used now.
@@ -226,7 +226,7 @@ impl IndexResidency {
         &self,
         id: EntryId,
         hint: Option<ByteRange>,
-    ) -> Result<OwnedPayload, ResidencyError> {
+    ) -> Result<OwnedPayload, ResidencyError2> {
         let index = self.index()?;
         if let Some(range) = hint {
             self.inner.hint(range.offset, range.len, Advice::WillNeed);
@@ -239,7 +239,7 @@ impl IndexResidency {
     pub async fn read_entries(
         &self,
         entries: &[(EntryId, Option<ByteRange>)],
-    ) -> Result<Vec<OwnedPayload>, ResidencyError> {
+    ) -> Result<Vec<OwnedPayload>, ResidencyError2> {
         if entries.is_empty() {
             return Ok(Vec::new());
         }
@@ -250,7 +250,7 @@ impl IndexResidency {
             .collect();
         self.inner.apply(&plan_hints(&spans));
         let ids: Vec<EntryId> = entries.iter().map(|(id, _)| *id).collect();
-        read_blocking(move || Inner::read_all(index.as_ref(), &ids))
+        read_blocking(move || Inner4::read_all(index.as_ref(), &ids))
             .await
             .map_err(join_failed)
     }
@@ -258,7 +258,7 @@ impl IndexResidency {
     pub async fn read_entries_auto(
         &self,
         ids: &[EntryId],
-    ) -> Result<Vec<OwnedPayload>, ResidencyError> {
+    ) -> Result<Vec<OwnedPayload>, ResidencyError2> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -268,7 +268,7 @@ impl IndexResidency {
         read_blocking(move || {
                 let spans = locate_hints(index.as_ref(), &ids);
                 inner.apply(&plan_hints(&spans));
-                Inner::read_all(index.as_ref(), &ids)
+                Inner4::read_all(index.as_ref(), &ids)
             })
             .await
             .map_err(join_failed)

@@ -1,4 +1,4 @@
-use super::super::memory_backend::MAX_ALIGN;
+use super::super::memory_backend::MAX_ALIGN2;
 use super::super::super::_4::_3::a::region_handle::Generation;
 use super::*;
 const KIB: u64 = 1024;
@@ -28,7 +28,7 @@ fn allocation_is_rounded_and_aligned() {
     let b = backend();
     let r1 = b.allocate(ArenaKind::Weights, 1, 64).unwrap();
     let r2 = b.allocate(ArenaKind::Weights, G + 1, 32).unwrap();
-    let r3 = b.allocate(ArenaKind::Weights, 1, MAX_ALIGN).unwrap();
+    let r3 = b.allocate(ArenaKind::Weights, 1, MAX_ALIGN2).unwrap();
     assert_eq!(r1.len(), G);
     assert_eq!(r2.len(), 2 * G);
     assert_eq!(r3.len(), G);
@@ -41,13 +41,13 @@ fn allocation_is_rounded_and_aligned() {
 fn invalid_allocation_arguments() {
     let b = backend();
     let w = ArenaKind::Weights;
-    assert_eq!(b.allocate(w, 0, 1), Err(BackendError::AllocationFailed));
-    assert_eq!(b.allocate(w, 8, 0), Err(BackendError::AllocationFailed));
-    assert_eq!(b.allocate(w, 8, 3), Err(BackendError::AllocationFailed));
-    assert_eq!(b.allocate(w, 8, MAX_ALIGN * 2), Err(BackendError::AllocationFailed));
-    assert_eq!(b.allocate(w, u64::MAX, 1), Err(BackendError::AllocationFailed));
+    assert_eq!(b.allocate(w, 0, 1), Err(BackendError2::AllocationFailed));
+    assert_eq!(b.allocate(w, 8, 0), Err(BackendError2::AllocationFailed));
+    assert_eq!(b.allocate(w, 8, 3), Err(BackendError2::AllocationFailed));
+    assert_eq!(b.allocate(w, 8, MAX_ALIGN2 * 2), Err(BackendError2::AllocationFailed));
+    assert_eq!(b.allocate(w, u64::MAX, 1), Err(BackendError2::AllocationFailed));
     assert_eq!(
-        b.allocate(ArenaKind::Staging, 8, 1), Err(BackendError::AllocationFailed)
+        b.allocate(ArenaKind::Staging, 8, 1), Err(BackendError2::AllocationFailed)
     );
 }
 #[test]
@@ -55,7 +55,7 @@ fn exhaustion_reports_out_of_memory() {
     let b = backend();
     let r = b.allocate(ArenaKind::ParameterBlock, 4 * KIB, 1).unwrap();
     assert_eq!(
-        b.allocate(ArenaKind::ParameterBlock, 100, 1), Err(BackendError::OutOfMemory {
+        b.allocate(ArenaKind::ParameterBlock, 100, 1), Err(BackendError2::OutOfMemory {
         arena : ArenaKind::ParameterBlock, requested : G, free : 0, })
     );
     b.free(&r).unwrap();
@@ -67,7 +67,7 @@ fn zero_capacity_arena_is_empty() {
     c.set(ArenaKind::Workspace, 0);
     let b = CpuBackend::new(c, 1).unwrap();
     assert!(
-        matches!(b.allocate(ArenaKind::Workspace, 1, 1), Err(BackendError::OutOfMemory {
+        matches!(b.allocate(ArenaKind::Workspace, 1, 1), Err(BackendError2::OutOfMemory {
         free : 0, .. }))
     );
     assert_eq!(b.available(ArenaKind::Workspace), Ok(0));
@@ -87,16 +87,16 @@ fn out_of_range_access_changes_nothing() {
     let r = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     let next = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     b.write(&next, 0, &[7; G as usize]).unwrap();
-    assert_eq!(b.write(& r, G - 4, & [1; 8]), Err(BackendError::StaleRegion));
-    assert_eq!(b.write(& r, u64::MAX, & [1; 8]), Err(BackendError::StaleRegion));
-    assert_eq!(b.write(& r, G + 1, & []), Err(BackendError::StaleRegion));
+    assert_eq!(b.write(& r, G - 4, & [1; 8]), Err(BackendError2::StaleRegion));
+    assert_eq!(b.write(& r, u64::MAX, & [1; 8]), Err(BackendError2::StaleRegion));
+    assert_eq!(b.write(& r, G + 1, & []), Err(BackendError2::StaleRegion));
     let mut out = [0u8; G as usize];
     b.read(&r, 0, &mut out).unwrap();
     assert!(out.iter().all(|& x | x == 0));
     b.read(&next, 0, &mut out).unwrap();
     assert!(out.iter().all(|& x | x == 7));
     let mut big = [0u8; G as usize + 1];
-    assert_eq!(b.read(& r, 0, & mut big), Err(BackendError::StaleRegion));
+    assert_eq!(b.read(& r, 0, & mut big), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn zero_length_access_is_noop() {
@@ -105,7 +105,7 @@ fn zero_length_access_is_noop() {
     assert_eq!(b.write(& r, G, & []), Ok(()));
     assert_eq!(b.read(& r, 0, & mut []), Ok(()));
     b.free(&r).unwrap();
-    assert_eq!(b.write(& r, 0, & []), Err(BackendError::StaleRegion));
+    assert_eq!(b.write(& r, 0, & []), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn access_to_freed_region_is_stale() {
@@ -113,19 +113,19 @@ fn access_to_freed_region_is_stale() {
     let r = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     b.free(&r).unwrap();
     let mut out = [0u8; 4];
-    assert_eq!(b.read(& r, 0, & mut out), Err(BackendError::StaleRegion));
-    assert_eq!(b.write(& r, 0, & out), Err(BackendError::StaleRegion));
-    assert_eq!(b.free(& r), Err(BackendError::StaleRegion));
+    assert_eq!(b.read(& r, 0, & mut out), Err(BackendError2::StaleRegion));
+    assert_eq!(b.write(& r, 0, & out), Err(BackendError2::StaleRegion));
+    assert_eq!(b.free(& r), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn foreign_region_is_stale() {
     let b = backend();
     let other = backend();
     let r = other.allocate(ArenaKind::Weights, G, 1).unwrap();
-    assert_eq!(b.free(& r), Err(BackendError::StaleRegion));
+    assert_eq!(b.free(& r), Err(BackendError2::StaleRegion));
     let staging = RegionHandle::new(ArenaKind::Staging, 0, G, Generation(0)).unwrap();
-    assert_eq!(b.free(& staging), Err(BackendError::StaleRegion));
-    assert_eq!(b.access(& staging).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.free(& staging), Err(BackendError2::StaleRegion));
+    assert_eq!(b.access(& staging).unwrap_err(), BackendError2::StaleRegion);
 }
 #[test]
 fn reused_space_keeps_old_bytes() {
@@ -150,16 +150,16 @@ fn deferred_free_waits_for_event() {
     assert_eq!(b.available(ArenaKind::ParameterBlock), Ok(0));
     let mut out = [0u8; 4];
     assert!(b.read(& r, 0, & mut out).is_ok());
-    assert_eq!(b.free(& r), Err(BackendError::StaleRegion));
-    assert_eq!(b.free_deferred(& r, ev), Err(BackendError::StaleRegion));
+    assert_eq!(b.free(& r), Err(BackendError2::StaleRegion));
+    assert_eq!(b.free_deferred(& r, ev), Err(BackendError2::StaleRegion));
     assert_eq!(b.reap(), 0);
     assert!(
         matches!(b.allocate(ArenaKind::ParameterBlock, 64, 1),
-        Err(BackendError::OutOfMemory { .. }))
+        Err(BackendError2::OutOfMemory { .. }))
     );
     ctl.complete();
     assert_eq!(b.reap(), 1);
-    assert_eq!(b.read(& r, 0, & mut out), Err(BackendError::StaleRegion));
+    assert_eq!(b.read(& r, 0, & mut out), Err(BackendError2::StaleRegion));
     assert!(b.allocate(ArenaKind::ParameterBlock, 64, 1).is_ok());
 }
 #[test]
@@ -214,7 +214,7 @@ fn copy_with_smaller_destination_is_rejected() {
     let src = b.allocate(ArenaKind::Weights, 2 * G, 1).unwrap();
     let dst = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     b.write(&src, 0, &[5; 2 * G as usize]).unwrap();
-    assert_eq!(b.copy(& src, & dst), Err(BackendError::StaleRegion));
+    assert_eq!(b.copy(& src, & dst), Err(BackendError2::StaleRegion));
     let mut out = [1u8; G as usize];
     b.read(&dst, 0, &mut out).unwrap();
     assert!(out.iter().all(|& x | x == 0));
@@ -225,8 +225,8 @@ fn copy_with_stale_region_is_rejected() {
     let src = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     let dst = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     b.free(&dst).unwrap();
-    assert_eq!(b.copy(& src, & dst), Err(BackendError::StaleRegion));
-    assert_eq!(b.copy(& dst, & src), Err(BackendError::StaleRegion));
+    assert_eq!(b.copy(& src, & dst), Err(BackendError2::StaleRegion));
+    assert_eq!(b.copy(& dst, & src), Err(BackendError2::StaleRegion));
 }
 #[test]
 fn copy_rejects_sub_regions_and_uses_memmove_semantics() {
@@ -241,7 +241,7 @@ fn copy_rejects_sub_regions_and_uses_memmove_semantics() {
             big.generation(),
         )
         .unwrap();
-    assert_eq!(b.copy(& src, & dst), Err(BackendError::StaleRegion));
+    assert_eq!(b.copy(& src, & dst), Err(BackendError2::StaleRegion));
     let pattern: Vec<u8> = (0..=255).collect();
     let mut data = RawBuf::zeroed(256).unwrap();
     data.as_mut_slice().copy_from_slice(&pattern);
@@ -252,7 +252,7 @@ fn copy_rejects_sub_regions_and_uses_memmove_semantics() {
 fn buffers_are_aligned_and_zeroed() {
     let raw = RawBuf::zeroed(1000).unwrap();
     assert_eq!(raw.as_slice().as_ptr() as usize % BUFFER_ALIGN, 0);
-    assert_eq!(BUFFER_ALIGN as u64, MAX_ALIGN);
+    assert_eq!(BUFFER_ALIGN as u64, MAX_ALIGN2);
     assert!(raw.as_slice().iter().all(|& x | x == 0));
     assert!(RawBuf::zeroed(0).unwrap().as_slice().is_empty());
 }
@@ -261,7 +261,7 @@ fn huge_capacity_fails_without_abort() {
     let mut c = ArenaCapacities::default();
     c.set(ArenaKind::Weights, u64::MAX);
     assert_eq!(
-        CpuBackend::new(c, 1).unwrap_err(), BackendError::OutOfMemory { arena :
+        CpuBackend::new(c, 1).unwrap_err(), BackendError2::OutOfMemory { arena :
         ArenaKind::Weights, requested : u64::MAX, free : 0, }
     );
 }
@@ -345,18 +345,18 @@ fn access_reports_stale_after_free() {
     assert_eq!(
         acc.write(0, & out), Err(AccessError::Backend("stale Region".to_string()))
     );
-    assert_eq!(b.access(& r).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.access(& r).unwrap_err(), BackendError2::StaleRegion);
 }
 #[test]
 fn stale_generations_are_rejected() {
     let b = backend();
     let h = b.allocate(ArenaKind::Weights, G, 1).unwrap();
     let big = h.with_generation(Generation(u64::from(u32::MAX) + 1));
-    assert_eq!(b.free(& big), Err(BackendError::StaleRegion));
+    assert_eq!(b.free(& big), Err(BackendError2::StaleRegion));
     let wrong = h.with_generation(Generation(h.generation().0 + 1));
-    assert_eq!(b.access(& wrong).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.access(& wrong).unwrap_err(), BackendError2::StaleRegion);
     b.free(&h).unwrap();
-    assert_eq!(b.access(& h).unwrap_err(), BackendError::StaleRegion);
+    assert_eq!(b.access(& h).unwrap_err(), BackendError2::StaleRegion);
 }
 #[test]
 fn usable_as_trait_object() {
@@ -369,7 +369,7 @@ fn usable_as_trait_object() {
     assert_eq!(budget.free, budget.total - G);
     let (ev, ctl) = Event::mock();
     b.free_deferred(&r, ev).unwrap();
-    assert_eq!(b.free(& r), Err(BackendError::StaleRegion));
+    assert_eq!(b.free(& r), Err(BackendError2::StaleRegion));
     ctl.complete();
     let again = b.allocate(ArenaKind::Weights, 10, 1).unwrap();
     b.free(&again).unwrap();

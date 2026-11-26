@@ -1,5 +1,5 @@
 /// Round-to-nearest-even conversion to IEEE-754 binary16 bits; NaN becomes the canonical quiet NaN.
-pub fn f32_to_f16_bits(x: f32) -> u16 {
+pub fn f32_to_f16_bits2(x: f32) -> u16 {
     let bits = x.to_bits();
     let sign = ((bits >> 16) & 0x8000) as u16;
     let mag = bits & 0x7FFF_FFFF;
@@ -29,7 +29,7 @@ pub fn f32_to_f16_bits(x: f32) -> u16 {
 }
 
 /// Round-to-nearest-even conversion to bfloat16 bits; NaN becomes the canonical quiet NaN.
-pub fn f32_to_bf16_bits(x: f32) -> u16 {
+pub fn f32_to_bf16_bits2(x: f32) -> u16 {
     let bits = x.to_bits();
     if bits & 0x7FFF_FFFF > 0x7F80_0000 {
         return ((bits >> 16) & 0x8000) as u16 | 0x7FC0;

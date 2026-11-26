@@ -12,7 +12,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::b::task_model::{
     CompleteError, Task, TaskParams, TaskState,
 };
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State2;
 struct TestOp {
     requirements: ResourceRequirements,
 }
@@ -320,9 +320,9 @@ fn withdraw_pending_removes_only_matching_pending_items() {
     let (queue, tickets) = filled_queue();
     let claimed = queue.take_where(|m| *m == 1).unwrap();
     assert_eq!(withdraw_pending(& queue, | m | * m == 1), 2);
-    assert_eq!(tickets[0].state(), State::Running);
-    assert_eq!(tickets[2].state(), State::Abandoned);
-    assert_eq!(tickets[4].state(), State::Abandoned);
+    assert_eq!(tickets[0].state(), State2::Running);
+    assert_eq!(tickets[2].state(), State2::Abandoned);
+    assert_eq!(tickets[4].state(), State2::Abandoned);
     assert_eq!(queue.len(), 2);
     assert_eq!(withdraw_pending(& queue, | m | * m == 1), 0);
     let mut first = queue.take().unwrap();

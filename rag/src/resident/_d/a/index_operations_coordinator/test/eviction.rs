@@ -2,7 +2,7 @@ use super::*;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::thread;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6 as base;
-use base::a::address_map::Entry;
+use base::a::address_map::Entry6;
 use base::_5::a::table_swap::{HostRootSlot, RootSlot, TableSink};
 use base::_5::_4::a::allocator::Allocator;
 use base::_5::_4::a::slot_layout::{
@@ -63,7 +63,7 @@ fn make_table_allocator(capacity: u64) -> Arc<Allocator> {
     let bookkeeping = Arc::new(Bookkeeping::new(set));
     Arc::new(Allocator::new(arena, DeviceKind::Gpu, bookkeeping))
 }
-fn entry_at(id: u64) -> Entry {
+fn entry_at(id: u64) -> Entry6 {
     let offset = (id + 1) * SEG_LEN;
     let region = RegionHandle::new(
             ArenaKind::IndexSegments,
@@ -76,7 +76,7 @@ fn entry_at(id: u64) -> Entry {
         .unwrap();
     let states = Arc::new(SlotStates::new(&view));
     let assignment = Arc::new(SlotAssignment::fixed(&view, Addr(offset)).unwrap());
-    Entry::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
+    Entry6::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
 }
 struct Fx {
     ev: Eviction,
@@ -123,7 +123,7 @@ impl Fx {
     fn at(&self, secs: u64) -> Instant {
         self.t0 + Duration::from_secs(secs)
     }
-    fn spec(&self, id: u64, tier: Tier, size: u64, cost: f64) -> TrackSpec {
+    fn spec(&self, id: u64, tier: Tier2, size: u64, cost: f64) -> TrackSpec {
         let region = self
             .allocators
             .allocator(ArenaKind::IndexSegments)
@@ -145,7 +145,7 @@ impl Fx {
             summary: false,
         }
     }
-    fn add(&self, id: u64, tier: Tier, size: u64, cost: f64, secs: u64) -> TrackSpec {
+    fn add(&self, id: u64, tier: Tier2, size: u64, cost: f64, secs: u64) -> TrackSpec {
         let spec = self.spec(id, tier, size, cost);
         self.ev.track(EvictKey(id), spec, self.at(secs));
         spec
@@ -180,8 +180,8 @@ fn policy_defaults() {
         Duration::from_secs(60) }
     );
     let fx = Fx::new();
-    assert_eq!(fx.ev.policy(Tier::Vram), EvictionPolicy::vram());
-    assert_eq!(fx.ev.policy(Tier::Ram), EvictionPolicy::ram());
+    assert_eq!(fx.ev.policy(Tier2::Vram), EvictionPolicy::vram());
+    assert_eq!(fx.ev.policy(Tier2::Ram), EvictionPolicy::ram());
 }
 #[test]
 fn sanitized_replaces_non_finite_by_tier_default() {
@@ -192,21 +192,21 @@ fn sanitized_replaces_non_finite_by_tier_default() {
         idle,
     };
     assert_eq!(
-        p.sanitized(Tier::Vram), EvictionPolicy { high : 0.90, low : 0.75, idle }
+        p.sanitized(Tier2::Vram), EvictionPolicy { high : 0.90, low : 0.75, idle }
     );
-    assert_eq!(p.sanitized(Tier::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
+    assert_eq!(p.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
     let q = EvictionPolicy {
         high: f64::NEG_INFINITY,
         low: f64::NAN,
         idle,
     };
-    assert_eq!(q.sanitized(Tier::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
+    assert_eq!(q.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
 }
 #[test]
 fn sanitized_clamps_marks() {
     let idle = Duration::from_secs(1);
     let clamp = |high: f64, low: f64| {
-        let p = EvictionPolicy { high, low, idle }.sanitized(Tier::Vram);
+        let p = EvictionPolicy { high, low, idle }.sanitized(Tier2::Vram);
         (p.high, p.low)
     };
     assert_eq!(clamp(2.0, 5.0), (1.0, 1.0));
@@ -215,7 +215,7 @@ fn sanitized_clamps_marks() {
     assert_eq!(clamp(0.5, 0.2), (0.5, 0.2));
     assert_eq!(clamp(0.5, - 0.2), (0.5, 0.0));
     assert_eq!(
-        EvictionPolicy { high : 0.5, low : 0.2, idle } .sanitized(Tier::Vram).idle, idle
+        EvictionPolicy { high : 0.5, low : 0.2, idle } .sanitized(Tier2::Vram).idle, idle
     );
 }
 #[test]
@@ -226,11 +226,11 @@ fn set_policy_stores_sanitized_policy_per_tier() {
         low: 7.0,
         idle: Duration::from_secs(5),
     };
-    fx.ev.set_policy(Tier::Ram, raw);
-    assert_eq!(fx.ev.policy(Tier::Ram), raw.sanitized(Tier::Ram));
-    assert_eq!(fx.ev.policy(Tier::Ram).high, 0.85);
-    assert_eq!(fx.ev.policy(Tier::Ram).low, 0.85);
-    assert_eq!(fx.ev.policy(Tier::Vram), EvictionPolicy::vram());
+    fx.ev.set_policy(Tier2::Ram, raw);
+    assert_eq!(fx.ev.policy(Tier2::Ram), raw.sanitized(Tier2::Ram));
+    assert_eq!(fx.ev.policy(Tier2::Ram).high, 0.85);
+    assert_eq!(fx.ev.policy(Tier2::Ram).low, 0.85);
+    assert_eq!(fx.ev.policy(Tier2::Vram), EvictionPolicy::vram());
 }
 #[test]
 fn reason_and_error_display() {
@@ -275,26 +275,26 @@ fn budget_for_vram_uses_index_arena_and_generation_reserve() {
 #[test]
 fn set_budget_changes_usable_per_tier() {
     let fx = Fx::new();
-    assert_eq!(fx.ev.usable(Tier::Vram), 1000);
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(500, 100, 50));
-    assert_eq!(fx.ev.usable(Tier::Ram), 350);
-    assert_eq!(fx.ev.usable(Tier::Vram), 1000);
+    assert_eq!(fx.ev.usable(Tier2::Vram), 1000);
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(500, 100, 50));
+    assert_eq!(fx.ev.usable(Tier2::Ram), 350);
+    assert_eq!(fx.ev.usable(Tier2::Vram), 1000);
 }
 #[test]
 fn track_sets_hits_priority_and_occupancy() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 100, 50.0, 0);
+    fx.add(1, Tier2::Vram, 100, 50.0, 0);
     let key = EvictKey(1);
     assert!(fx.ev.contains(key));
     assert_eq!(fx.ev.hits(key), Some(1));
     assert_eq!(fx.ev.priority(key), Some(0.0 + (1.0 * 50.0) / 100.0));
     assert_eq!(fx.ev.len(), 1);
-    assert_eq!(fx.ev.len_tier(Tier::Vram), 1);
-    assert_eq!(fx.ev.len_tier(Tier::Ram), 0);
-    assert_eq!(fx.ev.bytes(Tier::Vram), 100);
-    assert_eq!(fx.ev.bytes(Tier::Ram), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Vram), 0);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 100);
+    assert_eq!(fx.ev.len_tier(Tier2::Vram), 1);
+    assert_eq!(fx.ev.len_tier(Tier2::Ram), 0);
+    assert_eq!(fx.ev.bytes(Tier2::Vram), 100);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Vram), 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 100);
     assert!(! fx.ev.is_empty());
     assert_eq!(fx.ev.hits(EvictKey(99)), None);
     assert_eq!(fx.ev.priority(EvictKey(99)), None);
@@ -302,20 +302,20 @@ fn track_sets_hits_priority_and_occupancy() {
 #[test]
 fn track_corrects_invalid_cost_and_zero_size() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, f64::NAN, 0);
-    fx.add(2, Tier::Ram, 10, -3.0, 0);
-    fx.add(3, Tier::Ram, 10, f64::INFINITY, 0);
-    fx.add(4, Tier::Ram, 0, 3.0, 0);
+    fx.add(1, Tier2::Ram, 10, f64::NAN, 0);
+    fx.add(2, Tier2::Ram, 10, -3.0, 0);
+    fx.add(3, Tier2::Ram, 10, f64::INFINITY, 0);
+    fx.add(4, Tier2::Ram, 0, 3.0, 0);
     for id in 1..=3 {
         assert_eq!(fx.ev.priority(EvictKey(id)), Some(0.0));
     }
     assert_eq!(fx.ev.priority(EvictKey(4)), Some(3.0));
-    assert_eq!(fx.ev.bytes(Tier::Ram), 30);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 30);
 }
 #[test]
 fn retrack_replaces_entry_and_corrects_occupancy_across_tiers() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Vram, 100, 10.0, 0);
+    let spec = fx.add(1, Tier2::Vram, 100, 10.0, 0);
     let key = EvictKey(1);
     for s in 1..=3 {
         assert!(fx.ev.touch(key, fx.at(s)));
@@ -325,7 +325,7 @@ fn retrack_replaces_entry_and_corrects_occupancy_across_tiers() {
         .track(
             key,
             TrackSpec {
-                tier: Tier::Ram,
+                tier: Tier2::Ram,
                 size: 40,
                 reload_cost: 20.0,
                 ..spec
@@ -335,32 +335,32 @@ fn retrack_replaces_entry_and_corrects_occupancy_across_tiers() {
     assert_eq!(fx.ev.hits(key), Some(1));
     assert_eq!(fx.ev.priority(key), Some(0.0 + (1.0 * 20.0) / 40.0));
     assert_eq!(fx.ev.len(), 1);
-    assert_eq!(fx.ev.len_tier(Tier::Vram), 0);
-    assert_eq!(fx.ev.len_tier(Tier::Ram), 1);
-    assert_eq!(fx.ev.bytes(Tier::Vram), 0);
-    assert_eq!(fx.ev.bytes(Tier::Ram), 40);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 0);
+    assert_eq!(fx.ev.len_tier(Tier2::Vram), 0);
+    assert_eq!(fx.ev.len_tier(Tier2::Ram), 1);
+    assert_eq!(fx.ev.bytes(Tier2::Vram), 0);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 40);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 0);
 }
 #[test]
 fn retrack_keeps_live_pins() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 100, 10.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 100, 10.0, 0);
     let key = EvictKey(1);
     let pin = fx.ev.pin(key).unwrap();
     fx.ev.track(key, spec, fx.at(1));
     assert!(fx.ev.is_pinned(key));
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(10_000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(10_000));
     assert!(out.decisions.is_empty());
     assert!(fx.ev.contains(key));
     drop(pin);
     assert!(! fx.ev.is_pinned(key));
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(10_000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(10_000));
     assert_eq!(victims(& out), vec![1]);
 }
 #[test]
 fn touch_counts_hits_and_recomputes_priority() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 10, 10.0, 0);
+    fx.add(1, Tier2::Vram, 10, 10.0, 0);
     let key = EvictKey(1);
     assert!(fx.ev.touch(key, fx.at(5)));
     assert_eq!(fx.ev.hits(key), Some(2));
@@ -372,21 +372,21 @@ fn touch_counts_hits_and_recomputes_priority() {
 #[test]
 fn touch_postpones_idle_eviction() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
     assert!(fx.ev.touch(EvictKey(1), fx.at(100)));
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(120)).decisions.is_empty());
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(160));
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(120)).decisions.is_empty());
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(160));
     assert_eq!(victims(& out), vec![1]);
 }
 #[test]
 fn touch_uses_current_floor() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Vram, TierBudget::new(200, 0, 0));
-    fx.add(1, Tier::Vram, 100, 50.0, 0);
-    fx.add(2, Tier::Vram, 100, 90.0, 0);
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    fx.ev.set_budget(Tier2::Vram, TierBudget::new(200, 0, 0));
+    fx.add(1, Tier2::Vram, 100, 50.0, 0);
+    fx.add(2, Tier2::Vram, 100, 90.0, 0);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![1]);
-    let floor = fx.ev.floor(Tier::Vram);
+    let floor = fx.ev.floor(Tier2::Vram);
     assert!(floor > 0.0);
     assert!(fx.ev.touch(EvictKey(2), fx.at(1)));
     assert_eq!(fx.ev.priority(EvictKey(2)), Some(floor + (2.0 * 90.0) / 100.0));
@@ -394,19 +394,19 @@ fn touch_uses_current_floor() {
 #[test]
 fn track_after_floor_rise_starts_at_floor() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Vram, TierBudget::new(200, 0, 0));
-    fx.add(1, Tier::Vram, 100, 50.0, 0);
-    fx.add(2, Tier::Vram, 100, 90.0, 0);
-    fx.ev.relieve_pressure(Tier::Vram);
-    let floor = fx.ev.floor(Tier::Vram);
-    fx.add(3, Tier::Vram, 100, 10.0, 1);
+    fx.ev.set_budget(Tier2::Vram, TierBudget::new(200, 0, 0));
+    fx.add(1, Tier2::Vram, 100, 50.0, 0);
+    fx.add(2, Tier2::Vram, 100, 90.0, 0);
+    fx.ev.relieve_pressure(Tier2::Vram);
+    let floor = fx.ev.floor(Tier2::Vram);
+    fx.add(3, Tier2::Vram, 100, 10.0, 1);
     assert_eq!(fx.ev.priority(EvictKey(3)), Some(floor + (1.0 * 10.0) / 100.0));
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
 }
 #[test]
 fn remove_only_stops_tracking() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 100, 1.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 100, 1.0, 0);
     let table_epoch = fx.swap.published_epoch();
     let map_epoch = fx.store.epoch();
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
@@ -414,8 +414,8 @@ fn remove_only_stops_tracking() {
     assert_eq!(fx.ev.remove(EvictKey(1)), None);
     drop(pin);
     assert!(! fx.ev.contains(EvictKey(1)));
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
     assert_eq!(fx.swap.published_epoch(), table_epoch);
     assert_eq!(fx.store.epoch(), map_epoch);
     assert!(fx.in_table(& spec.region));
@@ -429,7 +429,7 @@ fn pin_requires_tracked_key() {
     let fx = Fx::new();
     assert!(fx.ev.pin(EvictKey(1)).is_none());
     assert!(! fx.ev.is_pinned(EvictKey(1)));
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
     assert_eq!(* pin.region(), EvictKey(1));
     assert!(fx.ev.is_pinned(EvictKey(1)));
@@ -437,52 +437,52 @@ fn pin_requires_tracked_key() {
 #[test]
 fn pin_survives_touch_and_blocks_all_eviction_paths() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(100, 0, 0));
-    fx.add(1, Tier::Ram, 100, 1.0, 0);
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(100, 0, 0));
+    fx.add(1, Tier2::Ram, 100, 1.0, 0);
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
     fx.ev.touch(EvictKey(1), fx.at(1));
     assert!(fx.ev.is_pinned(EvictKey(1)));
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(100_000)).decisions.is_empty());
-    assert!(fx.ev.relieve_pressure(Tier::Ram).decisions.is_empty());
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(100_000)).decisions.is_empty());
+    assert!(fx.ev.relieve_pressure(Tier2::Ram).decisions.is_empty());
     assert!(fx.ev.tick(fx.at(100_000)).decisions.is_empty());
     assert_eq!(
-        fx.ev.make_room(Tier::Ram, 50), Err(EvictionError::Exhausted { requested : 50,
+        fx.ev.make_room(Tier2::Ram, 50), Err(EvictionError::Exhausted { requested : 50,
         available : 0 })
     );
     assert!(fx.ev.contains(EvictKey(1)));
     drop(pin);
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(100_000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(100_000));
     assert_eq!(victims(& out), vec![1]);
 }
 #[test]
 fn multiple_pins_all_must_drop() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let a = fx.ev.pin(EvictKey(1)).unwrap();
     let b = fx.ev.pin(EvictKey(1)).unwrap();
     drop(a);
     assert!(fx.ev.is_pinned(EvictKey(1)));
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(1000)).decisions.is_empty());
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(1000)).decisions.is_empty());
     drop(b);
     assert!(! fx.ev.is_pinned(EvictKey(1)));
-    assert_eq!(fx.ev.evict_idle(Tier::Ram, fx.at(1000)).decisions.len(), 1);
+    assert_eq!(fx.ev.evict_idle(Tier2::Ram, fx.at(1000)).decisions.len(), 1);
 }
 #[test]
 fn evict_idle_selects_idle_eligible_entries_in_key_order() {
     let fx = Fx::new();
     for id in [5, 3, 9] {
-        fx.add(id, Tier::Ram, 10, 1.0, 0);
+        fx.add(id, Tier2::Ram, 10, 1.0, 0);
     }
-    fx.add(7, Tier::Ram, 10, 1.0, 50);
+    fx.add(7, Tier2::Ram, 10, 1.0, 50);
     let summary = TrackSpec {
         summary: true,
-        ..fx.spec(4, Tier::Ram, 10, 1.0)
+        ..fx.spec(4, Tier2::Ram, 10, 1.0)
     };
     fx.ev.track(EvictKey(4), summary, fx.at(0));
-    fx.add(6, Tier::Ram, 10, 1.0, 0);
+    fx.add(6, Tier2::Ram, 10, 1.0, 0);
     let pin = fx.ev.pin(EvictKey(6)).unwrap();
-    fx.add(8, Tier::Vram, 10, 1.0, 0);
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(60));
+    fx.add(8, Tier2::Vram, 10, 1.0, 0);
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(60));
     assert_eq!(victims(& out), vec![3, 5, 9]);
     assert!(reasons(& out).iter().all(| r | * r == EvictReason::Idle));
     assert!(out.skipped.is_empty());
@@ -494,144 +494,144 @@ fn evict_idle_selects_idle_eligible_entries_in_key_order() {
         assert!(! fx.ev.contains(EvictKey(id)));
         assert!(! fx.in_map(id));
     }
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 30);
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 30);
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
     drop(pin);
 }
 #[test]
 fn evict_idle_boundary_is_inclusive_and_tier_specific() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 10, 1.0, 0);
-    assert!(fx.ev.evict_idle(Tier::Vram, fx.at(599)).decisions.is_empty());
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(10_000)).decisions.is_empty());
-    let out = fx.ev.evict_idle(Tier::Vram, fx.at(600));
+    fx.add(1, Tier2::Vram, 10, 1.0, 0);
+    assert!(fx.ev.evict_idle(Tier2::Vram, fx.at(599)).decisions.is_empty());
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(10_000)).decisions.is_empty());
+    let out = fx.ev.evict_idle(Tier2::Vram, fx.at(600));
     assert_eq!(victims(& out), vec![1]);
 }
 #[test]
 fn evict_idle_does_not_raise_floor() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 100.0, 0);
+    fx.add(1, Tier2::Ram, 10, 100.0, 0);
     assert!(fx.ev.priority(EvictKey(1)).unwrap() > 0.0);
-    fx.ev.evict_idle(Tier::Ram, fx.at(1000));
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
-    assert_eq!(fx.ev.floor(Tier::Vram), 0.0);
+    fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
+    assert_eq!(fx.ev.floor(Tier2::Vram), 0.0);
 }
 #[test]
 fn evict_idle_honours_custom_idle_policy() {
     let fx = Fx::new();
     fx.ev
         .set_policy(
-            Tier::Ram,
+            Tier2::Ram,
             EvictionPolicy {
                 idle: Duration::from_secs(5),
                 ..EvictionPolicy::ram()
             },
         );
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(4)).decisions.is_empty());
-    assert_eq!(fx.ev.evict_idle(Tier::Ram, fx.at(5)).decisions.len(), 1);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(4)).decisions.is_empty());
+    assert_eq!(fx.ev.evict_idle(Tier2::Ram, fx.at(5)).decisions.len(), 1);
 }
 #[test]
 fn evict_idle_with_earlier_now_does_not_panic() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 100);
-    assert!(fx.ev.evict_idle(Tier::Ram, fx.at(0)).decisions.is_empty());
+    fx.add(1, Tier2::Ram, 10, 1.0, 100);
+    assert!(fx.ev.evict_idle(Tier2::Ram, fx.at(0)).decisions.is_empty());
 }
 fn fill_pressure_scenario(fx: &Fx) {
     for i in 1..=9u64 {
-        fx.add(i, Tier::Vram, 100, (i * 10) as f64, 0);
+        fx.add(i, Tier2::Vram, 100, (i * 10) as f64, 0);
     }
 }
 #[test]
 fn pressure_requires_strictly_more_than_high() {
     let fx = Fx::new();
     fill_pressure_scenario(&fx);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 900);
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 900);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(out, EvictionOutcome::default());
     assert_eq!(fx.ev.len(), 9);
-    assert_eq!(fx.ev.floor(Tier::Vram), 0.0);
+    assert_eq!(fx.ev.floor(Tier2::Vram), 0.0);
 }
 #[test]
 fn pressure_evicts_lowest_priority_until_low_watermark() {
     let fx = Fx::new();
     fill_pressure_scenario(&fx);
-    fx.add(10, Tier::Vram, 1, 0.0, 0);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 901);
+    fx.add(10, Tier2::Vram, 1, 0.0, 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 901);
     let p2 = fx.ev.priority(EvictKey(2)).unwrap();
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![10, 1, 2]);
     assert!(reasons(& out).iter().all(| r | * r == EvictReason::Pressure));
-    assert_eq!(fx.ev.floor(Tier::Vram), p2);
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 901);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Vram), 201);
-    assert_eq!(fx.ev.bytes(Tier::Vram), 700);
+    assert_eq!(fx.ev.floor(Tier2::Vram), p2);
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 901);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Vram), 201);
+    assert_eq!(fx.ev.bytes(Tier2::Vram), 700);
     assert_eq!(fx.reclaim_all(), 3);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 700);
-    assert_eq!(fx.ev.relieve_pressure(Tier::Vram), EvictionOutcome::default());
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 700);
+    assert_eq!(fx.ev.relieve_pressure(Tier2::Vram), EvictionOutcome::default());
 }
 #[test]
 fn pressure_counts_deferred_bytes_until_reclaim() {
     let fx = Fx::new();
     fill_pressure_scenario(&fx);
-    fx.add(10, Tier::Vram, 1, 0.0, 0);
-    let first = fx.ev.relieve_pressure(Tier::Vram);
+    fx.add(10, Tier2::Vram, 1, 0.0, 0);
+    let first = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& first), vec![10, 1, 2]);
-    let second = fx.ev.relieve_pressure(Tier::Vram);
+    let second = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& second), vec![3, 4]);
     assert_eq!(fx.reclaim_all(), 5);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 500);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 500);
 }
 #[test]
 fn pressure_floor_is_monotonic() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Vram, TierBudget::new(200, 0, 0));
-    fx.add(1, Tier::Vram, 100, 50.0, 0);
-    fx.add(2, Tier::Vram, 100, 10.0, 0);
+    fx.ev.set_budget(Tier2::Vram, TierBudget::new(200, 0, 0));
+    fx.add(1, Tier2::Vram, 100, 50.0, 0);
+    fx.add(2, Tier2::Vram, 100, 10.0, 0);
     let pin = fx.ev.pin(EvictKey(2)).unwrap();
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![1]);
-    let floor = fx.ev.floor(Tier::Vram);
+    let floor = fx.ev.floor(Tier2::Vram);
     assert_eq!(floor, 0.5);
     assert_eq!(fx.reclaim_all(), 1);
     drop(pin);
-    fx.add(3, Tier::Vram, 100, 100.0, 1);
+    fx.add(3, Tier2::Vram, 100, 100.0, 1);
     let low = fx.ev.priority(EvictKey(2)).unwrap();
     assert!(low < floor);
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![2]);
-    assert_eq!(fx.ev.floor(Tier::Vram), floor);
+    assert_eq!(fx.ev.floor(Tier2::Vram), floor);
 }
 #[test]
 fn pressure_is_best_effort_when_entries_are_not_eligible() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Vram, TierBudget::new(100, 0, 0));
-    fx.add(1, Tier::Vram, 80, 1.0, 0);
+    fx.ev.set_budget(Tier2::Vram, TierBudget::new(100, 0, 0));
+    fx.add(1, Tier2::Vram, 80, 1.0, 0);
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
     let summary = TrackSpec {
         summary: true,
-        ..fx.spec(2, Tier::Vram, 10, 1.0)
+        ..fx.spec(2, Tier2::Vram, 10, 1.0)
     };
     fx.ev.track(EvictKey(2), summary, fx.at(0));
-    fx.add(3, Tier::Vram, 20, 1.0, 0);
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 110);
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    fx.add(3, Tier2::Vram, 20, 1.0, 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 110);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![3]);
     assert!(out.aborted.is_none());
     assert!(fx.ev.contains(EvictKey(1)));
     assert!(fx.ev.contains(EvictKey(2)));
-    assert_eq!(fx.ev.occupancy(Tier::Vram), 110);
+    assert_eq!(fx.ev.occupancy(Tier2::Vram), 110);
     drop(pin);
 }
 #[test]
 fn pressure_with_zero_usable_evicts_everything_eligible() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Vram, TierBudget::default());
-    assert_eq!(fx.ev.relieve_pressure(Tier::Vram), EvictionOutcome::default());
-    fx.add(1, Tier::Vram, 10, 1.0, 0);
-    fx.add(2, Tier::Vram, 10, 2.0, 0);
-    let out = fx.ev.relieve_pressure(Tier::Vram);
+    fx.ev.set_budget(Tier2::Vram, TierBudget::default());
+    assert_eq!(fx.ev.relieve_pressure(Tier2::Vram), EvictionOutcome::default());
+    fx.add(1, Tier2::Vram, 10, 1.0, 0);
+    fx.add(2, Tier2::Vram, 10, 2.0, 0);
+    let out = fx.ev.relieve_pressure(Tier2::Vram);
     assert_eq!(victims(& out), vec![1, 2]);
 }
 #[test]
@@ -639,7 +639,7 @@ fn pressure_respects_policy_marks() {
     let fx = Fx::new();
     fx.ev
         .set_policy(
-            Tier::Ram,
+            Tier2::Ram,
             EvictionPolicy {
                 high: 0.5,
                 low: 0.2,
@@ -647,90 +647,90 @@ fn pressure_respects_policy_marks() {
             },
         );
     for i in 1..=6u64 {
-        fx.add(i, Tier::Ram, 100, i as f64, 0);
+        fx.add(i, Tier2::Ram, 100, i as f64, 0);
     }
-    let out = fx.ev.relieve_pressure(Tier::Ram);
+    let out = fx.ev.relieve_pressure(Tier2::Ram);
     assert_eq!(victims(& out), vec![1, 2, 3, 4]);
 }
 #[test]
 fn victim_order_prefers_low_priority_over_age() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(200, 0, 0));
-    fx.add(10, Tier::Ram, 100, 50.0, 0);
-    fx.add(11, Tier::Ram, 100, 20.0, 100);
-    let out = fx.ev.make_room(Tier::Ram, 200).unwrap();
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(200, 0, 0));
+    fx.add(10, Tier2::Ram, 100, 50.0, 0);
+    fx.add(11, Tier2::Ram, 100, 20.0, 100);
+    let out = fx.ev.make_room(Tier2::Ram, 200).unwrap();
     assert_eq!(victims(& out), vec![11, 10]);
 }
 #[test]
 fn victim_order_ties_break_by_age_then_key() {
     let fx = Fx::new();
-    fx.add(3, Tier::Ram, 100, 0.0, 5);
-    fx.add(1, Tier::Ram, 100, 0.0, 5);
-    fx.add(2, Tier::Ram, 100, 0.0, 1);
-    let out = fx.ev.make_room(Tier::Ram, 1000).unwrap();
+    fx.add(3, Tier2::Ram, 100, 0.0, 5);
+    fx.add(1, Tier2::Ram, 100, 0.0, 5);
+    fx.add(2, Tier2::Ram, 100, 0.0, 1);
+    let out = fx.ev.make_room(Tier2::Ram, 1000).unwrap();
     assert_eq!(victims(& out), vec![2, 1, 3]);
 }
 #[test]
 fn make_room_is_noop_when_space_is_free() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 300, 1.0, 0);
+    fx.add(1, Tier2::Ram, 300, 1.0, 0);
     let table_epoch = fx.swap.published_epoch();
-    assert_eq!(fx.ev.make_room(Tier::Ram, 0), Ok(EvictionOutcome::default()));
-    assert_eq!(fx.ev.make_room(Tier::Ram, 700), Ok(EvictionOutcome::default()));
+    assert_eq!(fx.ev.make_room(Tier2::Ram, 0), Ok(EvictionOutcome::default()));
+    assert_eq!(fx.ev.make_room(Tier2::Ram, 700), Ok(EvictionOutcome::default()));
     assert!(fx.ev.contains(EvictKey(1)));
     assert_eq!(fx.swap.published_epoch(), table_epoch);
 }
 #[test]
 fn make_room_with_need_zero_on_full_tier_is_noop() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(100, 0, 0));
-    fx.add(1, Tier::Ram, 100, 1.0, 0);
-    assert_eq!(fx.ev.make_room(Tier::Ram, 0), Ok(EvictionOutcome::default()));
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(100, 0, 0));
+    fx.add(1, Tier2::Ram, 100, 1.0, 0);
+    assert_eq!(fx.ev.make_room(Tier2::Ram, 0), Ok(EvictionOutcome::default()));
     assert!(fx.ev.contains(EvictKey(1)));
 }
 #[test]
 fn make_room_evicts_just_enough_victims() {
     let fx = Fx::new();
     for i in 1..=3u64 {
-        fx.add(i, Tier::Ram, 100, (i * 10) as f64, 0);
+        fx.add(i, Tier2::Ram, 100, (i * 10) as f64, 0);
     }
     let p1 = fx.ev.priority(EvictKey(1)).unwrap();
-    let out = fx.ev.make_room(Tier::Ram, 800).unwrap();
+    let out = fx.ev.make_room(Tier2::Ram, 800).unwrap();
     assert_eq!(victims(& out), vec![1]);
     assert_eq!(reasons(& out), vec![EvictReason::SpaceNeed]);
-    assert_eq!(fx.ev.floor(Tier::Ram), p1);
-    assert_eq!(fx.ev.floor(Tier::Vram), 0.0);
+    assert_eq!(fx.ev.floor(Tier2::Ram), p1);
+    assert_eq!(fx.ev.floor(Tier2::Vram), 0.0);
     assert_eq!(fx.ev.len(), 2);
 }
 #[test]
 fn make_room_collects_until_bytes_reach_shortfall() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(300, 0, 0));
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(300, 0, 0));
     for i in 1..=3u64 {
-        fx.add(i, Tier::Ram, 100, i as f64, 0);
+        fx.add(i, Tier2::Ram, 100, i as f64, 0);
     }
-    assert_eq!(victims(& fx.ev.make_room(Tier::Ram, 250).unwrap()), vec![1, 2, 3]);
+    assert_eq!(victims(& fx.ev.make_room(Tier2::Ram, 250).unwrap()), vec![1, 2, 3]);
 }
 #[test]
 fn make_room_exhausted_changes_nothing() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(400, 0, 0));
-    fx.add(1, Tier::Ram, 100, 1.0, 0);
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(400, 0, 0));
+    fx.add(1, Tier2::Ram, 100, 1.0, 0);
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
     let summary = TrackSpec {
         summary: true,
-        ..fx.spec(2, Tier::Ram, 100, 1.0)
+        ..fx.spec(2, Tier2::Ram, 100, 1.0)
     };
     fx.ev.track(EvictKey(2), summary, fx.at(0));
-    fx.add(3, Tier::Ram, 100, 1.0, 0);
-    fx.add(4, Tier::Vram, 500, 1.0, 0);
+    fx.add(3, Tier2::Ram, 100, 1.0, 0);
+    fx.add(4, Tier2::Vram, 500, 1.0, 0);
     let table_epoch = fx.swap.published_epoch();
     let map_epoch = fx.store.epoch();
-    let err = fx.ev.make_room(Tier::Ram, 500).unwrap_err();
+    let err = fx.ev.make_room(Tier2::Ram, 500).unwrap_err();
     assert_eq!(err, EvictionError::Exhausted { requested : 500, available : 200 });
     assert_eq!(fx.ev.len(), 4);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 300);
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 300);
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
     assert_eq!(fx.swap.published_epoch(), table_epoch);
     assert_eq!(fx.store.epoch(), map_epoch);
     drop(pin);
@@ -738,28 +738,28 @@ fn make_room_exhausted_changes_nothing() {
 #[test]
 fn make_room_counts_deferred_bytes_until_reclaim() {
     let fx = Fx::new();
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(300, 0, 0));
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(300, 0, 0));
     for i in 1..=3u64 {
-        fx.add(i, Tier::Ram, 100, i as f64, 0);
+        fx.add(i, Tier2::Ram, 100, i as f64, 0);
     }
-    let first = fx.ev.make_room(Tier::Ram, 100).unwrap();
+    let first = fx.ev.make_room(Tier2::Ram, 100).unwrap();
     assert_eq!(victims(& first), vec![1]);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 300);
-    let second = fx.ev.make_room(Tier::Ram, 100).unwrap();
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 300);
+    let second = fx.ev.make_room(Tier2::Ram, 100).unwrap();
     assert_eq!(victims(& second), vec![2]);
     assert_eq!(fx.reclaim_all(), 2);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 100);
-    assert_eq!(fx.ev.make_room(Tier::Ram, 200), Ok(EvictionOutcome::default()));
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 100);
+    assert_eq!(fx.ev.make_room(Tier2::Ram, 200), Ok(EvictionOutcome::default()));
 }
 #[test]
 fn planned_victim_pinned_meanwhile_is_neither_evicted_nor_skipped() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 100, 1.0, 0);
-    fx.add(2, Tier::Ram, 100, 2.0, 0);
+    fx.add(1, Tier2::Ram, 100, 1.0, 0);
+    fx.add(2, Tier2::Ram, 100, 2.0, 0);
     let pin = fx.ev.pin(EvictKey(1)).unwrap();
     let out = fx
         .ev
-        .run(Tier::Ram, vec![EvictKey(1), EvictKey(2)], EvictReason::SpaceNeed);
+        .run(Tier2::Ram, vec![EvictKey(1), EvictKey(2)], EvictReason::SpaceNeed);
     assert_eq!(victims(& out), vec![2]);
     assert!(out.skipped.is_empty());
     assert!(fx.ev.contains(EvictKey(1)));
@@ -768,12 +768,12 @@ fn planned_victim_pinned_meanwhile_is_neither_evicted_nor_skipped() {
 #[test]
 fn planned_victim_removed_meanwhile_is_ignored() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 100, 1.0, 0);
-    fx.add(2, Tier::Ram, 100, 2.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 100, 1.0, 0);
+    fx.add(2, Tier2::Ram, 100, 2.0, 0);
     fx.ev.remove(EvictKey(1));
     let out = fx
         .ev
-        .run(Tier::Ram, vec![EvictKey(1), EvictKey(2)], EvictReason::SpaceNeed);
+        .run(Tier2::Ram, vec![EvictKey(1), EvictKey(2)], EvictReason::SpaceNeed);
     assert_eq!(victims(& out), vec![2]);
     assert!(out.skipped.is_empty());
     assert!(fx.in_table(& spec.region));
@@ -781,20 +781,20 @@ fn planned_victim_removed_meanwhile_is_ignored() {
 #[test]
 fn planned_victim_of_other_tier_is_not_evicted() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 100, 1.0, 0);
-    let out = fx.ev.run(Tier::Ram, vec![EvictKey(1)], EvictReason::SpaceNeed);
+    fx.add(1, Tier2::Vram, 100, 1.0, 0);
+    let out = fx.ev.run(Tier2::Ram, vec![EvictKey(1)], EvictReason::SpaceNeed);
     assert_eq!(out, EvictionOutcome::default());
     assert!(fx.ev.contains(EvictKey(1)));
 }
 #[test]
 fn eviction_removes_segment_from_table_and_map_and_defers_region() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 100, 10.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 100, 10.0, 0);
     fx.ev.touch(EvictKey(1), fx.at(1));
     fx.ev.touch(EvictKey(1), fx.at(2));
     let table_before = fx.swap.published_epoch();
     let map_before = fx.store.epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(
         out.decisions, vec![EvictionDecision { index : IndexId::new("idx"), victim :
         EvictKey(1), segment : SegmentId(1), size : 100, bytes : 100, hits : 3, reason :
@@ -806,17 +806,17 @@ fn eviction_removes_segment_from_table_and_map_and_defers_region() {
     assert_eq!(retire, table_before + 1);
     assert_eq!(fx.store.epoch(), map_before + 1);
     assert!(! fx.ev.contains(EvictKey(1)));
-    assert_eq!(fx.ev.bytes(Tier::Ram), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 100);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 100);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 100);
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 100);
     assert!(fx.is_live(& spec.region));
     assert_eq!(fx.ev.reclaim(retire - 1), 0);
     assert!(fx.is_live(& spec.region));
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 100);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 100);
     assert_eq!(fx.ev.reclaim(retire), 1);
     assert!(! fx.is_live(& spec.region));
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 0);
     assert_eq!(fx.ev.reclaim(retire), 0);
     assert_eq!(fx.reclaim_all(), 0);
 }
@@ -837,7 +837,7 @@ fn segment_arena_on_shared_allocator_is_not_exhausted_after_eviction() {
     map.add(entry_at(1)).unwrap();
     fx.store.publish(map).unwrap();
     let spec = TrackSpec {
-        tier: Tier::Ram,
+        tier: Tier2::Ram,
         segment: SegmentId(1),
         region: seg.region,
         size: 100,
@@ -845,7 +845,7 @@ fn segment_arena_on_shared_allocator_is_not_exhausted_after_eviction() {
         summary: false,
     };
     fx.ev.track(EvictKey(1), spec, fx.at(0));
-    let out = fx.ev.make_room(Tier::Ram, 950).unwrap();
+    let out = fx.ev.make_room(Tier2::Ram, 950).unwrap();
     assert_eq!(victims(& out), vec![1]);
     assert_eq!(fx.reclaim_all(), 1);
     assert!(! fx.is_live(& seg.region));
@@ -860,20 +860,20 @@ fn segment_arena_on_shared_allocator_is_not_exhausted_after_eviction() {
 #[test]
 fn decision_reports_size_floor_of_one_and_tracked_bytes() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 0, 3.0, 0);
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    fx.add(1, Tier2::Ram, 0, 3.0, 0);
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(out.decisions.len(), 1);
     assert_eq!(out.decisions[0].size, 1);
     assert_eq!(out.decisions[0].bytes, 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
 }
 #[test]
 fn each_eviction_publishes_its_own_epoch() {
     let fx = Fx::new();
-    let a = fx.add(1, Tier::Ram, 10, 1.0, 0);
-    let b = fx.add(2, Tier::Ram, 10, 1.0, 0);
+    let a = fx.add(1, Tier2::Ram, 10, 1.0, 0);
+    let b = fx.add(2, Tier2::Ram, 10, 1.0, 0);
     let before = fx.swap.published_epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1, 2]);
     assert_eq!(fx.swap.published_epoch(), before + 2);
     assert_eq!(fx.ev.reclaim(before + 1), 1);
@@ -885,11 +885,11 @@ fn each_eviction_publishes_its_own_epoch() {
 #[test]
 fn reclaim_respects_min_reader_epoch_of_active_readers() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 10, 1.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let reader = fx.swap.register_reader();
     let guard = fx.swap.acquire(reader).unwrap();
     let held = guard.epoch();
-    fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(fx.swap.min_reader_epoch(), held);
     assert_eq!(fx.reclaim_all(), 0);
     assert!(fx.is_live(& spec.region));
@@ -903,7 +903,7 @@ fn reclaim_respects_min_reader_epoch_of_active_readers() {
 fn unknown_region_is_skipped_and_untracked() {
     let fx = Fx::new();
     let ghost = TrackSpec {
-        tier: Tier::Ram,
+        tier: Tier2::Ram,
         segment: SegmentId(77),
         region: RegionHandle::new(ArenaKind::IndexSegments, 1 << 40, 64, Generation(1))
             .unwrap(),
@@ -912,15 +912,15 @@ fn unknown_region_is_skipped_and_untracked() {
         summary: false,
     };
     fx.ev.track(EvictKey(1), ghost, fx.at(0));
-    let real = fx.add(2, Tier::Ram, 10, 1.0, 0);
+    let real = fx.add(2, Tier2::Ram, 10, 1.0, 0);
     let table_before = fx.swap.published_epoch();
     let map_before = fx.store.epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(out.skipped, vec![EvictKey(1)]);
     assert_eq!(victims(& out), vec![2]);
     assert!(out.aborted.is_none());
     assert!(! fx.ev.contains(EvictKey(1)));
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 10);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 10);
     assert_eq!(fx.swap.published_epoch(), table_before + 1);
     assert_eq!(fx.store.epoch(), map_before + 1);
     assert!(! fx.in_table(& real.region));
@@ -929,7 +929,7 @@ fn unknown_region_is_skipped_and_untracked() {
 fn unknown_region_alone_publishes_nothing() {
     let fx = Fx::new();
     let ghost = TrackSpec {
-        tier: Tier::Ram,
+        tier: Tier2::Ram,
         segment: SegmentId(77),
         region: RegionHandle::new(ArenaKind::IndexSegments, 1 << 40, 64, Generation(1))
             .unwrap(),
@@ -940,24 +940,24 @@ fn unknown_region_alone_publishes_nothing() {
     fx.ev.track(EvictKey(1), ghost, fx.at(0));
     let table_before = fx.swap.published_epoch();
     let map_before = fx.store.epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(out.skipped, vec![EvictKey(1)]);
     assert!(out.decisions.is_empty());
     assert_eq!(fx.swap.published_epoch(), table_before);
     assert_eq!(fx.store.epoch(), map_before);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
-    assert_eq!(fx.ev.occupancy(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
+    assert_eq!(fx.ev.occupancy(Tier2::Ram), 0);
 }
 #[test]
 fn segment_only_in_map_uses_published_epoch() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 10, 1.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let mut table = fx.swap.next_table();
     assert!(table.remove(& spec.region));
     fx.swap.publish(table).unwrap();
     let table_epoch = fx.swap.published_epoch();
     let map_before = fx.store.epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1]);
     assert_eq!(fx.swap.published_epoch(), table_epoch);
     assert_eq!(fx.store.epoch(), map_before + 1);
@@ -968,13 +968,13 @@ fn segment_only_in_map_uses_published_epoch() {
 #[test]
 fn segment_only_in_table_leaves_map_untouched() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 10, 1.0, 0);
+    let spec = fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let mut map = fx.store.next().unwrap();
     assert!(map.remove(SegmentId(1)));
     fx.store.publish(map).unwrap();
     let map_epoch = fx.store.epoch();
     let table_before = fx.swap.published_epoch();
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1]);
     assert_eq!(fx.store.epoch(), map_epoch);
     assert_eq!(fx.swap.published_epoch(), table_before + 1);
@@ -983,21 +983,21 @@ fn segment_only_in_table_leaves_map_untouched() {
 #[test]
 fn reclaim_drops_entries_whose_release_fails() {
     let fx = Fx::new();
-    let spec = fx.add(1, Tier::Ram, 10, 1.0, 0);
-    fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let spec = fx.add(1, Tier2::Ram, 10, 1.0, 0);
+    fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     fx.allocators
         .allocator(ArenaKind::IndexSegments)
         .unwrap()
         .free(&spec.region)
         .unwrap();
     assert_eq!(fx.reclaim_all(), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
     assert_eq!(fx.reclaim_all(), 0);
 }
 #[test]
 fn reclaim_drops_entries_of_unknown_arena() {
     let fx = Fx::new();
-    let mut spec = fx.spec(1, Tier::Ram, 10, 1.0);
+    let mut spec = fx.spec(1, Tier2::Ram, 10, 1.0);
     let real = spec.region;
     spec.region = RegionHandle::new(
             ArenaKind::Weights,
@@ -1007,29 +1007,29 @@ fn reclaim_drops_entries_of_unknown_arena() {
         )
         .unwrap();
     fx.ev.track(EvictKey(1), spec, fx.at(0));
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1]);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 10);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 10);
     assert_eq!(fx.reclaim_all(), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
     assert!(fx.in_table(& real));
     assert!(fx.is_live(& real));
 }
 #[test]
 fn publish_failure_aborts_and_restores_entry() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 100, 10.0, 0);
+    fx.add(1, Tier2::Ram, 100, 10.0, 0);
     for s in 1..=2 {
         fx.ev.touch(EvictKey(1), fx.at(s));
     }
-    let spec = fx.add(2, Tier::Ram, 50, 1.0, 0);
+    let spec = fx.add(2, Tier2::Ram, 50, 1.0, 0);
     let hits = fx.ev.hits(EvictKey(1));
     let priority = fx.ev.priority(EvictKey(1));
     let last_used = lock(&fx.ev.state).entries.get(&EvictKey(1)).unwrap().last_used;
     let table_epoch = fx.swap.published_epoch();
     let map_epoch = fx.store.epoch();
     fx.sink.fail_after(0);
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert!(out.decisions.is_empty());
     assert!(out.skipped.is_empty());
     assert_eq!(
@@ -1043,15 +1043,15 @@ fn publish_failure_aborts_and_restores_entry() {
     assert_eq!(
         lock(& fx.ev.state).entries.get(& EvictKey(1)).unwrap().last_used, last_used
     );
-    assert_eq!(fx.ev.bytes(Tier::Ram), 150);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 150);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
     assert_eq!(fx.swap.published_epoch(), table_epoch);
     assert_eq!(fx.store.epoch(), map_epoch);
     assert!(fx.in_table(& spec.region));
     assert!(fx.in_map(1));
     assert!(fx.in_map(2));
     fx.sink.recover();
-    let again = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let again = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& again), vec![1, 2]);
     assert_eq!(again.decisions[0].hits, 3);
 }
@@ -1059,33 +1059,33 @@ fn publish_failure_aborts_and_restores_entry() {
 fn abort_keeps_earlier_decisions_and_stops_processing() {
     let fx = Fx::new();
     for id in 1..=3 {
-        fx.add(id, Tier::Ram, 10, 1.0, 0);
+        fx.add(id, Tier2::Ram, 10, 1.0, 0);
     }
     fx.sink.fail_after(1);
-    let out = fx.ev.evict_idle(Tier::Ram, fx.at(1000));
+    let out = fx.ev.evict_idle(Tier2::Ram, fx.at(1000));
     assert_eq!(victims(& out), vec![1]);
     assert_eq!(out.aborted.as_ref().map(| a | a.key), Some(EvictKey(2)));
     assert!(! fx.ev.contains(EvictKey(1)));
     assert!(fx.ev.contains(EvictKey(2)));
     assert!(fx.ev.contains(EvictKey(3)));
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 10);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 10);
 }
 #[test]
 fn abort_does_not_raise_floor() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 100, 90.0, 0);
+    fx.add(1, Tier2::Ram, 100, 90.0, 0);
     fx.sink.fail_after(0);
-    let out = fx.ev.make_room(Tier::Ram, 1000).unwrap();
+    let out = fx.ev.make_room(Tier2::Ram, 1000).unwrap();
     assert!(out.aborted.is_some());
-    assert_eq!(fx.ev.floor(Tier::Ram), 0.0);
+    assert_eq!(fx.ev.floor(Tier2::Ram), 0.0);
 }
 #[test]
 fn abort_restore_prefers_newer_entry() {
     let fx = Fx::new();
-    let old = fx.add(1, Tier::Ram, 100, 10.0, 0);
+    let old = fx.add(1, Tier2::Ram, 100, 10.0, 0);
     let taken = lock(&fx.ev.state).entries.remove(&EvictKey(1)).unwrap();
     let newer = TrackSpec {
-        tier: Tier::Vram,
+        tier: Tier2::Vram,
         size: 7,
         ..old
     };
@@ -1093,17 +1093,17 @@ fn abort_restore_prefers_newer_entry() {
     let step = fx
         .ev
         .restore(EvictKey(1), taken, AbortCause::Table(TableSwapError::NoTable));
-    assert!(matches!(step, Step::Aborted(_)));
-    assert_eq!(fx.ev.bytes(Tier::Vram), 7);
-    assert_eq!(fx.ev.bytes(Tier::Ram), 0);
+    assert!(matches!(step, Step3::Aborted(_)));
+    assert_eq!(fx.ev.bytes(Tier2::Vram), 7);
+    assert_eq!(fx.ev.bytes(Tier2::Ram), 0);
 }
 #[test]
 fn tick_runs_idle_then_pressure_for_vram_then_ram() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 50, 1.0, 0);
-    fx.add(2, Tier::Vram, 950, 1.0, 650);
-    fx.add(3, Tier::Ram, 100, 1.0, 0);
-    fx.add(4, Tier::Ram, 1000, 1.0, 699);
+    fx.add(1, Tier2::Vram, 50, 1.0, 0);
+    fx.add(2, Tier2::Vram, 950, 1.0, 650);
+    fx.add(3, Tier2::Ram, 100, 1.0, 0);
+    fx.add(4, Tier2::Ram, 1000, 1.0, 699);
     let out = fx.ev.tick(fx.at(700));
     assert_eq!(victims(& out), vec![1, 2, 3, 4]);
     assert_eq!(
@@ -1116,15 +1116,15 @@ fn tick_runs_idle_then_pressure_for_vram_then_ram() {
 #[test]
 fn tick_without_work_is_empty() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 10, 1.0, 0);
-    fx.add(2, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Vram, 10, 1.0, 0);
+    fx.add(2, Tier2::Ram, 10, 1.0, 0);
     assert_eq!(fx.ev.tick(fx.at(1)), EvictionOutcome::default());
 }
 #[test]
 fn tick_stops_after_first_abort() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 10, 1.0, 0);
-    fx.add(3, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Vram, 10, 1.0, 0);
+    fx.add(3, Tier2::Ram, 10, 1.0, 0);
     fx.sink.fail_after(0);
     let out = fx.ev.tick(fx.at(10_000));
     assert!(out.decisions.is_empty());
@@ -1135,8 +1135,8 @@ fn tick_stops_after_first_abort() {
 #[test]
 fn tick_abort_in_ram_keeps_vram_decisions() {
     let fx = Fx::new();
-    fx.add(1, Tier::Vram, 10, 1.0, 0);
-    fx.add(3, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Vram, 10, 1.0, 0);
+    fx.add(3, Tier2::Ram, 10, 1.0, 0);
     fx.sink.fail_after(1);
     let out = fx.ev.tick(fx.at(10_000));
     assert_eq!(victims(& out), vec![1]);
@@ -1166,11 +1166,11 @@ fn outcome_merge_keeps_first_abort() {
 }
 fn populate_mixed(fx: &Fx) {
     for id in [8, 3, 6, 1, 9, 2, 7] {
-        let tier = if id % 2 == 0 { Tier::Ram } else { Tier::Vram };
+        let tier = if id % 2 == 0 { Tier2::Ram } else { Tier2::Vram };
         fx.add(id, tier, 100 + id, ((id * 7) % 5) as f64, id % 3);
     }
-    fx.ev.set_budget(Tier::Vram, TierBudget::new(400, 0, 0));
-    fx.ev.set_budget(Tier::Ram, TierBudget::new(300, 0, 0));
+    fx.ev.set_budget(Tier2::Vram, TierBudget::new(400, 0, 0));
+    fx.ev.set_budget(Tier2::Ram, TierBudget::new(300, 0, 0));
 }
 #[test]
 fn identical_state_gives_identical_decisions() {
@@ -1183,16 +1183,16 @@ fn identical_state_gives_identical_decisions() {
     let out_b = b.ev.tick(b.at(5));
     assert!(! out_a.decisions.is_empty());
     assert_eq!(out_a, out_b);
-    let room_a = a.ev.make_room(Tier::Vram, 200);
-    let room_b = b.ev.make_room(Tier::Vram, 200);
+    let room_a = a.ev.make_room(Tier2::Vram, 200);
+    let room_b = b.ev.make_room(Tier2::Vram, 200);
     assert!(room_a.as_ref().is_ok_and(| o | ! o.decisions.is_empty()));
     assert_eq!(room_a, room_b);
 }
 #[test]
 fn publish_map_retries_after_stale_mapping() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
-    fx.add(2, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
+    fx.add(2, Tier2::Ram, 10, 1.0, 0);
     let mut first = fx.store.next().unwrap();
     assert!(first.remove(SegmentId(1)));
     let mut other = fx.store.next().unwrap();
@@ -1208,7 +1208,7 @@ fn publish_map_retries_after_stale_mapping() {
 #[test]
 fn publish_map_stops_when_segment_already_gone() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
     let mut first = fx.store.next().unwrap();
     assert!(first.remove(SegmentId(1)));
     let mut other = fx.store.next().unwrap();
@@ -1222,7 +1222,7 @@ fn publish_map_stops_when_segment_already_gone() {
 #[test]
 fn poisoned_locks_are_taken_over() {
     let fx = Fx::new();
-    fx.add(1, Tier::Ram, 10, 1.0, 0);
+    fx.add(1, Tier2::Ram, 10, 1.0, 0);
     thread::scope(|s| {
         let state = s
             .spawn(|| {
@@ -1251,7 +1251,7 @@ fn concurrent_use_keeps_table_map_and_tracking_consistent() {
     let fx = Fx::new();
     let mut specs = Vec::new();
     for id in 0..N {
-        let tier = if id % 2 == 0 { Tier::Vram } else { Tier::Ram };
+        let tier = if id % 2 == 0 { Tier2::Vram } else { Tier2::Ram };
         specs.push(fx.add(id, tier, 10, 1.0 + (id % 5) as f64, 0));
     }
     let done = AtomicBool::new(false);
@@ -1273,8 +1273,8 @@ fn concurrent_use_keeps_table_map_and_tracking_consistent() {
                                     }
                                     drop(pin);
                                 }
-                                fx.ev.occupancy(Tier::Ram);
-                                fx.ev.len_tier(Tier::Vram);
+                                fx.ev.occupancy(Tier2::Ram);
+                                fx.ev.len_tier(Tier2::Vram);
                             }
                         }),
                 );
@@ -1287,7 +1287,7 @@ fn concurrent_use_keeps_table_map_and_tracking_consistent() {
                     let out = fx.ev.tick(far);
                     assert!(out.aborted.is_none());
                     decided += out.decisions.len();
-                    if let Ok(room) = fx.ev.make_room(Tier::Ram, 5) {
+                    if let Ok(room) = fx.ev.make_room(Tier2::Ram, 5) {
                         assert!(room.aborted.is_none());
                         decided += room.decisions.len();
                     }
@@ -1311,6 +1311,6 @@ fn concurrent_use_keeps_table_map_and_tracking_consistent() {
         assert_eq!(fx.in_map(id as u64), tracked, "map {id}");
         assert_eq!(fx.is_live(& spec.region), tracked, "region {id}");
     }
-    assert_eq!(fx.ev.deferred_bytes(Tier::Vram), 0);
-    assert_eq!(fx.ev.deferred_bytes(Tier::Ram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Vram), 0);
+    assert_eq!(fx.ev.deferred_bytes(Tier2::Ram), 0);
 }

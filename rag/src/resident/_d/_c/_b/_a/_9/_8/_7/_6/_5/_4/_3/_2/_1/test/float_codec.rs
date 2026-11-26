@@ -74,28 +74,28 @@ impl Lcg {
 
 #[test]
 fn f16_known_values() {
-    assert_eq!(f32_to_f16_bits(1.0), 0x3C00);
-    assert_eq!(f32_to_f16_bits(-2.0), 0xC000);
-    assert_eq!(f32_to_f16_bits(0.0), 0x0000);
-    assert_eq!(f32_to_f16_bits(-0.0), 0x8000);
-    assert_eq!(f32_to_f16_bits(65504.0), 0x7BFF);
-    assert_eq!(f32_to_f16_bits(f32::from_bits(0x477F_EFFF)), 0x7BFF);
-    assert_eq!(f32_to_f16_bits(65520.0), 0x7C00);
-    assert_eq!(f32_to_f16_bits(1e10), 0x7C00);
-    assert_eq!(f32_to_f16_bits(-1e10), 0xFC00);
-    assert_eq!(f32_to_f16_bits(f32::INFINITY), 0x7C00);
-    assert_eq!(f32_to_f16_bits(f32::NEG_INFINITY), 0xFC00);
-    assert_eq!(f32_to_f16_bits(f32::NAN), 0x7E00);
-    assert_eq!(f32_to_f16_bits(-f32::NAN), 0xFE00);
-    assert_eq!(f32_to_f16_bits(f32::from_bits(0x7F80_0001)), 0x7E00);
-    assert_eq!(f32_to_f16_bits(f32::from_bits(0x7FBF_FFFF)), 0x7E00);
-    assert_eq!(f32_to_f16_bits(2f32.powi(-24)), 0x0001);
-    assert_eq!(f32_to_f16_bits(2f32.powi(-25)), 0x0000);
-    assert_eq!(f32_to_f16_bits(f32::from_bits(2f32.powi(-25).to_bits() + 1)), 0x0001);
-    assert_eq!(f32_to_f16_bits(3.0 * 2f32.powi(-25)), 0x0002);
-    assert_eq!(f32_to_f16_bits(2f32.powi(-14)), 0x0400);
-    assert_eq!(f32_to_f16_bits(-2f32.powi(-30)), 0x8000);
-    assert_eq!(f32_to_f16_bits(f32::MIN_POSITIVE / 2.0), 0x0000);
+    assert_eq!(f32_to_f16_bits2(1.0), 0x3C00);
+    assert_eq!(f32_to_f16_bits2(-2.0), 0xC000);
+    assert_eq!(f32_to_f16_bits2(0.0), 0x0000);
+    assert_eq!(f32_to_f16_bits2(-0.0), 0x8000);
+    assert_eq!(f32_to_f16_bits2(65504.0), 0x7BFF);
+    assert_eq!(f32_to_f16_bits2(f32::from_bits(0x477F_EFFF)), 0x7BFF);
+    assert_eq!(f32_to_f16_bits2(65520.0), 0x7C00);
+    assert_eq!(f32_to_f16_bits2(1e10), 0x7C00);
+    assert_eq!(f32_to_f16_bits2(-1e10), 0xFC00);
+    assert_eq!(f32_to_f16_bits2(f32::INFINITY), 0x7C00);
+    assert_eq!(f32_to_f16_bits2(f32::NEG_INFINITY), 0xFC00);
+    assert_eq!(f32_to_f16_bits2(f32::NAN), 0x7E00);
+    assert_eq!(f32_to_f16_bits2(-f32::NAN), 0xFE00);
+    assert_eq!(f32_to_f16_bits2(f32::from_bits(0x7F80_0001)), 0x7E00);
+    assert_eq!(f32_to_f16_bits2(f32::from_bits(0x7FBF_FFFF)), 0x7E00);
+    assert_eq!(f32_to_f16_bits2(2f32.powi(-24)), 0x0001);
+    assert_eq!(f32_to_f16_bits2(2f32.powi(-25)), 0x0000);
+    assert_eq!(f32_to_f16_bits2(f32::from_bits(2f32.powi(-25).to_bits() + 1)), 0x0001);
+    assert_eq!(f32_to_f16_bits2(3.0 * 2f32.powi(-25)), 0x0002);
+    assert_eq!(f32_to_f16_bits2(2f32.powi(-14)), 0x0400);
+    assert_eq!(f32_to_f16_bits2(-2f32.powi(-30)), 0x8000);
+    assert_eq!(f32_to_f16_bits2(f32::MIN_POSITIVE / 2.0), 0x0000);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn f16_round_trips_every_finite_value() {
         if (h & 0x7C00) == 0x7C00 && (h & 0x3FF) != 0 {
             continue;
         }
-        assert_eq!(f32_to_f16_bits(f16_to_f32(h)), h, "{h:#06x}");
+        assert_eq!(f32_to_f16_bits2(f16_to_f32(h)), h, "{h:#06x}");
     }
 }
 
@@ -127,28 +127,28 @@ fn f16_matches_reference_on_ties_neighbours_and_random_inputs() {
     }
     for x in inputs {
         for v in [x, -x] {
-            assert_eq!(f32_to_f16_bits(v), ref_f16(&table, v), "{:#010x}", v.to_bits());
+            assert_eq!(f32_to_f16_bits2(v), ref_f16(&table, v), "{:#010x}", v.to_bits());
         }
     }
 }
 
 #[test]
 fn bf16_known_values() {
-    assert_eq!(f32_to_bf16_bits(1.0), 0x3F80);
-    assert_eq!(f32_to_bf16_bits(-1.0), 0xBF80);
-    assert_eq!(f32_to_bf16_bits(0.0), 0);
-    assert_eq!(f32_to_bf16_bits(-0.0), 0x8000);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F80_8000)), 0x3F80);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F81_8000)), 0x3F82);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F80_8001)), 0x3F81);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x3F80_7FFF)), 0x3F80);
-    assert_eq!(f32_to_bf16_bits(f32::MAX), 0x7F80);
-    assert_eq!(f32_to_bf16_bits(f32::INFINITY), 0x7F80);
-    assert_eq!(f32_to_bf16_bits(f32::NEG_INFINITY), 0xFF80);
-    assert_eq!(f32_to_bf16_bits(f32::NAN), 0x7FC0);
-    assert_eq!(f32_to_bf16_bits(-f32::NAN), 0xFFC0);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(0x7F80_0001)), 0x7FC0);
-    assert_eq!(f32_to_bf16_bits(f32::from_bits(1)), 0);
+    assert_eq!(f32_to_bf16_bits2(1.0), 0x3F80);
+    assert_eq!(f32_to_bf16_bits2(-1.0), 0xBF80);
+    assert_eq!(f32_to_bf16_bits2(0.0), 0);
+    assert_eq!(f32_to_bf16_bits2(-0.0), 0x8000);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(0x3F80_8000)), 0x3F80);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(0x3F81_8000)), 0x3F82);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(0x3F80_8001)), 0x3F81);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(0x3F80_7FFF)), 0x3F80);
+    assert_eq!(f32_to_bf16_bits2(f32::MAX), 0x7F80);
+    assert_eq!(f32_to_bf16_bits2(f32::INFINITY), 0x7F80);
+    assert_eq!(f32_to_bf16_bits2(f32::NEG_INFINITY), 0xFF80);
+    assert_eq!(f32_to_bf16_bits2(f32::NAN), 0x7FC0);
+    assert_eq!(f32_to_bf16_bits2(-f32::NAN), 0xFFC0);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(0x7F80_0001)), 0x7FC0);
+    assert_eq!(f32_to_bf16_bits2(f32::from_bits(1)), 0);
 }
 
 #[test]
@@ -156,12 +156,12 @@ fn bf16_matches_reference_on_random_inputs() {
     let mut rng = Lcg(11);
     for _ in 0..500_000 {
         let x = f32::from_bits(rng.next());
-        assert_eq!(f32_to_bf16_bits(x), ref_bf16(x), "{:#010x}", x.to_bits());
+        assert_eq!(f32_to_bf16_bits2(x), ref_bf16(x), "{:#010x}", x.to_bits());
     }
     for upper in 0..=0xFFFFu32 {
         for lower in [0u32, 0x7FFF, 0x8000, 0x8001, 0xFFFF] {
             let x = f32::from_bits((upper << 16) | lower);
-            assert_eq!(f32_to_bf16_bits(x), ref_bf16(x), "{:#010x}", x.to_bits());
+            assert_eq!(f32_to_bf16_bits2(x), ref_bf16(x), "{:#010x}", x.to_bits());
         }
     }
 }

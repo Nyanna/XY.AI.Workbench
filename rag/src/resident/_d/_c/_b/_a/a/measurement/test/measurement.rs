@@ -107,7 +107,7 @@ fn preflight_ignores_other_axes() {
 #[test]
 fn incompatible_outcomes_always_carry_text() {
     for text in ["why".to_string(), String::new()] {
-        match incompatible(text) {
+        match incompatible6(text) {
             DeviationOutcome::Incompatible { validity } => {
                 assert_eq!(validity.kind, ValidityKind::Degenerate);
                 assert!(! validity.text.is_empty());
@@ -122,14 +122,14 @@ fn judge_maps_every_validity() {
     let cache = ReferenceCache::default();
     let cfg = DeviationConfig::new(1e-3).unwrap();
     let reference = workload.reference_scores(2).unwrap();
-    match judge(&workload, &cache, &cfg, 2, Ok(&reference)).unwrap() {
+    match judge3(&workload, &cache, &cfg, 2, Ok(&reference)).unwrap() {
         DeviationOutcome::Measured { deviation, validity } => {
             assert_eq!(deviation, 0.0);
             assert_eq!(validity.kind, ValidityKind::Valid);
         }
         other => panic!("unexpected {other:?}"),
     }
-    let kind_of = |candidate: Result<&[f32], String>| match judge(
+    let kind_of = |candidate: Result<&[f32], String>| match judge3(
             &workload,
             &cache,
             &cfg,
@@ -164,7 +164,7 @@ fn judge_matches_workload_evaluate() {
     }
     let assessment = workload.evaluate(3, Ok(&candidate), &cfg).unwrap();
     assert_eq!(
-        judge(& workload, & cache, & cfg, 3, Ok(& candidate)).unwrap(),
+        judge3(& workload, & cache, & cfg, 3, Ok(& candidate)).unwrap(),
         outcome_of(assessment)
     );
 }
@@ -186,7 +186,7 @@ fn samples_are_normalized_and_floored() {
 }
 #[test]
 fn gate_admits_one_caller_at_a_time() {
-    let gate = Arc::new(Gate::new());
+    let gate = Arc::new(Gate3::new());
     let inside = Arc::new(AtomicUsize::new(0));
     let handles: Vec<_> = (0..6)
         .map(|_| {
@@ -208,7 +208,7 @@ fn gate_admits_one_caller_at_a_time() {
 }
 #[test]
 fn gate_is_released_by_a_panicking_holder() {
-    let gate = Arc::new(Gate::new());
+    let gate = Arc::new(Gate3::new());
     let other = Arc::clone(&gate);
     let result = std::thread::spawn(move || {
             let _turn = other.enter();

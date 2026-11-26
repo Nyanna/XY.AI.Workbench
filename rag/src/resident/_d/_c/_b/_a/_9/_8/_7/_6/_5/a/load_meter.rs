@@ -26,7 +26,7 @@ pub trait LoadReporting: Send + Sync {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct State {
+struct State4 {
     capacity: usize,
     throughput: f64,
     seeded: bool,
@@ -38,7 +38,7 @@ pub struct LoadMeter {
     kind: ResourceKind,
     device: DeviceHandle,
     alpha: f64,
-    state: Mutex<State>,
+    state: Mutex<State4>,
 }
 
 impl LoadMeter {
@@ -62,7 +62,7 @@ impl LoadMeter {
             kind,
             device,
             alpha,
-            state: Mutex::new(State {
+            state: Mutex::new(State4 {
                 capacity,
                 throughput: 0.0,
                 seeded: false,
@@ -112,7 +112,7 @@ impl LoadMeter {
         self.lock().throughput
     }
 
-    fn lock(&self) -> MutexGuard<'_, State> {
+    fn lock(&self) -> MutexGuard<'_, State4> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }

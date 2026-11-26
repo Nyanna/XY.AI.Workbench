@@ -8,7 +8,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::subengine_loop::{
     IterationOutcome, ResourceExec, SubengineLoop,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::HasResourceRequirements;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Claim;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Claim2;
 /// One feed pass of a sub-engine. Non-blocking.
 pub trait FeedStep: Send {
     fn feed(&mut self, now: Instant) -> IterationOutcome;
@@ -17,7 +17,7 @@ impl<M, P, H> FeedStep for Arc<SubengineLoop<M, P, H>>
 where
     M: HasResourceRequirements + Send + Sync + 'static,
     P: Send + 'static,
-    H: ResourceExec<Entry = Claim<M, P, (), ()>>,
+    H: ResourceExec<Entry = Claim2<M, P, (), ()>>,
 {
     fn feed(&mut self, now: Instant) -> IterationOutcome {
         self.run_iteration(now)
@@ -32,7 +32,7 @@ pub trait ExpandStep: Send {
 /// Handler for a finished GPU lane. Called on the worker thread, in poll order.
 pub type FinishedHandler = Box<dyn FnMut(FinishedLane) + Send>;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Stage {
+pub enum Stage4 {
     GpuResults,
     GpuFeed,
     CpuFeed,
@@ -85,7 +85,7 @@ impl WorkerLoop {
     }
     /// Executes exactly one operation: the first stage in priority order that makes progress.
     /// `None`: no stage made progress.
-    pub fn run_once(&mut self, now: Instant) -> Option<Stage> {
+    pub fn run_once(&mut self, now: Instant) -> Option<Stage4> {
         self.step(now).map(|(stage, _)| stage)
     }
     /// Repeats `run_once` until it returns `None`.
@@ -96,12 +96,12 @@ impl WorkerLoop {
         }
         total
     }
-    fn step(&mut self, now: Instant) -> Option<(Stage, WorkerReport)> {
+    fn step(&mut self, now: Instant) -> Option<(Stage4, WorkerReport)> {
         let handled = self.process_results();
         if handled > 0 {
             log::trace!("worker loop: gpu results, {handled} lane(s)");
             return Some((
-                Stage::GpuResults,
+                Stage4::GpuResults,
                 WorkerReport {
                     operations: 1,
                     gpu_results: handled,
@@ -110,8 +110,8 @@ impl WorkerLoop {
             ));
         }
         for (stage, feeds) in [
-            (Stage::GpuFeed, &mut self.gpu_feeds),
-            (Stage::CpuFeed, &mut self.cpu_feeds),
+            (Stage4::GpuFeed, &mut self.gpu_feeds),
+            (Stage4::CpuFeed, &mut self.cpu_feeds),
         ] {
             let (claimed, progress) = feed_until_progress(feeds, now);
             if progress {
@@ -129,7 +129,7 @@ impl WorkerLoop {
         if self.expand.expand_next() {
             log::trace!("worker loop: expanded one task");
             return Some((
-                Stage::Expand,
+                Stage4::Expand,
                 WorkerReport {
                     operations: 1,
                     expanded: 1,

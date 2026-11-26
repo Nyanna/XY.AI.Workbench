@@ -1,15 +1,15 @@
 use super::*;
 #[test]
 fn dot_basic_and_empty() {
-    assert_eq!(dot(& [], & []), 0.0);
+    assert_eq!(dot2(& [], & []), 0.0);
     let a: Vec<f32> = (1..=11).map(|x| x as f32).collect();
     let expected: f32 = a.iter().map(|x| x * x).sum();
-    assert_eq!(dot(& a, & a), expected);
+    assert_eq!(dot2(& a, & a), expected);
 }
 #[test]
 #[should_panic]
 fn dot_len_mismatch_panics() {
-    dot(&[1.0], &[1.0, 2.0]);
+    dot2(&[1.0], &[1.0, 2.0]);
 }
 fn ramp(n: usize, seed: f32) -> Vec<f32> {
     (0..n).map(|i| ((i as f32 * 0.37 + seed).sin()) * 2.0).collect()
@@ -28,13 +28,13 @@ fn naive_sq_dist(a: &[f32], b: &[f32]) -> f64 {
 }
 #[test]
 fn sq_dist_basic_and_empty() {
-    assert_eq!(sq_dist(& [], & []), 0.0);
-    assert_eq!(sq_dist(& [1.0, 2.0], & [4.0, 6.0]), 25.0);
+    assert_eq!(sq_dist2(& [], & []), 0.0);
+    assert_eq!(sq_dist2(& [1.0, 2.0], & [4.0, 6.0]), 25.0);
 }
 #[test]
 #[should_panic(expected = "length mismatch")]
 fn sq_dist_len_mismatch_panics() {
-    sq_dist(&[1.0], &[1.0, 2.0]);
+    sq_dist2(&[1.0], &[1.0, 2.0]);
 }
 #[test]
 fn scalar_kernels_match_the_naive_sums() {

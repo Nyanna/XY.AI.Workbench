@@ -10,7 +10,7 @@ fn assert_send_sync<T: Send + Sync>() {}
 fn types_are_send_sync() {
     assert_send_sync::<SegmentId>();
     assert_send_sync::<ShapeError>();
-    assert_send_sync::<SourceError>();
+    assert_send_sync::<SourceError3>();
     assert_send_sync::<Query>();
     assert_send_sync::<QueryBatch>();
     assert_send_sync::<RamSource>();
@@ -21,7 +21,7 @@ fn types_are_send_sync() {
 fn errors_display_and_implement_error() {
     fn is_error<E: std::error::Error + Send + Sync>(_: &E) {}
     let a = ShapeError::NotMultipleOfDim { len: 5, dim: 4 };
-    let b = SourceError::SlotRange {
+    let b = SourceError3::SlotRange {
         segment: SegmentId(3),
         start: 1,
         end: 9,
@@ -167,31 +167,31 @@ fn ram_source_counts_and_unknown_segment() {
     let s = sample_source();
     assert_eq!(s.slot_count(SegmentId(1)), 4);
     assert_eq!(s.slot_count(SegmentId(2)), 0);
-    assert_eq!(s.slot_offset(SegmentId(2), Slot(0)), None);
-    assert_eq!(s.slot_vectors(SegmentId(2), Slot(0)), None);
+    assert_eq!(s.slot_offset(SegmentId(2), Slot5(0)), None);
+    assert_eq!(s.slot_vectors(SegmentId(2), Slot5(0)), None);
 }
 
 #[test]
 fn ram_source_offsets_are_prefix_sums_of_bytes() {
     let s = sample_source();
     let seg = SegmentId(1);
-    assert_eq!(s.slot_offset(seg, Slot(0)), Some(0));
-    assert_eq!(s.slot_offset(seg, Slot(1)), Some(16));
-    assert_eq!(s.slot_offset(seg, Slot(2)), Some(16));
-    assert_eq!(s.slot_offset(seg, Slot(3)), Some(16));
-    assert_eq!(s.slot_offset(seg, Slot(4)), None);
-    assert_eq!(s.slot_offset(seg, Slot(u32::MAX)), None);
+    assert_eq!(s.slot_offset(seg, Slot5(0)), Some(0));
+    assert_eq!(s.slot_offset(seg, Slot5(1)), Some(16));
+    assert_eq!(s.slot_offset(seg, Slot5(2)), Some(16));
+    assert_eq!(s.slot_offset(seg, Slot5(3)), Some(16));
+    assert_eq!(s.slot_offset(seg, Slot5(4)), None);
+    assert_eq!(s.slot_offset(seg, Slot5(u32::MAX)), None);
 }
 
 #[test]
 fn ram_source_vectors() {
     let s = sample_source();
     let seg = SegmentId(1);
-    assert_eq!(s.slot_vectors(seg, Slot(0)), Some(&[1.0, 2.0, 3.0, 4.0][..]));
-    assert_eq!(s.slot_vectors(seg, Slot(1)), None);
-    assert_eq!(s.slot_vectors(seg, Slot(2)), Some(&[][..]));
-    assert_eq!(s.slot_vectors(seg, Slot(3)), Some(&[5.0, 6.0][..]));
-    assert_eq!(s.slot_vectors(seg, Slot(4)), None);
+    assert_eq!(s.slot_vectors(seg, Slot5(0)), Some(&[1.0, 2.0, 3.0, 4.0][..]));
+    assert_eq!(s.slot_vectors(seg, Slot5(1)), None);
+    assert_eq!(s.slot_vectors(seg, Slot5(2)), Some(&[][..]));
+    assert_eq!(s.slot_vectors(seg, Slot5(3)), Some(&[5.0, 6.0][..]));
+    assert_eq!(s.slot_vectors(seg, Slot5(4)), None);
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn ram_source_insert_rejects_bad_length_without_effect() {
     let r = s.insert_segment(SegmentId(1), vec![Some(vec![1.0, 2.0]), Some(vec![1.0; 3])]);
     assert_eq!(r, Err(ShapeError::NotMultipleOfDim { len: 3, dim: 2 }));
     assert_eq!(s.slot_count(SegmentId(1)), 4);
-    assert_eq!(s.slot_offset(SegmentId(1), Slot(3)), Some(16));
+    assert_eq!(s.slot_offset(SegmentId(1), Slot5(3)), Some(16));
     let r = s.insert_segment(SegmentId(9), vec![Some(vec![1.0])]);
     assert!(r.is_err());
     assert_eq!(s.slot_count(SegmentId(9)), 0);
@@ -212,10 +212,10 @@ fn ram_source_insert_replaces_segment() {
     s.insert_segment(SegmentId(1), vec![None, Some(vec![7.0, 8.0])])
         .unwrap();
     assert_eq!(s.slot_count(SegmentId(1)), 2);
-    assert_eq!(s.slot_offset(SegmentId(1), Slot(1)), Some(0));
-    assert_eq!(s.slot_vectors(SegmentId(1), Slot(0)), None);
-    assert_eq!(s.slot_vectors(SegmentId(1), Slot(1)), Some(&[7.0, 8.0][..]));
-    assert_eq!(s.slot_offset(SegmentId(1), Slot(2)), None);
+    assert_eq!(s.slot_offset(SegmentId(1), Slot5(1)), Some(0));
+    assert_eq!(s.slot_vectors(SegmentId(1), Slot5(0)), None);
+    assert_eq!(s.slot_vectors(SegmentId(1), Slot5(1)), Some(&[7.0, 8.0][..]));
+    assert_eq!(s.slot_offset(SegmentId(1), Slot5(2)), None);
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn ram_source_empty_segment() {
     let mut s = RamSource::new(2).unwrap();
     s.insert_segment(SegmentId(5), vec![]).unwrap();
     assert_eq!(s.slot_count(SegmentId(5)), 0);
-    assert_eq!(s.slot_offset(SegmentId(5), Slot(0)), None);
+    assert_eq!(s.slot_offset(SegmentId(5), Slot5(0)), None);
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn ram_source_usable_as_trait_object_across_threads() {
     let handles: Vec<_> = (0..4)
         .map(|_| {
             let s = s.clone();
-            std::thread::spawn(move || s.slot_offset(SegmentId(1), Slot(3)))
+            std::thread::spawn(move || s.slot_offset(SegmentId(1), Slot5(3)))
         })
         .collect();
     for h in handles {
@@ -255,7 +255,7 @@ fn check_slot_range_rejects_invalid_ranges() {
     let s = sample_source();
     let seg = SegmentId(1);
     let err = |start, end| {
-        Err(SourceError::SlotRange {
+        Err(SourceError3::SlotRange {
             segment: seg,
             start,
             end,
@@ -276,7 +276,7 @@ fn check_slot_range_unknown_segment_only_empty_zero() {
     assert_eq!(check_slot_range(&s, seg, 0..0), Ok(()));
     assert_eq!(
         check_slot_range(&s, seg, 0..1),
-        Err(SourceError::SlotRange {
+        Err(SourceError3::SlotRange {
             segment: seg,
             start: 0,
             end: 1,

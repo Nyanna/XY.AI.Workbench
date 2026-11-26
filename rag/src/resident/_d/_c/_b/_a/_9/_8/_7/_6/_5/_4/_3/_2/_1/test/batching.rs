@@ -16,8 +16,8 @@ fn padded_len_examples() {
 }
 #[test]
 fn invalid_config_and_empty() {
-    assert_eq!(build_batches(& [], & cfg(0, 8)), Err(BatchError::InvalidConfig));
-    assert_eq!(build_batches(& [], & cfg(8, 0)), Err(BatchError::InvalidConfig));
+    assert_eq!(build_batches(& [], & cfg(0, 8)), Err(BatchError2::InvalidConfig));
+    assert_eq!(build_batches(& [], & cfg(8, 0)), Err(BatchError2::InvalidConfig));
     assert_eq!(build_batches(& [], & cfg(8, 8)), Ok(vec![]));
 }
 #[test]

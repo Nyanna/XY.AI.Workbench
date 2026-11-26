@@ -1,5 +1,5 @@
 use super::*;
-struct Fixed(Vec<Candidate>);
+struct Fixed(Vec<Candidate2>);
 impl CandidateSource for Fixed {
     fn candidates(
         &self,
@@ -7,7 +7,7 @@ impl CandidateSource for Fixed {
         _: &Scope,
         _: Precision,
         _: &Extensions,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<Vec<Candidate2>, SourceError2> {
         Ok(self.0.clone())
     }
 }
@@ -19,12 +19,12 @@ impl CandidateSource for Failing {
         _: &Scope,
         _: Precision,
         _: &Extensions,
-    ) -> Result<Vec<Candidate>, SourceError> {
-        Err(SourceError("boom".into()))
+    ) -> Result<Vec<Candidate2>, SourceError2> {
+        Err(SourceError2("boom".into()))
     }
 }
-fn cand(id: u64, v: &[f32], stale: bool) -> Candidate {
-    Candidate {
+fn cand(id: u64, v: &[f32], stale: bool) -> Candidate2 {
+    Candidate2 {
         id: EntryId(id),
         vector: v.to_vec(),
         stale,
@@ -54,7 +54,7 @@ fn empty_query_vector_errors_before_source() {
 #[test]
 fn source_error_propagates() {
     let r = run_similarity(&Failing, &[vec![1.0]], &params());
-    assert_eq!(r.unwrap_err(), SimilarityError::Source(SourceError("boom".into())));
+    assert_eq!(r.unwrap_err(), SimilarityError::Source(SourceError2("boom".into())));
 }
 #[test]
 fn ranking_ties_stale_and_dimension() {

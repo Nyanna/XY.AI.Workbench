@@ -1,6 +1,6 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::calibration_run::{
-    BudgetStatus, Counters, FrontPoint, ProbeError, ReportEntry, SkipReason, Summary,
+    BudgetStatus, Counters, FrontPoint, ProbeError, ReportEntry, SkipReason, Summary3,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::E5_SMALL_MODEL_ID;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
@@ -79,7 +79,7 @@ impl CalibrationBackend for TestBackend {
 }
 fn fingerprint(engine: &str) -> Fingerprint {
     Fingerprint {
-        schema_version: SCHEMA_VERSION,
+        schema_version: SCHEMA_VERSION3,
         subengine: "cpu".into(),
         cpu_features: "avx2".into(),
         model_id: E5_SMALL_MODEL_ID.into(),
@@ -367,10 +367,10 @@ fn cpu_features_text_uses_fixed_order() {
 fn detect_fingerprint_cpu_ignores_driver() {
     let d = FakeDriver(Some("X".into()), Some((7, 5)), Some("1".into()));
     let fp = Fingerprint::detect("cpu", "m", "e1", Some(&d));
-    assert_eq!(fp.schema_version, SCHEMA_VERSION);
+    assert_eq!(fp.schema_version, SCHEMA_VERSION3);
     assert_eq!((fp.gpu_name.as_str(), fp.compute_capability.as_str()), ("", ""));
     assert_eq!(fp.driver_version, "");
-    assert_eq!(fp.cpu_features, cpu_features_text(detect_cpu_features()));
+    assert_eq!(fp.cpu_features, cpu_features_text(detect_cpu_features2()));
     assert_eq!((fp.model_id.as_str(), fp.engine_version.as_str()), ("m", "e1"));
 }
 #[test]
@@ -385,7 +385,7 @@ fn detect_fingerprint_gpu_uses_driver_and_unknown() {
         (none.gpu_name.as_str(), none.compute_capability.as_str(), none.driver_version
         .as_str()), ("unknown", "unknown", "unknown")
     );
-    assert_eq!(none.cpu_features, cpu_features_text(detect_cpu_features()));
+    assert_eq!(none.cpu_features, cpu_features_text(detect_cpu_features2()));
 }
 #[test]
 fn fallback_prefers_precision_and_first_value() {
@@ -430,7 +430,7 @@ fn measured(stable: bool) -> Outcome {
         uncertainty: 0.0,
     }
 }
-fn entry(stage: Stage, c: Combination, outcome: Outcome) -> ReportEntry {
+fn entry(stage: Stage2, c: Combination, outcome: Outcome) -> ReportEntry {
     ReportEntry {
         stage,
         combination: c,
@@ -439,7 +439,7 @@ fn entry(stage: Stage, c: Combination, outcome: Outcome) -> ReportEntry {
 }
 fn report(entries: Vec<ReportEntry>, front: Vec<FrontPoint>) -> CalibrationReport {
     CalibrationReport {
-        target: Target {
+        target: Target2 {
             subengine: "cpu".into(),
             model_id: "m".into(),
         },
@@ -451,7 +451,7 @@ fn report(entries: Vec<ReportEntry>, front: Vec<FrontPoint>) -> CalibrationRepor
             exhausted: false,
         },
         runtime: Duration::ZERO,
-        summary: Summary {
+        summary: Summary3 {
             front,
             candidate_count: 0,
         },
@@ -470,16 +470,16 @@ fn front() -> Vec<FrontPoint> {
 #[test]
 fn report_conversion_collects_annotations() {
     let entries = vec![
-        entry(Stage::Axis, comb(& [("a", "1")]), measured(false)), entry(Stage::Axis,
-        comb(& [("a", "2")]), Outcome::Dominated), entry(Stage::Verification, comb(&
+        entry(Stage2::Axis, comb(& [("a", "1")]), measured(false)), entry(Stage2::Axis,
+                                                                          comb(& [("a", "2")]), Outcome::Dominated), entry(Stage2::Verification, comb(&
         [("a", "3")]), Outcome::Discarded(DiscardReason::Failed("x".into())),),
-        entry(Stage::Full, comb(& [("a", "4")]),
-        Outcome::Discarded(DiscardReason::NonFinite),), entry(Stage::Full, comb(& [("a",
-        "5")]), Outcome::Discarded(DiscardReason::ExceedsMax),), entry(Stage::Full,
-        comb(& [("a", "6")]), Outcome::Discarded(DiscardReason::Other("custom"
-        .into())),), entry(Stage::Full, comb(& [("a", "7")]),
-        Outcome::Skipped(SkipReason::Budget),), entry(Stage::Full, comb(& [("a", "8")]),
-        Outcome::Dominated),
+        entry(Stage2::Full, comb(& [("a", "4")]),
+              Outcome::Discarded(DiscardReason::NonFinite),), entry(Stage2::Full, comb(& [("a",
+                                                                                           "5")]), Outcome::Discarded(DiscardReason::ExceedsMax),), entry(Stage2::Full,
+                                                                                                                                                          comb(& [("a", "6")]), Outcome::Discarded(DiscardReason::Other("custom"
+        .into())),), entry(Stage2::Full, comb(& [("a", "7")]),
+                           Outcome::Skipped(SkipReason::Budget),), entry(Stage2::Full, comb(& [("a", "8")]),
+                                                                         Outcome::Dominated),
     ];
     let fp = fingerprint("9");
     let r = record_from_report(fp.clone(), &report(entries, front())).unwrap();
@@ -508,13 +508,13 @@ fn report_conversion_collects_annotations() {
 }
 #[test]
 fn report_conversion_flags_unstable_in_verification_and_full() {
-    for stage in [Stage::Verification, Stage::Full] {
+    for stage in [Stage2::Verification, Stage2::Full] {
         let e = vec![entry(stage, comb(& [("a", "1")]), measured(false))];
         assert!(
             record_from_report(fingerprint("1"), & report(e, front())).unwrap().unstable
         );
     }
-    let e = vec![entry(Stage::Full, comb(& [("a", "1")]), measured(true))];
+    let e = vec![entry(Stage2::Full, comb(& [("a", "1")]), measured(true))];
     assert!(
         ! record_from_report(fingerprint("1"), & report(e, front())).unwrap().unstable
     );
@@ -558,11 +558,11 @@ fn resolve_missing_follows_policy_and_writes_nothing() {
     let s = store(&t);
     let req = request("1", TestBackend::default());
     match s.resolve(&req, MissingPolicy::ExplicitCalibrate) {
-        Resolution::Missing(MissingResolution::CalibrateCommand) => {}
+        Resolution3::Missing(MissingResolution::CalibrateCommand) => {}
         _ => panic!("expected calibrate command"),
     }
     match s.resolve(&req, MissingPolicy::MostPreciseValid) {
-        Resolution::Missing(MissingResolution::Fallback(c)) => {
+        Resolution3::Missing(MissingResolution::Fallback(c)) => {
             assert_eq!(c, comb(& [("batch_size", "1"), ("tile_size", "16")]));
         }
         _ => panic!("expected fallback"),
@@ -580,7 +580,7 @@ fn resolve_unreadable_file_is_missing() {
     fs::write(&path, "garbage").unwrap();
     assert!(
         matches!(s.resolve(& req, MissingPolicy::ExplicitCalibrate),
-        Resolution::Missing(MissingResolution::CalibrateCommand))
+        Resolution3::Missing(MissingResolution::CalibrateCommand))
     );
     assert_eq!(fs::read_to_string(& path).unwrap(), "garbage");
 }
@@ -592,7 +592,7 @@ fn resolve_calibrated_starts_nothing() {
     s.save(&r).unwrap();
     let req = request("1", TestBackend::default());
     match s.resolve(&req, MissingPolicy::ExplicitCalibrate) {
-        Resolution::Calibrated { record } => assert_eq!(record, r),
+        Resolution3::Calibrated { record } => assert_eq!(record, r),
         _ => panic!("expected calibrated"),
     }
     assert!(lock(& s.in_flight).is_empty());
@@ -604,7 +604,7 @@ fn resolve_stale_recalibrates_in_background() {
     let old = record("old");
     s.save(&old).unwrap();
     let req = request("new", TestBackend::default());
-    let Resolution::Stale { record, recalibration } = s
+    let Resolution3::Stale { record, recalibration } = s
         .resolve(&req, MissingPolicy::ExplicitCalibrate) else {
         panic!("expected stale");
     };
@@ -614,7 +614,7 @@ fn resolve_stale_recalibrates_in_background() {
     assert_eq!(s.load("cpu", E5_SMALL_MODEL_ID).unwrap(), new);
     assert!(
         matches!(s.resolve(& req, MissingPolicy::ExplicitCalibrate),
-        Resolution::Calibrated { .. })
+        Resolution3::Calibrated { .. })
     );
 }
 #[test]
@@ -630,7 +630,7 @@ fn defaulted_fingerprint_fields_count_as_stale() {
         )
         .unwrap();
     let req = request("1", TestBackend::default());
-    let Resolution::Stale { recalibration, .. } = s
+    let Resolution3::Stale { recalibration, .. } = s
         .resolve(&req, MissingPolicy::ExplicitCalibrate) else {
         panic!("expected stale");
     };
@@ -652,7 +652,7 @@ fn stale_with_running_job_returns_no_second_future() {
     );
     let first = s.request_calibration(slow.clone()).unwrap().expect("started");
     assert!(s.request_calibration(slow.clone()).unwrap().is_none());
-    let Resolution::Stale { recalibration, .. } = s
+    let Resolution3::Stale { recalibration, .. } = s
         .resolve(&slow, MissingPolicy::ExplicitCalibrate) else {
         panic!("expected stale");
     };
@@ -734,7 +734,7 @@ fn shut_down_pool_rejects_requests() {
     let req = request("new", TestBackend::default());
     assert!(matches!(s.request_calibration(req.clone()), Err(PersistError::Pool(_))));
     assert!(lock(& s.in_flight).is_empty());
-    let Resolution::Stale { record: stale, recalibration } = s
+    let Resolution3::Stale { record: stale, recalibration } = s
         .resolve(&req, MissingPolicy::ExplicitCalibrate) else {
         panic!("expected stale");
     };

@@ -64,7 +64,7 @@ fn precisions_without_kernel_are_errors() {
 
 #[test]
 fn plan_combines_both_mappings() {
-    let p = plan(Scoring::NegEuclidean, Precision::F16).unwrap();
+    let p = plan3(Scoring::NegEuclidean, Precision::F16).unwrap();
     assert_eq!(
         p,
         ScoringPlan {
@@ -73,9 +73,9 @@ fn plan_combines_both_mappings() {
             dtype: DType::F16,
         }
     );
-    let p = plan(Scoring::Cosine, Precision::F32).unwrap();
+    let p = plan3(Scoring::Cosine, Precision::F32).unwrap();
     assert_eq!((p.metric, p.dtype), (Metric::Dot, DType::F32));
-    assert_eq!(plan(Scoring::Cosine, Precision::Int8), Err(PrecisionError("Int8")));
+    assert_eq!(plan3(Scoring::Cosine, Precision::Int8), Err(PrecisionError("Int8")));
 }
 
 #[test]

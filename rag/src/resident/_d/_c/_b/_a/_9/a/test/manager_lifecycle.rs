@@ -1,6 +1,6 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, EntryId, IndexError, Payload, PayloadRef, Stamp, StampObserver,
+    AccessMethod, EntryId, IndexError, Payload2, PayloadRef, Stamp, StampObserver,
     StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
@@ -40,8 +40,8 @@ impl Index for FakeIndex {
         (0..self.entries as u64).map(|i| (EntryId(i), Stamp(i + 1))).collect()
     }
 
-    fn read(&self, _id: EntryId) -> Payload {
-        Payload::default()
+    fn read(&self, _id: EntryId) -> Payload2 {
+        Payload2::default()
     }
 
     fn write(

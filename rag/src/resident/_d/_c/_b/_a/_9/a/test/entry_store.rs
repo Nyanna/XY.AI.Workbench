@@ -267,7 +267,7 @@ fn remove_of_missing_entry_changes_nothing() {
     s.upsert(EntryId(7), &vec_of(7), b"").unwrap();
     assert_eq!(s.remove(EntryId(7)), Ok(Some(Stamp(2))));
     assert_eq!(s.remove(EntryId(7)), Ok(None));
-    assert_eq!(s.read(EntryId(7)), Payload::default());
+    assert_eq!(s.read(EntryId(7)), Payload2::default());
     assert_eq!(s.meta(EntryId(7)), None);
     assert_eq!(s.stamp(EntryId(7)), None);
     assert!(s.stamps().is_empty());
@@ -295,7 +295,7 @@ fn file_entries_are_overlaid_and_removed() {
     );
     assert_eq!(s.stamp(EntryId(5)), None);
     assert_eq!(s.stamp(EntryId(3)), Some(Stamp(11)));
-    assert_eq!(s.read(EntryId(5)), Payload::default());
+    assert_eq!(s.read(EntryId(5)), Payload2::default());
     assert_eq!(s.meta(EntryId(5)), None);
     assert_eq!(bytes_of(& s.read(EntryId(3)).vector), vec_of(9));
     assert_eq!(s.meta(EntryId(3)).map(| m | bytes_of(& m)), Some(b"r".to_vec()));
@@ -426,7 +426,7 @@ fn unavailable_file_degrades_gracefully() {
     assert_eq!(s.header().max_stamp, 0);
     assert!(s.stamps().is_empty());
     assert_eq!(s.stamp(EntryId(1)), None);
-    assert_eq!(s.read(EntryId(1)), Payload::default());
+    assert_eq!(s.read(EntryId(1)), Payload2::default());
     assert_eq!(s.meta(EntryId(1)), None);
     assert!(! s.is_dirty());
     assert!(matches!(s.verify(), Err(VerifyError::Unavailable(_))));

@@ -96,12 +96,12 @@ struct PublishReport {
     published: usize,
     first_error: Option<IndexOpError>,
 }
-struct Attempt<R> {
+struct Attempt2<R> {
     result: Result<R, IndexOpError>,
     /// Bytes requested by the operation when it reported exhaustion.
     exhausted: Option<u64>,
 }
-fn settle<R>(
+fn settle3<R>(
     outcome: Result<R, IndexOpError>,
     published: Result<usize, IndexOpError>,
 ) -> Result<R, IndexOpError> {
@@ -154,7 +154,7 @@ impl IndexOperations {
                 |index| {
                     let outcome = op(index, &self.queue);
                     let published = self.publish_pending();
-                    settle(outcome, published)
+                    settle3(outcome, published)
                 },
             );
         match cycle {
@@ -197,15 +197,15 @@ impl IndexOperations {
         &self,
         index: &Arc<dyn Index>,
         op: &mut impl FnMut(&Arc<dyn Index>, &LoadedQueue) -> Result<R, IndexOpError>,
-    ) -> Attempt<R> {
+    ) -> Attempt2<R> {
         let outcome = op(index, &self.queue);
         let exhausted = match &outcome {
             Err(IndexOpError::ArenaExhausted { requested, .. }) => Some(*requested),
             _ => None,
         };
         let published = self.publish_pending();
-        Attempt {
-            result: settle(outcome, published),
+        Attempt2 {
+            result: settle3(outcome, published),
             exhausted,
         }
     }

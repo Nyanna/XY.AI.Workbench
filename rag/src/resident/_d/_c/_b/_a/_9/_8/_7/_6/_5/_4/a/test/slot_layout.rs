@@ -80,7 +80,7 @@ fn encode_zero_tokens_is_all_padding() {
     let class = SlotClass::custom(2).unwrap();
     let bytes = encode_slot(class, 2, DType::F16, 0, &[]).unwrap();
     assert_eq!(bytes.len(), 2 * 2 * 2);
-    let mask = f32_to_f16_bits(MASK_VALUE).to_le_bytes();
+    let mask = f32_to_f16_bits2(MASK_VALUE).to_le_bytes();
     for chunk in bytes.chunks(2) {
         assert_eq!(chunk, mask);
     }
@@ -112,21 +112,21 @@ fn encode_error_order() {
 }
 #[test]
 fn f16_known_values() {
-    assert_eq!(f32_to_f16_bits(0.0), 0x0000);
-    assert_eq!(f32_to_f16_bits(- 0.0), 0x8000);
-    assert_eq!(f32_to_f16_bits(1.0), 0x3c00);
-    assert_eq!(f32_to_f16_bits(- 2.0), 0xc000);
-    assert_eq!(f32_to_f16_bits(65504.0), 0x7bff);
-    assert_eq!(f32_to_f16_bits(65520.0), 0x7c00);
-    assert_eq!(f32_to_f16_bits(1.0e9), 0x7c00);
-    assert_eq!(f32_to_f16_bits(f32::NEG_INFINITY), 0xfc00);
-    assert_eq!(f32_to_f16_bits(f32::from_bits(0x3380_0000)), 0x0001);
-    assert_eq!(f32_to_f16_bits(MASK_VALUE), 0xf0e2);
-    assert_eq!(f32_to_f16_bits(1.0e-10), 0x0000);
-    let nan = f32_to_f16_bits(f32::NAN);
+    assert_eq!(f32_to_f16_bits2(0.0), 0x0000);
+    assert_eq!(f32_to_f16_bits2(- 0.0), 0x8000);
+    assert_eq!(f32_to_f16_bits2(1.0), 0x3c00);
+    assert_eq!(f32_to_f16_bits2(- 2.0), 0xc000);
+    assert_eq!(f32_to_f16_bits2(65504.0), 0x7bff);
+    assert_eq!(f32_to_f16_bits2(65520.0), 0x7c00);
+    assert_eq!(f32_to_f16_bits2(1.0e9), 0x7c00);
+    assert_eq!(f32_to_f16_bits2(f32::NEG_INFINITY), 0xfc00);
+    assert_eq!(f32_to_f16_bits2(f32::from_bits(0x3380_0000)), 0x0001);
+    assert_eq!(f32_to_f16_bits2(MASK_VALUE), 0xf0e2);
+    assert_eq!(f32_to_f16_bits2(1.0e-10), 0x0000);
+    let nan = f32_to_f16_bits2(f32::NAN);
     assert_eq!(nan & 0x7c00, 0x7c00);
     assert_ne!(nan & 0x03ff, 0);
-    let tiny_nan = f32_to_f16_bits(f32::from_bits(0x7f80_0001));
+    let tiny_nan = f32_to_f16_bits2(f32::from_bits(0x7f80_0001));
     assert_ne!(tiny_nan & 0x03ff, 0);
 }
 #[test]
@@ -134,7 +134,7 @@ fn f16_matches_reference_on_sampled_bits() {
     let mut bits: u32 = 0;
     loop {
         let v = f32::from_bits(bits);
-        let got = f32_to_f16_bits(v);
+        let got = f32_to_f16_bits2(v);
         let want = half::f16::from_f32(v).to_bits();
         if v.is_nan() {
             assert_eq!(got & 0x7c00, 0x7c00);
@@ -154,7 +154,7 @@ fn f16_matches_reference_on_sampled_bits() {
             for sign in [0u32, 0x8000_0000] {
                 let v = f32::from_bits(sign | (exp << 23) | man);
                 assert_eq!(
-                    f32_to_f16_bits(v), half::f16::from_f32(v).to_bits(),
+                    f32_to_f16_bits2(v), half::f16::from_f32(v).to_bits(),
                     "bits {:#010x}", v.to_bits()
                 );
             }
@@ -163,17 +163,17 @@ fn f16_matches_reference_on_sampled_bits() {
 }
 #[test]
 fn bf16_matches_reference() {
-    assert_eq!(f32_to_bf16_bits(1.0), 0x3f80);
-    assert_eq!(f32_to_bf16_bits(MASK_VALUE), half::bf16::from_f32(MASK_VALUE).to_bits());
-    let nan = f32_to_bf16_bits(f32::NAN);
+    assert_eq!(f32_to_bf16_bits2(1.0), 0x3f80);
+    assert_eq!(f32_to_bf16_bits2(MASK_VALUE), half::bf16::from_f32(MASK_VALUE).to_bits());
+    let nan = f32_to_bf16_bits2(f32::NAN);
     assert_eq!(nan & 0x7f80, 0x7f80);
     assert_ne!(nan & 0x007f, 0);
-    assert_ne!(f32_to_bf16_bits(f32::from_bits(0x7f80_0001)) & 0x007f, 0);
-    assert_eq!(f32_to_bf16_bits(f32::MAX), 0x7f80);
+    assert_ne!(f32_to_bf16_bits2(f32::from_bits(0x7f80_0001)) & 0x007f, 0);
+    assert_eq!(f32_to_bf16_bits2(f32::MAX), 0x7f80);
     let mut bits: u32 = 0;
     loop {
         let v = f32::from_bits(bits);
-        let got = f32_to_bf16_bits(v);
+        let got = f32_to_bf16_bits2(v);
         if v.is_nan() {
             assert_eq!(got & 0x7f80, 0x7f80);
             assert_ne!(got & 0x007f, 0);
@@ -188,10 +188,10 @@ fn bf16_matches_reference() {
 }
 #[test]
 fn mask_padding_is_finite_and_nonzero_in_all_dtypes() {
-    assert_ne!(f32_to_f16_bits(MASK_VALUE) & 0x7fff, 0);
-    assert_ne!(f32_to_f16_bits(MASK_VALUE) & 0x7c00, 0x7c00);
-    assert_ne!(f32_to_bf16_bits(MASK_VALUE) & 0x7fff, 0);
-    assert_ne!(f32_to_bf16_bits(MASK_VALUE) & 0x7f80, 0x7f80);
+    assert_ne!(f32_to_f16_bits2(MASK_VALUE) & 0x7fff, 0);
+    assert_ne!(f32_to_f16_bits2(MASK_VALUE) & 0x7c00, 0x7c00);
+    assert_ne!(f32_to_bf16_bits2(MASK_VALUE) & 0x7fff, 0);
+    assert_ne!(f32_to_bf16_bits2(MASK_VALUE) & 0x7f80, 0x7f80);
 }
 #[test]
 fn view_construction_and_accessors() {
@@ -230,10 +230,10 @@ fn view_region_too_small_and_larger_ok() {
 #[test]
 fn view_slot_range() {
     let v = view(3, 4096);
-    assert_eq!(v.slot_range(Slot(0)).unwrap(), 0..512);
-    assert_eq!(v.slot_range(Slot(2)).unwrap(), 1024..1536);
+    assert_eq!(v.slot_range(Slot5(0)).unwrap(), 0..512);
+    assert_eq!(v.slot_range(Slot5(2)).unwrap(), 1024..1536);
     assert_eq!(
-        v.slot_range(Slot(3)), Err(SlotError::SlotOutOfRange { slot : 3, count : 3 })
+        v.slot_range(Slot5(3)), Err(SlotError::SlotOutOfRange { slot : 3, count : 3 })
     );
 }
 #[test]
@@ -263,20 +263,20 @@ fn states_basic() {
     assert_eq!(s.slot_count(), 70);
     assert_eq!(s.valid_count(), 0);
     assert_eq!(s.snapshot_words(), vec![0, 0]);
-    s.set_filled(Slot(0), 5).unwrap();
-    s.set_filled(Slot(65), 0).unwrap();
-    assert!(s.is_valid(Slot(0)));
-    assert!(s.is_valid(Slot(65)));
-    assert!(! s.is_valid(Slot(1)));
-    assert!(! s.is_valid(Slot(70)));
+    s.set_filled(Slot5(0), 5).unwrap();
+    s.set_filled(Slot5(65), 0).unwrap();
+    assert!(s.is_valid(Slot5(0)));
+    assert!(s.is_valid(Slot5(65)));
+    assert!(! s.is_valid(Slot5(1)));
+    assert!(! s.is_valid(Slot5(70)));
     assert_eq!(s.valid_count(), 2);
     assert_eq!(s.snapshot_words(), vec![1, 2]);
-    assert_eq!(s.meta(Slot(0)).unwrap(), SlotMeta { valid : true, tokens : 5 });
-    assert_eq!(s.meta(Slot(65)).unwrap(), SlotMeta { valid : true, tokens : 0 });
-    assert_eq!(s.meta(Slot(2)).unwrap(), SlotMeta { valid : false, tokens : 0 });
-    s.invalidate(Slot(0)).unwrap();
-    s.invalidate(Slot(0)).unwrap();
-    assert_eq!(s.meta(Slot(0)).unwrap(), SlotMeta { valid : false, tokens : 0 });
+    assert_eq!(s.meta(Slot5(0)).unwrap(), SlotMeta { valid : true, tokens : 5 });
+    assert_eq!(s.meta(Slot5(65)).unwrap(), SlotMeta { valid : true, tokens : 0 });
+    assert_eq!(s.meta(Slot5(2)).unwrap(), SlotMeta { valid : false, tokens : 0 });
+    s.invalidate(Slot5(0)).unwrap();
+    s.invalidate(Slot5(0)).unwrap();
+    assert_eq!(s.meta(Slot5(0)).unwrap(), SlotMeta { valid : false, tokens : 0 });
     assert_eq!(s.valid_count(), 1);
 }
 #[test]
@@ -284,21 +284,21 @@ fn states_errors_and_empty() {
     let v = view(2, 2048);
     let s = SlotStates::new(&v);
     assert_eq!(
-        s.set_filled(Slot(2), 1), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
+        s.set_filled(Slot5(2), 1), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
     assert_eq!(
-        s.set_filled(Slot(5), 99), Err(SlotError::SlotOutOfRange { slot : 5, count : 2 })
+        s.set_filled(Slot5(5), 99), Err(SlotError::SlotOutOfRange { slot : 5, count : 2 })
     );
     assert_eq!(
-        s.set_filled(Slot(0), 33), Err(SlotError::TokensExceedClass { tokens : 33, max :
+        s.set_filled(Slot5(0), 33), Err(SlotError::TokensExceedClass { tokens : 33, max :
         32 })
     );
-    assert!(! s.is_valid(Slot(0)));
-    assert!(s.set_filled(Slot(0), 32).is_ok());
+    assert!(! s.is_valid(Slot5(0)));
+    assert!(s.set_filled(Slot5(0), 32).is_ok());
     assert_eq!(
-        s.invalidate(Slot(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
+        s.invalidate(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
-    assert_eq!(s.meta(Slot(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 }));
+    assert_eq!(s.meta(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 }));
     let empty = SlotStates::new(&view(0, 0));
     assert!(empty.snapshot_words().is_empty());
     assert_eq!(empty.valid_count(), 0);
@@ -307,9 +307,9 @@ fn states_errors_and_empty() {
 fn states_snapshot_word_boundaries() {
     let v = view(128, 128 * 512);
     let s = SlotStates::new(&v);
-    s.set_filled(Slot(63), 1).unwrap();
-    s.set_filled(Slot(64), 1).unwrap();
-    s.set_filled(Slot(127), 1).unwrap();
+    s.set_filled(Slot5(63), 1).unwrap();
+    s.set_filled(Slot5(64), 1).unwrap();
+    s.set_filled(Slot5(127), 1).unwrap();
     assert_eq!(s.snapshot_words(), vec![1u64 << 63, 1 | (1u64 << 63)]);
 }
 #[test]
@@ -322,7 +322,7 @@ fn states_concurrent_same_word() {
             std::thread::spawn(move || {
                 for round in 0..200u32 {
                     for i in 0..8u32 {
-                        let slot = Slot(t * 8 + i);
+                        let slot = Slot5(t * 8 + i);
                         s.set_filled(slot, (round % 32) + 1).unwrap();
                         if round % 2 == 0 {
                             s.invalidate(slot).unwrap();
@@ -337,7 +337,7 @@ fn states_concurrent_same_word() {
     }
     assert_eq!(s.valid_count(), 64);
     for i in 0..64 {
-        assert_eq!(s.meta(Slot(i)).unwrap(), SlotMeta { valid : true, tokens : 8 });
+        assert_eq!(s.meta(Slot5(i)).unwrap(), SlotMeta { valid : true, tokens : 8 });
     }
 }
 #[test]
@@ -346,18 +346,18 @@ fn assignment_fixed_bind_lookup_unbind() {
     let a = SlotAssignment::fixed(&v, Addr(1 << 20)).unwrap();
     assert_eq!(a.slot_count(), 4);
     assert_eq!(a.spanning_range(), None);
-    a.bind(Slot(1), eref(10, 0)).unwrap();
-    a.bind(Slot(3), eref(10, 1)).unwrap();
-    assert_eq!(a.lookup(Slot(1)), Some(eref(10, 0)));
-    assert_eq!(a.lookup(Slot(0)), None);
-    assert_eq!(a.lookup(Slot(99)), None);
-    assert_eq!(a.slot_of_entry(eref(10, 1)), Some(Slot(3)));
+    a.bind(Slot5(1), eref(10, 0)).unwrap();
+    a.bind(Slot5(3), eref(10, 1)).unwrap();
+    assert_eq!(a.lookup(Slot5(1)), Some(eref(10, 0)));
+    assert_eq!(a.lookup(Slot5(0)), None);
+    assert_eq!(a.lookup(Slot5(99)), None);
+    assert_eq!(a.slot_of_entry(eref(10, 1)), Some(Slot5(3)));
     assert_eq!(a.slot_of_entry(eref(11, 0)), None);
-    assert_eq!(a.device_addr(Slot(2)).unwrap(), Addr((1 << 20) + 1024));
-    assert_eq!(a.byte_range(Slot(1)).unwrap(), 4608..5120);
+    assert_eq!(a.device_addr(Slot5(2)).unwrap(), Addr((1 << 20) + 1024));
+    assert_eq!(a.byte_range(Slot5(1)).unwrap(), 4608..5120);
     assert_eq!(a.spanning_range(), Some(4608..6144));
-    assert_eq!(a.unbind(Slot(3)).unwrap(), Some(eref(10, 1)));
-    assert_eq!(a.unbind(Slot(3)).unwrap(), None);
+    assert_eq!(a.unbind(Slot5(3)).unwrap(), Some(eref(10, 1)));
+    assert_eq!(a.unbind(Slot5(3)).unwrap(), None);
     assert_eq!(a.slot_of_entry(eref(10, 1)), None);
     assert_eq!(a.spanning_range(), Some(4608..5120));
 }
@@ -365,31 +365,31 @@ fn assignment_fixed_bind_lookup_unbind() {
 fn assignment_bind_error_order() {
     let v = view(2, 1024);
     let a = SlotAssignment::fixed(&v, Addr(0)).unwrap();
-    a.bind(Slot(0), eref(1, 0)).unwrap();
+    a.bind(Slot5(0), eref(1, 0)).unwrap();
     assert_eq!(
-        a.bind(Slot(2), eref(1, 0)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2
+        a.bind(Slot5(2), eref(1, 0)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2
         })
     );
     assert_eq!(
-        a.bind(Slot(0), eref(1, 0)), Err(SlotError::SlotOccupied { slot : 0, entry :
+        a.bind(Slot5(0), eref(1, 0)), Err(SlotError::SlotOccupied { slot : 0, entry :
         eref(1, 0) })
     );
     assert_eq!(
-        a.bind(Slot(0), eref(2, 0)), Err(SlotError::SlotOccupied { slot : 0, entry :
+        a.bind(Slot5(0), eref(2, 0)), Err(SlotError::SlotOccupied { slot : 0, entry :
         eref(1, 0) })
     );
     assert_eq!(
-        a.bind(Slot(1), eref(1, 0)), Err(SlotError::EntryAlreadyBound { entry : eref(1,
-        0), slot : 0 })
+        a.bind(Slot5(1), eref(1, 0)), Err(SlotError::EntryAlreadyBound { entry : eref(1,
+                                                                                      0), slot : 0 })
     );
     assert_eq!(
-        a.unbind(Slot(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
+        a.unbind(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
     assert_eq!(
-        a.byte_range(Slot(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
+        a.byte_range(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
     assert_eq!(
-        a.device_addr(Slot(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
+        a.device_addr(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
 }
 #[test]
@@ -398,7 +398,7 @@ fn assignment_fixed_zero_slots() {
     let a = SlotAssignment::fixed(&v, Addr(0)).unwrap();
     assert_eq!(a.slot_count(), 0);
     assert_eq!(a.spanning_range(), None);
-    assert!(a.bind(Slot(0), eref(1, 0)).is_err());
+    assert!(a.bind(Slot5(0), eref(1, 0)).is_err());
 }
 #[test]
 fn assignment_fixed_overflow() {
@@ -413,15 +413,15 @@ fn assignment_variable() {
     let r = region(1000, 100);
     let a = SlotAssignment::variable(r, Addr(50_000), &[10, 0, 30]).unwrap();
     assert_eq!(a.slot_count(), 3);
-    assert_eq!(a.device_addr(Slot(2)).unwrap(), Addr(50_010));
-    assert_eq!(a.byte_range(Slot(0)).unwrap(), 1000..1010);
-    assert_eq!(a.byte_range(Slot(1)).unwrap(), 1010..1010);
-    assert_eq!(a.byte_range(Slot(2)).unwrap(), 1010..1040);
-    a.bind(Slot(2), eref(5, 2)).unwrap();
-    a.bind(Slot(0), eref(6, 0)).unwrap();
+    assert_eq!(a.device_addr(Slot5(2)).unwrap(), Addr(50_010));
+    assert_eq!(a.byte_range(Slot5(0)).unwrap(), 1000..1010);
+    assert_eq!(a.byte_range(Slot5(1)).unwrap(), 1010..1010);
+    assert_eq!(a.byte_range(Slot5(2)).unwrap(), 1010..1040);
+    a.bind(Slot5(2), eref(5, 2)).unwrap();
+    a.bind(Slot5(0), eref(6, 0)).unwrap();
     assert_eq!(a.spanning_range(), Some(1000..1040));
     assert_eq!(
-        a.byte_range(Slot(3)), Err(SlotError::SlotOutOfRange { slot : 3, count : 3 })
+        a.byte_range(Slot5(3)), Err(SlotError::SlotOutOfRange { slot : 3, count : 3 })
     );
 }
 #[test]
@@ -448,7 +448,7 @@ fn assignment_concurrent_bind() {
             let a = Arc::clone(&a);
             std::thread::spawn(move || {
                 for i in 0..8u32 {
-                    let slot = Slot(t * 8 + i);
+                    let slot = Slot5(t * 8 + i);
                     a.bind(slot, eref(u64::from(slot.0), 0)).unwrap();
                     assert_eq!(a.slot_of_entry(eref(u64::from(slot.0), 0)), Some(slot));
                 }
@@ -459,7 +459,7 @@ fn assignment_concurrent_bind() {
         h.join().unwrap();
     }
     for i in 0..64u32 {
-        assert_eq!(a.lookup(Slot(i)), Some(eref(u64::from(i), 0)));
+        assert_eq!(a.lookup(Slot5(i)), Some(eref(u64::from(i), 0)));
     }
     assert_eq!(a.spanning_range(), Some(4096..4096 + 64 * 512));
 }
@@ -473,8 +473,8 @@ fn assignment_survives_poisoned_lock() {
             panic!("poison");
         })
         .join();
-    a.bind(Slot(0), eref(1, 0)).unwrap();
-    assert_eq!(a.lookup(Slot(0)), Some(eref(1, 0)));
+    a.bind(Slot5(0), eref(1, 0)).unwrap();
+    assert_eq!(a.lookup(Slot5(0)), Some(eref(1, 0)));
 }
 #[test]
 fn error_display_and_source() {

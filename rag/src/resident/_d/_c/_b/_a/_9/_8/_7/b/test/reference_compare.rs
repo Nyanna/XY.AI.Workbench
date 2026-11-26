@@ -3,8 +3,8 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::{
     Query, RamSource,
 };
 const SEG: SegmentId = SegmentId(7);
-fn hit(offset: u64, score: f32) -> Hit {
-    Hit { offset, score }
+fn hit(offset: u64, score: f32) -> Hit3 {
+    Hit3 { offset, score }
 }
 fn source(slots: usize) -> RamSource {
     let mut src = RamSource::new(1).unwrap();
@@ -241,7 +241,7 @@ fn empty_workspaces_skip_scorers() {
         )
         .unwrap();
     assert!(rep.is_clean());
-    assert_eq!(rep.candidate, vec![Vec::< Hit >::new()]);
+    assert_eq!(rep.candidate, vec![Vec::<Hit3>::new()]);
 }
 #[test]
 fn zero_k_and_empty_batch() {

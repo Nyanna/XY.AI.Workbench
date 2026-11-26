@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::thread;
 
 struct MemIndex {
-    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload)>)>,
+    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload2)>)>,
     signal: Arc<StampSignal>,
 }
 
@@ -30,7 +30,7 @@ impl Index for MemIndex {
         let g = self.state.lock().unwrap();
         g.1.iter().map(|(k, v)| (EntryId(*k), v.0)).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.state
             .lock()
             .unwrap()
@@ -47,7 +47,7 @@ impl Index for MemIndex {
         let mut g = self.state.lock().unwrap();
         g.0 += 1;
         let stamp = Stamp(g.0);
-        let payload = Payload { vector: p.vector.into(), meta: p.meta.into() };
+        let payload = Payload2 { vector: p.vector.into(), meta: p.meta.into() };
         g.1.insert(id.0, (stamp, payload));
         self.signal.publish(stamp);
         Ok(stamp)
@@ -80,7 +80,7 @@ fn write_read_delete() {
     assert_eq!(&*idx.read(EntryId(7)).meta, b"m");
     let s2 = idx.delete(EntryId(7)).unwrap().unwrap();
     assert!(s2 > s1);
-    assert_eq!(idx.read(EntryId(7)), Payload::default());
+    assert_eq!(idx.read(EntryId(7)), Payload2::default());
     assert_eq!(idx.delete(EntryId(7)).unwrap(), None);
     assert_eq!(idx.subscribe().current(), s2);
 }

@@ -14,7 +14,7 @@ use super::super::_4::_3::_2::a::memory_access::{
     AccessError, AccessRegion, RegionBackend,
 };
 use super::super::_4::_3::_2::_1::device_lane_event::{DeviceKind, Event};
-use super::memory_backend::{rounded_len, BackendError, MemoryBackend, ALLOC_GRANULE};
+use super::memory_backend::{rounded_len, BackendError2, MemoryBackend, ALLOC_GRANULE};
 const BUFFER_ALIGN: usize = ALLOC_GRANULE as usize;
 /// Zeroed, granule-aligned heap block. Never exposes its address outside this module.
 struct RawBuf {
@@ -62,17 +62,17 @@ struct ArenaBuf {
     capacity: u64,
     data: Mutex<RawBuf>,
 }
-struct Inner {
+struct Inner5 {
     bookkeeping: Arc<Bookkeeping>,
     allocators: AllocatorSet,
     buffers: HashMap<ArenaKind, ArenaBuf>,
     generation_reserve: u64,
 }
-impl Inner {
+impl Inner5 {
     /// Returns the handle if it denotes a live region.
-    fn resolve(&self, handle: &RegionHandle) -> Result<RegionHandle, BackendError> {
+    fn resolve(&self, handle: &RegionHandle) -> Result<RegionHandle, BackendError2> {
         if !self.bookkeeping.is_live(handle) {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
         Ok(*handle)
     }
@@ -82,24 +82,24 @@ impl Inner {
         region: &RegionHandle,
         offset: u64,
         len: u64,
-    ) -> Result<(&ArenaBuf, usize), BackendError> {
+    ) -> Result<(&ArenaBuf, usize), BackendError2> {
         if !self.bookkeeping.is_live(region) {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
-        let end = offset.checked_add(len).ok_or(BackendError::StaleRegion)?;
+        let end = offset.checked_add(len).ok_or(BackendError2::StaleRegion)?;
         if end > region.len() {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
-        let buf = self.buffers.get(&region.arena()).ok_or(BackendError::StaleRegion)?;
+        let buf = self.buffers.get(&region.arena()).ok_or(BackendError2::StaleRegion)?;
         let start = region
             .offset()
             .checked_add(offset)
-            .ok_or(BackendError::StaleRegion)?;
-        let abs_end = start.checked_add(len).ok_or(BackendError::StaleRegion)?;
+            .ok_or(BackendError2::StaleRegion)?;
+        let abs_end = start.checked_add(len).ok_or(BackendError2::StaleRegion)?;
         if abs_end > buf.capacity {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
-        let start = usize::try_from(start).map_err(|_| BackendError::StaleRegion)?;
+        let start = usize::try_from(start).map_err(|_| BackendError2::StaleRegion)?;
         Ok((buf, start))
     }
     fn write(
@@ -107,7 +107,7 @@ impl Inner {
         region: &RegionHandle,
         offset: u64,
         src: &[u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let (buf, start) = self.locate(region, offset, src.len() as u64)?;
         if src.is_empty() {
             return Ok(());
@@ -121,7 +121,7 @@ impl Inner {
         region: &RegionHandle,
         offset: u64,
         dst: &mut [u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let (buf, start) = self.locate(region, offset, dst.len() as u64)?;
         if dst.is_empty() {
             return Ok(());
@@ -130,10 +130,10 @@ impl Inner {
         dst.copy_from_slice(&data.as_slice()[start..start + dst.len()]);
         Ok(())
     }
-    fn copy(&self, src: &RegionHandle, dst: &RegionHandle) -> Result<(), BackendError> {
+    fn copy(&self, src: &RegionHandle, dst: &RegionHandle) -> Result<(), BackendError2> {
         let (src_buf, src_start) = self.locate(src, 0, src.len())?;
         let (dst_buf, dst_start) = self.locate(dst, 0, src.len())?;
-        let n = usize::try_from(src.len()).map_err(|_| BackendError::StaleRegion)?;
+        let n = usize::try_from(src.len()).map_err(|_| BackendError2::StaleRegion)?;
         if n == 0 {
             return Ok(());
         }
@@ -143,7 +143,7 @@ impl Inner {
             return Ok(());
         }
         let mut staging: Vec<u8> = Vec::new();
-        staging.try_reserve_exact(n).map_err(|_| BackendError::AllocationFailed)?;
+        staging.try_reserve_exact(n).map_err(|_| BackendError2::AllocationFailed)?;
         {
             let data = lock(&src_buf.data);
             staging.extend_from_slice(&data.as_slice()[src_start..src_start + n]);
@@ -166,14 +166,14 @@ impl Inner {
 }
 /// Thread-safe; `Send + Sync`.
 pub struct CpuBackend {
-    inner: Arc<Inner>,
+    inner: Arc<Inner5>,
 }
 impl CpuBackend {
     /// Creates one zeroed RAM block per arena except `Staging`. Arenas with capacity 0 are empty.
     pub fn new(
         caps: ArenaCapacities,
         generations: u32,
-    ) -> Result<CpuBackend, BackendError> {
+    ) -> Result<CpuBackend, BackendError2> {
         let arenas = Arc::new(ArenaSet::new(caps));
         let unrestricted = Budget {
             free: u64::MAX,
@@ -188,8 +188,8 @@ impl CpuBackend {
             }
             let arena = arenas
                 .ensure(kind, &unrestricted)
-                .map_err(|_| BackendError::AllocationFailed)?;
-            let exhausted = BackendError::OutOfMemory {
+                .map_err(|_| BackendError2::AllocationFailed)?;
+            let exhausted = BackendError2::OutOfMemory {
                 arena: kind,
                 requested: arena.capacity,
                 free: 0,
@@ -208,9 +208,9 @@ impl CpuBackend {
         }
         let bookkeeping = Arc::new(Bookkeeping::new(Arc::clone(&arenas)));
         let allocators = AllocatorSet::new(Arc::clone(&bookkeeping), &specs)
-            .map_err(|_| BackendError::AllocationFailed)?;
+            .map_err(|_| BackendError2::AllocationFailed)?;
         Ok(CpuBackend {
-            inner: Arc::new(Inner {
+            inner: Arc::new(Inner5 {
                 bookkeeping,
                 allocators,
                 buffers,
@@ -219,9 +219,9 @@ impl CpuBackend {
         })
     }
     /// Uniform byte access to `region`; `StaleRegion` if the region is not live.
-    pub fn access(&self, region: &RegionHandle) -> Result<AccessRegion, BackendError> {
+    pub fn access(&self, region: &RegionHandle) -> Result<AccessRegion, BackendError2> {
         let region = self.inner.resolve(region)?;
-        let len = usize::try_from(region.len()).map_err(|_| BackendError::StaleRegion)?;
+        let len = usize::try_from(region.len()).map_err(|_| BackendError2::StaleRegion)?;
         Ok(
             AccessRegion::new(
                 Arc::new(CpuRegionAccess {
@@ -238,7 +238,7 @@ impl CpuBackend {
         region: &RegionHandle,
         offset: u64,
         src: &[u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let region = self.inner.resolve(region)?;
         self.inner.write(&region, offset, src)
     }
@@ -248,7 +248,7 @@ impl CpuBackend {
         region: &RegionHandle,
         offset: u64,
         dst: &mut [u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let region = self.inner.resolve(region)?;
         self.inner.read(&region, offset, dst)
     }
@@ -257,7 +257,7 @@ impl CpuBackend {
         &self,
         src: &RegionHandle,
         dst: &RegionHandle,
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let src = self.inner.resolve(src)?;
         let dst = self.inner.resolve(dst)?;
         self.inner.copy(&src, &dst)
@@ -287,18 +287,18 @@ impl MemoryBackend for CpuBackend {
         arena: ArenaKind,
         size: u64,
         align: u64,
-    ) -> Result<RegionHandle, BackendError> {
+    ) -> Result<RegionHandle, BackendError2> {
         let len = rounded_len(size, align)?;
         let allocator = self
             .inner
             .allocators
             .allocator(arena)
-            .ok_or(BackendError::AllocationFailed)?;
+            .ok_or(BackendError2::AllocationFailed)?;
         let region = allocator.allocate(len)?;
         debug_assert_eq!(region.offset() % align, 0);
         Ok(region)
     }
-    fn free(&self, region: &RegionHandle) -> Result<(), BackendError> {
+    fn free(&self, region: &RegionHandle) -> Result<(), BackendError2> {
         let region = self.inner.resolve(region)?;
         self.inner.allocators.allocator_for(&region)?.free(&region)?;
         Ok(())
@@ -307,12 +307,12 @@ impl MemoryBackend for CpuBackend {
         &self,
         region: &RegionHandle,
         event: Event,
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let region = self.inner.resolve(region)?;
         self.inner.allocators.allocator_for(&region)?.free_deferred(&region, event)?;
         Ok(())
     }
-    fn budget(&self) -> Result<Budget, BackendError> {
+    fn budget(&self) -> Result<Budget, BackendError2> {
         let info = self.inner.sums();
         Ok(Budget {
             free: info.free,
@@ -320,7 +320,7 @@ impl MemoryBackend for CpuBackend {
             generation_reserve: self.inner.generation_reserve,
         })
     }
-    fn available(&self, arena: ArenaKind) -> Result<u64, BackendError> {
+    fn available(&self, arena: ArenaKind) -> Result<u64, BackendError2> {
         Ok(self.inner.allocators.allocator(arena).map_or(0, |a| a.available()))
     }
 }
@@ -330,7 +330,7 @@ impl MemoryQuery for CpuBackend {
     }
 }
 struct CpuRegionAccess {
-    inner: Arc<Inner>,
+    inner: Arc<Inner5>,
     region: RegionHandle,
     len: usize,
 }

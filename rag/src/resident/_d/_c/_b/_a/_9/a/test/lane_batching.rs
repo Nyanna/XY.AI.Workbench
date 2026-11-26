@@ -16,7 +16,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
     Event, GpuEventBackend, LaneConfig, LaneKind, StreamBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::{
-    State, Ticket,
+    State2, Ticket,
 };
 static_assertions::assert_impl_all!(LaneResource < TestMeta, TestPayload >: Send, Sync);
 struct TestMeta {
@@ -213,7 +213,7 @@ impl ResourceLoader<Res> for OnceLoader {
         Arc::try_unwrap(arc).map_err(|_| "resource is shared".to_string())
     }
 }
-fn lease_from(registry: &ResourceRegistry<Res>) -> Lease<Res> {
+fn lease_from(registry: &ResourceRegistry<Res>) -> Lease2<Res> {
     match registry.request_init("lanes", 1, Instant::now()) {
         InitRequest::Ready(lease) => lease,
         _ => panic!("resource not ready"),
@@ -229,7 +229,7 @@ struct Fx {
     completion: Option<Arc<GpuCompletion>>,
 }
 impl Fx {
-    fn lease(&self) -> Lease<Res> {
+    fn lease(&self) -> Lease2<Res> {
         lease_from(&self.registry)
     }
     fn exec(&self, queue: &Q) {
@@ -381,7 +381,7 @@ fn unbatchable_seed_runs_alone() {
     entry(&fx.own, 3, Some("a"), &[]);
     fx.exec_own();
     assert_eq!(fx.runner.run_ids(), vec![vec![1]]);
-    assert_eq!(t2.state(), State::Pending);
+    assert_eq!(t2.state(), State2::Pending);
 }
 #[test]
 fn single_task_limit_runs_alone() {
@@ -390,7 +390,7 @@ fn single_task_limit_runs_alone() {
     let t2 = entry(&fx.own, 2, Some("a"), &[]);
     fx.exec_own();
     assert_eq!(fx.runner.run_ids(), vec![vec![1]]);
-    assert_eq!(t2.state(), State::Pending);
+    assert_eq!(t2.state(), State2::Pending);
 }
 #[test]
 fn task_limit_joins_in_claim_order_and_reports_once() {
@@ -404,10 +404,10 @@ fn task_limit_joins_in_claim_order_and_reports_once() {
         log.spans, vec![RowSpan { first_row : 0, rows : 1 }, RowSpan { first_row : 1,
         rows : 1 }, RowSpan { first_row : 2, rows : 1 },]
     );
-    let states: Vec<State> = tickets.iter().map(Ticket::state).collect();
+    let states: Vec<State2> = tickets.iter().map(Ticket::state).collect();
     assert_eq!(
-        states, vec![State::Succeeded, State::Succeeded, State::Succeeded,
-        State::Pending, State::Pending]
+        states, vec![State2::Succeeded, State2::Succeeded, State2::Succeeded,
+                     State2::Pending, State2::Pending]
     );
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 1);
     assert_eq!(fx.res.idle_lanes(), 1);
@@ -421,8 +421,8 @@ fn keys_are_not_mixed_and_filter_is_honoured() {
     entry(&fx.own, 4, Some("a"), &[]);
     fx.exec_own();
     assert_eq!(fx.runner.run_ids(), vec![vec![1, 4]]);
-    assert_eq!(other_key.state(), State::Pending);
-    assert_eq!(filtered.state(), State::Pending);
+    assert_eq!(other_key.state(), State2::Pending);
+    assert_eq!(filtered.state(), State2::Pending);
 }
 #[test]
 fn own_queue_is_scanned_before_shared_queue() {
@@ -458,8 +458,8 @@ fn token_budget_rejection_does_not_end_scan() {
     let mut positions = batches[0].positions().to_vec();
     positions.sort_unstable();
     assert_eq!(positions, vec![0, 1, 2]);
-    assert_eq!(too_many.state(), State::Pending);
-    assert_eq!(too_long.state(), State::Pending);
+    assert_eq!(too_many.state(), State2::Pending);
+    assert_eq!(too_long.state(), State2::Pending);
 }
 #[test]
 fn seed_over_budget_is_accepted_and_nothing_joins() {
@@ -478,7 +478,7 @@ fn seed_over_budget_is_accepted_and_nothing_joins() {
         .collect();
     positions.sort_unstable();
     assert_eq!(positions, vec![0, 1, 2, 3, 4]);
-    assert_eq!(row.state(), State::Pending);
+    assert_eq!(row.state(), State2::Pending);
 }
 #[test]
 fn seed_without_payload_runs_nothing() {
@@ -488,7 +488,7 @@ fn seed_without_payload_runs_nothing() {
     assert!(claim.take_payload().is_some());
     fx.res.execute(claim, fx.lease());
     assert!(fx.runner.runs().is_empty());
-    assert_eq!(t.state(), State::Abandoned);
+    assert_eq!(t.state(), State2::Abandoned);
     assert_eq!(fx.res.idle_lanes(), 1);
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 0);
 }
@@ -541,13 +541,13 @@ fn busy_lane_makes_execute_wait() {
     let b = thread::spawn(move || res.execute(second, second_lease));
     thread::sleep(Duration::from_millis(40));
     assert_eq!(fx.runner.runs().len(), 1);
-    assert_eq!(t2.state(), State::Running);
+    assert_eq!(t2.state(), State2::Running);
     fx.runner.gate.open();
     a.join().unwrap();
     b.join().unwrap();
     assert_eq!(fx.runner.run_ids(), vec![vec![1], vec![2]]);
-    assert_eq!(t1.state(), State::Succeeded);
-    assert_eq!(t2.state(), State::Succeeded);
+    assert_eq!(t1.state(), State2::Succeeded);
+    assert_eq!(t2.state(), State2::Succeeded);
     assert_eq!(fx.res.idle_lanes(), 1);
 }
 fn gpu_fx(
@@ -569,8 +569,8 @@ fn gpu_batch_is_finished_by_on_finished() {
     assert_eq!(completion.in_flight(), 1);
     assert_eq!(fx.res.idle_lanes(), 0);
     assert!(! fx.res.has_capacity());
-    assert_eq!(t1.state(), State::Running);
-    assert_eq!(t2.state(), State::Running);
+    assert_eq!(t1.state(), State2::Running);
+    assert_eq!(t2.state(), State2::Running);
     assert!(fx.runner.collects.lock().unwrap().is_empty());
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 0);
     assert!(completion.poll().is_empty());
@@ -582,8 +582,8 @@ fn gpu_batch_is_finished_by_on_finished() {
     assert_eq!(collects.len(), 1);
     assert_eq!(collects[0].0, vec![1, 2]);
     assert!(collects[0].1.is_ok());
-    assert_eq!(t1.state(), State::Succeeded);
-    assert_eq!(t2.state(), State::Succeeded);
+    assert_eq!(t1.state(), State2::Succeeded);
+    assert_eq!(t2.state(), State2::Succeeded);
     assert_eq!(fx.res.idle_lanes(), 1);
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 1);
     assert_eq!(completion.in_flight(), 0);
@@ -628,7 +628,7 @@ fn pending_without_tracker_is_finished_inline() {
     fx.exec_own();
     assert_eq!(fx.runner.collects.lock().unwrap().len(), 1);
     assert!(fx.runner.collects.lock().unwrap() [0].1.is_ok());
-    assert_eq!(t.state(), State::Succeeded);
+    assert_eq!(t.state(), State2::Succeeded);
     assert_eq!(fx.res.idle_lanes(), 1);
 }
 #[test]
@@ -642,7 +642,7 @@ fn pending_on_lane_without_stream_collects_with_error() {
     let t = entry(&fx.own, 1, Some("a"), &[]);
     fx.exec_own();
     assert!(fx.runner.collects.lock().unwrap() [0].1.is_err());
-    assert_eq!(t.state(), State::Succeeded);
+    assert_eq!(t.state(), State2::Succeeded);
     assert_eq!(fx.res.idle_lanes(), 1);
     assert_eq!(fx.completion.clone().unwrap().in_flight(), 0);
 }
@@ -654,8 +654,8 @@ fn run_panic_abandons_claims_and_frees_lane() {
     let t1 = entry(&fx.own, 1, Some("a"), &[]);
     let t2 = entry(&fx.own, 2, Some("a"), &[]);
     fx.exec_own();
-    assert_eq!(t1.state(), State::Abandoned);
-    assert_eq!(t2.state(), State::Abandoned);
+    assert_eq!(t1.state(), State2::Abandoned);
+    assert_eq!(t2.state(), State2::Abandoned);
     assert_eq!(fx.res.idle_lanes(), 1);
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 1);
 }
@@ -669,7 +669,7 @@ fn collect_panic_abandons_claims_and_frees_lane() {
     done.store(true, Ordering::SeqCst);
     let mut finished = fx.completion.clone().unwrap().poll();
     assert!(fx.res.on_finished(finished.remove(0)).is_ok());
-    assert_eq!(t.state(), State::Abandoned);
+    assert_eq!(t.state(), State2::Abandoned);
     assert_eq!(fx.res.idle_lanes(), 1);
 }
 #[test]
@@ -712,7 +712,7 @@ fn concurrent_execution_completes_each_entry_once() {
     for w in workers {
         w.join().unwrap();
     }
-    assert!(tickets.iter().all(| t | t.state() == State::Succeeded));
+    assert!(tickets.iter().all(| t | t.state() == State2::Succeeded));
     let mut ids: Vec<u32> = fx.runner.run_ids().into_iter().flatten().collect();
     ids.sort_unstable();
     assert_eq!(ids, (0..60).collect::< Vec < u32 >> ());
@@ -738,12 +738,12 @@ fn abort_in_flight_abandons_claims_and_releases_leases() {
     let t1 = entry(&fx.own, 1, Some("a"), &[]);
     let t2 = entry(&fx.own, 2, Some("a"), &[]);
     fx.exec_own();
-    assert_eq!(t1.state(), State::Running);
+    assert_eq!(t1.state(), State2::Running);
     let holders = Arc::strong_count(&fx.res);
     assert_eq!(fx.res.abort_in_flight(), 1);
     assert_eq!(Arc::strong_count(& fx.res), holders - 1);
-    assert_eq!(t1.state(), State::Abandoned);
-    assert_eq!(t2.state(), State::Abandoned);
+    assert_eq!(t1.state(), State2::Abandoned);
+    assert_eq!(t2.state(), State2::Abandoned);
     assert_eq!(fx.res.abort_in_flight(), 0);
     done.store(true, Ordering::SeqCst);
     let mut finished = fx.completion.clone().unwrap().poll();

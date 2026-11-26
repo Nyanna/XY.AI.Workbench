@@ -21,16 +21,16 @@ pub(crate) mod fixture;
 pub use services::{GpuServices, StructureGuard, StructureLock};
 pub use slot_services::SlotUpdates;
 pub use types::{
-    EnsureReport, GapReport, GpuIndexStats, GpuManagerConfig, GpuManagerError,
-    LoadedBinding, LoadedQueue, LoadedSegment, MirrorItem, MirrorReport,
+    EnsureReport, GapReport3, GpuIndexStats, GpuManagerConfig, GpuManagerError,
+    LoadedBinding, LoadedQueue, LoadedSegment3, MirrorItem, MirrorReport,
     ReconcileOutcome, ReleasedSegment, VramTable,
 };
 use deps::*;
-use state::{Inner, State};
+use state::{Inner8, State10};
 
 /// Memory manager of one index. All methods take `&self` and may be called from any thread.
 pub struct GpuManager {
-    inner: Arc<Inner>,
+    inner: Arc<Inner8>,
 }
 
 static_assertions::assert_impl_all!(GpuManager : Send, Sync);
@@ -67,7 +67,7 @@ impl GpuManager {
         }
         let row_bytes = cfg.dim as usize * cfg.dtype.size_in_bytes();
         Ok(GpuManager {
-            inner: Arc::new(Inner {
+            inner: Arc::new(Inner8 {
                 services,
                 index,
                 resolver,
@@ -76,7 +76,7 @@ impl GpuManager {
                 cfg,
                 slot_bytes,
                 row_bytes,
-                state: Mutex::new(State::default()),
+                state: Mutex::new(State10::default()),
                 place_lock: Mutex::new(()),
                 deferred: Mutex::new(Vec::new()),
                 sync: Mutex::new(None),
@@ -106,7 +106,7 @@ impl GpuManager {
 
     /// Live bytes of the eviction view.
     pub fn resident_bytes(&self) -> u64 {
-        self.inner.services.eviction().bytes(Tier::Vram)
+        self.inner.services.eviction().bytes(Tier2::Vram)
     }
 
     pub fn pending_updates(&self) -> usize {
@@ -136,7 +136,7 @@ impl GpuManager {
                 })?;
             (Arc::clone(&record.assignment), slot - record.first_slot)
         };
-        assignment.lookup(Slot(local))
+        assignment.lookup(Slot5(local))
     }
 }
 

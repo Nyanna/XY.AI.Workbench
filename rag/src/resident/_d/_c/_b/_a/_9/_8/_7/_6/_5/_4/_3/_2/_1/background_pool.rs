@@ -40,13 +40,13 @@ impl fmt::Display for JobError {
     }
 }
 impl std::error::Error for JobError {}
-enum Slot<T> {
+enum Slot2<T> {
     Pending,
     Ready(Result<T, JobError>),
     Taken,
 }
 struct FutureShared<T> {
-    slot: Mutex<Slot<T>>,
+    slot: Mutex<Slot2<T>>,
     cv: Condvar,
 }
 /// Result container of one job.
@@ -57,8 +57,8 @@ impl<T: Send + 'static> JobFuture<T> {
     pub fn wait(self) -> Result<T, JobError> {
         let mut slot = lock(&self.shared.slot);
         loop {
-            match std::mem::replace(&mut *slot, Slot::Taken) {
-                Slot::Ready(r) => return r,
+            match std::mem::replace(&mut *slot, Slot2::Taken) {
+                Slot2::Ready(r) => return r,
                 other => *slot = other,
             }
             slot = self.shared.cv.wait(slot).unwrap_or_else(|e| e.into_inner());
@@ -69,8 +69,8 @@ impl<T: Send + 'static> JobFuture<T> {
         {
             let mut slot = lock(&self.shared.slot);
             loop {
-                match std::mem::replace(&mut *slot, Slot::Taken) {
-                    Slot::Ready(r) => return Ok(r),
+                match std::mem::replace(&mut *slot, Slot2::Taken) {
+                    Slot2::Ready(r) => return Ok(r),
                     other => *slot = other,
                 }
                 let remaining = match deadline {
@@ -95,8 +95,8 @@ impl<T: Send + 'static> JobFuture<T> {
     }
     pub fn try_get(&mut self) -> Option<Result<T, JobError>> {
         let mut slot = lock(&self.shared.slot);
-        match std::mem::replace(&mut *slot, Slot::Taken) {
-            Slot::Ready(r) => Some(r),
+        match std::mem::replace(&mut *slot, Slot2::Taken) {
+            Slot2::Ready(r) => Some(r),
             other => {
                 *slot = other;
                 None
@@ -104,12 +104,12 @@ impl<T: Send + 'static> JobFuture<T> {
         }
     }
     pub fn is_done(&self) -> bool {
-        !matches!(* lock(& self.shared.slot), Slot::Pending)
+        !matches!(* lock(& self.shared.slot), Slot2::Pending)
     }
 }
-type Job = Box<dyn FnOnce() + Send + 'static>;
+type Job2 = Box<dyn FnOnce() + Send + 'static>;
 struct QueueState {
-    jobs: VecDeque<Job>,
+    jobs: VecDeque<Job2>,
     closed: bool,
 }
 struct PoolShared {
@@ -124,7 +124,7 @@ pub struct BackgroundPool {
     workers: Mutex<Vec<JoinHandle<()>>>,
 }
 #[cfg(target_os = "linux")]
-fn lower_priority() {
+fn lower_priority2() {
     let rc = unsafe {
         let tid = libc::syscall(libc::SYS_gettid) as libc::id_t;
         libc::setpriority(libc::PRIO_PROCESS, tid, 19)
@@ -137,11 +137,11 @@ fn lower_priority() {
     }
 }
 #[cfg(not(target_os = "linux"))]
-fn lower_priority() {
+fn lower_priority3() {
     log::warn!("lowering background worker priority is not supported on this platform");
 }
-fn worker_loop(shared: Arc<PoolShared>) {
-    lower_priority();
+fn worker_loop2(shared: Arc<PoolShared>) {
+    lower_priority2();
     loop {
         let job = {
             let mut st = lock(&shared.state);
@@ -181,7 +181,7 @@ impl BackgroundPool {
             let s = Arc::clone(&pool.shared);
             let spawned = thread::Builder::new()
                 .name(format!("{name}-{i}"))
-                .spawn(move || worker_loop(s));
+                .spawn(move || worker_loop2(s));
             match spawned {
                 Ok(h) => lock(&pool.workers).push(h),
                 Err(e) => {
@@ -204,16 +204,16 @@ impl BackgroundPool {
         T: Send + 'static,
     {
         let fshared = Arc::new(FutureShared {
-            slot: Mutex::new(Slot::Pending),
+            slot: Mutex::new(Slot2::Pending),
             cv: Condvar::new(),
         });
         let producer = Arc::clone(&fshared);
-        let boxed: Job = Box::new(move || {
+        let boxed: Job2 = Box::new(move || {
             let result = catch_unwind(AssertUnwindSafe(job))
                 .map_err(|p| JobError::Panicked(
                     panic_payload_text(&*p).unwrap_or("unknown panic").to_string(),
                 ));
-            *lock(&producer.slot) = Slot::Ready(result);
+            *lock(&producer.slot) = Slot2::Ready(result);
             producer.cv.notify_all();
         });
         {

@@ -65,7 +65,7 @@ pub enum LifecycleError {
 pub trait ResourceLoader<H>: Send + Sync {
     fn load(&self) -> Result<H, String>;
 }
-struct Inner<H> {
+struct Inner6<H> {
     enabled: bool,
     state: ResourceState,
     handle: Option<Arc<H>>,
@@ -81,7 +81,7 @@ struct Resource<H> {
     class: MemoryClass,
     backoff: Duration,
     loader: Arc<dyn ResourceLoader<H>>,
-    inner: Mutex<Inner<H>>,
+    inner: Mutex<Inner6<H>>,
 }
 impl<H> Resource<H> {
     fn release_use(&self, now: Option<Instant>) {
@@ -125,7 +125,7 @@ impl<H: Send + Sync + 'static> ResourceRegistry<H> {
             class,
             backoff: self.config.backoff,
             loader,
-            inner: Mutex::new(Inner {
+            inner: Mutex::new(Inner6 {
                 enabled: true,
                 state: ResourceState::Uninitialized,
                 handle: None,
@@ -176,7 +176,7 @@ impl<H: Send + Sync + 'static> ResourceRegistry<H> {
                 inner.in_use += 1;
                 inner.last_used = Some(now);
                 drop(inner);
-                InitRequest::Ready(Lease {
+                InitRequest::Ready(Lease2 {
                     handle,
                     resource: Some(resource),
                 })
@@ -200,7 +200,7 @@ impl<H: Send + Sync + 'static> ResourceRegistry<H> {
             }
         }
     }
-    fn begin_load(inner: &mut Inner<H>) -> u64 {
+    fn begin_load(inner: &mut Inner6<H>) -> u64 {
         inner.state = ResourceState::Loading;
         inner.backoff_until = None;
         inner.epoch += 1;
@@ -264,7 +264,7 @@ impl<H: Send + Sync + 'static> ResourceRegistry<H> {
 }
 pub enum InitRequest<H> {
     /// Resource is Ready. The lease marks it as in use.
-    Ready(Lease<H>),
+    Ready(Lease2<H>),
     /// This caller won the transition into Loading and must run the ticket.
     Started(LoadTicket<H>),
     /// Another caller is already loading.
@@ -376,11 +376,11 @@ impl<H> Drop for LoadTicket<H> {
     }
 }
 /// Marks the resource as in use. Dropping it ends the use.
-pub struct Lease<H> {
+pub struct Lease2<H> {
     handle: Arc<H>,
     resource: Option<Arc<Resource<H>>>,
 }
-impl<H> Lease<H> {
+impl<H> Lease2<H> {
     pub fn handle(&self) -> &Arc<H> {
         &self.handle
     }
@@ -391,7 +391,7 @@ impl<H> Lease<H> {
         }
     }
 }
-impl<H> Drop for Lease<H> {
+impl<H> Drop for Lease2<H> {
     fn drop(&mut self) {
         if let Some(resource) = self.resource.take() {
             resource.release_use(None);

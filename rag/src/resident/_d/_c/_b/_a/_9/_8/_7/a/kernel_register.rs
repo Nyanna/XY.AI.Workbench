@@ -178,13 +178,13 @@ impl fmt::Debug for Kernel {
     }
 }
 type BuildResult = Result<Arc<GpuKernel>, KernelError>;
-struct Flight {
+struct Flight2 {
     result: Mutex<Option<BuildResult>>,
     ready: Condvar,
 }
-impl Flight {
-    fn new() -> Flight {
-        Flight {
+impl Flight2 {
+    fn new() -> Flight2 {
+        Flight2 {
             result: Mutex::new(None),
             ready: Condvar::new(),
         }
@@ -203,13 +203,13 @@ impl Flight {
         }
     }
 }
-enum Slot {
+enum Slot7 {
     Ready(Arc<GpuKernel>),
-    Pending(Arc<Flight>),
+    Pending(Arc<Flight2>),
 }
-enum Role {
-    Lead(Arc<Flight>),
-    Wait(Arc<Flight>),
+enum Role2 {
+    Lead(Arc<Flight2>),
+    Wait(Arc<Flight2>),
 }
 fn dtype_name(dtype: DType) -> &'static str {
     match dtype {
@@ -278,7 +278,7 @@ pub struct KernelRegister {
     loader: Arc<dyn ModuleLoader>,
     library: LibraryKernelSource,
     sources: Mutex<HashMap<&'static str, KernelSource>>,
-    slots: Mutex<HashMap<KernelKey, Slot>>,
+    slots: Mutex<HashMap<KernelKey, Slot7>>,
 }
 static_assertions::assert_impl_all!(KernelRegister : Send, Sync);
 impl KernelRegister {
@@ -376,25 +376,25 @@ impl KernelRegister {
         let role = {
             let mut slots = lock(&self.slots);
             match slots.get(key) {
-                Some(Slot::Ready(k)) => return Ok(Kernel::Gpu(k.clone())),
-                Some(Slot::Pending(f)) => Role::Wait(f.clone()),
+                Some(Slot7::Ready(k)) => return Ok(Kernel::Gpu(k.clone())),
+                Some(Slot7::Pending(f)) => Role2::Wait(f.clone()),
                 None => {
-                    let f = Arc::new(Flight::new());
-                    slots.insert(key.clone(), Slot::Pending(f.clone()));
-                    Role::Lead(f)
+                    let f = Arc::new(Flight2::new());
+                    slots.insert(key.clone(), Slot7::Pending(f.clone()));
+                    Role2::Lead(f)
                 }
             }
         };
         match role {
-            Role::Wait(f) => f.wait().map(Kernel::Gpu),
-            Role::Lead(f) => {
+            Role2::Wait(f) => f.wait().map(Kernel::Gpu),
+            Role2::Lead(f) => {
                 let started = Instant::now();
                 let result = self.build(key, &src);
                 {
                     let mut slots = lock(&self.slots);
                     match &result {
                         Ok(k) => {
-                            slots.insert(key.clone(), Slot::Ready(k.clone()));
+                            slots.insert(key.clone(), Slot7::Ready(k.clone()));
                         }
                         Err(_) => {
                             slots.remove(key);
@@ -420,13 +420,13 @@ impl KernelRegister {
                 .iter()
                 .any(|(key, slot)| {
                     key.name == name && key.dtype == dtype
-                        && matches!(slot, Slot::Ready(_))
+                        && matches!(slot, Slot7::Ready(_))
                 });
         }
         self.library.get(name).is_ok()
     }
     pub fn len(&self) -> usize {
-        lock(&self.slots).values().filter(|s| matches!(s, Slot::Ready(_))).count()
+        lock(&self.slots).values().filter(|s| matches!(s, Slot7::Ready(_))).count()
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -434,7 +434,7 @@ impl KernelRegister {
     pub fn clear(&self) -> usize {
         let mut slots = lock(&self.slots);
         let before = slots.len();
-        slots.retain(|_, s| matches!(s, Slot::Pending(_)));
+        slots.retain(|_, s| matches!(s, Slot7::Pending(_)));
         before - slots.len()
     }
     fn library_kernel(&self, name: &str) -> Result<Kernel, KernelError> {

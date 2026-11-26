@@ -17,14 +17,14 @@ impl Counting {
     }
 }
 impl WorkSource for Counting {
-    fn run_once(&self, worker: usize) -> Step {
+    fn run_once(&self, worker: usize) -> Step2 {
         self.calls.fetch_add(1, Ordering::SeqCst);
         lock(&self.seen).insert(worker);
         let ok = self
             .budget
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |b| b.checked_sub(1))
             .is_ok();
-        if ok { Step::Worked } else { Step::Idle }
+        if ok { Step2::Worked } else { Step2::Idle }
     }
 }
 fn cfg(min: usize, max: Option<usize>) -> PoolConfig {
@@ -97,11 +97,11 @@ struct Panicky {
     calls: AtomicU64,
 }
 impl WorkSource for Panicky {
-    fn run_once(&self, _worker: usize) -> Step {
+    fn run_once(&self, _worker: usize) -> Step2 {
         if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
             panic!("boom");
         }
-        Step::Idle
+        Step2::Idle
     }
 }
 #[test]
@@ -119,13 +119,13 @@ struct SelfStopper {
     done: AtomicBool,
 }
 impl WorkSource for SelfStopper {
-    fn run_once(&self, _worker: usize) -> Step {
+    fn run_once(&self, _worker: usize) -> Step2 {
         let pool = lock(&self.pool).clone();
         if let Some(p) = pool {
             p.stop();
             self.done.store(true, Ordering::SeqCst);
         }
-        Step::Idle
+        Step2::Idle
     }
 }
 #[test]

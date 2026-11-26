@@ -21,12 +21,12 @@ impl GpuManager {
             let Some(reconciliation) = reconciler.reconcile(&directory) else {
                 return Ok(None);
             };
-            let removed: Vec<(EntryId, Option<Resident>)> = reconciliation
+            let removed: Vec<(EntryId, Option<Resident2>)> = reconciliation
                 .removed
                 .iter()
                 .map(|id| (*id, directory.get(*id)))
                 .collect();
-            let reload: Vec<(EntryId, Option<Resident>)> = reconciliation
+            let reload: Vec<(EntryId, Option<Resident2>)> = reconciliation
                 .reload
                 .iter()
                 .map(|id| (*id, directory.get(*id)))
@@ -112,7 +112,7 @@ impl GpuManager {
             Err(TryLockError::WouldBlock) => true,
         }
     }
-    fn queue_unbind(&self, id: EntryId, resident: Resident) {
+    fn queue_unbind(&self, id: EntryId, resident: Resident2) {
         self.inner
             .services
             .updates()

@@ -55,7 +55,7 @@ fn order_and_length_sensitive() {
 }
 #[test]
 fn hits_compare_and_hash() {
-    let hit = Hit {
+    let hit = Hit2 {
         id: EntryId(3),
         score: 0.5,
         stale: false,
@@ -65,9 +65,9 @@ fn hits_compare_and_hash() {
     assert_eq!(a, b);
     assert_eq!(h(& a), h(& b));
     assert_ne!(
-        a, TaskResult::Hits(vec![Hit { id : EntryId(3), score : 0.6, stale : false }])
+        a, TaskResult::Hits(vec![Hit2 { id : EntryId(3), score : 0.6, stale : false }])
     );
-    let stale = TaskResult::Hits(vec![Hit { stale : true, ..hit }]);
+    let stale = TaskResult::Hits(vec![Hit2 { stale : true, ..hit }]);
     assert_ne!(a, stale);
     assert_ne!(h(& a), h(& stale));
 }

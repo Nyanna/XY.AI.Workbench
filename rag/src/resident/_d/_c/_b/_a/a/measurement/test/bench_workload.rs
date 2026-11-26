@@ -49,14 +49,14 @@ fn query_count_rules() {
     assert_eq!(query_count_from_value(None, 32), Ok(8));
     assert_eq!(query_count_from_value(None, 4), Ok(4));
     assert_eq!(query_count_from_value(Some("016"), 32), Ok(16));
-    assert_eq!(query_count_from_value(Some("0"), 32), Err(BatchError::Zero));
-    assert!(matches!(query_count_from_value(Some(""), 32), Err(BatchError::NotNumeric { .. })));
-    assert!(matches!(query_count_from_value(Some("+3"), 32), Err(BatchError::NotNumeric { .. })));
-    assert!(matches!(query_count_from_value(Some(" 3"), 32), Err(BatchError::NotNumeric { .. })));
-    assert!(matches!(query_count_from_value(Some("33"), 32), Err(BatchError::TooLarge { .. })));
+    assert_eq!(query_count_from_value(Some("0"), 32), Err(BatchError4::Zero));
+    assert!(matches!(query_count_from_value(Some(""), 32), Err(BatchError4::NotNumeric { .. })));
+    assert!(matches!(query_count_from_value(Some("+3"), 32), Err(BatchError4::NotNumeric { .. })));
+    assert!(matches!(query_count_from_value(Some(" 3"), 32), Err(BatchError4::NotNumeric { .. })));
+    assert!(matches!(query_count_from_value(Some("33"), 32), Err(BatchError4::TooLarge { .. })));
     assert!(matches!(
         query_count_from_value(Some("99999999999999999999999"), 32),
-        Err(BatchError::TooLarge { .. })
+        Err(BatchError4::TooLarge { .. })
     ));
 }
 
@@ -69,7 +69,7 @@ fn query_count_from_combo() {
     let two = CapabilitySet::default()
         .with(axes::batch_size(), "4")
         .with(axes::batch_size(), "8");
-    assert_eq!(query_count(&two, 32), Err(BatchError::Ambiguous { count: 2 }));
+    assert_eq!(query_count(&two, 32), Err(BatchError4::Ambiguous { count: 2 }));
 }
 
 #[test]

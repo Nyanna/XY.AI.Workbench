@@ -9,7 +9,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
     SegmentView, SlotAssignment, SlotStates,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    Addr, Slot,
+    Addr, Slot5,
 };
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MapError {
@@ -37,7 +37,7 @@ impl fmt::Display for MapError {
 impl std::error::Error for MapError {}
 /// One segment of the map; cheap to clone.
 #[derive(Clone)]
-pub struct Entry {
+pub struct Entry6 {
     id: SegmentId,
     view: SegmentView,
     device_base: Addr,
@@ -45,7 +45,7 @@ pub struct Entry {
     assignment: Arc<SlotAssignment>,
     range: Range<u64>,
 }
-impl fmt::Debug for Entry {
+impl fmt::Debug for Entry6 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Entry")
             .field("id", &self.id)
@@ -54,17 +54,17 @@ impl fmt::Debug for Entry {
             .finish()
     }
 }
-impl Entry {
+impl Entry6 {
     pub fn new(
         id: SegmentId,
         view: SegmentView,
         device_base: Addr,
         states: Arc<SlotStates>,
         assignment: Arc<SlotAssignment>,
-    ) -> Result<Entry, MapError> {
+    ) -> Result<Entry6, MapError> {
         let start = view.region().offset();
         let end = start.checked_add(view.total_bytes()).ok_or(MapError::RangeOverflow)?;
-        Ok(Entry {
+        Ok(Entry6 {
             id,
             view,
             device_base,
@@ -93,19 +93,19 @@ impl Entry {
         self.range.clone()
     }
     /// Slot containing `addr`; `None` outside `range()`.
-    pub fn slot_at(&self, addr: u64) -> Option<Slot> {
+    pub fn slot_at(&self, addr: u64) -> Option<Slot5> {
         if !self.range.contains(&addr) {
             return None;
         }
         let index = (addr - self.range.start) / u64::from(self.view.slot_bytes());
-        u32::try_from(index).ok().map(Slot)
+        u32::try_from(index).ok().map(Slot5)
     }
 }
 /// Copy-on-write map with an epoch; a clone is a stable snapshot.
 #[derive(Clone)]
 pub struct AddressMap {
     epoch: Epoch,
-    segments: Arc<Vec<Entry>>,
+    segments: Arc<Vec<Entry6>>,
 }
 impl fmt::Debug for AddressMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -133,7 +133,7 @@ impl AddressMap {
             segments: Arc::clone(&self.segments),
         })
     }
-    pub fn add(&mut self, entry: Entry) -> Result<(), MapError> {
+    pub fn add(&mut self, entry: Entry6) -> Result<(), MapError> {
         let range = entry.range();
         if range.start >= range.end {
             return Err(MapError::EmptySegment);
@@ -167,7 +167,7 @@ impl AddressMap {
         }
     }
     /// Segments in ascending address order.
-    pub fn segments(&self) -> &[Entry] {
+    pub fn segments(&self) -> &[Entry6] {
         &self.segments
     }
     pub fn len(&self) -> usize {
@@ -176,11 +176,11 @@ impl AddressMap {
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()
     }
-    pub fn get(&self, id: SegmentId) -> Option<&Entry> {
+    pub fn get(&self, id: SegmentId) -> Option<&Entry6> {
         self.segments.iter().find(|e| e.id == id)
     }
     /// Segment whose range contains the arena address.
-    pub fn lookup(&self, addr: u64) -> Option<&Entry> {
+    pub fn lookup(&self, addr: u64) -> Option<&Entry6> {
         let pos = self.segments.partition_point(|e| e.range.start <= addr);
         let entry = self.segments.get(pos.checked_sub(1)?)?;
         (addr < entry.range.end).then_some(entry)

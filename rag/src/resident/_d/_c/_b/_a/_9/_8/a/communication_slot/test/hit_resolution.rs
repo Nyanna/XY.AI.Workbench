@@ -88,13 +88,13 @@ fn variable(
 }
 fn bind(dir: &Dir, id: u64, slot: u32, e: EntryRef, valid: bool) {
     let binding = &dir.0[&SegmentId(id)];
-    binding.assignment.bind(Slot(slot), e).unwrap();
+    binding.assignment.bind(Slot5(slot), e).unwrap();
     if valid {
-        binding.states.set_filled(Slot(slot), 1).unwrap();
+        binding.states.set_filled(Slot5(slot), 1).unwrap();
     }
 }
 fn invalidate(dir: &Dir, id: u64, slot: u32) {
-    dir.0[&SegmentId(id)].states.invalidate(Slot(slot)).unwrap();
+    dir.0[&SegmentId(id)].states.invalidate(Slot5(slot)).unwrap();
 }
 fn chain(specs: Vec<Vec<SegmentSpec>>) -> Vec<Manifest> {
     let store = ManifestStore::new(StoreConfig::default());
@@ -118,11 +118,11 @@ fn locate_fixed_segment() {
     let m = single(vec![fixed(& mut dir, 1, 4, 0x10000, 4)]);
     let loc = locate(&m, &dir, hit(0x10000 + 2 * SLOT_BYTES + 5, 0.5)).unwrap();
     assert_eq!(
-        loc, HitLocation { generation : Generation(4), slot : Slot(2), score : 0.5 }
+        loc, HitLocation { generation : Generation(4), slot : Slot5(2), score : 0.5 }
     );
-    assert_eq!(locate(& m, & dir, hit(0x10000, 1.0)).unwrap().slot, Slot(0));
+    assert_eq!(locate(& m, & dir, hit(0x10000, 1.0)).unwrap().slot, Slot5(0));
     assert_eq!(
-        locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES - 1, 1.0)).unwrap().slot, Slot(3)
+        locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES - 1, 1.0)).unwrap().slot, Slot5(3)
     );
     assert_eq!(
         locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES, 1.0)),
@@ -161,12 +161,12 @@ fn locate_variable_segment() {
     let slot_at = |offset: u64| {
         locate(&m, &dir, hit(0x2000 + offset, 0.25)).map(|l| l.slot)
     };
-    assert_eq!(slot_at(0), Ok(Slot(0)));
-    assert_eq!(slot_at(99), Ok(Slot(0)));
-    assert_eq!(slot_at(100), Ok(Slot(2)));
-    assert_eq!(slot_at(149), Ok(Slot(2)));
-    assert_eq!(slot_at(150), Ok(Slot(3)));
-    assert_eq!(slot_at(349), Ok(Slot(3)));
+    assert_eq!(slot_at(0), Ok(Slot5(0)));
+    assert_eq!(slot_at(99), Ok(Slot5(0)));
+    assert_eq!(slot_at(100), Ok(Slot5(2)));
+    assert_eq!(slot_at(149), Ok(Slot5(2)));
+    assert_eq!(slot_at(150), Ok(Slot5(3)));
+    assert_eq!(slot_at(349), Ok(Slot5(3)));
     assert_eq!(slot_at(350), Err(HitResolveError::SlotOutOfRange));
     assert_eq!(slot_at(399), Err(HitResolveError::SlotOutOfRange));
     assert_eq!(slot_at(400), Err(HitResolveError::SlotOutOfRange));
@@ -185,7 +185,7 @@ fn locate_skips_variable_segment_without_binding() {
         locate(& m, & dir, hit(0x2000, 1.0)), Err(HitResolveError::SlotOutOfRange)
     );
     let loc = locate(&m, &dir, hit(0x10000 + SLOT_BYTES, 1.0)).unwrap();
-    assert_eq!((loc.generation, loc.slot), (Generation(2), Slot(1)));
+    assert_eq!((loc.generation, loc.slot), (Generation(2), Slot5(1)));
 }
 #[test]
 fn locate_near_address_limit() {
@@ -195,7 +195,7 @@ fn locate_near_address_limit() {
     assert_eq!(
         locate(& m, & dir, hit(u64::MAX, 1.0)), Err(HitResolveError::SlotOutOfRange)
     );
-    assert_eq!(locate(& m, & dir, hit(base + 499, 1.0)).unwrap().slot, Slot(0));
+    assert_eq!(locate(& m, & dir, hit(base + 499, 1.0)).unwrap().slot, Slot5(0));
     assert_eq!(
         locate(& m, & dir, hit(base + 500, 1.0)), Err(HitResolveError::SlotOutOfRange)
     );
@@ -205,24 +205,24 @@ fn resolve_location_cases() {
     let mut dir = Dir::default();
     let m = single(vec![fixed(& mut dir, 1, 3, 0x10000, 4)]);
     bind(&dir, 1, 1, entry(7), true);
-    assert_eq!(resolve_location(& m, & dir, Generation(3), Slot(1)), Ok(entry(7)));
+    assert_eq!(resolve_location(& m, & dir, Generation(3), Slot5(1)), Ok(entry(7)));
     assert_eq!(
-        resolve_location(& m, & dir, Generation(3), Slot(0)),
-        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot(0)
+        resolve_location(& m, & dir, Generation(3), Slot5(0)),
+        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot5(0)
         })
     );
     assert_eq!(
-        resolve_location(& m, & dir, Generation(3), Slot(99)),
-        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot(99)
+        resolve_location(& m, & dir, Generation(3), Slot5(99)),
+        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot5(99)
         })
     );
     assert_eq!(
-        resolve_location(& m, & dir, Generation(9), Slot(1)),
+        resolve_location(& m, & dir, Generation(9), Slot5(1)),
         Err(HitResolveError::StaleGeneration)
     );
     let no_dir = Dir::default();
     assert_eq!(
-        resolve_location(& m, & no_dir, Generation(3), Slot(1)),
+        resolve_location(& m, & no_dir, Generation(3), Slot5(1)),
         Err(HitResolveError::StaleGeneration)
     );
 }
@@ -234,7 +234,7 @@ fn resolve_location_picks_first_segment_of_generation() {
     bind(&dir, 1, 0, entry(1), true);
     bind(&dir, 2, 0, entry(2), true);
     let m = single(vec![first, second]);
-    assert_eq!(resolve_location(& m, & dir, Generation(3), Slot(0)), Ok(entry(1)));
+    assert_eq!(resolve_location(& m, & dir, Generation(3), Slot5(0)), Ok(entry(1)));
 }
 #[test]
 fn error_display() {
@@ -242,7 +242,7 @@ fn error_display() {
     assert_eq!(HitResolveError::StaleGeneration.to_string(), "stale generation");
     let text = HitResolveError::MissingMapping {
         generation: Generation(31),
-        slot: Slot(17),
+        slot: Slot5(17),
     }
         .to_string();
     assert!(text.contains("missing mapping"));
@@ -258,11 +258,11 @@ fn current_location_prefers_newest_valid() {
     bind(&dir, 2, 2, entry(1), true);
     let m = single(vec![new, old]);
     assert_eq!(
-        find_current_location(& m, & dir, entry(1)), Some((Generation(2), Slot(2)))
+        find_current_location(& m, & dir, entry(1)), Some((Generation(2), Slot5(2)))
     );
     invalidate(&dir, 2, 2);
     assert_eq!(
-        find_current_location(& m, & dir, entry(1)), Some((Generation(1), Slot(0)))
+        find_current_location(& m, & dir, entry(1)), Some((Generation(1), Slot5(0)))
     );
     invalidate(&dir, 1, 0);
     assert_eq!(find_current_location(& m, & dir, entry(1)), None);
@@ -279,11 +279,11 @@ fn current_location_ties_and_missing_bindings() {
     bind(&dir, 3, 0, entry(1), true);
     let m = single(vec![a, b, newer]);
     assert_eq!(
-        find_current_location(& m, & dir, entry(1)), Some((Generation(9), Slot(0)))
+        find_current_location(& m, & dir, entry(1)), Some((Generation(9), Slot5(0)))
     );
     dir.0.remove(&SegmentId(3));
     assert_eq!(
-        find_current_location(& m, & dir, entry(1)), Some((Generation(5), Slot(1)))
+        find_current_location(& m, & dir, entry(1)), Some((Generation(5), Slot5(1)))
     );
 }
 struct Moved {
@@ -316,7 +316,7 @@ fn moved() -> Moved {
 fn loc(generation: u64, slot: u32, score: f32) -> HitLocation {
     HitLocation {
         generation: Generation(generation),
-        slot: Slot(slot),
+        slot: Slot5(slot),
         score,
     }
 }

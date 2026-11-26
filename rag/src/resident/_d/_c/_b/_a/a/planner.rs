@@ -9,7 +9,7 @@ use crate::resident::_d::_c::_b::_a::_9::a::lane_batching::{
 };
 use crate::resident::_d::_c::_b::_a::_9::a::model_registry::ModelRegistry;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::expander::{
-    self, ExpandError, IdleNotification, ModelDescriptors, PlannedOperation,
+    self, ExpandError2, IdleNotification, ModelDescriptors, PlannedOperation,
     ScorerChoice, TaskSpec,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::operation_node::HasOperationKind;
@@ -23,12 +23,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::operation::{
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context::TaskId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::ModelDescriptor;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::b::task_model::{
-    ClaimError, Task,
+    ClaimError2, Task,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
     CapabilitySet, Requirements,
 };
-const EXPECTED_TASK_KINDS: &str = "Embedding/Similarity";
+const EXPECTED_TASK_KINDS3: &str = "Embedding/Similarity";
 /// Which expander applies to (model, task kind).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TaskKindTag {
@@ -66,7 +66,7 @@ pub trait Expander: Send + Sync {
         &self,
         spec: &TaskSpec,
         ctx: &ExpansionContext<'_>,
-    ) -> Result<Vec<PlannedOperation>, ExpandError>;
+    ) -> Result<Vec<PlannedOperation>, ExpandError2>;
 }
 /// Delegates to `expander::expand`.
 pub struct StandardExpander;
@@ -75,7 +75,7 @@ impl Expander for StandardExpander {
         &self,
         spec: &TaskSpec,
         ctx: &ExpansionContext<'_>,
-    ) -> Result<Vec<PlannedOperation>, ExpandError> {
+    ) -> Result<Vec<PlannedOperation>, ExpandError2> {
         expander::expand(spec, ctx.models, ctx.capabilities, Some(ctx.idle))
     }
 }
@@ -156,10 +156,10 @@ pub enum PlanError {
     NotStarted,
     UnknownModel { model: String },
     MissingPlanningCapability { kind: OperationKind, resource: ResourceKind },
-    Expand(ExpandError),
+    Expand(ExpandError2),
     Activation { subengine: String, reason: String },
     /// Cancelled or already claimed.
-    TaskNotClaimable(ClaimError),
+    TaskNotClaimable(ClaimError2),
     /// The expander returned no operation at all.
     EmptyChain,
 }
@@ -212,10 +212,10 @@ impl fmt::Display for PlannerConfigError {
     }
 }
 impl std::error::Error for PlannerConfigError {}
-fn read<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
+fn read3<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
     l.read().unwrap_or_else(PoisonError::into_inner)
 }
-fn write<T>(l: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
+fn write3<T>(l: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
     l.write().unwrap_or_else(PoisonError::into_inner)
 }
 fn union_into(target: &mut CapabilitySet, source: &CapabilitySet) {
@@ -290,7 +290,7 @@ struct EngineState {
     offers: Vec<ResourceKind>,
 }
 #[derive(Default)]
-struct State {
+struct State7 {
     started: bool,
     engines: Vec<EngineState>,
     capabilities: CapabilitySet,
@@ -427,9 +427,9 @@ impl<D, T, E, V> PlannerBuilder<D, T, E, V> {
     }
     /// Starts nothing.
     pub fn build(self) -> Planner<D, T, E, V> {
-        let state = State {
+        let state = State7 {
             engines: self.engines.iter().map(|_| EngineState::default()).collect(),
-            ..State::default()
+            ..State7::default()
         };
         Planner {
             resolver: self.resolver,
@@ -454,7 +454,7 @@ pub struct Planner<D, T, E, V> {
     indexes: Vec<IndexId>,
     default_model: Option<String>,
     start_lock: Mutex<()>,
-    state: RwLock<State>,
+    state: RwLock<State7>,
     idle: Mutex<IdleNotification>,
 }
 impl<D, T, E, V> Planner<D, T, E, V> {
@@ -478,7 +478,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
             .iter()
             .map(|(_, engine)| (engine.capabilities(), engine.offers()))
             .collect();
-        let mut state = write(&self.state);
+        let mut state = write3(&self.state);
         let mut capabilities = CapabilitySet::new();
         let mut queue_capabilities: HashMap<QueueKind, CapabilitySet> = HashMap::new();
         for (entry, (caps, offers)) in state.engines.iter_mut().zip(collected) {
@@ -498,7 +498,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         Ok(())
     }
     pub fn is_started(&self) -> bool {
-        read(&self.state).started
+        read3(&self.state).started
     }
     /// Extends a sub-engine's offers. Offers only grow.
     pub fn add_offer(
@@ -509,20 +509,20 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         let index = self
             .engine_index(subengine)
             .ok_or_else(|| PlannerConfigError::UnknownSubengine(subengine.to_string()))?;
-        push_unique(&mut write(&self.state).engines[index].offers, kind);
+        push_unique(&mut write3(&self.state).engines[index].offers, kind);
         Ok(())
     }
     pub fn offers(&self, subengine: &str) -> Option<Vec<ResourceKind>> {
         let index = self.engine_index(subengine)?;
-        Some(read(&self.state).engines[index].offers.clone())
+        Some(read3(&self.state).engines[index].offers.clone())
     }
     /// Union of the capability sets of all sub-engines.
     pub fn capabilities(&self) -> CapabilitySet {
-        read(&self.state).capabilities.clone()
+        read3(&self.state).capabilities.clone()
     }
     /// Union of the capability sets assigned to one queue.
     pub fn queue_capabilities(&self, q: QueueKind) -> CapabilitySet {
-        read(&self.state).queue_capabilities.get(&q).cloned().unwrap_or_default()
+        read3(&self.state).queue_capabilities.get(&q).cloned().unwrap_or_default()
     }
     /// Replaces the idle notification used by expansions that start afterwards.
     pub fn set_idle(&self, idle: IdleNotification) {
@@ -586,7 +586,7 @@ impl<D, T, E, V> Planner<D, T, E, V> {
         self.engines.iter().position(|(n, _)| n == name)
     }
     fn view(&self) -> View {
-        let state = read(&self.state);
+        let state = read3(&self.state);
         let engines = self
             .engines
             .iter()
@@ -653,8 +653,8 @@ impl<D, T, E, V> Planner<D, T, E, V> {
             TaskSpec::Similarity(_) => TaskKindTag::Similarity,
             TaskSpec::Other { kind } => {
                 return Err(
-                    PlanError::Expand(ExpandError::ForeignTaskKind {
-                        expected: EXPECTED_TASK_KINDS.to_string(),
+                    PlanError::Expand(ExpandError2::ForeignTaskKind {
+                        expected: EXPECTED_TASK_KINDS3.to_string(),
                         got: kind.clone(),
                     }),
                 );

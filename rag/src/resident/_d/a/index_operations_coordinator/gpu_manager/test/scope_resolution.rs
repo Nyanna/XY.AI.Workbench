@@ -1,6 +1,6 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    Payload, PayloadRef, Stamp, StampObserver, StampSignal,
+    Payload2, PayloadRef, Stamp, StampObserver, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use std::collections::BTreeMap;
@@ -59,10 +59,10 @@ impl Index for FakeIndex {
         self.touch();
         self.entries.iter().map(|(&i, &s)| (EntryId(i), Stamp(s))).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.touch();
         self.reads.lock().unwrap().push(id.0);
-        Payload::default()
+        Payload2::default()
     }
     fn write(
         &self,

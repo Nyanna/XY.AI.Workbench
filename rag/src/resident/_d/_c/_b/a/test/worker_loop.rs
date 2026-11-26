@@ -130,14 +130,14 @@ fn worker_loop_is_send() {
 }
 struct NoExec;
 impl ResourceExec for NoExec {
-    type Entry = Claim<OpMeta, (), (), ()>;
+    type Entry = Claim2<OpMeta, (), (), ()>;
     fn has_capacity(&self) -> bool {
         false
     }
     fn execute(
         &self,
         _entry: Self::Entry,
-        _lease: crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::Lease<
+        _lease: crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::Lease2<
             Self,
         >,
     ) {}
@@ -172,7 +172,7 @@ fn gpu_results_have_highest_priority_and_count_as_one_operation() {
     b.fail("boom");
     let (g, g_calls) = ScriptedFeed::boxed("g", &log, &[3]);
     let mut f = fixture(Arc::clone(&gc), &log, vec![g], vec![], 1);
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::GpuResults));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::GpuResults));
     assert_eq!(g_calls.load(Ordering::SeqCst), 0);
     assert_eq!(f.expand_calls.load(Ordering::SeqCst), 0);
     assert_eq!(* f.handled.lock().unwrap(), vec![(1, true), (2, false)]);
@@ -191,7 +191,7 @@ fn stage_order_is_results_gpu_cpu_expand() {
         stages.push(s);
     }
     assert_eq!(
-        stages, vec![Stage::GpuResults, Stage::GpuFeed, Stage::CpuFeed, Stage::Expand]
+        stages, vec![Stage4::GpuResults, Stage4::GpuFeed, Stage4::CpuFeed, Stage4::Expand]
     );
 }
 #[test]
@@ -204,7 +204,7 @@ fn higher_stage_is_rechecked_after_every_operation() {
     while let Some(s) = f.worker.run_once(Instant::now()) {
         stages.push(s);
     }
-    assert_eq!(stages, vec![Stage::GpuFeed, Stage::GpuFeed, Stage::CpuFeed]);
+    assert_eq!(stages, vec![Stage4::GpuFeed, Stage4::GpuFeed, Stage4::CpuFeed]);
     assert_eq!(
         entries(& f.log), vec!["feed:g", "feed:g", "feed:g", "feed:c", "feed:g",
         "feed:c", "expand"]
@@ -237,9 +237,9 @@ fn new_gpu_result_during_feed_preempts_lower_stages() {
     };
     let (c, _) = ScriptedFeed::boxed("c", &log, &[1]);
     let mut f = fixture(Arc::clone(&gc), &log, vec![Box::new(gfeed)], vec![c], 0);
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::GpuFeed));
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::GpuResults));
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::CpuFeed));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::GpuFeed));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::GpuResults));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::CpuFeed));
     assert_eq!(f.worker.run_once(Instant::now()), None);
 }
 #[test]
@@ -249,7 +249,7 @@ fn feed_stage_stops_after_first_entry_with_progress() {
     let (b, b_calls) = ScriptedFeed::boxed("b", &log, &[2]);
     let (c, c_calls) = ScriptedFeed::boxed("c", &log, &[5]);
     let mut f = fixture(completion(), &log, vec![a, b, c], vec![], 0);
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::GpuFeed));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::GpuFeed));
     assert_eq!(a_calls.load(Ordering::SeqCst), 1);
     assert_eq!(b_calls.load(Ordering::SeqCst), 1);
     assert_eq!(c_calls.load(Ordering::SeqCst), 0);
@@ -262,7 +262,7 @@ fn cpu_feed_stage_uses_cpu_feeds_in_order() {
     let (b, b_calls) = ScriptedFeed::boxed("b", &log, &[1]);
     let (c, c_calls) = ScriptedFeed::boxed("c", &log, &[1]);
     let mut f = fixture(completion(), &log, vec![], vec![a, b, c], 0);
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::CpuFeed));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::CpuFeed));
     assert_eq!(b_calls.load(Ordering::SeqCst), 1);
     assert_eq!(c_calls.load(Ordering::SeqCst), 0);
 }
@@ -353,7 +353,7 @@ fn pending_lane_is_not_reported_until_finished() {
     let mut f = fixture(Arc::clone(&gc), &log, vec![], vec![], 0);
     assert_eq!(f.worker.run_once(Instant::now()), None);
     ctl.complete();
-    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage::GpuResults));
+    assert_eq!(f.worker.run_once(Instant::now()), Some(Stage4::GpuResults));
     assert_eq!(f.worker.run_once(Instant::now()), None);
 }
 #[test]

@@ -184,11 +184,11 @@ impl Drop for Gap<'_> {
     }
 }
 
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
+const fn assert_send_sync_static2<T: Send + Sync + 'static>() {}
 const _: () = {
-    assert_send_sync_static::<DoorbellCell>();
-    assert_send_sync_static::<Doorbell>();
-    assert_send_sync_static::<DoorbellError>();
+    assert_send_sync_static2::<DoorbellCell>();
+    assert_send_sync_static2::<Doorbell>();
+    assert_send_sync_static2::<DoorbellError>();
 };
 
 #[cfg(test)]

@@ -15,7 +15,7 @@ fn build(
     devices: Option<Vec<u32>>,
 ) -> Result<GpuDeviceManager, GpuError> {
     GpuDeviceManager::new(
-        Arc::clone(backend) as Arc<dyn GpuBackend>,
+        Arc::clone(backend) as Arc<dyn GpuBackend3>,
         shared(),
         manager_cfg(devices),
     )
@@ -123,7 +123,7 @@ fn the_configuration_is_validated_first() {
     let backend = MockBackend::single();
     let mut cfg = manager_cfg(None);
     cfg.gpu.worker_lanes = 0;
-    let err = GpuDeviceManager::new(Arc::clone(&backend) as Arc<dyn GpuBackend>, shared(), cfg)
+    let err = GpuDeviceManager::new(Arc::clone(&backend) as Arc<dyn GpuBackend3>, shared(), cfg)
         .err()
         .unwrap();
     assert!(matches!(err, GpuError::InvalidConfig(_)), "{err:?}");

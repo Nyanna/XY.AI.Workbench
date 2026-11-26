@@ -46,7 +46,7 @@ pub fn decode_meta(bytes: &[u8]) -> Result<MetaFields, MetaError> {
             have,
         });
     };
-    let name_len = read_u64(head);
+    let name_len = read_u643(head);
     let needed = MIN_BYTES.saturating_add(name_len);
     let rest = &bytes[LEN_BYTES..];
     let Some(name_len) = usize::try_from(name_len)
@@ -69,12 +69,12 @@ pub fn decode_meta(bytes: &[u8]) -> Result<MetaFields, MetaError> {
         .to_owned();
     Ok(MetaFields {
         target_file,
-        char_start: read_u64(&tail[..8]),
-        char_end: read_u64(&tail[8..]),
+        char_start: read_u643(&tail[..8]),
+        char_end: read_u643(&tail[8..]),
     })
 }
 
-fn read_u64(bytes: &[u8]) -> u64 {
+fn read_u643(bytes: &[u8]) -> u64 {
     let mut buf = [0u8; 8];
     buf.copy_from_slice(&bytes[..8]);
     u64::from_le_bytes(buf)

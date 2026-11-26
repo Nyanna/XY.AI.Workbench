@@ -78,7 +78,7 @@ pub fn detect_capabilities(
 ) -> Result<DetectedCapabilities, DetectError> {
     let kind = device.kind();
     let (mut caps, subengine) = match kind {
-        DeviceKind::Cpu => (cpu_capabilities(detect_cpu_features(), logical_cores()), "cpu"),
+        DeviceKind::Cpu => (cpu_capabilities(detect_cpu_features2(), logical_cores()), "cpu"),
         DeviceKind::Gpu => (detect_gpu(gpu)?, "gpu"),
         #[allow(unreachable_patterns)]
         other => return Err(DetectError::UnsupportedDevice(format!("{other:?}"))),
@@ -124,7 +124,7 @@ fn detect_gpu(gpu: Option<&dyn GpuProbe>) -> Result<CapabilitySet, DetectError> 
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub fn detect_cpu_features() -> CpuFeatures {
+pub fn detect_cpu_features2() -> CpuFeatures {
     CpuFeatures {
         avx2: is_x86_feature_detected!("avx2"),
         f16c: is_x86_feature_detected!("f16c"),
@@ -134,7 +134,7 @@ pub fn detect_cpu_features() -> CpuFeatures {
 }
 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-pub fn detect_cpu_features() -> CpuFeatures {
+pub fn detect_cpu_features3() -> CpuFeatures {
     CpuFeatures::default()
 }
 

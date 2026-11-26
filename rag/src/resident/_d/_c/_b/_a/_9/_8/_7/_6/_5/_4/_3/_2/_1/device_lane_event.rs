@@ -58,7 +58,7 @@ struct CpuState {
     cv: Condvar,
 }
 #[derive(Debug)]
-struct GpuState {
+struct GpuState2 {
     device: u32,
     backend: Box<dyn GpuEventBackend>,
     completed: AtomicBool,
@@ -75,15 +75,15 @@ struct MockState {
     cv: Condvar,
 }
 #[derive(Debug)]
-enum Inner {
+enum Inner3 {
     Cpu(Arc<CpuState>),
-    Gpu(GpuState),
+    Gpu(GpuState2),
     Mock(Arc<MockState>),
 }
 /// Opaque completion marker. Clones share the same underlying marker.
 #[derive(Clone)]
 pub struct Event {
-    inner: Arc<Inner>,
+    inner: Arc<Inner3>,
 }
 static_assertions::assert_impl_all!(Event : Send, Sync);
 static_assertions::assert_impl_all!(EventSignal : Send, Sync, Clone);
@@ -96,14 +96,14 @@ impl Event {
             cv: Condvar::new(),
         });
         let event = Event {
-            inner: Arc::new(Inner::Cpu(state.clone())),
+            inner: Arc::new(Inner3::Cpu(state.clone())),
         };
         (event, EventSignal { state })
     }
     pub fn gpu(device: u32, backend: Box<dyn GpuEventBackend>) -> Event {
         Event {
             inner: Arc::new(
-                Inner::Gpu(GpuState {
+                Inner3::Gpu(GpuState2 {
                     device,
                     backend,
                     completed: AtomicBool::new(false),
@@ -117,14 +117,14 @@ impl Event {
             cv: Condvar::new(),
         });
         let event = Event {
-            inner: Arc::new(Inner::Mock(state.clone())),
+            inner: Arc::new(Inner3::Mock(state.clone())),
         };
         (event, MockEventControl { state })
     }
     pub fn is_complete(&self) -> Result<bool, EventError> {
         match &*self.inner {
-            Inner::Cpu(s) => Ok(*lock(&s.done)),
-            Inner::Gpu(g) => {
+            Inner3::Cpu(s) => Ok(*lock(&s.done)),
+            Inner3::Gpu(g) => {
                 if g.completed.load(Ordering::Acquire) {
                     return Ok(true);
                 }
@@ -137,7 +137,7 @@ impl Event {
                     Err(cause) => Err(gpu_error(g.device, cause)),
                 }
             }
-            Inner::Mock(m) => {
+            Inner3::Mock(m) => {
                 match &*lock(&m.status) {
                     MockStatus::Pending => Ok(false),
                     MockStatus::Complete => Ok(true),
@@ -148,14 +148,14 @@ impl Event {
     }
     pub fn wait(&self) -> Result<(), EventError> {
         match &*self.inner {
-            Inner::Cpu(s) => {
+            Inner3::Cpu(s) => {
                 let mut done = lock(&s.done);
                 while !*done {
                     done = s.cv.wait(done).unwrap_or_else(|e| e.into_inner());
                 }
                 Ok(())
             }
-            Inner::Gpu(g) => {
+            Inner3::Gpu(g) => {
                 if g.completed.load(Ordering::Acquire) {
                     return Ok(());
                 }
@@ -167,7 +167,7 @@ impl Event {
                     Err(cause) => Err(gpu_error(g.device, cause)),
                 }
             }
-            Inner::Mock(m) => {
+            Inner3::Mock(m) => {
                 let mut status = lock(&m.status);
                 loop {
                     match &*status {
@@ -186,7 +186,7 @@ impl Event {
     }
     pub fn device(&self) -> DeviceHandle {
         match &*self.inner {
-            Inner::Gpu(g) => DeviceHandle::Gpu(g.device),
+            Inner3::Gpu(g) => DeviceHandle::Gpu(g.device),
             _ => DeviceHandle::Cpu,
         }
     }

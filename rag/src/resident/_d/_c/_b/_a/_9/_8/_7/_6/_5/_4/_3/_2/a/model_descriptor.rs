@@ -59,7 +59,7 @@ pub struct ModelDescriptor {
     pub weight_paths: Vec<PathBuf>,
     pub multi_vector: Option<MultiVectorConfig>,
 }
-fn incompatible(reason: String) -> ModelConfigError {
+fn incompatible2(reason: String) -> ModelConfigError {
     ModelConfigError::Incompatible {
         reason,
     }
@@ -69,7 +69,7 @@ fn check_prefix(field: &str, value: &str) -> Result<(), ModelConfigError> {
         Ok(())
     } else {
         Err(
-            incompatible(
+            incompatible2(
                 format!("{field} muss mit einem Leerzeichen enden (war: {value:?})"),
             ),
         )
@@ -81,10 +81,10 @@ impl ModelDescriptor {
     }
     pub fn validate(&self) -> Result<(), ModelConfigError> {
         if self.dimension == 0 {
-            return Err(incompatible("dimension muss größer als 0 sein".to_string()));
+            return Err(incompatible2("dimension muss größer als 0 sein".to_string()));
         }
         if self.max_seq_len == 0 {
-            return Err(incompatible("max_seq_len muss größer als 0 sein".to_string()));
+            return Err(incompatible2("max_seq_len muss größer als 0 sein".to_string()));
         }
         check_prefix("query_prefix", &self.query_prefix)?;
         check_prefix("passage_prefix", &self.passage_prefix)?;

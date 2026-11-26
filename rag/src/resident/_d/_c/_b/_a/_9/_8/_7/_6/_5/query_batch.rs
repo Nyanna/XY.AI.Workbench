@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ops::Range;
 pub use super::a::segments::SegmentId;
-use super::_4::_3::a::kernel_layout::Slot;
+use super::_4::_3::a::kernel_layout::Slot5;
 const F32_BYTES: u64 = 4;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ShapeError {
@@ -27,13 +27,13 @@ impl fmt::Display for ShapeError {
 }
 impl std::error::Error for ShapeError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SourceError {
+pub enum SourceError3 {
     SlotRange { segment: SegmentId, start: u32, end: u32, slot_count: u32 },
 }
-impl fmt::Display for SourceError {
+impl fmt::Display for SourceError3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SourceError::SlotRange { segment, start, end, slot_count } => {
+            SourceError3::SlotRange { segment, start, end, slot_count } => {
                 write!(
                     f,
                     "slot range {start}..{end} is outside segment {} with {slot_count} slots",
@@ -43,7 +43,7 @@ impl fmt::Display for SourceError {
         }
     }
 }
-impl std::error::Error for SourceError {}
+impl std::error::Error for SourceError3 {}
 /// Token matrix (tokens x dim), row-major.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
@@ -148,21 +148,21 @@ pub trait DocSource: Send + Sync {
     /// Unknown segment yields 0.
     fn slot_count(&self, segment: SegmentId) -> u32;
     /// `None` for an unknown segment or `slot >= slot_count`.
-    fn slot_offset(&self, segment: SegmentId, slot: Slot) -> Option<u64>;
+    fn slot_offset(&self, segment: SegmentId, slot: Slot5) -> Option<u64>;
     /// Vectors of the valid tokens (`tokens * dim` values, row-major); `None` when absent.
-    fn slot_vectors(&self, segment: SegmentId, slot: Slot) -> Option<&[f32]>;
+    fn slot_vectors(&self, segment: SegmentId, slot: Slot5) -> Option<&[f32]>;
 }
 /// Ok iff `range.start <= range.end <= src.slot_count(segment)`.
 pub fn check_slot_range(
     src: &dyn DocSource,
     segment: SegmentId,
     range: Range<u32>,
-) -> Result<(), SourceError> {
+) -> Result<(), SourceError3> {
     let slot_count = src.slot_count(segment);
     if range.start <= range.end && range.end <= slot_count {
         Ok(())
     } else {
-        Err(SourceError::SlotRange {
+        Err(SourceError3::SlotRange {
             segment,
             start: range.start,
             end: range.end,
@@ -223,10 +223,10 @@ impl DocSource for RamSource {
             .get(&segment)
             .map_or(0, |s| u32::try_from(s.len()).unwrap_or(u32::MAX))
     }
-    fn slot_offset(&self, segment: SegmentId, slot: Slot) -> Option<u64> {
+    fn slot_offset(&self, segment: SegmentId, slot: Slot5) -> Option<u64> {
         self.offsets.get(&segment)?.get(slot.0 as usize).copied()
     }
-    fn slot_vectors(&self, segment: SegmentId, slot: Slot) -> Option<&[f32]> {
+    fn slot_vectors(&self, segment: SegmentId, slot: Slot5) -> Option<&[f32]> {
         self.segments.get(&segment)?.get(slot.0 as usize)?.as_deref()
     }
 }

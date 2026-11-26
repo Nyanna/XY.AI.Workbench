@@ -26,7 +26,7 @@ impl TaskState {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClaimError {
+pub enum ClaimError2 {
     /// Task was not Enqueued; carries the observed state.
     NotEnqueued(TaskState),
     /// Task was cancelled.
@@ -103,13 +103,13 @@ impl<D, T, E> Task<D, T, E> {
         }
     }
     /// Moves the task data out and marks the task Claimed. Exactly one caller can win.
-    pub fn claim(&self) -> Result<D, ClaimError> {
+    pub fn claim(&self) -> Result<D, ClaimError2> {
         let mut guard = match self.inner.payload.try_lock() {
             Ok(guard) => guard,
             Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
             Err(TryLockError::WouldBlock) => {
                 debug!("claim failed: payload compartment busy");
-                return Err(ClaimError::Busy);
+                return Err(ClaimError2::Busy);
             }
         };
         if let Err(raw) = self
@@ -118,8 +118,8 @@ impl<D, T, E> Task<D, T, E> {
             .compare_exchange(ENQUEUED, CLAIMED, Ordering::AcqRel, Ordering::Acquire)
         {
             let error = match TaskState::from_raw(raw) {
-                TaskState::Cancelled => ClaimError::Cancelled,
-                other => ClaimError::NotEnqueued(other),
+                TaskState::Cancelled => ClaimError2::Cancelled,
+                other => ClaimError2::NotEnqueued(other),
             };
             debug!("claim failed: {error:?}");
             return Err(error);

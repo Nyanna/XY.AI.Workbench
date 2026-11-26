@@ -142,7 +142,7 @@ pub enum SubengineError {
     Incompatible(String),
 }
 #[derive(Default)]
-struct State {
+struct State8 {
     pending: Vec<ResourceRequirements>,
     encoders: Vec<(ModelId, Arc<LoadedEncoder>)>,
     scorer: bool,
@@ -158,7 +158,7 @@ pub struct SubengineCore {
     registrations: Arc<QueueRegistrations>,
     /// Serializes `activate`; never held together with a state lock across a factory call.
     activation: Mutex<()>,
-    state: Mutex<State>,
+    state: Mutex<State8>,
 }
 impl SubengineCore {
     /// Validates only; creates no lane and starts nothing.
@@ -223,7 +223,7 @@ impl SubengineCore {
             kernels,
             registrations,
             activation: Mutex::new(()),
-            state: Mutex::new(State::default()),
+            state: Mutex::new(State8::default()),
         })
     }
     pub fn is_active(&self) -> bool {
@@ -413,7 +413,7 @@ impl SubengineCore {
             }
         }
     }
-    fn is_owned(st: &State, req: &ResourceRequirements) -> bool {
+    fn is_owned(st: &State8, req: &ResourceRequirements) -> bool {
         match req.kind() {
             ResourceKind::Encoder => {
                 match req.model() {
@@ -434,7 +434,7 @@ impl SubengineCore {
     /// Registers one resource in every queue it is compatible with. Needs the state lock.
     fn register(
         &self,
-        st: &State,
+        st: &State8,
         kind: ResourceKind,
         model: Option<&ModelId>,
         index: Option<&IndexId>,

@@ -124,7 +124,7 @@ fn idle_segments_are_evicted_and_cleaned_up() {
     f.services
         .eviction()
         .set_policy(
-            Tier::Vram,
+            Tier2::Vram,
             EvictionPolicy { high: 0.9, low: 0.75, idle: Duration::from_secs(1) },
         );
     let quiet = f.manager.evict_step(Instant::now());

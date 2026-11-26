@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaCapacities;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    Payload, PayloadRef, StampObserver, StampSignal,
+    Payload2, PayloadRef, StampObserver, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceHandle;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
@@ -31,11 +31,11 @@ fn assert_send_sync<T: Send + Sync>() {}
 #[test]
 fn types_are_send_sync() {
     assert_send_sync::<DeviceTransfer>();
-    assert_send_sync::<LoadedSegment>();
+    assert_send_sync::<LoadedSegment2>();
     assert_send_sync::<DeviceTransferError>();
     assert_send_sync::<TransferConfig>();
     assert_send_sync::<Arc<dyn IndexArenaSource>>();
-    assert_send_sync::<Arc<dyn SegmentSink>>();
+    assert_send_sync::<Arc<dyn SegmentSink2>>();
 }
 #[test]
 fn error_display_texts() {
@@ -51,8 +51,8 @@ fn error_display_texts() {
         "sink rejected segment: full"
     );
     assert_eq!(
-        DeviceTransferError::Backend(BackendError::StaleRegion).to_string(),
-        BackendError::StaleRegion.to_string()
+        DeviceTransferError::Backend(BackendError2::StaleRegion).to_string(),
+        BackendError2::StaleRegion.to_string()
     );
     assert_eq!(
         DeviceTransferError::Staging(StagingError::Exhausted).to_string(),
@@ -96,11 +96,11 @@ fn config_validation() {
 }
 #[test]
 fn align_up_and_place() {
-    assert_eq!(align_up(0, 16), Some(0));
-    assert_eq!(align_up(1, 16), Some(16));
-    assert_eq!(align_up(16, 16), Some(16));
-    assert_eq!(align_up(17, 1), Some(17));
-    assert_eq!(align_up(u64::MAX, 16), None);
+    assert_eq!(align_up4(0, 16), Some(0));
+    assert_eq!(align_up4(1, 16), Some(16));
+    assert_eq!(align_up4(16, 16), Some(16));
+    assert_eq!(align_up4(17, 1), Some(17));
+    assert_eq!(align_up4(u64::MAX, 16), None);
     assert_eq!(place(0, 64, 16, 64), Some(0));
     assert_eq!(place(0, 65, 16, 64), None);
     assert_eq!(place(10, 48, 16, 64), Some(16));
@@ -112,9 +112,9 @@ fn align_up_and_place() {
 #[test]
 fn normalize_sorts_and_dedups() {
     assert_eq!(
-        normalize(& [id(5), id(1), id(5), id(3), id(1)]), vec![id(1), id(3), id(5)]
+        normalize3(& [id(5), id(1), id(5), id(3), id(1)]), vec![id(1), id(3), id(5)]
     );
-    assert!(normalize(& []).is_empty());
+    assert!(normalize3(& []).is_empty());
 }
 #[test]
 fn arena_bytes_len() {
@@ -387,7 +387,7 @@ fn lease_releases_slot_unless_handed_over() {
     assert_eq!(ring.slot_state(slot), Some(staging_ring::SlotState::Occupied));
 }
 const TEST_MIB: u64 = 1024 * 1024;
-fn backend() -> Option<Arc<GpuBackend>> {
+fn backend() -> Option<Arc<GpuBackend2>> {
     let mut caps = ArenaCapacities::default();
     caps.set(ArenaKind::Weights, 8 * TEST_MIB);
     caps.set(ArenaKind::IndexSegments, 8 * TEST_MIB);
@@ -395,9 +395,9 @@ fn backend() -> Option<Arc<GpuBackend>> {
     caps.set(ArenaKind::Staging, 4 * TEST_MIB);
     caps.set(ArenaKind::ParameterBlock, TEST_MIB);
     caps.set(ArenaKind::MappedHost, 2 * TEST_MIB);
-    match GpuBackend::new(DeviceHandle::Gpu(0), caps, TEST_MIB) {
+    match GpuBackend2::new(DeviceHandle::Gpu(0), caps, TEST_MIB) {
         Ok(b) => Some(Arc::new(b)),
-        Err(BackendError::DeviceMemoryUnavailable(reason)) => {
+        Err(BackendError2::DeviceMemoryUnavailable(reason)) => {
             eprintln!("skipped, no device: {reason}");
             None
         }
@@ -448,15 +448,15 @@ impl Index for MemSource {
             .filter_map(|i| self.stamp(id(i)).map(|s| (id(i), s)))
             .collect()
     }
-    fn read(&self, entry: EntryId) -> Payload {
+    fn read(&self, entry: EntryId) -> Payload2 {
         match self.vectors.get(entry.0 as usize) {
             Some(Some(v)) => {
-                Payload {
+                Payload2 {
                     vector: SharedBytes::from(v.clone()),
                     meta: SharedBytes::default(),
                 }
             }
-            _ => Payload::default(),
+            _ => Payload2::default(),
         }
     }
     fn write(&self, _: EntryId, _: PayloadRef<'_>) -> Result<Stamp, IndexError> {
@@ -500,11 +500,11 @@ impl IndexArenaSource for MemSource {
 }
 #[derive(Default)]
 struct CollectSink {
-    segments: Mutex<Vec<LoadedSegment>>,
+    segments: Mutex<Vec<LoadedSegment2>>,
     fail: AtomicBool,
 }
-impl SegmentSink for CollectSink {
-    fn accept(&self, segment: LoadedSegment) -> Result<(), SinkError> {
+impl SegmentSink2 for CollectSink {
+    fn accept(&self, segment: LoadedSegment2) -> Result<(), SinkError> {
         if self.fail.load(Ordering::SeqCst) {
             return Err(SinkError("refused".into()));
         }
@@ -513,7 +513,7 @@ impl SegmentSink for CollectSink {
     }
 }
 struct Fixture {
-    backend: Arc<GpuBackend>,
+    backend: Arc<GpuBackend2>,
     sink: Arc<CollectSink>,
     transfer: Arc<DeviceTransfer>,
 }
@@ -546,12 +546,12 @@ fn pinned_ring_slots_hold_zeroed_writable_payload() {
     );
     assert_eq!(StagingRing::pinned(& b, 0, 8).err(), Some(StagingError::InvalidConfig));
 }
-fn device_bytes(backend: &GpuBackend, segment: &LoadedSegment) -> Vec<u8> {
+fn device_bytes(backend: &GpuBackend2, segment: &LoadedSegment2) -> Vec<u8> {
     let buffer = backend.allocate_pinned(segment.region.len() as usize).unwrap();
     backend.download(&segment.region, &buffer).unwrap().wait().unwrap();
     buffer.as_slice().to_vec()
 }
-fn check_contents(f: &Fixture, source: &MemSource, segment: &LoadedSegment) {
+fn check_contents(f: &Fixture, source: &MemSource, segment: &LoadedSegment2) {
     let data = device_bytes(&f.backend, segment);
     let base = segment.region.offset();
     for (slot, entry) in segment.entries.iter().enumerate() {

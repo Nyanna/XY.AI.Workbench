@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::backend::GpuBackend;
+use super::backend::GpuBackend3;
 use super::deps::*;
 
 /// FP16-first path policy of the GPU. BF16 is never chosen.
@@ -58,12 +58,12 @@ impl PathPolicy for Fp16FirstPolicy {
 
 /// Creates lanes that always own a stream of the device.
 pub struct GpuLaneFactory {
-    backend: Arc<dyn GpuBackend>,
+    backend: Arc<dyn GpuBackend3>,
     ordinal: u32,
 }
 
 impl GpuLaneFactory {
-    pub fn new(backend: Arc<dyn GpuBackend>, ordinal: u32) -> Self {
+    pub fn new(backend: Arc<dyn GpuBackend3>, ordinal: u32) -> Self {
         GpuLaneFactory { backend, ordinal }
     }
 }

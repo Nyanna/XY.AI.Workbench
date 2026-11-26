@@ -288,7 +288,7 @@ fn error_display_texts() {
         }).to_string(), "ungültiges Encoding-Schema: z"
     );
     assert_eq!(
-        TextEncodingError::Batch(BatchError::InvalidConfig).to_string(),
+        TextEncodingError::Batch(BatchError2::InvalidConfig).to_string(),
         "Batch-Bildung fehlgeschlagen: InvalidConfig"
     );
 }
@@ -309,7 +309,7 @@ fn invalid_batch_config_is_wrapped() {
             &cfg,
         )
         .unwrap_err();
-    assert_eq!(err, TextEncodingError::Batch(BatchError::InvalidConfig));
+    assert_eq!(err, TextEncodingError::Batch(BatchError2::InvalidConfig));
 }
 #[test]
 fn batches_cover_every_input_index_exactly_once() {

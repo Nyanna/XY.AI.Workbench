@@ -21,7 +21,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::a::index_format::{
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
     EntryId, Stamp,
 };
-const BATCH_ROWS: usize = 4096;
+const BATCH_ROWS2: usize = 4096;
 /// Opaque marker of the state a snapshot represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotToken(pub u64);
@@ -127,7 +127,7 @@ impl IndexSaver {
         let schema: SchemaRef = Arc::new(
             config.header.column_schema().map_err(|e| e.to_string())?,
         );
-        validate(snapshot, &config.header)?;
+        validate3(snapshot, &config.header)?;
         let props = writer_properties(config, snapshot, &schema)?;
         let tmp = temp_path(&config.path)?;
         let (rows, row_groups) = match write_temp(
@@ -181,7 +181,7 @@ fn remove_temp(tmp: &Path) {
         }
     }
 }
-fn validate(snapshot: &Snapshot, header: &IndexHeader) -> Result<(), String> {
+fn validate3(snapshot: &Snapshot, header: &IndexHeader) -> Result<(), String> {
     let expected = header.vector_bytes();
     let mut previous: Option<EntryId> = None;
     for entry in &snapshot.entries {
@@ -266,7 +266,7 @@ fn write_temp(
         .map_err(|e| format!("cannot create temporary file {}: {e}", tmp.display()))?;
     let mut writer = ArrowWriter::try_new(&file, schema.clone(), Some(props))
         .map_err(|e| format!("cannot start parquet writer: {e}"))?;
-    let batch_rows = config.row_group_rows.min(BATCH_ROWS);
+    let batch_rows = config.row_group_rows.min(BATCH_ROWS2);
     for chunk in snapshot.entries.chunks(batch_rows) {
         let batch = build_batch(schema, chunk, config.header.dimension)?;
         writer.write(&batch).map_err(|e| format!("cannot write rows: {e}"))?;

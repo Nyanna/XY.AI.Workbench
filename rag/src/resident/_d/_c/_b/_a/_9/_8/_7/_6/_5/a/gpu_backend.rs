@@ -22,19 +22,19 @@ use super::super::_4::_3::_2::_1::device_lane_event::{
     StreamBackend,
 };
 use super::super::_4::_3::_2::_1::layout::Layout;
-use super::memory_backend::{rounded_len, BackendError, MemoryBackend, TransferDirection};
+use super::memory_backend::{rounded_len, BackendError2, MemoryBackend, TransferDirection};
 const SLOTS: usize = ArenaKind::ALL.len();
-fn read<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
+fn read2<T>(l: &RwLock<T>) -> RwLockReadGuard<'_, T> {
     l.read().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
-fn write<T>(l: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
+fn write2<T>(l: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
     l.write().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
-fn text(e: drv::DriverError) -> String {
+fn text2(e: drv::DriverError) -> String {
     e.to_string()
 }
-fn unavailable(reason: impl Into<String>) -> BackendError {
-    BackendError::DeviceMemoryUnavailable(reason.into())
+fn unavailable2(reason: impl Into<String>) -> BackendError2 {
+    BackendError2::DeviceMemoryUnavailable(reason.into())
 }
 fn slot_of(kind: ArenaKind) -> usize {
     kind.id() as usize
@@ -59,9 +59,9 @@ impl PinnedBuffer {
         if len == 0 {
             return Ok(PinnedBuffer::empty());
         }
-        ctx.bind_to_thread().map_err(text)?;
+        ctx.bind_to_thread().map_err(text2)?;
         let raw = unsafe { drv::malloc_host(len, sys::CU_MEMHOSTALLOC_PORTABLE) }
-            .map_err(text)?;
+            .map_err(text2)?;
         let ptr = NonNull::new(raw.cast::<u8>())
             .ok_or_else(|| "null host allocation".to_string())?;
         unsafe { ptr::write_bytes(ptr.as_ptr(), 0, len) };
@@ -115,35 +115,35 @@ impl HostSource<'_> {
         }
     }
 }
-struct StreamOwner {
+struct StreamOwner2 {
     ctx: Arc<CudaContext>,
     raw: sys::CUstream,
 }
-unsafe impl Send for StreamOwner {}
-unsafe impl Sync for StreamOwner {}
-impl fmt::Debug for StreamOwner {
+unsafe impl Send for StreamOwner2 {}
+unsafe impl Sync for StreamOwner2 {}
+impl fmt::Debug for StreamOwner2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "StreamOwner({:p})", self.raw)
     }
 }
-impl StreamOwner {
-    fn create(ctx: &Arc<CudaContext>) -> Result<Arc<StreamOwner>, String> {
-        ctx.bind_to_thread().map_err(text)?;
+impl StreamOwner2 {
+    fn create(ctx: &Arc<CudaContext>) -> Result<Arc<StreamOwner2>, String> {
+        ctx.bind_to_thread().map_err(text2)?;
         let raw = drv::stream::create(drv::stream::StreamKind::NonBlocking)
-            .map_err(text)?;
+            .map_err(text2)?;
         Ok(
-            Arc::new(StreamOwner {
+            Arc::new(StreamOwner2 {
                 ctx: Arc::clone(ctx),
                 raw,
             }),
         )
     }
     fn synchronize(&self) -> Result<(), String> {
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::stream::synchronize(self.raw) }.map_err(text)
+        self.ctx.bind_to_thread().map_err(text2)?;
+        unsafe { drv::stream::synchronize(self.raw) }.map_err(text2)
     }
 }
-impl Drop for StreamOwner {
+impl Drop for StreamOwner2 {
     fn drop(&mut self) {
         if self.ctx.bind_to_thread().is_ok() {
             let _ = unsafe { drv::stream::destroy(self.raw) };
@@ -152,57 +152,57 @@ impl Drop for StreamOwner {
 }
 #[derive(Debug)]
 struct CopyStreamBackend {
-    owner: Arc<StreamOwner>,
+    owner: Arc<StreamOwner2>,
 }
 impl StreamBackend for CopyStreamBackend {
     fn record_event(&self) -> Result<Box<dyn GpuEventBackend>, String> {
         let ctx = &self.owner.ctx;
-        ctx.bind_to_thread().map_err(text)?;
+        ctx.bind_to_thread().map_err(text2)?;
         let raw = drv::event::create(sys::CUevent_flags::CU_EVENT_DISABLE_TIMING)
-            .map_err(text)?;
-        let event = CuEvent {
+            .map_err(text2)?;
+        let event = CuEvent2 {
             ctx: Arc::clone(ctx),
             raw,
         };
-        unsafe { drv::event::record(event.raw, self.owner.raw) }.map_err(text)?;
+        unsafe { drv::event::record(event.raw, self.owner.raw) }.map_err(text2)?;
         Ok(Box::new(event))
     }
 }
 #[derive(Debug)]
-struct CuEvent {
+struct CuEvent2 {
     ctx: Arc<CudaContext>,
     raw: sys::CUevent,
 }
-unsafe impl Send for CuEvent {}
-unsafe impl Sync for CuEvent {}
-impl GpuEventBackend for CuEvent {
+unsafe impl Send for CuEvent2 {}
+unsafe impl Sync for CuEvent2 {}
+impl GpuEventBackend for CuEvent2 {
     fn query(&self) -> Result<bool, String> {
-        self.ctx.bind_to_thread().map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text2)?;
         match unsafe { drv::event::query(self.raw) } {
             Ok(()) => Ok(true),
             Err(e) if e.0 == sys::CUresult::CUDA_ERROR_NOT_READY => Ok(false),
-            Err(e) => Err(text(e)),
+            Err(e) => Err(text2(e)),
         }
     }
     fn synchronize(&self) -> Result<(), String> {
-        self.ctx.bind_to_thread().map_err(text)?;
-        unsafe { drv::event::synchronize(self.raw) }.map_err(text)
+        self.ctx.bind_to_thread().map_err(text2)?;
+        unsafe { drv::event::synchronize(self.raw) }.map_err(text2)
     }
 }
-impl Drop for CuEvent {
+impl Drop for CuEvent2 {
     fn drop(&mut self) {
         if self.ctx.bind_to_thread().is_ok() {
             let _ = unsafe { drv::event::destroy(self.raw) };
         }
     }
 }
-struct DriverQuery {
+struct DriverQuery2 {
     ctx: Arc<CudaContext>,
 }
-impl MemoryQuery for DriverQuery {
+impl MemoryQuery for DriverQuery2 {
     fn query(&self) -> Result<MemInfo, String> {
-        self.ctx.bind_to_thread().map_err(text)?;
-        let (free, total) = drv::mem_get_info().map_err(text)?;
+        self.ctx.bind_to_thread().map_err(text2)?;
+        let (free, total) = drv::mem_get_info().map_err(text2)?;
         Ok(MemInfo {
             free: free as u64,
             total: total as u64,
@@ -220,10 +220,10 @@ unsafe impl Sync for Block {}
 fn alloc_device(stream: sys::CUstream, capacity: u64) -> Result<Block, String> {
     let len = usize::try_from(capacity)
         .map_err(|_| "arena exceeds address space".to_string())?;
-    let dev = unsafe { drv::malloc_async(stream, len) }.map_err(text)?;
+    let dev = unsafe { drv::malloc_async(stream, len) }.map_err(text2)?;
     if let Err(e) = unsafe { drv::memset_d8_async(dev, 0, len, stream) } {
         let _ = unsafe { drv::free_async(dev, stream) };
-        return Err(text(e));
+        return Err(text2(e));
     }
     Ok(Block {
         dev,
@@ -235,13 +235,13 @@ fn alloc_mapped(capacity: u64) -> Result<Block, String> {
     let len = usize::try_from(capacity)
         .map_err(|_| "arena exceeds address space".to_string())?;
     let raw = unsafe { drv::malloc_host(len, sys::CU_MEMHOSTALLOC_DEVICEMAP) }
-        .map_err(text)?;
+        .map_err(text2)?;
     let mut dev: sys::CUdeviceptr = 0;
     if let Err(e) = unsafe { sys::cuMemHostGetDevicePointer_v2(&mut dev, raw, 0) }
         .result()
     {
         let _ = unsafe { drv::free_host(raw) };
-        return Err(text(e));
+        return Err(text2(e));
     }
     let host = raw.cast::<u8>();
     unsafe { ptr::write_bytes(host, 0, len) };
@@ -249,9 +249,9 @@ fn alloc_mapped(capacity: u64) -> Result<Block, String> {
 }
 fn release_block(stream: sys::CUstream, block: &Block) -> Result<(), String> {
     if block.host.is_null() {
-        unsafe { drv::free_async(block.dev, stream) }.map_err(text)
+        unsafe { drv::free_async(block.dev, stream) }.map_err(text2)
     } else {
-        unsafe { drv::free_host(block.host.cast::<c_void>()) }.map_err(text)
+        unsafe { drv::free_host(block.host.cast::<c_void>()) }.map_err(text2)
     }
 }
 fn fill_blocks(
@@ -274,9 +274,9 @@ fn fill_blocks(
     }
     Ok(())
 }
-fn finish_setup(ctx: &Arc<CudaContext>, owner: &StreamOwner) -> Result<(), String> {
+fn finish_setup(ctx: &Arc<CudaContext>, owner: &StreamOwner2) -> Result<(), String> {
     let pool = unsafe { drv::device::get_default_mem_pool(ctx.cu_device()) }
-        .map_err(text)?;
+        .map_err(text2)?;
     let mut threshold = u64::MAX;
     unsafe {
         drv::mem_pool::set_attribute(
@@ -285,11 +285,11 @@ fn finish_setup(ctx: &Arc<CudaContext>, owner: &StreamOwner) -> Result<(), Strin
             (&mut threshold as *mut u64).cast::<c_void>(),
         )
     }
-        .map_err(text)?;
+        .map_err(text2)?;
     owner.synchronize()?;
-    ctx.synchronize().map_err(text)
+    ctx.synchronize().map_err(text2)
 }
-fn rollback(ctx: &Arc<CudaContext>, owner: &StreamOwner, made: &[(usize, Block)]) {
+fn rollback(ctx: &Arc<CudaContext>, owner: &StreamOwner2, made: &[(usize, Block)]) {
     if ctx.bind_to_thread().is_err() {
         return;
     }
@@ -301,10 +301,10 @@ fn rollback(ctx: &Arc<CudaContext>, owner: &StreamOwner, made: &[(usize, Block)]
 }
 fn setup_blocks(
     ctx: &Arc<CudaContext>,
-    owner: &StreamOwner,
+    owner: &StreamOwner2,
     arenas: &[Arena],
 ) -> Result<Vec<(usize, Block)>, String> {
-    ctx.bind_to_thread().map_err(text)?;
+    ctx.bind_to_thread().map_err(text2)?;
     let mut made = Vec::new();
     let outcome = fill_blocks(owner.raw, arenas, &mut made)
         .and_then(|()| finish_setup(ctx, owner));
@@ -316,15 +316,15 @@ fn setup_blocks(
         }
     }
 }
-fn open_context(ordinal: u32) -> Result<Arc<CudaContext>, BackendError> {
+fn open_context(ordinal: u32) -> Result<Arc<CudaContext>, BackendError2> {
     match catch_unwind(AssertUnwindSafe(|| CudaContext::new(ordinal as usize))) {
         Ok(Ok(ctx)) => Ok(ctx),
-        Ok(Err(e)) => Err(unavailable(text(e))),
-        Err(_) => Err(unavailable("CUDA driver could not be loaded")),
+        Ok(Err(e)) => Err(unavailable2(text2(e))),
+        Err(_) => Err(unavailable2("CUDA driver could not be loaded")),
     }
 }
 struct CopyStream {
-    owner: Arc<StreamOwner>,
+    owner: Arc<StreamOwner2>,
     lane: Lane,
     gate: Mutex<()>,
 }
@@ -332,29 +332,29 @@ fn mib(bytes: u64) -> u64 {
     bytes / MIB
 }
 /// Memory backend for one Nvidia device. `Send + Sync`.
-pub struct GpuBackend {
+pub struct GpuBackend2 {
     device: DeviceHandle,
     ordinal: usize,
     ctx: Arc<CudaContext>,
-    query: DriverQuery,
+    query: DriverQuery2,
     arenas: Arc<ArenaSet>,
     allocators: AllocatorSet,
     blocks: [RwLock<Option<Block>>; SLOTS],
     copy: CopyStream,
     candle: Mutex<Option<CudaDevice>>,
 }
-impl GpuBackend {
+impl GpuBackend2 {
     pub fn new(
         device: DeviceHandle,
         caps: ArenaCapacities,
         headroom: u64,
-    ) -> Result<GpuBackend, BackendError> {
+    ) -> Result<GpuBackend2, BackendError2> {
         let ordinal = match device {
             DeviceHandle::Gpu(ordinal) => ordinal,
-            _ => return Err(unavailable("device is not a GPU")),
+            _ => return Err(unavailable2("device is not a GPU")),
         };
         let ctx = open_context(ordinal)?;
-        let query = DriverQuery {
+        let query = DriverQuery2 {
             ctx: Arc::clone(&ctx),
         };
         let budget = Budget::from_query(&query, 0)?;
@@ -371,9 +371,9 @@ impl GpuBackend {
             .map(|a| (*a, DeviceKind::Gpu))
             .collect();
         let allocators = AllocatorSet::new(bookkeeping, &specs)
-            .map_err(|_| BackendError::AllocationFailed)?;
-        let owner = StreamOwner::create(&ctx).map_err(unavailable)?;
-        let built = setup_blocks(&ctx, &owner, &created).map_err(unavailable)?;
+            .map_err(|_| BackendError2::AllocationFailed)?;
+        let owner = StreamOwner2::create(&ctx).map_err(unavailable2)?;
+        let built = setup_blocks(&ctx, &owner, &created).map_err(unavailable2)?;
         let mut by_slot: [Option<Block>; SLOTS] = std::array::from_fn(|_| None);
         for (slot, block) in built {
             by_slot[slot] = Some(block);
@@ -396,7 +396,7 @@ impl GpuBackend {
             mib(created[slot_of(ArenaKind::ParameterBlock)].capacity),
             mib(created[slot_of(ArenaKind::MappedHost)].capacity),
         );
-        Ok(GpuBackend {
+        Ok(GpuBackend2 {
             device,
             ordinal: ordinal as usize,
             ctx,
@@ -423,26 +423,26 @@ impl GpuBackend {
         &self,
         slot: &'a Option<Block>,
         handle: &RegionHandle,
-    ) -> Result<(RegionHandle, &'a Block, u64), BackendError> {
+    ) -> Result<(RegionHandle, &'a Block, u64), BackendError2> {
         let allocator = self
             .allocators
             .allocator_for(handle)
-            .map_err(|_| BackendError::StaleRegion)?;
+            .map_err(|_| BackendError2::StaleRegion)?;
         if !allocator.is_live(handle) {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
-        let block = slot.as_ref().ok_or(BackendError::StaleRegion)?;
+        let block = slot.as_ref().ok_or(BackendError2::StaleRegion)?;
         let end = handle
             .offset()
             .checked_add(handle.len())
-            .ok_or(BackendError::StaleRegion)?;
+            .ok_or(BackendError2::StaleRegion)?;
         if end > block.len {
-            return Err(BackendError::StaleRegion);
+            return Err(BackendError2::StaleRegion);
         }
         let addr = block
             .dev
             .checked_add(handle.offset())
-            .ok_or(BackendError::StaleRegion)?;
+            .ok_or(BackendError2::StaleRegion)?;
         Ok((*handle, block, addr))
     }
     /// Enqueues `op` on the copy stream and records the covering event under one lock.
@@ -451,18 +451,18 @@ impl GpuBackend {
         direction: TransferDirection,
         active: bool,
         op: F,
-    ) -> Result<Event, BackendError>
+    ) -> Result<Event, BackendError2>
     where
         F: FnOnce(sys::CUstream) -> Result<(), drv::DriverError>,
     {
-        let fail = |reason: String| BackendError::Transfer {
+        let fail = |reason: String| BackendError2::Transfer {
             direction,
             reason,
         };
         let _gate = lock(&self.copy.gate);
-        self.ctx.bind_to_thread().map_err(|e| fail(text(e)))?;
+        self.ctx.bind_to_thread().map_err(|e| fail(text2(e)))?;
         if active {
-            op(self.copy.owner.raw).map_err(|e| fail(text(e)))?;
+            op(self.copy.owner.raw).map_err(|e| fail(text2(e)))?;
         }
         self.copy.lane.record_event().map_err(|e| fail(e.to_string()))
     }
@@ -471,10 +471,10 @@ impl GpuBackend {
         src: &RegionHandle,
         dst: &RegionHandle,
         len: u64,
-    ) -> Result<Event, BackendError> {
+    ) -> Result<Event, BackendError2> {
         let direction = TransferDirection::D2D;
         if src.arena() == dst.arena() {
-            return Err(BackendError::Transfer {
+            return Err(BackendError2::Transfer {
                 direction,
                 reason: "same arena".to_string(),
             });
@@ -482,16 +482,16 @@ impl GpuBackend {
         let (src_slot, dst_slot) = (slot_of(src.arena()), slot_of(dst.arena()));
         let (src_guard, dst_guard);
         if src_slot < dst_slot {
-            src_guard = read(&self.blocks[src_slot]);
-            dst_guard = read(&self.blocks[dst_slot]);
+            src_guard = read2(&self.blocks[src_slot]);
+            dst_guard = read2(&self.blocks[dst_slot]);
         } else {
-            dst_guard = read(&self.blocks[dst_slot]);
-            src_guard = read(&self.blocks[src_slot]);
+            dst_guard = read2(&self.blocks[dst_slot]);
+            src_guard = read2(&self.blocks[src_slot]);
         }
         let (_, _, src_addr) = self.resolve(&src_guard, src)?;
         let (_, _, dst_addr) = self.resolve(&dst_guard, dst)?;
         if len > src.len() || len > dst.len() {
-            return Err(BackendError::Transfer {
+            return Err(BackendError2::Transfer {
                 direction,
                 reason: "size mismatch".to_string(),
             });
@@ -508,13 +508,13 @@ impl GpuBackend {
         &self,
         dst: &RegionHandle,
         src: HostSource<'_>,
-    ) -> Result<Event, BackendError> {
+    ) -> Result<Event, BackendError2> {
         let direction = TransferDirection::H2D;
-        let guard = read(&self.blocks[slot_of(dst.arena())]);
+        let guard = read2(&self.blocks[slot_of(dst.arena())]);
         let (_, _, addr) = self.resolve(&guard, dst)?;
         let data = src.as_slice();
         if data.len() as u64 > dst.len() {
-            return Err(BackendError::Transfer {
+            return Err(BackendError2::Transfer {
                 direction,
                 reason: "size mismatch".to_string(),
             });
@@ -529,12 +529,12 @@ impl GpuBackend {
         &self,
         src: &RegionHandle,
         dst: &PinnedBuffer,
-    ) -> Result<Event, BackendError> {
+    ) -> Result<Event, BackendError2> {
         let direction = TransferDirection::D2H;
-        let guard = read(&self.blocks[slot_of(src.arena())]);
+        let guard = read2(&self.blocks[slot_of(src.arena())]);
         let (_, _, addr) = self.resolve(&guard, src)?;
         if dst.len() as u64 > src.len() {
-            return Err(BackendError::Transfer {
+            return Err(BackendError2::Transfer {
                 direction,
                 reason: "size mismatch".to_string(),
             });
@@ -548,8 +548,8 @@ impl GpuBackend {
             },
         )
     }
-    pub fn allocate_pinned(&self, len: usize) -> Result<PinnedBuffer, BackendError> {
-        PinnedBuffer::allocate(&self.ctx, len).map_err(unavailable)
+    pub fn allocate_pinned(&self, len: usize) -> Result<PinnedBuffer, BackendError2> {
+        PinnedBuffer::allocate(&self.ctx, len).map_err(unavailable2)
     }
     /// Locks the mapped block and validates an access; returns the guard and the host address.
     fn mapped_span(
@@ -557,19 +557,19 @@ impl GpuBackend {
         region: &RegionHandle,
         offset: usize,
         len: usize,
-    ) -> Result<(RwLockReadGuard<'_, Option<Block>>, *mut u8), BackendError> {
+    ) -> Result<(RwLockReadGuard<'_, Option<Block>>, *mut u8), BackendError2> {
         if region.arena() != ArenaKind::MappedHost {
-            return Err(BackendError::ArenaMismatch {
+            return Err(BackendError2::ArenaMismatch {
                 expected: ArenaKind::MappedHost,
                 found: region.arena(),
             });
         }
-        let guard = read(&self.blocks[slot_of(ArenaKind::MappedHost)]);
+        let guard = read2(&self.blocks[slot_of(ArenaKind::MappedHost)]);
         let ptr = {
             let (_, block, _) = self.resolve(&guard, region)?;
             let region_len = usize::try_from(region.len()).unwrap_or(usize::MAX);
             let out_of_bounds = || {
-                BackendError::Access(AccessError::OutOfBounds {
+                BackendError2::Access(AccessError::OutOfBounds {
                     offset,
                     len,
                     region_len,
@@ -596,7 +596,7 @@ impl GpuBackend {
         region: &RegionHandle,
         offset: usize,
         dst: &mut [u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let (_guard, src) = self.mapped_span(region, offset, dst.len())?;
         if !dst.is_empty() {
             unsafe { ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), dst.len()) };
@@ -608,7 +608,7 @@ impl GpuBackend {
         region: &RegionHandle,
         offset: usize,
         src: &[u8],
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         let (_guard, dst) = self.mapped_span(region, offset, src.len())?;
         if !src.is_empty() {
             unsafe { ptr::copy_nonoverlapping(src.as_ptr(), dst, src.len()) };
@@ -617,9 +617,9 @@ impl GpuBackend {
     }
     /// Device address of the start of the mapped host block.
     pub fn mapped_device_addr(&self) -> Option<u64> {
-        read(&self.blocks[slot_of(ArenaKind::MappedHost)]).as_ref().map(|b| b.dev)
+        read2(&self.blocks[slot_of(ArenaKind::MappedHost)]).as_ref().map(|b| b.dev)
     }
-    fn candle_device(&self) -> Result<CudaDevice, BackendError> {
+    fn candle_device(&self) -> Result<CudaDevice, BackendError2> {
         let mut cached = lock(&self.candle);
         if let Some(device) = cached.as_ref() {
             return Ok(device.clone());
@@ -629,8 +629,8 @@ impl GpuBackend {
             AssertUnwindSafe(|| CudaDevice::new_with_stream(ordinal)),
         ) {
             Ok(Ok(device)) => device,
-            Ok(Err(e)) => return Err(unavailable(e.to_string())),
-            Err(_) => return Err(unavailable("library device could not be created")),
+            Ok(Err(e)) => return Err(unavailable2(e.to_string())),
+            Err(_) => return Err(unavailable2("library device could not be created")),
         };
         *cached = Some(device.clone());
         Ok(device)
@@ -643,8 +643,8 @@ impl GpuBackend {
         &self,
         region: &RegionHandle,
         layout: &Layout,
-    ) -> Result<LibTensor, BackendError> {
-        let guard = read(&self.blocks[slot_of(region.arena())]);
+    ) -> Result<LibTensor, BackendError2> {
+        let guard = read2(&self.blocks[slot_of(region.arena())]);
         let (base_addr, len_bytes) = {
             let (_, block, _) = self.resolve(&guard, region)?;
             (block.dev, block.len)
@@ -661,7 +661,7 @@ impl GpuBackend {
         let mut guards: Vec<RwLockWriteGuard<'_, Option<Block>>> = self
             .blocks
             .iter()
-            .map(write)
+            .map(write2)
             .collect();
         let _gate = lock(&self.copy.gate);
         let blocks: Vec<Block> = guards.iter_mut().filter_map(|g| g.take()).collect();
@@ -688,7 +688,7 @@ impl GpuBackend {
         info!("gpu backend {}: shut down", self.ordinal);
     }
 }
-impl fmt::Debug for GpuBackend {
+impl fmt::Debug for GpuBackend2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("GpuBackend")
             .field("device", &self.device)
@@ -696,28 +696,28 @@ impl fmt::Debug for GpuBackend {
             .finish()
     }
 }
-impl Drop for GpuBackend {
+impl Drop for GpuBackend2 {
     fn drop(&mut self) {
         self.shutdown();
     }
 }
-impl MemoryBackend for GpuBackend {
+impl MemoryBackend for GpuBackend2 {
     fn allocate(
         &self,
         arena: ArenaKind,
         size: u64,
         align: u64,
-    ) -> Result<RegionHandle, BackendError> {
+    ) -> Result<RegionHandle, BackendError2> {
         let len = rounded_len(size, align)?;
         let allocator = self
             .allocators
             .allocator(arena)
-            .ok_or(BackendError::AllocationFailed)?;
+            .ok_or(BackendError2::AllocationFailed)?;
         let region = allocator.allocate(len)?;
         debug_assert_eq!(region.offset() % align, 0);
         Ok(region)
     }
-    fn free(&self, region: &RegionHandle) -> Result<(), BackendError> {
+    fn free(&self, region: &RegionHandle) -> Result<(), BackendError2> {
         self.allocators.allocator_for(region)?.free(region)?;
         Ok(())
     }
@@ -725,11 +725,11 @@ impl MemoryBackend for GpuBackend {
         &self,
         region: &RegionHandle,
         event: Event,
-    ) -> Result<(), BackendError> {
+    ) -> Result<(), BackendError2> {
         self.allocators.allocator_for(region)?.free_deferred(region, event)?;
         Ok(())
     }
-    fn budget(&self) -> Result<Budget, BackendError> {
+    fn budget(&self) -> Result<Budget, BackendError2> {
         let budget = Budget::from_query(&self.query, 0)?;
         debug!(
             "gpu backend {}: budget free {} MiB, total {} MiB", self.ordinal, mib(budget
@@ -737,8 +737,8 @@ impl MemoryBackend for GpuBackend {
         );
         Ok(budget)
     }
-    fn available(&self, arena: ArenaKind) -> Result<u64, BackendError> {
-        if arena == ArenaKind::Staging || read(&self.blocks[slot_of(arena)]).is_none() {
+    fn available(&self, arena: ArenaKind) -> Result<u64, BackendError2> {
+        if arena == ArenaKind::Staging || read2(&self.blocks[slot_of(arena)]).is_none() {
             return Ok(0);
         }
         Ok(self.allocators.allocator(arena).map_or(0, |a| a.available()))

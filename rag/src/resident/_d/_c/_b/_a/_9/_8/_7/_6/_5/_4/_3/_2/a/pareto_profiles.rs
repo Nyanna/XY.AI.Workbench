@@ -70,7 +70,7 @@ pub fn pareto_front<T: Clone>(items: &[T], key: impl Fn(&T) -> (f64, f64)) -> Ve
     out
 }
 
-fn normalize(values: &[f64]) -> Vec<f64> {
+fn normalize2(values: &[f64]) -> Vec<f64> {
     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let range = max - min;
@@ -109,8 +109,8 @@ pub fn positions(points: &[(f64, f64)], log_time: bool) -> Vec<f64> {
         })
         .collect();
     let devs: Vec<f64> = points.iter().map(|p| p.1).collect();
-    let xs = normalize(&times);
-    let ys = normalize(&devs);
+    let xs = normalize2(&times);
+    let ys = normalize2(&devs);
 
     let mut cumulative = Vec::with_capacity(n);
     let mut total = 0.0_f64;
@@ -150,7 +150,7 @@ pub fn derive_profiles(
     }
 
     let log_times: Vec<f64> = front.iter().map(|m| m.time.ln()).collect();
-    let t_hat = normalize(&log_times);
+    let t_hat = normalize2(&log_times);
     let last = front.len() - 1;
     let mut remaining: Vec<&Measurement> = Vec::with_capacity(front.len());
     for (i, m) in front.iter().enumerate() {

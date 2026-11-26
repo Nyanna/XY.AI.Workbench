@@ -65,15 +65,15 @@ impl Attempt {
     }
 }
 
-enum Phase {
+enum Phase2 {
     Inactive,
     Initializing(Arc<Attempt>),
     Active,
 }
 
-struct State {
+struct State6 {
     index: Option<Arc<dyn Index>>,
-    phase: Phase,
+    phase: Phase2,
 }
 
 /// Marks the lifetime of one cycle. Dropping it ends the cycle scope, also while unwinding.
@@ -109,11 +109,11 @@ impl CycleObserver for TracingCycleObserver {
 
 pub struct IndexManager {
     index_id: IndexId,
-    state: Mutex<State>,
+    state: Mutex<State6>,
     observer: Arc<dyn CycleObserver>,
 }
 
-enum Role {
+enum Role3 {
     Done,
     Initializer(Arc<Attempt>),
     Waiter(Arc<Attempt>),
@@ -127,9 +127,9 @@ impl IndexManager {
     pub fn with_observer(index_id: IndexId, observer: Arc<dyn CycleObserver>) -> Self {
         IndexManager {
             index_id,
-            state: Mutex::new(State {
+            state: Mutex::new(State6 {
                 index: None,
-                phase: Phase::Inactive,
+                phase: Phase2::Inactive,
             }),
             observer,
         }
@@ -139,7 +139,7 @@ impl IndexManager {
         &self.index_id
     }
 
-    fn lock(&self) -> MutexGuard<'_, State> {
+    fn lock(&self) -> MutexGuard<'_, State6> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -174,12 +174,12 @@ impl IndexManager {
             let mut state = self.lock();
             let index = state.index.clone().ok_or_else(|| self.unavailable())?;
             let role = match &state.phase {
-                Phase::Active => Role::Done,
-                Phase::Initializing(attempt) => Role::Waiter(Arc::clone(attempt)),
-                Phase::Inactive => {
+                Phase2::Active => Role3::Done,
+                Phase2::Initializing(attempt) => Role3::Waiter(Arc::clone(attempt)),
+                Phase2::Inactive => {
                     let attempt = Attempt::new();
-                    state.phase = Phase::Initializing(Arc::clone(&attempt));
-                    Role::Initializer(attempt)
+                    state.phase = Phase2::Initializing(Arc::clone(&attempt));
+                    Role3::Initializer(attempt)
                 }
             };
             (index, role)
@@ -189,9 +189,9 @@ impl IndexManager {
             reason,
         };
         match role {
-            Role::Done => Ok(()),
-            Role::Waiter(attempt) => attempt.wait().map_err(failed),
-            Role::Initializer(attempt) => {
+            Role3::Done => Ok(()),
+            Role3::Waiter(attempt) => attempt.wait().map_err(failed),
+            Role3::Initializer(attempt) => {
                 let outcome = match catch_unwind(AssertUnwindSafe(|| init(&index))) {
                     Ok(result) => result,
                     Err(_) => Err("init panicked".to_string()),
@@ -199,9 +199,9 @@ impl IndexManager {
                 {
                     let mut state = self.lock();
                     state.phase = if outcome.is_ok() {
-                        Phase::Active
+                        Phase2::Active
                     } else {
-                        Phase::Inactive
+                        Phase2::Inactive
                     };
                 }
                 attempt.finish(outcome.clone());
@@ -213,7 +213,7 @@ impl IndexManager {
     pub fn status(&self) -> ManagerStatus {
         let (index, active) = {
             let state = self.lock();
-            (state.index.clone(), matches!(state.phase, Phase::Active))
+            (state.index.clone(), matches!(state.phase, Phase2::Active))
         };
         ManagerStatus {
             index_id: self.index_id.clone(),

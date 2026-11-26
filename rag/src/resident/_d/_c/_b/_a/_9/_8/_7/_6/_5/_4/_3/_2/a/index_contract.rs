@@ -36,7 +36,7 @@ pub struct PayloadRef<'a> {
 }
 /// Shared payload as read. Both parts are empty for a missing entry.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Payload {
+pub struct Payload2 {
     pub vector: SharedBytes,
     pub meta: SharedBytes,
 }
@@ -74,7 +74,7 @@ impl fmt::Display for IndexError {
 impl std::error::Error for IndexError {}
 /// Summary of a node (centroid access).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Summary {
+pub struct Summary2 {
     pub node: NodeId,
     pub centroid: SharedBytes,
     pub count: u64,
@@ -95,7 +95,7 @@ pub trait Index: Send + Sync {
     /// Snapshot of all (id, stamp), ascending by id.
     fn stamps(&self) -> Vec<(EntryId, Stamp)>;
     /// Reads the entry; may block. Missing entry yields `Payload::default()`.
-    fn read(&self, id: EntryId) -> Payload;
+    fn read(&self, id: EntryId) -> Payload2;
     /// Replaces the entry entirely. Returns the stamp of exactly this write.
     fn write(&self, id: EntryId, payload: PayloadRef<'_>) -> Result<Stamp, IndexError>;
     /// Writes in order, stopping at the first error. Not atomic.
@@ -114,7 +114,7 @@ pub trait Index: Send + Sync {
     fn delete(&self, id: EntryId) -> Result<Option<Stamp>, IndexError>;
     /// Level signal; a new observer starts at the current max stamp.
     fn subscribe(&self) -> StampObserver;
-    fn summary(&self, node: NodeId) -> Result<Summary, IndexError> {
+    fn summary(&self, node: NodeId) -> Result<Summary2, IndexError> {
         let _ = node;
         Err(IndexError::Unsupported(AccessMethod::Centroid))
     }
@@ -215,11 +215,11 @@ const _: () = {
     const fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<StampSignal>();
     assert_send_sync::<StampObserver>();
-    assert_send_sync::<Payload>();
+    assert_send_sync::<Payload2>();
     assert_send_sync::<IndexError>();
 };
 #[allow(dead_code)]
-fn _object_safe(_: &dyn Index) {}
+fn _object_safe2(_: &dyn Index) {}
 #[cfg(test)]
 #[path = "test/index_contract.rs"]
 mod tests;

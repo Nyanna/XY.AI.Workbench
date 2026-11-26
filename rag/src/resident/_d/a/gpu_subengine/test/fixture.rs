@@ -12,7 +12,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::kernel_register::{
     CodeImage, CodeKind, CompileRequest, CompilerError, KernelCompiler, KernelFunction,
     LoadFailure, ModuleLoader,
 };
-use super::backend::{GpuBackend, GpuDeviceInfo};
+use super::backend::{GpuBackend3, GpuDeviceInfo};
 use super::config::{GpuConfig, GpuShared};
 use super::deps::*;
 use super::subengine::GpuSubengine;
@@ -163,7 +163,7 @@ impl MockBackend {
         out
     }
 }
-impl GpuBackend for MockBackend {
+impl GpuBackend3 for MockBackend {
     fn devices(&self) -> Result<Vec<GpuDeviceInfo>, String> {
         if self.fail_devices.load(Ordering::SeqCst) {
             return Err("enumeration failed".to_string());
@@ -327,10 +327,10 @@ pub fn config() -> GpuConfig {
 }
 pub fn subengine_with(backend: &Arc<MockBackend>, cfg: GpuConfig) -> Arc<GpuSubengine> {
     GpuSubengine::new(
-            device(0),
-            Arc::clone(backend) as Arc<dyn GpuBackend>,
-            shared(),
-            cfg,
+        device(0),
+        Arc::clone(backend) as Arc<dyn GpuBackend3>,
+        shared(),
+        cfg,
         )
         .unwrap()
 }

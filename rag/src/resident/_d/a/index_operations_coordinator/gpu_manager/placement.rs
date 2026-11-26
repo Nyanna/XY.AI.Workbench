@@ -1,15 +1,15 @@
 //! Placement of entries into slots and creation of segments.
 use std::sync::Arc;
 use super::deps::*;
-use super::state::{entry_ref, Inner, Unpublished};
+use super::state::{entry_ref, Inner8, Unpublished};
 use super::types::*;
 #[derive(Clone, Copy)]
-enum Target {
+enum Target3 {
     Published(SegmentId),
     Unpublished(RegionHandle),
 }
-struct Reserved {
-    target: Target,
+struct Reserved3 {
+    target: Target3,
     writer: Arc<SegmentWriter>,
     view: SegmentView,
     reservation: Reservation,
@@ -17,7 +17,7 @@ struct Reserved {
 }
 enum Reserve {
     Present,
-    Got(Box<Reserved>),
+    Got(Box<Reserved3>),
     NoRoom,
 }
 /// A slot that holds the entry.
@@ -52,7 +52,7 @@ fn decode_rows(dtype: DType, bytes: &[u8]) -> Vec<f32> {
         }
     }
 }
-impl Inner {
+impl Inner8 {
     /// Token count of a vector, or the reason it does not fit a slot.
     pub(super) fn validate_vector(&self, len: usize) -> Result<u32, GpuManagerError> {
         if len % self.row_bytes != 0 {
@@ -108,13 +108,13 @@ impl Inner {
         }
         let slot = reserved.reservation.slot;
         let segment = match reserved.target {
-            Target::Published(segment) => {
+            Target3::Published(segment) => {
                 self.services
                     .updates()
                     .push_bind(entry, SlotRef { segment, slot }, stamp);
                 Some(segment)
             }
-            Target::Unpublished(region) => {
+            Target3::Unpublished(region) => {
                 let mut state = lock(&self.state);
                 if let Some(open) = state
                     .unpublished
@@ -155,15 +155,15 @@ impl Inner {
         if recheck && state.in_flight.contains(&entry.entry) {
             return Ok(Reserve::Present);
         }
-        let mut found: Option<Reserved> = None;
+        let mut found: Option<Reserved3> = None;
         for open in state.unpublished.iter().rev() {
             if open.writer.free_slots() == 0 {
                 continue;
             }
             match open.writer.reserve(entry, tokens, None) {
                 Ok(reservation) => {
-                    found = Some(Reserved {
-                        target: Target::Unpublished(open.segment.region),
+                    found = Some(Reserved3 {
+                        target: Target3::Unpublished(open.segment.region),
                         writer: Arc::clone(&open.writer),
                         view: open.view,
                         reservation,
@@ -185,8 +185,8 @@ impl Inner {
                 }
                 match writer.reserve(entry, tokens, None) {
                     Ok(reservation) => {
-                        found = Some(Reserved {
-                            target: Target::Published(record.id),
+                        found = Some(Reserved3 {
+                            target: Target3::Published(record.id),
                             writer: Arc::clone(writer),
                             view: record.view,
                             reservation,
@@ -213,7 +213,7 @@ impl Inner {
     }
     fn write_slot(
         &self,
-        reserved: &Reserved,
+        reserved: &Reserved3,
         vector: &[u8],
         tokens: u32,
     ) -> Result<(), GpuManagerError> {
@@ -335,7 +335,7 @@ impl Inner {
         let count = ready.len();
         for open in ready {
             self.queue
-                .report(LoadedSegment {
+                .report(LoadedSegment3 {
                     segment: open.segment,
                     view: open.view,
                     device_base: open.device_base,

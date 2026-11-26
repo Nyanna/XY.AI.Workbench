@@ -24,7 +24,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::calibration_
     Combination, ProbeError,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, ByteRange, IndexError, Payload, PayloadRef, SharedBytes, Stamp,
+    AccessMethod, ByteRange, IndexError, Payload2, PayloadRef, SharedBytes, Stamp,
     StampObserver, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_access::{
@@ -35,7 +35,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capabil
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::Layout;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::{
-    Queue, State,
+    Queue, State2,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::page_advice::{
     Advice, AdviceError, AdviceTarget, PageRange,
@@ -197,15 +197,15 @@ impl Index for MockIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         Vec::new()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         match self.rows.get(&id.0) {
             Some(bytes) => {
-                Payload {
+                Payload2 {
                     vector: SharedBytes::from(bytes.clone()),
                     meta: SharedBytes::default(),
                 }
             }
-            None => Payload::default(),
+            None => Payload2::default(),
         }
     }
     fn write(
@@ -702,7 +702,7 @@ fn attach_is_lazy_and_opens_on_first_access() {
     let first = sub.manager().index(&id).unwrap();
     let second = sub.manager().index(&id).unwrap();
     assert!(Arc::ptr_eq(& first, & second));
-    assert_eq!(first.read(EntryId(1)), Payload::default());
+    assert_eq!(first.read(EntryId(1)), Payload2::default());
     assert!(residency.read_direct(EntryId(1)).is_some());
     let ctx_lane = cpu_lane();
     let ctx = CpuContext::new(&sub, &ctx_lane);
@@ -1158,7 +1158,7 @@ fn lane_resource_has_one_lane_per_topology_lane_and_runs_claims() {
     let resource = Arc::clone(lease.handle());
     let claim = own.take().expect("queue is empty");
     resource.execute(claim, lease);
-    assert!(tickets.iter().all(| t | t.state() == State::Succeeded));
+    assert!(tickets.iter().all(| t | t.state() == State2::Succeeded));
     let mut ids: Vec<u32> = lock(&log).iter().map(|(id, _, _)| *id).collect();
     ids.sort();
     assert_eq!(ids, vec![1, 2, 3]);

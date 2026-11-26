@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, EntryId, Index, IndexError, Payload, PayloadRef, SharedBytes, Stamp,
+    AccessMethod, EntryId, Index, IndexError, Payload2, PayloadRef, SharedBytes, Stamp,
     StampObserver, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::change_stamp::StampCounter;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::scopes_and_entry_sets::EntrySet;
-type Entries = BTreeMap<EntryId, (Stamp, Payload)>;
+type Entries = BTreeMap<EntryId, (Stamp, Payload2)>;
 /// In-memory `Index` implementation that stores bytes unchanged.
 pub struct ReferenceIndex {
     dtype: DType,
@@ -62,7 +62,7 @@ impl Index for ReferenceIndex {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         self.read_map().iter().map(|(id, (stamp, _))| (*id, *stamp)).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.read_map().get(&id).map(|(_, payload)| payload.clone()).unwrap_or_default()
     }
     fn write(&self, id: EntryId, payload: PayloadRef<'_>) -> Result<Stamp, IndexError> {
@@ -75,7 +75,7 @@ impl Index for ReferenceIndex {
         }
         let _writer = self.writer.lock().unwrap_or_else(|e| e.into_inner());
         let stamp = self.next_stamp()?;
-        let stored = Payload {
+        let stored = Payload2 {
             vector: SharedBytes(Arc::from(payload.vector)),
             meta: SharedBytes(Arc::from(payload.meta)),
         };

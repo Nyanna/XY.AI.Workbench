@@ -216,7 +216,7 @@ impl Fixture {
             .collect()
     }
 }
-fn assert_hits(got: &[Vec<Hit>], want: &[Vec<(u64, f32)>]) {
+fn assert_hits(got: &[Vec<Hit3>], want: &[Vec<(u64, f32)>]) {
     assert_eq!(got.len(), want.len());
     for (g, w) in got.iter().zip(want) {
         assert_eq!(g.len(), w.len());
@@ -288,11 +288,11 @@ fn trivial_requests_give_empty_lists() {
     let qs: Vec<&[f32]> = vec![& q0, & q1];
     let op = tiled(&Arc::new(CpuOps::default()), 2);
     assert_eq!(
-        op.top_k(& f.req(f.variable(), 0..2, & qs, 0)).unwrap(), vec![Vec::< Hit
+        op.top_k(& f.req(f.variable(), 0..2, & qs, 0)).unwrap(), vec![Vec::<Hit3
         >::new(); 2]
     );
     assert_eq!(
-        op.top_k(& f.req(f.variable(), 1..1, & qs, 3)).unwrap(), vec![Vec::< Hit
+        op.top_k(& f.req(f.variable(), 1..1, & qs, 3)).unwrap(), vec![Vec::<Hit3
         >::new(); 2]
     );
     let none: Vec<&[f32]> = Vec::new();
@@ -306,10 +306,10 @@ impl DocSource for HoleSource {
     fn slot_count(&self, s: SegmentId) -> u32 {
         self.0.slot_count(s)
     }
-    fn slot_offset(&self, s: SegmentId, slot: Slot) -> Option<u64> {
+    fn slot_offset(&self, s: SegmentId, slot: Slot5) -> Option<u64> {
         if slot.0 == 1 { None } else { self.0.slot_offset(s, slot) }
     }
-    fn slot_vectors(&self, s: SegmentId, slot: Slot) -> Option<&[f32]> {
+    fn slot_vectors(&self, s: SegmentId, slot: Slot5) -> Option<&[f32]> {
         self.0.slot_vectors(s, slot)
     }
 }
@@ -609,7 +609,7 @@ fn fused_validates_and_short_circuits_before_io() {
     let none: Vec<&[f32]> = Vec::new();
     assert!(op.top_k(& f.req(f.fixed(48), 0..2, & none, 2)).unwrap().is_empty());
     assert_eq!(
-        op.top_k(& f.req(f.fixed(48), 0..2, & qs, 0)).unwrap(), vec![Vec::< Hit >::new()]
+        op.top_k(& f.req(f.fixed(48), 0..2, & qs, 0)).unwrap(), vec![Vec::<Hit3>::new()]
     );
     assert_eq!(io.uploads.load(Ordering::SeqCst), 0);
     assert!(specs.lock().unwrap().is_empty());

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use super::backend::GpuBackend;
+use super::backend::GpuBackend3;
 use super::deps::*;
 use super::error::GpuError;
 
@@ -43,7 +43,7 @@ impl IndexShared {
 /// The `GpuServices` of one attached index.
 pub(super) struct IndexServices {
     ordinal: u32,
-    backend: Arc<dyn GpuBackend>,
+    backend: Arc<dyn GpuBackend3>,
     shared: Arc<IndexShared>,
     store: Arc<MappingStore>,
     manifests: Arc<ManifestStore>,
@@ -56,7 +56,7 @@ pub(super) struct IndexServices {
 impl IndexServices {
     pub(super) fn new(
         ordinal: u32,
-        backend: Arc<dyn GpuBackend>,
+        backend: Arc<dyn GpuBackend3>,
         shared: Arc<IndexShared>,
         store: Arc<MappingStore>,
         eviction: Arc<Eviction>,

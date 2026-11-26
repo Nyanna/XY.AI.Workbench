@@ -257,7 +257,7 @@ mod gpu {
         device: Device,
         source: LibraryKernelSource,
     }
-    fn unavailable(what: impl std::fmt::Display) -> ComputeError {
+    fn unavailable3(what: impl std::fmt::Display) -> ComputeError {
         ComputeError::GpuUnavailable(what.to_string())
     }
     fn backend(what: impl std::fmt::Display) -> ComputeError {
@@ -273,18 +273,18 @@ mod gpu {
         pub fn new() -> Result<Self, ComputeError> {
             match catch_unwind(AssertUnwindSafe(Self::try_new)) {
                 Ok(r) => r,
-                Err(_) => Err(unavailable("panic during gpu initialisation")),
+                Err(_) => Err(unavailable3("panic during gpu initialisation")),
             }
         }
         fn try_new() -> Result<Self, ComputeError> {
-            let cuda = CudaDevice::new_with_stream(0).map_err(unavailable)?;
+            let cuda = CudaDevice::new_with_stream(0).map_err(unavailable3)?;
             if let Ok((major, minor)) = cuda.cuda_stream().context().compute_capability()
             {
                 let cc = ComputeCapability::new(
                     u32::try_from(major).unwrap_or(0),
                     u32::try_from(minor).unwrap_or(0),
                 );
-                jit_target_for(cc).map_err(unavailable)?;
+                jit_target_for(cc).map_err(unavailable3)?;
             }
             let this = Self {
                 device: Device::Cuda(cuda),
@@ -298,9 +298,9 @@ mod gpu {
             let b = FloatBatch::new(1, 1, vec![2.25])?;
             let out = self
                 .exec(BatchKernel::Add, &[&a, &b], (1, 1))
-                .map_err(unavailable)?;
+                .map_err(unavailable3)?;
             if out.as_slice() != [3.75f32] {
-                return Err(unavailable("init test returned a wrong value"));
+                return Err(unavailable3("init test returned a wrong value"));
             }
             Ok(())
         }

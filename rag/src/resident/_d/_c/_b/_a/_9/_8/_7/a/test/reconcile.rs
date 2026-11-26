@@ -4,13 +4,13 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 use std::time::Instant;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::segments::SegmentId;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot5;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
     AccessMethod, IndexError, PayloadRef, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 struct MemIndex {
-    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload)>)>,
+    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload2)>)>,
     signal: Arc<StampSignal>,
 }
 impl MemIndex {
@@ -25,7 +25,7 @@ impl MemIndex {
             let mut st = self.state.lock().unwrap();
             st.0 += 1;
             let stamp = Stamp(st.0);
-            let payload = Payload {
+            let payload = Payload2 {
                 vector: vec![tag].into(),
                 meta: Vec::new().into(),
             };
@@ -60,7 +60,7 @@ impl Index for MemIndex {
         let st = self.state.lock().unwrap();
         st.1.iter().map(|(k, v)| (EntryId(*k), v.0)).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         let st = self.state.lock().unwrap();
         st.1.get(&id.0).map(|e| e.1.clone()).unwrap_or_default()
     }
@@ -111,10 +111,10 @@ impl Index for Scripted {
     fn stamps(&self) -> Vec<(EntryId, Stamp)> {
         Vec::new()
     }
-    fn read(&self, _id: EntryId) -> Payload {
+    fn read(&self, _id: EntryId) -> Payload2 {
         self.log.lock().unwrap().push("read");
         let n = self.reads.fetch_add(1, Ordering::SeqCst) + 1;
-        Payload {
+        Payload2 {
             vector: vec![n].into(),
             meta: Vec::new().into(),
         }
@@ -141,7 +141,7 @@ fn setup() -> (Arc<MemIndex>, Arc<dyn Index>) {
 fn slot(n: u32) -> SlotRef {
     SlotRef {
         segment: SegmentId(0),
-        slot: Slot(n),
+        slot: Slot5(n),
     }
 }
 fn id(n: u64) -> EntryId {
@@ -435,7 +435,7 @@ fn directory_accepts_slot_refs() {
     use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::segments as store;
     let from_store: store::SlotRef = store::SlotRef {
         segment: store::SegmentId(3),
-        slot: Slot(4),
+        slot: Slot5(4),
     };
     let dir = ResidencyDirectory::new();
     dir.insert(id(1), from_store, Stamp(1));

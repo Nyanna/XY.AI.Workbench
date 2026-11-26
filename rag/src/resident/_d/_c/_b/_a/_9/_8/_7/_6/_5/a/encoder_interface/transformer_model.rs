@@ -36,12 +36,12 @@ impl fmt::Display for TransformerError {
     }
 }
 impl std::error::Error for TransformerError {}
-fn incompatible(reason: impl Into<String>) -> TransformerError {
+fn incompatible4(reason: impl Into<String>) -> TransformerError {
     TransformerError::Incompatible {
         reason: reason.into(),
     }
 }
-fn load_error(reason: impl Into<String>) -> TransformerError {
+fn load_error3(reason: impl Into<String>) -> TransformerError {
     TransformerError::Load {
         reason: reason.into(),
     }
@@ -72,7 +72,7 @@ struct ConfigFields<'a> {
 }
 impl ConfigFields<'_> {
     fn problem(&self, key: &str, why: &str) -> TransformerError {
-        load_error(format!("Config {}: Feld \"{key}\" {why}", self.path))
+        load_error3(format!("Config {}: Feld \"{key}\" {why}", self.path))
     }
     fn present(&self, key: &str) -> Option<&Value> {
         self.obj.get(key).filter(|v| !v.is_null())
@@ -138,14 +138,14 @@ fn parse_hidden_act(name: &str) -> Option<HiddenAct> {
 fn read_config(path: &Path) -> Result<ParsedConfig, TransformerError> {
     let shown = path.display().to_string();
     let text = std::fs::read_to_string(path)
-        .map_err(|e| load_error(format!("Config {shown} nicht lesbar: {e}")))?;
+        .map_err(|e| load_error3(format!("Config {shown} nicht lesbar: {e}")))?;
     let value: Value = serde_json::from_str(&text)
-        .map_err(|e| load_error(
+        .map_err(|e| load_error3(
             format!("Config {shown} ist kein gültiges JSON: {e}"),
         ))?;
     let obj = value
         .as_object()
-        .ok_or_else(|| load_error(format!("Config {shown}: JSON-Objekt erwartet")))?;
+        .ok_or_else(|| load_error3(format!("Config {shown}: JSON-Objekt erwartet")))?;
     let fields = ConfigFields { obj, path: shown };
     let model_type = match fields.present("model_type") {
         None => return Err(fields.problem("model_type", "fehlt")),
@@ -208,10 +208,10 @@ fn read_config(path: &Path) -> Result<ParsedConfig, TransformerError> {
 fn open_gpu() -> Result<(Device, DeviceHandle), TransformerError> {
     match std::panic::catch_unwind(|| Device::new_cuda(0)) {
         Ok(Ok(device)) => Ok((device, DeviceHandle::Gpu(0))),
-        Ok(Err(e)) => Err(load_error(format!("GPU-Device 0 nicht verfügbar: {e}"))),
+        Ok(Err(e)) => Err(load_error3(format!("GPU-Device 0 nicht verfügbar: {e}"))),
         Err(_) => {
             Err(
-                load_error(
+                load_error3(
                     "GPU-Device 0 nicht verfügbar: Treiber-Initialisierung fehlgeschlagen",
                 ),
             )
@@ -262,7 +262,7 @@ fn map_load_error(e: candle_core::Error) -> TransformerError {
                 name,
             }
         }
-        None => load_error(e.to_string()),
+        None => load_error3(e.to_string()),
     }
 }
 impl TransformerModel {
@@ -275,14 +275,14 @@ impl TransformerModel {
         )?;
         if model_type != "bert" {
             return Err(
-                incompatible(
+                incompatible4(
                     format!("modeltyp muss \"bert\" sein (gefunden: \"{model_type}\")"),
                 ),
             );
         }
         if config.hidden_size != desc.dimension {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "hidden_size {} passt nicht zur Dimension {} des Modellbeschreibers",
                         config.hidden_size, desc.dimension
@@ -292,7 +292,7 @@ impl TransformerModel {
         }
         if desc.max_seq_len > config.max_position_embeddings {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "max_seq_len {} überschreitet max_position_embeddings {}", desc
                         .max_seq_len, config.max_position_embeddings
@@ -302,7 +302,7 @@ impl TransformerModel {
         }
         if desc.architecture != "bert" {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "architektur muss \"bert\" sein (gefunden: \"{}\")", desc
                         .architecture
@@ -312,7 +312,7 @@ impl TransformerModel {
         }
         if config.hidden_size % config.num_attention_heads != 0 {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "hidden_size {} ist nicht durch num_attention_heads {} teilbar",
                         config.hidden_size, config.num_attention_heads
@@ -322,7 +322,7 @@ impl TransformerModel {
         }
         if position_embedding_type != "absolute" {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "position_embedding_type muss \"absolute\" sein (gefunden: \"{position_embedding_type}\")"
                     ),
@@ -337,7 +337,7 @@ impl TransformerModel {
         let lib_dtype = to_lib_dtype(dtype);
         if !matches!(lib_dtype, LibDType::F32 | LibDType::F16 | LibDType::BF16) {
             return Err(
-                incompatible(
+                incompatible4(
                     format!(
                         "Datentyp {dtype:?} ist kein Compute-Datentyp (erlaubt: F32, F16, BF16)"
                     ),
@@ -345,12 +345,12 @@ impl TransformerModel {
             );
         }
         if desc.weight_paths.is_empty() {
-            return Err(load_error("keine Gewichtsdateien angegeben"));
+            return Err(load_error3("keine Gewichtsdateien angegeben"));
         }
         let mut files = Vec::with_capacity(desc.weight_paths.len());
         for path in &desc.weight_paths {
             let file = WeightFile::open(path)
-                .map_err(|e| load_error(
+                .map_err(|e| load_error3(
                     format!("Gewichtsdatei {}: {e}", path.display()),
                 ))?;
             files.push(file);

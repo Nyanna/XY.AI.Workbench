@@ -15,7 +15,7 @@ fn off(slot: u64) -> u64 {
     slot * 4
 }
 
-fn sorted(k: usize, items: &[(u64, f32)]) -> Vec<Hit> {
+fn sorted(k: usize, items: &[(u64, f32)]) -> Vec<Hit3> {
     let mut t = TopK::new(k);
     t.extend(items.iter().copied());
     t.into_sorted_vec()
@@ -28,7 +28,7 @@ fn reference(k: usize, items: &[(u64, f32)]) -> Vec<(u64, f32)> {
     v
 }
 
-fn pairs(hits: &[Hit]) -> Vec<(u64, f32)> {
+fn pairs(hits: &[Hit3]) -> Vec<(u64, f32)> {
     hits.iter().map(|h| (h.offset, h.score)).collect()
 }
 
@@ -36,7 +36,7 @@ fn is_send_sync<T: Send + Sync>() {}
 
 #[test]
 fn types_are_send_sync_and_errors_are_errors() {
-    is_send_sync::<Hit>();
+    is_send_sync::<Hit3>();
     is_send_sync::<TopK>();
     is_send_sync::<RangeScorer>();
     is_send_sync::<TopKError>();
@@ -269,10 +269,10 @@ impl DocSource for HoleSource {
     fn slot_count(&self, _: SegmentId) -> u32 {
         3
     }
-    fn slot_offset(&self, _: SegmentId, slot: Slot) -> Option<u64> {
+    fn slot_offset(&self, _: SegmentId, slot: Slot5) -> Option<u64> {
         (slot.0 != 1).then_some(u64::from(slot.0) * 4)
     }
-    fn slot_vectors(&self, _: SegmentId, _: Slot) -> Option<&[f32]> {
+    fn slot_vectors(&self, _: SegmentId, _: Slot5) -> Option<&[f32]> {
         None
     }
 }

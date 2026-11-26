@@ -8,7 +8,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::{
     EntryRef, SlotAssignment, SlotStates,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    Addr, AddrLayout, FixedLayout, KernelHit, Slot,
+    Addr, AddrLayout, FixedLayout, KernelHit, Slot5,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
 /// Slot assignment and valid bits of one segment.
@@ -26,7 +26,7 @@ pub trait SegmentDirectory: Send + Sync {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HitLocation {
     pub generation: Generation,
-    pub slot: Slot,
+    pub slot: Slot5,
     pub score: f32,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -39,7 +39,7 @@ pub struct ResolvedHit {
 pub enum HitResolveError {
     SlotOutOfRange,
     StaleGeneration,
-    MissingMapping { generation: Generation, slot: Slot },
+    MissingMapping { generation: Generation, slot: Slot5 },
 }
 impl fmt::Display for HitResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -57,7 +57,7 @@ impl fmt::Display for HitResolveError {
 impl std::error::Error for HitResolveError {}
 /// Hits in input order plus the number of dropped hits.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Resolution {
+pub struct Resolution2 {
     pub hits: Vec<ResolvedHit>,
     pub discarded: usize,
 }
@@ -65,8 +65,8 @@ static_assertions::assert_impl_all!(SegmentBinding : Send, Sync);
 static_assertions::assert_impl_all!(HitLocation : Send, Sync);
 static_assertions::assert_impl_all!(ResolvedHit : Send, Sync);
 static_assertions::assert_impl_all!(HitResolveError : Send, Sync);
-static_assertions::assert_impl_all!(Resolution : Send, Sync);
-fn fixed_slot(spec: &SegmentSpec, addr: u64) -> Option<Slot> {
+static_assertions::assert_impl_all!(Resolution2 : Send, Sync);
+fn fixed_slot(spec: &SegmentSpec, addr: u64) -> Option<Slot5> {
     let layout = FixedLayout::new(spec.start().0, spec.slot_stride(), spec.slot_count())
         .ok()?;
     AddrLayout::Fixed(layout).slot_of(Addr(addr))
@@ -75,7 +75,7 @@ fn variable_slot(
     spec: &SegmentSpec,
     assignment: &SlotAssignment,
     addr: u64,
-) -> Option<Slot> {
+) -> Option<Slot5> {
     let slot = assignment.slot_of(Addr(addr))?;
     (slot.0 < spec.slot_count().min(assignment.slot_count())).then_some(slot)
 }
@@ -110,7 +110,7 @@ fn resolve_with_binding(
     manifest: &Manifest,
     dir: &dyn SegmentDirectory,
     generation: Generation,
-    slot: Slot,
+    slot: Slot5,
 ) -> Result<(EntryRef, SegmentBinding), HitResolveError> {
     let spec = manifest
         .segments()
@@ -133,7 +133,7 @@ pub fn resolve_location(
     manifest: &Manifest,
     dir: &dyn SegmentDirectory,
     generation: Generation,
-    slot: Slot,
+    slot: Slot5,
 ) -> Result<EntryRef, HitResolveError> {
     resolve_with_binding(manifest, dir, generation, slot).map(|(entry, _)| entry)
 }
@@ -142,7 +142,7 @@ pub fn find_current_location(
     manifest: &Manifest,
     dir: &dyn SegmentDirectory,
     entry: EntryRef,
-) -> Option<(Generation, Slot)> {
+) -> Option<(Generation, Slot5)> {
     let specs = manifest.segments();
     let mut order: Vec<usize> = (0..specs.len()).collect();
     order.sort_by_key(|&i| std::cmp::Reverse((specs[i].generation().0, i)));
@@ -184,13 +184,13 @@ pub fn transfer(
     dir: &dyn SegmentDirectory,
     hit_generation: ManifestGeneration,
     locations: &[HitLocation],
-) -> Resolution {
+) -> Resolution2 {
     let stale = hit_generation < current.generation();
     let hits: Vec<ResolvedHit> = locations
         .iter()
         .filter_map(|loc| transfer_one(current, previous, dir, loc, stale))
         .collect();
-    Resolution {
+    Resolution2 {
         discarded: locations.len() - hits.len(),
         hits,
     }
@@ -202,7 +202,7 @@ pub fn resolve_hits(
     previous: Option<&Manifest>,
     dir: &dyn SegmentDirectory,
     hits: &[KernelHit],
-) -> Resolution {
+) -> Resolution2 {
     let locations: Vec<HitLocation> = hits
         .iter()
         .filter_map(|&hit| locate(hit_manifest, dir, hit).ok())

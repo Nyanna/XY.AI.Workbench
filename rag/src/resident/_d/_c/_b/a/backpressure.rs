@@ -12,7 +12,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::subengine_loop::{IdleNotice, Iterat
 
 /// A task waiting for expansion, with the advance report for its first operation.
 #[derive(Debug, Clone)]
-pub struct Candidate<T> {
+pub struct Candidate3<T> {
     pub item: T,
     /// `None` means unknown or not reported.
     pub first_kind: Option<ResourceKind>,
@@ -94,7 +94,7 @@ impl ExpansionControl {
 
     /// Index of the first candidate whose first kind is underserved, else `0`.
     /// `None` only for empty `candidates`.
-    pub fn select<T>(&self, candidates: &[Candidate<T>]) -> Option<usize> {
+    pub fn select<T>(&self, candidates: &[Candidate3<T>]) -> Option<usize> {
         if candidates.is_empty() {
             return None;
         }

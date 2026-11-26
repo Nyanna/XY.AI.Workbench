@@ -14,12 +14,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::
     ArenaCapacities, ArenaKind, ArenaSet, Budget,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    Payload, StampObserver, StampSignal, AccessMethod,
+    Payload2, StampObserver, StampSignal, AccessMethod,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 struct MemIndex {
-    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload)>)>,
+    state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload2)>)>,
     signal: Arc<StampSignal>,
 }
 impl MemIndex {
@@ -44,7 +44,7 @@ impl Index for MemIndex {
         let g = self.state.lock().unwrap();
         g.1.iter().map(|(k, v)| (EntryId(*k), v.0)).collect()
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         self.state.lock().unwrap().1.get(&id.0).map(|e| e.1.clone()).unwrap_or_default()
     }
     fn write(&self, id: EntryId, p: PayloadRef<'_>) -> Result<Stamp, IndexError> {
@@ -58,7 +58,7 @@ impl Index for MemIndex {
         let mut g = self.state.lock().unwrap();
         g.0 += 1;
         let stamp = Stamp(g.0);
-        let payload = Payload {
+        let payload = Payload2 {
             vector: p.vector.into(),
             meta: p.meta.into(),
         };
@@ -349,7 +349,7 @@ fn mappings_run_only_in_gap_in_epoch_order() {
     assert_eq!(r.mappings_applied, 3);
     assert_eq!(* log.lock().unwrap(), vec![1, 2, 3]);
     assert_eq!(p.pending_mappings(), 0);
-    assert_eq!(p.run_gap(), GapReport::default());
+    assert_eq!(p.run_gap(), GapReport2::default());
 }
 #[test]
 fn mapping_sees_published_table() {
@@ -387,8 +387,8 @@ fn mapping_panic_drops_queue_and_locks_recover() {
     let p2 = Arc::clone(&p);
     assert!(thread::spawn(move || p2.run_gap()).join().is_err());
     assert_eq!(p.pending_mappings(), 0);
-    assert_eq!(p.run_gap(), GapReport { mappings_applied : 0, reclaimed : 1 });
-    assert_eq!(p.run_gap(), GapReport::default());
+    assert_eq!(p.run_gap(), GapReport2 { mappings_applied : 0, reclaimed : 1 });
+    assert_eq!(p.run_gap(), GapReport2::default());
     assert!(p.apply(| t | t.add(seg(128))).is_ok());
 }
 #[test]

@@ -2,7 +2,7 @@ use std::fmt;
 use log::warn;
 use super::super::_6::_5::query_batch::{DocSource, QueryBatch, SegmentId, Workspace};
 use super::super::_6::_5::_4::_3::_2::_1::layout::DType;
-use super::super::_6::topk::{Hit, RangeScorer, TopKError};
+use super::super::_6::topk::{Hit3, RangeScorer, TopKError};
 /// Absolute score tolerance for the compute type; `None` for types without a scoring path.
 pub fn tolerance(dtype: DType) -> Option<f32> {
     match dtype {
@@ -90,8 +90,8 @@ impl fmt::Display for Deviation {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompareReport {
-    pub candidate: Vec<Vec<Hit>>,
-    pub reference: Vec<Vec<Hit>>,
+    pub candidate: Vec<Vec<Hit3>>,
+    pub reference: Vec<Vec<Hit3>>,
     pub deviations: Vec<Deviation>,
 }
 impl CompareReport {
@@ -180,8 +180,8 @@ fn within(a: f32, b: f32, tol: f32) -> bool {
 pub fn compare_hits(
     segment: SegmentId,
     query: usize,
-    candidate: &[Hit],
-    reference: &[Hit],
+    candidate: &[Hit3],
+    reference: &[Hit3],
     tol: f32,
 ) -> Vec<Deviation> {
     let n = candidate.len().min(reference.len());

@@ -6,16 +6,16 @@ use std::sync::Arc;
 use log::{debug, warn};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::segments::SegmentId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::{
-    KernelHit, Slot,
+    KernelHit, Slot5,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
-const LOG_TARGET: &str = "hit_queues";
+const LOG_TARGET2: &str = "hit_queues";
 /// Address assignment of an embedding: the entry lives in (segment, slot).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EmbeddingWrite {
     pub entry: EntryId,
     pub segment: SegmentId,
-    pub slot: Slot,
+    pub slot: Slot5,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueError {
@@ -130,13 +130,13 @@ impl WriteProducer {
         match self.tx.push(w) {
             Ok(()) => {
                 debug!(
-                    target : LOG_TARGET, "push queue=write depth={}", self.tx.depth()
+                    target : LOG_TARGET2, "push queue=write depth={}", self.tx.depth()
                 );
                 Ok(())
             }
             Err(item) => {
                 warn!(
-                    target : LOG_TARGET, "queue full queue=write capacity={}", self.tx
+                    target : LOG_TARGET2, "queue full queue=write capacity={}", self.tx
                     .capacity()
                 );
                 Err(PushError {
@@ -161,12 +161,12 @@ impl HitProducer {
     pub fn push(&mut self, h: KernelHit) -> Result<(), PushError<KernelHit>> {
         match self.tx.push(h) {
             Ok(()) => {
-                debug!(target : LOG_TARGET, "push queue=hit depth={}", self.tx.depth());
+                debug!(target : LOG_TARGET2, "push queue=hit depth={}", self.tx.depth());
                 Ok(())
             }
             Err(item) => {
                 warn!(
-                    target : LOG_TARGET, "queue full queue=hit capacity={}", self.tx
+                    target : LOG_TARGET2, "queue full queue=hit capacity={}", self.tx
                     .capacity()
                 );
                 Err(PushError {
@@ -204,7 +204,7 @@ impl QueueConsumer {
             }
         }
         debug!(
-            target : LOG_TARGET, "drain writes={} hits={} write_depth={} hit_depth={}",
+            target : LOG_TARGET2, "drain writes={} hits={} write_depth={} hit_depth={}",
             writes.len(), hits.len(), self.writes.depth(), self.hits.depth()
         );
         Drained { writes, hits }

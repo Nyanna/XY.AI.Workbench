@@ -65,7 +65,7 @@ impl ProjectionError {
         }
     }
 }
-fn load_error(reason: impl Into<String>) -> ProjectionError {
+fn load_error2(reason: impl Into<String>) -> ProjectionError {
     ProjectionError::Load {
         path: None,
         reason: reason.into(),
@@ -99,12 +99,12 @@ impl Kind {
         }
     }
 }
-struct Entry<'a> {
+struct Entry5<'a> {
     dtype: &'a str,
     shape: Vec<usize>,
     bytes: &'a [u8],
 }
-type Fetch<'f, 'a> = &'f dyn Fn(&str) -> Result<Option<Entry<'a>>, ProjectionError>;
+type Fetch<'f, 'a> = &'f dyn Fn(&str) -> Result<Option<Entry5<'a>>, ProjectionError>;
 fn f16_to_f32(h: u16) -> f32 {
     let sign = ((h as u32) & 0x8000) << 16;
     let exp = ((h >> 10) & 0x1f) as u32;
@@ -150,7 +150,7 @@ fn decode(bytes: &[u8], kind: Kind) -> Vec<f32> {
     }
 }
 fn check_entry(
-    entry: &Entry<'_>,
+    entry: &Entry5<'_>,
     name: &str,
     expected: &[usize],
 ) -> Result<Kind, ProjectionError> {
@@ -167,12 +167,12 @@ fn check_entry(
             dtype: entry.dtype.to_owned(),
         })
 }
-fn check_len(entry: &Entry<'_>, kind: Kind, name: &str) -> Result<(), ProjectionError> {
+fn check_len(entry: &Entry5<'_>, kind: Kind, name: &str) -> Result<(), ProjectionError> {
     let elems = entry.shape.iter().try_fold(1usize, |acc, d| acc.checked_mul(*d));
     let want = elems.and_then(|e| e.checked_mul(kind.size()));
     if want != Some(entry.bytes.len()) {
         return Err(
-            load_error(
+            load_error2(
                 format!(
                     "tensor {name}: byte length {} does not match shape and dtype", entry
                     .bytes.len()
@@ -215,45 +215,45 @@ fn parse_entry<'a>(
     name: &str,
     value: &'a Value,
     data: &'a [u8],
-) -> Result<Entry<'a>, ProjectionError> {
+) -> Result<Entry5<'a>, ProjectionError> {
     let obj = value
         .as_object()
-        .ok_or_else(|| load_error(
+        .ok_or_else(|| load_error2(
             format!("tensor {name}: header entry is not an object"),
         ))?;
     let dtype = obj
         .get("dtype")
         .and_then(Value::as_str)
-        .ok_or_else(|| load_error(format!("tensor {name}: missing dtype")))?;
+        .ok_or_else(|| load_error2(format!("tensor {name}: missing dtype")))?;
     let shape = obj
         .get("shape")
         .and_then(Value::as_array)
-        .ok_or_else(|| load_error(format!("tensor {name}: missing shape")))?
+        .ok_or_else(|| load_error2(format!("tensor {name}: missing shape")))?
         .iter()
         .map(|d| {
             d.as_u64()
                 .and_then(|d| usize::try_from(d).ok())
-                .ok_or_else(|| load_error(format!("tensor {name}: invalid shape")))
+                .ok_or_else(|| load_error2(format!("tensor {name}: invalid shape")))
         })
         .collect::<Result<Vec<usize>, _>>()?;
     let offsets = obj
         .get("data_offsets")
         .and_then(Value::as_array)
         .filter(|a| a.len() == 2)
-        .ok_or_else(|| load_error(format!("tensor {name}: invalid data_offsets")))?;
+        .ok_or_else(|| load_error2(format!("tensor {name}: invalid data_offsets")))?;
     let (begin, end) = match (offsets[0].as_u64(), offsets[1].as_u64()) {
         (Some(b), Some(e)) => (b, e),
-        _ => return Err(load_error(format!("tensor {name}: invalid data_offsets"))),
+        _ => return Err(load_error2(format!("tensor {name}: invalid data_offsets"))),
     };
     if begin > end {
         return Err(
-            load_error(format!("tensor {name}: begin offset exceeds end offset")),
+            load_error2(format!("tensor {name}: begin offset exceeds end offset")),
         );
     }
     if end > data.len() as u64 {
-        return Err(load_error(format!("tensor {name}: end offset beyond data section")));
+        return Err(load_error2(format!("tensor {name}: end offset beyond data section")));
     }
-    Ok(Entry {
+    Ok(Entry5 {
         dtype,
         shape,
         bytes: &data[begin as usize..end as usize],
@@ -263,7 +263,7 @@ fn fetch_from_header<'a>(
     header: &'a Map<String, Value>,
     data: &'a [u8],
     name: &str,
-) -> Result<Option<Entry<'a>>, ProjectionError> {
+) -> Result<Option<Entry5<'a>>, ProjectionError> {
     if name == "__metadata__" {
         return Ok(None);
     }
@@ -275,7 +275,7 @@ fn fetch_from_header<'a>(
 fn fetch_from_file<'a>(
     file: &'a WeightFile,
     name: &str,
-) -> Result<Option<Entry<'a>>, ProjectionError> {
+) -> Result<Option<Entry5<'a>>, ProjectionError> {
     let Some(info) = file.info(name) else {
         return Ok(None);
     };
@@ -287,10 +287,10 @@ fn fetch_from_file<'a>(
                     name,
                 }
             }
-            other => load_error(other.to_string()),
+            other => load_error2(other.to_string()),
         })?;
     Ok(
-        Some(Entry {
+        Some(Entry5 {
             dtype: info.dtype.to_safetensors(),
             shape: info.shape.clone(),
             bytes,
@@ -327,7 +327,7 @@ impl Projection {
         output_dim: usize,
     ) -> Result<Projection, ProjectionError> {
         let Some(prefix) = bytes.get(..8) else {
-            return Err(load_error("input shorter than 8 bytes"));
+            return Err(load_error2("input shorter than 8 bytes"));
         };
         let mut len_bytes = [0u8; 8];
         len_bytes.copy_from_slice(prefix);
@@ -335,12 +335,12 @@ impl Projection {
         let data_start = header_len
             .checked_add(8)
             .filter(|end| *end <= bytes.len() as u64)
-            .ok_or_else(|| load_error("header length exceeds input size"))? as usize;
+            .ok_or_else(|| load_error2("header length exceeds input size"))? as usize;
         let value: Value = serde_json::from_slice(&bytes[8..data_start])
-            .map_err(|e| load_error(format!("header JSON: {e}")))?;
+            .map_err(|e| load_error2(format!("header JSON: {e}")))?;
         let header = value
             .as_object()
-            .ok_or_else(|| load_error("header is not a JSON object"))?;
+            .ok_or_else(|| load_error2("header is not a JSON object"))?;
         let data = &bytes[data_start..];
         let fetch = |name: &str| fetch_from_header(header, data, name);
         build(&fetch, layer, input_dim, output_dim)

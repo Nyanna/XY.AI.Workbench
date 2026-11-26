@@ -39,12 +39,12 @@ impl fmt::Display for EncoderBuildError {
     }
 }
 impl std::error::Error for EncoderBuildError {}
-fn incompatible(reason: impl Into<String>) -> EncoderBuildError {
+fn incompatible5(reason: impl Into<String>) -> EncoderBuildError {
     EncoderBuildError::Incompatible {
         reason: reason.into(),
     }
 }
-fn load_error(reason: impl Into<String>) -> EncoderBuildError {
+fn load_error4(reason: impl Into<String>) -> EncoderBuildError {
     EncoderBuildError::Load {
         reason: reason.into(),
     }
@@ -110,22 +110,22 @@ fn map_projection_error(e: ProjectionError) -> EncoderBuildError {
             }
         }
         ProjectionError::IncompatibleShape { tensor, actual, expected } => {
-            incompatible(
+            incompatible5(
                 format!("Tensor {tensor} hat Shape {actual:?}, erwartet {expected:?}"),
             )
         }
         ProjectionError::IncompatibleDType { tensor, dtype } => {
-            incompatible(format!("Tensor {tensor} hat nicht unterstützten Typ {dtype}"))
+            incompatible5(format!("Tensor {tensor} hat nicht unterstützten Typ {dtype}"))
         }
         ProjectionError::InputDimMismatch { expected, actual } => {
-            incompatible(
+            incompatible5(
                 format!("Projection-Eingabedimension {actual} statt {expected}"),
             )
         }
         ProjectionError::Load { path: Some(path), reason } => {
-            load_error(format!("{reason} ({})", path.display()))
+            load_error4(format!("{reason} ({})", path.display()))
         }
-        ProjectionError::Load { path: None, reason } => load_error(reason),
+        ProjectionError::Load { path: None, reason } => load_error4(reason),
     }
 }
 fn load_projection(
@@ -136,8 +136,8 @@ fn load_projection(
     let path = desc
         .weight_paths
         .first()
-        .ok_or_else(|| load_error("keine Gewichtsdateien"))?;
-    let file = WeightFile::open(path).map_err(|e| load_error(e.to_string()))?;
+        .ok_or_else(|| load_error4("keine Gewichtsdateien"))?;
+    let file = WeightFile::open(path).map_err(|e| load_error4(e.to_string()))?;
     let info = file
         .info(&layer.tensor_name)
         .ok_or_else(|| {
@@ -149,7 +149,7 @@ fn load_projection(
         [output, input] => (*output, *input),
         other => {
             return Err(
-                incompatible(
+                incompatible5(
                     format!(
                         "Projection-Gewicht {} hat Rank {}, erwartet 2 ([output, input])",
                         layer.tensor_name, other.len()
@@ -160,7 +160,7 @@ fn load_projection(
     };
     if input != model_dim {
         return Err(
-            incompatible(
+            incompatible5(
                 format!(
                     "Projection-Eingabe {input} inkompatibel zur Hauptmodell-Ausgabe {model_dim}"
                 ),
@@ -170,7 +170,7 @@ fn load_projection(
     if let Some(mv) = &desc.multi_vector {
         if output != mv.dimension {
             return Err(
-                incompatible(
+                incompatible5(
                     format!(
                         "Projection-Ausgabe {output} passt nicht zur Multi-Vector-Dimension {}",
                         mv.dimension
@@ -201,16 +201,16 @@ pub fn build_encoder(
         match desc.pooling {
             Pooling::Mean | Pooling::PerToken => desc.pooling,
             Pooling::Cls => {
-                return Err(incompatible("Pooling Cls wird nicht unterstützt"));
+                return Err(incompatible5("Pooling Cls wird nicht unterstützt"));
             }
         }
     };
     if multi_vector && desc.projection_layers.is_empty() {
-        return Err(incompatible("Projection-Head fehlt"));
+        return Err(incompatible5("Projection-Head fehlt"));
     }
     if desc.projection_layers.len() > 1 {
         return Err(
-            incompatible(
+            incompatible5(
                 format!(
                     "{} Projection-Layers angegeben, der Encoder unterstützt genau eine",
                     desc.projection_layers.len()
@@ -219,7 +219,7 @@ pub fn build_encoder(
         );
     }
     if !desc.projection_layers.is_empty() && desc.weight_paths.is_empty() {
-        return Err(load_error("keine Gewichtsdateien"));
+        return Err(load_error4("keine Gewichtsdateien"));
     }
     let model = Arc::new(TransformerModel::load(desc, class).map_err(map_model_error)?);
     let projection = match desc.projection_layers.first() {
@@ -235,8 +235,8 @@ pub fn build_encoder(
             desc.storage_dtype,
         )
         .map_err(|e| match e {
-            EncoderError::Incompatible { .. } => incompatible(e.to_string()),
-            other => load_error(other.to_string()),
+            EncoderError::Incompatible { .. } => incompatible5(e.to_string()),
+            other => load_error4(other.to_string()),
         })?;
     Ok(BuiltEncoder {
         encoder,

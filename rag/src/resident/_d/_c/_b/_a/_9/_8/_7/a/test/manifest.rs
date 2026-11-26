@@ -93,7 +93,7 @@ fn display_texts() {
     assert!(ManifestError::DuplicateSegment(SegmentId(9))
         .to_string()
         .contains('9'));
-    assert!(SyncError { cause: "boom".into() }.to_string().contains("boom"));
+    assert!(SyncError3 { cause: "boom".into() }.to_string().contains("boom"));
 }
 
 #[test]

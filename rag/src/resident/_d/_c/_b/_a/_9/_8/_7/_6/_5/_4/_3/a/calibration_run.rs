@@ -7,7 +7,7 @@ use super::super::_2::_1::capability_model::{axes, Axis, CapabilitySet, Value};
 use super::super::_2::_1::combination::check_name;
 pub use super::super::_2::_1::combination::{Combination, CombinationError};
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Target {
+pub struct Target2 {
     pub subengine: String,
     pub model_id: String,
 }
@@ -77,7 +77,7 @@ pub trait CalibrationBackend: Send + Sync {
     ) -> Result<Duration, ProbeError>;
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stage {
+pub enum Stage2 {
     Axis,
     Verification,
     Full,
@@ -109,7 +109,7 @@ pub enum Outcome {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReportEntry {
-    pub stage: Stage,
+    pub stage: Stage2,
     pub combination: Combination,
     pub outcome: Outcome,
 }
@@ -137,18 +137,18 @@ pub struct Counters {
     pub interruptions: usize,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct Summary {
+pub struct Summary3 {
     pub front: Vec<FrontPoint>,
     pub candidate_count: usize,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalibrationReport {
-    pub target: Target,
+    pub target: Target2,
     pub entries: Vec<ReportEntry>,
     pub product_size: usize,
     pub budget: BudgetStatus,
     pub runtime: Duration,
-    pub summary: Summary,
+    pub summary: Summary3,
     pub counters: Counters,
     pub log: Vec<String>,
 }
@@ -235,7 +235,7 @@ fn describe(c: &Combination) -> String {
         .collect::<Vec<_>>()
         .join(",")
 }
-struct Slot {
+struct Slot4 {
     samples: Vec<f64>,
     ratios: Vec<f64>,
     attempts: usize,
@@ -243,9 +243,9 @@ struct Slot {
     deviation: f64,
     result: Option<Outcome>,
 }
-impl Slot {
+impl Slot4 {
     fn new() -> Self {
-        Slot {
+        Slot4 {
             samples: Vec::new(),
             ratios: Vec::new(),
             attempts: 0,
@@ -291,14 +291,14 @@ impl<'a> Runner<'a> {
             && statistics::dispersion(series, self.cfg.dispersion)
                 <= self.cfg.stability_threshold
     }
-    fn at_cap(&self, s: &Slot) -> bool {
+    fn at_cap(&self, s: &Slot4) -> bool {
         s.attempts >= self.cfg.max_attempts
             || match (self.cfg.max_duration, s.first) {
                 (Some(max), Some(first)) => first.elapsed() >= max,
                 _ => false,
             }
     }
-    fn measured(&self, s: &Slot, stable: bool) -> Outcome {
+    fn measured(&self, s: &Slot4, stable: bool) -> Outcome {
         if s.samples.is_empty() {
             return Outcome::Skipped(SkipReason::DeviceUnavailable);
         }
@@ -334,10 +334,10 @@ impl<'a> Runner<'a> {
     fn measure_group(
         &mut self,
         group: &[Combination],
-        stage: Stage,
+        stage: Stage2,
     ) -> Result<Vec<Outcome>, CalibrationError> {
         self.log.push(format!("group start: stage={:?} size={}", stage, group.len()));
-        let mut slots: Vec<Slot> = group.iter().map(|_| Slot::new()).collect();
+        let mut slots: Vec<Slot4> = group.iter().map(|_| Slot4::new()).collect();
         for (c, slot) in group.iter().zip(slots.iter_mut()) {
             self.deviation_phase(c, slot)?;
         }
@@ -359,7 +359,7 @@ impl<'a> Runner<'a> {
     fn deviation_phase(
         &mut self,
         c: &Combination,
-        slot: &mut Slot,
+        slot: &mut Slot4,
     ) -> Result<(), CalibrationError> {
         let backend = self.backend;
         let mut tries = 0usize;
@@ -411,7 +411,7 @@ impl<'a> Runner<'a> {
             }
         }
     }
-    fn finish_on_budget(&self, slots: &mut [Slot]) {
+    fn finish_on_budget(&self, slots: &mut [Slot4]) {
         for i in 0..slots.len() {
             if slots[i].result.is_none() {
                 let outcome = if slots[i].samples.is_empty() {
@@ -423,7 +423,7 @@ impl<'a> Runner<'a> {
             }
         }
     }
-    fn decide_non_anchor(&self, i: usize, slots: &[Slot]) -> Option<Outcome> {
+    fn decide_non_anchor(&self, i: usize, slots: &[Slot4]) -> Option<Outcome> {
         let s = &slots[i];
         let min = self.cfg.min_repeats;
         if s.samples.len() >= min {
@@ -450,7 +450,7 @@ impl<'a> Runner<'a> {
         }
         None
     }
-    fn decide_anchor(&self, a: usize, slots: &[Slot]) -> Option<Outcome> {
+    fn decide_anchor(&self, a: usize, slots: &[Slot4]) -> Option<Outcome> {
         let mut any_stable = false;
         let mut any_unstable = false;
         for (j, o) in slots.iter().enumerate() {
@@ -476,7 +476,7 @@ impl<'a> Runner<'a> {
     fn time_phase(
         &mut self,
         group: &[Combination],
-        slots: &mut [Slot],
+        slots: &mut [Slot4],
     ) -> Result<(), CalibrationError> {
         let n = group.len();
         let backend = self.backend;
@@ -600,7 +600,7 @@ fn build_front(
     let mut points: Vec<FrontPoint> = Vec::new();
     let mut count = 0usize;
     for e in entries {
-        if e.stage == Stage::Axis {
+        if e.stage == Stage2::Axis {
             continue;
         }
         count += 1;
@@ -633,7 +633,7 @@ fn build_front(
     (front, count)
 }
 pub fn run_calibration(
-    target: Target,
+    target: Target2,
     capabilities: &CapabilitySet,
     model: &ModelDescriptor,
     backend: &dyn CalibrationBackend,
@@ -683,7 +683,7 @@ pub fn run_calibration(
     };
     if cfg.full_product {
         let all = product(&all_axes);
-        runner.measure_group(&all, Stage::Full)?;
+        runner.measure_group(&all, Stage2::Full)?;
     } else {
         let (sep, core): (Vec<_>, Vec<_>) = all_axes
             .iter()
@@ -707,10 +707,10 @@ pub fn run_calibration(
                 }
             }
             if runner.out_of_budget() {
-                runner.measure_group(&group, Stage::Axis)?;
+                runner.measure_group(&group, Stage2::Axis)?;
                 continue;
             }
-            let outcomes = runner.measure_group(&group, Stage::Axis)?;
+            let outcomes = runner.measure_group(&group, Stage2::Axis)?;
             let mut winners: Vec<(Axis, Vec<Value>)> = Vec::new();
             let mut missing = false;
             for (a, vals) in &sep {
@@ -766,7 +766,7 @@ pub fn run_calibration(
             }
         }
         if !candidates.is_empty() {
-            runner.measure_group(&candidates, Stage::Verification)?;
+            runner.measure_group(&candidates, Stage2::Verification)?;
         }
     }
     let (front, candidate_count) = build_front(&runner.entries, &mut runner.log);
@@ -798,14 +798,14 @@ pub fn run_calibration(
             exhausted,
         },
         runtime: elapsed,
-        summary: Summary { front, candidate_count },
+        summary: Summary3 { front, candidate_count },
         counters,
         log: runner.log,
     })
 }
 const _: fn() = || {
     fn assert_send_sync<T: Send + Sync + 'static>() {}
-    assert_send_sync::<Target>();
+    assert_send_sync::<Target2>();
     assert_send_sync::<Combination>();
     assert_send_sync::<CalibrationConfig>();
     assert_send_sync::<CalibrationReport>();

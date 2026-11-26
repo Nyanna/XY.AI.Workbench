@@ -82,13 +82,13 @@ fn snapshot_from_image_reads_device_fields() {
 #[test]
 fn single_claims_form_a_gapless_prefix_until_overflow() {
     let state = WriteState::new(100);
-    assert_eq!(state.claim(30), Claim::Ok { offset : 0 });
-    assert_eq!(state.claim(30), Claim::Ok { offset : 30 });
-    assert_eq!(state.claim(30), Claim::Ok { offset : 60 });
+    assert_eq!(state.claim(30), Claim3::Ok { offset : 0 });
+    assert_eq!(state.claim(30), Claim3::Ok { offset : 30 });
+    assert_eq!(state.claim(30), Claim3::Ok { offset : 60 });
     assert!(! state.snapshot().overflow);
-    assert_eq!(state.claim(20), Claim::Invalid);
-    assert_eq!(state.claim(5), Claim::Invalid);
-    assert_eq!(state.claim(0), Claim::Invalid);
+    assert_eq!(state.claim(20), Claim3::Invalid);
+    assert_eq!(state.claim(5), Claim3::Invalid);
+    assert_eq!(state.claim(0), Claim3::Invalid);
     let s = state.snapshot();
     assert!(s.overflow);
     assert_eq!(s.ptr, 115);
@@ -98,13 +98,13 @@ fn single_claims_form_a_gapless_prefix_until_overflow() {
 #[test]
 fn claim_filling_capacity_exactly_succeeds() {
     let state = WriteState::new(64);
-    assert_eq!(state.claim(64), Claim::Ok { offset : 0 });
+    assert_eq!(state.claim(64), Claim3::Ok { offset : 0 });
     let s = state.snapshot();
     assert!(! s.overflow);
     assert_eq!(s.valid_len(), 64);
-    assert_eq!(state.claim(0), Claim::Ok { offset : 64 });
+    assert_eq!(state.claim(0), Claim3::Ok { offset : 64 });
     assert!(! state.snapshot().overflow);
-    assert_eq!(state.claim(1), Claim::Invalid);
+    assert_eq!(state.claim(1), Claim3::Invalid);
     let s = state.snapshot();
     assert_eq!(s.overflow_min, 64);
     assert_eq!(s.valid_len(), 64);
@@ -112,18 +112,18 @@ fn claim_filling_capacity_exactly_succeeds() {
 #[test]
 fn zero_length_claim_succeeds_while_pointer_is_within_capacity() {
     let state = WriteState::new(10);
-    assert_eq!(state.claim(0), Claim::Ok { offset : 0 });
-    assert_eq!(state.claim(10), Claim::Ok { offset : 0 });
-    assert_eq!(state.claim(0), Claim::Ok { offset : 10 });
-    assert_eq!(WriteState::new(0).claim(0), Claim::Ok { offset : 0 });
-    assert_eq!(WriteState::new(0).claim(1), Claim::Invalid);
+    assert_eq!(state.claim(0), Claim3::Ok { offset : 0 });
+    assert_eq!(state.claim(10), Claim3::Ok { offset : 0 });
+    assert_eq!(state.claim(0), Claim3::Ok { offset : 10 });
+    assert_eq!(WriteState::new(0).claim(0), Claim3::Ok { offset : 0 });
+    assert_eq!(WriteState::new(0).claim(1), Claim3::Invalid);
 }
 #[test]
 fn pointer_wrap_is_overflow_and_valid_len_stays_bounded() {
     let state = WriteState::new(10);
-    assert_eq!(state.claim(u64::MAX), Claim::Invalid);
+    assert_eq!(state.claim(u64::MAX), Claim3::Invalid);
     assert_eq!(state.snapshot().ptr, u64::MAX);
-    assert_eq!(state.claim(1), Claim::Invalid);
+    assert_eq!(state.claim(1), Claim3::Invalid);
     let s = state.snapshot();
     assert_eq!(s.ptr, 0);
     assert!(s.overflow);
@@ -133,7 +133,7 @@ fn pointer_wrap_is_overflow_and_valid_len_stays_bounded() {
 #[test]
 fn group_overflowing_mid_group_keeps_leading_members_valid() {
     let state = WriteState::new(100);
-    assert_eq!(state.claim(10), Claim::Ok { offset : 0 });
+    assert_eq!(state.claim(10), Claim3::Ok { offset : 0 });
     let lens = [30, 30, 40, 10];
     let mut out = [0u64; 4];
     state.claim_group(&lens, &mut out).unwrap();
@@ -158,7 +158,7 @@ fn group_within_capacity_gets_exclusive_prefix_offsets() {
 #[test]
 fn group_after_overflow_fails_completely() {
     let state = WriteState::new(10);
-    assert_eq!(state.claim(11), Claim::Invalid);
+    assert_eq!(state.claim(11), Claim3::Invalid);
     let mut out = [0u64; 2];
     state.claim_group(&[1, 2], &mut out).unwrap();
     assert_eq!(out, [INVALID_OFFSET; 2]);
@@ -182,7 +182,7 @@ fn group_length_mismatch_leaves_state_unchanged() {
     let before = state.snapshot();
     let mut out = [123u64; 2];
     let err = state.claim_group(&[1, 2, 3], &mut out).unwrap_err();
-    assert_eq!(err, ClaimError::LengthMismatch { lens : 3, out : 2 });
+    assert_eq!(err, ClaimError3::LengthMismatch { lens : 3, out : 2 });
     assert_eq!(out, [123, 123]);
     assert_eq!(state.snapshot(), before);
     assert!(err.to_string().contains('3'));
@@ -204,7 +204,7 @@ fn reset_restores_the_initial_state() {
     state.reset();
     assert_eq!(state.snapshot(), WriteState::new(8).snapshot());
     assert_eq!(state.logged.load(Ordering::Relaxed), 0);
-    assert_eq!(state.claim(8), Claim::Ok { offset : 0 });
+    assert_eq!(state.claim(8), Claim3::Ok { offset : 0 });
 }
 #[test]
 fn valid_len_is_the_minimum_of_the_three_values() {
@@ -251,7 +251,7 @@ fn run_threads(capacity: u64, threads: usize, per_thread: usize, group: bool) {
                                 i += 4;
                             } else {
                                 let len = ((t + i) % 7 + 1) as u64;
-                                if let Claim::Ok { offset } = state.claim(len) {
+                                if let Claim3::Ok { offset } = state.claim(len) {
                                     won.push((offset, len));
                                 }
                                 i += 1;
@@ -386,8 +386,8 @@ fn region_wraps_the_handle_unchanged_and_uses_its_length_as_capacity() {
     assert_eq!(region.region().generation(), Generation(3));
     assert_eq!(region.state().snapshot().capacity, 256);
     assert_eq!(region.result(), WriteResult::Complete { region : h, len : 0 });
-    assert_eq!(region.state().claim(200), Claim::Ok { offset : 0 });
-    assert_eq!(region.state().claim(100), Claim::Invalid);
+    assert_eq!(region.state().claim(200), Claim3::Ok { offset : 0 });
+    assert_eq!(region.state().claim(100), Claim3::Invalid);
     assert_eq!(
         region.result(), WriteResult::Partial { region : h, valid_len : 200, overflow_pos
         : 200 }

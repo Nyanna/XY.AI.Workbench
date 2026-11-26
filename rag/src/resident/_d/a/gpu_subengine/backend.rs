@@ -13,7 +13,7 @@ pub struct GpuDeviceInfo {
 }
 
 /// The only place that touches CUDA. Implemented by the CUDA binding.
-pub trait GpuBackend: Send + Sync {
+pub trait GpuBackend3: Send + Sync {
     fn devices(&self) -> Result<Vec<GpuDeviceInfo>, String>;
     /// Retains the primary context of the device. Called at most once per device by `GpuDeviceManager`.
     fn retain_primary_context(&self, ordinal: u32) -> Result<(), String>;

@@ -28,7 +28,7 @@ pub enum Verdict {
     Stale { winner: EntryIdentity },
     Gone,
 }
-fn judge(held: &EntryIdentity, current: Option<Stamp>) -> Verdict {
+fn judge2(held: &EntryIdentity, current: Option<Stamp>) -> Verdict {
     match current {
         None => Verdict::Gone,
         Some(s) => {
@@ -42,7 +42,7 @@ fn judge(held: &EntryIdentity, current: Option<Stamp>) -> Verdict {
     }
 }
 pub fn check(index: &dyn Index, held: &EntryIdentity) -> Verdict {
-    judge(held, index.stamp(held.id))
+    judge2(held, index.stamp(held.id))
 }
 /// One `stamps()` snapshot for all; results follow the order of `held`.
 pub fn check_many(index: &dyn Index, held: &[EntryIdentity]) -> Vec<Verdict> {
@@ -56,7 +56,7 @@ pub fn check_many(index: &dyn Index, held: &[EntryIdentity]) -> Vec<Verdict> {
                 .binary_search_by_key(&h.id, |(id, _)| *id)
                 .ok()
                 .map(|at| snapshot[at].1);
-            judge(h, current)
+            judge2(h, current)
         })
         .collect()
 }
@@ -96,7 +96,7 @@ impl IndexWriter {
 /// Runs in the gap after the owning table is published; the argument is that table's epoch.
 pub type MappingChange = Box<dyn FnOnce(Epoch) + Send>;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct GapReport {
+pub struct GapReport2 {
     pub mappings_applied: usize,
     pub reclaimed: usize,
 }
@@ -150,7 +150,7 @@ impl TablePublisher {
         }
         Err(last.expect("at least one publish attempt"))
     }
-    pub fn run_gap(&self) -> GapReport {
+    pub fn run_gap(&self) -> GapReport2 {
         let _gap = lock(&self.gap_lock);
         let drained = std::mem::take(&mut *lock(&self.pending));
         let mappings_applied = drained.len();
@@ -158,7 +158,7 @@ impl TablePublisher {
             mapping(epoch);
         }
         let reclaimed = self.swap.reclaim(Epoch::MAX);
-        GapReport {
+        GapReport2 {
             mappings_applied,
             reclaimed,
         }

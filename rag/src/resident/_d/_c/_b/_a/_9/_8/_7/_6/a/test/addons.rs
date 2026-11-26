@@ -2,7 +2,7 @@ use super::*;
 use std::sync::Mutex;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::similarity_report::ReportHit;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::similarity_task::SimilarityOutput;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds::Hit2;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context::TaskId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
@@ -378,17 +378,17 @@ async fn query_error(q: &MockQueue, rerank: Option<Arc<RerankPolicy>>) -> AddonE
 async fn text_query_maps_embedding_failures() {
     let q = MockQueue::new(|_, _| Reply::Cancel);
     assert_eq!(
-        query_error(& q, None). await, AddonError::Cancelled { stage : Stage::Embedding }
+        query_error(& q, None). await, AddonError::Cancelled { stage : Stage3::Embedding }
     );
     let q = MockQueue::new(|_, _| Reply::Fail("bad"));
     assert_eq!(
-        query_error(& q, None). await, AddonError::TaskFailed { stage : Stage::Embedding,
+        query_error(& q, None). await, AddonError::TaskFailed { stage : Stage3::Embedding,
         message : format!("{:?}", "bad".to_string()), }
     );
     let q = MockQueue::new(|_, _| Reply::Done(Out::Num(1)));
     assert_eq!(
         query_error(& q, None). await, AddonError::UnexpectedOutput { stage :
-        Stage::Embedding }
+        Stage3::Embedding }
     );
     let q = MockQueue::new(|_, _| Reply::Done(Out::Vectors(Vec::new())));
     assert_eq!(query_error(& q, None). await, AddonError::NoQueryVectors);
@@ -406,14 +406,14 @@ async fn text_query_maps_similarity_and_rerank_failures() {
     });
     assert_eq!(
         query_error(& q, None). await, AddonError::UnexpectedOutput { stage :
-        Stage::Similarity }
+        Stage3::Similarity }
     );
     let q = MockQueue::new(|d, _| match d {
         Data::Embed(_) => Reply::Done(Out::Vectors(vec![vec![1.0]])),
         _ => Reply::Cancel,
     });
     assert_eq!(
-        query_error(& q, None). await, AddonError::Cancelled { stage : Stage::Similarity
+        query_error(& q, None). await, AddonError::Cancelled { stage : Stage3::Similarity
         }
     );
     let q = MockQueue::new(|d, n| match (d, n) {
@@ -426,7 +426,7 @@ async fn text_query_maps_similarity_and_rerank_failures() {
     ));
     assert_eq!(
         query_error(& q, Some(policy)). await, AddonError::TaskFailed { stage :
-        Stage::Rerank, message : format!("{:?}", "rr".to_string()), }
+        Stage3::Rerank, message : format!("{:?}", "rr".to_string()), }
     );
 }
 #[test]
@@ -438,7 +438,7 @@ fn rerank_job_matches_params_rerank() {
     assert_eq!(job.queries, vec![vec![0.5, 0.5]]);
     let output = SimilarityOutput {
         per_query: vec![
-            report.hits.iter().map(| h | Hit { id : h.entry_id, score : h.score, stale :
+            report.hits.iter().map(| h | Hit2 { id : h.entry_id, score : h.score, stale :
             h.stale }).collect()
         ],
     };
@@ -458,7 +458,7 @@ fn rerank_job_keeps_stale_hits_and_handles_empty_report() {
 #[test]
 fn addon_error_display_is_informative() {
     let e = AddonError::TaskFailed {
-        stage: Stage::Rerank,
+        stage: Stage3::Rerank,
         message: "x".to_string(),
     };
     assert!(e.to_string().contains("Rerank"));

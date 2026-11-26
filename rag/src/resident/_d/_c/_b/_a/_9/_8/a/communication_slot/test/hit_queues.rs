@@ -11,7 +11,7 @@ fn write(n: u64) -> EmbeddingWrite {
     EmbeddingWrite {
         entry: EntryId(n),
         segment: SegmentId(n),
-        slot: Slot(n as u32),
+        slot: Slot5(n as u32),
     }
 }
 fn hit(n: u64) -> KernelHit {

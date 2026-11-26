@@ -56,7 +56,7 @@ fn small_file(dir: &TestDir) -> WeightFile {
     WeightFile::open(&path).unwrap()
 }
 fn manager(backend: &Arc<MockBackend>) -> Arc<VramManager> {
-    VramManager::new(0, Arc::clone(backend) as Arc<dyn GpuBackend>, &config())
+    VramManager::new(0, Arc::clone(backend) as Arc<dyn GpuBackend3>, &config())
 }
 fn all(_: &str) -> bool {
     true
@@ -118,7 +118,7 @@ fn the_headroom_is_part_of_the_fit_check() {
     let backend = MockBackend::single();
     let mut cfg = config();
     cfg.headroom = 62 * MIB;
-    let vram = VramManager::new(0, Arc::clone(&backend) as Arc<dyn GpuBackend>, &cfg);
+    let vram = VramManager::new(0, Arc::clone(&backend) as Arc<dyn GpuBackend3>, &cfg);
     backend.free.store(64 * MIB, Ordering::SeqCst);
     assert!(matches!(vram.ensure_arenas(), Err(GpuError::Budget(_))));
     assert!(lock(& backend.reserved).is_empty());

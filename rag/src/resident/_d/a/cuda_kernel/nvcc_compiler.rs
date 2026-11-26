@@ -19,7 +19,7 @@ impl Drop for Scratch {
         }
     }
 }
-fn unavailable(e: impl ToString) -> CompilerError {
+fn unavailable4(e: impl ToString) -> CompilerError {
     CompilerError::Unavailable(e.to_string())
 }
 impl NvccCompiler {
@@ -60,14 +60,14 @@ impl KernelCompiler for NvccCompiler {
             CodeKind::Ptx => ("-ptx", "ptx", req.arch.replacen("sm_", "compute_", 1)),
             CodeKind::Cubin => ("-cubin", "cubin", req.arch.clone()),
         };
-        std::fs::create_dir_all(&self.work_dir).map_err(unavailable)?;
+        std::fs::create_dir_all(&self.work_dir).map_err(unavailable4)?;
         let job = format!(
             "{}_{}_{name}", std::process::id(), NEXT_JOB.fetch_add(1, Ordering::Relaxed)
         );
         let src = self.work_dir.join(&job);
         let out = self.work_dir.join(format!("{job}.{ext}"));
         let _scratch = Scratch(vec![src.clone(), out.clone()]);
-        std::fs::write(&src, &req.source).map_err(unavailable)?;
+        std::fs::write(&src, &req.source).map_err(unavailable4)?;
         let output = Command::new(&self.nvcc)
             .args(["-x", "cu", mode])
             .arg(format!("-arch={arch}"))
@@ -75,7 +75,7 @@ impl KernelCompiler for NvccCompiler {
             .arg(&out)
             .arg(&src)
             .output()
-            .map_err(unavailable)?;
+            .map_err(unavailable4)?;
         if !output.status.success() {
             let mut log = String::from_utf8_lossy(&output.stderr).into_owned();
             if log.trim().is_empty() {
@@ -83,7 +83,7 @@ impl KernelCompiler for NvccCompiler {
             }
             return Err(CompilerError::Failed { log });
         }
-        let bytes = std::fs::read(&out).map_err(unavailable)?;
+        let bytes = std::fs::read(&out).map_err(unavailable4)?;
         Ok(CodeImage { kind: req.kind, bytes })
     }
 }

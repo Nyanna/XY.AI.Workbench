@@ -9,7 +9,7 @@ use crate::resident::_d::_c::_b::_a::_9::a::gpu_completion::{
     FinishedLane, GpuCompletion,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::notification_topology::SubengineNotifier;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::Lease;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::Lease2;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::load_meter::{
     LoadMeter, LoadReport, LoadReporting,
 };
@@ -23,7 +23,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
     DeviceHandle, EventError, Lane, LaneError,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::{
-    Claim, Queue,
+    Claim2, Queue,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::subengine_loop::{
     PullFilter, ResourceExec,
@@ -113,7 +113,7 @@ pub struct LaneResourceConfig<M, P> {
     pub kind: ResourceKind,
     pub device: DeviceHandle,
 }
-type ClaimOf<M, P> = Claim<M, P, (), ()>;
+type ClaimOf<M, P> = Claim2<M, P, (), ()>;
 struct LaneSlot {
     /// `None` while the lane is running a batch or is in flight.
     lane: Mutex<Option<Lane>>,
@@ -195,7 +195,7 @@ struct InFlight<M, P> {
     slot: usize,
     batch: ExecBatch<P>,
     claims: Vec<ClaimOf<M, P>>,
-    lease: Lease<LaneResource<M, P>>,
+    lease: Lease2<LaneResource<M, P>>,
     start: Instant,
     entries: usize,
 }
@@ -402,7 +402,7 @@ where
         slot: usize,
         mut lane: Lane,
         formed: Formed<M, P>,
-        lease: Lease<Self>,
+        lease: Lease2<Self>,
     ) {
         let Formed { mut batch, claims, entries } = formed;
         let start = Instant::now();
@@ -430,7 +430,7 @@ where
         lane: Lane,
         batch: ExecBatch<P>,
         claims: Vec<ClaimOf<M, P>>,
-        lease: Lease<Self>,
+        lease: Lease2<Self>,
         entries: usize,
         start: Instant,
     ) {
@@ -499,7 +499,7 @@ where
         mut lane: Lane,
         batch: ExecBatch<P>,
         claims: Vec<ClaimOf<M, P>>,
-        lease: Lease<Self>,
+        lease: Lease2<Self>,
         entries: usize,
         start: Instant,
         result: Result<(), EventError>,
@@ -520,7 +520,7 @@ where
         slot: usize,
         lane: Lane,
         claims: Vec<ClaimOf<M, P>>,
-        lease: Lease<Self>,
+        lease: Lease2<Self>,
         entries: usize,
         start: Instant,
     ) {
@@ -540,7 +540,7 @@ where
         slot: usize,
         lane: Lane,
         claims: Vec<ClaimOf<M, P>>,
-        lease: Lease<Self>,
+        lease: Lease2<Self>,
     ) {
         drop(claims);
         drop(lease);
@@ -553,11 +553,11 @@ where
     P: BatchPayload,
     M: BatchMeta + HasResourceRequirements + Send + Sync + 'static,
 {
-    type Entry = Claim<M, P, (), ()>;
+    type Entry = Claim2<M, P, (), ()>;
     fn has_capacity(&self) -> bool {
         self.idle_lanes() > 0
     }
-    fn execute(&self, mut entry: Claim<M, P, (), ()>, lease: Lease<Self>) {
+    fn execute(&self, mut entry: Claim2<M, P, (), ()>, lease: Lease2<Self>) {
         let Some(seed) = entry.take_payload() else {
             return;
         };

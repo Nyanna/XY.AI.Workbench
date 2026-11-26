@@ -78,7 +78,7 @@ fn types_are_send_sync() {
 }
 #[test]
 fn constants_match_contract() {
-    assert_eq!(SCHEMA_VERSION, 1);
+    assert_eq!(SCHEMA_VERSION2, 1);
     assert_eq!(HASH_ALGORITHM, HashAlgorithm::Fast64);
     assert_eq!(HASH_VERSION, 1);
     assert_eq!(TOKENIZER_FP_ALGORITHM, "fnv1a64");

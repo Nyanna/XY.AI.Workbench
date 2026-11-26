@@ -5,22 +5,22 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle, ThreadId};
 /// Result of one work attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Step {
+pub enum Step2 {
     Worked,
     Idle,
 }
 /// Implemented by the Processor. Called concurrently from all workers.
 pub trait WorkSource: Send + Sync + 'static {
-    fn run_once(&self, worker: usize) -> Step;
+    fn run_once(&self, worker: usize) -> Step2;
 }
 /// Pool-wide wake-up channel.
 #[derive(Clone)]
-pub struct Notifier {
+pub struct Notifier3 {
     inner: Arc<(Mutex<u64>, Condvar)>,
 }
-impl Notifier {
+impl Notifier3 {
     fn new() -> Self {
-        Notifier {
+        Notifier3 {
             inner: Arc::new((Mutex::new(0), Condvar::new())),
         }
     }
@@ -57,8 +57,8 @@ pub fn default_max_workers() -> usize {
     let cpus = thread::available_parallelism().map_or(1, |n| n.get());
     cpus.saturating_sub(1).max(1)
 }
-struct Shared {
-    notifier: Notifier,
+struct Shared3 {
+    notifier: Notifier3,
     stop: AtomicBool,
     source: Arc<dyn WorkSource>,
 }
@@ -68,13 +68,13 @@ struct StopState {
     done: bool,
 }
 pub struct WorkerPool {
-    shared: Arc<Shared>,
+    shared: Arc<Shared3>,
     count: AtomicUsize,
     worker_ids: Vec<ThreadId>,
     state: Mutex<StopState>,
     finished: Condvar,
 }
-fn worker_loop(shared: Arc<Shared>, index: usize) {
+fn worker_loop3(shared: Arc<Shared3>, index: usize) {
     loop {
         if shared.stop.load(Ordering::SeqCst) {
             return;
@@ -82,17 +82,17 @@ fn worker_loop(shared: Arc<Shared>, index: usize) {
         let epoch = shared.notifier.epoch();
         let step = catch_unwind(AssertUnwindSafe(|| shared.source.run_once(index)));
         match step {
-            Ok(Step::Idle) => {
+            Ok(Step2::Idle) => {
                 if shared.stop.load(Ordering::SeqCst) {
                     return;
                 }
                 shared.notifier.park_while_unchanged(epoch, &shared.stop);
             }
-            Ok(Step::Worked) | Err(_) => {}
+            Ok(Step2::Worked) | Err(_) => {}
         }
     }
 }
-fn stop_and_join(shared: &Shared, handles: Vec<JoinHandle<()>>) {
+fn stop_and_join(shared: &Shared3, handles: Vec<JoinHandle<()>>) {
     shared.stop.store(true, Ordering::SeqCst);
     shared.notifier.notify();
     let me = thread::current().id();
@@ -109,8 +109,8 @@ impl WorkerPool {
         source: Arc<dyn WorkSource>,
     ) -> Result<WorkerPool, PoolError> {
         let n = cfg.effective_workers();
-        let shared = Arc::new(Shared {
-            notifier: Notifier::new(),
+        let shared = Arc::new(Shared3 {
+            notifier: Notifier3::new(),
             stop: AtomicBool::new(false),
             source,
         });
@@ -119,7 +119,7 @@ impl WorkerPool {
             let s = Arc::clone(&shared);
             let spawned = thread::Builder::new()
                 .name(format!("rag-worker-{index}"))
-                .spawn(move || worker_loop(s, index));
+                .spawn(move || worker_loop3(s, index));
             match spawned {
                 Ok(h) => handles.push(h),
                 Err(e) => {
@@ -141,7 +141,7 @@ impl WorkerPool {
             finished: Condvar::new(),
         })
     }
-    pub fn notifier(&self) -> Notifier {
+    pub fn notifier(&self) -> Notifier3 {
         self.shared.notifier.clone()
     }
     pub fn worker_count(&self) -> usize {

@@ -35,7 +35,7 @@ pub(super) struct Unpublished {
 }
 
 #[derive(Default)]
-pub(super) struct State {
+pub(super) struct State10 {
     /// Ascending by segment ID.
     pub records: Vec<Record>,
     pub unpublished: Vec<Unpublished>,
@@ -52,7 +52,7 @@ pub(super) struct State {
     pub previous_manifest: Option<Arc<Manifest>>,
 }
 
-pub(super) struct Inner {
+pub(super) struct Inner8 {
     pub services: Arc<dyn GpuServices>,
     pub index: Arc<dyn LazyIndex>,
     pub resolver: Arc<ScopeResolverRegistry>,
@@ -62,7 +62,7 @@ pub(super) struct Inner {
     pub slot_bytes: u64,
     pub row_bytes: usize,
     /// The records lock; a leaf in the lock order.
-    pub state: Mutex<State>,
+    pub state: Mutex<State10>,
     /// Serializes slot placement of `ensure` and `reconcile_iteration`.
     pub place_lock: Mutex<()>,
     /// Segments to hand back to the arena once their table epoch is unreferenced.
@@ -74,13 +74,13 @@ pub(super) struct Inner {
     pub mirror_candidates: Mutex<Vec<(EntryId, Stamp)>>,
 }
 
-static_assertions::assert_impl_all!(Inner: Send, Sync);
+static_assertions::assert_impl_all!(Inner8: Send, Sync);
 
 pub(super) fn entry_ref(id: EntryId) -> EntryRef {
     EntryRef { entry: id, section: 0 }
 }
 
-impl Inner {
+impl Inner8 {
     pub(super) fn index(&self) -> Result<Arc<dyn Index>, GpuManagerError> {
         self.index.get().map_err(GpuManagerError::Index)
     }
@@ -218,7 +218,7 @@ impl Inner {
     }
 }
 
-impl Drop for Inner {
+impl Drop for Inner8 {
     fn drop(&mut self) {
         let state = self.state.get_mut().unwrap_or_else(|e| e.into_inner());
         for open in std::mem::take(&mut state.unpublished) {

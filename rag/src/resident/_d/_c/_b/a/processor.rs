@@ -9,20 +9,20 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::
     Queue, Ticket,
 };
 #[derive(Debug)]
-pub enum ExpandError<PE> {
+pub enum ExpandError3<PE> {
     Planner(PE),
 }
-impl<PE: std::fmt::Display> std::fmt::Display for ExpandError<PE> {
+impl<PE: std::fmt::Display> std::fmt::Display for ExpandError3<PE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExpandError::Planner(e) => write!(f, "planner error: {e}"),
+            ExpandError3::Planner(e) => write!(f, "planner error: {e}"),
         }
     }
 }
-impl<PE: std::error::Error + 'static> std::error::Error for ExpandError<PE> {
+impl<PE: std::error::Error + 'static> std::error::Error for ExpandError3<PE> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ExpandError::Planner(e) => Some(e),
+            ExpandError3::Planner(e) => Some(e),
         }
     }
 }
@@ -80,8 +80,8 @@ where
     pub fn expand(
         &self,
         task: &Task<D, T, E>,
-    ) -> Result<Vec<(QueueKind, Ticket<O, V, R, OE>)>, ExpandError<PL::Error>> {
-        let ops = self.planner.expand(task).map_err(ExpandError::Planner)?;
+    ) -> Result<Vec<(QueueKind, Ticket<O, V, R, OE>)>, ExpandError3<PL::Error>> {
+        let ops = self.planner.expand(task).map_err(ExpandError3::Planner)?;
         let mut tickets = Vec::with_capacity(ops.len());
         for op in ops {
             let ticket = self.ops_queue(op.kind).push(op.meta, op.values);

@@ -1,13 +1,13 @@
 //! Services for the Communication-Slot and the hit resolution.
 use std::sync::Arc;
 use super::deps::*;
-use super::state::Inner;
+use super::state::Inner8;
 use super::GpuManager;
 /// Update-queue adapter for the Communication-Slot; the only caller of `UpdateQueue::apply`.
 pub struct SlotUpdates {
     updates: Arc<UpdateQueue>,
     store: Arc<MappingStore>,
-    inner: Arc<Inner>,
+    inner: Arc<Inner8>,
 }
 impl UpdateApplier for SlotUpdates {
     fn depth(&self) -> usize {
@@ -30,7 +30,7 @@ impl UpdateApplier for SlotUpdates {
     }
 }
 struct ManagerMappingSource {
-    inner: Arc<Inner>,
+    inner: Arc<Inner8>,
 }
 impl MappingSource for ManagerMappingSource {
     fn snapshot(&self) -> MappingSnapshot {

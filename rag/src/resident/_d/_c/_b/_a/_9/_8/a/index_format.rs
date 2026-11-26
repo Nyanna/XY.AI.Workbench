@@ -6,7 +6,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_de
     ModelDescriptor, Normalization, Pooling,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-pub const SCHEMA_VERSION: u64 = 1;
+pub const SCHEMA_VERSION2: u64 = 1;
 pub const HASH_ALGORITHM: HashAlgorithm = HashAlgorithm::Fast64;
 pub const HASH_VERSION: u64 = 1;
 pub const TOKENIZER_FP_ALGORITHM: &str = "fnv1a64";
@@ -244,7 +244,7 @@ impl IndexHeader {
             });
         }
         Ok(IndexHeader {
-            schema_version: SCHEMA_VERSION,
+            schema_version: SCHEMA_VERSION2,
             max_stamp: 0,
             hash_algorithm: HASH_ALGORITHM,
             hash_version: HASH_VERSION,

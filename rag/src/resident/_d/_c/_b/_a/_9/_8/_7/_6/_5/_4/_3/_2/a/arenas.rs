@@ -187,27 +187,27 @@ impl Arena {
     }
 }
 
-struct State {
+struct State3 {
     caps: ArenaCapacities,
     arenas: [Option<Arena>; ARENA_COUNT],
 }
 
 /// Thread-safe arena set; arenas are created lazily and exactly once.
 pub struct ArenaSet {
-    state: Mutex<State>,
+    state: Mutex<State3>,
 }
 
 impl ArenaSet {
     pub fn new(caps: ArenaCapacities) -> Self {
         ArenaSet {
-            state: Mutex::new(State {
+            state: Mutex::new(State3 {
                 caps,
                 arenas: [None; ARENA_COUNT],
             }),
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, State> {
+    fn lock(&self) -> MutexGuard<'_, State3> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 

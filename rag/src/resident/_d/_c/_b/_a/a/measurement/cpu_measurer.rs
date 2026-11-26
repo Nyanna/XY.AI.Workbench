@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot5;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::cpu_compute::scan_slots;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::background_pool::BackgroundPool;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
@@ -10,7 +10,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capabil
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::DocSource;
 use super::bench_workload::{Workload, WorkloadConfig};
 use super::{
-    incompatible, judge, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate,
+    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate3,
     Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe, CPU_DOCS,
     MAX_REPS,
 };
@@ -36,7 +36,7 @@ pub struct CpuMeasurer {
     hooks: Hooks,
     workload: Arc<Workload>,
     pool: BackgroundPool,
-    gate: Gate,
+    gate: Gate3,
     warmed: Mutex<HashSet<(String, usize)>>,
     references: ReferenceCache,
 }
@@ -90,7 +90,7 @@ fn scan_range(
             );
     }
     let slots: Vec<Option<&[f32]>> = range
-        .map(|i| source.slot_vectors(segment, Slot(i as u32)))
+        .map(|i| source.slot_vectors(segment, Slot5(i as u32)))
         .collect();
     scan_slots(&queries, &slots, 0..slots.len(), workload.config().dim)
         .map_err(|e| e.to_string())
@@ -113,7 +113,7 @@ impl CpuMeasurer {
             hooks,
             workload,
             pool,
-            gate: Gate::new(),
+            gate: Gate3::new(),
             warmed: Mutex::new(HashSet::new()),
             references: ReferenceCache::default(),
         })
@@ -184,12 +184,12 @@ impl Measure for CpuMeasurer {
         let max_queries = self.workload.config().max_queries;
         let (n, ()) = match preflight(combo, max_queries, cpu_precision) {
             Ok(checked) => checked,
-            Err(text) => return Ok(incompatible(text)),
+            Err(text) => return Ok(incompatible6(text)),
         };
         let dev_cfg = self.cfg.common.deviation_config()?;
         let key = (combo.to_text(), n);
         let scores = self.warm_up(&key).and_then(|()| self.scan(n));
-        judge(
+        judge3(
             &self.workload,
             &self.references,
             &dev_cfg,

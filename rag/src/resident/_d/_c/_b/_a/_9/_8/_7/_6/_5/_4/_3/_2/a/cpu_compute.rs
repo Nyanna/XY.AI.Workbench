@@ -37,7 +37,7 @@ impl fmt::Display for CpuComputeError {
 }
 impl std::error::Error for CpuComputeError {}
 /// Panics if `a.len() != b.len()`.
-pub fn dot(a: &[f32], b: &[f32]) -> f32 {
+pub fn dot2(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "dot: length mismatch");
     let mut lanes = [0.0f32; 8];
     let ca = a.chunks_exact(8);
@@ -68,7 +68,7 @@ fn max_sim_checked(query: &[f32], doc: &[f32], dim: usize) -> f32 {
     for q in query.chunks_exact(dim) {
         let mut m = f32::NEG_INFINITY;
         for d in doc.chunks_exact(dim) {
-            let s = dot(q, d);
+            let s = dot2(q, d);
             if s > m {
                 m = s;
             }
@@ -107,7 +107,7 @@ pub fn l2_normalize(v: &mut [f32]) {
     }
 }
 /// Squared Euclidean distance; panics if `a.len() != b.len()`.
-pub fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
+pub fn sq_dist2(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "sq_dist: length mismatch");
     let mut lanes = [0.0f32; 8];
     let ca = a.chunks_exact(8);
@@ -161,10 +161,10 @@ pub fn dot_with(isa: Isa, a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "dot: length mismatch");
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma => unsafe { x86::dot(a, b) }
+        Isa::Avx2Fma => unsafe { x86::dot3(a, b) }
         #[cfg(target_arch = "aarch64")]
-        Isa::Neon => unsafe { neon::dot(a, b) }
-        Isa::Scalar => dot(a, b),
+        Isa::Neon => unsafe { neon::dot4(a, b) }
+        Isa::Scalar => dot2(a, b),
     }
 }
 /// Squared Euclidean distance on `isa`; panics if `a.len() != b.len()`.
@@ -172,10 +172,10 @@ pub fn sq_dist_with(isa: Isa, a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "sq_dist: length mismatch");
     match isa {
         #[cfg(target_arch = "x86_64")]
-        Isa::Avx2Fma => unsafe { x86::sq_dist(a, b) }
+        Isa::Avx2Fma => unsafe { x86::sq_dist3(a, b) }
         #[cfg(target_arch = "aarch64")]
-        Isa::Neon => unsafe { neon::sq_dist(a, b) }
-        Isa::Scalar => sq_dist(a, b),
+        Isa::Neon => unsafe { neon::sq_dist4(a, b) }
+        Isa::Scalar => sq_dist2(a, b),
     }
 }
 #[cfg(target_arch = "x86_64")]
@@ -191,7 +191,7 @@ mod x86 {
         _mm_cvtss_f32(s)
     }
     #[target_feature(enable = "avx2,fma")]
-    pub(super) unsafe fn dot(a: &[f32], b: &[f32]) -> f32 {
+    pub(super) unsafe fn dot3(a: &[f32], b: &[f32]) -> f32 {
         let n = a.len().min(b.len());
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let mut acc0 = _mm256_setzero_ps();
@@ -226,7 +226,7 @@ mod x86 {
         sum
     }
     #[target_feature(enable = "avx2,fma")]
-    pub(super) unsafe fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
+    pub(super) unsafe fn sq_dist3(a: &[f32], b: &[f32]) -> f32 {
         let n = a.len().min(b.len());
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let mut acc0 = _mm256_setzero_ps();
@@ -266,7 +266,7 @@ mod x86 {
 mod neon {
     use std::arch::aarch64::*;
     #[target_feature(enable = "neon")]
-    pub(super) unsafe fn dot(a: &[f32], b: &[f32]) -> f32 {
+    pub(super) unsafe fn dot4(a: &[f32], b: &[f32]) -> f32 {
         let n = a.len().min(b.len());
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let mut acc0 = vdupq_n_f32(0.0);
@@ -289,7 +289,7 @@ mod neon {
         sum
     }
     #[target_feature(enable = "neon")]
-    pub(super) unsafe fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
+    pub(super) unsafe fn sq_dist4(a: &[f32], b: &[f32]) -> f32 {
         let n = a.len().min(b.len());
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let mut acc0 = vdupq_n_f32(0.0);

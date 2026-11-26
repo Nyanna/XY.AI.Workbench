@@ -27,7 +27,7 @@ fn claim_complete_flow() {
 fn claim_moves_data_once() {
     let task = new_task();
     assert_eq!(task.claim().unwrap(), "data");
-    assert_eq!(task.claim(), Err(ClaimError::NotEnqueued(TaskState::Claimed)));
+    assert_eq!(task.claim(), Err(ClaimError2::NotEnqueued(TaskState::Claimed)));
 }
 #[test]
 fn failed_result() {
@@ -43,7 +43,7 @@ fn cancel_flow() {
     assert!(! task.cancel());
     assert_eq!(task.state(), TaskState::Cancelled);
     assert_eq!(task.result(), Some(Err(TaskError::Cancelled)));
-    assert_eq!(task.claim(), Err(ClaimError::Cancelled));
+    assert_eq!(task.claim(), Err(ClaimError2::Cancelled));
 }
 #[test]
 fn cancel_after_claim_fails() {
@@ -90,7 +90,7 @@ fn second_completion_keeps_first_result() {
 fn busy_when_payload_locked() {
     let task = new_task();
     let guard = task.inner.payload.lock().unwrap();
-    assert_eq!(task.claim(), Err(ClaimError::Busy));
+    assert_eq!(task.claim(), Err(ClaimError2::Busy));
     drop(guard);
     assert_eq!(task.state(), TaskState::Enqueued);
     assert!(task.claim().is_ok());

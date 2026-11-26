@@ -23,10 +23,10 @@ pub struct LoadRequest<I> {
     pub scope: Scope,
 }
 /// Thread-safe collector of load requests.
-pub struct Collector<I> {
+pub struct Collector3<I> {
     requests: Mutex<Vec<LoadRequest<I>>>,
 }
-impl<I> Collector<I> {
+impl<I> Collector3<I> {
     pub fn new() -> Self {
         Self {
             requests: Mutex::new(Vec::new()),
@@ -47,17 +47,17 @@ impl<I> Collector<I> {
         std::mem::take(&mut *lock(&self.requests))
     }
 }
-impl<I> Default for Collector<I> {
+impl<I> Default for Collector3<I> {
     fn default() -> Self {
         Self::new()
     }
 }
 /// Loaded entries of one index, ascending by ID; `None` means missing in the index.
-pub type Loaded = Vec<(EntryId, Option<LoadedEntry>)>;
+pub type Loaded3 = Vec<(EntryId, Option<LoadedEntry>)>;
 #[derive(Debug, Clone)]
 pub struct IndexLoad<I> {
     pub index: I,
-    pub result: Result<Loaded, ResolveError>,
+    pub result: Result<Loaded3, ResolveError>,
 }
 /// Bundles requests per index, loads each index exactly once and the indexes concurrently.
 pub fn load_aggregated<I>(
@@ -108,7 +108,7 @@ fn load_index<I>(
     registry: &ScopeResolverRegistry,
     lookup: &(dyn Fn(&I) -> Option<Arc<dyn Index>> + Sync),
     cell_selector: Option<&dyn CellSelector>,
-) -> Result<Loaded, ResolveError> {
+) -> Result<Loaded3, ResolveError> {
     let requests = scopes.len();
     let outcome = resolve_union(key, scopes, registry, lookup, cell_selector);
     let (index, union) = match outcome {
@@ -125,7 +125,7 @@ fn load_index<I>(
     let capacity = usize::try_from(union.len())
         .unwrap_or(MAX_PREALLOCATED_ENTRIES)
         .min(MAX_PREALLOCATED_ENTRIES);
-    let mut loaded: Loaded = Vec::with_capacity(capacity);
+    let mut loaded: Loaded3 = Vec::with_capacity(capacity);
     load_candidates(index.as_ref(), &union, |id, entry| loaded.push((id, entry)));
     Ok(loaded)
 }
@@ -154,11 +154,11 @@ pub enum FlightRole {
     Joiner,
 }
 /// Handle to a running or finished flight. Clones refer to the same flight.
-pub struct Flight<V, E> {
+pub struct Flight3<V, E> {
     role: FlightRole,
     task: Task<(), V, E>,
 }
-impl<V, E> Clone for Flight<V, E> {
+impl<V, E> Clone for Flight3<V, E> {
     fn clone(&self) -> Self {
         Self {
             role: self.role,
@@ -166,7 +166,7 @@ impl<V, E> Clone for Flight<V, E> {
         }
     }
 }
-impl<V, E> Flight<V, E> {
+impl<V, E> Flight3<V, E> {
     pub fn role(&self) -> FlightRole {
         self.role
     }
@@ -181,11 +181,11 @@ struct FlightEntry<V, E> {
     id: u64,
     task: Task<(), V, E>,
 }
-struct Shared<K, V, E> {
+struct Shared4<K, V, E> {
     next_id: AtomicU64,
     flights: Mutex<HashMap<K, FlightEntry<V, E>>>,
 }
-impl<K: Eq + Hash, V, E> Shared<K, V, E> {
+impl<K: Eq + Hash, V, E> Shared4<K, V, E> {
     fn remove_if_current(&self, key: &K, id: u64) {
         let mut flights = lock(&self.flights);
         if flights.get(key).is_some_and(|entry| entry.id == id) {
@@ -195,7 +195,7 @@ impl<K: Eq + Hash, V, E> Shared<K, V, E> {
 }
 /// Handed to the starter; settles the flight exactly once.
 pub struct FlightCompleter<K: Eq + Hash, V, E> {
-    shared: Arc<Shared<K, V, E>>,
+    shared: Arc<Shared4<K, V, E>>,
     key: K,
     id: u64,
     task: Option<Task<(), V, E>>,
@@ -229,7 +229,7 @@ impl<K: Eq + Hash, V, E> Drop for FlightCompleter<K, V, E> {
 }
 /// Merges concurrent loads with equal keys into one flight. Cheap to clone.
 pub struct SingleFlight<K, V, E> {
-    shared: Arc<Shared<K, V, E>>,
+    shared: Arc<Shared4<K, V, E>>,
 }
 impl<K, V, E> Clone for SingleFlight<K, V, E> {
     fn clone(&self) -> Self {
@@ -241,7 +241,7 @@ impl<K, V, E> Clone for SingleFlight<K, V, E> {
 impl<K: Eq + Hash + Clone + Debug, V, E> SingleFlight<K, V, E> {
     pub fn new() -> Self {
         Self {
-            shared: Arc::new(Shared {
+            shared: Arc::new(Shared4 {
                 next_id: AtomicU64::new(0),
                 flights: Mutex::new(HashMap::new()),
             }),
@@ -249,14 +249,14 @@ impl<K: Eq + Hash + Clone + Debug, V, E> SingleFlight<K, V, E> {
     }
     /// Joins the running flight for `key`, or registers a new one and calls `start` once.
     /// `start` must not block on the load itself and may call `finish` later.
-    pub fn join_or_start<S>(&self, key: K, start: S) -> Flight<V, E>
+    pub fn join_or_start<S>(&self, key: K, start: S) -> Flight3<V, E>
     where
         S: FnOnce(FlightCompleter<K, V, E>),
     {
         let (flight, completer) = {
             let mut flights = lock(&self.shared.flights);
             if let Some(entry) = flights.get(&key) {
-                let flight = Flight {
+                let flight = Flight3 {
                     role: FlightRole::Joiner,
                     task: entry.task.clone(),
                 };
@@ -281,7 +281,7 @@ impl<K: Eq + Hash + Clone + Debug, V, E> SingleFlight<K, V, E> {
                 task: Some(task.clone()),
             };
             (
-                Flight {
+                Flight3 {
                     role: FlightRole::Starter,
                     task,
                 },

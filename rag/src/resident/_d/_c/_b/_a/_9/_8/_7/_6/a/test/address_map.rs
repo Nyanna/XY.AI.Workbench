@@ -8,13 +8,13 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-static_assertions::assert_impl_all!(Entry : Send, Sync);
+static_assertions::assert_impl_all!(Entry6 : Send, Sync);
 static_assertions::assert_impl_all!(AddressMap : Send, Sync);
 static_assertions::assert_impl_all!(MappingStore : Send, Sync);
 static_assertions::assert_impl_all!(SegmentId : Send, Sync);
 static_assertions::assert_impl_all!(MapError : Send, Sync);
 const SLOT_BYTES: u64 = 512;
-fn entry_at(id: u64, offset: u64, slots: u32) -> Entry {
+fn entry_at(id: u64, offset: u64, slots: u32) -> Entry6 {
     let region = RegionHandle::new(
             ArenaKind::IndexSegments,
             offset,
@@ -33,16 +33,16 @@ fn entry_at(id: u64, offset: u64, slots: u32) -> Entry {
         .unwrap();
     let states = Arc::new(SlotStates::new(&view));
     let assignment = Arc::new(SlotAssignment::fixed(&view, Addr(offset)).unwrap());
-    Entry::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
+    Entry6::new(SegmentId(id), view, Addr(offset), states, assignment).unwrap()
 }
 #[test]
 fn entry_range_and_slot_at() {
     let e = entry_at(1, 1000, 3);
     assert_eq!(e.range(), 1000..1000 + 3 * SLOT_BYTES);
     assert_eq!(e.slot_at(999), None);
-    assert_eq!(e.slot_at(1000), Some(Slot(0)));
-    assert_eq!(e.slot_at(1000 + SLOT_BYTES - 1), Some(Slot(0)));
-    assert_eq!(e.slot_at(1000 + SLOT_BYTES), Some(Slot(1)));
+    assert_eq!(e.slot_at(1000), Some(Slot5(0)));
+    assert_eq!(e.slot_at(1000 + SLOT_BYTES - 1), Some(Slot5(0)));
+    assert_eq!(e.slot_at(1000 + SLOT_BYTES), Some(Slot5(1)));
     assert_eq!(e.slot_at(1000 + 3 * SLOT_BYTES), None);
     assert_eq!(e.id(), SegmentId(1));
     assert_eq!(e.device_base(), Addr(1000));
@@ -60,7 +60,7 @@ fn entry_range_at_arena_end() {
         .unwrap();
     let states = Arc::new(SlotStates::new(&view));
     let assignment = Arc::new(SlotAssignment::fixed(&view, Addr(0)).unwrap());
-    let e = Entry::new(SegmentId(1), view, Addr(0), states, assignment).unwrap();
+    let e = Entry6::new(SegmentId(1), view, Addr(0), states, assignment).unwrap();
     assert_eq!(e.range().end, u64::MAX);
     assert_eq!(e.slot_at(u64::MAX), None);
 }
@@ -150,8 +150,8 @@ fn shared_bindings_across_epochs() {
         entry: EntryId(7),
         section: 0,
     };
-    e.assignment().bind(Slot(0), r).unwrap();
-    let seen = next.get(SegmentId(1)).unwrap().assignment().lookup(Slot(0));
+    e.assignment().bind(Slot5(0), r).unwrap();
+    let seen = next.get(SegmentId(1)).unwrap().assignment().lookup(Slot5(0));
     assert_eq!(seen, Some(r));
     assert!(
         Arc::ptr_eq(m.get(SegmentId(1)).unwrap().states(), next.get(SegmentId(1))

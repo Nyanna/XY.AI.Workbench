@@ -21,7 +21,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_require
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::SlotClass;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
-    InitRequest, LifecycleConfig, Lease, MemoryClass, ResourceLoader, ResourceRegistry,
+    InitRequest, LifecycleConfig, Lease2, MemoryClass, ResourceLoader, ResourceRegistry,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::notification_topology::NotificationTopology;
 use crate::resident::_d::_c::_b::_a::_9::a::gpu_completion::GpuCompletion;
@@ -49,8 +49,8 @@ fn retained() -> (Arc<CudaBackend>, GpuDeviceInfo) {
 fn arena(kind: ArenaKind, capacity: u64) -> Arena {
     Arena { kind, capacity }
 }
-fn as_dyn(backend: &Arc<CudaBackend>) -> Arc<dyn GpuBackend> {
-    Arc::clone(backend) as Arc<dyn GpuBackend>
+fn as_dyn(backend: &Arc<CudaBackend>) -> Arc<dyn GpuBackend3> {
+    Arc::clone(backend) as Arc<dyn GpuBackend3>
 }
 #[test]
 fn the_real_card_is_enumerated() {
@@ -610,7 +610,7 @@ fn a_batch_runs_on_real_streams_and_finishes_through_the_stream_callback() {
         panic!("load not started");
     };
     ticket.run(now).unwrap();
-    let lease = |registry: &ResourceRegistry<Res>| -> Lease<Res> {
+    let lease = |registry: &ResourceRegistry<Res>| -> Lease2<Res> {
         match registry.request_init("lanes", 2, Instant::now()) {
             InitRequest::Ready(lease) => lease,
             _ => panic!("not ready"),
@@ -642,7 +642,7 @@ fn a_batch_runs_on_real_streams_and_finishes_through_the_stream_callback() {
     assert_eq!(runner.collects.load(Ordering::SeqCst), 1);
     assert_eq!(resource.idle_lanes(), 2);
     assert!(woken.load(Ordering::SeqCst) >= 1);
-    assert_eq!(task.state(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State::Succeeded);
+    assert_eq!(task.state(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State2::Succeeded);
 }
 #[test]
 fn lane_resources_get_streams_of_their_own() {

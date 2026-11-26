@@ -19,7 +19,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::similarity_task:
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::operation::RamData;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context::TaskContext;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, EntryId, IndexError, Payload, PayloadRef, Stamp, StampObserver,
+    AccessMethod, EntryId, IndexError, Payload2, PayloadRef, Stamp, StampObserver,
     StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::E5_SMALL_MODEL_ID;
@@ -162,9 +162,9 @@ impl Index for CountingIndex {
         self.hit();
         Vec::new()
     }
-    fn read(&self, _id: EntryId) -> Payload {
+    fn read(&self, _id: EntryId) -> Payload2 {
         self.hit();
-        Payload::default()
+        Payload2::default()
     }
     fn write(
         &self,

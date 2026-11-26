@@ -181,7 +181,7 @@ pub trait BatchExecutor: Send + Sync {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BatchError {
+pub enum BatchError3 {
     UnknownBatch(BatchId),
     InvalidSpec(String),
     /// A run is already in flight.
@@ -193,20 +193,20 @@ pub enum BatchError {
     Executor(String),
 }
 
-impl fmt::Display for BatchError {
+impl fmt::Display for BatchError3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BatchError::UnknownBatch(id) => write!(f, "unknown batch {}", id.0),
-            BatchError::InvalidSpec(msg) => write!(f, "invalid batch spec: {msg}"),
-            BatchError::Busy => write!(f, "batch is running"),
-            BatchError::NeedsRanges => write!(f, "batch needs new ranges"),
-            BatchError::AlreadyFinished => write!(f, "batch already finished"),
-            BatchError::Executor(msg) => write!(f, "executor failed: {msg}"),
+            BatchError3::UnknownBatch(id) => write!(f, "unknown batch {}", id.0),
+            BatchError3::InvalidSpec(msg) => write!(f, "invalid batch spec: {msg}"),
+            BatchError3::Busy => write!(f, "batch is running"),
+            BatchError3::NeedsRanges => write!(f, "batch needs new ranges"),
+            BatchError3::AlreadyFinished => write!(f, "batch already finished"),
+            BatchError3::Executor(msg) => write!(f, "executor failed: {msg}"),
         }
     }
 }
 
-impl std::error::Error for BatchError {}
+impl std::error::Error for BatchError3 {}
 
 struct BatchState {
     spec: Arc<BatchSpec>,
@@ -239,9 +239,9 @@ impl<E: BatchExecutor> BatchInterface<E> {
         }
     }
 
-    pub fn begin(&self, spec: BatchSpec, mode: BatchMode) -> Result<BatchId, BatchError> {
+    pub fn begin(&self, spec: BatchSpec, mode: BatchMode) -> Result<BatchId, BatchError3> {
         if spec.query_count == 0 {
-            return Err(BatchError::InvalidSpec("query_count must be greater than zero".to_string()));
+            return Err(BatchError3::InvalidSpec("query_count must be greater than zero".to_string()));
         }
         let (event, signal) = match mode {
             BatchMode::Normal => {
@@ -268,31 +268,31 @@ impl<E: BatchExecutor> BatchInterface<E> {
         Ok(id)
     }
 
-    pub fn assign_ranges(&self, id: BatchId, ranges: &[RegionHandle]) -> Result<(), BatchError> {
+    pub fn assign_ranges(&self, id: BatchId, ranges: &[RegionHandle]) -> Result<(), BatchError3> {
         let mut map = self.lock();
-        let state = map.get_mut(&id).ok_or(BatchError::UnknownBatch(id))?;
+        let state = map.get_mut(&id).ok_or(BatchError3::UnknownBatch(id))?;
         if state.running {
-            return Err(BatchError::Busy);
+            return Err(BatchError3::Busy);
         }
         if state.finished {
-            return Err(BatchError::AlreadyFinished);
+            return Err(BatchError3::AlreadyFinished);
         }
         state.ranges.extend(ranges.iter().copied().map(RangeCursor::new));
         Ok(())
     }
 
-    pub fn run(&self, id: BatchId, inputs: &BatchInputs) -> Result<RunOutcome, BatchError> {
+    pub fn run(&self, id: BatchId, inputs: &BatchInputs) -> Result<RunOutcome, BatchError3> {
         let (spec, first, mut cursors, done) = {
             let mut map = self.lock();
-            let state = map.get_mut(&id).ok_or(BatchError::UnknownBatch(id))?;
+            let state = map.get_mut(&id).ok_or(BatchError3::UnknownBatch(id))?;
             if state.running {
-                return Err(BatchError::Busy);
+                return Err(BatchError3::Busy);
             }
             if state.finished {
-                return Err(BatchError::AlreadyFinished);
+                return Err(BatchError3::AlreadyFinished);
             }
             if state.fresh_start >= state.ranges.len() {
-                return Err(BatchError::NeedsRanges);
+                return Err(BatchError3::NeedsRanges);
             }
             state.running = true;
             (
@@ -312,9 +312,9 @@ impl<E: BatchExecutor> BatchInterface<E> {
         };
 
         let mut map = self.lock();
-        let state = map.get_mut(&id).ok_or(BatchError::UnknownBatch(id))?;
+        let state = map.get_mut(&id).ok_or(BatchError3::UnknownBatch(id))?;
         state.running = false;
-        let outcome = result.map_err(BatchError::Executor)?;
+        let outcome = result.map_err(BatchError3::Executor)?;
 
         let end = first + cursors.len();
         state.ranges[first..end].copy_from_slice(&cursors);
@@ -339,9 +339,9 @@ impl<E: BatchExecutor> BatchInterface<E> {
         }
     }
 
-    pub fn progress(&self, id: BatchId) -> Result<u64, BatchError> {
+    pub fn progress(&self, id: BatchId) -> Result<u64, BatchError3> {
         let mut map = self.lock();
-        let state = map.get_mut(&id).ok_or(BatchError::UnknownBatch(id))?;
+        let state = map.get_mut(&id).ok_or(BatchError3::UnknownBatch(id))?;
         let total = u64::from(state.spec.query_count);
         let current = match &state.mode {
             BatchMode::Normal => u64::from(state.queries_done),
@@ -352,22 +352,22 @@ impl<E: BatchExecutor> BatchInterface<E> {
     }
 
     /// Normal mode: the batch event. Persistent mode: `InvalidSpec`.
-    pub fn event(&self, id: BatchId) -> Result<Event, BatchError> {
+    pub fn event(&self, id: BatchId) -> Result<Event, BatchError3> {
         let map = self.lock();
-        let state = map.get(&id).ok_or(BatchError::UnknownBatch(id))?;
+        let state = map.get(&id).ok_or(BatchError3::UnknownBatch(id))?;
         state.event.clone().ok_or_else(|| {
-            BatchError::InvalidSpec("persistent batches have no event".to_string())
+            BatchError3::InvalidSpec("persistent batches have no event".to_string())
         })
     }
 
-    pub fn end(&self, id: BatchId) -> Result<Vec<UsedRange>, BatchError> {
+    pub fn end(&self, id: BatchId) -> Result<Vec<UsedRange>, BatchError3> {
         let mut map = self.lock();
         match map.get(&id) {
-            None => return Err(BatchError::UnknownBatch(id)),
-            Some(state) if state.running => return Err(BatchError::Busy),
+            None => return Err(BatchError3::UnknownBatch(id)),
+            Some(state) if state.running => return Err(BatchError3::Busy),
             Some(_) => {}
         }
-        let state = map.remove(&id).ok_or(BatchError::UnknownBatch(id))?;
+        let state = map.remove(&id).ok_or(BatchError3::UnknownBatch(id))?;
         Ok(state
             .ranges
             .iter()

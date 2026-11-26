@@ -44,15 +44,15 @@ impl fmt::Display for ManifestError {
 }
 impl std::error::Error for ManifestError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SyncError {
+pub struct SyncError3 {
     pub cause: String,
 }
-impl fmt::Display for SyncError {
+impl fmt::Display for SyncError3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "sync failed: {}", self.cause)
     }
 }
-impl std::error::Error for SyncError {}
+impl std::error::Error for SyncError3 {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SegmentSpec {
     id: SegmentId,
@@ -119,11 +119,11 @@ impl SegmentSpec {
         self.bytes
     }
 }
-struct Retired {
+struct Retired3 {
     region: RegionHandle,
     markers: Vec<Event>,
 }
-type RetireQueue = Mutex<Vec<Retired>>;
+type RetireQueue = Mutex<Vec<Retired3>>;
 struct Markers {
     events: Vec<Event>,
     prune_at: usize,
@@ -163,7 +163,7 @@ impl Drop for SegmentState {
         let markers = self.markers.get_mut().unwrap_or_else(PoisonError::into_inner);
         let markers = std::mem::take(&mut markers.events);
         lock(&self.retire)
-            .push(Retired {
+            .push(Retired3 {
                 region: self.region,
                 markers,
             });
@@ -240,13 +240,13 @@ impl fmt::Debug for Manifest {
             .finish()
     }
 }
-pub struct Lease {
+pub struct Lease3 {
     manifest: Manifest,
 }
-impl Lease {
-    fn new(manifest: Manifest) -> Lease {
+impl Lease3 {
+    fn new(manifest: Manifest) -> Lease3 {
         manifest.inner.leases.fetch_add(1, Ordering::AcqRel);
-        Lease { manifest }
+        Lease3 { manifest }
     }
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
@@ -263,12 +263,12 @@ impl Lease {
         }
     }
 }
-impl Drop for Lease {
+impl Drop for Lease3 {
     fn drop(&mut self) {
         self.manifest.inner.leases.fetch_sub(1, Ordering::AcqRel);
     }
 }
-impl fmt::Debug for Lease {
+impl fmt::Debug for Lease3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Lease").field("generation", &self.generation()).finish()
     }
@@ -369,8 +369,8 @@ impl ManifestStore {
             inner: self.current.load_full(),
         }
     }
-    pub fn lease(&self) -> Lease {
-        Lease::new(self.current())
+    pub fn lease(&self) -> Lease3 {
+        Lease3::new(self.current())
     }
     pub fn successor(
         &self,
@@ -464,12 +464,12 @@ impl ManifestStore {
         lane: &mut Lane,
         enqueue: F,
         next: Manifest,
-    ) -> Result<(), SyncError>
+    ) -> Result<(), SyncError3>
     where
         F: FnOnce(&mut Lane) -> Result<(), String>,
     {
-        enqueue(lane).map_err(|cause| SyncError { cause })?;
-        let event = lane.record_event().map_err(|e| SyncError { cause: e.to_string() })?;
+        enqueue(lane).map_err(|cause| SyncError3 { cause })?;
+        let event = lane.record_event().map_err(|e| SyncError3 { cause: e.to_string() })?;
         self.stage(next, event);
         Ok(())
     }
@@ -552,13 +552,13 @@ impl fmt::Debug for ManifestStore {
     }
 }
 static_assertions::assert_impl_all!(Manifest : Send, Sync);
-static_assertions::assert_impl_all!(Lease : Send, Sync);
+static_assertions::assert_impl_all!(Lease3 : Send, Sync);
 static_assertions::assert_impl_all!(SegmentSpec : Send, Sync);
 static_assertions::assert_impl_all!(ChangeEvent : Send, Sync);
 static_assertions::assert_impl_all!(Subscriber : Send, Sync);
 static_assertions::assert_impl_all!(ManifestStore : Send, Sync);
 static_assertions::assert_impl_all!(ManifestError : Send, Sync);
-static_assertions::assert_impl_all!(SyncError : Send, Sync);
+static_assertions::assert_impl_all!(SyncError3 : Send, Sync);
 #[cfg(test)]
 #[path = "test/manifest.rs"]
 mod tests;

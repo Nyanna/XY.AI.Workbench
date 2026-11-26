@@ -12,7 +12,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::index_open::
     LazyIndexFile, OpenError,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
-    AccessMethod, EntryId, Index, IndexError, Payload, PayloadRef, SharedBytes, Stamp,
+    AccessMethod, EntryId, Index, IndexError, Payload2, PayloadRef, SharedBytes, Stamp,
     StampObserver, StampSignal,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::change_stamp::{
@@ -68,7 +68,7 @@ struct Live {
     checksum: u64,
 }
 #[derive(Clone)]
-enum Slot {
+enum Slot9 {
     Live(Live),
     Tombstone,
 }
@@ -84,7 +84,7 @@ pub struct EntryStore {
     header: IndexHeader,
     file: Option<Arc<LazyIndexFile>>,
     checksum: Arc<dyn ChecksumProvider>,
-    overlay: RwLock<BTreeMap<EntryId, Slot>>,
+    overlay: RwLock<BTreeMap<EntryId, Slot9>>,
     change_seq: AtomicU64,
     saved_seq: AtomicU64,
     runtime: OnceLock<Result<Runtime, OpenError>>,
@@ -122,8 +122,8 @@ impl EntryStore {
             None => false,
         };
         let exists = match overlay.get(&id) {
-            Some(Slot::Live(_)) => true,
-            Some(Slot::Tombstone) => false,
+            Some(Slot9::Live(_)) => true,
+            Some(Slot9::Tombstone) => false,
             None => in_file,
         };
         if !exists {
@@ -131,7 +131,7 @@ impl EntryStore {
         }
         let stamp = rt.counter.next()?;
         if in_file {
-            overlay.insert(id, Slot::Tombstone);
+            overlay.insert(id, Slot9::Tombstone);
         } else {
             overlay.remove(&id);
         }
@@ -142,8 +142,8 @@ impl EntryStore {
     }
     pub fn meta(&self, id: EntryId) -> Option<SharedBytes> {
         match self.overlay_lookup(id) {
-            Some(Slot::Live(live)) => Some(live.meta),
-            Some(Slot::Tombstone) => None,
+            Some(Slot9::Live(live)) => Some(live.meta),
+            Some(Slot9::Tombstone) => None,
             None => self.file.as_ref().and_then(|file| file.read_meta(id)),
         }
     }
@@ -227,7 +227,7 @@ impl EntryStore {
             self.export_file_rows(file, &overlay, &mut entries)?;
         }
         for (id, slot) in overlay {
-            if let Slot::Live(live) = slot {
+            if let Slot9::Live(live) = slot {
                 entries
                     .push(ExportedEntry {
                         id,
@@ -250,7 +250,7 @@ impl EntryStore {
     fn export_file_rows(
         &self,
         file: &LazyIndexFile,
-        overlay: &BTreeMap<EntryId, Slot>,
+        overlay: &BTreeMap<EntryId, Slot9>,
         out: &mut Vec<ExportedEntry>,
     ) -> Result<(), ExportError> {
         let rows: Vec<(EntryId, Stamp)> = file
@@ -328,7 +328,7 @@ impl EntryStore {
         overlay
             .insert(
                 id,
-                Slot::Live(Live {
+                Slot9::Live(Live {
                     vector: SharedBytes::from(vector),
                     meta,
                     stamp,
@@ -343,10 +343,10 @@ impl EntryStore {
         );
         Ok(stamp)
     }
-    fn kept_meta(&self, overlay: &BTreeMap<EntryId, Slot>, id: EntryId) -> SharedBytes {
+    fn kept_meta(&self, overlay: &BTreeMap<EntryId, Slot9>, id: EntryId) -> SharedBytes {
         match overlay.get(&id) {
-            Some(Slot::Live(live)) => live.meta.clone(),
-            Some(Slot::Tombstone) => SharedBytes::default(),
+            Some(Slot9::Live(live)) => live.meta.clone(),
+            Some(Slot9::Tombstone) => SharedBytes::default(),
             None => {
                 self.file
                     .as_ref()
@@ -366,13 +366,13 @@ impl EntryStore {
         let signal = StampSignal::new(Stamp(counter.max_raw().unwrap_or(0)));
         Ok(Runtime { counter, signal })
     }
-    fn overlay_read(&self) -> RwLockReadGuard<'_, BTreeMap<EntryId, Slot>> {
+    fn overlay_read(&self) -> RwLockReadGuard<'_, BTreeMap<EntryId, Slot9>> {
         self.overlay.read().unwrap_or_else(|e| e.into_inner())
     }
-    fn overlay_write(&self) -> RwLockWriteGuard<'_, BTreeMap<EntryId, Slot>> {
+    fn overlay_write(&self) -> RwLockWriteGuard<'_, BTreeMap<EntryId, Slot9>> {
         self.overlay.write().unwrap_or_else(|e| e.into_inner())
     }
-    fn overlay_lookup(&self, id: EntryId) -> Option<Slot> {
+    fn overlay_lookup(&self, id: EntryId) -> Option<Slot9> {
         self.overlay_read().get(&id).cloned()
     }
     fn file_stamps(&self) -> Vec<(EntryId, Stamp)> {
@@ -425,8 +425,8 @@ impl Index for EntryStore {
     }
     fn stamp(&self, id: EntryId) -> Option<Stamp> {
         match self.overlay_lookup(id) {
-            Some(Slot::Live(live)) => Some(live.stamp),
-            Some(Slot::Tombstone) => None,
+            Some(Slot9::Live(live)) => Some(live.stamp),
+            Some(Slot9::Tombstone) => None,
             None => {
                 let file = self.file.as_ref()?;
                 file.stamp(id)
@@ -446,21 +446,21 @@ impl Index for EntryStore {
             .overlay_read()
             .iter()
             .map(|(id, slot)| match slot {
-                Slot::Live(live) => (*id, Some(live.stamp)),
-                Slot::Tombstone => (*id, None),
+                Slot9::Live(live) => (*id, Some(live.stamp)),
+                Slot9::Tombstone => (*id, None),
             })
             .collect();
         merge_stamps(file, overlay)
     }
-    fn read(&self, id: EntryId) -> Payload {
+    fn read(&self, id: EntryId) -> Payload2 {
         match self.overlay_lookup(id) {
-            Some(Slot::Live(live)) => {
-                Payload {
+            Some(Slot9::Live(live)) => {
+                Payload2 {
                     vector: live.vector,
                     meta: live.meta,
                 }
             }
-            Some(Slot::Tombstone) => Payload::default(),
+            Some(Slot9::Tombstone) => Payload2::default(),
             None => self.file.as_ref().map(|file| file.read(id)).unwrap_or_default(),
         }
     }

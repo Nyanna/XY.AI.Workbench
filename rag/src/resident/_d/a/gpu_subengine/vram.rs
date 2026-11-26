@@ -3,29 +3,29 @@ use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 use log::warn;
 
-use super::backend::GpuBackend;
+use super::backend::GpuBackend3;
 use super::config::GpuConfig;
 use super::deps::*;
 use super::error::GpuError;
 
 /// Result of a successful reservation; lives as long as the arenas.
-pub(super) struct Reserved {
+pub(super) struct Reserved2 {
     regions: HashMap<ArenaKind, AccessRegion>,
     bookkeeping: Arc<Bookkeeping>,
     allocators: Arc<AllocatorSet>,
     weights: Arena,
 }
 
-impl Reserved {
+impl Reserved2 {
     pub(super) fn allocators(&self) -> &Arc<AllocatorSet> {
         &self.allocators
     }
 }
 
-enum Phase {
+enum Phase3 {
     Idle,
     Reserving,
-    Ready(Arc<Reserved>),
+    Ready(Arc<Reserved2>),
 }
 
 /// Resets a reservation that did not finish, so that waiters and later calls retry.
@@ -37,7 +37,7 @@ struct ReserveGuard<'a> {
 impl Drop for ReserveGuard<'_> {
     fn drop(&mut self) {
         if self.armed {
-            *lock(&self.owner.phase) = Phase::Idle;
+            *lock(&self.owner.phase) = Phase3::Idle;
             self.owner.changed.notify_all();
         }
     }
@@ -49,7 +49,7 @@ pub struct WeightSet {
     weights: LoadedWeights,
     extent: Option<RegionHandle>,
     bytes: u64,
-    owner: Option<Arc<Reserved>>,
+    owner: Option<Arc<Reserved2>>,
 }
 
 impl WeightSet {
@@ -82,17 +82,17 @@ static_assertions::assert_impl_all!(WeightSet : Send, Sync);
 /// Manages the VRAM of one GPU: reserves the six arenas once and places model weights.
 pub struct VramManager {
     ordinal: u32,
-    backend: Arc<dyn GpuBackend>,
+    backend: Arc<dyn GpuBackend3>,
     capacities: ArenaCapacities,
     headroom: u64,
     generations: u32,
-    phase: Mutex<Phase>,
+    phase: Mutex<Phase3>,
     changed: Condvar,
 }
 
 static_assertions::assert_impl_all!(VramManager : Send, Sync);
 
-fn align_up(value: u64) -> Option<u64> {
+fn align_up5(value: u64) -> Option<u64> {
     value.checked_add(WEIGHT_ALIGN - 1).map(|v| v & !(WEIGHT_ALIGN - 1))
 }
 
@@ -104,21 +104,21 @@ fn required_size(file: &WeightFile, select: &dyn Fn(&str) -> bool) -> Option<u64
         if !select(&info.name) {
             continue;
         }
-        let start = align_up(cursor)?;
+        let start = align_up5(cursor)?;
         cursor = start.checked_add(info.data_end - info.data_begin)?;
     }
     Some(cursor)
 }
 
 impl VramManager {
-    pub(super) fn new(ordinal: u32, backend: Arc<dyn GpuBackend>, cfg: &GpuConfig) -> Arc<Self> {
+    pub(super) fn new(ordinal: u32, backend: Arc<dyn GpuBackend3>, cfg: &GpuConfig) -> Arc<Self> {
         Arc::new(VramManager {
             ordinal,
             backend,
             capacities: cfg.arenas,
             headroom: cfg.headroom,
             generations: cfg.generations.max(1),
-            phase: Mutex::new(Phase::Idle),
+            phase: Mutex::new(Phase3::Idle),
             changed: Condvar::new(),
         })
     }
@@ -133,45 +133,45 @@ impl VramManager {
     }
 
     pub fn arenas_ready(&self) -> bool {
-        matches!(&*lock(&self.phase), Phase::Ready(_))
+        matches!(&*lock(&self.phase), Phase3::Ready(_))
     }
 
     /// Region of a reserved arena (clone); `None` before `ensure_arenas`.
     pub fn arena_region(&self, kind: ArenaKind) -> Option<AccessRegion> {
         match &*lock(&self.phase) {
-            Phase::Ready(r) => r.regions.get(&kind).cloned(),
+            Phase3::Ready(r) => r.regions.get(&kind).cloned(),
             _ => None,
         }
     }
 
-    pub(super) fn reserved(&self) -> Result<Arc<Reserved>, GpuError> {
+    pub(super) fn reserved(&self) -> Result<Arc<Reserved2>, GpuError> {
         let mut phase = lock(&self.phase);
         loop {
             match &*phase {
-                Phase::Ready(r) => return Ok(Arc::clone(r)),
-                Phase::Reserving => {
+                Phase3::Ready(r) => return Ok(Arc::clone(r)),
+                Phase3::Reserving => {
                     phase = self
                         .changed
                         .wait(phase)
                         .unwrap_or_else(PoisonError::into_inner);
                 }
-                Phase::Idle => break,
+                Phase3::Idle => break,
             }
         }
-        *phase = Phase::Reserving;
+        *phase = Phase3::Reserving;
         drop(phase);
         let mut guard = ReserveGuard {
             owner: self,
             armed: true,
         };
         let reserved = Arc::new(self.reserve_all()?);
-        *lock(&self.phase) = Phase::Ready(Arc::clone(&reserved));
+        *lock(&self.phase) = Phase3::Ready(Arc::clone(&reserved));
         guard.armed = false;
         self.changed.notify_all();
         Ok(reserved)
     }
 
-    fn reserve_all(&self) -> Result<Reserved, GpuError> {
+    fn reserve_all(&self) -> Result<Reserved2, GpuError> {
         let query = self.backend.memory_query(self.ordinal);
         let budget = Budget::from_query(
                 &*query,
@@ -201,7 +201,7 @@ impl VramManager {
                 &[(weights, DeviceKind::Gpu), (segments, DeviceKind::Gpu)],
             )
             .map_err(|e| GpuError::InvalidConfig(e.to_string()))?;
-        Ok(Reserved {
+        Ok(Reserved2 {
             regions,
             bookkeeping,
             allocators: Arc::new(allocators),
@@ -237,7 +237,7 @@ impl VramManager {
                 }),
             );
         }
-        let reserve_len = align_up(required).ok_or_else(overflow)?;
+        let reserve_len = align_up5(required).ok_or_else(overflow)?;
         let allocator = reserved
             .allocators
             .shared(ArenaKind::Weights)
@@ -278,7 +278,7 @@ impl VramManager {
     /// Sum of the live extent sizes.
     pub fn weights_used(&self) -> u64 {
         match &*lock(&self.phase) {
-            Phase::Ready(r) => r.bookkeeping.live_bytes(ArenaKind::Weights),
+            Phase3::Ready(r) => r.bookkeeping.live_bytes(ArenaKind::Weights),
             _ => 0,
         }
     }

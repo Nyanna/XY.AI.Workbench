@@ -3,35 +3,35 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 use super::super::_6::_5::a::segments::SlotRef;
 use super::super::_6::_5::_4::_3::_2::a::index_contract::{
-    EntryId, Index, Payload, Stamp, StampObserver,
+    EntryId, Index, Payload2, Stamp, StampObserver,
 };
 pub const MAX_LOAD_RETRIES: u32 = 8;
 const WAIT_SLICE: Duration = Duration::from_millis(100);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Resident {
+pub struct Resident2 {
     pub slot: SlotRef,
     pub stamp: Stamp,
 }
 #[derive(Debug, Default)]
 pub struct ResidencyDirectory {
-    map: Mutex<BTreeMap<EntryId, Resident>>,
+    map: Mutex<BTreeMap<EntryId, Resident2>>,
 }
 impl ResidencyDirectory {
     pub fn new() -> Self {
         Self::default()
     }
-    fn lock(&self) -> MutexGuard<'_, BTreeMap<EntryId, Resident>> {
+    fn lock(&self) -> MutexGuard<'_, BTreeMap<EntryId, Resident2>> {
         self.map.lock().unwrap_or_else(|e| e.into_inner())
     }
     /// Inserts or replaces; returns the previous entry.
-    pub fn insert(&self, id: EntryId, slot: SlotRef, known: Stamp) -> Option<Resident> {
-        let resident = Resident { slot, stamp: known };
+    pub fn insert(&self, id: EntryId, slot: SlotRef, known: Stamp) -> Option<Resident2> {
+        let resident = Resident2 { slot, stamp: known };
         self.lock().insert(id, resident)
     }
-    pub fn remove(&self, id: EntryId) -> Option<Resident> {
+    pub fn remove(&self, id: EntryId) -> Option<Resident2> {
         self.lock().remove(&id)
     }
-    pub fn get(&self, id: EntryId) -> Option<Resident> {
+    pub fn get(&self, id: EntryId) -> Option<Resident2> {
         self.lock().get(&id).copied()
     }
     pub fn stamp(&self, id: EntryId) -> Option<Stamp> {
@@ -55,14 +55,14 @@ impl ResidencyDirectory {
         self.lock().is_empty()
     }
     /// Snapshot, ascending by entry id.
-    pub fn iter(&self) -> Vec<(EntryId, Resident)> {
+    pub fn iter(&self) -> Vec<(EntryId, Resident2)> {
         self.lock().iter().map(|(id, r)| (*id, *r)).collect()
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedEntry {
     pub stamp: Stamp,
-    pub payload: Payload,
+    pub payload: Payload2,
     pub retries: u32,
 }
 /// Reads an entry in the order stamp, read, stamp. `None` if the entry is missing.

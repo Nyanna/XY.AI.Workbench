@@ -153,7 +153,7 @@ fn register_rejects_invalid_spec() {
     for bad in [zero_dim, small, overflow] {
         assert_eq!(
             controller.register(id("a"), manager("a"), bad),
-            Err(ResidencyError::InvalidSpec)
+            Err(ResidencyError3::InvalidSpec)
         );
     }
     assert_eq!(controller.registered_count(), 0);
@@ -168,14 +168,14 @@ fn register_rejects_duplicate() {
     let (_, controller) = registered(&["a"]);
     assert_eq!(
         controller.register(id("a"), manager("a"), spec()),
-        Err(ResidencyError::AlreadyRegistered(id("a")))
+        Err(ResidencyError3::AlreadyRegistered(id("a")))
     );
     assert_eq!(controller.registered_count(), 1);
 }
 #[test]
 fn unknown_index_errors() {
     let (_, controller) = setup();
-    let unknown = ResidencyError::UnknownIndex(id("x"));
+    let unknown = ResidencyError3::UnknownIndex(id("x"));
     assert_eq!(controller.ensure(& id("x"), & Scope::All), Err(unknown.clone()));
     assert_eq!(controller.reconcile(& id("x")), Err(unknown.clone()));
     assert_eq!(controller.pending(& id("x")), Err(unknown.clone()));
@@ -227,7 +227,7 @@ fn factory_failure_is_not_cached() {
     factory.fail_remaining.store(1, Ordering::SeqCst);
     assert_eq!(
         controller.ensure(& id("a"), & Scope::All),
-        Err(ResidencyError::Backend("factory failed".to_string()))
+        Err(ResidencyError3::Backend("factory failed".to_string()))
     );
     assert!(! controller.is_active(& id("a")));
     assert_eq!(controller.active_count(), 0);
@@ -240,7 +240,7 @@ fn backend_ensure_failure_maps_to_backend_error() {
     factory.backend(&id("a")).fail_ensure.store(true, Ordering::SeqCst);
     assert_eq!(
         controller.ensure(& id("a"), & Scope::All),
-        Err(ResidencyError::Backend("ensure failed".to_string()))
+        Err(ResidencyError3::Backend("ensure failed".to_string()))
     );
     assert!(controller.is_active(& id("a")));
 }
@@ -267,7 +267,7 @@ fn reconcile_forwards_to_active_backend() {
     assert_eq!(controller.reconcile(& id("a")), Ok(ReconcileSummary::default()));
     *lock(&backend.reconcile_result) = Some(Err("boom".to_string()));
     assert_eq!(
-        controller.reconcile(& id("a")), Err(ResidencyError::Backend("boom".to_string()))
+        controller.reconcile(& id("a")), Err(ResidencyError3::Backend("boom".to_string()))
     );
     assert_eq!(backend.reconcile_calls.load(Ordering::SeqCst), 3);
 }
@@ -314,7 +314,7 @@ fn unregister_shuts_backend_down() {
     assert_eq!(controller.active_count(), 0);
     assert_eq!(
         controller.ensure(& id("a"), & Scope::All),
-        Err(ResidencyError::UnknownIndex(id("a")))
+        Err(ResidencyError3::UnknownIndex(id("a")))
     );
     controller.register(id("a"), manager("a"), spec()).unwrap();
 }
@@ -325,7 +325,7 @@ fn unregister_failure_keeps_registration() {
     let backend = factory.backend(&id("a"));
     backend.fail_shutdown.store(true, Ordering::SeqCst);
     assert_eq!(
-        controller.unregister(& id("a")), Err(ResidencyError::Backend("shutdown failed"
+        controller.unregister(& id("a")), Err(ResidencyError3::Backend("shutdown failed"
         .to_string()))
     );
     assert_eq!(controller.registered_count(), 1);
@@ -386,7 +386,7 @@ fn poisoned_index_lock_is_recovered() {
 }
 #[test]
 fn error_display_is_informative() {
-    assert_eq!(ResidencyError::UnknownIndex(id("x")).to_string(), "unknown index: x");
-    assert_eq!(ResidencyError::Backend("m".into()).to_string(), "backend error: m");
-    let _: &dyn std::error::Error = &ResidencyError::InvalidSpec;
+    assert_eq!(ResidencyError3::UnknownIndex(id("x")).to_string(), "unknown index: x");
+    assert_eq!(ResidencyError3::Backend("m".into()).to_string(), "backend error: m");
+    let _: &dyn std::error::Error = &ResidencyError3::InvalidSpec;
 }

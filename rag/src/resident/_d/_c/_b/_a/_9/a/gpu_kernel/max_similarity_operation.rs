@@ -10,7 +10,7 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::kernel_batch::{
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::library_adapter::{
     AdapterError, LibTensor,
 };
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Slot5;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::RegionHandle;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::supported_precisions::has_scoring_kernel;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceHandle;
@@ -18,14 +18,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout:
     DType, MASK_VALUE,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::{
-    check_slot_range, DocSource, SegmentId, SourceError,
+    check_slot_range, DocSource, SegmentId, SourceError3,
 };
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::topk::{Hit, TopK};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::topk::{Hit3, TopK};
 const DEFAULT_TIME_BUDGET: Duration = Duration::from_secs(30);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MaxSimError {
     Unavailable(String),
-    Source(SourceError),
+    Source(SourceError3),
     InvalidDim,
     Shape { what: &'static str, index: usize, len: u64, dim: usize },
     Mismatch(String),
@@ -46,8 +46,8 @@ impl fmt::Display for MaxSimError {
     }
 }
 impl std::error::Error for MaxSimError {}
-impl From<SourceError> for MaxSimError {
-    fn from(e: SourceError) -> Self {
+impl From<SourceError3> for MaxSimError {
+    fn from(e: SourceError3) -> Self {
         MaxSimError::Source(e)
     }
 }
@@ -71,7 +71,7 @@ pub struct TopKRequest<'a> {
     pub k: usize,
 }
 pub trait MaxSimOp: Send + Sync {
-    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit>>, MaxSimError>;
+    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit3>>, MaxSimError>;
 }
 pub trait TileOps: Send + Sync {
     fn upload(
@@ -108,10 +108,10 @@ enum Bounds<'a> {
     Fixed { tokens_per_entry: u64 },
     Variable { offsets: &'a [u64], row_bytes: u64 },
 }
-struct Geometry<'a> {
+struct Geometry2<'a> {
     bounds: Bounds<'a>,
 }
-impl Geometry<'_> {
+impl Geometry2<'_> {
     /// (first row, row count) of a validated slot.
     fn rows(&self, slot: u32) -> (usize, usize) {
         match &self.bounds {
@@ -130,10 +130,10 @@ impl Geometry<'_> {
         }
     }
 }
-fn validate<'a>(
+fn validate2<'a>(
     req: &TopKRequest<'a>,
     precision: DType,
-) -> Result<Geometry<'a>, MaxSimError> {
+) -> Result<Geometry2<'a>, MaxSimError> {
     let dim = req.dim;
     if dim == 0 {
         return Err(MaxSimError::InvalidDim);
@@ -142,7 +142,7 @@ fn validate<'a>(
     let desc = req.docs.desc;
     if u64::from(req.range.end) > desc.entries {
         return Err(
-            MaxSimError::Source(SourceError::SlotRange {
+            MaxSimError::Source(SourceError3::SlotRange {
                 segment: req.segment,
                 start: req.range.start,
                 end: req.range.end,
@@ -213,7 +213,7 @@ fn validate<'a>(
                     );
                 }
             }
-            Ok(Geometry {
+            Ok(Geometry2 {
                 bounds: Bounds::Fixed { tokens_per_entry },
             })
         }
@@ -241,7 +241,7 @@ fn validate<'a>(
                     ),
                 );
             }
-            Ok(Geometry {
+            Ok(Geometry2 {
                 bounds: Bounds::Variable {
                     offsets,
                     row_bytes,
@@ -256,11 +256,11 @@ fn empty_result(req: &TopKRequest<'_>) -> bool {
 fn collect_top_k(
     req: &TopKRequest<'_>,
     mut score_of: impl FnMut(u32) -> Result<Vec<f32>, MaxSimError>,
-) -> Result<Vec<Vec<Hit>>, MaxSimError> {
+) -> Result<Vec<Vec<Hit3>>, MaxSimError> {
     let mut tops: Vec<TopK> = req.queries.iter().map(|_| TopK::new(req.k)).collect();
     for i in 0..(req.range.end - req.range.start) {
         let slot = req.range.start + i;
-        let Some(offset) = req.src.slot_offset(req.segment, Slot(slot)) else {
+        let Some(offset) = req.src.slot_offset(req.segment, Slot5(slot)) else {
             continue;
         };
         let scores = score_of(i)?;
@@ -368,8 +368,8 @@ impl TiledMaxSim {
     }
 }
 impl MaxSimOp for TiledMaxSim {
-    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit>>, MaxSimError> {
-        let geometry = validate(req, self.precision)?;
+    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit3>>, MaxSimError> {
+        let geometry = validate2(req, self.precision)?;
         if empty_result(req) {
             return Ok(vec![Vec::new(); req.queries.len()]);
         }
@@ -525,8 +525,8 @@ impl<E: BatchExecutor> FusedMaxSim<E> {
     }
 }
 impl<E: BatchExecutor> MaxSimOp for FusedMaxSim<E> {
-    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit>>, MaxSimError> {
-        validate(req, self.precision)?;
+    fn top_k(&self, req: &TopKRequest<'_>) -> Result<Vec<Vec<Hit3>>, MaxSimError> {
+        validate2(req, self.precision)?;
         if empty_result(req) {
             return Ok(vec![Vec::new(); req.queries.len()]);
         }

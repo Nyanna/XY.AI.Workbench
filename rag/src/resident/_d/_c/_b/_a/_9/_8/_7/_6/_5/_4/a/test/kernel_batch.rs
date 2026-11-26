@@ -178,7 +178,7 @@ fn cursor_advance() {
 #[test]
 fn begin_ids_and_validation() {
     let bi = BatchInterface::new(scripted(0, vec![]));
-    assert!(matches!(bi.begin(spec(0), BatchMode::Normal), Err(BatchError::InvalidSpec(_))));
+    assert!(matches!(bi.begin(spec(0), BatchMode::Normal), Err(BatchError3::InvalidSpec(_))));
     let a = bi.begin(spec(1), BatchMode::Normal).unwrap();
     let b = bi.begin(spec(1), BatchMode::Normal).unwrap();
     assert!(a < b);
@@ -189,7 +189,7 @@ fn run_without_ranges_needs_ranges() {
     let exec = scripted(0, vec![]);
     let bi = BatchInterface::new(Arc::clone(&exec));
     let id = bi.begin(spec(2), BatchMode::Normal).unwrap();
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::NeedsRanges));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::NeedsRanges));
     assert!(exec.calls.lock().unwrap().is_empty());
 }
 
@@ -207,8 +207,8 @@ fn normal_hits_flow() {
     assert_eq!(bi.run(id, &inputs()), Ok(LaunchOutcome::Hits { hits: 9 }));
     assert_eq!(event.is_complete(), Ok(true));
     assert_eq!(bi.progress(id), Ok(3));
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::AlreadyFinished));
-    assert_eq!(bi.assign_ranges(id, &[r1]), Err(BatchError::AlreadyFinished));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::AlreadyFinished));
+    assert_eq!(bi.assign_ranges(id, &[r1]), Err(BatchError3::AlreadyFinished));
     assert_eq!(
         exec.calls.lock().unwrap().as_slice(),
         &[(0, vec![16, 16], Duration::from_millis(7))]
@@ -219,11 +219,11 @@ fn normal_hits_flow() {
         used,
         vec![UsedRange { region: r1, used: 4 }, UsedRange { region: r2, used: 4 }]
     );
-    assert_eq!(bi.end(id), Err(BatchError::UnknownBatch(id)));
-    assert_eq!(bi.progress(id), Err(BatchError::UnknownBatch(id)));
-    assert!(matches!(bi.event(id), Err(BatchError::UnknownBatch(_))));
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::UnknownBatch(id)));
-    assert_eq!(bi.assign_ranges(id, &[]), Err(BatchError::UnknownBatch(id)));
+    assert_eq!(bi.end(id), Err(BatchError3::UnknownBatch(id)));
+    assert_eq!(bi.progress(id), Err(BatchError3::UnknownBatch(id)));
+    assert!(matches!(bi.event(id), Err(BatchError3::UnknownBatch(_))));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::UnknownBatch(id)));
+    assert_eq!(bi.assign_ranges(id, &[]), Err(BatchError3::UnknownBatch(id)));
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn partial_then_resume() {
     assert_eq!(bi.run(id, &inputs()), Ok(LaunchOutcome::Partial { queries_done: 3, hits: 5 }));
     assert_eq!(event.is_complete(), Ok(false));
     assert_eq!(bi.progress(id), Ok(3));
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::NeedsRanges));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::NeedsRanges));
 
     bi.assign_ranges(id, &[r2]).unwrap();
     assert_eq!(bi.run(id, &inputs()), Ok(LaunchOutcome::Hits { hits: 2 }));
@@ -272,7 +272,7 @@ fn executor_error_keeps_state() {
     bi.assign_ranges(id, &[r]).unwrap();
     let event = bi.event(id).unwrap();
 
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::Executor("boom".to_string())));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::Executor("boom".to_string())));
     assert_eq!(event.is_complete(), Ok(false));
     assert_eq!(bi.progress(id), Ok(0));
     assert_eq!(bi.end(id).unwrap(), vec![UsedRange { region: r, used: 0 }]);
@@ -283,8 +283,8 @@ fn executor_panic_becomes_error() {
     let bi = BatchInterface::new(PanicExec);
     let id = bi.begin(spec(2), BatchMode::Normal).unwrap();
     bi.assign_ranges(id, &[region(0, 16)]).unwrap();
-    assert!(matches!(bi.run(id, &inputs()), Err(BatchError::Executor(_))));
-    assert!(matches!(bi.run(id, &inputs()), Err(BatchError::Executor(_))));
+    assert!(matches!(bi.run(id, &inputs()), Err(BatchError3::Executor(_))));
+    assert!(matches!(bi.run(id, &inputs()), Err(BatchError3::Executor(_))));
     assert!(bi.end(id).is_ok());
 }
 
@@ -295,7 +295,7 @@ fn persistent_progress_is_monotonic_and_clamped() {
     let id = bi
         .begin(spec(10), BatchMode::Persistent { counter: counter.clone() })
         .unwrap();
-    assert!(matches!(bi.event(id), Err(BatchError::InvalidSpec(_))));
+    assert!(matches!(bi.event(id), Err(BatchError3::InvalidSpec(_))));
     assert_eq!(bi.progress(id), Ok(0));
     counter.0.store(5, Ordering::SeqCst);
     assert_eq!(bi.progress(id), Ok(5));
@@ -338,9 +338,9 @@ fn concurrent_run_is_busy() {
         }
     }
 
-    assert_eq!(bi.run(id, &inputs()), Err(BatchError::Busy));
-    assert_eq!(bi.assign_ranges(id, &[region(8, 8)]), Err(BatchError::Busy));
-    assert_eq!(bi.end(id), Err(BatchError::Busy));
+    assert_eq!(bi.run(id, &inputs()), Err(BatchError3::Busy));
+    assert_eq!(bi.assign_ranges(id, &[region(8, 8)]), Err(BatchError3::Busy));
+    assert_eq!(bi.end(id), Err(BatchError3::Busy));
     assert_eq!(bi.progress(id), Ok(0));
     assert_eq!(bi.event(id).unwrap().is_complete(), Ok(false));
     assert_eq!(bi.progress(other), Ok(0));
