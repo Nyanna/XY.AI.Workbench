@@ -1,0 +1,6 @@
+.env.sh
+.bin
+.idea
+.claude
+.xyrag
+/name-conflicts.yaml

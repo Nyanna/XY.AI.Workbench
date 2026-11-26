@@ -13,6 +13,7 @@ pub enum Error {
     Io(String),
     Parse { path: PathBuf, message: String },
     NameConflicts(Vec<NameConflict>),
+    TargetNotEmpty(PathBuf),
 }
 pub type Result<T> = std::result::Result<T, Error>;
 impl fmt::Display for Error {
@@ -26,6 +27,9 @@ impl fmt::Display for Error {
             }
             Error::NameConflicts(conflicts) => {
                 write!(f, "{} name conflict(s), see {CONFLICTS_FILE}", conflicts.len())
+            }
+            Error::TargetNotEmpty(path) => {
+                write!(f, "target directory is not empty: {}", path.display())
             }
         }
     }

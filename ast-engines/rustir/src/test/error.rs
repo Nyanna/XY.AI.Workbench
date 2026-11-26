@@ -32,3 +32,8 @@ fn conflicts_display_points_to_the_report() {
     );
     assert_eq!(error.to_string(), "2 name conflict(s), see name-conflicts.yaml");
 }
+#[test]
+fn target_not_empty_display() {
+    let error = Error::TargetNotEmpty(PathBuf::from("/out"));
+    assert_eq!(error.to_string(), "target directory is not empty: /out");
+}

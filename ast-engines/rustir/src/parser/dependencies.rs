@@ -19,7 +19,27 @@ impl NameCollector {
                     self.names.insert(ident.to_string());
                 }
                 TokenTree::Group(group) => self.scan_tokens(group.stream()),
+                TokenTree::Literal(literal) => self.scan_captures(&literal.to_string()),
                 _ => {}
+            }
+        }
+    }
+    fn scan_captures(&mut self, literal: &str) {
+        let mut chars = literal.chars().peekable();
+        while let Some(current) = chars.next() {
+            if current != '{' {
+                continue;
+            }
+            if chars.peek() == Some(&'{') {
+                chars.next();
+                continue;
+            }
+            let name: String = chars
+                .by_ref()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if name.starts_with(|c: char| c.is_alphabetic() || c == '_') {
+                self.names.insert(name);
             }
         }
     }

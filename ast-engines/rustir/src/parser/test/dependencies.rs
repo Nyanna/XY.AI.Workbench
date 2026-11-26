@@ -36,6 +36,15 @@ fn collects_identifiers_inside_macro_tokens() {
     assert!(names.contains(& "Value".to_string()));
 }
 #[test]
+fn collects_inline_format_arguments() {
+    let names = names_of(
+        "fn f() { println!(\"{LIMIT} and {other:?} but {{ESCAPED}} {0}\"); }",
+    );
+    assert!(names.contains(& "LIMIT".to_string()));
+    assert!(names.contains(& "other".to_string()));
+    assert!(! names.contains(& "ESCAPED".to_string()));
+}
+#[test]
 fn collects_trait_and_target_of_impl() {
     let names = names_of("impl Contract for Target {}");
     assert!(names.contains(& "Contract".to_string()));
