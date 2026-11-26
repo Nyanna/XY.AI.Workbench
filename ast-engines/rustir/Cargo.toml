@@ -1,0 +1,15 @@
+[package]
+name = "rustir"
+version = "0.1.0"
+edition = "2021"
+description = "Parse Rust projects into an IR, transform it and emit code again"
+
+[lib]
+name = "rustir"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rustir"
+path = "src/main.rs"
+
+[dependencies]
