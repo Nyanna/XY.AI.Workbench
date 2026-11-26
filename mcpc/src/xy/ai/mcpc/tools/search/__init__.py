@@ -153,6 +153,23 @@ def _as_list(value: list[str] | str | None) -> list[str]:
         return [value]
     return list(value)
 
+def _drop_permission_errors(result: ProcessResult) -> ProcessResult:
+    """Remove grep's ``Permission denied`` stderr lines; they are noise for the caller.
+
+    If nothing but such lines was reported on stderr, grep's exit code 2 is mapped to
+    0 (matches found) or 1 (no matches), so unreadable entries do not fail the search.
+    """
+    if not result.stderr:
+        return result
+    kept = [line for line in result.stderr.splitlines() if not line.endswith(': Permission denied')]
+    if len(kept) == len(result.stderr.splitlines()):
+        return result
+    stderr = '\n'.join(kept)
+    exit_code = result.exit_code
+    if not kept and exit_code == 2:
+        exit_code = 0 if result.stdout.strip() else 1
+    return ProcessResult(exit_code=exit_code, stdout=result.stdout, stderr=stderr)
+
 def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> tuple[ProcessResult, int]:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
 
@@ -205,6 +222,7 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
         result = run_process(cmd)
     except LaunchError as exc:
         raise SearchError(f'Failed to launch: {exc}') from exc
+    result = _drop_permission_errors(result)
     allowed_lines = []
     for line in result.stdout.splitlines():
         if is_allowed(Path(line.partition(':')[0])):

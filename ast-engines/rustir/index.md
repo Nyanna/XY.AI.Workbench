@@ -20,3 +20,4 @@ mod tests;
 Vordefinierte Tool Kommandos ("run_command")
 - "runTests": Führt einen Cargo Testlauf durch.
 - "read.Cargo.toml": Gibt den Inhalt der `Cargo.toml` wieder.
+- "renderResident": Führt das Rendering durch den IR durch
