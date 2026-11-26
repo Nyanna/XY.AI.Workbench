@@ -1,0 +1,109 @@
+use super::*;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Channel;
+use crate::resident::_d::_c::_b::_a::a::plan_contract::PlannedOp;
+use std::sync::atomic::{AtomicUsize, Ordering};
+#[derive(Debug)]
+struct PErr;
+impl std::fmt::Display for PErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "perr")
+    }
+}
+impl std::error::Error for PErr {}
+struct TestPlanner {
+    kinds: Vec<QueueKind>,
+    fail: bool,
+    calls: AtomicUsize,
+}
+impl TaskPlanner<u32, u32, (), u32, u32> for TestPlanner {
+    type Error = PErr;
+    fn expand(&self, _t: &Task<u32, u32, ()>) -> Result<Vec<PlannedOp<u32, u32>>, PErr> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.fail {
+            return Err(PErr);
+        }
+        Ok(
+            self
+                .kinds
+                .iter()
+                .enumerate()
+                .map(|(i, k)| PlannedOp {
+                    kind: *k,
+                    meta: i as u32,
+                    values: i as u32 * 10,
+                })
+                .collect(),
+        )
+    }
+}
+type P = Processor<u32, u32, (), u32, u32, (), (), TestPlanner>;
+fn make(kinds: Vec<QueueKind>, fail: bool) -> Arc<P> {
+    Processor::new(TestPlanner {
+        kinds,
+        fail,
+        calls: AtomicUsize::new(0),
+    })
+}
+#[test]
+fn submit_pushes_into_task_queue() {
+    let p = make(vec![], false);
+    let a = p.task_queue().epoch(Channel::Available);
+    let params = TaskParams {
+        priority: 3,
+        ..Default::default()
+    };
+    let t = p.submit(7, params.clone(), Some(ResourceKind::Encoder));
+    assert_eq!(t.params(), & params);
+    assert_ne!(p.task_queue().epoch(Channel::Available), a);
+    assert_eq!(p.task_queue().len(), 1);
+    let claim = p.task_queue().take().unwrap();
+    assert_eq!(claim.meta().params, params);
+    assert_eq!(claim.meta().first_kind, Some(ResourceKind::Encoder));
+}
+#[test]
+fn task_queue_can_be_filtered_by_first_kind() {
+    let p = make(vec![], false);
+    p.submit(1, TaskParams::default(), Some(ResourceKind::Encoder));
+    p.submit(2, TaskParams::default(), None);
+    p.submit(3, TaskParams::default(), Some(ResourceKind::Scorer));
+    let mut claim = p
+        .task_queue()
+        .take_where(|m| m.first_kind == Some(ResourceKind::Scorer))
+        .unwrap();
+    let payload = claim.take_payload().unwrap();
+    assert_eq!(payload.claim().unwrap(), 3);
+    assert_eq!(p.task_queue().len(), 2);
+}
+#[test]
+fn expand_routes_in_order() {
+    let p = make(vec![QueueKind::Gpu, QueueKind::Cpu, QueueKind::Gpu], false);
+    let t = p.submit(1, TaskParams::default(), None);
+    let tickets = p.expand(&t).unwrap();
+    assert_eq!(tickets.len(), 3);
+    assert_eq!(tickets[1].0, QueueKind::Cpu);
+    assert_eq!(p.ops_queue(QueueKind::Gpu).len(), 2);
+    assert_eq!(p.ops_queue(QueueKind::Cpu).len(), 1);
+    assert_eq!(p.ops_queue(QueueKind::Shared).len(), 0);
+    let c = p.ops_queue(QueueKind::Gpu).take().unwrap();
+    assert_eq!(* c.meta(), 0);
+}
+#[test]
+fn expand_empty_and_error() {
+    let p = make(vec![], false);
+    let t = p.submit(1, TaskParams::default(), None);
+    assert!(p.expand(& t).unwrap().is_empty());
+    let p = make(vec![QueueKind::Cpu], true);
+    let t = p.submit(1, TaskParams::default(), None);
+    assert!(matches!(p.expand(& t), Err(ExpandError::Planner(PErr))));
+    assert_eq!(p.ops_queue(QueueKind::Cpu).len(), 0);
+}
+#[test]
+fn queues_are_independent() {
+    let p = make(vec![], false);
+    let e = p.ops_queue(QueueKind::Cpu).epoch(Channel::Available);
+    p.submit(1, TaskParams::default(), None);
+    p.ops_queue(QueueKind::Gpu).push(1, 1);
+    assert_eq!(p.ops_queue(QueueKind::Cpu).epoch(Channel::Available), e);
+    assert!(std::ptr::eq(p.ops_queue(QueueKind::Gpu), p.ops_queue(QueueKind::Gpu)));
+    assert!(! std::ptr::eq(p.ops_queue(QueueKind::Gpu), p.ops_queue(QueueKind::Shared)));
+}

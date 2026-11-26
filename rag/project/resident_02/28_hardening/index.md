@@ -17,6 +17,7 @@ Regeln:
 - Direkte Kindbeziehung von Modulen sind in Unterverzeichnissen zu erstellen
 - Abhängikeiten nach oben sind nicht erlaubt
 - Tests dürfen Contracts niemals über Loging verifizieren
+- Direkte Use Pfade keine unnötigen Alias Ketten
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]
