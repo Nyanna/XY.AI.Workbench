@@ -1,6 +1,7 @@
 {
   "commands": {
     "runTests": {"script": "scripts/test-compact.sh", "spill_to_disk": false},
-    "read.Cargo.toml": {"script": "cat Cargo.toml", "spill_to_disk": false}
+    "read.Cargo.toml": {"script": "cat Cargo.toml", "spill_to_disk": false},
+		"runResident": {"script": "scripts/resident-ir.sh", "spill_to_disk": false}
   }
 }

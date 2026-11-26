@@ -21,7 +21,19 @@ fn parse_takes_path() {
     assert_eq!(
         parse(&["parse", "/p"]),
         Ok(Command::Parse {
-            path: PathBuf::from("/p")
+            path: PathBuf::from("/p"),
+            edges: None
+        })
+    );
+}
+
+#[test]
+fn parse_takes_edges_file() {
+    assert_eq!(
+        parse(&["parse", "/p", "--edges", "/e.txt"]),
+        Ok(Command::Parse {
+            path: PathBuf::from("/p"),
+            edges: Some(PathBuf::from("/e.txt"))
         })
     );
 }
@@ -29,6 +41,17 @@ fn parse_takes_path() {
 #[test]
 fn parse_requires_path() {
     assert!(matches!(parse(&["parse"]), Err(Error::Usage(_))));
+}
+
+#[test]
+fn edges_requires_a_file() {
+    assert!(matches!(parse(&["parse", "/p", "--edges"]), Err(Error::Usage(_))));
+}
+
+#[test]
+fn edges_may_not_repeat() {
+    let result = parse(&["parse", "/p", "--edges", "a", "--edges", "b"]);
+    assert!(matches!(result, Err(Error::Usage(_))));
 }
 
 #[test]

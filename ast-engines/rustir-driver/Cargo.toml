@@ -1,0 +1,17 @@
+[package]
+name = "rustir-driver"
+version = "0.1.0"
+edition = "2021"
+description = "Compiler-backed dependency extraction for rustir"
+build = "build.rs"
+
+[[bin]]
+name = "rustir-driver"
+path = "src/main.rs"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+[dependencies]
+
+[workspace]

@@ -1,0 +1,1 @@
+verifiy run, globale objekte dein einem einzelnen objekt gehören zum kind machen

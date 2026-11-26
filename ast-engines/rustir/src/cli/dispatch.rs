@@ -3,16 +3,21 @@ use std::io::Write;
 use crate::cli::args::{parse_args, Command};
 use crate::emit::render;
 use crate::error::{Error, Result};
+use crate::parser::load_edges;
 use crate::parser::parse_project;
 use crate::transform::apply_all;
 
-const USAGE: &str = "Usage:\n  rustir help\n  rustir parse <project-dir>\n";
+const USAGE: &str =
+    "Usage:\n  rustir help\n  rustir parse <project-dir> [--edges <file>]\n";
 
 pub fn execute(command: Command, out: &mut dyn Write) -> Result<()> {
     match command {
         Command::Help => out.write_all(USAGE.as_bytes())?,
-        Command::Parse { path } => {
+        Command::Parse { path, edges } => {
             let mut project = parse_project(&path)?;
+            if let Some(file) = edges {
+                load_edges(&mut project, &file)?;
+            }
             apply_all(&mut project, &[])?;
             out.write_all(render(&project).as_bytes())?;
         }

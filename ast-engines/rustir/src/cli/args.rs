@@ -5,7 +5,10 @@ use crate::error::{Error, Result};
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     Help,
-    Parse { path: PathBuf },
+    Parse {
+        path: PathBuf,
+        edges: Option<PathBuf>,
+    },
 }
 
 pub fn parse_args<I>(args: I) -> Result<Command>
@@ -23,12 +26,22 @@ where
             let path = args
                 .next()
                 .ok_or_else(|| Error::Usage("parse requires a project directory".into()))?;
-            match args.next() {
-                Some(extra) => Err(Error::Usage(format!("unexpected argument: {extra}"))),
-                None => Ok(Command::Parse {
-                    path: PathBuf::from(path),
-                }),
+            let mut edges = None;
+            while let Some(argument) = args.next() {
+                if argument != "--edges" {
+                    return Err(Error::Usage(format!("unexpected argument: {argument}")));
+                }
+                let file = args
+                    .next()
+                    .ok_or_else(|| Error::Usage("--edges requires a file".into()))?;
+                if edges.replace(PathBuf::from(file)).is_some() {
+                    return Err(Error::Usage("--edges given more than once".into()));
+                }
             }
+            Ok(Command::Parse {
+                path: PathBuf::from(path),
+                edges,
+            })
         }
         other => Err(Error::Usage(format!("unknown command: {other}"))),
     }

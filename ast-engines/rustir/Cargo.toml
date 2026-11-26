@@ -13,3 +13,5 @@ name = "rustir"
 path = "src/main.rs"
 
 [dependencies]
+proc-macro2 = { version = "1", features = ["span-locations"] }
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }

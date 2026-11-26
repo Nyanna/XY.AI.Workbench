@@ -1,11 +1,19 @@
 use std::fmt;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NameConflict {
+    pub name: String,
+    pub files: Vec<PathBuf>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Usage(String),
     NotFound(PathBuf),
     Io(String),
+    Parse { path: PathBuf, message: String },
+    NameConflicts(Vec<NameConflict>),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -16,6 +24,19 @@ impl fmt::Display for Error {
             Error::Usage(message) => write!(f, "usage error: {message}"),
             Error::NotFound(path) => write!(f, "not found: {}", path.display()),
             Error::Io(message) => write!(f, "io error: {message}"),
+            Error::Parse { path, message } => {
+                write!(f, "parse error in {}: {message}", path.display())
+            }
+            Error::NameConflicts(conflicts) => {
+                write!(f, "{} name conflict(s):", conflicts.len())?;
+                for conflict in conflicts {
+                    write!(f, "\n  {}", conflict.name)?;
+                    for file in &conflict.files {
+                        write!(f, "\n    {}", file.display())?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }

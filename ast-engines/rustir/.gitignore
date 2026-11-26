@@ -1,1 +1,5 @@
-/target
+.env.sh
+.bin
+.idea
+.claude
+.xyrag
