@@ -11,12 +11,14 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 from xy.ai.mcpc.tools.ast.base import AstError, Engine, Tree, check_no_control_chars
 from xy.ai.mcpc.tools.results import BatchResult, E, R
+from collections.abc import Iterable
 __all__ = [
     'IMPORT_NOTICE',
     'ImportOutcome',
     'ImportCheckedBatchResult',
     'parse_import_args',
     'import_entry',
+    'unchecked_warnings',
     'normalize_import',
     'apply_generic',
     'apply_treesitter',
@@ -32,10 +34,12 @@ class ImportOutcome:
         removed: Statements that were present and have been removed.
         unchecked: Whether at least one statement could not be handled and the
             agent has to check it manually.
+        reason: Why the import handling failed, if known; reported in the batch warning.
     """
     added: list[str] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
     unchecked: bool = False
+    reason: str | None = None
 
 def _string_list(item: dict[str, Any], key: str) -> list[str] | None:
     value = item.get(key)
@@ -53,8 +57,7 @@ class ImportCheckedBatchResult(BatchResult[R, E]):
     """Batch result whose call-wide warning is derived from its items' unchecked imports."""
 
     def derived_warnings(self) -> tuple[str, ...]:
-        unchecked = any((r.imports is not None and r.imports.unchecked for r in self.results))
-        return (IMPORT_NOTICE,) if unchecked else ()
+        return unchecked_warnings(((r.path, r.imports) for r in self.results))
 
 def import_entry(outcome: ImportOutcome | None) -> dict[str, list[str]] | None:
     """Serialized ``imports`` field of a result, or ``None`` if nothing changed."""
@@ -62,6 +65,14 @@ def import_entry(outcome: ImportOutcome | None) -> dict[str, list[str]] | None:
         return None
     entry = {key: value for key, value in (('added', outcome.added), ('removed', outcome.removed)) if value}
     return entry or None
+
+def unchecked_warnings(entries: Iterable[tuple[str, ImportOutcome | None]]) -> tuple[str, ...]:
+    """Batch warnings for the unchecked outcomes in ``(path, outcome)`` pairs: the notice, then one line per reason."""
+    flagged = [(path, outcome) for path, outcome in entries if outcome is not None and outcome.unchecked]
+    if not flagged:
+        return ()
+    details = tuple(dict.fromkeys((f'{path}: {outcome.reason}' for path, outcome in flagged if outcome.reason)))
+    return (IMPORT_NOTICE, *details)
 _SPACE = re.compile('\\s+')
 _PUNCT = re.compile('\\s*([{},:;.*()])\\s*')
 
@@ -327,7 +338,8 @@ def apply_rpc(engine: Engine, tree: Tree, add: list[str], remove: list[str]) -> 
     source = data.decode('utf-8')
     error = engine.validate(source)
     if error:
-        raise AstError(f'The import change would leave the file invalid: {error}')
+        statements = [*outcome.added, *outcome.removed]
+        raise AstError(f'The import change {statements!r} would leave the file invalid: {error}')
     after, _ = _rpc_present(engine, tree, source)
     if any((normalize_import(s) not in after for s in outcome.added)):
         raise AstError(f'Not recognized as an import by the parser: {outcome.added!r}')

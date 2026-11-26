@@ -11,7 +11,8 @@ from xy.ai.mcpc.tools.results import ItemError, ItemResult
 from xy.ai.mcpc.tools.tool_context import ToolContext
 from xy.ai.mcpc.tools.tool_registry import ToolDefinition, ToolFeature, ToolRegistry, ToolResult
 from dataclasses import dataclass, replace
-from xy.ai.mcpc.tools.ast.imports import IMPORT_NOTICE, ImportCheckedBatchResult, ImportOutcome
+from xy.ai.mcpc.tools.ast.imports import unchecked_warnings
+from xy.ai.mcpc.tools.ast.imports import ImportCheckedBatchResult, ImportOutcome
 __all__ = ['MoveItem', 'MoveResult', 'MoveError', 'MoveBatchResult', 'ast_move', 'MoveTool', 'register']
 
 @dataclass(frozen=True)
@@ -99,11 +100,8 @@ class MoveBatchResult(ImportCheckedBatchResult[MoveResult, MoveError]):
     """
 
     def derived_warnings(self) -> tuple[str, ...]:
-        unchecked = any(
-            (outcome is not None and outcome.unchecked for r in self.results for outcome in (
-                r.imports,
-                r.source_imports)))
-        return (IMPORT_NOTICE,) if unchecked else ()
+        return unchecked_warnings(((r.path, outcome)
+                                  for r in self.results for outcome in (r.imports, r.source_imports)))
 
 def _is_inside(node_id: str, ancestor_id: str) -> bool:
     return node_id.startswith(ancestor_id + '.')

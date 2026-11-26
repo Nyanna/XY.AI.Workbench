@@ -92,7 +92,7 @@ def test_python_invalid_import_keeps_edit_and_flags_notice(tmp_path: Path):
     path = _write(tmp_path, 'm.py', PY_SOURCE)
     result = ast_insert(items=[InsertItem(path=path, source='z = 5', id='A', add_import=['x = 1'])])
     assert not result.errors
-    assert result.all_warnings() == [IMPORT_NOTICE]
+    assert result.all_warnings() == [IMPORT_NOTICE, f"{path}: Not a single import statement: 'x = 1'"]
     text = Path(path).read_text()
     assert 'z = 5' in text and 'x = 1' not in text
 
@@ -148,7 +148,7 @@ def test_javascript_non_import_keeps_edit_and_flags_notice(tmp_path: Path):
     node = _first_id(path, 'function_declaration')
     result = ast_replace(items=[ReplaceItem(path=path, source='function f() {}', id=node, add_import=['const a = 1;'])])
     assert not result.errors
-    assert result.all_warnings() == [IMPORT_NOTICE]
+    assert result.all_warnings() == [IMPORT_NOTICE, f"{path}: Not a single import statement: 'const a = 1;'"]
     text = Path(path).read_text()
     assert 'function f() {}' in text and 'const a' not in text
 
@@ -168,7 +168,7 @@ def test_failing_engine_keeps_edit_and_flags_notice(tmp_path: Path, monkeypatch)
                 id=node,
                 add_import=["import c from 'c';"])])
     assert not result.errors
-    assert result.all_warnings() == [IMPORT_NOTICE]
+    assert result.all_warnings() == [IMPORT_NOTICE, f'{path}: boom']
     assert Path(path).read_text() == JS_SOURCE.replace('return 1', 'return 2')
 '# --------------------------------------------------------------------------- generic fallback'
 

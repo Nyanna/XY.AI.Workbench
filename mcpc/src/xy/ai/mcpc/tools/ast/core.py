@@ -200,10 +200,10 @@ def apply_imports(tree: Tree, add: list[str] | None, remove: list[str] | None) -
             return tree.engine.apply_imports(tree, add or [], remove or [])
         except NotImplementedError:
             return apply_generic(tree.engine, tree, add or [], remove or [])
-    except Exception:
+    except Exception as exc:
         '# noqa: BLE001 - never fail the edit because of its imports'
         logger.warning('Import handling failed for %s', tree.path, exc_info=True)
-        return ImportOutcome(unchecked=True)
+        return ImportOutcome(unchecked=True, reason=str(exc) or type(exc).__name__)
 
 def empty_tree(path: Path) -> Tree:
     return engine_for_path(path).empty_tree(path)
