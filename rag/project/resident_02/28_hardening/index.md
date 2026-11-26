@@ -1,5 +1,5 @@
 
-Zielverzeichnis: `/home/user/xyan/xy.ai.workbench/rag/src/resident` entsprechend dann `/home/user/xyan/xy.ai.workbench/rag/src/resident/l130...`
+Zielverzeichnis: `/home/user/xyan/xy.ai.workbench/rag/src/resident` entsprechend dann `/home/user/xyan/xy.ai.workbench/rag/src/resident/...`
 Modell (multilingual-e5-small): `/home/user/xyan/xy.ai.workbench/rag/model/multilingual-e5-small`
 Wurzel ist: `/home/user/xyan/xy.ai.workbench/rag/src/lib.rs`. Sie enthält `pub mod resident;` bereits.
 Hygiene/Arch Tests: `/home/user/xyan/xy.ai.workbench/rag/tests`
@@ -18,6 +18,7 @@ Regeln:
 - Abhängikeiten nach oben sind nicht erlaubt
 - Tests dürfen Contracts niemals über Loging verifizieren
 - Direkte Use Pfade keine unnötigen Alias Ketten
+- Non-leaf modules sollen nur Moduldeklarationen und Re-Exports enthalten, keine Implementierungen
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust
 #[cfg(test)]
