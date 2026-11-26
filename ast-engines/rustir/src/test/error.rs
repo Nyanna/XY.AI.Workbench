@@ -22,7 +22,7 @@ fn parse_display() {
     assert_eq!(error.to_string(), "parse error in /x.rs: bad");
 }
 #[test]
-fn conflicts_display_lists_every_name_and_file() {
+fn conflicts_display_points_to_the_report() {
     let error = Error::NameConflicts(
         vec![
             NameConflict { name : "A".into(), files : vec![PathBuf::from("/a.rs"),
@@ -30,8 +30,5 @@ fn conflicts_display_lists_every_name_and_file() {
             vec![PathBuf::from("/c.rs"), PathBuf::from("/d.rs")], },
         ],
     );
-    assert_eq!(
-        error.to_string(),
-        "2 name conflict(s):\n  A\n    /a.rs\n    /b.rs\n  B\n    /c.rs\n    /d.rs"
-    );
+    assert_eq!(error.to_string(), "2 name conflict(s), see name-conflicts.yaml");
 }

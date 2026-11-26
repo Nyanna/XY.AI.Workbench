@@ -1,12 +1,11 @@
 use std::fmt;
 use std::path::PathBuf;
-
+pub const CONFLICTS_FILE: &str = "name-conflicts.yaml";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NameConflict {
     pub name: String,
     pub files: Vec<PathBuf>,
 }
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Usage(String),
@@ -15,9 +14,7 @@ pub enum Error {
     Parse { path: PathBuf, message: String },
     NameConflicts(Vec<NameConflict>),
 }
-
 pub type Result<T> = std::result::Result<T, Error>;
-
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -28,27 +25,17 @@ impl fmt::Display for Error {
                 write!(f, "parse error in {}: {message}", path.display())
             }
             Error::NameConflicts(conflicts) => {
-                write!(f, "{} name conflict(s):", conflicts.len())?;
-                for conflict in conflicts {
-                    write!(f, "\n  {}", conflict.name)?;
-                    for file in &conflict.files {
-                        write!(f, "\n    {}", file.display())?;
-                    }
-                }
-                Ok(())
+                write!(f, "{} name conflict(s), see {CONFLICTS_FILE}", conflicts.len())
             }
         }
     }
 }
-
 impl std::error::Error for Error {}
-
 impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
         Error::Io(error.to_string())
     }
 }
-
 #[cfg(test)]
 #[path = "test/error.rs"]
 mod tests;

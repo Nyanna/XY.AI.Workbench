@@ -1,20 +1,23 @@
 use std::io::Write;
-
 use crate::cli::args::{parse_args, Command};
+use crate::cli::report::write_conflicts;
 use crate::emit::render;
 use crate::error::{Error, Result};
 use crate::parser::load_edges;
 use crate::parser::parse_project;
 use crate::transform::apply_all;
-
-const USAGE: &str =
-    "Usage:\n  rustir help\n  rustir parse <project-dir> [--edges <file>]\n";
-
+const USAGE: &str = "Usage:\n  rustir help\n  rustir parse <project-dir> [--edges <file>]\n";
 pub fn execute(command: Command, out: &mut dyn Write) -> Result<()> {
     match command {
         Command::Help => out.write_all(USAGE.as_bytes())?,
         Command::Parse { path, edges } => {
-            let mut project = parse_project(&path)?;
+            let mut project = match parse_project(&path) {
+                Err(Error::NameConflicts(conflicts)) => {
+                    write_conflicts(&std::env::current_dir()?, &conflicts)?;
+                    return Err(Error::NameConflicts(conflicts));
+                }
+                other => other?,
+            };
             if let Some(file) = edges {
                 load_edges(&mut project, &file)?;
             }
@@ -24,7 +27,6 @@ pub fn execute(command: Command, out: &mut dyn Write) -> Result<()> {
     }
     Ok(())
 }
-
 pub fn run<I>(args: I, out: &mut dyn Write, err: &mut dyn Write) -> i32
 where
     I: IntoIterator<Item = String>,
@@ -40,7 +42,6 @@ where
         }
     }
 }
-
 #[cfg(test)]
 #[path = "test/dispatch.rs"]
 mod tests;

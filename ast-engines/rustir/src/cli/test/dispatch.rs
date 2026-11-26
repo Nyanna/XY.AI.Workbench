@@ -38,7 +38,10 @@ fn name_conflicts_end_the_run_with_all_conflicts_listed() {
     assert_eq!(code, 1);
     assert!(out.is_empty());
     assert!(err.contains("2 name conflict(s)"));
-    assert!(err.contains("One") && err.contains("Two"));
+    let report = std::env::current_dir().unwrap().join(crate::error::CONFLICTS_FILE);
+    let yaml = std::fs::read_to_string(&report).unwrap();
+    let _ = std::fs::remove_file(&report);
+    assert!(yaml.contains("name: \"One\"") && yaml.contains("name: \"Two\""));
 }
 #[test]
 fn parse_prints_objects_with_dependencies() {
