@@ -7,11 +7,9 @@ import java.util.Set;
 import java.util.function.Consumer;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.action.IMenuCreator;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
-import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
@@ -26,6 +24,23 @@ import xy.ai.workbench.Activator;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
+import java.io.File;
+import org.eclipse.jface.action.ToolBarManager;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.ToolBar;
+import org.eclipse.swt.widgets.ToolItem;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IPartListener2;
+import org.eclipse.ui.IURIEditorInput;
+import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchPartReference;
+import xy.ai.workbench.editor.AISessionEditor;
+import xy.ai.workbench.view.PartListener2Adapter;
 import org.eclipse.ui.PlatformUI;
 import java.util.ArrayList;
 import xy.ai.conscious.connector.harness.PromptHandler;
@@ -56,7 +71,7 @@ public class AutoApprovePanel extends ViewPart {
     }
   }
 
-  private record Entry(Filter filter, String line, String detail) {
+  private record Entry(Filter filter, String sessionId, String line, String detail) {
   }
   private final Deque<Entry> buffer = new ArrayDeque<>();
   private final List<Entry> visible = new ArrayList<>();
@@ -70,6 +85,21 @@ public class AutoApprovePanel extends ViewPart {
   private StyledText details;
   private AutoApprover approver;
   private boolean showOnChange = true;
+  private boolean followEditor;
+  private String activePath;
+  private final Map<String, String> sessionPaths = new ConcurrentHashMap<>();
+  private final IPartListener2 partListener = new PartListener2Adapter() {
+
+    @Override
+    public void partActivated(IWorkbenchPartReference ref) {
+      String path = pathOf(ref.getPart(false));
+      if (path != null && !path.equals(activePath)) {
+        activePath = path;
+        if (followEditor)
+          refreshFollow();
+      }
+    }
+  };
 
   @Override
   public void createPartControl(Composite parent) {
@@ -89,7 +119,11 @@ public class AutoApprovePanel extends ViewPart {
     bars.getToolBarManager().add(createDisableAction());
     bars.getToolBarManager().add(createAutoShowAction());
     bars.getToolBarManager().add(createDetailsAction());
+    bars.getToolBarManager().add(createFollowAction());
     bars.getToolBarManager().add(createFilterAction());
+    IEditorPart current = getSite().getPage().getActiveEditor();
+    activePath = pathOf(current);
+    getSite().getPage().addPartListener(partListener);
     bars.updateActionBars();
     approver.addListener(observer);
     promptHandler.addAnswerObs(answerObserver);
@@ -144,37 +178,33 @@ public class AutoApprovePanel extends ViewPart {
   }
 
   private Action createFilterAction() {
-    Action action = new Action("Filter", IAction.AS_DROP_DOWN_MENU) {
+    Action action = new Action("Filter", IAction.AS_PUSH_BUTTON) {
+
+      @Override
+      public void run() {
+        showFilterMenu();
+      }
     };
     action.setToolTipText("Select the action types to show");
-    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
-    action.setMenuCreator(new IMenuCreator() {
-      private Menu menu;
-
-      @Override
-      public Menu getMenu(Control parent) {
-        dispose();
-        menu = new Menu(parent);
-        fillMenu(menu);
-        return menu;
-      }
-
-      @Override
-      public Menu getMenu(Menu parent) {
-        dispose();
-        menu = new Menu(parent);
-        fillMenu(menu);
-        return menu;
-      }
-
-      @Override
-      public void dispose() {
-        if (menu != null && !menu.isDisposed())
-          menu.dispose();
-        menu = null;
-      }
-    });
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
     return action;
+  }
+
+  private void showFilterMenu() {
+    Menu menu = new Menu(console);
+    fillMenu(menu);
+    menu.addListener(SWT.Hide, e -> display.asyncExec(menu::dispose));
+    Point location = display.getCursorLocation();
+    if (getViewSite().getActionBars().getToolBarManager() instanceof ToolBarManager manager && manager.getControl() != null) {
+      ToolBar bar = manager.getControl();
+      ToolItem item = bar.getItem(bar.toControl(location));
+      if (item != null) {
+        Rectangle bounds = item.getBounds();
+        location = bar.toDisplay(bounds.x, bounds.y + bounds.height);
+      }
+    }
+    menu.setLocation(location);
+    menu.setVisible(true);
   }
 
   private void fillMenu(Menu menu) {
@@ -192,9 +222,62 @@ public class AutoApprovePanel extends ViewPart {
     }
   }
 
+  private Action createFollowAction() {
+    Action action = new Action("Active Editor Session Only", IAction.AS_CHECK_BOX) {
+
+      @Override
+      public void run() {
+        setFollowEditor(isChecked());
+      }
+    };
+    action.setToolTipText("Show only entries of the session of the active editor");
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
+    action.setChecked(followEditor);
+    return action;
+  }
+
+  private void setFollowEditor(boolean follow) {
+    followEditor = follow;
+    refreshFollow();
+  }
+
+  private void refreshFollow() {
+    setContentDescription(followEditor ? "Active editor session only" : "");
+    rebuild();
+  }
+
+  private boolean isVisible(Entry entry) {
+    if (!shown.contains(entry.filter()))
+      return false;
+    return !followEditor || activePath != null && activePath.equals(sessionPaths.get(entry.sessionId()));
+  }
+
+  private void registerSession(AIAnswer answer) {
+    if (answer.prompt == null || answer.prompt.arg == null || answer.prompt.arg.absoluteFilePath == null)
+      return;
+    String path = answer.prompt.arg.absoluteFilePath;
+    if (answer.sessionId != null)
+      sessionPaths.put(answer.sessionId, path);
+    sessionPaths.put(answer.prompt.sessionId(), path);
+  }
+
+  private static String pathOf(IWorkbenchPart part) {
+    IEditorPart editor = part instanceof AISessionEditor session ? session.getEditor() : part instanceof IEditorPart e ? e : null;
+    if (editor == null)
+      return null;
+    IEditorInput input = editor.getEditorInput();
+    IFile file = input == null ? null : input.getAdapter(IFile.class);
+    if (file != null && file.getLocation() != null)
+      return file.getLocation().toFile().getAbsolutePath();
+    if (input instanceof IURIEditorInput uriInput)
+      return new File(uriInput.getURI()).getAbsolutePath();
+    return null;
+  }
+
   private void onAnswer(AIAnswer answer) {
     if (answer == null || answer.messages.isEmpty())
       return;
+    registerSession(answer);
     List<Entry> entries = answer.messages.stream().map(m -> toEntry(answer.sessionId, m)).toList();
     display.asyncExec(() -> {
       if (!console.isDisposed())
@@ -204,7 +287,7 @@ public class AutoApprovePanel extends ViewPart {
 
   private static Entry toEntry(String sessionId, ModelMessage message) {
     String line = fit(sessionId, SESSION_WIDTH) + " | " + fit(message.kind().name(), ACTION_WIDTH) + " | " + fit("-", TOOL_WIDTH) + " | " + pad(Integer.toString(message.text().length()), CHARS_WIDTH) + " | " + pad("", 15) + shorten(message.text(), DETAIL_MAX);
-    return new Entry(Filter.Message, line, message.text());
+    return new Entry(Filter.Message, sessionId, line, message.text());
   }
 
   private void onDecision(Decision decision) {
@@ -217,11 +300,11 @@ public class AutoApprovePanel extends ViewPart {
 
   private void append(Entry entry) {
     buffer.addLast(entry);
-    if (buffer.size() > MAX_LINES && shown.contains(buffer.removeFirst().filter())) {
+    if (buffer.size() > MAX_LINES && isVisible(buffer.removeFirst())) {
       visible.remove(0);
       console.replaceTextRange(0, console.getOffsetAtLine(1), "");
     }
-    if (shown.contains(entry.filter())) {
+    if (isVisible(entry)) {
       visible.add(entry);
       console.append(entry.line() + "\n");
       scrollToEnd();
@@ -238,7 +321,7 @@ public class AutoApprovePanel extends ViewPart {
     StringBuilder text = new StringBuilder();
     visible.clear();
     for (Entry entry : buffer) {
-      if (shown.contains(entry.filter())) {
+      if (isVisible(entry)) {
         visible.add(entry);
         text.append(entry.line()).append('\n');
       }
@@ -281,7 +364,7 @@ public class AutoApprovePanel extends ViewPart {
       line += " | " + reason + ":   " + shorten(detail, DETAIL_MAX);
     else
       line += " | " + pad("", 15) + shorten(detail, DETAIL_MAX);
-    return new Entry(filter, line, details(d, isResult));
+    return new Entry(filter, d.sessionId(), line, details(d, isResult));
   }
 
   private static String details(Decision d, boolean isResult) {
@@ -327,6 +410,7 @@ public class AutoApprovePanel extends ViewPart {
 
   @Override
   public void dispose() {
+    getSite().getPage().removePartListener(partListener);
     if (approver != null)
       approver.removeListener(observer);
     if (promptHandler != null)
