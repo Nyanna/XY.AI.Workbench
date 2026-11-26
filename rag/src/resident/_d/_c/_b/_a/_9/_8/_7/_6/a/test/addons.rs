@@ -6,6 +6,15 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::result_kinds
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::b::task_context::TaskId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<EnqueueError>();
+    assert_send_sync::<SimilarityJob>();
+    assert_send_sync::<Stage3>();
+    assert_send_sync::<AddonError>();
+    assert_send_sync::<TextQuery>();
+}
 #[derive(Debug, Clone)]
 enum Data {
     Embed(EmbeddingTask),
@@ -378,12 +387,13 @@ async fn query_error(q: &MockQueue, rerank: Option<Arc<RerankPolicy>>) -> AddonE
 async fn text_query_maps_embedding_failures() {
     let q = MockQueue::new(|_, _| Reply::Cancel);
     assert_eq!(
-        query_error(& q, None). await, AddonError::Cancelled { stage : Stage3::Embedding }
+        query_error(& q, None). await, AddonError::Cancelled { stage : Stage3::Embedding
+        }
     );
     let q = MockQueue::new(|_, _| Reply::Fail("bad"));
     assert_eq!(
-        query_error(& q, None). await, AddonError::TaskFailed { stage : Stage3::Embedding,
-        message : format!("{:?}", "bad".to_string()), }
+        query_error(& q, None). await, AddonError::TaskFailed { stage :
+        Stage3::Embedding, message : format!("{:?}", "bad".to_string()), }
     );
     let q = MockQueue::new(|_, _| Reply::Done(Out::Num(1)));
     assert_eq!(

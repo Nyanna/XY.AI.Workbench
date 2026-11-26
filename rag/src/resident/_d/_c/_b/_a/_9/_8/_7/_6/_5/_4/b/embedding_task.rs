@@ -191,17 +191,6 @@ impl fmt::Display for EmbeddingError {
     }
 }
 impl std::error::Error for EmbeddingError {}
-const _: fn() = || {
-    fn assert_traits<T: Send + Sync + 'static>() {}
-    assert_traits::<EmbeddingMode>();
-    assert_traits::<Precision>();
-    assert_traits::<EmbeddingInput>();
-    assert_traits::<EntryMetadata>();
-    assert_traits::<BackendError>();
-    assert_traits::<TargetError>();
-    assert_traits::<EmbeddingTask>();
-    assert_traits::<EmbeddingError>();
-};
 #[cfg(test)]
 #[path = "test/embedding_task.rs"]
 mod tests;

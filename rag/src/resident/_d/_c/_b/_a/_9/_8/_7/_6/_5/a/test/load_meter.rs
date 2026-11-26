@@ -1,6 +1,12 @@
 use super::*;
 use std::sync::Arc;
 use std::thread;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<LoadMeter>();
+    assert_send_sync::<LoadReport>();
+}
 fn meter() -> LoadMeter {
     LoadMeter::new(ResourceKind::Encoder, DeviceHandle::Gpu(1), 8)
 }

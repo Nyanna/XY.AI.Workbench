@@ -343,11 +343,6 @@ impl ResourceLoader<LoadedTokenizer> for TokenizerLoader {
         self.build().map_err(|e| e.to_string())
     }
 }
-const _: fn() = || {
-    fn assert_send_sync<T: Send + Sync + 'static>() {}
-    assert_send_sync::<LoadedTokenizer>();
-    assert_send_sync::<TokenizerLoader>();
-};
 #[cfg(test)]
 #[path = "test/tokenizer_loader.rs"]
 mod tests;

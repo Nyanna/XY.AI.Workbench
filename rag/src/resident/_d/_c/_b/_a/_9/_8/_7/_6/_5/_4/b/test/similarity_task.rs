@@ -1,4 +1,16 @@
 use super::*;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<IndexId>();
+    assert_send_sync::<Scoring>();
+    assert_send_sync::<Precision>();
+    assert_send_sync::<SimilarityParams>();
+    assert_send_sync::<Candidate2>();
+    assert_send_sync::<SourceError2>();
+    assert_send_sync::<SimilarityOutput>();
+    assert_send_sync::<SimilarityError>();
+}
 struct Fixed(Vec<Candidate2>);
 impl CandidateSource for Fixed {
     fn candidates(

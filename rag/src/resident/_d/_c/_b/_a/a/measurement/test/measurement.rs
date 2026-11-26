@@ -1,6 +1,15 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use super::bench_workload::WorkloadConfig;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Combination>();
+    assert_send_sync::<MeasurementResult>();
+    assert_send_sync::<MeasureError>();
+    assert_send_sync::<Hooks>();
+    assert_send_sync::<PendingFlag>();
+}
 fn small_workload() -> Workload {
     Workload::build(WorkloadConfig {
             seed: 3,

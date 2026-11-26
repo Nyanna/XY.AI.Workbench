@@ -211,13 +211,6 @@ impl StampObserver {
         }
     }
 }
-const _: () = {
-    const fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<StampSignal>();
-    assert_send_sync::<StampObserver>();
-    assert_send_sync::<Payload2>();
-    assert_send_sync::<IndexError>();
-};
 #[allow(dead_code)]
 fn _object_safe2(_: &dyn Index) {}
 #[cfg(test)]

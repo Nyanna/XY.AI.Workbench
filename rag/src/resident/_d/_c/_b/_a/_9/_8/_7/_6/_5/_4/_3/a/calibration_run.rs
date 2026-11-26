@@ -803,15 +803,6 @@ pub fn run_calibration(
         log: runner.log,
     })
 }
-const _: fn() = || {
-    fn assert_send_sync<T: Send + Sync + 'static>() {}
-    assert_send_sync::<Target2>();
-    assert_send_sync::<Combination>();
-    assert_send_sync::<CalibrationConfig>();
-    assert_send_sync::<CalibrationReport>();
-    assert_send_sync::<CalibrationError>();
-    assert_send_sync::<ProbeError>();
-};
 #[cfg(test)]
 #[path = "test/calibration_run.rs"]
 mod tests;

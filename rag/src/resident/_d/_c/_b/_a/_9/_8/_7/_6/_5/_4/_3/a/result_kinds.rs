@@ -119,12 +119,6 @@ impl Hash for TaskResult {
         }
     }
 }
-const _: fn() = || {
-    fn assert_traits<T: Send + Sync + 'static>() {}
-    assert_traits::<ResultKind>();
-    assert_traits::<Hit2>();
-    assert_traits::<TaskResult>();
-};
 #[cfg(test)]
 #[path = "test/result_kinds.rs"]
 mod tests;

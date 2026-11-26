@@ -2,14 +2,15 @@ use super::*;
 use candle_core::Device;
 use super::super::super::_3::a::region_handle::Generation;
 use super::super::super::_3::_2::a::arenas::ArenaKind;
-const _: fn() = || {
-    fn check<T: Send + Sync + 'static>() {}
-    check::<LibTensor>();
-    check::<DeviceBlock>();
-    check::<LibraryKernelSource>();
-    check::<LibKernelEntry>();
-    check::<AdapterError>();
-};
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<LibTensor>();
+    assert_send_sync::<DeviceBlock>();
+    assert_send_sync::<LibraryKernelSource>();
+    assert_send_sync::<LibKernelEntry>();
+    assert_send_sync::<AdapterError>();
+}
 const ALL_DTYPES: [DType; 6] = [
     DType::F32,
     DType::F16,

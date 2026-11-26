@@ -67,13 +67,6 @@ impl fmt::Display for ExecError {
     }
 }
 impl std::error::Error for ExecError {}
-const fn assert_send_sync_static3<T: Send + Sync + 'static>() {}
-const _: () = {
-    assert_send_sync_static3::<ExecConfig>();
-    assert_send_sync_static3::<BatchInput>();
-    assert_send_sync_static3::<BatchSuccess>();
-    assert_send_sync_static3::<ExecError>();
-};
 /// Runs an already begun batch to its hits. Always ends the batch; on error all
 /// reserved segments are released, on success they belong to the caller.
 pub fn execute_embedding_batch<E, A>(

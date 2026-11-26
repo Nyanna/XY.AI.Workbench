@@ -115,19 +115,6 @@ impl fmt::Display for ExpandError2 {
     }
 }
 impl std::error::Error for ExpandError2 {}
-const _: () = {
-    const fn assert_shareable<T: Send + Sync + 'static>() {}
-    assert_shareable::<TaskSpec>();
-    assert_shareable::<SimilaritySpec>();
-    assert_shareable::<ScorerChoice>();
-    assert_shareable::<Pooling>();
-    assert_shareable::<ModelDescriptors>();
-    assert_shareable::<IdleNotification>();
-    assert_shareable::<PlannedOperation>();
-    assert_shareable::<OperationConfig>();
-    assert_shareable::<ConfigError>();
-    assert_shareable::<ExpandError2>();
-};
 pub fn expand(
     task: &TaskSpec,
     models: &ModelDescriptors,
@@ -302,11 +289,11 @@ fn expand_similarity(
         ScorerChoice::Vector(scoring) => {
             let chain = vec![
                 plan2(OperationKind::Similarity, params(ResourceKind::Scorer,
-                                                        ExecutionEnvironment::Any, Some(& index)).with_dimension(descriptor
+                ExecutionEnvironment::Any, Some(& index)).with_dimension(descriptor
                 .dimension), OperationConfig { scorer : Some(format!("{scoring:?}")),
                 scope : Some(scope), dtype : Some(descriptor.storage_dtype),
                 ..OperationConfig::default() },), plan2(OperationKind::TopK,
-                                                        params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
+                params(ResourceKind::Scorer, ExecutionEnvironment::Any, Some(& index))
                 .with_top_k(top_k), OperationConfig::default(),),
             ];
             Ok(("similarity", chain))
@@ -314,15 +301,15 @@ fn expand_similarity(
         ScorerChoice::CrossEncoder(name) => {
             let chain = vec![
                 plan2(OperationKind::Tokenization, params(ResourceKind::Tokenizer,
-                                                          ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
+                ExecutionEnvironment::CpuOnly, Some(& index),), OperationConfig {
                 max_seq_len : Some(descriptor.max_seq_len), scope : Some(scope.clone()),
                 ..OperationConfig::default() },), plan2(OperationKind::Inference,
-                                                        params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
-                                                        OperationConfig { scorer : Some(name.clone()), dtype : Some(descriptor
+                params(ResourceKind::CrossEncoder, ExecutionEnvironment::Any, None),
+                OperationConfig { scorer : Some(name.clone()), dtype : Some(descriptor
                 .storage_dtype), ..OperationConfig::default() },),
                 plan2(OperationKind::Similarity, params(ResourceKind::CrossEncoder,
-                                                        ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
-                      OperationConfig { scorer : Some(name.clone()), scope : Some(scope),
+                ExecutionEnvironment::Any, Some(& index)).with_top_k(top_k),
+                OperationConfig { scorer : Some(name.clone()), scope : Some(scope),
                 ..OperationConfig::default() },),
             ];
             Ok(("similarity/cross-encoder", chain))

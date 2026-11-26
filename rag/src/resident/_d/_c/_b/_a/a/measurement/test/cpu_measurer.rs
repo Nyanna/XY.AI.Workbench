@@ -2,6 +2,11 @@ use super::*;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use super::super::bench_workload::{BenchError, ValidityKind};
 use super::super::{Clock, PendingTasks};
+#[test]
+fn measurer_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CpuMeasurer>();
+}
 /// Advances by a fixed step on every call.
 struct StepClock {
     now: AtomicU64,

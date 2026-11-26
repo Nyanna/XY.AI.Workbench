@@ -1,16 +1,18 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
-static_assertions::assert_impl_all!(AccessRegion : Send, Sync);
-static_assertions::assert_impl_all!(TensorRef : Send, Sync);
-static_assertions::assert_impl_all!(AccessError : Send, Sync);
-static_assertions::assert_impl_all!(TensorRefError : Send, Sync);
-const _: fn() = || {
-    fn is_static<T: 'static>() {}
-    is_static::<AccessRegion>();
-    is_static::<TensorRef>();
-    is_static::<AccessError>();
-};
+#[test]
+fn types_are_send_sync_and_owned() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    fn assert_static<T: 'static>() {}
+    assert_send_sync::<AccessRegion>();
+    assert_send_sync::<TensorRef>();
+    assert_send_sync::<AccessError>();
+    assert_send_sync::<TensorRefError>();
+    assert_static::<AccessRegion>();
+    assert_static::<TensorRef>();
+    assert_static::<AccessError>();
+}
 #[derive(Debug)]
 struct MemBackend {
     bytes: Mutex<Vec<u8>>,

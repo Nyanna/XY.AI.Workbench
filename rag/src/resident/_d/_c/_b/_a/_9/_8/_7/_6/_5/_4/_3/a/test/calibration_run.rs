@@ -1,6 +1,16 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use std::collections::HashMap;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<Target2>();
+    assert_send_sync::<Combination>();
+    assert_send_sync::<CalibrationConfig>();
+    assert_send_sync::<CalibrationReport>();
+    assert_send_sync::<CalibrationError>();
+    assert_send_sync::<ProbeError>();
+}
 struct MockBackend {
     table: HashMap<Combination, (f64, u64)>,
     fatal_on: Option<Combination>,

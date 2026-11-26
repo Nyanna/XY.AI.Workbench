@@ -2,6 +2,13 @@ use super::*;
 use std::thread;
 use std::time::Duration;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceHandle;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<DoorbellCell>();
+    assert_send_sync::<Doorbell>();
+    assert_send_sync::<DoorbellError>();
+}
 fn setup() -> (Doorbell, DoorbellCell, DoorbellCell) {
     let c = DoorbellCell::new_local();
     let a = DoorbellCell::new_local();

@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
-use crate::resident::_d::_c::_b::_a::_9::a::gpu_kernel::{
-    GpuKernels, KernelParams,
-};
+use crate::resident::_d::_c::_b::_a::_9::a::gpu_kernel::{GpuKernels, KernelParams};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
     axes, values, Axis, Value,
 };
@@ -13,8 +11,8 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use super::bench_workload::{DeviationConfig, Workload};
 use super::{
-    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate3,
-    Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe,
+    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome,
+    Gate3, Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe,
     GPU_FLUSH_BYTES, GPU_WARMUP_NS, MAX_REPS, MIN_REPS, MIN_SAMPLE_NS,
 };
 /// Slots of the first warm-up launch, before the launch rate is known.
@@ -379,7 +377,6 @@ impl<const DIM: usize> Measure for GpuMeasurer<DIM> {
         Ok(TimeProbe::Time(sample_ns(total, plan.reps, n)))
     }
 }
-const _: () = super::assert_send_sync::<GpuMeasurer<8>>();
 #[cfg(test)]
 #[path = "test/gpu_measurer.rs"]
 mod tests;

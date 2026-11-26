@@ -187,16 +187,6 @@ fn knee(s: &[f64], ids: &[EntryId]) -> Option<Knee> {
     let entry_id = *ids.get(rank)?;
     Some(Knee { rank, entry_id, depth })
 }
-const _: fn() = || {
-    fn assert_traits<T: Send + Sync + 'static>() {}
-    assert_traits::<ReportOptions>();
-    assert_traits::<ReportHit>();
-    assert_traits::<Softmax>();
-    assert_traits::<Knee>();
-    assert_traits::<Metrics>();
-    assert_traits::<SimilarityReport>();
-    assert_traits::<ReportError>();
-};
 #[cfg(test)]
 #[path = "test/similarity_report.rs"]
 mod tests;

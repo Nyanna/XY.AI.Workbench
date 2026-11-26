@@ -14,6 +14,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::
     ArenaCapacities, ArenaKind, ArenaSet, Budget,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<ExecConfig>();
+    assert_send_sync::<BatchInput>();
+    assert_send_sync::<BatchSuccess>();
+    assert_send_sync::<ExecError>();
+}
 fn arena(capacity: u64) -> SegmentArena<Arc<Allocator>> {
     let mut caps = ArenaCapacities::default();
     caps.set(ArenaKind::IndexSegments, capacity);

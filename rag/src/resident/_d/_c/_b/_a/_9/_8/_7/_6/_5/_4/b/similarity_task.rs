@@ -190,17 +190,6 @@ pub fn run_similarity(
         .collect();
     Ok(SimilarityOutput { per_query })
 }
-const _: fn() = || {
-    fn assert_traits<T: Send + Sync + 'static>() {}
-    assert_traits::<IndexId>();
-    assert_traits::<Scoring>();
-    assert_traits::<Precision>();
-    assert_traits::<SimilarityParams>();
-    assert_traits::<Candidate2>();
-    assert_traits::<SourceError2>();
-    assert_traits::<SimilarityOutput>();
-    assert_traits::<SimilarityError>();
-};
 #[cfg(test)]
 #[path = "test/similarity_task.rs"]
 mod tests;

@@ -1,6 +1,18 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<EmbeddingMode>();
+    assert_send_sync::<Precision>();
+    assert_send_sync::<EmbeddingInput>();
+    assert_send_sync::<EntryMetadata>();
+    assert_send_sync::<BackendError>();
+    assert_send_sync::<TargetError>();
+    assert_send_sync::<EmbeddingTask>();
+    assert_send_sync::<EmbeddingError>();
+}
 struct MockBackend {
     calls: AtomicUsize,
     fail: bool,

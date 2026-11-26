@@ -1,5 +1,12 @@
 use super::*;
 use std::collections::hash_map::DefaultHasher;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<ResultKind>();
+    assert_send_sync::<Hit2>();
+    assert_send_sync::<TaskResult>();
+}
 fn h<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);

@@ -2,6 +2,11 @@ use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 #[test]
+fn extensions_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<Extensions>();
+}
+#[test]
 fn new_is_empty() {
     let e = Extensions::new();
     assert_eq!(e.len(), 0);

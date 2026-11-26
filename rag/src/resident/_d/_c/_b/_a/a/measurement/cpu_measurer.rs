@@ -10,9 +10,9 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capabil
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::DocSource;
 use super::bench_workload::{Workload, WorkloadConfig};
 use super::{
-    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome, Gate3,
-    Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe, CPU_DOCS,
-    MAX_REPS,
+    incompatible6, judge3, lock, preflight, sample_ns, Combination, DeviationOutcome,
+    Gate3, Hooks, Measure, MeasureConfig, MeasureError, ReferenceCache, TimeProbe,
+    CPU_DOCS, MAX_REPS,
 };
 pub const DEFAULT_SEED: u64 = 0x5EED_0127;
 #[derive(Debug, Clone)]
@@ -224,7 +224,6 @@ impl Measure for CpuMeasurer {
         Ok(TimeProbe::Time(sample_ns(total, passes, n)))
     }
 }
-const _: () = super::assert_send_sync::<CpuMeasurer>();
 #[cfg(test)]
 #[path = "test/cpu_measurer.rs"]
 mod tests;

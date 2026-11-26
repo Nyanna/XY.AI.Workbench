@@ -6,6 +6,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_a
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::thread;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<PtrCell>();
+    assert_send_sync::<MutationError>();
+}
 #[derive(Debug)]
 struct MockBackend {
     data: Mutex<Vec<u8>>,

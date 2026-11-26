@@ -15,11 +15,12 @@ const SEQ: usize = 16;
 const PROJ_OUT: usize = 8;
 const PROJ_NAME: &str = "linear.weight";
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
-const _: () = {
-    assert_send_sync_static::<BuiltEncoder>();
-    assert_send_sync_static::<EncoderBuildError>();
-};
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<BuiltEncoder>();
+    assert_send_sync::<EncoderBuildError>();
+}
 struct TestDir(PathBuf);
 impl TestDir {
     fn new() -> TestDir {

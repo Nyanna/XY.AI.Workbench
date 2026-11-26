@@ -1,6 +1,17 @@
 use std::cell::RefCell;
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<ReportOptions>();
+    assert_send_sync::<ReportHit>();
+    assert_send_sync::<Softmax>();
+    assert_send_sync::<Knee>();
+    assert_send_sync::<Metrics>();
+    assert_send_sync::<SimilarityReport>();
+    assert_send_sync::<ReportError>();
+}
 fn eid(n: u64) -> EntryId {
     EntryId(n)
 }

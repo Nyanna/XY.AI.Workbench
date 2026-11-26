@@ -5,6 +5,11 @@ use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::a::encoding_schemata::MultiVectorSchema;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::text_normalization::TextNormalizer;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::tokenizer_loader::TokenizerSchema;
+#[test]
+fn error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TextEncodingError>();
+}
 const PAD: u32 = 1;
 const MASK: u32 = 9;
 const VOCAB: [(&str, u32); 10] = [

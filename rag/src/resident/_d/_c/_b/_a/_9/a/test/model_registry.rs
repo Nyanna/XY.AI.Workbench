@@ -17,13 +17,14 @@ const VOCAB: usize = 50;
 const MAX_POS: usize = 32;
 const SEQ: usize = 16;
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
-const _: () = {
-    assert_send_sync_static::<LoadedEncoder>();
-    assert_send_sync_static::<ModelRegistry>();
-    assert_send_sync_static::<EncoderResource>();
-    assert_send_sync_static::<RegistryError>();
-};
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<LoadedEncoder>();
+    assert_send_sync::<ModelRegistry>();
+    assert_send_sync::<EncoderResource>();
+    assert_send_sync::<RegistryError>();
+}
 struct TestDir(PathBuf);
 impl TestDir {
     fn new() -> TestDir {

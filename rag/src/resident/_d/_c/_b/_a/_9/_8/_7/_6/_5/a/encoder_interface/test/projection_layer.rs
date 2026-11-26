@@ -1,9 +1,12 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
-const _: () = assert_send_sync_static::<Projection>();
-const _: () = assert_send_sync_static::<ProjectionError>();
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<Projection>();
+    assert_send_sync::<ProjectionError>();
+}
 struct TensorSpec {
     name: &'static str,
     dtype: &'static str,

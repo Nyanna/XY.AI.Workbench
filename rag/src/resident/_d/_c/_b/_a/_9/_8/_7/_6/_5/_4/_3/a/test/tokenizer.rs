@@ -1,5 +1,10 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
+#[test]
+fn tokenizer_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<Tokenizer>();
+}
 fn model_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("model/multilingual-e5-small")
 }

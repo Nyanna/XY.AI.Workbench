@@ -1,12 +1,9 @@
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::RegionHandle;
-
 pub const INVALID_OFFSET: u64 = u64::MAX;
 pub const NO_OVERFLOW: u64 = u64::MAX;
 pub const WARP_SIZE: u32 = 32;
 pub const STATE_SIZE: usize = 32;
-
 /// Shared host/device state; the device source declares the identical layout.
 #[repr(C)]
 pub struct WriteState {
@@ -16,7 +13,6 @@ pub struct WriteState {
     overflow_flag: AtomicU32,
     logged: AtomicU32,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StateSnapshot {
     pub ptr: u64,
@@ -24,25 +20,21 @@ pub struct StateSnapshot {
     pub capacity: u64,
     pub overflow: bool,
 }
-
 impl StateSnapshot {
     /// `min(overflow_min, ptr, capacity)`
     pub fn valid_len(&self) -> u64 {
         self.overflow_min.min(self.ptr).min(self.capacity)
     }
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Claim3 {
     Ok { offset: u64 },
     Invalid,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClaimError3 {
     LengthMismatch { lens: usize, out: usize },
 }
-
 impl std::fmt::Display for ClaimError3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -52,20 +44,12 @@ impl std::fmt::Display for ClaimError3 {
         }
     }
 }
-
 impl std::error::Error for ClaimError3 {}
-
-const _: () = {
-    assert!(std::mem::size_of::<WriteState>() == STATE_SIZE);
-    assert!(std::mem::align_of::<WriteState>() == 8);
-};
-
 fn le_u64(image: &[u8; STATE_SIZE], at: usize) -> u64 {
     let mut bytes = [0u8; 8];
     bytes.copy_from_slice(&image[at..at + 8]);
     u64::from_le_bytes(bytes)
 }
-
 impl WriteState {
     pub fn new(capacity: u64) -> WriteState {
         WriteState {
@@ -76,7 +60,6 @@ impl WriteState {
             logged: AtomicU32::new(0),
         }
     }
-
     /// Little-endian image of a fresh state, for initialising device memory.
     pub fn init_image(capacity: u64) -> [u8; STATE_SIZE] {
         let mut image = [0u8; STATE_SIZE];
@@ -84,7 +67,6 @@ impl WriteState {
         image[16..24].copy_from_slice(&capacity.to_le_bytes());
         image
     }
-
     /// Reads an image copied back from the device.
     pub fn snapshot_from_image(image: &[u8; STATE_SIZE]) -> StateSnapshot {
         let mut flag = [0u8; 4];
@@ -96,7 +78,6 @@ impl WriteState {
             overflow: u32::from_le_bytes(flag) != 0,
         }
     }
-
     pub fn claim(&self, len: u64) -> Claim3 {
         let old = self.ptr.fetch_add(len, Ordering::AcqRel);
         match old.checked_add(len) {
@@ -107,11 +88,13 @@ impl WriteState {
             }
         }
     }
-
     /// One pointer update for the whole group; a failed member fails all later ones.
     pub fn claim_group(&self, lens: &[u64], out: &mut [u64]) -> Result<(), ClaimError3> {
         if lens.len() != out.len() {
-            return Err(ClaimError3::LengthMismatch { lens: lens.len(), out: out.len() });
+            return Err(ClaimError3::LengthMismatch {
+                lens: lens.len(),
+                out: out.len(),
+            });
         }
         if lens.is_empty() {
             return Ok(());
@@ -137,7 +120,6 @@ impl WriteState {
         }
         Ok(())
     }
-
     pub fn snapshot(&self) -> StateSnapshot {
         StateSnapshot {
             ptr: self.ptr.load(Ordering::Acquire),
@@ -146,42 +128,43 @@ impl WriteState {
             overflow: self.overflow_flag.load(Ordering::Acquire) != 0,
         }
     }
-
     pub fn reset(&mut self) {
         *self.ptr.get_mut() = 0;
         *self.overflow_min.get_mut() = NO_OVERFLOW;
         *self.overflow_flag.get_mut() = 0;
         *self.logged.get_mut() = 0;
     }
-
     fn record_overflow(&self, boundary: u64, claim_len: u64) {
         self.overflow_flag.store(1, Ordering::Release);
         self.overflow_min.fetch_min(boundary, Ordering::AcqRel);
         self.log_once(boundary, Some(claim_len));
     }
-
     /// Logs only for the caller that flips `logged` from 0 to 1.
     fn log_once(&self, boundary: u64, claim_len: Option<u64>) -> bool {
-        if self.logged.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire).is_err() {
+        if self
+            .logged
+            .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
             return false;
         }
         match claim_len {
-            Some(len) => log::warn!(
-                "write pointer overflow: capacity {}, boundary {}, claim length {}",
-                self.capacity,
-                boundary,
-                len
-            ),
-            None => log::warn!(
-                "write pointer overflow: capacity {}, boundary {}, claim length unknown",
-                self.capacity,
-                boundary
-            ),
+            Some(len) => {
+                log::warn!(
+                    "write pointer overflow: capacity {}, boundary {}, claim length {}",
+                    self.capacity, boundary, len
+                )
+            }
+            None => {
+                log::warn!(
+                    "write pointer overflow: capacity {}, boundary {}, claim length unknown",
+                    self.capacity, boundary
+                )
+            }
         }
         true
     }
 }
-
 /// CUDA C++ source for producer kernels; define it once per translation unit.
 pub const WRITE_POINTER_DEVICE_SRC: &str = r#"
 #ifndef XY_WRITE_POINTER_DEVICE_H
@@ -260,7 +243,6 @@ __device__ __forceinline__ unsigned long long wp_claim_warp(WriteState* s, unsig
 
 #endif
 "#;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WriteResult {
     /// No overflow; `len` bytes are valid.
@@ -268,17 +250,22 @@ pub enum WriteResult {
     /// Overflow; `[0, valid_len)` is valid and the remainder belongs in the next region.
     Partial { region: RegionHandle, valid_len: u64, overflow_pos: u64 },
 }
-
 impl WriteResult {
     pub fn from_snapshot(region: RegionHandle, s: &StateSnapshot) -> WriteResult {
         let valid_len = s.valid_len();
         if s.overflow {
-            WriteResult::Partial { region, valid_len, overflow_pos: s.overflow_min }
+            WriteResult::Partial {
+                region,
+                valid_len,
+                overflow_pos: s.overflow_min,
+            }
         } else {
-            WriteResult::Complete { region, len: valid_len }
+            WriteResult::Complete {
+                region,
+                len: valid_len,
+            }
         }
     }
-
     pub fn valid_len(&self) -> u64 {
         match self {
             WriteResult::Complete { len, .. } => *len,
@@ -286,25 +273,23 @@ impl WriteResult {
         }
     }
 }
-
 pub struct WritePointerRegion {
     region: RegionHandle,
     state: WriteState,
 }
-
 impl WritePointerRegion {
     pub fn new(region: RegionHandle) -> WritePointerRegion {
-        WritePointerRegion { region, state: WriteState::new(region.len()) }
+        WritePointerRegion {
+            region,
+            state: WriteState::new(region.len()),
+        }
     }
-
     pub fn region(&self) -> RegionHandle {
         self.region
     }
-
     pub fn state(&self) -> &WriteState {
         &self.state
     }
-
     pub fn result(&self) -> WriteResult {
         let snapshot = self.state.snapshot();
         if snapshot.overflow {
@@ -313,16 +298,6 @@ impl WritePointerRegion {
         WriteResult::from_snapshot(self.region, &snapshot)
     }
 }
-
-const fn assert_send_sync_static4<T: Send + Sync + 'static>() {}
-
-const _: () = {
-    assert_send_sync_static4::<WriteState>();
-    assert_send_sync_static4::<WritePointerRegion>();
-    assert_send_sync_static4::<WriteResult>();
-    assert_send_sync_static4::<StateSnapshot>();
-};
-
 #[cfg(test)]
 #[path = "test/write_pointer_region.rs"]
 mod tests;

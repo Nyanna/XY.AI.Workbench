@@ -12,6 +12,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::{
         layout::DType,
     },
 };
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<UniformGeometry>();
+    assert_send_sync::<LoadPolicy>();
+    assert_send_sync::<LoadPlan>();
+    assert_send_sync::<LoadManager>();
+}
 enum Mode {
     Ok,
     FailOn(u64),

@@ -76,10 +76,6 @@ pub fn encode_and_batch<S: AsRef<str>>(
     debug!("built batches: count={}", batches.len());
     Ok(batches)
 }
-const _: fn() = || {
-    fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<TextEncodingError>();
-};
 #[cfg(test)]
 #[path = "test/text_encoding.rs"]
 mod tests;

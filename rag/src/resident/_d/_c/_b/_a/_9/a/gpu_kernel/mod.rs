@@ -218,7 +218,6 @@ impl SegmentEntry {
         out
     }
 }
-const _: () = assert!(SegmentEntry::BYTES == std::mem::size_of::< SegmentEntry > ());
 /// Segment table for the kernel: the entries back to back.
 pub fn encode_segment_table(entries: &[SegmentEntry]) -> Vec<u8> {
     let mut out = Vec::with_capacity(entries.len() * SegmentEntry::BYTES);

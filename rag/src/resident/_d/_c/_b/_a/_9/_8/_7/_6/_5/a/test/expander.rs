@@ -2,6 +2,20 @@ use super::*;
 use std::path::Path;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::b::embedding_task::Precision as EmbeddingPrecision;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
+#[test]
+fn types_are_send_sync() {
+    fn assert_shareable<T: Send + Sync + 'static>() {}
+    assert_shareable::<TaskSpec>();
+    assert_shareable::<SimilaritySpec>();
+    assert_shareable::<ScorerChoice>();
+    assert_shareable::<Pooling>();
+    assert_shareable::<ModelDescriptors>();
+    assert_shareable::<IdleNotification>();
+    assert_shareable::<PlannedOperation>();
+    assert_shareable::<OperationConfig>();
+    assert_shareable::<ConfigError>();
+    assert_shareable::<ExpandError2>();
+}
 const MODEL: &str = "e5";
 fn descriptor() -> ModelDescriptor {
     ModelDescriptor::e5_small_default(Path::new("/tmp/model"), DType::F16)

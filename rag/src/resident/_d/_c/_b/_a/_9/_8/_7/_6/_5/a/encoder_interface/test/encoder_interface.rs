@@ -22,12 +22,13 @@ const MAX_POS: usize = 32;
 const SEQ: usize = 16;
 const OUT: usize = 4;
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
-const fn assert_traits<T: Send + Sync + 'static>() {}
-const _: () = {
-    assert_traits::<Encoder>();
-    assert_traits::<CompletionEvent>();
-    assert_traits::<EncoderError>();
-};
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<Encoder>();
+    assert_send_sync::<CompletionEvent>();
+    assert_send_sync::<EncoderError>();
+}
 struct TestDir(PathBuf);
 impl TestDir {
     fn new() -> TestDir {

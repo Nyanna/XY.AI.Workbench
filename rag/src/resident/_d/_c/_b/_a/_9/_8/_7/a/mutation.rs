@@ -160,13 +160,6 @@ impl<'g> GapGuard<'g> {
         region.write(offset, src).map_err(MutationError::Access)
     }
 }
-const _: () = {
-    fn _a<T: Send + Sync + 'static>() {}
-    fn _b() {
-        _a::<PtrCell>();
-        _a::<MutationError>();
-    }
-};
 #[cfg(test)]
 #[path = "test/mutation.rs"]
 mod tests;

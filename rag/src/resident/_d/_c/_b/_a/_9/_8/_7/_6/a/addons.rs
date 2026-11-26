@@ -288,14 +288,6 @@ pub fn rerank_job(
     params.scoring = scoring;
     SimilarityJob { queries, params }
 }
-const _: fn() = || {
-    fn assert_traits<T: Send + Sync + 'static>() {}
-    assert_traits::<EnqueueError>();
-    assert_traits::<SimilarityJob>();
-    assert_traits::<Stage3>();
-    assert_traits::<AddonError>();
-    assert_traits::<TextQuery>();
-};
 #[cfg(test)]
 #[path = "test/addons.rs"]
 mod tests;

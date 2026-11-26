@@ -50,13 +50,6 @@ impl PartialEq for Extensions {
     }
 }
 impl Eq for Extensions {}
-const _: () = {
-    #[allow(dead_code)]
-    fn assert_send_sync<T: Send + Sync + 'static>() {}
-    fn _check() {
-        assert_send_sync::<Extensions>();
-    }
-};
 #[cfg(test)]
 #[path = "test/extensions.rs"]
 mod tests;

@@ -26,9 +26,13 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_env::ComputeCapability;
 static_assertions::assert_impl_all!(SubengineCore : Send, Sync);
 static_assertions::assert_impl_all!(QueueRegistrations : Send, Sync);
-const fn assert_send_sync_static<T: Send + Sync + 'static>() {}
-const _: () = assert_send_sync_static::<SubengineError>();
-static_assertions::assert_impl_all!(Registration : Send, Sync);
+#[test]
+fn types_are_send_sync() {
+    fn assert_static<T: Send + Sync + 'static>() {}
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_static::<SubengineError>();
+    assert_send_sync::<Registration>();
+}
 #[derive(Debug)]
 struct MockStream {
     live: Arc<AtomicUsize>,

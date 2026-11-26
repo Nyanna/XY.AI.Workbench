@@ -5,6 +5,13 @@ use std::time::{Duration, Instant};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
     InitRequest, LifecycleConfig, MemoryClass, ResourceRegistry,
 };
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TextPreprocessor>();
+    assert_send_sync::<NormalizerLoader>();
+    assert_send_sync::<ResolvedNormalization>();
+}
 struct Upper {
     steps: NormalizationParams,
     calls: AtomicUsize,

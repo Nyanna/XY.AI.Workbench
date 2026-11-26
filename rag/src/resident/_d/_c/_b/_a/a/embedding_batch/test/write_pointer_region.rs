@@ -4,6 +4,14 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
+#[test]
+fn types_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync + 'static>() {}
+    assert_send_sync::<WriteState>();
+    assert_send_sync::<WritePointerRegion>();
+    assert_send_sync::<WriteResult>();
+    assert_send_sync::<StateSnapshot>();
+}
 fn handle(len: u64) -> RegionHandle {
     RegionHandle::new(ArenaKind::Workspace, 4096, len, Generation(3)).unwrap()
 }
