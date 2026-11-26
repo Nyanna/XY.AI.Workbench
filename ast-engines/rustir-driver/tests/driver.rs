@@ -43,6 +43,12 @@ pub mod resident {
             self.max
         }
     }
+    pub type Slot = u64;
+    impl From<Config> for Slot {
+        fn from(_: Config) -> Self {
+            0
+        }
+    }
 }
 pub fn outside() -> resident::Config {
     resident::Config
@@ -117,6 +123,12 @@ fn local_trait_impl_header_counts_for_the_type() {
     let edges = analyze("colocated_header", "resident");
     let limits = deps_of(&edges, "Limits");
     assert!(limits.contains(& "Describe"), "{limits:?}");
+}
+#[test]
+fn impl_for_a_local_alias_is_attributed_to_the_alias() {
+    let edges = analyze("alias_owner", "resident");
+    let slot = deps_of(&edges, "Slot");
+    assert!(slot.contains(& "Config"), "{slot:?}");
 }
 #[test]
 fn impl_for_foreign_type_is_attributed_to_the_local_trait() {

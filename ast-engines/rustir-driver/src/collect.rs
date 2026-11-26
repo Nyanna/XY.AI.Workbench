@@ -3,7 +3,7 @@ use rustc_driver::{Callbacks, Compilation};
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_hir::intravisit::{self, Visitor};
-use rustc_hir::{BodyId, Expr, HirId, ItemKind, Pat, PathSegment};
+use rustc_hir::{BodyId, Expr, HirId, ItemKind, Pat, PathSegment, QPath, TyKind};
 use rustc_interface::interface::Compiler;
 use rustc_middle::hir::nested_filter;
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeckResults};
@@ -175,7 +175,24 @@ fn adt_of(ty: Ty<'_>) -> Option<DefId> {
         _ => None,
     }
 }
+fn alias_self(tcx: TyCtxt<'_>, impl_id: DefId) -> Option<DefId> {
+    let ItemKind::Impl(block) = tcx.hir_expect_item(impl_id.as_local()?).kind else {
+        return None;
+    };
+    match block.self_ty.kind {
+        TyKind::Path(QPath::Resolved(None, path)) => {
+            match path.res {
+                Res::Def(DefKind::TyAlias, id) if id.is_local() => Some(id),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
 fn impl_anchor(tcx: TyCtxt<'_>, impl_id: DefId) -> Option<DefId> {
+    if let Some(alias) = alias_self(tcx, impl_id) {
+        return Some(alias);
+    }
     let self_ty = tcx.type_of(impl_id).skip_binder();
     if let Some(adt) = adt_of(self_ty).filter(|id| id.is_local()) {
         return Some(adt);

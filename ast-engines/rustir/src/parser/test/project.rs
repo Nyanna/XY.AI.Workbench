@@ -152,6 +152,20 @@ fn internal_uses_are_not_external_imports() {
     assert!(project.qualifiers.contains("a") && project.qualifiers.contains("b"));
 }
 #[test]
+fn root_directory_name_is_a_qualifier_without_manifest() {
+    let dir = scratch("root_name");
+    write(&dir, "resident/lib.rs", "pub struct Bar;");
+    let project = parse_project(&dir.join("resident")).unwrap();
+    assert!(project.qualifiers.contains("resident"));
+}
+#[test]
+fn root_directory_name_is_ignored_when_it_is_not_an_identifier() {
+    let dir = scratch("root_name_invalid");
+    write(&dir, "my-dir/lib.rs", "pub struct Bar;");
+    let project = parse_project(&dir.join("my-dir")).unwrap();
+    assert!(project.qualifiers.is_empty());
+}
+#[test]
 fn impl_blocks_contribute_the_imports_of_their_file() {
     let dir = scratch("impl-imports");
     write(&dir, "a.rs", "pub struct Foo;");

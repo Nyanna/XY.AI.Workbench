@@ -54,6 +54,8 @@ pub fn parse_project(root: &Path) -> Result<Project> {
     project.qualifiers = collected.modules;
     if let Some(package) = &project.manifest.package {
         project.qualifiers.insert(package.replace('-', "_"));
+    } else if let Some(name) = root_module(root) {
+        project.qualifiers.insert(name);
     }
     project.objects.resolve_dependencies();
     for (owner, origins) in sources {
@@ -68,6 +70,12 @@ pub fn parse_project(root: &Path) -> Result<Project> {
         }
     }
     Ok(project)
+}
+fn root_module(root: &Path) -> Option<String> {
+    let name = root.file_name()?.to_str()?;
+    let identifier = !name.starts_with(|c: char| c.is_ascii_digit()) && !name.is_empty()
+        && name.chars().all(|c| c.is_alphanumeric() || c == '_');
+    identifier.then(|| name.to_string())
 }
 fn owner_of(block: &ImplBlock, table: &ObjectTable) -> Option<String> {
     block
