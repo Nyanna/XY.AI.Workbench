@@ -1,7 +1,7 @@
 //! These tests run on the real card. Without a CUDA device they fail instead of skipping.
 use super::super::nvcc_compiler::NvccCompiler;
 use super::*;
-use l070::a::kernel_register::{CompileRequest, KernelCompiler};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::kernel_register::{CompileRequest, KernelCompiler};
 use std::sync::atomic::{AtomicU64, Ordering};
 const PROBE: &str = "extern \"C\" __global__ void probe(float* p) { p[0] = 1.0f; }\n";
 static DIRS: AtomicU64 = AtomicU64::new(0);

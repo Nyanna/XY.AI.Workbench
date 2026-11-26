@@ -7,23 +7,23 @@ use super::super::gpu_subengine::{
     GpuConfig, GpuDeviceManager, GpuDeviceManagerConfig, GpuError, GpuSubengine,
 };
 use super::*;
-use l010::capability_model::{axes, values};
-use l010::device_lane_event::{DeviceHandle, LaneConfig, LaneKind};
-use l010::layout::DType;
-use l010::queue::Queue;
-use l020::a::index_contract::{EntryId, Index, PayloadRef};
-use l030::a::reference_index::ReferenceIndex;
-use l030::a::region_handle::Generation;
-use l030::a::weight_source::WeightFile;
-use l040::a::resource_requirements::{
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{axes, values};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{DeviceHandle, LaneConfig, LaneKind};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Queue;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{EntryId, Index, PayloadRef};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::reference_index::ReferenceIndex;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::weight_source::WeightFile;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::{
     ExecutionEnvironment, HasResourceRequirements, IndexId, ResourceKind,
     ResourceRequirements,
 };
-use l040::a::slot_layout::SlotClass;
-use l060::a::resource_lifecycle::{
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::SlotClass;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::a::resource_lifecycle::{
     InitRequest, LifecycleConfig, Lease, MemoryClass, ResourceLoader, ResourceRegistry,
 };
-use l070::a::notification_topology::NotificationTopology;
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::notification_topology::NotificationTopology;
 use crate::resident::_d::_c::_b::_a::_9::a::gpu_completion::GpuCompletion;
 use crate::resident::_d::_c::_b::_a::_9::a::lane_batching::{
     BatchKey, BatchLimit, BatchMeta, BatchPayload, BatchRunner, ExecBatch, LaneResource,
@@ -31,7 +31,7 @@ use crate::resident::_d::_c::_b::_a::_9::a::lane_batching::{
 };
 use crate::resident::_d::_c::_b::_a::_9::a::manager_lifecycle::IndexManager;
 use crate::resident::_d::_c::_b::_a::_9::a::residency_control::IndexSpec;
-use l080::subengine_loop::ResourceExec;
+use crate::resident::_d::_c::_b::_a::_9::_8::subengine_loop::ResourceExec;
 use crate::resident::_d::_c::_b::_a::a::planner::Subengine;
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 fn real() -> Arc<CudaBackend> {
@@ -543,7 +543,7 @@ impl BatchRunner<Job> for Recorder {
         &self,
         _lane: &mut Lane,
         _batch: ExecBatch<Job>,
-        result: Result<(), l010::device_lane_event::EventError>,
+        result: Result<(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::EventError>,
     ) {
         assert!(result.is_ok());
         self.collects.fetch_add(1, Ordering::SeqCst);
@@ -642,7 +642,7 @@ fn a_batch_runs_on_real_streams_and_finishes_through_the_stream_callback() {
     assert_eq!(runner.collects.load(Ordering::SeqCst), 1);
     assert_eq!(resource.idle_lanes(), 2);
     assert!(woken.load(Ordering::SeqCst) >= 1);
-    assert_eq!(task.state(), l010::queue::State::Succeeded);
+    assert_eq!(task.state(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State::Succeeded);
 }
 #[test]
 fn lane_resources_get_streams_of_their_own() {

@@ -2,8 +2,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::resident::_d::_c::_b::_a::_9::_8::_7 as l070;
-use l070::a::kernel_register::{
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::kernel_register::{
     CodeImage, CodeKind, CompileRequest, CompilerError, KernelCompiler,
 };
 static NEXT_JOB: AtomicU64 = AtomicU64::new(0);
