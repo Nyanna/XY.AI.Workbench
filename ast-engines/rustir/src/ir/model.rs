@@ -53,6 +53,7 @@ pub struct Project {
     pub imports: BTreeMap<String, Vec<String>>,
     pub qualifiers: BTreeSet<String>,
     pub gates: BTreeMap<String, String>,
+    pub aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub manifest: Manifest,
 }
 impl Project {
@@ -64,6 +65,7 @@ impl Project {
             imports: BTreeMap::new(),
             qualifiers: BTreeSet::new(),
             gates: BTreeMap::new(),
+            aliases: BTreeMap::new(),
             manifest: Manifest::default(),
         }
     }

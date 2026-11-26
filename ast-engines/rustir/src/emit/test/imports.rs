@@ -107,3 +107,53 @@ fn gated_dependencies_carry_their_gate() {
         "#[cfg(unix)]\nuse crate::beta::Beta;\nuse crate::gamma::Gamma;\n\n"
     );
 }
+fn with_alias(project: &mut Project, owner: &str, alias: &str, target: &str) {
+    project
+        .aliases
+        .entry(owner.to_string())
+        .or_default()
+        .insert(alias.to_string(), target.to_string());
+}
+#[test]
+fn aliases_import_their_target_under_the_alias() {
+    let mut project = project(
+        vec![
+            object("Alpha", ObjectKind::Struct, & ["Beta"]), object("Beta",
+            ObjectKind::Struct, & []),
+        ],
+        &[],
+    );
+    with_alias(&mut project, "Alpha", "Class", "Beta");
+    assert_eq!(block(& project, "Alpha"), "use crate::beta::Beta as Class;\n\n");
+}
+#[test]
+fn aliased_targets_keep_the_plain_import_when_the_body_names_them() {
+    let mut project = project(
+        vec![
+            object("Alpha", ObjectKind::Struct, & ["Beta"]), object("Beta",
+            ObjectKind::Struct, & []),
+        ],
+        &[],
+    );
+    project.objects.attach("Alpha", "fn x(_: Beta, _: Class) {}", Vec::new());
+    with_alias(&mut project, "Alpha", "Class", "Beta");
+    assert_eq!(
+        block(& project, "Alpha"),
+        "use crate::beta::Beta;\nuse crate::beta::Beta as Class;\n\n"
+    );
+}
+#[test]
+fn gated_alias_targets_carry_their_gate() {
+    let mut project = project(
+        vec![
+            object("Alpha", ObjectKind::Struct, & ["Beta"]), object("Beta",
+            ObjectKind::Struct, & []),
+        ],
+        &[],
+    );
+    project.gates.insert("Beta".into(), "unix".into());
+    with_alias(&mut project, "Alpha", "Class", "Beta");
+    assert_eq!(
+        block(& project, "Alpha"), "#[cfg(unix)]\nuse crate::beta::Beta as Class;\n\n"
+    );
+}

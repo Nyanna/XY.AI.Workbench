@@ -51,11 +51,11 @@ pub fn parse_project(root: &Path) -> Result<Project> {
             project.objects.attach(&owner, &block.body, block.names);
         }
     }
-    project.objects.resolve_dependencies();
     project.qualifiers = collected.modules;
     if let Some(package) = &project.manifest.package {
         project.qualifiers.insert(package.replace('-', "_"));
     }
+    project.objects.resolve_dependencies();
     for (owner, origins) in sources {
         let selected = select_imports(
             &collected.imports,

@@ -17,7 +17,7 @@ Regeln:
 - Direkte Kindbeziehung von Modulen sind in Unterverzeichnissen zu erstellen
 - Abhängikeiten nach oben sind nicht erlaubt
 - Tests dürfen Contracts niemals über Loging verifizieren
-- Direkte Use Pfade keine unnötigen Alias Ketten
+- Direkte Use Pfade keine unnötigen Alias Ketten, Alias Importe vermeiden 
 - Non-leaf modules sollen nur Moduldeklarationen und Re-Exports enthalten, keine Implementierungen
 - Die Tests eines Moduls liegen in `<ebene>/test/<name>.rs`. Am Ende der Quelldatei steht:
 ```rust

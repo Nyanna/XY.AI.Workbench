@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use rustc_driver::{Callbacks, Compilation};
-use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_hir::intravisit::{self, Visitor};
-use rustc_hir::{BodyId, Expr, HirId, ItemKind, Pat};
+use rustc_hir::{BodyId, Expr, HirId, ItemKind, Pat, PathSegment};
 use rustc_interface::interface::Compiler;
 use rustc_middle::hir::nested_filter;
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeckResults};
-use crate::render::render_edges;
+use crate::render::{render_aliases, render_edges};
 pub struct Collect {
     prefix: String,
     out: String,
@@ -23,8 +23,9 @@ impl Callbacks for Collect {
         _compiler: &Compiler,
         tcx: TyCtxt<'tcx>,
     ) -> Compilation {
-        let edges = gather(tcx, &self.prefix);
-        if let Err(error) = std::fs::write(&self.out, render_edges(&edges)) {
+        let (edges, aliases) = gather(tcx, &self.prefix);
+        let text = render_edges(&edges) + &render_aliases(&aliases);
+        if let Err(error) = std::fs::write(&self.out, text) {
             eprintln!("rustir-driver: cannot write {}: {error}", self.out);
         }
         Compilation::Continue
@@ -33,6 +34,7 @@ impl Callbacks for Collect {
 struct References<'tcx> {
     tcx: TyCtxt<'tcx>,
     found: Vec<DefId>,
+    spelled: Vec<(String, DefId)>,
     results: Option<&'tcx TypeckResults<'tcx>>,
 }
 impl<'tcx> References<'tcx> {
@@ -61,6 +63,12 @@ impl<'tcx> Visitor<'tcx> for References<'tcx> {
         }
         intravisit::walk_path(self, path);
     }
+    fn visit_path_segment(&mut self, segment: &'tcx PathSegment<'tcx>) {
+        if let Res::Def(_, id) = segment.res {
+            self.spelled.push((segment.ident.name.to_string(), id));
+        }
+        intravisit::walk_path_segment(self, segment);
+    }
     fn visit_nested_body(&mut self, id: BodyId) {
         let tcx = self.tcx;
         let owner = tcx.hir_body_owner_def_id(id);
@@ -78,8 +86,11 @@ impl<'tcx> Visitor<'tcx> for References<'tcx> {
         intravisit::walk_pat(self, pat);
     }
 }
-fn gather(tcx: TyCtxt<'_>, prefix: &str) -> BTreeMap<String, BTreeSet<String>> {
-    let mut edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+type Edges = BTreeMap<String, BTreeSet<String>>;
+type Aliases = BTreeMap<String, BTreeSet<(String, String)>>;
+fn gather(tcx: TyCtxt<'_>, prefix: &str) -> (Edges, Aliases) {
+    let mut edges = Edges::new();
+    let mut aliases = Aliases::new();
     for item_id in tcx.hir_free_items() {
         let item = tcx.hir_item(item_id);
         let def_id = item.owner_id.def_id.to_def_id();
@@ -89,6 +100,7 @@ fn gather(tcx: TyCtxt<'_>, prefix: &str) -> BTreeMap<String, BTreeSet<String>> {
         let mut references = References {
             tcx,
             found: Vec::new(),
+            spelled: Vec::new(),
             results: None,
         };
         references.visit_item(item);
@@ -106,8 +118,32 @@ fn gather(tcx: TyCtxt<'_>, prefix: &str) -> BTreeMap<String, BTreeSet<String>> {
                 }
             }
         }
+        for (spelled, id) in &references.spelled {
+            if let Some(target) = aliased_target(tcx, *id, spelled, prefix) {
+                aliases
+                    .entry(owner.clone())
+                    .or_default()
+                    .insert((target, spelled.clone()));
+            }
+        }
     }
-    edges
+    (edges, aliases)
+}
+fn aliased_target(
+    tcx: TyCtxt<'_>,
+    id: DefId,
+    spelled: &str,
+    prefix: &str,
+) -> Option<String> {
+    let target = match tcx.def_kind(id) {
+        DefKind::Ctor(CtorOf::Struct, _) => tcx.parent(id),
+        _ => id,
+    };
+    if !target.is_local() || item_of(tcx, target) != Some(target) {
+        return None;
+    }
+    let name = tcx.item_name(target).to_string();
+    (name != spelled && in_prefix(&local_path(tcx, target), prefix)).then_some(name)
 }
 fn is_object(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
     let kind_matches = matches!(

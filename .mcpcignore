@@ -1,0 +1,6 @@
+/src
+/connector/src
+/ast-engines/rustir
+/ast-engines/rustir-driver
+/mcpc
+/rag

@@ -1,31 +1,21 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-
 use syn::UseTree;
-
 use crate::ir::ObjectTable;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Import {
     pub file: PathBuf,
     pub local: Option<String>,
     pub path: String,
 }
-
 pub fn flatten_use(file: &Path, tree: &UseTree) -> Vec<Import> {
     let mut out = Vec::new();
     flatten_tree(file, tree, "", &mut out);
     out
 }
-
 fn join_path(prefix: &str, segment: &str) -> String {
-    if prefix.is_empty() {
-        segment.to_string()
-    } else {
-        format!("{prefix}::{segment}")
-    }
+    if prefix.is_empty() { segment.to_string() } else { format!("{prefix}::{segment}") }
 }
-
 fn flatten_tree(file: &Path, tree: &UseTree, prefix: &str, out: &mut Vec<Import>) {
     let import = |local: Option<String>, path: String| Import {
         file: file.to_path_buf(),
@@ -65,17 +55,19 @@ fn flatten_tree(file: &Path, tree: &UseTree, prefix: &str, out: &mut Vec<Import>
         }
     }
 }
-
 fn root_of(path: &str) -> &str {
     let base = path.split(" as ").next().unwrap_or(path);
     base.split("::").next().unwrap_or(base)
 }
-
-fn is_internal(path: &str, qualifiers: &BTreeSet<String>, objects: &ObjectTable) -> bool {
+fn is_internal(
+    path: &str,
+    qualifiers: &BTreeSet<String>,
+    objects: &ObjectTable,
+) -> bool {
     let root = root_of(path);
-    matches!(root, "crate" | "self" | "super") || qualifiers.contains(root) || objects.contains(root)
+    matches!(root, "crate" | "self" | "super") || qualifiers.contains(root)
+        || objects.contains(root)
 }
-
 pub fn select_imports(
     imports: &[Import],
     origins: &[(PathBuf, BTreeSet<String>)],
@@ -96,7 +88,9 @@ pub fn select_imports(
         }
         match &import.local {
             None => globs.push(import),
-            Some(local) if names.any(|set| set.contains(local)) => referenced.push(import),
+            Some(local) if names.any(|set| set.contains(local)) => {
+                referenced.push(import)
+            }
             Some(_) => spare.push(import),
         }
     }
@@ -116,7 +110,6 @@ pub fn select_imports(
     }
     selected
 }
-
 #[cfg(test)]
 #[path = "test/imports.rs"]
 mod tests;
