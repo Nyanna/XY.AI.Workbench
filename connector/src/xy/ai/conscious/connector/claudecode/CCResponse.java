@@ -1,10 +1,12 @@
 package xy.ai.conscious.connector.claudecode;
 
 import java.util.LinkedHashMap;
-
 import xy.ai.conscious.model.IModelResponse;
 import xy.ai.conscious.model.TimeStats;
 import xy.ai.conscious.model.TokenStats;
+import java.util.ArrayList;
+import java.util.List;
+import xy.ai.conscious.model.ModelMessage;
 
 public class CCResponse implements IModelResponse {
   public final String id;
@@ -23,6 +25,7 @@ public class CCResponse implements IModelResponse {
   public final TokenStats stats = new TokenStats();
   public final TimeStats time = new TimeStats();
   public final LinkedHashMap<String, String> events = new LinkedHashMap<>();
+  public final List<ModelMessage> messages = new ArrayList<>();
   public boolean showStats = true;
 
   public CCResponse(String id) {

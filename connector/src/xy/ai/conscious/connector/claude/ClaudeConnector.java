@@ -187,6 +187,7 @@ public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespon
         answer.text(content.getResponseTextBlock().getText());
     }
     res.answer = answer.toString();
+    res.messages.addAll(answer.messages());
     sub.worked();
     return res;
   }

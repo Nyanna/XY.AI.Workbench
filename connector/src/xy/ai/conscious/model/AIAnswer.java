@@ -2,8 +2,9 @@ package xy.ai.conscious.model;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import xy.ai.conscious.connector.harness.Prompt;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AIAnswer {
   public static final String RESULT = "Result Stats: ";
@@ -14,6 +15,7 @@ public class AIAnswer {
   public final TimeStats time = new TimeStats();
   public String answer = "";
   public String instructions = "";
+  public final List<ModelMessage> messages = new ArrayList<>();
   public boolean showStats = true;
   /**
    * Prompt that produced this answer; null once no longer available

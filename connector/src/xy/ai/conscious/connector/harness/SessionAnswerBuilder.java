@@ -1,16 +1,17 @@
 package xy.ai.conscious.connector.harness;
 
+import java.util.ArrayList;
 import java.util.List;
+import xy.ai.conscious.model.ModelMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 
-/**
- * Accumulates a model answer into the fixed markdown/YAML output format
- * ({@link SessionRenderer}), mirroring what {@link SessionProcessor} parses
- * back on the next turn. Replaces the ad-hoc StringBuffer concatenation
- * previously duplicated in every connector's {@code convertResponse}.
- */
 public final class SessionAnswerBuilder {
   private final StringBuilder out = new StringBuilder();
+  private final List<ModelMessage> messages = new ArrayList<>();
+
+  public List<ModelMessage> messages() {
+    return messages;
+  }
 
   private SessionAnswerBuilder separate() {
     if (out.length() > 0)
@@ -21,6 +22,7 @@ public final class SessionAnswerBuilder {
   public SessionAnswerBuilder text(String text) {
     if (text == null || text.isBlank())
       return this;
+    messages.add(new ModelMessage(ModelMessage.Kind.Text, text));
     return separate().appendRaw(SessionRenderer.text(text));
   }
 
@@ -28,6 +30,8 @@ public final class SessionAnswerBuilder {
     boolean noText = texts == null || texts.stream().allMatch(t -> t == null || t.isBlank());
     if (noText && (meta == null || meta.isBlank()))
       return this;
+    if (!noText)
+      messages.add(new ModelMessage(ModelMessage.Kind.Reasoning, String.join("\n\n", texts.stream().filter(t -> t != null && !t.isBlank()).toList())));
     return separate().appendRaw(SessionRenderer.reasoning(texts, meta));
   }
 

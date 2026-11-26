@@ -27,6 +27,12 @@ import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import java.util.ArrayList;
+import xy.ai.conscious.connector.harness.PromptHandler;
+import xy.ai.conscious.model.AIAnswer;
+import xy.ai.conscious.model.ModelMessage;
+import java.util.List;
+import org.eclipse.swt.custom.SashForm;
 
 /**
  * Console like log of the decisions of the auto approver for all sessions.
@@ -35,14 +41,14 @@ public class AutoApprovePanel extends ViewPart {
   public static final String ID = "xy.ai.workbench.view.approver.AutoApprovePanel";
   private static final int MAX_LINES = 1000;
   private static final int SESSION_WIDTH = 10;
-  private static final int ACTION_WIDTH = 8;
+  private static final int ACTION_WIDTH = 9;
   private static final int TOOL_WIDTH = 16;
   private static final int CHARS_WIDTH = 7;
   private static final int DETAIL_MAX = 200;
 
   private enum Filter {
 
-    Allow("Allow"), Denied("Denied"), NoAction("No Action");
+    Allow("Allow"), Denied("Denied"), NoAction("No Action"), Message("Model Messages");
     private final String label;
 
     Filter(String label) {
@@ -50,29 +56,63 @@ public class AutoApprovePanel extends ViewPart {
     }
   }
 
-  private record Entry(Filter filter, String line) {
+  private record Entry(Filter filter, String line, String detail) {
   }
   private final Deque<Entry> buffer = new ArrayDeque<>();
-  private final Set<Filter> shown = EnumSet.of(Filter.Allow, Filter.Denied);
+  private final List<Entry> visible = new ArrayList<>();
+  private final Set<Filter> shown = EnumSet.allOf(Filter.class);
   private final Consumer<Decision> observer = this::onDecision;
+  private final Consumer<AIAnswer> answerObserver = this::onAnswer;
+  private PromptHandler promptHandler;
   private Display display;
+  private SashForm sash;
   private StyledText console;
+  private StyledText details;
   private AutoApprover approver;
   private boolean showOnChange = true;
 
   @Override
   public void createPartControl(Composite parent) {
     display = parent.getDisplay();
-    console = new StyledText(parent, SWT.READ_ONLY | SWT.V_SCROLL | SWT.H_SCROLL);
+    sash = new SashForm(parent, SWT.HORIZONTAL);
+    console = new StyledText(sash, SWT.READ_ONLY | SWT.V_SCROLL | SWT.H_SCROLL);
     console.setFont(JFaceResources.getTextFont());
     console.setWordWrap(false);
-    approver = Activator.getDefault().promptHandler.approver();
+    console.addCaretListener(e -> showDetails(console.getLineAtOffset(e.caretOffset)));
+    details = new StyledText(sash, SWT.READ_ONLY | SWT.V_SCROLL | SWT.H_SCROLL);
+    details.setFont(JFaceResources.getTextFont());
+    details.setWordWrap(true);
+    sash.setWeights(new int[] { 60, 40 });
+    promptHandler = Activator.getDefault().promptHandler;
+    approver = promptHandler.approver();
     IActionBars bars = getViewSite().getActionBars();
     bars.getToolBarManager().add(createDisableAction());
     bars.getToolBarManager().add(createAutoShowAction());
+    bars.getToolBarManager().add(createDetailsAction());
     bars.getToolBarManager().add(createFilterAction());
     bars.updateActionBars();
     approver.addListener(observer);
+    promptHandler.addAnswerObs(answerObserver);
+  }
+
+  private Action createDetailsAction() {
+    Action action = new Action("Show Details", IAction.AS_CHECK_BOX) {
+
+      @Override
+      public void run() {
+        sash.setMaximizedControl(isChecked() ? null : console);
+      }
+    };
+    action.setToolTipText("Show the details of the line at the cursor");
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJ_FILE));
+    action.setChecked(true);
+    return action;
+  }
+
+  private void showDetails(int line) {
+    if (details == null || details.isDisposed())
+      return;
+    details.setText(line >= 0 && line < visible.size() ? visible.get(line).detail() : "");
   }
 
   private Action createDisableAction() {
@@ -107,6 +147,7 @@ public class AutoApprovePanel extends ViewPart {
     Action action = new Action("Filter", IAction.AS_DROP_DOWN_MENU) {
     };
     action.setToolTipText("Select the action types to show");
+    action.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_ELCL_SYNCED));
     action.setMenuCreator(new IMenuCreator() {
       private Menu menu;
 
@@ -151,6 +192,21 @@ public class AutoApprovePanel extends ViewPart {
     }
   }
 
+  private void onAnswer(AIAnswer answer) {
+    if (answer == null || answer.messages.isEmpty())
+      return;
+    List<Entry> entries = answer.messages.stream().map(m -> toEntry(answer.sessionId, m)).toList();
+    display.asyncExec(() -> {
+      if (!console.isDisposed())
+        entries.forEach(this::append);
+    });
+  }
+
+  private static Entry toEntry(String sessionId, ModelMessage message) {
+    String line = fit(sessionId, SESSION_WIDTH) + " | " + fit(message.kind().name(), ACTION_WIDTH) + " | " + fit("-", TOOL_WIDTH) + " | " + pad(Integer.toString(message.text().length()), CHARS_WIDTH) + " | " + pad("", 15) + shorten(message.text(), DETAIL_MAX);
+    return new Entry(Filter.Message, line, message.text());
+  }
+
   private void onDecision(Decision decision) {
     Entry entry = toEntry(decision);
     display.asyncExec(() -> {
@@ -161,33 +217,41 @@ public class AutoApprovePanel extends ViewPart {
 
   private void append(Entry entry) {
     buffer.addLast(entry);
-    if (buffer.size() > MAX_LINES && shown.contains(buffer.removeFirst().filter()))
+    if (buffer.size() > MAX_LINES && shown.contains(buffer.removeFirst().filter())) {
+      visible.remove(0);
       console.replaceTextRange(0, console.getOffsetAtLine(1), "");
+    }
     if (shown.contains(entry.filter())) {
+      visible.add(entry);
       console.append(entry.line() + "\n");
       scrollToEnd();
       if (showOnChange)
-		try {
-			getSite().getPage().showView(ID, null, IWorkbenchPage.VIEW_VISIBLE);
-		} catch (PartInitException e) {
-			// ignore not present
-		}
+        try {
+          getSite().getPage().showView(ID, null, IWorkbenchPage.VIEW_VISIBLE);
+        } catch (PartInitException e) {
+          // ignore not present
+        }
     }
   }
 
   private void rebuild() {
     StringBuilder text = new StringBuilder();
+    visible.clear();
     for (Entry entry : buffer) {
-      if (shown.contains(entry.filter()))
+      if (shown.contains(entry.filter())) {
+        visible.add(entry);
         text.append(entry.line()).append('\n');
+      }
     }
     console.setText(text.toString());
     scrollToEnd();
   }
 
   private void scrollToEnd() {
-    console.setCaretOffset(console.getCharCount());
+    int last = visible.size() - 1;
+    console.setCaretOffset(last < 0 ? 0 : console.getOffsetAtLine(last));
     console.showSelection();
+    showDetails(last);
   }
 
   private static Entry toEntry(Decision d) {
@@ -206,7 +270,7 @@ public class AutoApprovePanel extends ViewPart {
         "Approved";
       case Denied ->
         "Denied";
-      case NoAction ->
+      case NoAction, Message ->
         "Pass";
     };
     String tool = item == null ? "-" : isResult ? "Result" : item.tool();
@@ -217,7 +281,27 @@ public class AutoApprovePanel extends ViewPart {
       line += " | " + reason + ":   " + shorten(detail, DETAIL_MAX);
     else
       line += " | " + pad("", 15) + shorten(detail, DETAIL_MAX);
-    return new Entry(filter, line);
+    return new Entry(filter, line, details(d, isResult));
+  }
+
+  private static String details(Decision d, boolean isResult) {
+    ApprovalItem item = d.item();
+    if (item == null)
+      return d.instruction().isBlank() ? d.reason() : d.instruction();
+    if (isResult) {
+      JsonNode results = item.result().path("structuredContent").path("results");
+      return join(d.reason(), pretty(results.isMissingNode() ? item.result() : results));
+    }
+    String reason = item.arguments().path("reason").asText("");
+    return join(reason.isBlank() ? d.reason() : reason, pretty(item.arguments()));
+  }
+
+  private static String join(String reason, String body) {
+    return reason.isBlank() ? body : reason.strip() + "\n\n" + body;
+  }
+
+  private static String pretty(JsonNode node) {
+    return node.isTextual() ? node.asText() : node.toPrettyString();
   }
 
   private static String text(JsonNode node) {
@@ -245,6 +329,8 @@ public class AutoApprovePanel extends ViewPart {
   public void dispose() {
     if (approver != null)
       approver.removeListener(observer);
+    if (promptHandler != null)
+      promptHandler.removeAnswerObs(answerObserver);
     super.dispose();
   }
 

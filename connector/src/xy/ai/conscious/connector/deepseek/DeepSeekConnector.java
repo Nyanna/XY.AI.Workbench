@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -13,7 +12,6 @@ import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.connector.IAIConnector;
 import xy.ai.conscious.connector.harness.FrozenConfig;
@@ -79,286 +77,258 @@ import xy.ai.workbench.connector.openapi.deepseek.responses.code200.json.Respons
  * relying on an echoed server-side identifier.
  */
 public class DeepSeekConnector implements IAIConnector<DeepSeekRequest, DeepSeekResponse> {
-	private static final String BASE_URL = "https://api.deepseek.com";
+  private static final String BASE_URL = "https://api.deepseek.com";
+  private final MCPClient mcpClient;
+  private final SessionProcessor<ObjectNode> sessionProcessor;
 
-	private final MCPClient mcpClient;
-	private final SessionProcessor<ObjectNode> sessionProcessor;
+  public DeepSeekConnector(MCPClient mcpClient, SessionProcessor<ObjectNode> sessionProcessor) {
+    this.mcpClient = mcpClient;
+    this.sessionProcessor = sessionProcessor;
+  }
 
-	public DeepSeekConnector(MCPClient mcpClient, SessionProcessor<ObjectNode> sessionProcessor) {
-		this.mcpClient = mcpClient;
-		this.sessionProcessor = sessionProcessor;
-	}
+  @Override
+  public KeyPattern getSupportedKeyPattern() {
+    return KeyPattern.Deepseek;
+  }
 
-	@Override
-	public KeyPattern getSupportedKeyPattern() {
-		return KeyPattern.Deepseek;
-	}
+  @Override
+  public DeepSeekRequest createRequest(Prompt prompt, IProgress mon) {
+    IProgress sub = mon.setTask("BuildRequest", 1);
+    FrozenConfig fc = prompt.config;
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode root = mapper.createObjectNode();
+    AllOfBody requestBody = new AllOfBody(root);
+    requestBody.getResponseProperties().setModel(new AnyOfBodyModel(TextNode.valueOf(fc.model.apiName)));
+    CreateResponseAllOfPart part = requestBody.getCreateResponseAllOfPart();
+    part.setMaxOutputTokens(new AnyOfMaxOutputTokens(LongNode.valueOf(fc.maxOutputTokens)));
+    if (fc.systemPrompt != null && !fc.systemPrompt.isBlank())
+      part.setInstructions(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(TextNode.valueOf(fc.systemPrompt)));
+    ModelResponseProperties modelProps = requestBody.getCreateModelResponsePropertiesAllOf().getModelResponseProperties();
+    String reqId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
+    // don't set User ID, segmentation prevents caching
+    // modelProps.setUser(userId);
+    if (fc.model.cap.isSupportTemperature(fc.reasoning))
+      // ignored when thinking, 0-2
+      modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(fc.temperature)));
+    if (fc.model.cap.isSupportTopP(fc.reasoning))
+      // onl yused when thinking 0.95-1
+      modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(fc.topP)));
+    EffortEnum effort = toEffort(fc.reasoning);
+    if (effort != null) {
+      ObjectNode reasoningNode = mapper.createObjectNode();
+      new xy.ai.workbench.connector.openapi.deepseek.operators.Reasoning(reasoningNode).setEffort(new AnyOfEffort(TextNode.valueOf(effort.rawValue())));
+      part.setReasoning(new AnyOfReasoning(reasoningNode));
+    }
+    ArrayNode input = mapper.createArrayNode();
+    if (prompt.inputs != null)
+      for (ObjectNode item : sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled, new SessionRequestCallbacks(mapper))) input.add(item);
+    if (fc.tools != null && !fc.tools.isEmpty())
+      appendTools(mapper, requestBody, fc.tools);
+    if (input.size() > 0)
+      part.setInput(new OneOfInput(input));
+    sub.worked();
+    return new DeepSeekRequest(requestBody, reqId);
+  }
 
-	@Override
-	public DeepSeekRequest createRequest(Prompt prompt, IProgress mon) {
-		IProgress sub = mon.setTask("BuildRequest", 1);
-		FrozenConfig fc = prompt.config;
+  private void appendTools(ObjectMapper mapper, AllOfBody requestBody, List<String> tools) {
+    ToolsList toolsList = new ToolsList(mapper.createArrayNode());
+    for (String toolName : tools) {
+      JsonNode tool = mcpClient.findTool(toolName);
+      if (tool == null)
+        continue;
+      ObjectNode toolNode = mapper.createObjectNode();
+      FunctionTool ft = new FunctionTool(toolNode);
+      ft.setType(BodyToolChoiceTypeEnum.FUNCTION);
+      ft.setName(tool.path("name").asText(toolName));
+      ft.setDescription(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(TextNode.valueOf(tool.path("description").asText(""))));
+      ft.setParameters(new AnyOfParameters(tool.path("inputSchema")));
+      toolsList.add(new OneOfToolsElement(toolNode));
+    }
+    if (toolsList.size() > 0)
+      requestBody.getResponseProperties().setTools(toolsList);
+  }
 
-		ObjectMapper mapper = new ObjectMapper();
-		ObjectNode root = mapper.createObjectNode();
-		AllOfBody requestBody = new AllOfBody(root);
+  private ObjectNode createMessage(ObjectMapper mapper, RoleEnum role, String text) {
+    ObjectNode node = mapper.createObjectNode();
+    EasyInputMessage msg = new EasyInputMessage(node);
+    msg.setType(TypeEnum.MESSAGE);
+    msg.setRole(role);
+    msg.setContent(new OneOfContent(TextNode.valueOf(text)));
+    return node;
+  }
 
-		requestBody.getResponseProperties().setModel(new AnyOfBodyModel(TextNode.valueOf(fc.model.apiName)));
+  /**
+   * Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input
+   * items (full SDK-based implementation).
+   */
+  private final class SessionRequestCallbacks implements SessionCallbacks<ObjectNode> {
+    private final ObjectMapper mapper;
+    private String lastCallId;
 
-		CreateResponseAllOfPart part = requestBody.getCreateResponseAllOfPart();
-		part.setMaxOutputTokens(new AnyOfMaxOutputTokens(LongNode.valueOf(fc.maxOutputTokens)));
+    private SessionRequestCallbacks(ObjectMapper mapper) {
+      this.mapper = mapper;
+    }
 
-		if (fc.systemPrompt != null && !fc.systemPrompt.isBlank())
-			part.setInstructions(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(fc.systemPrompt)));
+    @Override
+    public ObjectNode message(Role role, String text) {
+      RoleEnum roleEnum = role == Role.Agent ? RoleEnum.ASSISTANT : RoleEnum.USER;
+      return createMessage(mapper, roleEnum, text);
+    }
 
-		ModelResponseProperties modelProps = requestBody.getCreateModelResponsePropertiesAllOf()
-				.getModelResponseProperties();
-		String reqId = Integer.toString(new Random().nextInt(Integer.MAX_VALUE));
-		// don't set User ID, segmentation prevents caching
-		// modelProps.setUser(userId);
+    @Override
+    public ObjectNode toolCall(ToolCall call) {
+      ObjectNode node = mapper.createObjectNode();
+      FunctionToolCall ftc = new FunctionToolCall(node);
+      ftc.setType(FunctionCallEnum.FUNCTION_CALL);
+      ftc.setId(lastCallId = call.id);
+      ftc.setCallId(call.id);
+      ftc.setName(call.name);
+      ftc.setArguments(call.arguments == null ? "{}" : call.arguments.toString());
+      return node;
+    }
 
-		if (fc.model.cap.isSupportTemperature(fc.reasoning))
-			// ignored when thinking, 0-2
-			modelProps.setTemperature(new AnyOfTemperature(DoubleNode.valueOf(fc.temperature)));
+    @Override
+    public ObjectNode toolResult(ToolResult result) {
+      ObjectNode node = mapper.createObjectNode();
+      FunctionCallOutputItemParam out = new FunctionCallOutputItemParam(node);
+      out.setType(InputElementTypeEnum.FUNCTION_CALL_OUTPUT);
+      out.setCallId(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(TextNode.valueOf(result.id != null ? result.id : lastCallId != null ? lastCallId : "")));
+      out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
+      return node;
+    }
 
-		if (fc.model.cap.isSupportTopP(fc.reasoning))
-			// onl yused when thinking 0.95-1
-			modelProps.setTopP(new AnyOfTemperature(DoubleNode.valueOf(fc.topP)));
+    @Override
+    public ObjectNode reasoning(Role role, List<String> texts, String meta) {
+      if (meta != null && !meta.isBlank())
+        try {
+          return (ObjectNode) mapper.readTree(meta);
+        } catch (Exception e) {
+          LOG.error("Invalid Thinking Meta JSON, falling back to plain text: " + e.getMessage(), e);
+        }
+      return message(role, SessionRenderer.reasoning(texts, null));
+    }
+  }
 
-		EffortEnum effort = toEffort(fc.reasoning);
-		if (effort != null) {
-			ObjectNode reasoningNode = mapper.createObjectNode();
-			new xy.ai.workbench.connector.openapi.deepseek.operators.Reasoning(reasoningNode)
-					.setEffort(new AnyOfEffort(TextNode.valueOf(effort.rawValue())));
-			part.setReasoning(new AnyOfReasoning(reasoningNode));
-		}
+  private EffortEnum toEffort(Reasoning reasoning) {
+    if (reasoning == null)
+      return null;
+    switch(reasoning) {
+      case Disabled:
+        return EffortEnum.NONE;
+      case low:
+        return EffortEnum.LOW;
+      case high:
+        return EffortEnum.HIGH;
+      case max:
+        return EffortEnum.MAX;
+      default:
+        throw new UnsupportedOperationException("Unsupported reasoning");
+    }
+  }
 
-		ArrayNode input = mapper.createArrayNode();
-		if (prompt.inputs != null)
-			for (ObjectNode item : sessionProcessor.process(prompt.inputs, prompt.arg.processorEnabled,
-					new SessionRequestCallbacks(mapper)))
-				input.add(item);
+  @Override
+  public DeepSeekResponse executeRequest(DeepSeekRequest req, IProgress mon) {
+    var client = new ResponsesClientImpl(BASE_URL) {
 
-		if (fc.tools != null && !fc.tools.isEmpty())
-			appendTools(mapper, requestBody, fc.tools);
+      @Override
+      protected void customizeRequest(HttpRequest.Builder builder) {
+        builder.header("Authorization", "Bearer " + req.getPrompt().config.keys);
+      }
+    };
+    Responses resp = client.createResponse(req.request);
+    return new DeepSeekResponse(resp, req.getID());
+  }
 
-		if (input.size() > 0)
-			part.setInput(new OneOfInput(input));
-
-		sub.worked();
-		return new DeepSeekRequest(requestBody, reqId);
-	}
-
-	private void appendTools(ObjectMapper mapper, AllOfBody requestBody, List<String> tools) {
-		ToolsList toolsList = new ToolsList(mapper.createArrayNode());
-		for (String toolName : tools) {
-			JsonNode tool = mcpClient.findTool(toolName);
-			if (tool == null)
-				continue;
-			ObjectNode toolNode = mapper.createObjectNode();
-			FunctionTool ft = new FunctionTool(toolNode);
-			ft.setType(BodyToolChoiceTypeEnum.FUNCTION);
-			ft.setName(tool.path("name").asText(toolName));
-			ft.setDescription(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(tool.path("description").asText(""))));
-			ft.setParameters(new AnyOfParameters(tool.path("inputSchema")));
-			toolsList.add(new OneOfToolsElement(toolNode));
-		}
-		if (toolsList.size() > 0)
-			requestBody.getResponseProperties().setTools(toolsList);
-	}
-
-	private ObjectNode createMessage(ObjectMapper mapper, RoleEnum role, String text) {
-		ObjectNode node = mapper.createObjectNode();
-		EasyInputMessage msg = new EasyInputMessage(node);
-		msg.setType(TypeEnum.MESSAGE);
-		msg.setRole(role);
-		msg.setContent(new OneOfContent(TextNode.valueOf(text)));
-		return node;
-	}
-
-	/**
-	 * Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input
-	 * items (full SDK-based implementation).
-	 */
-	private final class SessionRequestCallbacks implements SessionCallbacks<ObjectNode> {
-		private final ObjectMapper mapper;
-		private String lastCallId;
-
-		private SessionRequestCallbacks(ObjectMapper mapper) {
-			this.mapper = mapper;
-		}
-
-		@Override
-		public ObjectNode message(Role role, String text) {
-			RoleEnum roleEnum = role == Role.Agent ? RoleEnum.ASSISTANT : RoleEnum.USER;
-			return createMessage(mapper, roleEnum, text);
-		}
-
-		@Override
-		public ObjectNode toolCall(ToolCall call) {
-			ObjectNode node = mapper.createObjectNode();
-			FunctionToolCall ftc = new FunctionToolCall(node);
-			ftc.setType(FunctionCallEnum.FUNCTION_CALL);
-			ftc.setId(lastCallId = call.id);
-			ftc.setCallId(call.id);
-			ftc.setName(call.name);
-			ftc.setArguments(call.arguments == null ? "{}" : call.arguments.toString());
-			return node;
-		}
-
-		@Override
-		public ObjectNode toolResult(ToolResult result) {
-			ObjectNode node = mapper.createObjectNode();
-			FunctionCallOutputItemParam out = new FunctionCallOutputItemParam(node);
-			out.setType(InputElementTypeEnum.FUNCTION_CALL_OUTPUT);
-			out.setCallId(new xy.ai.workbench.connector.openapi.deepseek.operators.AnyOfInstructions(
-					TextNode.valueOf(result.id != null ? result.id : lastCallId != null ? lastCallId : "")));
-			out.setOutput(new OneOfOutput(TextNode.valueOf(result.content == null ? "" : result.content)));
-			return node;
-		}
-
-		@Override
-		public ObjectNode reasoning(Role role, List<String> texts, String meta) {
-			if (meta != null && !meta.isBlank())
-				try {
-					return (ObjectNode) mapper.readTree(meta);
-				} catch (Exception e) {
-					LOG.error("Invalid Thinking Meta JSON, falling back to plain text: " + e.getMessage(), e);
-				}
-			return message(role, SessionRenderer.reasoning(texts, null));
-		}
-	}
-
-	private EffortEnum toEffort(Reasoning reasoning) {
-		if (reasoning == null)
-			return null;
-		switch (reasoning) {
-		case Disabled:
-			return EffortEnum.NONE;
-		case low:
-			return EffortEnum.LOW;
-		case high:
-			return EffortEnum.HIGH;
-		case max:
-			return EffortEnum.MAX;
-		default:
-			throw new UnsupportedOperationException("Unsupported reasoning");
-		}
-	}
-
-	@Override
-	public DeepSeekResponse executeRequest(DeepSeekRequest req, IProgress mon) {
-		var client = new ResponsesClientImpl(BASE_URL) {
-			@Override
-			protected void customizeRequest(HttpRequest.Builder builder) {
-				builder.header("Authorization", "Bearer " + req.getPrompt().config.keys);
-			}
-		};
-		Responses resp = client.createResponse(req.request);
-		return new DeepSeekResponse(resp, req.getID());
-	}
-
-	@Override
-	public AIAnswer convertResponse(DeepSeekResponse response, IProgress mon) {
-		Responses resp = response.response;
-		IProgress sub = mon.setTask("Convert Respone", 1);
-
-		AIAnswer res = new AIAnswer(response.id);
-
-		if (!"200".equals(resp.statusCode())) {
-			String body = resp.body();
-			LOG.error("Deepseek request failed: HTTP " + resp.statusCode() + (body.isEmpty() ? "" : " - " + body));
-			res.answer = "HTTP " + resp.statusCode() + (body.isEmpty() ? "" : ": " + body);
-			sub.worked();
-			return res;
-		}
-
-		ResponsesCode200Json code200 = resp.getCode200();
-		if (code200 == null || !code200.isJson()) {
-			LOG.error(
-					"Unexpected Deepseek response content type: " + (code200 == null ? "none" : code200.contentType()));
-			sub.worked();
-			return res;
-		}
-
-		ResponseAllOfPart part = code200.getJson().getResponseAllOfPart();
-
-		ResponseUsage usage = part.getUsage();
-		if (usage != null) {
-			if (usage.getInputTokens() != null)
-				res.stats.inputToken = usage.getInputTokens();
-			if (usage.getOutputTokens() != null)
-				res.stats.outputToken = usage.getOutputTokens();
-			if (usage.getTotalTokens() != null)
-				res.stats.totalToken = usage.getTotalTokens();
-			var ind = usage.getInputTokensDetails();
-			if (ind != null) {
-				res.stats.cacheRead = Optional.ofNullable(ind.getCachedTokens()).orElse(0L);
-				res.stats.cacheCreate = Optional.ofNullable(ind.getCacheWriteTokens()).orElse(0L);
-			}
-			var outd = usage.getOutputTokensDetails();
-			if (outd != null)
-				res.stats.reasoningToken = Optional.ofNullable(outd.getReasoningTokens()).orElse(0L);
-		}
-		// tokens show upt in both, input and read from cache
-		res.stats.inputToken -= res.stats.cacheRead;
-
-		AnyOfInstructions instructions = part.getInstructions();
-		if (instructions != null && !instructions.isNull() && instructions.getOneOfInstructions() != null
-				&& instructions.getOneOfInstructions().isString())
-			res.instructions = instructions.getOneOfInstructions().getString();
-
-		AnyOfError error = part.getError();
-		if (error != null && !error.isNull() && error.isResponseErrorAnyOfPart()) {
-			ResponseErrorAnyOfPart err = error.getResponseErrorAnyOfPart();
-			res.answer = err.getCode().rawValue() + ": " + err.getMessage();
-			LOG.error("Error: " + err.getCode().rawValue() + " " + err.getMessage());
-		} else {
-			SessionAnswerBuilder answer = new SessionAnswerBuilder();
-			OutputList output = part.getOutput();
-			if (output != null)
-				for (int i = 0; i < output.size(); i++) {
-					OneOfElement el = output.get(i);
-					if (el.isOutputMessage()) {
-						OutputMessage msg = el.getOutputMessage();
-						InputElementContentList content = msg.getContent();
-						StringBuilder text = new StringBuilder();
-						for (int j = 0; content != null && j < content.size(); j++) {
-							OneOfContentElement c = content.get(j);
-							if (c.isOutputTextContent())
-								text.append(c.getOutputTextContent().getText());
-							else if (c.isRefusalContent())
-								LOG.error("Refusal: " + c.getRefusalContent().getRefusal());
-						}
-						answer.text(text.toString());
-					} else if (el.isFunctionToolCall()) {
-						FunctionToolCall call = el.getFunctionToolCall();
-						JsonNode args;
-						try {
-							args = new ObjectMapper().readTree(call.getArguments());
-						} catch (Exception e) {
-							args = new ObjectMapper().createObjectNode();
-						}
-						answer.toolCall(call.getCallId(), call.getName(), args);
-					} else if (el.isReasoningItem()) {
-						ReasoningItem reasoning = el.getReasoningItem();
-						ElementContentList content = reasoning.getContent();
-						List<String> texts = new ArrayList<>();
-						for (int j = 0; content != null && j < content.size(); j++) {
-							ReasoningTextContent txt = content.get(j);
-							texts.add(txt.getText() == null ? "" : txt.getText());
-							txt.setText(SessionRenderer.reasoningPlaceholder(j));
-						}
-						answer.reasoning(texts, reasoning.node().toString());
-					} else {
-						LOG.info("Other output!");
-					}
-				}
-			res.answer = answer.toString();
-		}
-		sub.worked();
-		return res;
-	}
+  @Override
+  public AIAnswer convertResponse(DeepSeekResponse response, IProgress mon) {
+    Responses resp = response.response;
+    IProgress sub = mon.setTask("Convert Respone", 1);
+    AIAnswer res = new AIAnswer(response.id);
+    if (!"200".equals(resp.statusCode())) {
+      String body = resp.body();
+      LOG.error("Deepseek request failed: HTTP " + resp.statusCode() + (body.isEmpty() ? "" : " - " + body));
+      res.answer = "HTTP " + resp.statusCode() + (body.isEmpty() ? "" : ": " + body);
+      sub.worked();
+      return res;
+    }
+    ResponsesCode200Json code200 = resp.getCode200();
+    if (code200 == null || !code200.isJson()) {
+      LOG.error("Unexpected Deepseek response content type: " + (code200 == null ? "none" : code200.contentType()));
+      sub.worked();
+      return res;
+    }
+    ResponseAllOfPart part = code200.getJson().getResponseAllOfPart();
+    ResponseUsage usage = part.getUsage();
+    if (usage != null) {
+      if (usage.getInputTokens() != null)
+        res.stats.inputToken = usage.getInputTokens();
+      if (usage.getOutputTokens() != null)
+        res.stats.outputToken = usage.getOutputTokens();
+      if (usage.getTotalTokens() != null)
+        res.stats.totalToken = usage.getTotalTokens();
+      var ind = usage.getInputTokensDetails();
+      if (ind != null) {
+        res.stats.cacheRead = Optional.ofNullable(ind.getCachedTokens()).orElse(0L);
+        res.stats.cacheCreate = Optional.ofNullable(ind.getCacheWriteTokens()).orElse(0L);
+      }
+      var outd = usage.getOutputTokensDetails();
+      if (outd != null)
+        res.stats.reasoningToken = Optional.ofNullable(outd.getReasoningTokens()).orElse(0L);
+    }
+    // tokens show upt in both, input and read from cache
+    res.stats.inputToken -= res.stats.cacheRead;
+    AnyOfInstructions instructions = part.getInstructions();
+    if (instructions != null && !instructions.isNull() && instructions.getOneOfInstructions() != null && instructions.getOneOfInstructions().isString())
+      res.instructions = instructions.getOneOfInstructions().getString();
+    AnyOfError error = part.getError();
+    if (error != null && !error.isNull() && error.isResponseErrorAnyOfPart()) {
+      ResponseErrorAnyOfPart err = error.getResponseErrorAnyOfPart();
+      res.answer = err.getCode().rawValue() + ": " + err.getMessage();
+      LOG.error("Error: " + err.getCode().rawValue() + " " + err.getMessage());
+    } else {
+      SessionAnswerBuilder answer = new SessionAnswerBuilder();
+      OutputList output = part.getOutput();
+      if (output != null)
+        for (int i = 0; i < output.size(); i++) {
+          OneOfElement el = output.get(i);
+          if (el.isOutputMessage()) {
+            OutputMessage msg = el.getOutputMessage();
+            InputElementContentList content = msg.getContent();
+            StringBuilder text = new StringBuilder();
+            for (int j = 0; content != null && j < content.size(); j++) {
+              OneOfContentElement c = content.get(j);
+              if (c.isOutputTextContent())
+                text.append(c.getOutputTextContent().getText());
+              else if (c.isRefusalContent())
+                LOG.error("Refusal: " + c.getRefusalContent().getRefusal());
+            }
+            answer.text(text.toString());
+          } else if (el.isFunctionToolCall()) {
+            FunctionToolCall call = el.getFunctionToolCall();
+            JsonNode args;
+            try {
+              args = new ObjectMapper().readTree(call.getArguments());
+            } catch (Exception e) {
+              args = new ObjectMapper().createObjectNode();
+            }
+            answer.toolCall(call.getCallId(), call.getName(), args);
+          } else if (el.isReasoningItem()) {
+            ReasoningItem reasoning = el.getReasoningItem();
+            ElementContentList content = reasoning.getContent();
+            List<String> texts = new ArrayList<>();
+            for (int j = 0; content != null && j < content.size(); j++) {
+              ReasoningTextContent txt = content.get(j);
+              texts.add(txt.getText() == null ? "" : txt.getText());
+              txt.setText(SessionRenderer.reasoningPlaceholder(j));
+            }
+            answer.reasoning(texts, reasoning.node().toString());
+          } else
+            LOG.info("Other output!");
+        }
+      res.answer = answer.toString();
+      res.messages.addAll(answer.messages());
+    }
+    sub.worked();
+    return res;
+  }
 }

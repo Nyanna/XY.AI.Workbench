@@ -240,6 +240,7 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     answer.time.add(resp.time);
     answer.time.totalMs = resp.time.totalMs;
     answer.answer = resp.resultText;
+    answer.messages.addAll(resp.messages);
     return answer;
   }
 }

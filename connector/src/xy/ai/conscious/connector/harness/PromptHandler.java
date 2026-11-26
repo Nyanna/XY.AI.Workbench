@@ -46,13 +46,17 @@ public class PromptHandler {
     this.input = new PromptInputHandler(cfg, editorListener);
     this.gitSupport = gitSupport;
   }
-  
+
   public AutoApprover approver() {
-	return approver;
+    return approver;
   }
 
   public void addAnswerObs(Consumer<AIAnswer> obs) {
     answerObs.add(obs);
+  }
+
+  public void removeAnswerObs(Consumer<AIAnswer> obs) {
+    answerObs.remove(obs);
   }
 
   public void execute(IExecutor exec) {
