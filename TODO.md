@@ -3,8 +3,6 @@ mcpc proxy für rustrover dynamisch anlegen können mit allen zielparametern wie
 	direkt json als argumente übergeben
 	dynamischen schemavalidierung beim proxy
 	mit cache für schemata pro connection
-include commands auslagern in gemeinsames verzeichnis mit interface für übersicht
-	include anfuehrungszeichen für commands
 autocompletion
 	- pfadvervollständigung in tool calls hinter slash für pfade
 
