@@ -13,6 +13,7 @@ import xy.ai.conscious.autoapprove.rules.IApprovalRule;
 import xy.ai.conscious.autoapprove.rules.SmallResultRule;
 import xy.ai.conscious.autoapprove.rules.ChainLimitRule;
 import xy.ai.conscious.autoapprove.rules.DenyOwnPromptFileRule;
+import xy.ai.conscious.autoapprove.rules.HoldOutsideProjectRule;
 
 /**
  * Ordered registry of rules.
@@ -26,6 +27,7 @@ public class RuleRegistry {
     register(new ChainLimitRule());
     register(new DeepPathReadRule());
     register(new DenyRootPathRule());
+    register(new HoldOutsideProjectRule());
     register(new DenyOwnPromptFileRule());
     register(new HoldMarkdownRule());
   }
