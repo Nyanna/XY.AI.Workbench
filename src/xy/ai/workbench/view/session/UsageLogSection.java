@@ -8,7 +8,7 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 
 import xy.ai.conscious.api.IExecutor;
-import xy.ai.conscious.connector.harness.PromptHandler;
+import xy.ai.conscious.harness.PromptHandler;
 
 /** Rolling CSV log of token usage per answer. */
 public class UsageLogSection {

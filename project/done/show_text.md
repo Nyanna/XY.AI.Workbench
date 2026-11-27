@@ -393,7 +393,7 @@ result:
             import java.util.regex.Matcher;
             import java.util.regex.Pattern;
 
-            import xy.ai.conscious.connector.harness.Prompt;
+            import xy.ai.conscious.harness.Prompt;
       - path: /home/user/xyan/xy.ai.workbench/src/xy/ai/workbench/view/approver/AutoApprovePanel.java
         nodes:
         - id: L0iCkq|MgjHi3
@@ -1835,7 +1835,7 @@ arguments:
     new_text: |-
       import java.util.ArrayList;
       import java.util.function.Consumer;
-      import xy.ai.conscious.connector.harness.PromptHandler;
+      import xy.ai.conscious.harness.PromptHandler;
       import xy.ai.conscious.model.AIAnswer;
       import xy.ai.conscious.model.ModelMessage;
   reason: "Fix enum, switch and imports"
@@ -1852,8 +1852,8 @@ arguments:
     id: 2ajmls|aUZGkP
     old_text: |-
       import java.util.function.Consumer;
-      import xy.ai.conscious.connector.harness.PromptHandler;
-    new_text: import xy.ai.conscious.connector.harness.PromptHandler;
+      import xy.ai.conscious.harness.PromptHandler;
+    new_text: import xy.ai.conscious.harness.PromptHandler;
   reason: Remove duplicate Consumer import
 ```
 /answer 4843-b6-0 allow

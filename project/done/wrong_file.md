@@ -1185,7 +1185,7 @@ arguments:
     - import org.eclipse.core.filebuffers.ITextFileBuffer;
     - import org.eclipse.core.filebuffers.ITextFileBufferManager;
     - import org.eclipse.core.filebuffers.LocationKind;
-    - import xy.ai.conscious.connector.harness.PromptArguments;
+    - import xy.ai.conscious.harness.PromptArguments;
   reason: Add container resolution and editor-less file buffer tag insertion
 ```
 /answer cd56-23-0 allow

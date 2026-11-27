@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import xy.ai.conscious.autoapprove.ApprovalContext;
 import xy.ai.conscious.autoapprove.ApprovalItem;
 import xy.ai.conscious.autoapprove.ApprovalItem.Kind;
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 
 /**
  * Denies every tool call and tool result that contains the own prompt file.

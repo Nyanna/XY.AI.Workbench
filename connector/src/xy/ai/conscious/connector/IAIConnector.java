@@ -1,7 +1,7 @@
 package xy.ai.conscious.connector;
 
 import xy.ai.conscious.api.IExecutor.IProgress;
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.IModelRequest;
 import xy.ai.conscious.model.IModelResponse;

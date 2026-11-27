@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import xy.ai.conscious.connector.SessionParameters;
-import xy.ai.conscious.connector.harness.FrozenConfig;
 import xy.ai.conscious.core.AgentProfile;
 import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.harness.FrozenConfig;
 import xy.ai.conscious.model.CacheMode;
 import xy.ai.conscious.model.Model;
 import xy.ai.conscious.model.Reasoning;

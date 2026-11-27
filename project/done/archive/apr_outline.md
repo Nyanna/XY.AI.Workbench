@@ -649,7 +649,7 @@ result:
           import xy.ai.conscious.autoapprove.rules.Vote;
           import xy.ai.conscious.commands.AnswerCommand;
           import xy.ai.conscious.commands.CallCommand;
-          import xy.ai.conscious.connector.harness.Prompt;
+          import xy.ai.conscious.harness.Prompt;
           import xy.ai.conscious.core.LOG;
           import xy.ai.conscious.model.AIAnswer;
 ```

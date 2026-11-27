@@ -354,7 +354,7 @@ result:
     - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
       nodes:
       - id: GwlVvM|lj1u2H
-        signature: import xy.ai.conscious.connector.harness.Prompt;
+        signature: import xy.ai.conscious.harness.Prompt;
       - id: ApprovalContext
         signature: "/**  * Input of a rule.  *  * @param item {"
         docstring: Input of a rule.
@@ -1863,37 +1863,37 @@ result:
       matches:
       - path: xy/ai/conscious/connector/claudecode/CCSessionParameters.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = FrozenConfig.from(cfg);
       - path: xy/ai/conscious/connector/claudecode/CCConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = req.config;
       - path: xy/ai/conscious/connector/claudecode/CCRequest.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - public final FrozenConfig config;
         - "public CCRequest(String id, String title, FrozenConfig config, String promptText, PromptArguments arg) {"
       - path: xy/ai/conscious/connector/google/GeminiConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = prompt.config;
         - "private Integer getThinkingBudget(Reasoning reasoning, FrozenConfig fc) {"
       - path: xy/ai/conscious/connector/claude/ClaudeConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = prompt.config;
       - path: xy/ai/conscious/connector/openai/OpenAIConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = prompt.config;
       - path: xy/ai/conscious/connector/deepseek/DeepSeekConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - FrozenConfig fc = prompt.config;
       - path: xy/ai/conscious/connector/SessionParameters.java
         matches:
-        - import xy.ai.conscious.connector.harness.FrozenConfig;
+        - import xy.ai.conscious.harness.FrozenConfig;
         - "public boolean equalsConfig(FrozenConfig cfg, Path cwd, String filePath, List<String> tools) {"
       - path: xy/ai/conscious/connector/harness/FrozenConfig.java
         matches:
@@ -2276,7 +2276,7 @@ result:
           - import xy.ai.conscious.autoapprove.rules.Vote;
           - import xy.ai.conscious.commands.AnswerCommand;
           - import xy.ai.conscious.commands.CallCommand;
-          - import xy.ai.conscious.connector.harness.Prompt;
+          - import xy.ai.conscious.harness.Prompt;
           - import xy.ai.conscious.core.LOG;
           - import xy.ai.conscious.model.AIAnswer;
         matches:
@@ -2286,7 +2286,7 @@ result:
         nodes:
         - id: GwlVvM|lj1u2H
           matches:
-          - import xy.ai.conscious.connector.harness.Prompt;
+          - import xy.ai.conscious.harness.Prompt;
           - import xy.ai.conscious.model.AIAnswer;
         matches:
         - lineno: 1
@@ -2404,10 +2404,10 @@ arguments:
     new_text: "/**\n\t * Defaults of this rule, always as an independent clone. Effective values are\n\t * read via {@code ApprovalContext.settings(id())}.\n\t */\n\tRuleSettings getDefaultSetting();"
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
     id: GwlVvM|lj1u2H
-    old_text: import xy.ai.conscious.connector.harness.Prompt;
+    old_text: import xy.ai.conscious.harness.Prompt;
     new_text: |-
       import xy.ai.conscious.autoapprove.rules.RuleSettings;
-      import xy.ai.conscious.connector.harness.Prompt;
+      import xy.ai.conscious.harness.Prompt;
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/RuleRegistry.java
     id: 3sbhBT|4uo6iX
     old_text: import java.util.Objects;
@@ -2561,7 +2561,7 @@ result:
           - import xy.ai.conscious.tools.Hash;
         matches:
         - lineno: 1
-          match: package xy.ai.conscious.connector.harness;
+          match: package xy.ai.conscious.harness;
 ```
 /answer 0a99-2c-2b allow
 ReasoningToken: 168

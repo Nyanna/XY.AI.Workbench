@@ -1,4 +1,4 @@
-package xy.ai.conscious.connector.harness;
+package xy.ai.conscious.harness;
 
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;

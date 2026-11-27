@@ -163,7 +163,7 @@ result:
         - import xy.ai.conscious.autoapprove.rules.Vote;
         - import xy.ai.conscious.commands.AnswerCommand;
         - import xy.ai.conscious.commands.CallCommand;
-        - import xy.ai.conscious.connector.harness.Prompt;
+        - import xy.ai.conscious.harness.Prompt;
         - import xy.ai.conscious.core.LOG;
         - import xy.ai.conscious.model.AIAnswer;
       warning: "Limit of 50 matches reached (total 610); narrow pattern, directory or include/exclude filters."
@@ -643,7 +643,7 @@ result:
     - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
       nodes:
       - id: GwlVvM|lj1u2H
-        signature: import xy.ai.conscious.connector.harness.Prompt;
+        signature: import xy.ai.conscious.harness.Prompt;
       - id: ApprovalContext
         signature: "/**  * Input of a rule.  *  * @param item {"
         docstring: Input of a rule.
@@ -1024,7 +1024,7 @@ result:
         nodes:
         - id: GwlVvM|lj1u2H
           matches:
-          - import xy.ai.conscious.connector.harness.Prompt;
+          - import xy.ai.conscious.harness.Prompt;
           - import xy.ai.conscious.model.AIAnswer;
         matches:
         - lineno: 6
@@ -1044,7 +1044,7 @@ result:
           - import java.time.Instant;
           - import java.util.Map;
           - import java.util.concurrent.ConcurrentHashMap;
-          - import xy.ai.conscious.connector.harness.Prompt;
+          - import xy.ai.conscious.harness.Prompt;
           - import xy.ai.conscious.model.AIAnswer;
           - import xy.ai.conscious.model.TokenStats;
 ```
@@ -1192,7 +1192,7 @@ arguments:
   items:
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
     overwrite: true
-    source: "package xy.ai.conscious.autoapprove;\n\nimport xy.ai.conscious.connector.harness.Prompt;\nimport xy.ai.conscious.model.AIAnswer;\n\n/**\n * Input of a rule.\n *\n * @param item {@code null} if the answer contains no (or more than one) tool call/result\n * @param call the remembered tool call {@code item} is the result of; {@code null} if {@code item} is no result or\n *        the call is unknown (e.g. older than the remembered calls)\n */\npublic record ApprovalContext(AIAnswer answer, Prompt prompt, ApprovalItem item, ApprovalItem call,\n\t\tSessionSnapshot session) {\n\n\tpublic boolean hasItem() {\n\t\treturn item != null;\n\t}\n}\n"
+    source: "package xy.ai.conscious.autoapprove;\n\nimport xy.ai.conscious.harness.Prompt;\nimport xy.ai.conscious.model.AIAnswer;\n\n/**\n * Input of a rule.\n *\n * @param item {@code null} if the answer contains no (or more than one) tool call/result\n * @param call the remembered tool call {@code item} is the result of; {@code null} if {@code item} is no result or\n *        the call is unknown (e.g. older than the remembered calls)\n */\npublic record ApprovalContext(AIAnswer answer, Prompt prompt, ApprovalItem item, ApprovalItem call,\n\t\tSessionSnapshot session) {\n\n\tpublic boolean hasItem() {\n\t\treturn item != null;\n\t}\n}\n"
   reason: ApprovalContext mit neuer Komponente 'call' neu schreiben (Record-Parser des Werkzeugs nicht unterstützt)
 ```
 /answer dabf-21-0 allow

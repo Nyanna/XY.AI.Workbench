@@ -24,7 +24,7 @@ result:
       - id: sJtyF9|BZO3d7
         signature: import java.util.ArrayList;
       - id: Z8xFy6|dmQymC
-        signature: import xy.ai.conscious.connector.harness.SessionCallbacks;
+        signature: import xy.ai.conscious.harness.SessionCallbacks;
       - id: ClaudeConnector
         signature: "public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespo…"
         children:
@@ -126,7 +126,7 @@ result:
       - id: sJtyF9|BZO3d7
         signature: import java.util.ArrayList;
       - id: Z8xFy6|dmQymC
-        signature: import xy.ai.conscious.connector.harness.SessionCallbacks;
+        signature: import xy.ai.conscious.harness.SessionCallbacks;
       - id: ClaudeConnector
         signature: "public class ClaudeConnector implements IAIConnector<ClaudeRequest, ClaudeRespo…"
         children:
@@ -477,14 +477,14 @@ result:
 
           import xy.ai.conscious.api.IExecutor.IProgress;
           import xy.ai.conscious.connector.IAIConnector;
-          import xy.ai.conscious.connector.harness.FrozenConfig;
-          import xy.ai.conscious.connector.harness.Prompt;
-          import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
+          import xy.ai.conscious.harness.FrozenConfig;
+          import xy.ai.conscious.harness.Prompt;
+          import xy.ai.conscious.harness.SessionAnswerBuilder;
       - id: Z8xFy6|dmQymC
         type: ImportGroup
         code: |
-          import xy.ai.conscious.connector.harness.SessionCallbacks;
-          import xy.ai.conscious.connector.harness.SessionProcessor;
+          import xy.ai.conscious.harness.SessionCallbacks;
+          import xy.ai.conscious.harness.SessionProcessor;
           import xy.ai.conscious.connector.mcp.MCPClient;
           import xy.ai.conscious.model.AIAnswer;
           import xy.ai.conscious.model.Reasoning;
@@ -1925,14 +1925,14 @@ arguments:
 
       import xy.ai.conscious.api.IExecutor.IProgress;
       import xy.ai.conscious.connector.IAIConnector;
-      import xy.ai.conscious.connector.harness.FrozenConfig;
-      import xy.ai.conscious.connector.harness.Prompt;
-      import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
+      import xy.ai.conscious.harness.FrozenConfig;
+      import xy.ai.conscious.harness.Prompt;
+      import xy.ai.conscious.harness.SessionAnswerBuilder;
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/claude/ClaudeConnector.java
     id: Z8xFy6|dmQymC
     source: |
-      import xy.ai.conscious.connector.harness.SessionCallbacks;
-      import xy.ai.conscious.connector.harness.SessionProcessor;
+      import xy.ai.conscious.harness.SessionCallbacks;
+      import xy.ai.conscious.harness.SessionProcessor;
       import xy.ai.conscious.connector.mcp.MCPClient;
       import xy.ai.conscious.connector.openapi.anthropic.V1ClientImpl;
       import xy.ai.conscious.connector.openapi.anthropic.components.AnyOfModel;
@@ -2097,11 +2097,11 @@ result:
           import com.fasterxml.jackson.databind.node.TextNode;
           import xy.ai.conscious.api.IExecutor.IProgress;
           import xy.ai.conscious.connector.IAIConnector;
-          import xy.ai.conscious.connector.harness.FrozenConfig;
-          import xy.ai.conscious.connector.harness.Prompt;
-          import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-          import xy.ai.conscious.connector.harness.SessionCallbacks;
-          import xy.ai.conscious.connector.harness.SessionProcessor;
+          import xy.ai.conscious.harness.FrozenConfig;
+          import xy.ai.conscious.harness.Prompt;
+          import xy.ai.conscious.harness.SessionAnswerBuilder;
+          import xy.ai.conscious.harness.SessionCallbacks;
+          import xy.ai.conscious.harness.SessionProcessor;
           import xy.ai.conscious.connector.mcp.MCPClient;
           import xy.ai.conscious.model.AIAnswer;
           import xy.ai.conscious.model.Reasoning;
@@ -2679,11 +2679,11 @@ result:
           import com.fasterxml.jackson.databind.node.TextNode;
           import xy.ai.conscious.api.IExecutor.IProgress;
           import xy.ai.conscious.connector.IAIConnector;
-          import xy.ai.conscious.connector.harness.FrozenConfig;
-          import xy.ai.conscious.connector.harness.Prompt;
-          import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-          import xy.ai.conscious.connector.harness.SessionCallbacks;
-          import xy.ai.conscious.connector.harness.SessionProcessor;
+          import xy.ai.conscious.harness.FrozenConfig;
+          import xy.ai.conscious.harness.Prompt;
+          import xy.ai.conscious.harness.SessionAnswerBuilder;
+          import xy.ai.conscious.harness.SessionCallbacks;
+          import xy.ai.conscious.harness.SessionProcessor;
           import xy.ai.conscious.connector.mcp.MCPClient;
           import xy.ai.conscious.connector.openapi.anthropic.V1ClientImpl;
           import xy.ai.conscious.connector.openapi.anthropic.components.AnyOfModel;

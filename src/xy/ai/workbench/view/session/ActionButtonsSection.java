@@ -7,8 +7,8 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 
 import xy.ai.conscious.api.IExecutor;
-import xy.ai.conscious.connector.harness.PromptHandler;
 import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.harness.PromptHandler;
 import xy.ai.workbench.eclipse.EclipseExecutor;
 
 /** Prompt/Enqueue/Batch action buttons. */

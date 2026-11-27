@@ -4,7 +4,7 @@ Wenn parallel in einem anderen Editor mit aktivierten Autoapprover gearbeitet wi
 - Der Auto-Approver sollte Parallel in mehreren Prompts verwendet werden können.
 - `/home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/AutoApprover.java`
 
-Es passiert vermutlich direkt, nachdem ein Result oder Tool Call allowed wird. Ich nehme an, es gibt eine Lücke und der PromptHandler (xy.ai.conscious.connector.harness.PromptHandler) greift irgend trotz der eigentlich selbstbezüglichen Schleife auf den Editor zu. 
+Es passiert vermutlich direkt, nachdem ein Result oder Tool Call allowed wird. Ich nehme an, es gibt eine Lücke und der PromptHandler (xy.ai.conscious.harness.PromptHandler) greift irgend trotz der eigentlich selbstbezüglichen Schleife auf den Editor zu. 
 SystemInit:  id=3673575c-0943-4875-9ad8-d6b1f50cdca6, cwd=/home/user/xyan/xy.ai.workbench, model=claude-sonnet-5-5
 Text:
  Ich sehe mir zuerst den AutoApprover und den PromptHandler an.
@@ -1087,7 +1087,7 @@ result:
     - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/claudecode/CCRequest.java
       nodes:
       - id: 9xbrVR|OkrKah
-        excert: import xy.ai.conscious.connector.harness.FrozenConfig;
+        excert: import xy.ai.conscious.harness.FrozenConfig;
       - id: CCRequest
         excert: "public class CCRequest extends AbstractModelRequest {"
         children:

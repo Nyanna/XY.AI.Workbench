@@ -1118,7 +1118,7 @@ toolName: ast_create
 arguments:
   items:
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/rules/DenyOwnPromptFileRule.java
-    source: "package xy.ai.conscious.autoapprove.rules;\n\nimport java.nio.file.Path;\nimport java.util.List;\nimport java.util.Set;\n\nimport com.fasterxml.jackson.databind.JsonNode;\n\nimport xy.ai.conscious.autoapprove.ApprovalContext;\nimport xy.ai.conscious.autoapprove.ApprovalItem;\nimport xy.ai.conscious.autoapprove.ApprovalItem.Kind;\nimport xy.ai.conscious.connector.harness.Prompt;\n\n/**\n * Denies every tool call and tool result that contains the own prompt file.\n * Reading the own prompt file only confuses the agent, so the agent is told to\n * adjust the call and iterate.\n * <p>\n * The values of the configured fields are searched recursively at any depth of\n * the call arguments or the result. A value matches if it contains the absolute\n * path of the prompt file or its last {@link #LEVELS_SETTING} path levels\n * (including the file name), or if it resolves to the prompt file.\n */\npublic class DenyOwnPromptFileRule implements IApprovalRule {\n\tpublic static final String ID = DenyOwnPromptFileRule.class.getSimpleName();\n\tpublic static final String PATH_FIELDS_SETTING = \"pathFields\";\n\tpublic static final String LEVELS_SETTING = \"levels\";\n\n\tpublic static final String[] PATH_FIELDS = { \"path\", \"paths\", \"directory\", \"file\", \"file_path\", \"filePath\", \"command\", \"pattern\", \"text\", \"content\" };\n\tpublic static final int LEVELS = 3;\n\n\tprivate final RuleSettings defaults;\n\tprivate final Path cwd;\n\n\tpublic DenyOwnPromptFileRule() {\n\t\tthis(Set.of(PATH_FIELDS), LEVELS, Path.of(\"\").toAbsolutePath().normalize());\n\t}\n\n\tpublic DenyOwnPromptFileRule(Set<String> pathFields, int levels, Path cwd) {\n\t\tthis.defaults = new RuleSettings() //\n\t\t\t\t.addStrings(PATH_FIELDS_SETTING, pathFields.stream().sorted().toList()) //\n\t\t\t\t.addNumber(LEVELS_SETTING, levels);\n\t\tthis.cwd = cwd.toAbsolutePath().normalize();\n\t}\n\n\t@Override\n\tpublic String id() {\n\t\treturn ID;\n\t}\n\n\t@Override\n\tpublic RuleSettings getDefaultSetting() {\n\t\treturn defaults.clone();\n\t}\n\n\t@Override\n\tpublic Vote vote(ApprovalContext ctx) {\n\t\tApprovalItem item = ctx.item();\n\t\tPrompt prompt = ctx.prompt();\n\t\tif (item == null || prompt == null || prompt.arg.absoluteFilePath == null || prompt.arg.absoluteFilePath.isBlank())\n\t\t\treturn Vote.abstain();\n\t\tPath file;\n\t\ttry {\n\t\t\tfile = Path.of(prompt.arg.absoluteFilePath).toAbsolutePath().normalize();\n\t\t} catch (RuntimeException e) {\n\t\t\treturn Vote.abstain();\n\t\t}\n\t\tif (file.getNameCount() == 0)\n\t\t\treturn Vote.abstain();\n\t\tRuleSettings settings = ctx.settings(ID);\n\t\tSet<String> fields = settings.getStringSet(PATH_FIELDS_SETTING);\n\t\tString absolute = normalize(file.toString());\n\t\tString tail = tail(file, (int) settings.getNumber(LEVELS_SETTING));\n\t\tboolean call = item.kind() == Kind.ControlCall || item.kind() == Kind.ToolCall;\n\t\tboolean found = call ? matches(PathArguments.collect(item.arguments(), fields), file, absolute, tail) : matches(resultValues(item, fields), file, absolute, tail);\n\t\tif (!found)\n\t\t\treturn Vote.abstain();\n\t\tString reason = reason(call, absolute);\n\t\t// A denied tool result cannot be answered, so the agent is told by a follow-up instruction.\n\t\tif (item.kind() == Kind.ToolResult)\n\t\t\treturn new Vote(Verdict.Deny, reason, null, null, reason);\n\t\treturn Vote.deny(reason);\n\t}\n\n\tprivate static String reason(boolean call, String absolute) {\n\t\treturn \"The \" + (call ? \"call\" : \"result\") + \" contains the own prompt file \" + absolute\n\t\t\t\t+ \". Reading the own prompt file leads to confusion. Adjust the call so that it does not include this file, and iterate again.\";\n\t}\n\n\tprivate List<String> resultValues(ApprovalItem item, Set<String> fields) {\n\t\tJsonNode result = item.result();\n\t\tif (result.isMissingNode())\n\t\t\treturn List.of(item.yaml());\n\t\tif (result.isTextual())\n\t\t\treturn List.of(result.asText());\n\t\treturn PathArguments.collect(result, fields);\n\t}\n\n\tprivate boolean matches(List<String> values, Path file, String absolute, String tail) {\n\t\tfor (String value : values) {\n\t\t\tString text = normalize(value);\n\t\t\tif (text.contains(absolute) || text.contains(tail))\n\t\t\t\treturn true;\n\t\t\tPath path = PathArguments.resolve(cwd, value);\n\t\t\tif (path != null && path.equals(file))\n\t\t\t\treturn true;\n\t\t}\n\t\treturn false;\n\t}\n\n\t/** Last {@code levels} path levels including the file name, separated by '/'. */\n\tprivate static String tail(Path file, int levels) {\n\t\tint count = file.getNameCount();\n\t\tint from = Math.max(0, count - Math.max(1, levels));\n\t\treturn normalize(file.subpath(from, count).toString());\n\t}\n\n\tprivate static String normalize(String value) {\n\t\treturn value.replace('\\\\', '/');\n\t}\n}\n"
+    source: "package xy.ai.conscious.autoapprove.rules;\n\nimport java.nio.file.Path;\nimport java.util.List;\nimport java.util.Set;\n\nimport com.fasterxml.jackson.databind.JsonNode;\n\nimport xy.ai.conscious.autoapprove.ApprovalContext;\nimport xy.ai.conscious.autoapprove.ApprovalItem;\nimport xy.ai.conscious.autoapprove.ApprovalItem.Kind;\nimport xy.ai.conscious.harness.Prompt;\n\n/**\n * Denies every tool call and tool result that contains the own prompt file.\n * Reading the own prompt file only confuses the agent, so the agent is told to\n * adjust the call and iterate.\n * <p>\n * The values of the configured fields are searched recursively at any depth of\n * the call arguments or the result. A value matches if it contains the absolute\n * path of the prompt file or its last {@link #LEVELS_SETTING} path levels\n * (including the file name), or if it resolves to the prompt file.\n */\npublic class DenyOwnPromptFileRule implements IApprovalRule {\n\tpublic static final String ID = DenyOwnPromptFileRule.class.getSimpleName();\n\tpublic static final String PATH_FIELDS_SETTING = \"pathFields\";\n\tpublic static final String LEVELS_SETTING = \"levels\";\n\n\tpublic static final String[] PATH_FIELDS = { \"path\", \"paths\", \"directory\", \"file\", \"file_path\", \"filePath\", \"command\", \"pattern\", \"text\", \"content\" };\n\tpublic static final int LEVELS = 3;\n\n\tprivate final RuleSettings defaults;\n\tprivate final Path cwd;\n\n\tpublic DenyOwnPromptFileRule() {\n\t\tthis(Set.of(PATH_FIELDS), LEVELS, Path.of(\"\").toAbsolutePath().normalize());\n\t}\n\n\tpublic DenyOwnPromptFileRule(Set<String> pathFields, int levels, Path cwd) {\n\t\tthis.defaults = new RuleSettings() //\n\t\t\t\t.addStrings(PATH_FIELDS_SETTING, pathFields.stream().sorted().toList()) //\n\t\t\t\t.addNumber(LEVELS_SETTING, levels);\n\t\tthis.cwd = cwd.toAbsolutePath().normalize();\n\t}\n\n\t@Override\n\tpublic String id() {\n\t\treturn ID;\n\t}\n\n\t@Override\n\tpublic RuleSettings getDefaultSetting() {\n\t\treturn defaults.clone();\n\t}\n\n\t@Override\n\tpublic Vote vote(ApprovalContext ctx) {\n\t\tApprovalItem item = ctx.item();\n\t\tPrompt prompt = ctx.prompt();\n\t\tif (item == null || prompt == null || prompt.arg.absoluteFilePath == null || prompt.arg.absoluteFilePath.isBlank())\n\t\t\treturn Vote.abstain();\n\t\tPath file;\n\t\ttry {\n\t\t\tfile = Path.of(prompt.arg.absoluteFilePath).toAbsolutePath().normalize();\n\t\t} catch (RuntimeException e) {\n\t\t\treturn Vote.abstain();\n\t\t}\n\t\tif (file.getNameCount() == 0)\n\t\t\treturn Vote.abstain();\n\t\tRuleSettings settings = ctx.settings(ID);\n\t\tSet<String> fields = settings.getStringSet(PATH_FIELDS_SETTING);\n\t\tString absolute = normalize(file.toString());\n\t\tString tail = tail(file, (int) settings.getNumber(LEVELS_SETTING));\n\t\tboolean call = item.kind() == Kind.ControlCall || item.kind() == Kind.ToolCall;\n\t\tboolean found = call ? matches(PathArguments.collect(item.arguments(), fields), file, absolute, tail) : matches(resultValues(item, fields), file, absolute, tail);\n\t\tif (!found)\n\t\t\treturn Vote.abstain();\n\t\tString reason = reason(call, absolute);\n\t\t// A denied tool result cannot be answered, so the agent is told by a follow-up instruction.\n\t\tif (item.kind() == Kind.ToolResult)\n\t\t\treturn new Vote(Verdict.Deny, reason, null, null, reason);\n\t\treturn Vote.deny(reason);\n\t}\n\n\tprivate static String reason(boolean call, String absolute) {\n\t\treturn \"The \" + (call ? \"call\" : \"result\") + \" contains the own prompt file \" + absolute\n\t\t\t\t+ \". Reading the own prompt file leads to confusion. Adjust the call so that it does not include this file, and iterate again.\";\n\t}\n\n\tprivate List<String> resultValues(ApprovalItem item, Set<String> fields) {\n\t\tJsonNode result = item.result();\n\t\tif (result.isMissingNode())\n\t\t\treturn List.of(item.yaml());\n\t\tif (result.isTextual())\n\t\t\treturn List.of(result.asText());\n\t\treturn PathArguments.collect(result, fields);\n\t}\n\n\tprivate boolean matches(List<String> values, Path file, String absolute, String tail) {\n\t\tfor (String value : values) {\n\t\t\tString text = normalize(value);\n\t\t\tif (text.contains(absolute) || text.contains(tail))\n\t\t\t\treturn true;\n\t\t\tPath path = PathArguments.resolve(cwd, value);\n\t\t\tif (path != null && path.equals(file))\n\t\t\t\treturn true;\n\t\t}\n\t\treturn false;\n\t}\n\n\t/** Last {@code levels} path levels including the file name, separated by '/'. */\n\tprivate static String tail(Path file, int levels) {\n\t\tint count = file.getNameCount();\n\t\tint from = Math.max(0, count - Math.max(1, levels));\n\t\treturn normalize(file.subpath(from, count).toString());\n\t}\n\n\tprivate static String normalize(String value) {\n\t\treturn value.replace('\\\\', '/');\n\t}\n}\n"
   reason: Create the new rule analogous to DeepPathReadRule/DenyRootPathRule
 ```
 /answer 06c1-dd-0 allow
@@ -1241,7 +1241,7 @@ result:
         nodes:
         - id: 63CXAz|RDbYNO
           matches:
-          - import xy.ai.conscious.connector.harness.ToolResult;
+          - import xy.ai.conscious.harness.ToolResult;
         - id: AnswerParser.parse
           matches:
           - item = parseToolResult(text);
@@ -1285,7 +1285,7 @@ result:
         nodes:
         - id: bOZwxU|jKpzOX
           matches:
-          - import xy.ai.conscious.connector.harness.ToolResult;
+          - import xy.ai.conscious.harness.ToolResult;
         - id: DeepSeekConnector.SessionRequestCallbacks.toolResult
           matches:
           - "public ObjectNode toolResult(ToolResult result) {"
@@ -2459,7 +2459,7 @@ result:
         - import xy.ai.conscious.autoapprove.rules.Vote;
         - import xy.ai.conscious.commands.AnswerCommand;
         - import xy.ai.conscious.commands.CallCommand;
-        - import xy.ai.conscious.connector.harness.Prompt;
+        - import xy.ai.conscious.harness.Prompt;
         - import xy.ai.conscious.core.LOG;
         - import xy.ai.conscious.model.AIAnswer;
       - path: AnswerParser.java
@@ -3494,13 +3494,13 @@ result:
         - import xy.ai.conscious.commands.AnswerCommand.BlockType;
         - import xy.ai.conscious.commands.CallCommand;
         - import xy.ai.conscious.commands.Command;
-        - import xy.ai.conscious.connector.harness.PromptInputHandler;
-        - import xy.ai.conscious.connector.harness.PromptInputHandler.ParsedCommand;
-        - import xy.ai.conscious.connector.harness.Role;
-        - import xy.ai.conscious.connector.harness.SessionCallbacks;
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
-        - import xy.ai.conscious.connector.harness.ToolCall;
-        - import xy.ai.conscious.connector.harness.ToolResult;
+        - import xy.ai.conscious.harness.PromptInputHandler;
+        - import xy.ai.conscious.harness.PromptInputHandler.ParsedCommand;
+        - import xy.ai.conscious.harness.Role;
+        - import xy.ai.conscious.harness.SessionCallbacks;
+        - import xy.ai.conscious.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.ToolCall;
+        - import xy.ai.conscious.harness.ToolResult;
     - directory:
       - /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness
       matches:
@@ -3752,7 +3752,7 @@ arguments:
     addImport:
     - import com.fasterxml.jackson.databind.node.ObjectNode;
     - import xy.ai.conscious.connector.claudecode.YamlRenderer;
-    - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
+    - import xy.ai.conscious.harness.SessionAnswerBuilder;
     - import xy.ai.conscious.core.IEditorInterface;
   reason: "Add omission helpers to AnswerParser based on existing SessionProcessor, SessionAnswerBuilder and YamlRenderer"
 ```
@@ -4111,40 +4111,40 @@ result:
       matches:
       - path: xy/ai/conscious/autoapprove/AnswerParser.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
-        - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
+        - import xy.ai.conscious.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionAnswerBuilder;
         - private static final SessionProcessor<Object> PROCESSOR = new SessionProcessor<>(null);
         - SessionAnswerBuilder out = new SessionAnswerBuilder();
       - path: xy/ai/conscious/connector/google/GeminiConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionAnswerBuilder;
+        - import xy.ai.conscious.harness.SessionProcessor;
         - private final SessionProcessor<Void> sessionProcessor;
         - "public GeminiConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {"
         - SessionAnswerBuilder answer = new SessionAnswerBuilder();
       - path: xy/ai/conscious/connector/claude/ClaudeConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionAnswerBuilder;
+        - import xy.ai.conscious.harness.SessionProcessor;
         - private final SessionProcessor<Void> sessionProcessor;
         - "public ClaudeConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {"
         - SessionAnswerBuilder answer = new SessionAnswerBuilder();
       - path: xy/ai/conscious/connector/openai/OpenAIConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionAnswerBuilder;
+        - import xy.ai.conscious.harness.SessionProcessor;
         - private final SessionProcessor<Void> sessionProcessor;
         - "public OpenAIConnector(MCPClient mcpClient, SessionProcessor<Void> sessionProcessor) {"
         - SessionAnswerBuilder answer = new SessionAnswerBuilder();
       - path: xy/ai/conscious/connector/AdaptingConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionProcessor;
         - private SessionProcessor sessionProcessor;
         - sessionProcessor = new SessionProcessor<>(includeAdapter);
       - path: xy/ai/conscious/connector/deepseek/DeepSeekConnector.java
         matches:
-        - import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-        - import xy.ai.conscious.connector.harness.SessionProcessor;
+        - import xy.ai.conscious.harness.SessionAnswerBuilder;
+        - import xy.ai.conscious.harness.SessionProcessor;
         - private final SessionProcessor<ObjectNode> sessionProcessor;
         - "public DeepSeekConnector(MCPClient mcpClient, SessionProcessor<ObjectNode> sessionProcessor) {"
         - "* Turns {@link SessionProcessor} callbacks into DeepSeek Responses-API input"
@@ -4517,8 +4517,8 @@ arguments:
     id: MCPControlClient.prettyToolResult
     source: "\tpublic String renderToolResult(JsonNode id, JsonNode result) {\n\t\tObjectNode out = JsonUtil.mapper().createObjectNode();\n\t\tout.set(\"id\", id);\n\t\tout.set(\"result\", resultNode(result));\n\t\treturn SessionRenderer.toolResult(new ToolResult(id.asText(\"\"), null, out, true));\n\t}\n"
     addImport:
-    - import xy.ai.conscious.connector.harness.SessionRenderer;
-    - import xy.ai.conscious.connector.harness.ToolResult;
+    - import xy.ai.conscious.harness.SessionRenderer;
+    - import xy.ai.conscious.harness.ToolResult;
   - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/connector/harness/SessionRenderer.java
     id: SessionRenderer.toJson
     source: "\tprivate static String toJson(ObjectNode node) {\n\t\treturn JsonUtil.pretty(node);\n\t}\n"
@@ -4606,7 +4606,7 @@ result:
           import xy.ai.conscious.commands.ExitCommand;
           import xy.ai.conscious.commands.ToolCommand;
           import xy.ai.conscious.connector.IAIConnector;
-          import xy.ai.conscious.connector.harness.Prompt;
+          import xy.ai.conscious.harness.Prompt;
           import xy.ai.conscious.core.IEditorInterface;
           import xy.ai.conscious.model.AIAnswer;
           import xy.ai.conscious.model.Model.KeyPattern;

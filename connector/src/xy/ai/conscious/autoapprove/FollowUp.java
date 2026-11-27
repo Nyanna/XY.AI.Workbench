@@ -1,7 +1,7 @@
 package xy.ai.conscious.autoapprove;
 
 import xy.ai.conscious.api.IActiveEditor.Selection;
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 
 /**
  * Prompt to run next, described like an operator action: the prompt it derives

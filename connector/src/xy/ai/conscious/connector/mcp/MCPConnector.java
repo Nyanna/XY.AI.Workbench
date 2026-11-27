@@ -10,7 +10,7 @@ import xy.ai.conscious.commands.Command;
 import xy.ai.conscious.commands.ExitCommand;
 import xy.ai.conscious.commands.ToolCommand;
 import xy.ai.conscious.connector.IAIConnector;
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.Model.KeyPattern;
 

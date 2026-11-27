@@ -406,7 +406,7 @@ result:
             import xy.ai.workbench.view.PartListener2Adapter;
             import org.eclipse.ui.PlatformUI;
             import java.util.ArrayList;
-            import xy.ai.conscious.connector.harness.PromptHandler;
+            import xy.ai.conscious.harness.PromptHandler;
             import xy.ai.conscious.model.AIAnswer;
             import xy.ai.conscious.model.ModelMessage;
             import java.util.List;
@@ -483,7 +483,7 @@ result:
             import xy.ai.workbench.view.PartListener2Adapter;
             import org.eclipse.ui.PlatformUI;
             import java.util.ArrayList;
-            import xy.ai.conscious.connector.harness.PromptHandler;
+            import xy.ai.conscious.harness.PromptHandler;
             import xy.ai.conscious.model.AIAnswer;
             import xy.ai.conscious.model.ModelMessage;
             import java.util.List;
@@ -564,7 +564,7 @@ result:
           - import xy.ai.workbench.view.PartListener2Adapter;
           - import org.eclipse.ui.PlatformUI;
           - import java.util.ArrayList;
-          - import xy.ai.conscious.connector.harness.PromptHandler;
+          - import xy.ai.conscious.harness.PromptHandler;
           - import xy.ai.conscious.model.AIAnswer;
           - import xy.ai.conscious.model.ModelMessage;
           - import java.util.List;

@@ -1,6 +1,6 @@
 package xy.ai.conscious.model;
 
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 
 public interface IModelRequest {
 	public String getID();

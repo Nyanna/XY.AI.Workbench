@@ -32,8 +32,8 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 
-import xy.ai.conscious.connector.harness.IIncludeAdapter;
 import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.harness.IIncludeAdapter;
 import xy.ai.workbench.eclipse.AbstractQueryListener;
 
 public class IncludeAdapter implements IIncludeAdapter {

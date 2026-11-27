@@ -9,8 +9,8 @@ import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.part.ViewPart;
 
-import xy.ai.conscious.connector.harness.PromptHandler;
 import xy.ai.conscious.core.ConfigManager;
+import xy.ai.conscious.harness.PromptHandler;
 import xy.ai.workbench.Activator;
 import xy.ai.workbench.eclipse.EclipseExecutor;
 import xy.ai.workbench.view.session.ActionButtonsSection;

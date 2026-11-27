@@ -5,8 +5,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import xy.ai.conscious.connector.harness.FrozenConfig;
 import xy.ai.conscious.core.AgentProfile;
+import xy.ai.conscious.harness.FrozenConfig;
 import xy.ai.conscious.model.CacheMode;
 import xy.ai.conscious.model.Model;
 import xy.ai.conscious.model.Reasoning;

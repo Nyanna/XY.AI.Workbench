@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import xy.ai.conscious.autoapprove.ApprovalItem;
 import xy.ai.conscious.autoapprove.AutoApprover;
 import xy.ai.conscious.autoapprove.Decision;
+import xy.ai.conscious.harness.PromptHandler;
 import xy.ai.workbench.Activator;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbenchPage;
@@ -43,7 +44,7 @@ import xy.ai.workbench.editor.AISessionEditor;
 import xy.ai.workbench.view.PartListener2Adapter;
 import org.eclipse.ui.PlatformUI;
 import java.util.ArrayList;
-import xy.ai.conscious.connector.harness.PromptHandler;
+
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.ModelMessage;
 import java.util.List;

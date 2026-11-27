@@ -1,4 +1,4 @@
-package xy.ai.conscious.connector.harness;
+package xy.ai.conscious.harness;
 
 public final class ToolResult {
   public final String id;

@@ -12,8 +12,8 @@ import xy.ai.conscious.commands.CallCommand;
 import xy.ai.conscious.connector.claudecode.JsonUtil;
 import xy.ai.conscious.connector.claudecode.YamlRenderer;
 import xy.ai.conscious.core.IEditorInterface;
-import xy.ai.conscious.connector.harness.SessionRenderer;
-import xy.ai.conscious.connector.harness.ToolResult;
+import xy.ai.conscious.harness.SessionRenderer;
+import xy.ai.conscious.harness.ToolResult;
 
 /**
  * Renders tool schemas as fillable YAML templates and turns a submitted

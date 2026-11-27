@@ -2,7 +2,9 @@ package xy.ai.conscious.model;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import xy.ai.conscious.connector.harness.Prompt;
+
+import xy.ai.conscious.harness.Prompt;
+
 import java.util.ArrayList;
 import java.util.List;
 

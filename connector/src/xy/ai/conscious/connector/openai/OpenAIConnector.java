@@ -25,13 +25,13 @@ import com.openai.models.responses.ResponseStatus;
 import com.openai.models.responses.ResponseUsage;
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.connector.IAIConnector;
-import xy.ai.conscious.connector.harness.FrozenConfig;
-import xy.ai.conscious.connector.harness.Prompt;
-import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
-import xy.ai.conscious.connector.harness.SessionCallbacks;
-import xy.ai.conscious.connector.harness.SessionProcessor;
 import xy.ai.conscious.connector.mcp.MCPClient;
 import xy.ai.conscious.core.LOG;
+import xy.ai.conscious.harness.FrozenConfig;
+import xy.ai.conscious.harness.Prompt;
+import xy.ai.conscious.harness.SessionAnswerBuilder;
+import xy.ai.conscious.harness.SessionCallbacks;
+import xy.ai.conscious.harness.SessionProcessor;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.Model.KeyPattern;
 

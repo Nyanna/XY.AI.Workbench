@@ -1,7 +1,7 @@
 package xy.ai.conscious.connector.claudecode;
 
-import xy.ai.conscious.connector.harness.FrozenConfig;
-import xy.ai.conscious.connector.harness.PromptArguments;
+import xy.ai.conscious.harness.FrozenConfig;
+import xy.ai.conscious.harness.PromptArguments;
 import xy.ai.conscious.model.AbstractModelRequest;
 
 public class CCRequest extends AbstractModelRequest {

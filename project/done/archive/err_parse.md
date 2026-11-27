@@ -773,7 +773,7 @@ arguments:
       import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
       import xy.ai.conscious.autoapprove.ApprovalItem.Kind;
-      import xy.ai.conscious.connector.harness.PromptInputHandler;
+      import xy.ai.conscious.harness.PromptInputHandler;
       import xy.ai.conscious.core.IEditorInterface;
   reason: "Replace the custom BLOCK regex in AnswerParser with the shared pattern plus marker lookup, and fix imports"
 ```
@@ -1296,8 +1296,8 @@ arguments:
       import xy.ai.conscious.commands.AnswerCommand.BlockType;
       import xy.ai.conscious.commands.CallCommand;
       import xy.ai.conscious.commands.Command;
-      import xy.ai.conscious.connector.harness.PromptInputHandler;
-      import xy.ai.conscious.connector.harness.PromptInputHandler.ParsedCommand;
+      import xy.ai.conscious.harness.PromptInputHandler;
+      import xy.ai.conscious.harness.PromptInputHandler.ParsedCommand;
   reason: Replace the custom regex parsing in AnswerParser with the PromptInputHandler detection and derive the item kind from the detected command
 ```
 /answer dabf-84-0 allow
@@ -1944,13 +1944,13 @@ arguments:
       import xy.ai.conscious.commands.AnswerCommand.BlockType;
       import xy.ai.conscious.commands.CallCommand;
       import xy.ai.conscious.commands.Command;
-      import xy.ai.conscious.connector.harness.PromptInputHandler;
-      import xy.ai.conscious.connector.harness.PromptInputHandler.ParsedCommand;
-      import xy.ai.conscious.connector.harness.Role;
-      import xy.ai.conscious.connector.harness.SessionCallbacks;
-      import xy.ai.conscious.connector.harness.SessionProcessor;
-      import xy.ai.conscious.connector.harness.ToolCall;
-      import xy.ai.conscious.connector.harness.ToolResult;
+      import xy.ai.conscious.harness.PromptInputHandler;
+      import xy.ai.conscious.harness.PromptInputHandler.ParsedCommand;
+      import xy.ai.conscious.harness.Role;
+      import xy.ai.conscious.harness.SessionCallbacks;
+      import xy.ai.conscious.harness.SessionProcessor;
+      import xy.ai.conscious.harness.ToolCall;
+      import xy.ai.conscious.harness.ToolResult;
   reason: Restructure parse to try the trailing command first and fall back to SessionProcessor for tool results; add imports and processor field
 ```
 /answer dabf-9f-0 allow
@@ -2197,7 +2197,7 @@ result:
           - "}"
         matches:
         - lineno: 1
-          match: package xy.ai.conscious.connector.harness;
+          match: package xy.ai.conscious.harness;
         - lineno: 2
           match: ""
         - lineno: 3

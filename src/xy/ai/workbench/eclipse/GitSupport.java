@@ -4,7 +4,7 @@ import xy.ai.conscious.api.IExecutor;
 import xy.ai.conscious.api.ext.IGitSupport;
 import xy.ai.conscious.commands.AnswerCommand;
 import xy.ai.conscious.commands.Command;
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 import xy.ai.conscious.model.IModelRequest;
 import xy.ai.workbench.view.diff.DiffPanel;
 import xy.ai.workbench.view.diff.OpSnapshotter;

@@ -27,6 +27,7 @@ import xy.ai.conscious.core.ConfigManager;
 import xy.ai.conscious.core.IEditorInterface;
 import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.core.OutputMode;
+import xy.ai.conscious.harness.PromptArguments;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.IModelRequest;
 import xy.ai.conscious.model.Model.KeyPattern;
@@ -37,7 +38,6 @@ import org.eclipse.core.filebuffers.FileBuffers;
 import org.eclipse.core.filebuffers.ITextFileBuffer;
 import org.eclipse.core.filebuffers.ITextFileBufferManager;
 import org.eclipse.core.filebuffers.LocationKind;
-import xy.ai.conscious.connector.harness.PromptArguments;
 
 public class EditorInterface implements IEditorInterface {
   public static final String USER = IEditorInterface.USER;

@@ -6,10 +6,12 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import xy.ai.conscious.autoapprove.ApprovalItem.Kind;
+import xy.ai.conscious.harness.Prompt;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import xy.ai.conscious.connector.harness.Prompt;
+
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.TokenStats;
 

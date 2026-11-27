@@ -1,4 +1,4 @@
-package xy.ai.conscious.connector.harness;
+package xy.ai.conscious.harness;
 
 /**
  * Thrown by {@link SessionProcessor} when an {@code [include]} directive would

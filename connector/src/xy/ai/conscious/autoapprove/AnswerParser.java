@@ -10,17 +10,18 @@ import xy.ai.conscious.commands.AnswerCommand;
 import xy.ai.conscious.commands.AnswerCommand.BlockType;
 import xy.ai.conscious.commands.CallCommand;
 import xy.ai.conscious.commands.Command;
-import xy.ai.conscious.connector.harness.PromptInputHandler;
-import xy.ai.conscious.connector.harness.PromptInputHandler.ParsedCommand;
-import xy.ai.conscious.connector.harness.Role;
-import xy.ai.conscious.connector.harness.SessionCallbacks;
-import xy.ai.conscious.connector.harness.SessionProcessor;
-import xy.ai.conscious.connector.harness.ToolCall;
-import xy.ai.conscious.connector.harness.ToolResult;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import xy.ai.conscious.connector.claudecode.YamlRenderer;
-import xy.ai.conscious.connector.harness.SessionAnswerBuilder;
 import xy.ai.conscious.core.IEditorInterface;
+import xy.ai.conscious.harness.PromptInputHandler;
+import xy.ai.conscious.harness.Role;
+import xy.ai.conscious.harness.SessionAnswerBuilder;
+import xy.ai.conscious.harness.SessionCallbacks;
+import xy.ai.conscious.harness.SessionProcessor;
+import xy.ai.conscious.harness.ToolCall;
+import xy.ai.conscious.harness.ToolResult;
+import xy.ai.conscious.harness.PromptInputHandler.ParsedCommand;
 
 /**
  * Extracts tool calls and tool results from the rendered answer text.

@@ -1,4 +1,4 @@
-package xy.ai.conscious.connector.harness;
+package xy.ai.conscious.harness;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

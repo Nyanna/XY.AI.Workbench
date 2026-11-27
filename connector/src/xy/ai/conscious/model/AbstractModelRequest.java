@@ -1,6 +1,6 @@
 package xy.ai.conscious.model;
 
-import xy.ai.conscious.connector.harness.Prompt;
+import xy.ai.conscious.harness.Prompt;
 
 public abstract class AbstractModelRequest implements IModelRequest {
 

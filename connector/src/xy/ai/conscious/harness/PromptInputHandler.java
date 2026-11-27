@@ -1,4 +1,4 @@
-package xy.ai.conscious.connector.harness;
+package xy.ai.conscious.harness;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -211,7 +211,7 @@ result:
     - path: /home/user/xyan/xy.ai.workbench/connector/src/xy/ai/conscious/autoapprove/ApprovalContext.java
       nodes:
       - id: GwlVvM|lj1u2H
-        signature: import xy.ai.conscious.connector.harness.Prompt;
+        signature: import xy.ai.conscious.harness.Prompt;
       - id: ApprovalContext
         signature: "/**  * Input of a rule.  *  * @param item {"
         docstring: Input of a rule.
