@@ -14,66 +14,78 @@ import org.eclipse.jface.text.rules.DefaultDamagerRepairer;
 import org.eclipse.jface.text.rules.ITokenScanner;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
-
 import xy.ai.workbench.editor.spellcheck.SpellingQuickAssistProcessor;
+import java.nio.file.Path;
+import java.util.function.Supplier;
+import org.eclipse.jface.text.contentassist.ContentAssistant;
+import org.eclipse.jface.text.contentassist.IContentAssistant;
+import xy.ai.workbench.editor.suggest.IncludeCompletionProcessor;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
+  private static final int LIMIT = 2 * 512 * 1024;
+  private AIRuleScanner rules = new AIRuleScanner();
+  private DefaultDamagerRepairer dmg;
+  private final Supplier<Path> baseDirectory;
 
-	private static final int LIMIT = 2 * 512 * 1024;
+  public AISourceViewerConfiguration(EditorManager updateManager, Supplier<Path> baseDirectory) {
+    this.baseDirectory = baseDirectory;
+    rules.setUpdateManager(updateManager);
+    dmg = new DamagerRepairer(rules, updateManager);
+  }
 
-	private AIRuleScanner rules = new AIRuleScanner();
-	private DefaultDamagerRepairer dmg;
+  @Override
+  public IQuickAssistAssistant getQuickAssistAssistant(ISourceViewer sourceViewer) {
+    QuickAssistAssistant assistant = new QuickAssistAssistant();
+    assistant.setQuickAssistProcessor(new SpellingQuickAssistProcessor());
+    return assistant;
+  }
 
-	public AISourceViewerConfiguration(EditorManager updateManager) {
-		rules.setUpdateManager(updateManager);
-		dmg = new DamagerRepairer(rules, updateManager);
-	}
+  @Override
+  public IContentAssistant getContentAssistant(ISourceViewer sourceViewer) {
+    ContentAssistant assistant = new ContentAssistant();
+    assistant.setContentAssistProcessor(new IncludeCompletionProcessor(baseDirectory), IDocument.DEFAULT_CONTENT_TYPE);
+    assistant.enableAutoActivation(true);
+    assistant.setAutoActivationDelay(200);
+    assistant.setInformationControlCreator(getInformationControlCreator(sourceViewer));
+    return assistant;
+  }
 
-	@Override
-	public IQuickAssistAssistant getQuickAssistAssistant(ISourceViewer sourceViewer) {
-		QuickAssistAssistant assistant = new QuickAssistAssistant();
-		assistant.setQuickAssistProcessor(new SpellingQuickAssistProcessor());
-		return assistant;
-	}
+  @Override
+  public IPresentationReconciler getPresentationReconciler(ISourceViewer sourceViewer) {
+    PresentationReconciler reconciler = new PresentationReconciler();
+    rules.init(sourceViewer.getTextWidget().getFont());
+    reconciler.setDamager(dmg, IDocument.DEFAULT_CONTENT_TYPE);
+    reconciler.setRepairer(dmg, IDocument.DEFAULT_CONTENT_TYPE);
+    return reconciler;
+  }
 
-	@Override
-	public IPresentationReconciler getPresentationReconciler(ISourceViewer sourceViewer) {
-		PresentationReconciler reconciler = new PresentationReconciler();
+  public DefaultDamagerRepairer getDamager() {
+    return dmg;
+  }
 
-		rules.init(sourceViewer.getTextWidget().getFont());
-		reconciler.setDamager(dmg, IDocument.DEFAULT_CONTENT_TYPE);
-		reconciler.setRepairer(dmg, IDocument.DEFAULT_CONTENT_TYPE);
+  private static class DamagerRepairer extends DefaultDamagerRepairer {
+    private EditorManager updateManager;
 
-		return reconciler;
-	}
+    private DamagerRepairer(ITokenScanner scanner, EditorManager updateManager) {
+      super(scanner);
+      this.updateManager = updateManager;
+    }
 
-	public DefaultDamagerRepairer getDamager() {
-		return dmg;
-	}
+    @Override
+    public void createPresentation(TextPresentation presentation, ITypedRegion region) {
+      if (fDocument != null && fDocument.getLength() > LIMIT)
+        addRange(presentation, region.getOffset(), region.getLength(), AIRuleScanner.DEFAULT_ATTR);
+      else
+        super.createPresentation(presentation, region);
+    }
 
-	private static class DamagerRepairer extends DefaultDamagerRepairer {
-		private EditorManager updateManager;
-
-		private DamagerRepairer(ITokenScanner scanner, EditorManager updateManager) {
-			super(scanner);
-			this.updateManager = updateManager;
-		}
-
-		@Override
-		public void createPresentation(TextPresentation presentation, ITypedRegion region) {
-			if (fDocument != null && fDocument.getLength() > LIMIT)
-				addRange(presentation, region.getOffset(), region.getLength(), AIRuleScanner.DEFAULT_ATTR);
-			else
-				super.createPresentation(presentation, region);
-		}
-
-		@Override
-		public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e, boolean documentPartitioningChanged) {
-			var node = updateManager.getAst().find(e.getOffset(), e.getOffset() + e.getLength()).getNode();
-			// gate fo only update manager changes
-			if (node != null && e.getOffset() == node.getOffset() && e.getLength() == node.length())
-				return new Region(node.getOffset(), node.length());
-			return new Region(0, 0);
-		}
-	}
+    @Override
+    public IRegion getDamageRegion(ITypedRegion partition, DocumentEvent e, boolean documentPartitioningChanged) {
+      var node = updateManager.getAst().find(e.getOffset(), e.getOffset() + e.getLength()).getNode();
+      // gate fo only update manager changes
+      if (node != null && e.getOffset() == node.getOffset() && e.getLength() == node.length())
+        return new Region(node.getOffset(), node.length());
+      return new Region(0, 0);
+    }
+  }
 }

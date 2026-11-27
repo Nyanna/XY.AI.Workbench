@@ -22,6 +22,11 @@ import xy.ai.workbench.editor.mdast.nodes.Node;
 import xy.ai.workbench.editor.outline.MarkdownOutlinePage;
 import xy.ai.workbench.editor.spellcheck.SpellCheckReconciler;
 import xy.ai.workbench.editor.spellcheck.SpellingAnnotation;
+import java.nio.file.Path;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IFileEditorInput;
+import org.eclipse.ui.IURIEditorInput;
 
 public class AITextEditor extends TextEditor {
   private static final int LIMIT = 512 * 1024;
@@ -34,7 +39,7 @@ public class AITextEditor extends TextEditor {
 
   public AITextEditor() {
     super();
-    setSourceViewerConfiguration(new AISourceViewerConfiguration(manager));
+    setSourceViewerConfiguration(new AISourceViewerConfiguration(manager, this::baseDirectory));
   }
 
   @Override
@@ -116,6 +121,17 @@ public class AITextEditor extends TextEditor {
 
   public EditorManager getUpdateManager() {
     return manager;
+  }
+
+  private Path baseDirectory() {
+    IEditorInput input = getEditorInput();
+    if (input instanceof IFileEditorInput fileInput) {
+      IPath location = fileInput.getFile().getLocation();
+      return location == null ? null : location.removeLastSegments(1).toFile().toPath();
+    }
+    if (input instanceof IURIEditorInput uriInput && "file".equals(uriInput.getURI().getScheme()))
+      return Path.of(uriInput.getURI()).getParent();
+    return null;
   }
 
   private class ManagerListener implements IManagerListener {

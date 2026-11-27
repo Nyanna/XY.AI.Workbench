@@ -4,13 +4,13 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import xy.ai.conscious.harness.IIncludeAdapter;
 import xy.ai.conscious.harness.ISessionIncludeProcessor;
 import xy.ai.conscious.harness.SessionCallbacks;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class IncludeCommandRegistry<M> {
-
   private final Map<String, IIncludeCommand<M>> commands = new HashMap<>();
 
   public IncludeCommandRegistry(IIncludeAdapter adapter) {
@@ -25,6 +25,16 @@ public class IncludeCommandRegistry<M> {
 
   public final void register(IIncludeCommand<M> command) {
     commands.put(command.kind(), command);
+  }
+
+  /**
+   * Registered kinds in alphabetical order, without the kind-less path command.
+   */
+  public Set<String> kinds() {
+    Set<String> kinds = new TreeSet<>();
+    for (String kind : commands.keySet()) if (kind != null)
+      kinds.add(kind);
+    return kinds;
   }
 
   public void execute(String kind, String arg, List<Path> chain, SessionCallbacks<M> call, List<M> out, ISessionIncludeProcessor<M> recursiv) {
