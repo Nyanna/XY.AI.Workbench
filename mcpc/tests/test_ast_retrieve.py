@@ -35,7 +35,7 @@ def test_outline_and_find_in_one_call(registry: ToolRegistry, tmp_path):
 
 def test_search_returns_node_ids_and_read_uses_them(registry: ToolRegistry, tmp_path):
     path = _write_sample(tmp_path)
-    search_item = {'directory': [str(tmp_path)], 'pattern': 'needle', 'include': ['*.py'], 'intent': 'edit'}
+    search_item = {'directory': [str(tmp_path)], 'pattern': 'needle', 'file_include_mask': ['*.py'], 'intent': 'edit'}
     first = _retrieve(registry, {'search': [search_item]})
     assert not first.is_error
     entry = first.structured_content['search']['results'][0]['matches'][0]

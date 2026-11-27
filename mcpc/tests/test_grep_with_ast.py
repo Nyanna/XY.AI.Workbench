@@ -6,7 +6,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolRegistry
 def _grep(registry: ToolRegistry, session: Session, tmp_path, *, intent: str | None=None, **extra):
     tool = registry.get('search')
     assert tool is not None
-    item = {'directory': [str(tmp_path)], 'pattern': 'needle', 'include': ['*.py']}
+    item = {'directory': [str(tmp_path)], 'pattern': 'needle', 'file_include_mask': ['*.py']}
     if intent is not None:
         item['intent'] = intent
     arguments = {'items': [item], **extra}

@@ -12,6 +12,7 @@ from xy.ai.mcpc.tools._mcpcignore import is_allowed
 from xy.ai.mcpc.tools.results import BatchResult, ItemError, ItemResult
 import re
 from xy.ai.mcpc.tools.ast import core
+from pathspec import PathSpec
 __all__ = [
     'SearchError',
     'SearchLineMatch',
@@ -68,16 +69,20 @@ class SearchItem:
     Attributes:
         directory: Absolute paths of the directories to search recursively.
         pattern: Extended regular expression (grep -E syntax) to search for.
-        exclude: Globs of file names to exclude from the search, if given.
-        include: Globs of file names to include in the search, if given.
+        file_exclude_mask: Globs on the file base name, passed to grep --exclude; files whose base name matches one are skipped.
+        file_include_mask: Globs on the file base name, passed to grep --include; if given, only files whose base name matches one are searched.
+        dir_exclude_mask: Gitignore-style glob masks; files whose absolute directory path matches one are skipped.
+        dir_include_mask: Gitignore-style glob masks; if given, only files whose absolute directory path matches one are searched.
         limit: Maximum number of matches to return (1..``_MAX_LIMIT``). Applies per item, not per batch.
         intent: Purpose of this search (one of ``_INTENTS``); intents with location information also
             return line numbers / AST node ids. Defaults to ``_DEFAULT_INTENT``.
     """
     directory: list[str]
     pattern: str
-    exclude: list[str] | None = None
-    include: list[str] | None = None
+    file_exclude_mask: list[str] | None = None
+    file_include_mask: list[str] | None = None
+    dir_exclude_mask: list[str] | None = None
+    dir_include_mask: list[str] | None = None
     limit: int = _DEFAULT_LIMIT
     intent: str | None = None
 
@@ -170,15 +175,38 @@ def _drop_permission_errors(result: ProcessResult) -> ProcessResult:
         exit_code = 0 if result.stdout.strip() else 1
     return ProcessResult(exit_code=exit_code, stdout=result.stdout, stderr=stderr)
 
-def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None=None, include: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> tuple[ProcessResult, int]:
+class _DirMasks:
+    """Gitignore-style glob masks (gitwildmatch) on the absolute directory path of a file.
+
+    A file is selected if no exclude mask matches and, if include masks are given, one of them matches.
+    """
+
+    def __init__(self, dir_exclude: list[str] | None, dir_include: list[str] | None) -> None:
+        self._dir_exclude = self._spec(dir_exclude)
+        self._dir_include = self._spec(dir_include)
+
+    @staticmethod
+    def _spec(masks: list[str] | str | None) -> PathSpec | None:
+        lines = _as_list(masks)
+        return PathSpec.from_lines('gitwildmatch', lines) if lines else None
+
+    def selects(self, path: Path) -> bool:
+        key = path.parent.as_posix().lstrip('/')
+        if self._dir_exclude and self._dir_exclude.match_file(key):
+            return False
+        return not self._dir_include or self._dir_include.match_file(key)
+
+def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[str] | None=None, file_include_mask: list[str] | None=None, dir_exclude_mask: list[str] | None=None, dir_include_mask: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> tuple[ProcessResult, int]:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
 
     Args:
         directory: Absolute paths of the directories to search (each must exist and
             be a directory).
         pattern: Extended regular expression (grep -E syntax).
-        exclude: Globs of file names to exclude from the search, if given.
-        include: Globs of file names to include in the search, if given.
+        file_exclude_mask: Globs on the file base name, passed to grep --exclude; files whose base name matches one are skipped.
+        file_include_mask: Globs on the file base name, passed to grep --include; if given, only files whose base name matches one are searched.
+        dir_exclude_mask: Gitignore-style glob masks; files whose absolute directory path matches one are skipped.
+        dir_include_mask: Gitignore-style glob masks; if given, only files whose absolute directory path matches one are searched.
         limit: Maximum number of matching lines to return (1..``_MAX_LIMIT``).
 
     Returns:
@@ -213,9 +241,9 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
     if not 1 <= limit <= _MAX_LIMIT:
         raise SearchError(f'limit must be between 1 and {_MAX_LIMIT}.')
     cmd = ['grep', '--recursive', '--line-number', '--extended-regexp', '--binary-files=without-match', '--color=never']
-    for pattern_glob in _as_list(include):
+    for pattern_glob in _as_list(file_include_mask):
         cmd.append(f'--include={pattern_glob}')
-    for pattern_glob in _as_list(exclude):
+    for pattern_glob in _as_list(file_exclude_mask):
         cmd.append(f'--exclude={pattern_glob}')
     cmd += ['--', pattern, *(str(p) for p in directory_paths)]
     try:
@@ -223,9 +251,11 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
     except LaunchError as exc:
         raise SearchError(f'Failed to launch: {exc}') from exc
     result = _drop_permission_errors(result)
+    masks = _DirMasks(dir_exclude_mask, dir_include_mask)
     allowed_lines = []
     for line in result.stdout.splitlines():
-        if is_allowed(Path(line.partition(':')[0])):
+        path = Path(line.partition(':')[0])
+        if masks.selects(path) and is_allowed(path):
             allowed_lines.append(line)
     result = ProcessResult(exit_code=result.exit_code if allowed_lines else min(
         result.exit_code, 1), stdout='\n'.join(allowed_lines), stderr=result.stderr)
@@ -237,14 +267,14 @@ def _run_search(directory: list[str], pattern: str, *, exclude: list[str] | None
     return (ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr), len(lines))
 
 def _search_one(item: SearchItem) -> SearchResult:
-    result, total_lines = _run_search(item.directory, item.pattern, exclude=item.exclude,
-                                      include=item.include, limit=item.limit)
+    result, total_lines = _run_search(item.directory, item.pattern, file_exclude_mask=item.file_exclude_mask, file_include_mask=item.file_include_mask,
+                                      dir_exclude_mask=item.dir_exclude_mask, dir_include_mask=item.dir_include_mask, limit=item.limit)
     if result.exit_code >= 2:
         raise SearchError(f'search failed (exit code {result.exit_code}): {result.stderr}')
     matches = _parse_search_stdout(result.stdout)
     warnings: list[str] = []
     if total_lines > item.limit:
-        hint = 'narrow pattern, directory or include/exclude filters'
+        hint = 'narrow pattern, directory or the file/dir masks'
         if item.limit < _MAX_LIMIT:
             hint += f', or raise limit (max {_MAX_LIMIT})'
         warnings.append(f'Limit of {item.limit} matches reached (total {total_lines}); {hint}.')
@@ -312,7 +342,7 @@ def search(items: list[SearchItem], *, with_nodes: bool=False) -> SearchBatchRes
 def _check_intent(intent: str) -> None:
     if intent not in _INTENTS:
         raise SearchError(f'Invalid intent {intent!r}; expected one of {', '.join(_INTENTS)}.')
-SEARCH_DESCRIPTION = "Run one or more independent searches with an extended regular expression, for a batch of items. Always use the 'include' and 'exclude' filters."
+SEARCH_DESCRIPTION = 'Run one or more independent searches with an extended regular expression, for a batch of items. Always use the file/dir include and exclude masks.'
 
 class SearchTool(ToolDefinition):
     name = 'search'
@@ -328,16 +358,26 @@ class SearchTool(ToolDefinition):
         'pattern': {
             'type': 'string',
                     'description': 'Extended regular expression to search for. Make the pattern as specific as possible to reduce noise.'},
-        'exclude': {
+        'file_exclude_mask': {
             'type': 'array',
             'items': {
                 'type': 'string'},
-            'description': "Globs of file names to exclude from the search, e.g. '*.min.js'. Always set this to exclude build artefacts, dependencies (e.g. 'node_modules/**'), and minified files."},
-        'include': {
+            'description': "Globs passed to grep --exclude; matching files are skipped, e.g. '*.min.js'. Always set this to exclude minified and generated files."},
+        'file_include_mask': {
             'type': 'array',
             'items': {
                 'type': 'string'},
-            'description': "Globs of file names to include in the search, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
+            'description': "Globs passed to grep --include; if given, only matching files are searched, e.g. '*.py'. Always set this to restrict the search to the relevant file types; omit only when the file type is unknown."},
+        'dir_exclude_mask': {
+            'type': 'array',
+            'items': {
+                'type': 'string'},
+            'description': "Gitignore-style globs on the absolute path of the directory containing the file; files in matching directories are skipped, e.g. 'node_modules', '**/build/output'. Always set this to exclude build artefacts and dependencies."},
+        'dir_include_mask': {
+            'type': 'array',
+            'items': {
+                'type': 'string'},
+            'description': "Gitignore-style globs on the absolute path of the directory containing the file; if given, only files in matching directories are searched, e.g. 'src'."},
         'limit': {
             'type': 'integer',
             'description': 'Maximum number of matching lines to return for this item.',
@@ -365,8 +405,10 @@ class SearchTool(ToolDefinition):
             return SearchItem(
                 directory=it['directory'],
                 pattern=it['pattern'],
-                exclude=it.get('exclude'),
-                include=it.get('include'),
+                file_exclude_mask=it.get('file_exclude_mask'),
+                file_include_mask=it.get('file_include_mask'),
+                dir_exclude_mask=it.get('dir_exclude_mask'),
+                dir_include_mask=it.get('dir_include_mask'),
                 limit=int(
                     it.get(
                         'limit',

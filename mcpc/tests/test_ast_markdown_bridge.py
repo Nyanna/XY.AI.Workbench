@@ -50,7 +50,7 @@ def _section_id(tree: Tree, *names: str) -> str:
     names_by_id = {loc.node_id: loc.name for loc in tree.engine.locate_all(tree) if loc.node_type == 'Section'}
     for node_id in names_by_id:
         parts = node_id.split('.')
-        if tuple(names_by_id.get('.'.join(parts[:n])) for n in range(1, len(parts) + 1)) == names:
+        if tuple((names_by_id.get('.'.join(parts[:n])) for n in range(1, len(parts) + 1))) == names:
             return node_id
     raise LookupError(names)
 
@@ -206,7 +206,7 @@ def test_locate_all_builds_heading_tree(engine: MarkdownEngine) -> None:
     sections = [loc for loc in located if loc.node_type == 'Section']
     section_ids = [loc.node_id for loc in sections]
     assert len(set(section_ids)) == 3
-    assert all(i.startswith(section_ids[0] + '.') for i in section_ids[1:])
+    assert all((i.startswith(section_ids[0] + '.') for i in section_ids[1:]))
     assert [loc.name for loc in sections] == ['Title', 'Section A', 'Section B']
     assert located[0].parent_type == 'Root'
     assert all((loc.parent_type == 'Section' for loc in located[1:]))
@@ -214,8 +214,7 @@ def test_locate_all_builds_heading_tree(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_line_ranges_are_one_based_and_inclusive(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    ranges = {loc.name: (loc.lineno, loc.end_lineno)
-              for loc in engine.locate_all(tree) if loc.node_type == 'Section'}
+    ranges = {loc.name: (loc.lineno, loc.end_lineno) for loc in engine.locate_all(tree) if loc.node_type == 'Section'}
     assert ranges == {'Title': (1, 11), 'Section A': (5, 7), 'Section B': (9, 11)}
 
 @requires_engine
@@ -275,9 +274,11 @@ def test_setext_headings_are_sections(engine: MarkdownEngine) -> None:
 
 @requires_engine
 def test_skipped_heading_levels_nest_under_previous(engine: MarkdownEngine) -> None:
-    sections = [loc for loc in engine.locate_all(engine.parse('# A\n\n#### Deep\n\ntext\n\n## B\n')) if loc.node_type == 'Section']
+    sections = [loc for loc in engine.locate_all(engine.parse(
+        '# A\n\n#### Deep\n\ntext\n\n## B\n')) if loc.node_type == 'Section']
     assert [loc.name for loc in sections] == ['A', 'Deep', 'B']
-    assert all(loc.node_id.startswith(sections[0].node_id + '.') and loc.node_id.count('.') == 1 for loc in sections[1:])
+    assert all((loc.node_id.startswith(sections[0].node_id + '.')
+               and loc.node_id.count('.') == 1 for loc in sections[1:]))
 
 @requires_engine
 def test_duplicate_headings_get_numbered_ids(engine: MarkdownEngine) -> None:
@@ -352,7 +353,13 @@ def test_replace_root_section_replaces_whole_document(engine: MarkdownEngine) ->
 @requires_engine
 def test_replace_with_multiple_blocks(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Section B') + '.')))
+    block = next(
+        (loc for loc in engine.locate_all(tree) if loc.node_id.startswith(
+            _section_id(
+                tree,
+                'Title',
+                'Section B') +
+            '.')))
     engine.replace(block, 'one\n\n- a\n- b\n\n```js\nx\n```')
     assert engine.serialize(tree).endswith('## Section B\n\none\n\n- a\n- b\n\n```js\nx\n```\n')
 
@@ -388,7 +395,13 @@ def test_delete_section(engine: MarkdownEngine) -> None:
 @requires_engine
 def test_delete_paragraph_and_whole_document(engine: MarkdownEngine) -> None:
     tree = engine.parse(DOC)
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Section A') + '.')))
+    block = next(
+        (loc for loc in engine.locate_all(tree) if loc.node_id.startswith(
+            _section_id(
+                tree,
+                'Title',
+                'Section A') +
+            '.')))
     engine.delete(block)
     assert 'First paragraph.' not in engine.serialize(tree)
     assert '## Section A' in engine.serialize(tree)
@@ -416,7 +429,13 @@ def test_mutation_normalizes_document(engine: MarkdownEngine) -> None:
     source = '# Title\n\n* item one\n* item two\n\n\nSome   *emph*   and __strong__ text.\n\n## Sec\n\nlast\n'
     tree = engine.parse(source)
     assert engine.serialize(tree) == source
-    block = next((loc for loc in engine.locate_all(tree) if loc.node_id.startswith(_section_id(tree, 'Title', 'Sec') + '.')))
+    block = next(
+        (loc for loc in engine.locate_all(tree) if loc.node_id.startswith(
+            _section_id(
+                tree,
+                'Title',
+                'Sec') +
+            '.')))
     engine.replace(block, 'changed')
     assert engine.serialize(
         tree) == '# Title\n\n- item one\n- item two\n\nSome   _emph_   and **strong** text.\n\n## Sec\n\nchanged\n'
@@ -558,7 +577,12 @@ def test_outline_lists_sections_and_blocks(md_file: str) -> None:
 @requires_engine
 def test_find_by_type_and_name(md_file: str) -> None:
     sections = _flatten(ast_find(paths=[md_file], node_type='Section').files[0].nodes)
-    assert [node.id for node in sections] == [_file_id(md_file, 'Doc'), _file_id(md_file, 'Doc', 'Part 1'), _file_id(md_file, 'Doc', 'Part 2')]
+    assert [
+        node.id for node in sections] == [
+            _file_id(
+                md_file, 'Doc'), _file_id(
+                    md_file, 'Doc', 'Part 1'), _file_id(
+                        md_file, 'Doc', 'Part 2')]
     named = _flatten(ast_find(paths=[md_file], name='Part 2').files[0].nodes)
     assert [node.id for node in named] == [_file_id(md_file, 'Doc', 'Part 2')]
     assert named[0].code == '## Part 2\n\nbeta\n'
@@ -571,14 +595,31 @@ def test_read_returns_section_source(md_file: str) -> None:
 
 @requires_engine
 def test_replace_via_tool_writes_file(md_file: str) -> None:
-    result = ast_replace(items=[ReplaceItem(path=md_file, source='## Part 1\n\nALPHA', id=_file_id(md_file, 'Doc', 'Part 1'))])
+    result = ast_replace(
+        items=[
+            ReplaceItem(
+                path=md_file,
+                source='## Part 1\n\nALPHA',
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 1'))])
     assert not result.errors
     assert result.results[0].new_id == _file_id(md_file, 'Doc', 'Part 1')
     assert Path(md_file).read_text(encoding='utf-8') == '# Doc\n\nintro\n\n## Part 1\n\nALPHA\n\n## Part 2\n\nbeta\n'
 
 @requires_engine
 def test_insert_via_tool_reports_ids(md_file: str) -> None:
-    result = ast_insert(items=[InsertItem(path=md_file, source='## Part 1b\n\nmid', id=_file_id(md_file, 'Doc', 'Part 1'), position='after')])
+    result = ast_insert(
+        items=[
+            InsertItem(
+                path=md_file,
+                source='## Part 1b\n\nmid',
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 1'),
+                position='after')])
     assert not result.errors
     assert result.results[0].inserted == 2
     assert result.results[0].ids[0] == _file_id(md_file, 'Doc', 'Part 1b')
@@ -600,14 +641,26 @@ def test_edit_marks_via_tool(md_file: str) -> None:
                 start_marker='alpha',
                 end_marker='alpha',
                 content='gamma',
-                id=_file_id(md_file, 'Doc', 'Part 1'))])
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 1'))])
     assert not result.errors
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'gamma' in text and 'alpha' not in text and ('beta' in text)
 
 @requires_engine
 def test_edit_block_via_tool(md_file: str) -> None:
-    result = ast_edit_block(items=[EditBlockItem(path=md_file, old_text='beta', new_text='delta', id=_file_id(md_file, 'Doc', 'Part 2'))])
+    result = ast_edit_block(
+        items=[
+            EditBlockItem(
+                path=md_file,
+                old_text='beta',
+                new_text='delta',
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 2'))])
     assert not result.errors
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'delta' in text and 'beta' not in text and ('alpha' in text)
@@ -619,11 +672,17 @@ def test_batch_of_edits_in_one_call(md_file: str) -> None:
             ReplaceItem(
                 path=md_file,
                 source='## Part 1\n\nONE',
-                id=_file_id(md_file, 'Doc', 'Part 1')),
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 1')),
             ReplaceItem(
                 path=md_file,
                 source='## Part 2\n\nTWO',
-                id=_file_id(md_file, 'Doc', 'Part 2'))])
+                id=_file_id(
+                    md_file,
+                    'Doc',
+                    'Part 2'))])
     assert not result.errors and len(result.results) == 2
     text = Path(md_file).read_text(encoding='utf-8')
     assert 'ONE' in text and 'TWO' in text and ('alpha' not in text) and ('beta' not in text)
@@ -674,7 +733,15 @@ def test_cache_follows_tool_edits(md_file: str) -> None:
 def test_unicode_file_roundtrip_via_tool(tmp_path: Path) -> None:
     path = tmp_path / 'u.md'
     path.write_text('# Grüße\n\nText 日本 😀\n\n## Teil\n\nalt\n', encoding='utf-8')
-    ast_replace(items=[ReplaceItem(path=str(path), source='## Teil\n\nneu äöü', id=_file_id(str(path), 'Grüße', 'Teil'))])
+    ast_replace(
+        items=[
+            ReplaceItem(
+                path=str(path),
+                source='## Teil\n\nneu äöü',
+                id=_file_id(
+                    str(path),
+                    'Grüße',
+                    'Teil'))])
     assert path.read_text(encoding='utf-8') == '# Grüße\n\nText 日本 😀\n\n## Teil\n\nneu äöü\n'
 '# ---------------------------------------------------------------------------'
 '# ast_retrieve über die Tool-Registry'
@@ -700,8 +767,11 @@ def test_retrieve_outline_find_read(registry: ToolRegistry, md_file: str) -> Non
 @requires_engine
 def test_retrieve_search_returns_node_ids_usable_for_read(registry: ToolRegistry, md_file: str) -> None:
     directory = str(Path(md_file).parent)
-    first = _retrieve(registry, {'search': [{'directory': [directory],
-                      'pattern': 'beta', 'include': ['*.md'], 'intent': 'edit'}]})
+    first = _retrieve(registry,
+                      {'search': [{'directory': [directory],
+                                   'pattern': 'beta',
+                                   'file_include_mask': ['*.md'],
+                                   'intent': 'edit'}]})
     assert not first.is_error
     entry = first.structured_content['search']['results'][0]['matches'][0]
     node_id = entry['nodes'][0]['id']
