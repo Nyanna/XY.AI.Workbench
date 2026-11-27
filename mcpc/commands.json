@@ -1,5 +1,5 @@
 {
   "commands": {
-    "runTests": {"script": "./test.sh", "spill_to_disk": false}
+		"runTests": {"script": "scripts/test-compact.sh", "spill_to_disk": false}
   }
 }
