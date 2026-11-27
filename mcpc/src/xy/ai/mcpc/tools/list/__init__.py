@@ -1,17 +1,28 @@
-"""List tool – returns files below a directory, grouped by relative subdirectory like ``ls -R``, for a batch of items.
+"""List tool – returns the files below a directory, grouped by relative subdirectory, for a batch of items.
 
-Walks each given absolute directory recursively and returns all file paths
-(files only, no directories), grouped by the relative directory they live in
-(e.g. ``./src/pkg:`` followed by tab-indented file names), mirroring the
-output format of ``ls -R``. An optional regular expression can be supplied to
-filter the resulting files (matched against each file's path relative to the
-requested directory). Visibility is controlled by ``.mcpcignore`` files. To keep results manageable, the number of matched files per
-item is capped; use ``pattern`` to narrow down large directories instead of
-raising the limit.
+Walks each given absolute directory (recursively by default) and returns the file
+names grouped by the directory they live in. An optional regular expression filters
+the files (matched against each file's path relative to the requested directory).
+Visibility is controlled by ``.mcpcignore`` files.
+
+Styles:
+    ``flat`` (default): every directory with entries is a header such as ``./src/pkg:``
+    followed by its entries, like ``ls -R``.
+    ``hierarchical``: directories are nested lists (``{'./src/': [{'pkg/': [...]}]}``);
+    shared path prefixes are written once and chains of single subdirectories are
+    consolidated into one key (``'./a/b/c/'``). Files of the requested directory itself
+    are plain entries at the top level.
+
+Limit: a result has at most ``_MAX_ENTRIES`` entries (counted in the flat form: headers,
+files and pseudo entries). Beyond that, files are hidden first, one by one from the
+deepest level upwards and evenly across the directories of the same depth, leaving a
+``N files hidden`` entry. If that is not enough, the deepest directories are removed one
+by one, leaving ``N subdirectories hidden`` (and the files hidden below) in their parent.
+Use ``pattern`` to narrow down large directories instead.
 """
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from xy.ai.mcpc.tools._directories import normalize_directory
@@ -31,6 +42,11 @@ __all__ = [
     'ListTool',
     'register_list_tool']
 _MAX_ENTRIES = 50
+_STYLES = ('flat', 'hierarchical')
+_NO_ENTRIES = 'No entries'
+'# Extra characters a nested directory costs besides its key (braces, brackets, quotes, comma).'
+_NEST_OVERHEAD = 8
+Entry = str | dict[str, list[Any]]
 
 class ListError(Exception):
     """Raised when a directory listing cannot be performed."""
@@ -44,22 +60,28 @@ class ListItem:
         pattern: Optional regular expression to filter results. If it contains '/', it is matched against the relative path (e.g. './dir/file.ext'); otherwise it is matched against the file name only.
         recursive: If True (default), list files in all subdirectories. If False, list only the
             immediate contents of ``path``.
+        style: ``flat`` (default) or ``hierarchical`` (nested directory lists, more compact).
     """
     path: str
     pattern: str | None = None
     recursive: bool = True
+    style: str = 'flat'
 
 @dataclass(frozen=True)
 class ListResult(ItemResult):
-    """Result of listing a single directory, mirroring its input path for result association."""
+    """Result of listing a single directory, mirroring its input path for result association.
+
+    ``entries`` holds strings (files, pseudo entries, flat headers) and, in the
+    hierarchical style, directories as ``{key: [entries]}``.
+    """
     path: str
-    entries: list[str]
+    entries: list[Entry]
 
     def key(self) -> dict[str, Any]:
         return {'path': self.path}
 
     def payload(self) -> dict[str, Any]:
-        return {'entries': self.entries}
+        return {'entries': self.entries or _NO_ENTRIES}
 
 @dataclass(frozen=True)
 class ListItemError(ItemError):
@@ -85,6 +107,150 @@ class _Selection:
     on_path: bool
     recursive: bool
 
+@dataclass(eq=False, repr=False)
+class _Node:
+    """A directory of the result tree; ``rel`` is its path relative to the listed directory.
+
+    ``hidden_files`` / ``hidden_dirs`` count what was removed from the node itself and
+    from the branches removed below it.
+    """
+    name: str
+    depth: int
+    rel: str
+    parent: '_Node | None' = None
+    children: dict[str, '_Node'] = field(default_factory=dict)
+    files: list[str] = field(default_factory=list)
+    hidden_files: int = 0
+    hidden_dirs: int = 0
+
+    def size(self) -> int:
+        """Entries of the flat form: header plus files and pseudo entries; 0 if there are none."""
+        own = len(self.files) + (self.hidden_files > 0) + (self.hidden_dirs > 0)
+        return own + 1 if own else 0
+
+def _check_style(style: str) -> None:
+    if style not in _STYLES:
+        raise ListError(f'Invalid style {style!r}: expected one of {', '.join(_STYLES)}.')
+
+def _node_at(tree: _Node, rel_dir: str) -> _Node:
+    node = tree
+    if rel_dir != '.':
+        for part in rel_dir.split(os.sep):
+            child = node.children.get(part)
+            if child is None:
+                child = node.children[part] = _Node(part, node.depth + 1, f'{node.rel}/{part}', node)
+            node = child
+    return node
+
+def _preorder(tree: _Node) -> list[_Node]:
+    order: list[_Node] = []
+    stack = [tree]
+    while stack:
+        node = stack.pop()
+        order.append(node)
+        stack.extend((node.children[name] for name in sorted(node.children, reverse=True)))
+    return order
+
+def _reduce(order: list[_Node], limit: int) -> int | None:
+    """Hide entries until at most ``limit`` remain; returns the original count if anything was hidden.
+
+    Files go first: from the deepest level upwards, the last file of each directory of a
+    level in turn. Then the deepest directories are removed one by one; their hidden
+    counts move to the parent.
+    """
+    total = sum((node.size() for node in order))
+    original = total
+    if total <= limit:
+        return None
+    by_depth: dict[int, list[_Node]] = {}
+    for node in order:
+        if node.files:
+            by_depth.setdefault(node.depth, []).append(node)
+    for depth in sorted(by_depth, reverse=True):
+        level = by_depth[depth]
+        while level and total > limit:
+            for node in level:
+                if total <= limit:
+                    break
+                before = node.size()
+                node.files.pop()
+                node.hidden_files += 1
+                total += node.size() - before
+            level = [node for node in level if node.files]
+    if total > limit:
+        for node in sorted((n for n in order if n.parent is not None), key=lambda n: -n.depth):
+            if total <= limit:
+                break
+            parent = node.parent
+            before = node.size() + parent.size()
+            parent.hidden_files += node.hidden_files
+            parent.hidden_dirs += node.hidden_dirs + 1
+            del parent.children[node.name]
+            total += parent.size() - before
+    return original
+
+def _own_entries(node: _Node) -> list[Entry]:
+    entries: list[Entry] = [*node.files]
+    if node.hidden_files:
+        entries.append(f'{node.hidden_files} file{('s' if node.hidden_files != 1 else '')} hidden')
+    if node.hidden_dirs:
+        entries.append(f'{node.hidden_dirs} {('subdirectories' if node.hidden_dirs != 1 else 'subdirectory')} hidden')
+    return entries
+
+def _render_flat(tree: _Node) -> list[Entry]:
+    entries: list[Entry] = []
+    for node in _preorder(tree):
+        own = _own_entries(node)
+        if own:
+            entries.append(f'{node.rel}:')
+            entries.extend(own)
+    return entries
+
+def _nest(prefix: str, count: int) -> bool:
+    """Whether ``count`` subdirectories are shorter under one ``prefix`` key than each carrying the prefix."""
+    return len(prefix) + _NEST_OVERHEAD < count * len(prefix)
+
+def _render_hierarchical(tree: _Node) -> list[Entry]:
+    """Nested form: own entries of a directory plus ``{'name/': [...]}`` per subdirectory.
+
+    A directory without own entries that leads to a single subtree is consolidated into one
+    key (``'a/b/c/'``). Where such a chain ends in several subdirectories, they are nested
+    under the chain key only if that is shorter than repeating the chain in each key.
+    """
+    '# Per directory: own entries, nested subdirectories (keys relative to it) and, for a'
+    '# directory without own entries and with several subdirectories, the chain prefix that'
+    "# still awaits the nest-or-repeat decision (``''`` for the directory itself)."
+    content: dict[int, tuple[list[Entry], list[dict[str, list[Entry]]], str | None]] = {}
+    for node in reversed(_preorder(tree)):
+        own = _own_entries(node)
+        parts = [(name, content.pop(id(node.children[name]))) for name in sorted(node.children)]
+        parts = [(name, state) for name, state in parts if state[0] or state[1]]
+        if not own and len(parts) == 1 and (parts[0][1][2] is not None):
+            name, (_, child_subs, chain) = parts[0]
+            content[id(node)] = ([], child_subs, f'{name}/{chain}')
+            continue
+        subs: list[dict[str, list[Entry]]] = []
+        for name, (child_own, child_subs, chain) in parts:
+            prefix = f'{name}/'
+            if chain is not None:
+                prefix += chain
+                subs.extend(_nested_or_repeated(prefix, child_subs))
+            elif child_own:
+                subs.append({prefix: [*child_own, *child_subs]})
+            else:
+                (key, value), = child_subs[0].items()
+                subs.append({prefix + key: value})
+        content[id(node)] = (own, subs, '' if not own and len(subs) > 1 else None)
+    own, subs, chain = content[id(tree)]
+    if chain is None:
+        return [*own, *({f'./{key}': value} for sub in subs for key, value in sub.items())]
+    return _nested_or_repeated(f'./{chain}', subs, allow_nesting=bool(chain))
+
+def _nested_or_repeated(prefix: str, subs: list[dict[str, list[Entry]]], allow_nesting: bool=True) -> list[dict[str, list[Entry]]]:
+    if allow_nesting and _nest(prefix, len(subs)):
+        return [{prefix: subs}]
+    return [{prefix + key: value} for sub in subs for key, value in sub.items()]
+
 def _compile(pattern: str | None) -> re.Pattern | None:
     try:
         return re.compile(pattern) if pattern else None
@@ -105,6 +271,7 @@ def _mergeable_directory(item: ListItem) -> Path | None:
         return None
     try:
         _compile(item.pattern)
+        _check_style(item.style)
     except ListError:
         return None
     return directory
@@ -139,15 +306,10 @@ def _list_group(items: list[ListItem]) -> ListResult:
         ListError: If path is not absolute.
         ListError: If path does not exist or is not a directory.
         ListError: If pattern is not a valid regular expression.
-        ListError: If more than ``_MAX_ENTRIES`` entries remain even after the result has been
-            reduced to one entry per directory level and then by directory depth.
+        ListError: If the style is unknown.
     """
-    '# When the flat file count exceeds the limit, the result is progressively reduced:'
-    '# first to one entry per directory level (with a per-level file count), then, if'
-    '# that still exceeds the limit, by cutting the directory depth as late as possible'
-    '# (aggregated file count below each remaining directory). Both reduced results are'
-    '# returned with a warning.'
     item = items[0]
+    _check_style(item.style)
     dir_path = Path(item.path)
     if not dir_path.is_absolute():
         raise ListError('Path must be absolute.')
@@ -174,8 +336,7 @@ def _list_group(items: list[ListItem]) -> ListResult:
         notes = (
             f'Items below this directory were merged into this result: each pattern was applied to its own directory and the matches were combined: {merged}.',
         )
-    groups: dict[str, list[str]] = {}
-    match_count = 0
+    tree = _Node(name='.', depth=0, rel='.')
     for root, dirs, files in os.walk(top):
         dirs[:] = [d for d in dirs if not is_excluded(Path(root) / d)]
         rel_dir = os.path.relpath(root, top)
@@ -197,50 +358,14 @@ def _list_group(items: list[ListItem]) -> ListResult:
                     matched_files.append(file)
                     break
         if matched_files:
-            groups[rel_dir] = matched_files
-            match_count += len(matched_files)
+            _node_at(tree, rel_dir).files = matched_files
         if not item.recursive:
             dirs.clear()
-    if match_count <= _MAX_ENTRIES:
-        entries = []
-        for rel_dir in sorted(groups):
-            header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
-            entries.append(f'{header}:')
-            entries.extend(groups[rel_dir])
-        return ListResult(path=item.path, entries=entries, warnings=notes)
-    '# Step 1: collapse each directory level to a single representative entry,'
-    '# annotated with the total file count for that level.'
-    if len(groups) <= _MAX_ENTRIES:
-        entries = []
-        for rel_dir in sorted(groups):
-            header = rel_dir if rel_dir == '.' else './' + rel_dir.replace(os.sep, '/')
-            count = len(groups[rel_dir])
-            entries.append(f'{header}: ({count} file{('s' if count != 1 else '')})')
-            entries.append(groups[rel_dir][0])
-        warning = f"Result reduced because the total number of entries ({match_count}) exceeds the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter."
-        return ListResult(path=item.path, entries=entries, warnings=(*notes, warning))
-    '# Step 2: still too many directories. Cut the directory depth as late as possible,'
-    '# i.e. keep the deepest depth whose number of directories fits the limit, and'
-    '# aggregate the file counts below each remaining directory.'
-    parts_by_dir = {rel_dir: [] if rel_dir == '.' else rel_dir.split(os.sep) for rel_dir in groups}
-    max_depth = max((len(parts) for parts in parts_by_dir.values()))
-    for depth in range(max_depth - 1, 0, -1):
-        counts: dict[str, int] = {}
-        for rel_dir, files in groups.items():
-            key = '/'.join(parts_by_dir[rel_dir][:depth]) or '.'
-            counts[key] = counts.get(key, 0) + len(files)
-        if len(counts) <= _MAX_ENTRIES:
-            entries = []
-            for key in sorted(counts):
-                header = key if key == '.' else './' + key
-                count = counts[key]
-                entries.append(f'{header}: ({count} file{('s' if count != 1 else '')} below)')
-            warning = f"Result reduced to directories up to depth {depth} because the number of directories with matches ({
-                len(groups)}) exceeds the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter."
-            return ListResult(path=item.path, entries=entries, warnings=(*notes, warning))
-    raise ListError(
-        f"Too many entries even after reducing by directory depth: {
-            len(groups)} directories with matches exceed the limit of {_MAX_ENTRIES}. Narrow down the result using the 'pattern' regular expression parameter.")
+    original = _reduce(_preorder(tree), _MAX_ENTRIES)
+    entries = _render_hierarchical(tree) if item.style == 'hierarchical' else _render_flat(tree)
+    if original is not None:
+        notes += (f"Result reduced because the number of entries ({original}) exceeds the limit of {_MAX_ENTRIES}: files and subdirectories were hidden. Narrow down the result using the 'pattern' regular expression parameter.",)
+    return ListResult(path=item.path, entries=entries, warnings=notes)
 
 def list(items: list[ListItem]) -> ListBatchResult:
     """List each directory in ``items``.
@@ -273,12 +398,23 @@ def list(items: list[ListItem]) -> ListBatchResult:
 class ListTool(ToolDefinition):
     name = 'list'
     title = 'List directory contents'
-    description = 'List all files below one or more absolute directory paths, recursively, as a flat list, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch.'
+    description = "List all files below one or more absolute directory paths, recursively, for a batch of items. Filter each result with a regular expression. Limits apply per item, not per batch:"
     _ITEM_PROPERTIES = {
         'path': {
-            'type': 'string', 'description': 'Absolute directory path.'}, 'pattern': {
-                'type': 'string', 'description': 'Regular expression to filter the result.'}, 'recursive': {
-                    'type': 'boolean', 'description': 'List subdirectories recursively. Default true.'}}
+            'type': 'string',
+            'description': 'Absolute directory path.'},
+        'pattern': {
+            'type': 'string',
+            'description': 'Regular expression to filter the result.'},
+        'recursive': {
+            'type': 'boolean',
+                    'description': 'List subdirectories recursively. Default true.'},
+        'style': {
+            'type': 'string',
+            'enum': [
+                *
+                _STYLES],
+            'description': "'flat' (default): one header per directory. 'hierarchical': directories as nested lists, more compact."}}
     _ITEM_REQUIRED = ['path']
     _ITEMS_DESCRIPTION = 'Directories to list.'
     input_schema = batch_schema(_ITEM_PROPERTIES, _ITEM_REQUIRED, _ITEMS_DESCRIPTION)
@@ -287,7 +423,15 @@ class ListTool(ToolDefinition):
         """Delegate to :func:`list`, translating the MCP schema to/from the Python API."""
 
         def item_factory(it: dict[str, Any]) -> ListItem:
-            return ListItem(path=it['path'], pattern=it.get('pattern'), recursive=it.get('recursive', True))
+            return ListItem(
+                path=it['path'],
+                pattern=it.get('pattern'),
+                recursive=it.get(
+                    'recursive',
+                    True),
+                style=it.get(
+                    'style',
+                    'flat'))
         return handle_batch_tool(ctx, item_factory, list, ListError)
 
 def register_list_tool(registry: ToolRegistry, functions: FunctionRegistry) -> None:

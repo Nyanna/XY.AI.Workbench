@@ -1,11 +1,5 @@
 # TODO
 
-Filelist konpakt initila, sehr kompakte filelist wird meistens initial gebraucht list output überdenken und cutoff überdenken, vielleicht rekursive besseree darstellung mit tabs
-	- wenn limit erreicht erst aus beginnend mit dem tiefsten dateien entfernen
-		- sobald pruned datei entfernt wird gibt es den Pseudoeintrag (Files 9)
-	- wenn limit immernoch überschritten, tiefsten vereziechnisse entfernen, dann anzahl (Directories 9, alle rekursiven), pseudoeintrag (Subdirectories 9)
-	- (Files 9 Total, rekursiv) in entries verlagern
-	- wenn nicht rekursiver modus selbe regel, erst Dateien,
 include commands auslagern in gemeinsames verzeichnis mit interface für übersicht
 	include anfuehrungszeichen für commands
 autocompletion
