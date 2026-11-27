@@ -24,8 +24,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
     GpuEventBackend, StreamBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_env::ComputeCapability;
-static_assertions::assert_impl_all!(SubengineCore : Send, Sync);
-static_assertions::assert_impl_all!(QueueRegistrations : Send, Sync);
+#[test]
+fn core_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<SubengineCore>();
+    check::<QueueRegistrations>();
+}
 #[test]
 fn types_are_send_sync() {
     fn assert_static<T: Send + Sync + 'static>() {}

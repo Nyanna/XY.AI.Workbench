@@ -1,5 +1,14 @@
 use super::*;
-
+#[test]
+fn backend_error_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<BackendError2>();
+}
+#[test]
+fn memory_backend_is_object_safe() {
+    fn check(_: Option<&dyn MemoryBackend>) {}
+    check(None);
+}
 #[test]
 fn rounded_len_rounds_up_to_granule() {
     assert_eq!(rounded_len(1, 1), Ok(ALLOC_GRANULE));
@@ -7,7 +16,6 @@ fn rounded_len_rounds_up_to_granule() {
     assert_eq!(rounded_len(ALLOC_GRANULE + 1, 8), Ok(2 * ALLOC_GRANULE));
     assert_eq!(rounded_len(1000, MAX_ALIGN2), Ok(1024));
 }
-
 #[test]
 fn rounded_len_rejects_invalid_requests() {
     let bad = Err(BackendError2::AllocationFailed);
@@ -18,13 +26,11 @@ fn rounded_len_rejects_invalid_requests() {
     assert_eq!(rounded_len(u64::MAX, 1), bad);
     assert_eq!(rounded_len(u64::MAX - ALLOC_GRANULE + 2, 1), bad);
 }
-
 #[test]
 fn rounded_len_handles_largest_valid_size() {
     let max = u64::MAX / ALLOC_GRANULE * ALLOC_GRANULE;
     assert_eq!(rounded_len(max, 1), Ok(max));
 }
-
 #[test]
 fn display_texts() {
     assert_eq!(BackendError2::AllocationFailed.to_string(), "Allokation fehlgeschlagen");
@@ -40,7 +46,6 @@ fn display_texts() {
     let text = t.to_string();
     assert!(text.contains("H2D") && text.contains("size mismatch"));
 }
-
 #[test]
 fn allocator_errors_map_one_to_one() {
     let oom = AllocatorError::OutOfMemory {
@@ -49,23 +54,17 @@ fn allocator_errors_map_one_to_one() {
         free: 3,
     };
     assert_eq!(
-        BackendError2::from(oom),
-        BackendError2::OutOfMemory {
-            arena: ArenaKind::Weights,
-            requested: 5,
-            free: 3
-        }
+        BackendError2::from(oom), BackendError2::OutOfMemory { arena :
+        ArenaKind::Weights, requested : 5, free : 3 }
     );
     assert_eq!(
         BackendError2::from(AllocatorError::AllocationFailed),
         BackendError2::AllocationFailed
     );
     assert_eq!(
-        BackendError2::from(AllocatorError::StaleRegion),
-        BackendError2::StaleRegion
+        BackendError2::from(AllocatorError::StaleRegion), BackendError2::StaleRegion
     );
 }
-
 #[test]
 fn wrapped_errors_convert() {
     let access = AccessError::OutOfBounds {
@@ -73,13 +72,7 @@ fn wrapped_errors_convert() {
         len: 2,
         region_len: 2,
     };
-    assert_eq!(
-        BackendError2::from(access.clone()),
-        BackendError2::Access(access)
-    );
+    assert_eq!(BackendError2::from(access.clone()), BackendError2::Access(access));
     let adapter = AdapterError::Overflow;
-    assert_eq!(
-        BackendError2::from(adapter.clone()),
-        BackendError2::Adapter(adapter)
-    );
+    assert_eq!(BackendError2::from(adapter.clone()), BackendError2::Adapter(adapter));
 }

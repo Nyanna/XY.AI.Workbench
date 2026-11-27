@@ -4,16 +4,28 @@ use std::thread;
 use std::time::Duration;
 use serde_json::json;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Queue;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{Index, PayloadRef};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
+    Index, PayloadRef,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::reference_index::ReferenceIndex;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::ExecutionEnvironment;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::SlotClass;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::b::encoder_build::{build_encoder, BuiltEncoder};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::b::encoder_build::{
+    build_encoder, BuiltEncoder,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::notification_topology::NotificationTopology;
 use crate::resident::_d::_c::_b::_a::_9::a::gpu_completion::GpuCompletion;
-use crate::resident::_d::_c::_b::_a::_9::a::lane_batching::{BatchKey, BatchLimit, ExecBatch, Launch};
+use crate::resident::_d::_c::_b::_a::_9::a::lane_batching::{
+    BatchKey, BatchLimit, ExecBatch, Launch,
+};
 use super::super::fixture::{config, device, shared, shared_with, subengine, MockBackend};
 use super::*;
+#[test]
+fn subengine_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<IndexMemory>();
+    check::<GpuSubengine>();
+}
 const HIDDEN: usize = 16;
 const LAYERS: usize = 2;
 const HEADS: usize = 2;
@@ -155,10 +167,10 @@ fn model_rig() -> ModelRig {
     let calls = Arc::new(AtomicUsize::new(0));
     let backend = MockBackend::single();
     let sub = GpuSubengine::new(
-        device(0),
-        Arc::clone(&backend) as Arc<dyn GpuBackend3>,
-        shared_with(registry(&calls, descriptor(&dir, "bert"))),
-        model_cfg(),
+            device(0),
+            Arc::clone(&backend) as Arc<dyn GpuBackend3>,
+            shared_with(registry(&calls, descriptor(&dir, "bert"))),
+            model_cfg(),
         )
         .unwrap();
     let desc = descriptor(&dir, "custom");
@@ -248,10 +260,10 @@ fn new_validates_before_it_touches_the_backend() {
     let mut cfg = config();
     cfg.default_dtype = DType::BF16;
     let err = GpuSubengine::new(
-        device(0),
-        Arc::clone(&backend) as Arc<dyn GpuBackend3>,
-        shared(),
-        cfg,
+            device(0),
+            Arc::clone(&backend) as Arc<dyn GpuBackend3>,
+            shared(),
+            cfg,
         )
         .err()
         .unwrap();
@@ -262,10 +274,10 @@ fn new_reports_a_failed_capability_detection() {
     let backend = MockBackend::single();
     lock(&backend.no_context).insert(0);
     let err = GpuSubengine::new(
-        device(0),
-        Arc::clone(&backend) as Arc<dyn GpuBackend3>,
-        shared(),
-        config(),
+            device(0),
+            Arc::clone(&backend) as Arc<dyn GpuBackend3>,
+            shared(),
+            config(),
         )
         .err()
         .unwrap();
@@ -380,10 +392,10 @@ fn the_scorer_is_registered_at_activation_but_not_loaded_without_its_kernel() {
     let backend = MockBackend::single();
     let shared = shared();
     let sub = GpuSubengine::new(
-        device(0),
-        Arc::clone(&backend) as Arc<dyn GpuBackend3>,
-        shared.clone(),
-        config(),
+            device(0),
+            Arc::clone(&backend) as Arc<dyn GpuBackend3>,
+            shared.clone(),
+            config(),
         )
         .unwrap();
     assert!(shared.registrations.entries(QueueKind::Gpu).is_empty());
@@ -803,7 +815,10 @@ impl BatchRunner<Job> for NoopRunner {
         &self,
         _lane: &mut Lane,
         _batch: ExecBatch<Job>,
-        _result: Result<(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::EventError>,
+        _result: Result<
+            (),
+            crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::EventError,
+        >,
     ) {}
 }
 fn lane_cfg(

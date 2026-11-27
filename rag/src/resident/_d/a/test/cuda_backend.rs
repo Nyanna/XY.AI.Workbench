@@ -7,14 +7,25 @@ use super::super::gpu_subengine::{
     GpuConfig, GpuDeviceManager, GpuDeviceManagerConfig, GpuError, GpuSubengine,
 };
 use super::*;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{axes, values};
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{DeviceHandle, LaneConfig, LaneKind};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
+    axes, values,
+};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{
+    DeviceHandle, LaneConfig, LaneKind,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::Queue;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{EntryId, Index, PayloadRef};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::{
+    EntryId, Index, PayloadRef,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::reference_index::ReferenceIndex;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::weight_source::WeightFile;
+#[test]
+fn cuda_backend_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<CudaBackend>();
+}
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::{
     ExecutionEnvironment, HasResourceRequirements, IndexId, ResourceKind,
     ResourceRequirements,
@@ -543,7 +554,10 @@ impl BatchRunner<Job> for Recorder {
         &self,
         _lane: &mut Lane,
         _batch: ExecBatch<Job>,
-        result: Result<(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::EventError>,
+        result: Result<
+            (),
+            crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::EventError,
+        >,
     ) {
         assert!(result.is_ok());
         self.collects.fetch_add(1, Ordering::SeqCst);
@@ -642,7 +656,10 @@ fn a_batch_runs_on_real_streams_and_finishes_through_the_stream_callback() {
     assert_eq!(runner.collects.load(Ordering::SeqCst), 1);
     assert_eq!(resource.idle_lanes(), 2);
     assert!(woken.load(Ordering::SeqCst) >= 1);
-    assert_eq!(task.state(), crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State2::Succeeded);
+    assert_eq!(
+        task.state(), crate
+        ::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::State2::Succeeded
+    );
 }
 #[test]
 fn lane_resources_get_streams_of_their_own() {

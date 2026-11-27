@@ -349,7 +349,6 @@ pub struct DeviceTransfer {
     sink: Arc<dyn SegmentSink2>,
     config: TransferConfig,
 }
-static_assertions::assert_impl_all!(DeviceTransfer : Send, Sync);
 impl DeviceTransfer {
     pub fn new(
         source: Arc<dyn IndexArenaSource>,

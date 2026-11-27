@@ -1,4 +1,11 @@
 use super::*;
+#[test]
+fn pooling_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<PoolNorm>();
+    check::<PoolNormOutput>();
+    check::<PoolNormError>();
+}
 fn pn(p: Pooling, n: Normalization, dim: usize) -> PoolNorm {
     PoolNorm::new(p, n, dim).unwrap()
 }

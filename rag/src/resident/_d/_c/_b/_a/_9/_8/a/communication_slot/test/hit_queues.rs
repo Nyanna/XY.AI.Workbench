@@ -1,12 +1,27 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Addr;
-use static_assertions::{assert_impl_all, assert_not_impl_any};
-assert_impl_all!(WriteProducer : Send);
-assert_impl_all!(HitProducer : Send);
-assert_impl_all!(QueueConsumer : Send);
-assert_not_impl_any!(WriteProducer : Clone);
-assert_not_impl_any!(HitProducer : Clone);
-assert_not_impl_any!(QueueConsumer : Clone);
+#[test]
+fn queue_endpoints_are_send() {
+    fn check<T: Send>() {}
+    check::<WriteProducer>();
+    check::<HitProducer>();
+    check::<QueueConsumer>();
+}
+#[test]
+fn queue_endpoints_are_not_clone() {
+    macro_rules! implements_clone {
+        ($ty:ty) => {
+            { #[allow(dead_code)] trait Fallback { const VALUE : bool = false; } impl < T
+            > Fallback for T {} struct Probe < T > (std::marker::PhantomData < T >);
+            #[allow(dead_code)] impl < T : Clone > Probe < T > { const VALUE : bool =
+            true; } Probe::<$ty >::VALUE }
+        };
+    }
+    assert!(! implements_clone!(WriteProducer));
+    assert!(! implements_clone!(HitProducer));
+    assert!(! implements_clone!(QueueConsumer));
+    assert!(implements_clone!(String));
+}
 fn write(n: u64) -> EmbeddingWrite {
     EmbeddingWrite {
         entry: EntryId(n),

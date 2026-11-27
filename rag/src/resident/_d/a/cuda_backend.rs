@@ -12,12 +12,20 @@ use cudarc::driver::result as drv;
 use cudarc::driver::{sys, CudaContext};
 use super::gpu_subengine::{GpuBackend3, GpuDeviceInfo};
 use crate::resident::_d::_c::_b::_a::_9::_8::a::capability_detection::GpuProbe;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::{RootSlot, TableSink};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::{
+    RootSlot, TableSink,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::kernel_layout::Addr;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::RegionHandle;
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::{Arena, ArenaKind, MemInfo, MemoryQuery};
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_access::{AccessError, AccessRegion, RegionBackend};
-use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{Event, GpuEventBackend, Lane, Priority, StreamBackend};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::{
+    Arena, ArenaKind, MemInfo, MemoryQuery,
+};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_access::{
+    AccessError, AccessRegion, RegionBackend,
+};
+use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{
+    Event, GpuEventBackend, Lane, Priority, StreamBackend,
+};
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::sync_util::lock;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_env::ComputeCapability;
 const ROOT_BYTES: usize = 64;
@@ -415,7 +423,6 @@ pub struct CudaBackend {
     devices: Mutex<HashMap<u32, Arc<DeviceState>>>,
     regions: DeviceRegions,
 }
-static_assertions::assert_impl_all!(CudaBackend : Send, Sync);
 impl Default for CudaBackend {
     fn default() -> Self {
         CudaBackend::new()
@@ -445,7 +452,8 @@ impl CudaBackend {
         dev: sys::CUdevice,
         attribute: sys::CUdevice_attribute,
     ) -> Result<u32, String> {
-        let value = unsafe { drv::device::get_attribute(dev, attribute) }.map_err(text3)?;
+        let value = unsafe { drv::device::get_attribute(dev, attribute) }
+            .map_err(text3)?;
         Ok(u32::try_from(value).unwrap_or(0))
     }
     fn describe(ordinal: u32) -> Result<(GpuDeviceInfo, sys::CUdevice), String> {
@@ -631,7 +639,11 @@ impl GpuBackend3 for CudaBackend {
     fn root_slot(&self, ordinal: u32) -> Arc<dyn RootSlot> {
         match self.state(ordinal) {
             Ok(state) => Arc::clone(&state.root) as Arc<dyn RootSlot>,
-            Err(_) => Arc::new(crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::HostRootSlot::new()),
+            Err(_) => {
+                Arc::new(
+                    crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::a::table_swap::HostRootSlot::new(),
+                )
+            }
         }
     }
 }

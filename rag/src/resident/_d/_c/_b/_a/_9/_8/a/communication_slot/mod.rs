@@ -343,10 +343,6 @@ impl CommunicationSlot {
         SlotOutput { hits, report }
     }
 }
-static_assertions::assert_impl_all!(CommunicationSlot : Send);
-static_assertions::assert_impl_all!(SlotOutput : Send, Sync);
-static_assertions::assert_impl_all!(SlotReport : Send, Sync);
-static_assertions::assert_impl_all!(CompletionError : Send, Sync);
 #[cfg(test)]
 #[path = "test/communication_slot.rs"]
 mod tests;

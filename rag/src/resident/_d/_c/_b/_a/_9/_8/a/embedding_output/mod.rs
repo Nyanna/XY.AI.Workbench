@@ -245,7 +245,6 @@ pub struct GpuWriteTicket {
     result: LibTensor,
     event: Event,
 }
-static_assertions::assert_impl_all!(GpuWriteTicket : Send, Sync);
 impl GpuWriteTicket {
     pub fn event(&self) -> &Event {
         &self.event

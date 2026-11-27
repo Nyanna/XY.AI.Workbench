@@ -35,7 +35,11 @@ type TestEngine = Engine<TaskSpec, StepOutput, String, Step, (), ()>;
 type TestBuilder = EngineBuilder<TaskSpec, StepOutput, String, Step, (), ()>;
 type TestTask = Task<TaskSpec, StepOutput, String>;
 type Log = Arc<Mutex<Vec<String>>>;
-static_assertions::assert_impl_all!(TestEngine : Send, Sync);
+#[test]
+fn engine_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<TestEngine>();
+}
 fn wait_until(f: impl Fn() -> bool) {
     let end = Instant::now() + Duration::from_secs(10);
     while !f() {

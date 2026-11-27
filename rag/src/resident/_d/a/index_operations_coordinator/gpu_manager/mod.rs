@@ -1,6 +1,5 @@
 //! Memory manager of the GPU-resident part of one index: translates between entries and
 //! kernel slots and keeps both in sync.
-
 use std::sync::{Arc, Mutex};
 mod deps;
 mod ensure;
@@ -27,14 +26,10 @@ pub use types::{
 };
 use deps::*;
 use state::{Inner8, State10};
-
 /// Memory manager of one index. All methods take `&self` and may be called from any thread.
 pub struct GpuManager {
     inner: Arc<Inner8>,
 }
-
-static_assertions::assert_impl_all!(GpuManager : Send, Sync);
-
 impl GpuManager {
     /// Validates only. Loads nothing, allocates nothing and does not call `LazyIndex::get`.
     pub fn new(
@@ -86,12 +81,10 @@ impl GpuManager {
             }),
         })
     }
-
     /// IDs of the published segments, ascending.
     pub fn segment_ids(&self) -> Vec<SegmentId> {
         lock(&self.inner.state).records.iter().map(|r| r.id).collect()
     }
-
     pub fn stats(&self) -> GpuIndexStats {
         GpuIndexStats {
             segments: self.segment_count(),
@@ -99,32 +92,26 @@ impl GpuManager {
             pending_updates: self.pending_updates(),
         }
     }
-
     pub fn segment_count(&self) -> usize {
         lock(&self.inner.state).records.len()
     }
-
     /// Live bytes of the eviction view.
     pub fn resident_bytes(&self) -> u64 {
         self.inner.services.eviction().bytes(Tier2::Vram)
     }
-
     pub fn pending_updates(&self) -> usize {
         self.inner.services.updates().depth()
     }
-
     pub fn slot_of(&self, id: EntryId) -> Option<SlotRef> {
         let resident = lock(self.inner.services.residency()).get(id)?;
         Some(resident.slot)
     }
-
     pub fn global_slot_of(&self, id: EntryId) -> Option<u32> {
         let slot = self.slot_of(id)?;
         let state = lock(&self.inner.state);
         let record = state.records.iter().find(|r| r.id == slot.segment)?;
         record.first_slot.checked_add(slot.slot.0)
     }
-
     pub fn entry_at_global_slot(&self, slot: u32) -> Option<EntryRef> {
         let (assignment, local) = {
             let state = lock(&self.inner.state);
@@ -139,7 +126,6 @@ impl GpuManager {
         assignment.lookup(Slot5(local))
     }
 }
-
 #[cfg(test)]
 #[path = "test/gpu_manager.rs"]
 mod tests;

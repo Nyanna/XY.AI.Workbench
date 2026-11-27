@@ -82,7 +82,6 @@ pub struct StagingRing {
     /// Signalled when a slot is released or starts a transfer.
     changed: Condvar,
 }
-static_assertions::assert_impl_all!(StagingRing : Send, Sync);
 impl Inner7 {
     fn reclaim(&mut self) {
         for slot in self.slots.iter_mut() {

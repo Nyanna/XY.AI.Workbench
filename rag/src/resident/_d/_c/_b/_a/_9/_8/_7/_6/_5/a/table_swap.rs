@@ -157,10 +157,10 @@ impl SegmentTable {
                 .ok_or_else(|| decode_err(format!("unknown arena id {arena_id}")))?;
             let generation = Generation(u64::from(read_u32(chunk, 4)));
             let region = RegionHandle::new(
-                arena,
-                read_u642(chunk, 8),
-                read_u642(chunk, 16),
-                generation,
+                    arena,
+                    read_u642(chunk, 8),
+                    read_u642(chunk, 16),
+                    generation,
                 )
                 .map_err(|e| decode_err(e.to_string()))?;
             segments.push(region);
@@ -266,7 +266,6 @@ pub struct TableSwap {
     tracker: Mutex<Tracker>,
     retired: Mutex<Vec<Retired2>>,
 }
-static_assertions::assert_impl_all!(TableSwap : Send, Sync);
 impl TableSwap {
     /// Writes `ROOT_SENTINEL` into `root`; the published epoch starts at 0.
     pub fn new(

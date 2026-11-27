@@ -1,12 +1,14 @@
 use super::*;
-
+#[test]
+fn gpu_error_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<GpuError>();
+}
 fn assert_error<E: std::error::Error + Send + Sync + 'static>() {}
-
 #[test]
 fn is_a_thread_safe_error() {
     assert_error::<GpuError>();
 }
-
 #[test]
 fn display_texts() {
     assert_eq!(GpuError::NoDevice.to_string(), "keine nutzbare GPU");
@@ -34,16 +36,18 @@ fn display_texts() {
         format!("Modell {model:?} bereits registriert")
     );
 }
-
 #[test]
 fn wrapped_errors_keep_the_text_of_their_cause() {
     let e = GpuError::LaneSet(LaneSetError::NoLanes);
-    assert!(e.to_string().contains(&LaneSetError::NoLanes.to_string()));
+    assert!(e.to_string().contains(& LaneSetError::NoLanes.to_string()));
     let e = GpuError::Budget(BudgetError::DoesNotFit {
         requested: 2,
         usable: 1,
     });
-    assert!(e.to_string().contains(&format!("{}", BudgetError::DoesNotFit { requested: 2, usable: 1 })));
+    assert!(
+        e.to_string().contains(& format!("{}", BudgetError::DoesNotFit { requested : 2,
+        usable : 1 }))
+    );
     let e = GpuError::Subengine(SubengineError::NotActive);
     assert_eq!(e.to_string(), SubengineError::NotActive.to_string());
     let e = GpuError::Lifecycle(LifecycleError::Failed("nope".to_string()));

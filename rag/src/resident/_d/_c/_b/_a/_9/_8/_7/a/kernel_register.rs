@@ -280,7 +280,6 @@ pub struct KernelRegister {
     sources: Mutex<HashMap<&'static str, KernelSource>>,
     slots: Mutex<HashMap<KernelKey, Slot7>>,
 }
-static_assertions::assert_impl_all!(KernelRegister : Send, Sync);
 impl KernelRegister {
     pub fn new(
         device: DeviceHandle,

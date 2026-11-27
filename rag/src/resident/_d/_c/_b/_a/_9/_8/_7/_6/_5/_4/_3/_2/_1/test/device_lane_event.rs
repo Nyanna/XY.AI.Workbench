@@ -2,6 +2,15 @@ use super::*;
 use std::sync::atomic::AtomicUsize;
 use std::thread;
 use std::time::Duration;
+#[test]
+fn lane_event_types_are_thread_safe() {
+    fn check<T: Send + Sync>() {}
+    fn check_clone<T: Send + Sync + Clone>() {}
+    check::<Event>();
+    check_clone::<EventSignal>();
+    check_clone::<MockEventControl>();
+    check::<Lane>();
+}
 #[derive(Debug)]
 struct FakeGpuEvent {
     ready: AtomicBool,

@@ -18,7 +18,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::{
     State2, Ticket,
 };
-static_assertions::assert_impl_all!(LaneResource < TestMeta, TestPayload >: Send, Sync);
+#[test]
+fn lane_resource_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<LaneResource<TestMeta, TestPayload>>();
+}
 struct TestMeta {
     key: Option<BatchKey>,
     lens: Vec<usize>,
@@ -407,7 +411,7 @@ fn task_limit_joins_in_claim_order_and_reports_once() {
     let states: Vec<State2> = tickets.iter().map(Ticket::state).collect();
     assert_eq!(
         states, vec![State2::Succeeded, State2::Succeeded, State2::Succeeded,
-                     State2::Pending, State2::Pending]
+        State2::Pending, State2::Pending]
     );
     assert_eq!(fx.wakes.load(Ordering::SeqCst), 1);
     assert_eq!(fx.res.idle_lanes(), 1);

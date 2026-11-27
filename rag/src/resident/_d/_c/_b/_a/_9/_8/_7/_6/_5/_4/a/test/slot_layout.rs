@@ -1,14 +1,18 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use std::sync::Arc;
-static_assertions::assert_impl_all!(SegmentView : Send, Sync);
-static_assertions::assert_impl_all!(Descriptor : Send, Sync);
-static_assertions::assert_impl_all!(SlotClass : Send, Sync);
-static_assertions::assert_impl_all!(EntryRef : Send, Sync);
-static_assertions::assert_impl_all!(SlotMeta : Send, Sync);
-static_assertions::assert_impl_all!(SlotStates : Send, Sync);
-static_assertions::assert_impl_all!(SlotAssignment : Send, Sync);
-static_assertions::assert_impl_all!(SlotError : Send, Sync);
+#[test]
+fn slot_layout_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<SegmentView>();
+    check::<Descriptor>();
+    check::<SlotClass>();
+    check::<EntryRef>();
+    check::<SlotMeta>();
+    check::<SlotStates>();
+    check::<SlotAssignment>();
+    check::<SlotError>();
+}
 fn region(offset: u64, len: u64) -> RegionHandle {
     RegionHandle::new(ArenaKind::IndexSegments, offset, len, Generation(7))
         .expect("region")
@@ -164,7 +168,9 @@ fn f16_matches_reference_on_sampled_bits() {
 #[test]
 fn bf16_matches_reference() {
     assert_eq!(f32_to_bf16_bits2(1.0), 0x3f80);
-    assert_eq!(f32_to_bf16_bits2(MASK_VALUE), half::bf16::from_f32(MASK_VALUE).to_bits());
+    assert_eq!(
+        f32_to_bf16_bits2(MASK_VALUE), half::bf16::from_f32(MASK_VALUE).to_bits()
+    );
     let nan = f32_to_bf16_bits2(f32::NAN);
     assert_eq!(nan & 0x7f80, 0x7f80);
     assert_ne!(nan & 0x007f, 0);
@@ -287,7 +293,8 @@ fn states_errors_and_empty() {
         s.set_filled(Slot5(2), 1), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })
     );
     assert_eq!(
-        s.set_filled(Slot5(5), 99), Err(SlotError::SlotOutOfRange { slot : 5, count : 2 })
+        s.set_filled(Slot5(5), 99), Err(SlotError::SlotOutOfRange { slot : 5, count : 2
+        })
     );
     assert_eq!(
         s.set_filled(Slot5(0), 33), Err(SlotError::TokensExceedClass { tokens : 33, max :
@@ -380,7 +387,7 @@ fn assignment_bind_error_order() {
     );
     assert_eq!(
         a.bind(Slot5(1), eref(1, 0)), Err(SlotError::EntryAlreadyBound { entry : eref(1,
-                                                                                      0), slot : 0 })
+        0), slot : 0 })
     );
     assert_eq!(
         a.unbind(Slot5(2)), Err(SlotError::SlotOutOfRange { slot : 2, count : 2 })

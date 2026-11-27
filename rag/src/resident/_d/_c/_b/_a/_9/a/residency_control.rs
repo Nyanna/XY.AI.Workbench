@@ -72,11 +72,6 @@ impl fmt::Display for ResidencyError3 {
     }
 }
 impl std::error::Error for ResidencyError3 {}
-static_assertions::assert_impl_all!(ResidencyController : Send, Sync);
-static_assertions::assert_impl_all!(IndexSpec : Send, Sync);
-static_assertions::assert_impl_all!(EnsureSummary : Send, Sync);
-static_assertions::assert_impl_all!(ReconcileSummary : Send, Sync);
-static_assertions::assert_impl_all!(ResidencyError3 : Send, Sync);
 struct Gate2 {
     closed: bool,
 }

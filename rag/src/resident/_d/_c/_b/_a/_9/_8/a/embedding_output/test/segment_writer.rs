@@ -6,9 +6,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-use static_assertions::assert_impl_all;
 use std::sync::Arc;
-assert_impl_all!(SegmentWriter : Send, Sync);
+#[test]
+fn segment_writer_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<SegmentWriter>();
+}
 fn region(len: u64) -> RegionHandle {
     RegionHandle::new(ArenaKind::IndexSegments, 4096, len, Generation(1))
         .expect("region")
@@ -334,11 +337,11 @@ fn compaction_plan_packs_valid_slots() {
     let plan = w.compaction_plan();
     assert_eq!(plan.reclaimed_slots, 2);
     assert_eq!(
-        plan.moves, vec![SlotMove { from : Slot5(0), to : Slot5(0), entry : eref(1), tokens
-        : 1, centroid : Some(CentroidId(10)), }, SlotMove { from : Slot5(2), to : Slot5(1),
-        entry : eref(3), tokens : 3, centroid : Some(CentroidId(30)), }, SlotMove { from
-        : Slot5(3), to : Slot5(2), entry : eref(4), tokens : 4, centroid :
-        Some(CentroidId(40)), },]
+        plan.moves, vec![SlotMove { from : Slot5(0), to : Slot5(0), entry : eref(1),
+        tokens : 1, centroid : Some(CentroidId(10)), }, SlotMove { from : Slot5(2), to :
+        Slot5(1), entry : eref(3), tokens : 3, centroid : Some(CentroidId(30)), },
+        SlotMove { from : Slot5(3), to : Slot5(2), entry : eref(4), tokens : 4, centroid
+        : Some(CentroidId(40)), },]
     );
     assert_eq!(w.states().valid_count(), 3);
 }

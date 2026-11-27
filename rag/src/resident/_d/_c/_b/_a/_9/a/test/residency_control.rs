@@ -5,6 +5,15 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::thread;
+#[test]
+fn public_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<ResidencyController>();
+    check::<IndexSpec>();
+    check::<EnsureSummary>();
+    check::<ReconcileSummary>();
+    check::<ResidencyError3>();
+}
 const ENTRIES: [u64; 3] = [1, 2, 3];
 fn id(name: &str) -> IndexId {
     IndexId::new(name)
@@ -267,7 +276,8 @@ fn reconcile_forwards_to_active_backend() {
     assert_eq!(controller.reconcile(& id("a")), Ok(ReconcileSummary::default()));
     *lock(&backend.reconcile_result) = Some(Err("boom".to_string()));
     assert_eq!(
-        controller.reconcile(& id("a")), Err(ResidencyError3::Backend("boom".to_string()))
+        controller.reconcile(& id("a")), Err(ResidencyError3::Backend("boom"
+        .to_string()))
     );
     assert_eq!(backend.reconcile_calls.load(Ordering::SeqCst), 3);
 }

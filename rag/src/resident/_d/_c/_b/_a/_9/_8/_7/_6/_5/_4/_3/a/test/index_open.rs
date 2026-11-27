@@ -1,6 +1,10 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-static_assertions::assert_impl_all!(LazyIndexFile : Send, Sync);
+#[test]
+fn lazy_index_file_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<LazyIndexFile>();
+}
 struct Mock {
     ids: Vec<(u64, u64)>,
     decodes: AtomicUsize,

@@ -106,8 +106,6 @@ pub struct TablePublisher {
     pending: Mutex<VecDeque<(Epoch, MappingChange)>>,
     gap_lock: Mutex<()>,
 }
-static_assertions::assert_impl_all!(TablePublisher : Send, Sync);
-static_assertions::assert_impl_all!(IndexWriter : Send, Sync);
 impl TablePublisher {
     pub fn new(swap: Arc<TableSwap>) -> TablePublisher {
         TablePublisher {

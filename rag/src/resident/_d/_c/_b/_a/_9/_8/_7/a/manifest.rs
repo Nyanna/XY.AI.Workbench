@@ -469,7 +469,9 @@ impl ManifestStore {
         F: FnOnce(&mut Lane) -> Result<(), String>,
     {
         enqueue(lane).map_err(|cause| SyncError3 { cause })?;
-        let event = lane.record_event().map_err(|e| SyncError3 { cause: e.to_string() })?;
+        let event = lane
+            .record_event()
+            .map_err(|e| SyncError3 { cause: e.to_string() })?;
         self.stage(next, event);
         Ok(())
     }
@@ -551,14 +553,6 @@ impl fmt::Debug for ManifestStore {
             .finish()
     }
 }
-static_assertions::assert_impl_all!(Manifest : Send, Sync);
-static_assertions::assert_impl_all!(Lease3 : Send, Sync);
-static_assertions::assert_impl_all!(SegmentSpec : Send, Sync);
-static_assertions::assert_impl_all!(ChangeEvent : Send, Sync);
-static_assertions::assert_impl_all!(Subscriber : Send, Sync);
-static_assertions::assert_impl_all!(ManifestStore : Send, Sync);
-static_assertions::assert_impl_all!(ManifestError : Send, Sync);
-static_assertions::assert_impl_all!(SyncError3 : Send, Sync);
 #[cfg(test)]
 #[path = "test/manifest.rs"]
 mod tests;

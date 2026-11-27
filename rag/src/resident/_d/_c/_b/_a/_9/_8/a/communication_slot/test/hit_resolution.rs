@@ -11,6 +11,15 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
+#[test]
+fn hit_resolution_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<SegmentBinding>();
+    check::<HitLocation>();
+    check::<ResolvedHit>();
+    check::<HitResolveError>();
+    check::<Resolution2>();
+}
 const SLOT_BYTES: u64 = 512;
 #[derive(Default)]
 struct Dir(HashMap<SegmentId, SegmentBinding>);
@@ -122,7 +131,8 @@ fn locate_fixed_segment() {
     );
     assert_eq!(locate(& m, & dir, hit(0x10000, 1.0)).unwrap().slot, Slot5(0));
     assert_eq!(
-        locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES - 1, 1.0)).unwrap().slot, Slot5(3)
+        locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES - 1, 1.0)).unwrap().slot,
+        Slot5(3)
     );
     assert_eq!(
         locate(& m, & dir, hit(0x10000 + 4 * SLOT_BYTES, 1.0)),
@@ -213,8 +223,8 @@ fn resolve_location_cases() {
     );
     assert_eq!(
         resolve_location(& m, & dir, Generation(3), Slot5(99)),
-        Err(HitResolveError::MissingMapping { generation : Generation(3), slot : Slot5(99)
-        })
+        Err(HitResolveError::MissingMapping { generation : Generation(3), slot :
+        Slot5(99) })
     );
     assert_eq!(
         resolve_location(& m, & dir, Generation(9), Slot5(1)),

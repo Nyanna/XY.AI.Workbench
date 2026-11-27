@@ -218,8 +218,6 @@ impl AllocatorSet {
         self.allocators.is_empty()
     }
 }
-static_assertions::assert_impl_all!(Allocator : Send, Sync);
-static_assertions::assert_impl_all!(AllocatorSet : Send, Sync);
 #[cfg(test)]
 #[path = "test/allocator.rs"]
 mod tests;

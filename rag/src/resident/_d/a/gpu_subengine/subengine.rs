@@ -15,7 +15,6 @@ pub struct IndexMemory {
     pub gpu: Arc<GpuManager>,
     pub ops: Arc<IndexOperations>,
 }
-static_assertions::assert_impl_all!(IndexMemory : Send, Sync);
 /// The sub-engine of one GPU.
 pub struct GpuSubengine {
     info: GpuDeviceInfo,
@@ -32,7 +31,6 @@ pub struct GpuSubengine {
     segments: Mutex<Option<Arc<IndexShared>>>,
     indexes: Mutex<HashMap<IndexId, Arc<IndexMemory>>>,
 }
-static_assertions::assert_impl_all!(GpuSubengine : Send, Sync);
 fn lane_config(
     kind: LaneKind,
     device: DeviceHandle,

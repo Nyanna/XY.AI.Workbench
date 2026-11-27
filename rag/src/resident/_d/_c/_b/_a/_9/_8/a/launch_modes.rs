@@ -138,7 +138,6 @@ impl Drop for WarmingTicket<'_> {
         self.launcher.settled.notify_all();
     }
 }
-static_assertions::assert_impl_all!(Launcher : Send, Sync);
 impl Launcher {
     pub fn new(
         swap: Arc<TableSwap>,

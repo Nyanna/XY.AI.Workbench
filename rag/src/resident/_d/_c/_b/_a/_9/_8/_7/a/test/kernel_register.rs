@@ -2,6 +2,11 @@ use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
+#[test]
+fn kernel_register_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<KernelRegister>();
+}
 #[derive(Debug)]
 struct Func(String);
 impl KernelFunction for Func {

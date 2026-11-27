@@ -23,6 +23,15 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_co
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 use self::hit_queues::{channel, HitProducer, WriteProducer};
 use self::hit_resolution::SegmentBinding;
+#[test]
+fn slot_types_are_thread_safe() {
+    fn check_send<T: Send>() {}
+    fn check_send_sync<T: Send + Sync>() {}
+    check_send::<CommunicationSlot>();
+    check_send_sync::<SlotOutput>();
+    check_send_sync::<SlotReport>();
+    check_send_sync::<CompletionError>();
+}
 const SLOT_BYTES: u64 = 512;
 const SEG1_BASE: u64 = 0x10000;
 const SEG2_BASE: u64 = 0x20000;

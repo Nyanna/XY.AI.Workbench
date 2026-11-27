@@ -335,7 +335,6 @@ pub struct GpuKernels<const DIM: usize> {
     launcher: Arc<dyn GpuLauncher>,
     launched: Mutex<u64>,
 }
-static_assertions::assert_impl_all!(GpuKernels < 8 >: Send, Sync);
 impl<const DIM: usize> GpuKernels<DIM> {
     const DIM_VALID: () = assert!(DIM >= 1 && DIM <= u32::MAX as usize);
     pub fn new(register: Arc<KernelRegister>, launcher: Arc<dyn GpuLauncher>) -> Self {

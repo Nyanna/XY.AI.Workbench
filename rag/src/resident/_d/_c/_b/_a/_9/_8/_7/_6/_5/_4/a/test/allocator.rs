@@ -4,6 +4,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::
 };
 use super::super::super::_3::a::region_handle::Generation;
 use std::sync::atomic::{AtomicUsize, Ordering};
+#[test]
+fn allocator_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<Allocator>();
+    check::<AllocatorSet>();
+}
 const CAP: u64 = 1024;
 fn setup() -> (Arc<Bookkeeping>, Allocator, Allocator) {
     let mut caps = ArenaCapacities::default();

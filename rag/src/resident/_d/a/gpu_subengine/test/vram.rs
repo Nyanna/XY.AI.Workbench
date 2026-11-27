@@ -3,6 +3,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use super::super::fixture::{config, MockBackend, MIB};
 use super::*;
+#[test]
+fn vram_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<WeightSet>();
+    check::<VramManager>();
+}
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 struct TestDir(PathBuf);
 impl TestDir {

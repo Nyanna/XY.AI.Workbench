@@ -61,11 +61,6 @@ pub struct Resolution2 {
     pub hits: Vec<ResolvedHit>,
     pub discarded: usize,
 }
-static_assertions::assert_impl_all!(SegmentBinding : Send, Sync);
-static_assertions::assert_impl_all!(HitLocation : Send, Sync);
-static_assertions::assert_impl_all!(ResolvedHit : Send, Sync);
-static_assertions::assert_impl_all!(HitResolveError : Send, Sync);
-static_assertions::assert_impl_all!(Resolution2 : Send, Sync);
 fn fixed_slot(spec: &SegmentSpec, addr: u64) -> Option<Slot5> {
     let layout = FixedLayout::new(spec.start().0, spec.slot_stride(), spec.slot_count())
         .ok()?;

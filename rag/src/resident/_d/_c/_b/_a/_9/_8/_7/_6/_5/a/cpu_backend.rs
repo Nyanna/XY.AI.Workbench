@@ -354,7 +354,6 @@ impl RegionBackend for CpuRegionAccess {
             .map_err(|e| AccessError::Backend(e.to_string()))
     }
 }
-static_assertions::assert_impl_all!(CpuBackend : Send, Sync);
 #[cfg(test)]
 #[path = "test/cpu_backend.rs"]
 mod tests;

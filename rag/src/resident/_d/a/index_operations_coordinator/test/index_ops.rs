@@ -10,6 +10,13 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout:
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::scopes_and_entry_sets::EntrySet;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::resource_requirements::IndexId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::reference_index::ReferenceIndex;
+#[test]
+fn index_operation_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<IndexOpError>();
+    check::<ManagedIndex>();
+    check::<IndexOperations>();
+}
 const MIB: u64 = 1 << 20;
 struct Rig {
     manager: Arc<IndexManager>,

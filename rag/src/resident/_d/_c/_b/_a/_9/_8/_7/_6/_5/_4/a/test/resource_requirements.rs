@@ -2,12 +2,16 @@ use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handle::Generation;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use std::collections::{BTreeMap, HashMap};
-static_assertions::assert_impl_all!(ResourceRequirements : Send, Sync);
-static_assertions::assert_impl_all!(ResourceKind : Send, Sync);
-static_assertions::assert_impl_all!(ExecutionEnvironment : Send, Sync);
-static_assertions::assert_impl_all!(ModelId : Send, Sync);
-static_assertions::assert_impl_all!(IndexId : Send, Sync);
-static_assertions::assert_impl_all!(Affinity : Send, Sync);
+#[test]
+fn requirement_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<ResourceRequirements>();
+    check::<ResourceKind>();
+    check::<ExecutionEnvironment>();
+    check::<ModelId>();
+    check::<IndexId>();
+    check::<Affinity>();
+}
 fn base() -> ResourceRequirements {
     ResourceRequirements::new(ResourceKind::Encoder, ExecutionEnvironment::Any)
 }

@@ -1,14 +1,10 @@
 //! Shared state of one GPU manager and the helpers used by several operations.
-
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-
 use super::deps::*;
 use super::services::GpuServices;
 use super::types::*;
-
 pub(super) const PUBLISH_ATTEMPTS: usize = 3;
-
 /// A published segment.
 pub(super) struct Record {
     pub id: SegmentId,
@@ -21,7 +17,6 @@ pub(super) struct Record {
     /// Permanent; global slot = `first_slot + slot`.
     pub first_slot: u32,
 }
-
 /// A segment that is being filled and not yet reported.
 pub(super) struct Unpublished {
     pub segment: Segment,
@@ -33,7 +28,6 @@ pub(super) struct Unpublished {
     pub first_slot: u32,
     pub bindings: Vec<LoadedBinding>,
 }
-
 #[derive(Default)]
 pub(super) struct State10 {
     /// Ascending by segment ID.
@@ -51,7 +45,6 @@ pub(super) struct State10 {
     pub table_version: u64,
     pub previous_manifest: Option<Arc<Manifest>>,
 }
-
 pub(super) struct Inner8 {
     pub services: Arc<dyn GpuServices>,
     pub index: Arc<dyn LazyIndex>,
@@ -73,18 +66,13 @@ pub(super) struct Inner8 {
     /// Writes seen while the residency mutex was busy; resolved in `SlotUpdates::apply`.
     pub mirror_candidates: Mutex<Vec<(EntryId, Stamp)>>,
 }
-
-static_assertions::assert_impl_all!(Inner8: Send, Sync);
-
 pub(super) fn entry_ref(id: EntryId) -> EntryRef {
     EntryRef { entry: id, section: 0 }
 }
-
 impl Inner8 {
     pub(super) fn index(&self) -> Result<Arc<dyn Index>, GpuManagerError> {
         self.index.get().map_err(GpuManagerError::Index)
     }
-
     /// Splits `ids` into entries that are present (resident, in flight or waiting for their
     /// bind) and missing ones. Both lists keep the input order.
     pub(super) fn classify(
@@ -97,7 +85,9 @@ impl Inner8 {
         let mut present = Vec::new();
         let mut missing = Vec::new();
         for id in ids {
-            let binding = matches!(updates.get(id), Some(u) if u.kind == UpdateKind::Bind);
+            let binding = matches!(
+                updates.get(id), Some(u) if u.kind == UpdateKind::Bind
+            );
             if directory.get(id).is_some() || state.in_flight.contains(&id) || binding {
                 present.push(id);
             } else {
@@ -106,27 +96,32 @@ impl Inner8 {
         }
         (present, missing)
     }
-
     pub(super) fn retire(&self, slot: SlotRef, id: EntryId) {
         lock(&self.state).retired_slots.push((slot, id));
     }
-
     /// Newest published slot of the entry whose valid bit is set.
     pub(super) fn find_valid_slot(&self, id: EntryId) -> Option<SlotRef> {
         let state = lock(&self.state);
         for record in state.records.iter().rev() {
             if let Some(slot) = record.assignment.slot_of_entry(entry_ref(id)) {
                 if record.states.is_valid(slot) {
-                    return Some(SlotRef { segment: record.id, slot });
+                    return Some(SlotRef {
+                        segment: record.id,
+                        slot,
+                    });
                 }
             }
         }
         None
     }
-
     /// Queues a Bind for an entry whose slot was filled on the device and which was just
     /// written to the index with `stamp`.
-    pub(super) fn consider_mirror(&self, directory: &ResidencyDirectory, id: EntryId, stamp: Stamp) {
+    pub(super) fn consider_mirror(
+        &self,
+        directory: &ResidencyDirectory,
+        id: EntryId,
+        stamp: Stamp,
+    ) {
         let updates = self.services.updates();
         if directory.get(id).is_some() || updates.contains(id) {
             return;
@@ -135,7 +130,6 @@ impl Inner8 {
             updates.push_bind(entry_ref(id), slot, stamp);
         }
     }
-
     /// Specs of all published records except `skip`, plus `extra`.
     pub(super) fn manifest_specs(
         &self,
@@ -145,18 +139,28 @@ impl Inner8 {
         let state = lock(&self.state);
         let mut specs = Vec::with_capacity(state.records.len() + 1);
         for record in state.records.iter().filter(|r| !skip.contains(&r.id)) {
-            let spec = SegmentSpec::from_view(record.id, &record.view, record.device_base)
+            let spec = SegmentSpec::from_view(
+                    record.id,
+                    &record.view,
+                    record.device_base,
+                )
                 .map_err(GpuManagerError::Slot)?;
             specs.push(spec);
         }
         if let Some((id, view, base)) = extra {
-            specs.push(SegmentSpec::from_view(id, view, base).map_err(GpuManagerError::Slot)?);
+            specs
+                .push(
+                    SegmentSpec::from_view(id, view, base)
+                        .map_err(GpuManagerError::Slot)?,
+                );
         }
         Ok(specs)
     }
-
     /// Publishes a successor of the current manifest holding exactly `specs`.
-    pub(super) fn publish_manifest(&self, specs: &[SegmentSpec]) -> Result<(), GpuManagerError> {
+    pub(super) fn publish_manifest(
+        &self,
+        specs: &[SegmentSpec],
+    ) -> Result<(), GpuManagerError> {
         let store = self.services.manifests();
         let mut attempt = 1;
         loop {
@@ -169,14 +173,15 @@ impl Inner8 {
                     lock(&self.state).previous_manifest = Some(Arc::new(previous));
                     return Ok(());
                 }
-                Err(ManifestError::StaleGeneration { .. }) if attempt < PUBLISH_ATTEMPTS => {
+                Err(
+                    ManifestError::StaleGeneration { .. },
+                ) if attempt < PUBLISH_ATTEMPTS => {
                     attempt += 1;
                 }
                 Err(e) => return Err(GpuManagerError::Manifest(e)),
             }
         }
     }
-
     /// Publishes a successor of the current table after `edit`; retries on a stale epoch.
     pub(super) fn publish_table(
         &self,
@@ -189,14 +194,15 @@ impl Inner8 {
             edit(&mut table);
             match swap.publish(table) {
                 Ok(epoch) => return Ok(epoch),
-                Err(TableSwapError::StaleMapping { .. }) if attempt < PUBLISH_ATTEMPTS => {
+                Err(
+                    TableSwapError::StaleMapping { .. },
+                ) if attempt < PUBLISH_ATTEMPTS => {
                     attempt += 1;
                 }
                 Err(e) => return Err(GpuManagerError::Publish(e)),
             }
         }
     }
-
     /// Publishes a successor of the current map after `edit`; retries on a stale epoch.
     pub(super) fn publish_map(
         &self,
@@ -217,7 +223,6 @@ impl Inner8 {
         }
     }
 }
-
 impl Drop for Inner8 {
     fn drop(&mut self) {
         let state = self.state.get_mut().unwrap_or_else(|e| e.into_inner());

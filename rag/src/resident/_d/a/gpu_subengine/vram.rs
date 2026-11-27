@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
-
 use log::warn;
-
 use super::backend::GpuBackend3;
 use super::config::GpuConfig;
 use super::deps::*;
 use super::error::GpuError;
-
 /// Result of a successful reservation; lives as long as the arenas.
 pub(super) struct Reserved2 {
     regions: HashMap<ArenaKind, AccessRegion>,
@@ -15,25 +12,21 @@ pub(super) struct Reserved2 {
     allocators: Arc<AllocatorSet>,
     weights: Arena,
 }
-
 impl Reserved2 {
     pub(super) fn allocators(&self) -> &Arc<AllocatorSet> {
         &self.allocators
     }
 }
-
 enum Phase3 {
     Idle,
     Reserving,
     Ready(Arc<Reserved2>),
 }
-
 /// Resets a reservation that did not finish, so that waiters and later calls retry.
 struct ReserveGuard<'a> {
     owner: &'a VramManager,
     armed: bool,
 }
-
 impl Drop for ReserveGuard<'_> {
     fn drop(&mut self) {
         if self.armed {
@@ -42,7 +35,6 @@ impl Drop for ReserveGuard<'_> {
         }
     }
 }
-
 /// Weights of one model in the Weights arena. Dropping the last `Arc` frees the extent.
 /// Whoever uses the tensors on the device keeps the `Arc` until its events are complete.
 pub struct WeightSet {
@@ -51,18 +43,15 @@ pub struct WeightSet {
     bytes: u64,
     owner: Option<Arc<Reserved2>>,
 }
-
 impl WeightSet {
     pub fn tensors(&self) -> &LoadedWeights {
         &self.weights
     }
-
     /// Reserved extent length.
     pub fn bytes(&self) -> u64 {
         self.bytes
     }
 }
-
 impl Drop for WeightSet {
     fn drop(&mut self) {
         let (Some(extent), Some(owner)) = (self.extent.take(), self.owner.take()) else {
@@ -76,9 +65,6 @@ impl Drop for WeightSet {
         }
     }
 }
-
-static_assertions::assert_impl_all!(WeightSet : Send, Sync);
-
 /// Manages the VRAM of one GPU: reserves the six arenas once and places model weights.
 pub struct VramManager {
     ordinal: u32,
@@ -89,13 +75,9 @@ pub struct VramManager {
     phase: Mutex<Phase3>,
     changed: Condvar,
 }
-
-static_assertions::assert_impl_all!(VramManager : Send, Sync);
-
 fn align_up5(value: u64) -> Option<u64> {
     value.checked_add(WEIGHT_ALIGN - 1).map(|v| v & !(WEIGHT_ALIGN - 1))
 }
-
 /// End of the last selected tensor under the layout rule of `WeightFile::copy_to_arena`,
 /// relative to an extent start that is aligned to `WEIGHT_ALIGN`.
 fn required_size(file: &WeightFile, select: &dyn Fn(&str) -> bool) -> Option<u64> {
@@ -109,9 +91,12 @@ fn required_size(file: &WeightFile, select: &dyn Fn(&str) -> bool) -> Option<u64
     }
     Some(cursor)
 }
-
 impl VramManager {
-    pub(super) fn new(ordinal: u32, backend: Arc<dyn GpuBackend3>, cfg: &GpuConfig) -> Arc<Self> {
+    pub(super) fn new(
+        ordinal: u32,
+        backend: Arc<dyn GpuBackend3>,
+        cfg: &GpuConfig,
+    ) -> Arc<Self> {
         Arc::new(VramManager {
             ordinal,
             backend,
@@ -122,20 +107,16 @@ impl VramManager {
             changed: Condvar::new(),
         })
     }
-
     pub fn ordinal(&self) -> u32 {
         self.ordinal
     }
-
     /// Idempotent. Reserves all six arenas once. A failure is not cached.
     pub fn ensure_arenas(&self) -> Result<(), GpuError> {
         self.reserved().map(|_| ())
     }
-
     pub fn arenas_ready(&self) -> bool {
-        matches!(&*lock(&self.phase), Phase3::Ready(_))
+        matches!(&* lock(& self.phase), Phase3::Ready(_))
     }
-
     /// Region of a reserved arena (clone); `None` before `ensure_arenas`.
     pub fn arena_region(&self, kind: ArenaKind) -> Option<AccessRegion> {
         match &*lock(&self.phase) {
@@ -143,7 +124,6 @@ impl VramManager {
             _ => None,
         }
     }
-
     pub(super) fn reserved(&self) -> Result<Arc<Reserved2>, GpuError> {
         let mut phase = lock(&self.phase);
         loop {
@@ -170,7 +150,6 @@ impl VramManager {
         self.changed.notify_all();
         Ok(reserved)
     }
-
     fn reserve_all(&self) -> Result<Reserved2, GpuError> {
         let query = self.backend.memory_query(self.ordinal);
         let budget = Budget::from_query(
@@ -178,7 +157,8 @@ impl VramManager {
                 self.capacities.generation_reserve(self.generations),
             )
             .map_err(GpuError::Budget)?;
-        fit_check(&self.capacities, budget.free, self.headroom).map_err(GpuError::Budget)?;
+        fit_check(&self.capacities, budget.free, self.headroom)
+            .map_err(GpuError::Budget)?;
         let set = Arc::new(ArenaSet::new(self.capacities));
         let mut regions = HashMap::with_capacity(ArenaKind::ALL.len());
         for kind in ArenaKind::ALL {
@@ -208,7 +188,6 @@ impl VramManager {
             weights,
         })
     }
-
     /// Copies the selected tensors of a mapped safetensors file into the Weights arena.
     pub fn stage_weights(
         &self,
@@ -245,7 +224,9 @@ impl VramManager {
         let region = reserved
             .regions
             .get(&ArenaKind::Weights)
-            .ok_or_else(|| GpuError::Backend("weights arena is not reserved".to_string()))?;
+            .ok_or_else(|| GpuError::Backend(
+                "weights arena is not reserved".to_string(),
+            ))?;
         let extent = allocator.allocate(reserve_len).map_err(GpuError::Memory)?;
         let release = |extent: &RegionHandle| {
             if let Err(e) = allocator.free(extent) {
@@ -274,7 +255,6 @@ impl VramManager {
             }),
         )
     }
-
     /// Sum of the live extent sizes.
     pub fn weights_used(&self) -> u64 {
         match &*lock(&self.phase) {
@@ -282,12 +262,10 @@ impl VramManager {
             _ => 0,
         }
     }
-
     pub fn weights_capacity(&self) -> u64 {
         self.capacities.get(ArenaKind::Weights)
     }
 }
-
 #[cfg(test)]
 #[path = "test/vram.rs"]
 mod tests;

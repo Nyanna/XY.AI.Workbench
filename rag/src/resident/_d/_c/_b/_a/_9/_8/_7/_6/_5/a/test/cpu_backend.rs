@@ -1,6 +1,11 @@
 use super::super::memory_backend::MAX_ALIGN2;
 use super::super::super::_4::_3::a::region_handle::Generation;
 use super::*;
+#[test]
+fn cpu_backend_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<CpuBackend>();
+}
 const KIB: u64 = 1024;
 const G: u64 = ALLOC_GRANULE;
 fn caps() -> ArenaCapacities {

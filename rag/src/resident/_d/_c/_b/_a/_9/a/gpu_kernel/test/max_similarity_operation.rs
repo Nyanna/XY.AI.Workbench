@@ -8,10 +8,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::cpu_compute;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::query_batch::RamSource;
-static_assertions::assert_impl_all!(TiledMaxSim : Send, Sync);
-static_assertions::assert_impl_all!(FusedMaxSim < Exec >: Send, Sync);
-static_assertions::assert_impl_all!(MaxSimError : Send, Sync);
-static_assertions::assert_impl_all!(TopKRequest <'static >: Send, Sync);
+#[test]
+fn max_similarity_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<TiledMaxSim>();
+    check::<FusedMaxSim<Exec>>();
+    check::<MaxSimError>();
+    check::<TopKRequest<'static>>();
+}
 const DIM: usize = 4;
 const SEG: SegmentId = SegmentId(7);
 fn lib(e: candle_core::Error) -> AdapterError {
@@ -288,11 +292,11 @@ fn trivial_requests_give_empty_lists() {
     let qs: Vec<&[f32]> = vec![& q0, & q1];
     let op = tiled(&Arc::new(CpuOps::default()), 2);
     assert_eq!(
-        op.top_k(& f.req(f.variable(), 0..2, & qs, 0)).unwrap(), vec![Vec::<Hit3
+        op.top_k(& f.req(f.variable(), 0..2, & qs, 0)).unwrap(), vec![Vec::< Hit3
         >::new(); 2]
     );
     assert_eq!(
-        op.top_k(& f.req(f.variable(), 1..1, & qs, 3)).unwrap(), vec![Vec::<Hit3
+        op.top_k(& f.req(f.variable(), 1..1, & qs, 3)).unwrap(), vec![Vec::< Hit3
         >::new(); 2]
     );
     let none: Vec<&[f32]> = Vec::new();
@@ -609,7 +613,8 @@ fn fused_validates_and_short_circuits_before_io() {
     let none: Vec<&[f32]> = Vec::new();
     assert!(op.top_k(& f.req(f.fixed(48), 0..2, & none, 2)).unwrap().is_empty());
     assert_eq!(
-        op.top_k(& f.req(f.fixed(48), 0..2, & qs, 0)).unwrap(), vec![Vec::<Hit3>::new()]
+        op.top_k(& f.req(f.fixed(48), 0..2, & qs, 0)).unwrap(), vec![Vec::< Hit3
+        >::new()]
     );
     assert_eq!(io.uploads.load(Ordering::SeqCst), 0);
     assert!(specs.lock().unwrap().is_empty());

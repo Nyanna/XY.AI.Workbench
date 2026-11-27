@@ -13,10 +13,15 @@ use super::super::super::_5::_4::_3::_2::a::memory_access::{
 };
 use super::super::super::_5::_4::_3::_2::b::task_model::TaskParams;
 use super::super::super::_5::_4::_3::_2::_1::layout::{DType, Layout};
-static_assertions::assert_impl_all!(Collector2 : Send, Sync, Clone);
-static_assertions::assert_impl_all!(ChainKind : Send, Sync, Clone);
-static_assertions::assert_impl_all!(StepOutput : Send, Sync, Clone);
-static_assertions::assert_impl_all!(ChainNode < TestOp, String, String >: Send, Sync);
+#[test]
+fn chain_types_are_thread_safe() {
+    fn check<T: Send + Sync>() {}
+    fn check_clone<T: Send + Sync + Clone>() {}
+    check_clone::<Collector2>();
+    check_clone::<ChainKind>();
+    check_clone::<StepOutput>();
+    check::<ChainNode<TestOp, String, String>>();
+}
 #[derive(Debug)]
 struct TestOp {
     index: usize,

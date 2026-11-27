@@ -1,11 +1,15 @@
 use super::*;
 use std::sync::Arc;
-static_assertions::assert_impl_all!(FloatBatch : Send, Sync);
-static_assertions::assert_impl_all!(BatchKernel : Send, Sync);
-static_assertions::assert_impl_all!(DeviceKind : Send, Sync);
-static_assertions::assert_impl_all!(ComputeError : Send, Sync);
-static_assertions::assert_impl_all!(CpuBatchCompute : Send, Sync);
-static_assertions::assert_impl_all!(GpuBatchCompute : Send, Sync);
+#[test]
+fn compute_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<FloatBatch>();
+    check::<BatchKernel>();
+    check::<DeviceKind>();
+    check::<ComputeError>();
+    check::<CpuBatchCompute>();
+    check::<GpuBatchCompute>();
+}
 const ALL: [BatchKernel; 4] = [
     BatchKernel::MatMul,
     BatchKernel::Add,

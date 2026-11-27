@@ -89,7 +89,6 @@ pub struct EntryStore {
     saved_seq: AtomicU64,
     runtime: OnceLock<Result<Runtime, OpenError>>,
 }
-static_assertions::assert_impl_all!(EntryStore : Send, Sync);
 impl EntryStore {
     pub fn new(
         header: IndexHeader,

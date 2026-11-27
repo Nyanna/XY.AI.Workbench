@@ -10,6 +10,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_a
     AccessError, RegionBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
+#[test]
+fn table_swap_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<TableSwap>();
+}
 #[derive(Default)]
 struct Journal(Mutex<Vec<String>>);
 impl Journal {

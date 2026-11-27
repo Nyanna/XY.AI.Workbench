@@ -8,11 +8,15 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::region_handl
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_contract::EntryId;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-static_assertions::assert_impl_all!(Entry6 : Send, Sync);
-static_assertions::assert_impl_all!(AddressMap : Send, Sync);
-static_assertions::assert_impl_all!(MappingStore : Send, Sync);
-static_assertions::assert_impl_all!(SegmentId : Send, Sync);
-static_assertions::assert_impl_all!(MapError : Send, Sync);
+#[test]
+fn address_map_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<Entry6>();
+    check::<AddressMap>();
+    check::<MappingStore>();
+    check::<SegmentId>();
+    check::<MapError>();
+}
 const SLOT_BYTES: u64 = 512;
 fn entry_at(id: u64, offset: u64, slots: u32) -> Entry6 {
     let region = RegionHandle::new(

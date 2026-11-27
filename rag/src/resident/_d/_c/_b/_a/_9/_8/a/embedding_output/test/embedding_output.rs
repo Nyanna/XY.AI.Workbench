@@ -21,13 +21,20 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::{
     },
     target_env::ComputeCapability,
 };
-use static_assertions::assert_impl_all;
+#[test]
+fn gpu_write_ticket_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<GpuWriteTicket>();
+}
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-assert_impl_all!(OutputError : Send, Sync);
-assert_impl_all!(WriteReport : Send, Sync);
-assert_impl_all!(GpuWriteTicket : Send, Sync);
+#[test]
+fn output_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<OutputError>();
+    check::<WriteReport>();
+}
 fn assert_static<T: 'static>() {}
 fn f16_to_f32(h: u16) -> f32 {
     let sign = if h & 0x8000 != 0 { -1.0f32 } else { 1.0 };

@@ -1,12 +1,16 @@
 use super::*;
-use static_assertions::assert_impl_all;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::capability_model::{
     cpu_reference, gpu_reference, Axis, Value,
 };
-assert_impl_all!(CapabilityConfig : Send, Sync);
-assert_impl_all!(CpuFeatures : Send, Sync);
-assert_impl_all!(DetectedCapabilities : Send, Sync);
-assert_impl_all!(DetectError : Send, Sync, std::error::Error);
+#[test]
+fn capability_types_are_thread_safe() {
+    fn check<T: Send + Sync>() {}
+    fn check_error<T: Send + Sync + std::error::Error>() {}
+    check::<CapabilityConfig>();
+    check::<CpuFeatures>();
+    check::<DetectedCapabilities>();
+    check_error::<DetectError>();
+}
 struct FakeProbe {
     cc: Option<ComputeCapability>,
     name: Option<String>,

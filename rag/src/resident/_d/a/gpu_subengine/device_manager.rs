@@ -1,14 +1,11 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
-
 use log::warn;
-
 use super::backend::{GpuBackend3, GpuDeviceInfo};
 use super::config::{GpuDeviceManagerConfig, GpuShared};
 use super::deps::*;
 use super::error::GpuError;
 use super::subengine::GpuSubengine;
-
 /// Manager of the GPU devices: retains one primary context per usable device and keeps it
 /// for its own lifetime.
 pub struct GpuDeviceManager {
@@ -16,9 +13,6 @@ pub struct GpuDeviceManager {
     infos: Vec<GpuDeviceInfo>,
     engines: Vec<Arc<GpuSubengine>>,
 }
-
-static_assertions::assert_impl_all!(GpuDeviceManager : Send, Sync);
-
 impl GpuDeviceManager {
     /// Enumerates devices, retains one primary context per selected device, detects the
     /// capabilities and builds one sub-engine per device. Loads nothing, reserves no VRAM.
@@ -35,9 +29,14 @@ impl GpuDeviceManager {
                 let wanted: BTreeSet<u32> = list.iter().copied().collect();
                 let mut chosen = Vec::with_capacity(wanted.len());
                 for ordinal in wanted {
-                    let info = available.iter().find(|d| d.ordinal == ordinal).ok_or_else(|| {
-                        GpuError::InvalidConfig(format!("device {ordinal} does not exist"))
-                    })?;
+                    let info = available
+                        .iter()
+                        .find(|d| d.ordinal == ordinal)
+                        .ok_or_else(|| {
+                            GpuError::InvalidConfig(
+                                format!("device {ordinal} does not exist"),
+                            )
+                        })?;
                     chosen.push(info.clone());
                 }
                 chosen
@@ -57,7 +56,9 @@ impl GpuDeviceManager {
                 if explicit {
                     return Err(GpuError::Backend(reason));
                 }
-                warn!("gpu:{ordinal}: primary context not retained, device skipped: {reason}");
+                warn!(
+                    "gpu:{ordinal}: primary context not retained, device skipped: {reason}"
+                );
                 continue;
             }
             let probe = backend.probe(ordinal);
@@ -69,7 +70,9 @@ impl GpuDeviceManager {
                 Ok(detected) => detected,
                 Err(e) if explicit => return Err(GpuError::Capability(e)),
                 Err(e) => {
-                    warn!("gpu:{ordinal}: capability detection failed, device skipped: {e}");
+                    warn!(
+                        "gpu:{ordinal}: capability detection failed, device skipped: {e}"
+                    );
                     continue;
                 }
             };
@@ -92,22 +95,18 @@ impl GpuDeviceManager {
             engines,
         })
     }
-
     /// The usable devices.
     pub fn devices(&self) -> &[GpuDeviceInfo] {
         &self.infos
     }
-
     /// Ordered by ordinal.
     pub fn subengines(&self) -> Vec<Arc<GpuSubengine>> {
         self.engines.clone()
     }
-
     pub fn subengine(&self, ordinal: u32) -> Option<Arc<GpuSubengine>> {
         self.engines.iter().find(|e| e.info().ordinal == ordinal).cloned()
     }
 }
-
 #[cfg(test)]
 #[path = "test/device_manager.rs"]
 mod tests;

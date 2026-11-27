@@ -5,15 +5,18 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6 as base;
 use base::a::address_map::Entry6;
 use base::_5::a::table_swap::{HostRootSlot, RootSlot, TableSink};
 use base::_5::_4::a::allocator::Allocator;
-use base::_5::_4::a::slot_layout::{
-    SegmentView, SlotAssignment, SlotClass, SlotStates,
-};
+use base::_5::_4::a::slot_layout::{SegmentView, SlotAssignment, SlotClass, SlotStates};
 use base::_5::_4::_3::a::bookkeeping::Bookkeeping;
 use base::_5::_4::_3::a::kernel_layout::Addr;
 use base::_5::_4::_3::a::region_handle::{Generation, RegionHandle};
 use base::_5::_4::_3::_2::a::arenas::{ArenaSet, Budget, MIB};
 use base::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
 use base::_5::_4::_3::_2::_1::layout::DType;
+#[test]
+fn eviction_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<Eviction>();
+}
 const SEG_LEN: u64 = 4096;
 const SLOT_BYTES: u64 = 512;
 const SINK_ERROR: &str = "sink down";
@@ -194,13 +197,17 @@ fn sanitized_replaces_non_finite_by_tier_default() {
     assert_eq!(
         p.sanitized(Tier2::Vram), EvictionPolicy { high : 0.90, low : 0.75, idle }
     );
-    assert_eq!(p.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
+    assert_eq!(
+        p.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle }
+    );
     let q = EvictionPolicy {
         high: f64::NEG_INFINITY,
         low: f64::NAN,
         idle,
     };
-    assert_eq!(q.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle });
+    assert_eq!(
+        q.sanitized(Tier2::Ram), EvictionPolicy { high : 0.85, low : 0.70, idle }
+    );
 }
 #[test]
 fn sanitized_clamps_marks() {

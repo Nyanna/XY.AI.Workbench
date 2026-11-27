@@ -23,7 +23,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_co
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::ModelDescriptor;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
 const DIM: usize = 4;
-static_assertions::assert_impl_all!(ParquetDecoder : Send, Sync);
+#[test]
+fn parquet_decoder_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<ParquetDecoder>();
+}
 fn checksum_of(vector: &[u8], file: &str, start: u64, end: u64) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
     let mut feed = |bytes: &[u8]| {

@@ -2,11 +2,14 @@ use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::memory_access::RegionBackend;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-static_assertions::assert_impl_all!(WeightFile : Send, Sync);
-static_assertions::assert_impl_all!(WeightInfo : Send, Sync);
-static_assertions::assert_impl_all!(LoadedWeights : Send, Sync);
-static_assertions::assert_impl_all!(WeightError : Send, Sync);
-static_assertions::assert_eq_size!(u8, u8);
+#[test]
+fn weight_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<WeightFile>();
+    check::<WeightInfo>();
+    check::<LoadedWeights>();
+    check::<WeightError>();
+}
 #[derive(Debug)]
 struct MemBackend(Mutex<Vec<u8>>);
 impl RegionBackend for MemBackend {

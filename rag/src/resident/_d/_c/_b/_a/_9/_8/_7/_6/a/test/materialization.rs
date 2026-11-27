@@ -5,10 +5,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout:
     DType, Layout,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
-static_assertions::assert_impl_all!(Materialization : Send, Sync);
-static_assertions::assert_impl_all!(DeviceResult : Send, Sync);
-static_assertions::assert_impl_all!(Materialized : Send, Sync);
-static_assertions::assert_impl_all!(MaterializeError : Send, Sync);
+#[test]
+fn materialization_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<Materialization>();
+    check::<DeviceResult>();
+    check::<Materialized>();
+    check::<MaterializeError>();
+}
 #[derive(Debug)]
 struct Counting {
     data: Mutex<Vec<u8>>,

@@ -4,7 +4,11 @@ use super::super::_3::_2::a::index_contract::{
 use super::super::_3::_2::_1::layout::DType;
 use super::super::_3::_2::_1::page_advice::AdviceError;
 use super::*;
-static_assertions::assert_impl_all!(IndexResidency : Send, Sync);
+#[test]
+fn index_residency_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<IndexResidency>();
+}
 type Call = (u64, u64, Advice);
 #[derive(Default)]
 struct RecordingAdvisor {
@@ -472,9 +476,7 @@ async fn concurrent_reads_are_supported() {
     }
     m.mark_idle_cold(Instant::now());
 }
-use crate::resident::_d::_c::_b::_a::_9::a::entry_store::{
-    EntryStore, PayloadChecksums,
-};
+use crate::resident::_d::_c::_b::_a::_9::a::entry_store::{EntryStore, PayloadChecksums};
 use crate::resident::_d::_c::_b::_a::_9::a::persistent_save::entry_payload::compute_checksum_parts;
 use crate::resident::_d::_c::_b::_a::_9::_8::a::index_format::{
     IndexHeader, TokenizerFingerprint, TOKENIZER_FP_ALGORITHM,

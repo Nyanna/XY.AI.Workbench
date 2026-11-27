@@ -10,6 +10,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_co
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceHandle;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
+#[test]
+fn device_transfer_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<DeviceTransfer>();
+}
 fn id(n: u64) -> EntryId {
     EntryId(n)
 }

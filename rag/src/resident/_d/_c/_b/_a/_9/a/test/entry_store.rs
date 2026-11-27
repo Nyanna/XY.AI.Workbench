@@ -17,6 +17,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::a::index_open::
     DecodedBatch, FileInfo, FormatDecoder, OpenOptions,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::model_descriptor::ModelDescriptor;
+#[test]
+fn entry_store_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<EntryStore>();
+}
 const DIM: usize = 4;
 fn header() -> IndexHeader {
     let mut h = IndexHeader::from_descriptor(

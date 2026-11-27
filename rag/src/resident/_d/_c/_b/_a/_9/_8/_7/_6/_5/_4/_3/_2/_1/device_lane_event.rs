@@ -85,10 +85,6 @@ enum Inner3 {
 pub struct Event {
     inner: Arc<Inner3>,
 }
-static_assertions::assert_impl_all!(Event : Send, Sync);
-static_assertions::assert_impl_all!(EventSignal : Send, Sync, Clone);
-static_assertions::assert_impl_all!(MockEventControl : Send, Sync, Clone);
-static_assertions::assert_impl_all!(Lane : Send, Sync);
 impl Event {
     pub fn cpu() -> (Event, EventSignal) {
         let state = Arc::new(CpuState {

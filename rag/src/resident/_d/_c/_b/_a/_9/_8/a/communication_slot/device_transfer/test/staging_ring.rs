@@ -3,6 +3,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 #[test]
+fn staging_ring_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<StagingRing>();
+}
+#[test]
 fn invalid_config() {
     assert_eq!(StagingRing::new(0, 8).err(), Some(StagingError::InvalidConfig));
     let a = Arena {

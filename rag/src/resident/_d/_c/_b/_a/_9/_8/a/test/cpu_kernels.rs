@@ -1,6 +1,10 @@
 use super::*;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::a::kernel_register::KernelRegister;
-static_assertions::assert_impl_all!(CpuKernelRegister : Send, Sync);
+#[test]
+fn cpu_kernel_register_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<CpuKernelRegister>();
+}
 struct Lcg(u64);
 impl Lcg {
     fn next(&mut self) -> f32 {

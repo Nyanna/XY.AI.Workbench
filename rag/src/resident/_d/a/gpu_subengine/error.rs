@@ -46,7 +46,6 @@ impl fmt::Display for GpuError {
     }
 }
 impl std::error::Error for GpuError {}
-static_assertions::assert_impl_all!(GpuError : Send, Sync);
 #[cfg(test)]
 #[path = "test/error.rs"]
 mod tests;

@@ -1,19 +1,27 @@
 use super::*;
-
 use std::sync::atomic::AtomicBool;
 use std::thread;
-
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::a::slot_layout::SlotClass;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::arenas::ArenaKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::{
     DeviceHandle, GpuEventBackend, LaneConfig, LaneKind, StreamBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
-
+#[test]
+fn manifest_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<Manifest>();
+    check::<Lease3>();
+    check::<SegmentSpec>();
+    check::<ChangeEvent>();
+    check::<Subscriber>();
+    check::<ManifestStore>();
+    check::<ManifestError>();
+    check::<SyncError3>();
+}
 fn region(offset: u64, len: u64, gen: u64) -> RegionHandle {
     RegionHandle::new(ArenaKind::IndexSegments, offset, len, Generation(gen)).unwrap()
 }
-
 fn spec(id: u64, offset: u64, len: u64, seg_gen: u64) -> SegmentSpec {
     SegmentSpec::variable(
         SegmentId(id),
@@ -23,25 +31,20 @@ fn spec(id: u64, offset: u64, len: u64, seg_gen: u64) -> SegmentSpec {
         4,
     )
 }
-
 fn store() -> ManifestStore {
     ManifestStore::new(StoreConfig::default())
 }
-
 fn next_of(store: &ManifestStore, specs: Vec<SegmentSpec>) -> Manifest {
     store.successor(&store.current(), specs).unwrap()
 }
-
 fn publish_specs(store: &ManifestStore, specs: Vec<SegmentSpec>) {
     let next = next_of(store, specs);
     drop(store.publish(next).unwrap());
 }
-
 #[derive(Debug)]
 struct FakeEvent {
     ready: Arc<AtomicBool>,
 }
-
 impl GpuEventBackend for FakeEvent {
     fn query(&self) -> Result<bool, String> {
         Ok(self.ready.load(Ordering::SeqCst))
@@ -50,30 +53,30 @@ impl GpuEventBackend for FakeEvent {
         Ok(())
     }
 }
-
 #[derive(Debug)]
 struct FakeStream {
     ready: Arc<AtomicBool>,
 }
-
 impl StreamBackend for FakeStream {
     fn record_event(&self) -> Result<Box<dyn GpuEventBackend>, String> {
-        Ok(Box::new(FakeEvent {
-            ready: Arc::clone(&self.ready),
-        }))
+        Ok(
+            Box::new(FakeEvent {
+                ready: Arc::clone(&self.ready),
+            }),
+        )
     }
 }
-
 fn copy_lane(ready: &Arc<AtomicBool>) -> Lane {
     let cfg = LaneConfig::preset(LaneKind::CopyH2D, DeviceHandle::Gpu(0));
     Lane::new(
         cfg,
-        Some(Box::new(FakeStream {
-            ready: Arc::clone(ready),
-        })),
+        Some(
+            Box::new(FakeStream {
+                ready: Arc::clone(ready),
+            }),
+        ),
     )
 }
-
 #[test]
 fn empty_manifest() {
     let m = Manifest::empty();
@@ -85,24 +88,21 @@ fn empty_manifest() {
     assert!(m.kernel_table().is_empty());
     assert_eq!(store().current().generation(), 0);
 }
-
 #[test]
 fn display_texts() {
-    let e = ManifestError::StaleGeneration { current: 3, got: 2 };
+    let e = ManifestError::StaleGeneration {
+        current: 3,
+        got: 2,
+    };
     assert_eq!(e.to_string(), "stale Generation");
-    assert!(ManifestError::DuplicateSegment(SegmentId(9))
-        .to_string()
-        .contains('9'));
-    assert!(SyncError3 { cause: "boom".into() }.to_string().contains("boom"));
+    assert!(ManifestError::DuplicateSegment(SegmentId(9)).to_string().contains('9'));
+    assert!(SyncError3 { cause : "boom".into() } .to_string().contains("boom"));
 }
-
 #[test]
 fn successor_generation_and_order() {
     let s = store();
     let base = s.current();
-    let m = s
-        .successor(&base, vec![spec(2, 0, 100, 1), spec(1, 100, 50, 1)])
-        .unwrap();
+    let m = s.successor(&base, vec![spec(2, 0, 100, 1), spec(1, 100, 50, 1)]).unwrap();
     assert_eq!(m.generation(), 1);
     assert_eq!(base.generation(), 0);
     assert!(base.is_empty());
@@ -110,7 +110,6 @@ fn successor_generation_and_order() {
     assert_eq!(ids, vec![2, 1]);
     assert_eq!(m.total_bytes(), 150);
 }
-
 #[test]
 fn successor_rejects_duplicates_first_one() {
     let s = store();
@@ -118,26 +117,21 @@ fn successor_rejects_duplicates_first_one() {
         .successor(
             &s.current(),
             vec![
-                spec(1, 0, 10, 0),
-                spec(2, 10, 10, 0),
-                spec(2, 20, 10, 0),
-                spec(1, 30, 10, 0),
+                spec(1, 0, 10, 0), spec(2, 10, 10, 0), spec(2, 20, 10, 0), spec(1, 30,
+                10, 0),
             ],
         )
         .unwrap_err();
     assert_eq!(err, ManifestError::DuplicateSegment(SegmentId(2)));
 }
-
 #[test]
 fn successor_overflow() {
     let s = store();
     let base = Manifest::from_parts(u64::MAX, Vec::new(), Vec::new());
     assert_eq!(
-        s.successor(&base, Vec::new()).unwrap_err(),
-        ManifestError::GenerationOverflow
+        s.successor(& base, Vec::new()).unwrap_err(), ManifestError::GenerationOverflow
     );
 }
-
 #[test]
 fn total_bytes_saturates() {
     let s = store();
@@ -158,7 +152,6 @@ fn total_bytes_saturates() {
     let m = s.successor(&s.current(), vec![a, b]).unwrap();
     assert_eq!(m.total_bytes(), u64::MAX);
 }
-
 #[test]
 fn kernel_table_layout_variable() {
     let s = store();
@@ -172,18 +165,17 @@ fn kernel_table_layout_variable() {
     assert_eq!(u64::from_le_bytes(t[24..32].try_into().unwrap()), 9);
     assert_eq!(u64::from_le_bytes(t[32..40].try_into().unwrap()), 0x1040);
 }
-
 #[test]
 fn from_view_matches_descriptor() {
     let view = SegmentView::new(
-        region(4096, 2048, 3),
-        2,
-        SlotClass::C32,
-        4,
-        DType::F32,
-        Generation(5),
-    )
-    .unwrap();
+            region(4096, 2048, 3),
+            2,
+            SlotClass::C32,
+            4,
+            DType::F32,
+            Generation(5),
+        )
+        .unwrap();
     let base = Addr(0x8000);
     let sp = SegmentSpec::from_view(SegmentId(3), &view, base).unwrap();
     let d = view.descriptor(base).unwrap();
@@ -194,7 +186,6 @@ fn from_view_matches_descriptor() {
     assert_eq!(sp.slot_stride(), d.stride);
     assert_eq!(sp.bytes(), view.total_bytes());
     assert_eq!(sp.bytes(), 1024);
-
     let s = store();
     let t = next_of(&s, vec![sp]).kernel_table();
     assert_eq!(u64::from_le_bytes(t[0..8].try_into().unwrap()), 5);
@@ -202,30 +193,33 @@ fn from_view_matches_descriptor() {
     assert_eq!(u32::from_le_bytes(t[16..20].try_into().unwrap()), 2);
     assert_eq!(u32::from_le_bytes(t[20..24].try_into().unwrap()), d.stride);
 }
-
 #[test]
 fn from_view_address_overflow() {
     let view = SegmentView::new(
-        region(0, 1024, 0),
-        2,
-        SlotClass::C32,
-        4,
-        DType::F32,
-        Generation(0),
-    )
-    .unwrap();
-    assert!(SegmentSpec::from_view(SegmentId(1), &view, Addr(u64::MAX)).is_err());
+            region(0, 1024, 0),
+            2,
+            SlotClass::C32,
+            4,
+            DType::F32,
+            Generation(0),
+        )
+        .unwrap();
+    assert!(SegmentSpec::from_view(SegmentId(1), & view, Addr(u64::MAX)).is_err());
 }
-
 #[test]
 fn variable_spec_fields() {
-    let sp = SegmentSpec::variable(SegmentId(4), Generation(2), region(8, 77, 1), Addr(5), 3);
+    let sp = SegmentSpec::variable(
+        SegmentId(4),
+        Generation(2),
+        region(8, 77, 1),
+        Addr(5),
+        3,
+    );
     assert_eq!(sp.slot_stride(), 0);
     assert_eq!(sp.bytes(), 77);
     assert_eq!(sp.slot_count(), 3);
     assert_eq!(sp.id(), SegmentId(4));
 }
-
 #[test]
 fn publish_replaces_and_returns_previous() {
     let s = store();
@@ -238,24 +232,22 @@ fn publish_replaces_and_returns_previous() {
     assert_eq!(prev.generation(), 1);
     assert_eq!(s.current().len(), 2);
 }
-
 #[test]
 fn publish_rejects_stale_and_equal() {
     let s = store();
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     let again = Manifest::from_parts(1, Vec::new(), Vec::new());
     assert_eq!(
-        s.publish(again).unwrap_err(),
-        ManifestError::StaleGeneration { current: 1, got: 1 }
+        s.publish(again).unwrap_err(), ManifestError::StaleGeneration { current : 1, got
+        : 1 }
     );
     let older = Manifest::from_parts(0, Vec::new(), Vec::new());
     assert_eq!(
-        s.publish(older).unwrap_err(),
-        ManifestError::StaleGeneration { current: 1, got: 0 }
+        s.publish(older).unwrap_err(), ManifestError::StaleGeneration { current : 1, got
+        : 0 }
     );
     assert_eq!(s.current().len(), 1);
 }
-
 #[test]
 fn stale_publish_does_not_notify() {
     let s = store();
@@ -265,7 +257,6 @@ fn stale_publish_does_not_notify() {
     assert!(s.publish(stale).is_err());
     assert!(sub.try_recv().is_none());
 }
-
 #[test]
 fn publish_allows_generation_gap() {
     let s = store();
@@ -273,7 +264,6 @@ fn publish_allows_generation_gap() {
     assert!(s.publish(m).is_ok());
     assert_eq!(s.current().generation(), 10);
 }
-
 #[test]
 fn injected_conflicts_cause_retries_but_succeed() {
     let s = store();
@@ -283,22 +273,20 @@ fn injected_conflicts_cause_retries_but_succeed() {
     assert!(s.swap_retries() >= 3);
     assert_eq!(s.current().generation(), 1);
 }
-
 #[test]
 fn injected_conflicts_stay_correct_against_stale() {
     let s = store();
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     s.inject_swap_conflicts(2);
     let stale = Manifest::from_parts(1, Vec::new(), Vec::new());
-    assert!(matches!(
-        s.publish(stale),
-        Err(ManifestError::StaleGeneration { current: 1, got: 1 })
-    ));
+    assert!(
+        matches!(s.publish(stale), Err(ManifestError::StaleGeneration { current : 1, got
+        : 1 }))
+    );
     let ok = next_of(&s, Vec::new());
     assert!(s.publish(ok).is_ok());
     assert!(s.swap_retries() >= 2);
 }
-
 #[test]
 fn concurrent_publish_same_generation_one_wins() {
     let s = Arc::new(store());
@@ -313,15 +301,10 @@ fn concurrent_publish_same_generation_one_wins() {
             thread::spawn(move || s.publish(m).is_ok())
         })
         .collect();
-    let wins = handles
-        .into_iter()
-        .map(|h| h.join().unwrap())
-        .filter(|ok| *ok)
-        .count();
+    let wins = handles.into_iter().map(|h| h.join().unwrap()).filter(|ok| *ok).count();
     assert_eq!(wins, 1);
     assert_eq!(s.current().generation(), 1);
 }
-
 #[test]
 fn concurrent_readers_see_complete_manifests() {
     let s = Arc::new(store());
@@ -353,7 +336,6 @@ fn concurrent_readers_see_complete_manifests() {
         r.join().unwrap();
     }
 }
-
 #[test]
 fn lease_counts_and_pins_manifest() {
     let s = store();
@@ -364,7 +346,7 @@ fn lease_counts_and_pins_manifest() {
     assert_eq!(s.current().lease_count(), 2);
     publish_specs(&s, vec![spec(2, 10, 10, 0)]);
     assert_eq!(l1.manifest().len(), 1);
-    assert_eq!(l1.manifest().segments()[0].id(), SegmentId(1));
+    assert_eq!(l1.manifest().segments() [0].id(), SegmentId(1));
     assert_eq!(l1.manifest().lease_count(), 2);
     assert_eq!(s.current().lease_count(), 0);
     drop(l2);
@@ -373,7 +355,6 @@ fn lease_counts_and_pins_manifest() {
     drop(l1);
     assert_eq!(held.lease_count(), 0);
 }
-
 #[test]
 fn dropped_segment_without_markers_is_reclaimed() {
     let s = store();
@@ -385,7 +366,6 @@ fn dropped_segment_without_markers_is_reclaimed() {
     assert_eq!(s.retired_count(), 0);
     assert!(s.reclaim().is_empty());
 }
-
 #[test]
 fn unchanged_segments_share_state_across_manifests() {
     let s = store();
@@ -395,7 +375,6 @@ fn unchanged_segments_share_state_across_manifests() {
     assert_eq!(s.retired_count(), 0);
     assert!(s.reclaim().is_empty());
 }
-
 #[test]
 fn segment_generation_change_keeps_state_region_change_replaces_it() {
     let s = store();
@@ -405,7 +384,6 @@ fn segment_generation_change_keeps_state_region_change_replaces_it() {
     publish_specs(&s, vec![spec(1, 100, 10, 1)]);
     assert_eq!(s.reclaim(), vec![region(0, 10, 0)]);
 }
-
 #[test]
 fn lease_and_held_previous_keep_segment() {
     let s = store();
@@ -417,7 +395,6 @@ fn lease_and_held_previous_keep_segment() {
     assert_eq!(s.retired_count(), 0);
     drop(lease);
     assert_eq!(s.retired_count(), 1);
-
     publish_specs(&s, vec![spec(2, 50, 10, 0)]);
     let next = next_of(&s, Vec::new());
     let prev = s.publish(next).unwrap();
@@ -425,7 +402,6 @@ fn lease_and_held_previous_keep_segment() {
     drop(prev);
     assert_eq!(s.retired_count(), 2);
 }
-
 #[test]
 fn pending_marker_holds_region_until_complete() {
     let s = store();
@@ -442,7 +418,6 @@ fn pending_marker_holds_region_until_complete() {
     assert_eq!(s.reclaim(), vec![region(0, 10, 0)]);
     assert!(s.reclaim().is_empty());
 }
-
 #[test]
 fn failed_marker_never_releases() {
     let s = store();
@@ -454,7 +429,6 @@ fn failed_marker_never_releases() {
     assert!(s.reclaim().is_empty());
     assert_eq!(s.retired_count(), 1);
 }
-
 #[test]
 fn completed_marker_is_not_stored() {
     let s = store();
@@ -466,7 +440,6 @@ fn completed_marker_is_not_stored() {
     publish_specs(&s, Vec::new());
     assert_eq!(s.reclaim().len(), 1);
 }
-
 #[test]
 fn marker_registered_on_all_segments_and_repeatable() {
     let s = store();
@@ -482,31 +455,24 @@ fn marker_registered_on_all_segments_and_repeatable() {
     ctl.complete();
     assert_eq!(s.reclaim(), vec![region(0, 10, 0), region(10, 10, 0)]);
 }
-
 #[test]
 fn reclaim_keeps_blocked_entries_and_orders_by_retirement() {
     let s = store();
-    publish_specs(
-        &s,
-        vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0), spec(3, 20, 10, 0)],
-    );
+    publish_specs(&s, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0), spec(3, 20, 10, 0)]);
     let (marker, ctl) = Event::mock();
     let lease = s.lease();
     lease.register_completion(&marker);
     drop(lease);
     publish_specs(&s, Vec::new());
     assert!(s.reclaim().is_empty());
-
     publish_specs(&s, vec![spec(4, 30, 10, 0)]);
     publish_specs(&s, Vec::new());
     assert_eq!(s.reclaim(), vec![region(30, 10, 0)]);
     ctl.complete();
     assert_eq!(
-        s.reclaim(),
-        vec![region(0, 10, 0), region(10, 10, 0), region(20, 10, 0)]
+        s.reclaim(), vec![region(0, 10, 0), region(10, 10, 0), region(20, 10, 0)]
     );
 }
-
 #[test]
 fn many_markers_are_pruned_but_pending_ones_kept() {
     let s = store();
@@ -525,7 +491,6 @@ fn many_markers_are_pruned_but_pending_ones_kept() {
     pctl.complete();
     assert_eq!(s.reclaim().len(), 1);
 }
-
 #[test]
 fn concurrent_reclaim_delivers_each_region_once() {
     let s = Arc::new(store());
@@ -548,7 +513,6 @@ fn concurrent_reclaim_delivers_each_region_once() {
     all.dedup();
     assert_eq!(all.len(), 50);
 }
-
 #[test]
 fn discarded_unpublished_manifest_returns_new_regions() {
     let s = store();
@@ -558,32 +522,32 @@ fn discarded_unpublished_manifest_returns_new_regions() {
     assert!(s.publish(candidate.clone()).is_err());
     drop(candidate);
     let got = s.reclaim();
-    assert!(got.contains(&region(10, 10, 0)));
+    assert!(got.contains(& region(10, 10, 0)));
 }
-
 #[test]
 fn stage_publishes_in_order_when_complete() {
     let s = store();
     let (e1, c1) = Event::mock();
     let (e2, c2) = Event::mock();
     s.stage(next_of(&s, vec![spec(1, 0, 10, 0)]), e1);
-    let m2 = Manifest::from_parts(2, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)], Vec::new());
+    let m2 = Manifest::from_parts(
+        2,
+        vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)],
+        Vec::new(),
+    );
     s.stage(m2, e2);
     assert_eq!(s.staged_count(), 2);
     assert_eq!(s.publish_ready(), 0);
-
     c2.complete();
     assert_eq!(s.publish_ready(), 0);
     assert_eq!(s.staged_count(), 2);
     assert_eq!(s.current().generation(), 0);
-
     c1.complete();
     assert_eq!(s.publish_ready(), 2);
     assert_eq!(s.staged_count(), 0);
     assert_eq!(s.current().generation(), 2);
     assert_eq!(s.publish_ready(), 0);
 }
-
 #[test]
 fn publish_ready_stops_on_failed_event_and_retries() {
     let s = store();
@@ -596,7 +560,6 @@ fn publish_ready_stops_on_failed_event_and_retries() {
     c1.complete();
     assert_eq!(s.publish_ready(), 1);
 }
-
 #[test]
 fn publish_ready_drops_stale_and_continues() {
     let s = store();
@@ -615,7 +578,6 @@ fn publish_ready_drops_stale_and_continues() {
     assert_eq!(s2.current().generation(), 1);
     assert_eq!(s.staged_count(), 2);
 }
-
 #[test]
 fn publish_ready_releases_previous_segments() {
     let s = store();
@@ -626,7 +588,6 @@ fn publish_ready_releases_previous_segments() {
     assert_eq!(s.publish_ready(), 1);
     assert_eq!(s.reclaim(), vec![region(0, 10, 0)]);
 }
-
 #[test]
 fn stage_copy_enqueues_records_and_stages() {
     let s = store();
@@ -634,14 +595,14 @@ fn stage_copy_enqueues_records_and_stages() {
     let mut lane = copy_lane(&ready);
     let mut called = false;
     s.stage_copy(
-        &mut lane,
-        |_| {
-            called = true;
-            Ok(())
-        },
-        next_of(&s, vec![spec(1, 0, 10, 0)]),
-    )
-    .unwrap();
+            &mut lane,
+            |_| {
+                called = true;
+                Ok(())
+            },
+            next_of(&s, vec![spec(1, 0, 10, 0)]),
+        )
+        .unwrap();
     assert!(called);
     assert_eq!(s.staged_count(), 1);
     assert_eq!(s.publish_ready(), 0);
@@ -649,7 +610,6 @@ fn stage_copy_enqueues_records_and_stages() {
     assert_eq!(s.publish_ready(), 1);
     assert_eq!(s.current().generation(), 1);
 }
-
 #[test]
 fn stage_copy_enqueue_error_stages_nothing() {
     let s = store();
@@ -661,19 +621,15 @@ fn stage_copy_enqueue_error_stages_nothing() {
     assert_eq!(err.cause, "no space");
     assert_eq!(s.staged_count(), 0);
 }
-
 #[test]
 fn stage_copy_record_error_stages_nothing() {
     let s = store();
     let cfg = LaneConfig::preset(LaneKind::CopyH2D, DeviceHandle::Cpu);
     let mut lane = Lane::new(cfg, None);
-    let err = s
-        .stage_copy(&mut lane, |_| Ok(()), next_of(&s, Vec::new()))
-        .unwrap_err();
-    assert!(!err.cause.is_empty());
+    let err = s.stage_copy(&mut lane, |_| Ok(()), next_of(&s, Vec::new())).unwrap_err();
+    assert!(! err.cause.is_empty());
     assert_eq!(s.staged_count(), 0);
 }
-
 #[test]
 fn notifications_added_changed_unchanged() {
     let s = store();
@@ -684,45 +640,34 @@ fn notifications_added_changed_unchanged() {
     assert_eq!(ev[0].kind, ChangeKind::Added);
     assert_eq!(ev[0].segment_id, SegmentId(1));
     assert_eq!(ev[1].segment_id, SegmentId(2));
-    assert!(ev.iter().all(|e| e.manifest_generation == 1));
-
+    assert!(ev.iter().all(| e | e.manifest_generation == 1));
     publish_specs(&s, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 3), spec(3, 20, 10, 0)]);
     let ev: Vec<ChangeEvent> = std::iter::from_fn(|| sub.try_recv()).collect();
     assert_eq!(
-        ev,
-        vec![
-            ChangeEvent {
-                kind: ChangeKind::Changed,
-                segment_id: SegmentId(2),
-                segment_generation: Generation(3),
-                manifest_generation: 2,
-            },
-            ChangeEvent {
-                kind: ChangeKind::Added,
-                segment_id: SegmentId(3),
-                segment_generation: Generation(0),
-                manifest_generation: 2,
-            },
-        ]
+        ev, vec![ChangeEvent { kind : ChangeKind::Changed, segment_id : SegmentId(2),
+        segment_generation : Generation(3), manifest_generation : 2, }, ChangeEvent {
+        kind : ChangeKind::Added, segment_id : SegmentId(3), segment_generation :
+        Generation(0), manifest_generation : 2, },]
     );
-
     publish_specs(&s, vec![spec(3, 20, 10, 0)]);
     assert!(sub.try_recv().is_none());
 }
-
 #[test]
 fn notifications_use_actual_predecessor_across_gap() {
     let s = store();
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     let sub = s.subscribe();
-    let m = Manifest::from_parts(9, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)], Vec::new());
+    let m = Manifest::from_parts(
+        9,
+        vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)],
+        Vec::new(),
+    );
     s.publish(m).unwrap();
     let e = sub.try_recv().unwrap();
     assert_eq!(e.segment_id, SegmentId(2));
     assert_eq!(e.manifest_generation, 9);
     assert!(sub.try_recv().is_none());
 }
-
 #[test]
 fn subscriber_only_sees_later_publications() {
     let s = store();
@@ -733,13 +678,16 @@ fn subscriber_only_sees_later_publications() {
     publish_specs(&s, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)]);
     assert!(sub.recv_timeout(Duration::from_millis(100)).is_some());
 }
-
 #[test]
 fn full_buffer_drops_events_only_for_that_subscriber() {
-    let s = ManifestStore::new(StoreConfig { subscriber_buffer: 2 });
+    let s = ManifestStore::new(StoreConfig {
+        subscriber_buffer: 2,
+    });
     let slow = s.subscribe();
     let specs: Vec<SegmentSpec> = (0..5).map(|i| spec(i, i * 10, 10, 0)).collect();
-    let wide = ManifestStore::new(StoreConfig { subscriber_buffer: 16 });
+    let wide = ManifestStore::new(StoreConfig {
+        subscriber_buffer: 16,
+    });
     let fast = wide.subscribe();
     publish_specs(&s, specs.clone());
     publish_specs(&wide, specs);
@@ -748,10 +696,11 @@ fn full_buffer_drops_events_only_for_that_subscriber() {
     assert_eq!(std::iter::from_fn(|| slow.try_recv()).count(), 2);
     assert_eq!(std::iter::from_fn(|| fast.try_recv()).count(), 5);
 }
-
 #[test]
 fn mixed_subscribers_are_independent() {
-    let s = ManifestStore::new(StoreConfig { subscriber_buffer: 1 });
+    let s = ManifestStore::new(StoreConfig {
+        subscriber_buffer: 1,
+    });
     let a = s.subscribe();
     let b = s.subscribe();
     publish_specs(&s, vec![spec(1, 0, 10, 0), spec(2, 10, 10, 0)]);
@@ -762,15 +711,15 @@ fn mixed_subscribers_are_independent() {
     assert_eq!(a.dropped(), 1);
     assert_eq!(b.dropped(), 2);
 }
-
 #[test]
 fn zero_buffer_behaves_like_one() {
-    let s = ManifestStore::new(StoreConfig { subscriber_buffer: 0 });
+    let s = ManifestStore::new(StoreConfig {
+        subscriber_buffer: 0,
+    });
     let sub = s.subscribe();
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     assert!(sub.try_recv().is_some());
 }
-
 #[test]
 fn dropped_subscriber_is_removed_silently() {
     let s = store();
@@ -779,26 +728,24 @@ fn dropped_subscriber_is_removed_silently() {
     drop(a);
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     assert!(b.try_recv().is_some());
-    assert_eq!(lock(&s.subscribers).len(), 1);
+    assert_eq!(lock(& s.subscribers).len(), 1);
 }
-
 #[test]
 fn publish_without_subscribers_succeeds() {
     let s = store();
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);
     assert_eq!(s.current().generation(), 1);
 }
-
 #[test]
 fn poisoned_locks_are_recovered() {
     let s = Arc::new(store());
     let s2 = Arc::clone(&s);
     let _ = thread::spawn(move || {
-        let _g = s2.retire.lock().unwrap();
-        let _g2 = s2.staged.lock().unwrap();
-        panic!("poison");
-    })
-    .join();
+            let _g = s2.retire.lock().unwrap();
+            let _g2 = s2.staged.lock().unwrap();
+            panic!("poison");
+        })
+        .join();
     assert_eq!(s.staged_count(), 0);
     assert_eq!(s.retired_count(), 0);
     publish_specs(&s, vec![spec(1, 0, 10, 0)]);

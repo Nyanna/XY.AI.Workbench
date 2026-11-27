@@ -18,6 +18,12 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::a::index_co
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_lane_event::DeviceKind;
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::layout::DType;
+#[test]
+fn consistency_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<TablePublisher>();
+    check::<IndexWriter>();
+}
 struct MemIndex {
     state: Mutex<(u64, BTreeMap<u64, (Stamp, Payload2)>)>,
     signal: Arc<StampSignal>,

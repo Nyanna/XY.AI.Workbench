@@ -40,10 +40,14 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::queue::
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::page_advice::{
     Advice, AdviceError, AdviceTarget, PageRange,
 };
-static_assertions::assert_impl_all!(CpuSubengine : Send, Sync);
-static_assertions::assert_impl_all!(CpuManager : Send, Sync);
-static_assertions::assert_impl_all!(CpuTopology : Send, Sync);
-static_assertions::assert_impl_all!(CpuError : Send, Sync);
+#[test]
+fn cpu_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<CpuSubengine>();
+    check::<CpuManager>();
+    check::<CpuTopology>();
+    check::<CpuError>();
+}
 const DIM: usize = 8;
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 struct TempDir(PathBuf);

@@ -11,6 +11,11 @@ use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::device_
     DeviceHandle, GpuEventBackend, LaneConfig, LaneKind, StreamBackend,
 };
 use crate::resident::_d::_c::_b::_a::_9::_8::_7::_6::_5::_4::_3::_2::_1::target_env::ComputeCapability;
+#[test]
+fn gpu_kernels_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<GpuKernels<8>>();
+}
 #[derive(Debug)]
 struct Func(String);
 impl KernelFunction for Func {

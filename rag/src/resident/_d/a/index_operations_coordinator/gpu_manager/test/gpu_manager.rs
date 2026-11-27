@@ -1,5 +1,11 @@
 use super::fixture::*;
 use super::*;
+#[test]
+fn gpu_manager_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<GpuManager>();
+    check::<Inner8>();
+}
 fn build_with(
     cfg: GpuManagerConfig,
     index: Arc<dyn LazyIndex>,

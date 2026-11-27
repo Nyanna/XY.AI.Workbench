@@ -193,9 +193,6 @@ impl PoolNorm {
         })
     }
 }
-static_assertions::assert_impl_all!(PoolNorm : Send, Sync);
-static_assertions::assert_impl_all!(PoolNormOutput : Send, Sync);
-static_assertions::assert_impl_all!(PoolNormError : Send, Sync);
 #[cfg(test)]
 #[path = "test/pooling_norm.rs"]
 mod tests;

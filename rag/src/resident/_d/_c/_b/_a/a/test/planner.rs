@@ -40,8 +40,13 @@ type TestPlanner = Planner<TaskSpec, StepOutput, String, Payload>;
 type TestBuilder = PlannerBuilder<TaskSpec, StepOutput, String, Payload>;
 type Log = Arc<Mutex<Vec<String>>>;
 type Planned = PlannedOp<OpMeta, Payload>;
-static_assertions::assert_impl_all!(PlanError : Send, Sync, std::error::Error);
-static_assertions::assert_impl_all!(TestPlanner : Send, Sync);
+#[test]
+fn planner_types_are_thread_safe() {
+    fn check<T: Send + Sync>() {}
+    fn check_error<T: Send + Sync + std::error::Error>() {}
+    check_error::<PlanError>();
+    check::<TestPlanner>();
+}
 struct MockEngine {
     name: String,
     caps: Vec<(QueueKind, CapabilitySet)>,
@@ -758,8 +763,8 @@ fn expander_errors_are_wrapped() {
     );
     assert_eq!(
         plan_err(planner.expand(& cross)),
-        PlanError::Expand(ExpandError2::ScoringUnavailable { scorer : "minilm".to_string()
-        })
+        PlanError::Expand(ExpandError2::ScoringUnavailable { scorer : "minilm"
+        .to_string() })
     );
     assert_eq!(count(& log, "activate"), 0);
 }

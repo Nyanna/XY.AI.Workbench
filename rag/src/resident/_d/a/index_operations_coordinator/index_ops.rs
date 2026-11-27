@@ -89,9 +89,6 @@ pub struct IndexOperations {
     queue: LoadedQueue,
     publish: Mutex<()>,
 }
-static_assertions::assert_impl_all!(IndexOpError : Send, Sync);
-static_assertions::assert_impl_all!(ManagedIndex : Send, Sync);
-static_assertions::assert_impl_all!(IndexOperations : Send, Sync);
 struct PublishReport {
     published: usize,
     first_error: Option<IndexOpError>,

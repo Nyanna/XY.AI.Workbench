@@ -258,7 +258,6 @@ pub struct Eviction {
     evict_lock: Mutex<()>,
     state: Mutex<State9>,
 }
-static_assertions::assert_impl_all!(Eviction : Send, Sync);
 impl Eviction {
     pub fn new(
         index: impl Into<IndexId>,
