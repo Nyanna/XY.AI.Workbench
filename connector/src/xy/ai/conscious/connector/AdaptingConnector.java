@@ -2,7 +2,6 @@ package xy.ai.conscious.connector;
 
 import java.util.Collection;
 import java.util.List;
-
 import xy.ai.conscious.api.IExecutor.IProgress;
 import xy.ai.conscious.api.ext.IMCPCLauncher;
 import xy.ai.conscious.batch.NewBatch;
@@ -41,6 +40,8 @@ import xy.ai.conscious.model.IModelRequest;
 import xy.ai.conscious.model.IModelResponse;
 import xy.ai.conscious.model.Model;
 import xy.ai.conscious.model.Model.KeyPattern;
+import java.util.function.Consumer;
+import xy.ai.conscious.connector.claudecode.ControlApproval;
 
 public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResponse>, IAIBatchConnector {
   private ConfigManager cfg;
@@ -68,6 +69,10 @@ public class AdaptingConnector implements IAIConnector<IModelRequest, IModelResp
     claudeCode = new CCConnector(sessionManager, includeAdapter, mcpc);
     mcp = new MCPConnector(mcpClient);
     newBatch = new NewBatchConnector();
+  }
+
+  public void addApprovalListener(Consumer<ControlApproval> listener) {
+    claudeCode.addApprovalListener(listener);
   }
 
   @Override

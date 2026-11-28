@@ -14,6 +14,7 @@ import xy.ai.conscious.autoapprove.rules.SmallResultRule;
 import xy.ai.conscious.autoapprove.rules.ChainLimitRule;
 import xy.ai.conscious.autoapprove.rules.DenyOwnPromptFileRule;
 import xy.ai.conscious.autoapprove.rules.HoldOutsideProjectRule;
+import xy.ai.conscious.autoapprove.rules.SmallEditRule;
 
 /**
  * Ordered registry of rules.
@@ -24,6 +25,7 @@ public class RuleRegistry {
   public RuleRegistry() {
     register(new AllowedToolsRule());
     register(new SmallResultRule());
+    register(new SmallEditRule());
     register(new ChainLimitRule());
     register(new DeepPathReadRule());
     register(new DenyRootPathRule());

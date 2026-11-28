@@ -10,6 +10,9 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,9 +42,21 @@ public class CCControlClient {
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
   private boolean launchAttempted;
   private IMCPCLauncher mcpc;
+  private final List<Consumer<ControlApproval>> approvalListeners = new CopyOnWriteArrayList<>();
 
   public CCControlClient(IMCPCLauncher mcpc) {
     this.mcpc = mcpc;
+  }
+
+  /**
+   * Listeners are notified of every answer the control endpoint accepted.
+   */
+  public void addApprovalListener(Consumer<ControlApproval> listener) {
+    approvalListeners.add(listener);
+  }
+
+  public void removeApprovalListener(Consumer<ControlApproval> listener) {
+    approvalListeners.remove(listener);
   }
 
   public void checkControlEndpoint(CCResponse resp, String sessionId) {
@@ -171,10 +186,36 @@ public class CCControlClient {
   private ArrayNode submit(ObjectNode approval) {
     ObjectNode body = mapper.createObjectNode();
     body.putArray("approvals").add(approval);
-    return post(body, null);
+    JsonNode root = send(body, null);
+    if (root != null)
+      notifyApproval(approval);
+    return pendingOf(root);
+  }
+
+  private void notifyApproval(ObjectNode approval) {
+    ControlApproval event = new ControlApproval(approval.path("id").asText(null), approval.path("rejected").asBoolean(false), approval.get("arguments"));
+    for (Consumer<ControlApproval> listener : approvalListeners) {
+      try {
+        listener.accept(event);
+      } catch (RuntimeException e) {
+        LOG.error(e.getMessage(), e);
+      }
+    }
   }
 
   private ArrayNode post(ObjectNode body, String sessionId) {
+    return pendingOf(send(body, sessionId));
+  }
+
+  private ArrayNode pendingOf(JsonNode root) {
+    JsonNode pending = root == null ? null : root.path("pending");
+    return pending != null && pending.isArray() ? (ArrayNode) pending : mapper.createArrayNode();
+  }
+
+  /**
+   * The parsed response, or {@code null} if the endpoint did not answer successfully.
+   */
+  private JsonNode send(ObjectNode body, String sessionId) {
     try {
       String json = JsonUtil.write(body);
       String url = sessionId == null ? CONTROL_URL : CONTROL_URL + "?session=" + URLEncoder.encode(sessionId, StandardCharsets.UTF_8);
@@ -182,16 +223,14 @@ public class CCControlClient {
       HttpResponse<String> response = http.send(request, BodyHandlers.ofString());
       if (response.statusCode() / 100 != 2) {
         LOG.error("control endpoint returned status " + response.statusCode());
-        return mapper.createArrayNode();
+        return null;
       }
       String responseBody = response.body();
       if (responseBody == null || responseBody.isBlank()) {
         LOG.error("control endpoint returned an empty body");
-        return mapper.createArrayNode();
+        return null;
       }
-      JsonNode root = JsonUtil.readTree(responseBody);
-      JsonNode pending = root.path("pending");
-      return pending.isArray() ? (ArrayNode) pending : mapper.createArrayNode();
+      return JsonUtil.readTree(responseBody);
     } catch (IOException | InterruptedException e) {
       LOG.error("Control endpoint unreachable", e);
       if (e instanceof InterruptedException)

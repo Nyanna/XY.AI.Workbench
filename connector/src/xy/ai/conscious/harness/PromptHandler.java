@@ -45,6 +45,7 @@ public class PromptHandler {
     this.batch = batch;
     this.input = new PromptInputHandler(cfg, editorListener);
     this.gitSupport = gitSupport;
+    connector.addApprovalListener(approver::onApproval);
   }
 
   public AutoApprover approver() {

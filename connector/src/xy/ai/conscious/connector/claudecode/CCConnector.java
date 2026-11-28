@@ -26,6 +26,7 @@ import xy.ai.conscious.harness.SessionCallbacks;
 import xy.ai.conscious.model.AIAnswer;
 import xy.ai.conscious.model.TimeStats;
 import xy.ai.conscious.model.Model.KeyPattern;
+import java.util.function.Consumer;
 
 public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
   private static final int DEAD_TIMEOUT = 180_000;
@@ -42,6 +43,13 @@ public class CCConnector implements IAIConnector<CCRequest, CCResponse> {
     this.sessionManager = sessionManager;
     this.includeProcessor = new IncludeProcessor<>(includeAdapter);
     this.controlClient = new CCControlClient(mcpc);
+  }
+
+  /**
+   * Notified of every control request answer the control endpoint accepted.
+   */
+  public void addApprovalListener(Consumer<ControlApproval> listener) {
+    controlClient.addApprovalListener(listener);
   }
 
   @Override

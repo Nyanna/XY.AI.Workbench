@@ -14,6 +14,7 @@ import xy.ai.conscious.commands.CallCommand;
 import xy.ai.conscious.core.LOG;
 import xy.ai.conscious.harness.Prompt;
 import xy.ai.conscious.model.AIAnswer;
+import xy.ai.conscious.connector.claudecode.ControlApproval;
 
 public class AutoApprover {
   private final RuleRegistry registry;
@@ -59,6 +60,21 @@ public class AutoApprover {
 
   public void forget(String sessionId) {
     sessions.forget(sessionId);
+  }
+
+  /**
+   * Forwards an answer of the operator to a control request to the rules.
+   */
+  public void onApproval(ControlApproval approval) {
+    if (approval == null)
+      return;
+    for (IApprovalRule rule : registry.rules()) {
+      try {
+        rule.onApproval(approval);
+      } catch (RuntimeException e) {
+        LOG.error("Approval rule failed: " + rule.id(), e);
+      }
+    }
   }
 
   public Decision evaluate(AIAnswer ans, int depth) {
