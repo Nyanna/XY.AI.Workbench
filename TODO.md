@@ -5,7 +5,6 @@
   - dynamischen schemavalidierung beim proxy
   - mit cache für schemata pro connection
 
-- Neue Rule, ein write erlauben in einer Datei die schonmal approved wurde pro session
 - IR, Weiter entwicklung von AST ist IR
   - größer ID space, gerichteter graph, referencen.
   - code wird automatisch in dateien regeneriert bei jeder änderung
@@ -18,16 +17,15 @@
   - vertikale scrollbar,newline index klein, byteoffset wenn groß
 
 - Stats, Tool schreiben zum auswerten der sessions, timestamp, alle token, alle projekte, aus logs oder mD?
-- Impro, verbessern der CC session anzeige, zeit in in ms oder sekunden, nur chars  kein total, dann typ der nachricht
 - Impro, verbesserte version des projekt Explorer, mit sortierung und sync scrolled nicht mit und expandiert immer wenn projekt offen
   - sortierung vielleicht in filter und customizations
 
 - MCPC Ignore Dann Zusätzlich per Header für session
   - Dann Zusätzlich in session per tool call, ja tool call zur Veränderung
 
-- "resident" in vorhandenes RAG integrieren aber separat startbar
-- vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
 - RAG als tool in subprozess server anbinden
+	- "resident" in vorhandenes RAG integrieren aber separat startbar
+	- vectorsuche auf normalisierten dateien, normalisierungsspiegel auslagern
 	- Multilayer RAG engine auf filesystem und parquet basis in python
 		- AST engin für chunking nutzen
 		- 2 stage system der results, liefern zeilen, zeilen, chunks/ast oder outline
@@ -39,9 +37,6 @@
   - Include persist (`tools/search file`, all...) für lange Sessions – auf Basis Prompt-Objekt-Hash in Verzeichnis
   	- ist ein speicher hash prompt, zieldatei im cahe für session, eher backup als cache
   	- Erneutes Einlesen bestimmt sich aus Timestamp der gecachten Datei
-- Drag & Drop für Includes
-- F3 drücken, um Includes in Eclipse zu öffnen – bei jedem Dateiverweis (relativ oder absolut in `/datei`)
-	- Wenn F3 auf /answer <ID> dann code navigation auf den yaml block header mit der ID, wenn result dann nochmal F3 und auf tool call springen
 - Autoapprover: Deepseek kann gleichzeitig mehrere Tool-Calls senden – als ein Block ausgeben mit nur einem Call-Kommando und zwei YAML-Blöcken
 
 ### SDK

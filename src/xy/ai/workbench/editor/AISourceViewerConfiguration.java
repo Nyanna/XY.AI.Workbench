@@ -19,6 +19,8 @@ import java.nio.file.Path;
 import java.util.function.Supplier;
 import org.eclipse.jface.text.contentassist.ContentAssistant;
 import org.eclipse.jface.text.contentassist.IContentAssistant;
+import org.eclipse.jface.text.hyperlink.IHyperlinkDetector;
+import xy.ai.workbench.editor.navigate.NavigationHyperlinkDetector;
 import xy.ai.workbench.editor.suggest.IncludeCompletionProcessor;
 
 public class AISourceViewerConfiguration extends SourceViewerConfiguration {
@@ -48,6 +50,11 @@ public class AISourceViewerConfiguration extends SourceViewerConfiguration {
     assistant.setAutoActivationDelay(200);
     assistant.setInformationControlCreator(getInformationControlCreator(sourceViewer));
     return assistant;
+  }
+
+  @Override
+  public IHyperlinkDetector[] getHyperlinkDetectors(ISourceViewer sourceViewer) {
+    return new IHyperlinkDetector[] { new NavigationHyperlinkDetector(baseDirectory) };
   }
 
   @Override
