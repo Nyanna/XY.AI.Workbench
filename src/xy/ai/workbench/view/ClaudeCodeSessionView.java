@@ -235,8 +235,12 @@ public class ClaudeCodeSessionView extends ViewPart {
   }
 
   private String stateLabel(CCSession s) {
-    if (SessionState.Prompting.equals(s.getState()) && s.getLastSentAt() != null)
-      return s.getState().name() + " (" + (Instant.now().toEpochMilli() - s.getLastSentAt().toEpochMilli()) + ")";
+    if (SessionState.Prompting.equals(s.getState()) && s.getLastSentAt() != null) {
+		long duration = Instant.now().toEpochMilli() - s.getLastSentAt().toEpochMilli();
+		if(duration > 1000)
+			duration = duration / 1000;
+		return s.getState().name() + " (" + duration + ")";
+	}
     if (SessionState.Open.equals(s.getState()))
       return formatMMSS(s.getRemainingTtlSeconds());
     return s.getState().name();
@@ -321,7 +325,9 @@ public class ClaudeCodeSessionView extends ViewPart {
       return "null";
     CRC32 crc = new CRC32();
     crc.update(s.getBytes());
-    return String.format("(%d chars total, %d) %s…", s.length(), crc.getValue(), s.length() > 40 ? s.substring(0, 40) : s);
+    String content = s.replaceAll("[\\[\\]{}\\n\\t]", "");
+    content = s.length() > 40 ? s.substring(0, 40) : s;
+	return String.format("(%d chars, %d) %s…", content.length(), crc.getValue(), content);
   }
 
   private static String fileNameOf(String path) {
