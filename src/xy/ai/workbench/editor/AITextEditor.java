@@ -27,6 +27,7 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IURIEditorInput;
+import xy.ai.workbench.editor.drag.IncludeDropSupport;
 
 public class AITextEditor extends TextEditor {
   private static final int LIMIT = 512 * 1024;
@@ -57,6 +58,7 @@ public class AITextEditor extends TextEditor {
   public void createPartControl(Composite parent) {
     super.createPartControl(parent);
     installPainter(getSourceViewer());
+    IncludeDropSupport.install(getSourceViewer());
     if (getSourceViewer().getDocument() != null)
       updateWordWrap(getSourceViewer().getDocument());
     if (getSourceViewer() != null && getSourceViewer().getTextWidget() instanceof StyledText widget)
