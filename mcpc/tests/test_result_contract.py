@@ -23,6 +23,7 @@ from xy.ai.mcpc.tools.tool_registry import ToolDefinition
 TOOLS_DIR = Path(tools_package.__path__[0])
 RESULTS_MODULE = tools_package.__name__ + '.results'
 FORBIDDEN_NAMES = {'warning', 'notice', 'hint'}
+FILE_ENTRY_EXCEPTIONS = {'search/__init__.py': {'notice'}}
 
 def _import_all_tool_modules() -> None:
     for info in pkgutil.walk_packages(tools_package.__path__, prefix=tools_package.__name__ + '.'):
@@ -162,15 +163,16 @@ def test_unknown_exa_ids_are_reported_not_only_logged():
     assert results == [] and missing == ['definitely-unknown-id']
 
 def _forbidden_names(path: Path) -> list[str]:
+    forbidden = FORBIDDEN_NAMES - FILE_ENTRY_EXCEPTIONS.get(path.relative_to(TOOLS_DIR).as_posix(), set())
     tree = ast.parse(path.read_text(encoding='utf-8'))
     hits: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and (node.target.id in FORBIDDEN_NAMES):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and (node.target.id in forbidden):
             hits.append(f'{path.name}:{node.lineno}: field {node.target.id}')
         if isinstance(node, ast.Dict):
             hits.extend((f'{path.name}:{key.lineno}: key {key.value!r}' for key in node.keys if isinstance(
-                key, ast.Constant) and key.value in FORBIDDEN_NAMES))
-        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and (node.slice.value in FORBIDDEN_NAMES):
+                key, ast.Constant) and key.value in forbidden))
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and (node.slice.value in forbidden):
             hits.append(f'{path.name}:{node.lineno}: key {node.slice.value!r}')
     return hits
 

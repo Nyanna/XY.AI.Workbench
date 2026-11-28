@@ -56,11 +56,13 @@ class SearchMatch:
 
     ``nodes`` is set instead of relying on ``matches`` only if the file could be
     resolved to AST nodes; lines outside any node are kept under ``matches``.
+    ``hidden`` is the number of further matches in this file removed to satisfy the limit.
     """
     directory: str
     filename: str
     matches: list[SearchLineMatch]
     nodes: list[SearchNodeMatch] | None = None
+    hidden: int = 0
 
 @dataclass(frozen=True)
 class SearchItem:
@@ -146,6 +148,32 @@ def _parse_search_stdout(stdout: str) -> list[SearchMatch]:
         grouped[key].append(_make_line_match(int(lineno_str), match.strip()))
     return [SearchMatch(directory=d, filename=f, matches=grouped[d, f]) for d, f in order]
 
+def _apply_limit(matches: list[SearchMatch], limit: int) -> tuple[list[SearchMatch], int]:
+    """Reduce ``matches`` to at most ``limit`` lines.
+
+    Step by step, one match per file (from the last file backwards) is dropped from every file that
+    keeps more than one match; the number dropped is recorded in ``SearchMatch.hidden``. If every file
+    is down to one match and the limit is still exceeded, trailing files are dropped.
+
+    Returns:
+        Tuple ``(matches, hidden_files)``.
+    """
+    kept = [len(m.matches) for m in matches]
+    total = sum(kept)
+    while total > limit:
+        reducible = [i for i in reversed(range(len(kept))) if kept[i] > 1]
+        if not reducible:
+            break
+        for i in reducible:
+            kept[i] -= 1
+            total -= 1
+            if total <= limit:
+                break
+    hidden_files = max(0, len(kept) - limit) if total > limit else 0
+    limited = [replace(m, matches=m.matches[:k], hidden=len(m.matches) - k)
+               for m, k in zip(matches[:len(kept) - hidden_files], kept)]
+    return (limited, hidden_files)
+
 def _as_list(value: list[str] | str | None) -> list[str]:
     """Normalize an optional list into a list (empty if ``None``).
 
@@ -196,7 +224,7 @@ class _DirMasks:
             return False
         return not self._dir_include or self._dir_include.match_file(key)
 
-def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[str] | None=None, file_include_mask: list[str] | None=None, dir_exclude_mask: list[str] | None=None, dir_include_mask: list[str] | None=None, limit: int=_DEFAULT_LIMIT) -> tuple[ProcessResult, int]:
+def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[str] | None=None, file_include_mask: list[str] | None=None, dir_exclude_mask: list[str] | None=None, dir_include_mask: list[str] | None=None) -> ProcessResult:
     """Recursively search one or more directories for ``pattern`` (extended regexp).
 
     Args:
@@ -207,15 +235,12 @@ def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[s
         file_include_mask: Globs on the file base name, passed to grep --include; if given, only files whose base name matches one are searched.
         dir_exclude_mask: Gitignore-style glob masks; files whose absolute directory path matches one are skipped.
         dir_include_mask: Gitignore-style glob masks; if given, only files whose absolute directory path matches one are searched.
-        limit: Maximum number of matching lines to return (1..``_MAX_LIMIT``).
 
     Returns:
-        Tuple ``(result, total_lines)`` where ``total_lines`` is the number of matching
-        lines found before truncation to ``limit``, and ``result`` is a ProcessResult with:
+        A ProcessResult with:
             exit_code: 0 if matches were found, 1 if none were found, >=2 on search error.
             stdout: Matching lines as 'path:line:content', with ``path`` relative to
-                whichever searched directory it was found under, truncated to at most
-                ``limit`` lines.
+                whichever searched directory it was found under.
             stderr: Standard error output (up to 3000 chars; see stderr_file if longer).
             stdout_file: Absolute path to temp file with full stdout if to large.
             stderr_file: Absolute path to temp file with full stderr if to large.
@@ -225,7 +250,6 @@ def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[s
         SearchError: If a directory does not exist or is not a directory.
         SearchError: If no directory is given.
         SearchError: If pattern is empty.
-        SearchError: If limit is not between 1 and ``_MAX_LIMIT``.
         SearchError: If search binary cannot be launched.
     """
     directory_paths = normalize_directories([Path(d) for d in _as_list(directory)])
@@ -238,8 +262,6 @@ def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[s
             raise SearchError('Directory not found or not a directory.')
     if not pattern:
         raise SearchError('pattern must not be empty.')
-    if not 1 <= limit <= _MAX_LIMIT:
-        raise SearchError(f'limit must be between 1 and {_MAX_LIMIT}.')
     cmd = ['grep', '--recursive', '--line-number', '--extended-regexp', '--binary-files=without-match', '--color=never']
     for pattern_glob in _as_list(file_include_mask):
         cmd.append(f'--include={pattern_glob}')
@@ -262,22 +284,31 @@ def _run_search(directory: list[str], pattern: str, *, file_exclude_mask: list[s
     prefixes = sorted((str(p).rstrip('/') + '/' for p in directory_paths), key=len, reverse=True)
     prefix_pattern = '|'.join((re.escape(p) for p in prefixes))
     stdout = re.sub(f'^(?:{prefix_pattern})', '', result.stdout, flags=re.MULTILINE)
-    lines = stdout.splitlines()
-    stdout = '\n'.join(lines[:limit])
-    return (ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr), len(lines))
+    return ProcessResult(exit_code=result.exit_code, stdout=stdout, stderr=result.stderr)
 
 def _search_one(item: SearchItem) -> SearchResult:
-    result, total_lines = _run_search(item.directory, item.pattern, file_exclude_mask=item.file_exclude_mask, file_include_mask=item.file_include_mask,
-                                      dir_exclude_mask=item.dir_exclude_mask, dir_include_mask=item.dir_include_mask, limit=item.limit)
+    if not 1 <= item.limit <= _MAX_LIMIT:
+        raise SearchError(f'limit must be between 1 and {_MAX_LIMIT}.')
+    result = _run_search(
+        item.directory,
+        item.pattern,
+        file_exclude_mask=item.file_exclude_mask,
+        file_include_mask=item.file_include_mask,
+        dir_exclude_mask=item.dir_exclude_mask,
+        dir_include_mask=item.dir_include_mask)
     if result.exit_code >= 2:
         raise SearchError(f'search failed (exit code {result.exit_code}): {result.stderr}')
     matches = _parse_search_stdout(result.stdout)
+    total_lines = sum((len(m.matches) for m in matches))
+    matches, hidden_files = _apply_limit(matches, item.limit)
     warnings: list[str] = []
     if total_lines > item.limit:
         hint = 'narrow pattern, directory or the file/dir masks'
         if item.limit < _MAX_LIMIT:
             hint += f', or raise limit (max {_MAX_LIMIT})'
         warnings.append(f'Limit of {item.limit} matches reached (total {total_lines}); {hint}.')
+    if hidden_files:
+        warnings.append(f'{hidden_files} files are hidden.')
     shortened = sum((lm.truncated for m in matches for lm in m.matches))
     if shortened:
         warnings.append(
@@ -307,7 +338,12 @@ def _resolve_nodes(match: SearchMatch, roots: list[str]) -> SearchMatch:
         else:
             by_node.setdefault(loc.node_id, []).append(lm)
     nodes = [SearchNodeMatch(node_id=nid, matches=lms) for nid, lms in by_node.items()]
-    return SearchMatch(directory=match.directory, filename=match.filename, matches=unresolved, nodes=nodes)
+    return SearchMatch(
+        directory=match.directory,
+        filename=match.filename,
+        matches=unresolved,
+        nodes=nodes,
+        hidden=match.hidden)
 
 def search(items: list[SearchItem], *, with_nodes: bool=False) -> SearchBatchResult:
     """Run one or more independent searches. Limits apply per item, not per batch.
@@ -423,6 +459,8 @@ class SearchTool(ToolDefinition):
         def file_dict(m: SearchMatch, item_intent: str) -> dict[str, Any]:
             located = item_intent in _INTENTS_WITH_LOCATION
             entry: dict[str, Any] = {'path': f'{m.directory}/{m.filename}' if m.directory else m.filename}
+            if m.hidden:
+                entry['notice'] = f'{m.hidden} additional matches hidden'
             if m.nodes:
                 entry['nodes'] = [{'id': n.node_id, 'matches': line_dicts(
                     n.matches, located and with_lines)} for n in m.nodes]
